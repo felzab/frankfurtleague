@@ -659,9 +659,8 @@ class FLSpielJoinedAdmin(FLSpielJoined):
 class FLSpielJoinedInternal(FLSpielJoinedAdmin):
     """The fixture with each side's record behind its type; on no endpoint, for `FLSpielTeamFieldJoinedInternal`'s reason.
 
-    On the ADMIN shape because the bracket's fault report hands the faulted matches to
-    `GET /spiele/action_required`, whose cards print the referee's name. The landing reads its
-    podium through it too, serving only the names.
+    On the ADMIN shape because the Übersicht serves each faulted match beside its fault, with the
+    referee's name. The landing reads its podium through it too, serving only the names.
     """
 
     team1: FLSpielTeamFieldJoinedInternal | None

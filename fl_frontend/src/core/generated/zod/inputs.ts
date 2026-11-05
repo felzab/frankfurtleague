@@ -1912,6 +1912,22 @@ export const SaisonsGetKoRundeParams = zod.object({
 });
 
 /**
+ * The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.
+ *
+ * In order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture
+ * played without a result, and each report not adopted as it stands; `dates`, each club's open date proposal, each
+ * fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source, each referee's own
+ * decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`, each undecided
+ * application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act
+ * needs: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.
+ * Answers 404 for a season that does not exist. Writes nothing.
+ * @summary One Saison's open work, card by card
+ */
+export const SaisonsGetSaisonOverviewParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
  * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
@@ -2791,20 +2807,6 @@ export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
   .describe(
     "The administrator's Zusage for a party that answered elsewhere, and how it was given.\n\nNo way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue.",
   );
-
-/**
- * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
- *
- * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
- * called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
- * team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
- * unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
- * four hours of another fixture's among them.
- * @summary Spiele needing attention
- */
-export const SpieleGetSpieleActionRequiredQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-});
 
 /**
  * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.

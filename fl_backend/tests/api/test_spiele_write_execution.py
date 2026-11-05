@@ -11,7 +11,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
+from app.api.saisons.overview import FLOverviewBracketFaultRow
+from app.api.saisons.overview_router import get_saison_overview
+from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.crud import apply_release_to_spiel, pull_saison_membership
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
@@ -1165,21 +1167,19 @@ def a_played_semi_final_booked(**booked: Any) -> list[dict[str, Any]]:
 
 
 async def faults_now(database: AsyncDatabase) -> list[FLBracketFault]:
-    """`GET /spiele/action_required`'s faults for the seeded season, read as the page reads them."""
+    """The Übersicht's faults for the seeded season, read as the page reads them."""
 
-    response = await get_spiele_action_required(
+    response = await get_saison_overview(
+        saison_id=SAISON_ID,
+        saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        saison_id=SAISON_ID,
         today=TODAY,
     )
 
-    return response.bracket_faults
+    return [row.fault for card in response.cards for row in card.rows if isinstance(row, FLOverviewBracketFaultRow)]
 
 
 def booking_faults(faults: list[FLBracketFault]) -> list[tuple[int, str, str]]:
@@ -1341,7 +1341,7 @@ def holders_at_every_arm() -> list[dict[str, Any]]:
 
 
 class TestTheQueueReadsTheHoldersTheRefusalReads:
-    """`GET /spiele/action_required` reads the other fixtures through `spiel_double_booked`'s own filter, so each arm of it is driven here."""
+    """The Übersicht reads the other fixtures through `spiel_double_booked`'s own filter, so each arm of it is driven here."""
 
     def test_every_season_and_the_neighbouring_day_are_read_and_a_freed_slot_is_not(self, mongo_replica_set_url: str):
         faults = on_a_seeded_season(mongo_replica_set_url, lambda database, _: faults_now(database), spiele=holders_at_every_arm())

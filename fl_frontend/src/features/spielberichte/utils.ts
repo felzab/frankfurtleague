@@ -3,14 +3,11 @@ import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/feat
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
-import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./constants";
-
 import type {
   Code,
   FLSpielberichtSeiten,
   FLSpielberichtSpiel,
   FLSpielberichtSpieler,
-  FLSpielberichtStateEntry,
   FLSpielberichtVorschlag,
 } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
@@ -22,21 +19,6 @@ import type { Eingesetzt } from "./types";
  * `fl_frontend/src/features/spielberichte/components/ui/VorschlagText.tsx`; `null` where the card names no score.
  */
 export type BerichtChip = { readonly worte: string; readonly vorschlag: FLSpielberichtVorschlag | null; readonly tone: PillTone };
-
-/**
- * What an administrator's fixture card says of its report, in its state's tone; `null` for a state awaiting nobody.
- * `abweichend` reads „nicht übernommen“, never „geändert“: a first report beside a hand-typed result reads it too.
- */
-export function berichtChip({ state: zustand, ergebnis_vorschlag }: FLSpielberichtStateEntry): BerichtChip | null {
-  if (!SPIELBERICHT_ZUSTAENDE_OFFEN.has(zustand)) return null;
-  // No score: it was proposed for other clubs than the fixture fields now, and beside the card it would read as theirs.
-  if (zustand === "teams_changed") {
-    return { worte: "Bericht zu anderen Teams", vorschlag: null, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
-  }
-
-  const worte = zustand === "vorgeschlagen" ? "Ergebnis vorgeschlagen" : "Bericht nicht übernommen";
-  return { worte, vorschlag: ergebnis_vorschlag, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
-}
 
 /** A side as the match editor's draft holds it: the club, its goals, and nothing where the slot is open. */
 type EntwurfSeite = { readonly team_id: string; readonly tore: number | null } | null;

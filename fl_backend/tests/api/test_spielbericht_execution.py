@@ -15,11 +15,13 @@ from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.overview import FLOverviewSpielberichtRow
+from app.api.saisons.overview_router import get_saison_overview
 from app.api.spielberichte.admin_router import get_spielbericht_verwaltung, get_spielberichte
 from app.api.spielberichte.crud import count_eingereichte_berichte
 from app.api.spielberichte.person_router import get_self, get_spielbericht_bericht, put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtPayload
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
+from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
 )
@@ -813,24 +815,23 @@ class TestEachReportReadKeepsToTheFixturesSeason:
         assert (listed, counted) == ([SPIEL], 1), "the season before's report was read as this season's"
 
 
-class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
-    def test_a_report_on_a_fixture_played_today_or_holding_another_result_is_unioned_in(self, mongo_replica_set_url: str):
+class TestTheOverviewFindsEveryReportAwaitingTheAdministrator:
+    def test_a_report_on_a_fixture_played_today_or_holding_another_result_is_on_its_card(self, mongo_replica_set_url: str):
         """Neither fixture is on the list by its own fields: dated, timed, booked, played today, then holding a result."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def triage() -> tuple[set[ObjectId], list[tuple[ObjectId, str]]]:
-                listed = await get_spiele_action_required(
+                overview = await get_saison_overview(
+                    saison_id=SAISON_ID,
+                    saisons_collection=database[Collection.SAISONS],
                     spiele_collection=database[Collection.SPIELE],
                     teams_collection=database[Collection.TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
                     spielorte_collection=database[Collection.SPIELORTE],
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    saison_id=SAISON_ID,
                     today=TODAY,
                 )
-                return {spiel.id for spiel in listed.spiele}, [(entry.spiel_id, entry.state) for entry in listed.spielberichte]
+                reports = [row for card in overview.cards for row in card.rows if isinstance(row, FLOverviewSpielberichtRow)]
+                return {row.spiel.id for row in reports}, [(row.spiel.id, row.state) for row in reports]
 
             unreported = await triage()
             await put(database, client, bericht())
@@ -853,8 +854,8 @@ class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
         assert SPIEL in typed[0]
         # Adopted as it stands: awaiting nothing.
         assert SPIEL not in adopted[0]
-        # Each state served beside the list it was judged on, so the page reads no second snapshot.
-        assert [unreported[1], proposed[1], adopted[1]] == [[], [(SPIEL, "vorgeschlagen")], [(SPIEL, "adopted")]]
+        # Each row carries the state it was judged in, so the page reads no second snapshot.
+        assert [unreported[1], proposed[1], differing[1], adopted[1]] == [[], [(SPIEL, "vorgeschlagen")], [(SPIEL, "differing")], []]
 
 
 def save_handles(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:

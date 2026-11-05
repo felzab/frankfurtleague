@@ -19,8 +19,7 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielAdvancement,
     FLSpielCommon,
-    FLSpielJoinedAdmin,
-    FLSpielJoinedInternalListAdapter,
+    FLSpielJoinedInternal,
     FLSpielListAdapter,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
@@ -41,7 +40,6 @@ from app.api.spiele.services import (
     SpieltagRelease,
     apply_payload_to_spiel,
     build_slot_holder_filter,
-    build_spiele_pipeline,
     find_advancement_occupancy_refusal,
     find_booking_refusal,
     find_claims_made,
@@ -142,42 +140,31 @@ async def _resolve_one_saison(
     )
 
 
-async def find_bracket_faults(
-    spiele_collection: AsyncCollection,
-    teams_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    spielorte_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
+async def bracket_faults_of(
+    *,
+    spiele: Sequence[FLSpielJoinedInternal],
+    rules: FLSaisonRules,
     saison_id: str,
-) -> tuple[list[FLBracketFault], list[FLSpielJoinedAdmin]]:
-    """Every derived fault in one season, and the fixtures they name."""
+    spiele_collection: ReadCollection,
+    teams_collection: ReadCollection,
+    spielorte_collection: ReadCollection,
+    schiedsrichter_collection: ReadCollection,
+) -> list[FLBracketFault]:
+    """Every derived fault in one season, judged over its fixtures as the caller read them through `build_spiele_pipeline`.
 
-    # The INTERNAL fixture: `find_departed_occupants` orders a fault on the DAY a club left, which
-    # no served side carries. The declared return is the admin shape the caller answers with.
-    spiele = FLSpielJoinedInternalListAdapter.validate_python(
-        await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id}))
-    )
+    The fixtures are handed in rather than read here, so a read showing them beside their faults judges both on its one
+    read of them. The INTERNAL fixture: `find_departed_occupants` orders a fault on the DAY a club left, which no served
+    side carries.
+    """
 
-    # `find_one` rather than `pull_one_from_db`'s 404: the attention read this report is unioned into
-    # answers an id naming no season with an empty list, so the report cannot refuse it.
-    saison_raw = await saisons_collection.find_one({"_id": saison_id}, {"rules": 1})
-
-    faults: list[FLBracketFault] = []
-
-    if saison_raw is not None:
-        resolution = await _resolve_one_saison(
-            teams_collection=teams_collection,
-            saison_id=saison_id,
-            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-            spiele=spiele,
-        )
-        faults.extend(resolution.bracket_faults)
+    resolution = await _resolve_one_saison(teams_collection=teams_collection, saison_id=saison_id, rules=rules, spiele=spiele)
+    faults: list[FLBracketFault] = [*resolution.bracket_faults]
 
     # From the JOINED fixtures, not the resolution: this compares a fixture's date against a junction
     # record, so it sits beside the walk and covers group fixtures too.
     faults.extend(find_departed_occupants(spiele))
 
-    # Beside the walk for the same reason, and over whatever the read above returned. Nothing ties a
+    # Beside the walk for the same reason, and over whatever the read returned. Nothing ties a
     # fixture's `saison_id` to its matchday's, so a scoped read cannot report a clash spanning two.
     faults.extend(find_double_entries(spiele))
 
@@ -195,13 +182,10 @@ async def find_bracket_faults(
     claims = [claim for spiel in spiele for claim in find_slot_claims(spiel)]
     faults.extend(find_double_bookings(spiele, await pull_slot_holders(spiele_collection=spiele_collection, claims=claims)))
 
-    faulted_ids = {fault.spiel_id for fault in faults}
-    faulted_spiele: list[FLSpielJoinedAdmin] = [spiel for spiel in spiele if spiel.id in faulted_ids]
-
-    return faults, faulted_spiele
+    return faults
 
 
-async def _retirement_days(collection: AsyncCollection, ids: Set[Any]) -> dict[Any, str]:
+async def _retirement_days(collection: ReadCollection, ids: Set[Any]) -> dict[Any, str]:
     """The day each retired row among `ids` retired; a current row is absent, so the report reads a key missing as current."""
 
     if not ids:
