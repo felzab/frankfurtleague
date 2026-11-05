@@ -275,7 +275,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         <TextField
           label={address.label}
           name="email"
-          width="W3"
+          width="column"
           kind="email"
           autofill="username"
           // The one field of the view, its two acts right under it: the line appears with the error alone.
