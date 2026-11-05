@@ -750,6 +750,13 @@ export const COPY = catalogue({
       /** When the Spielplan was drawn, beside its counts. */
       drawnOn: "Angelegt",
       noDraw: "Noch kein Spielplan.",
+      /**
+       * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
+       * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
+       */
+      gruppenOffRules: "Die Gruppen sind nicht so besetzt, wie die Regeln es vorsehen.",
+      /** Why the draw cannot run on a season holding matchdays its read records no Spielplan for. */
+      spieltageHeld: "Diese Saison hat schon Spieltage.",
       recreateConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht und neu angelegt.",
       deleteConsequence: "Alle Spieltage und Spiele dieser Saison werden gelöscht.",
 

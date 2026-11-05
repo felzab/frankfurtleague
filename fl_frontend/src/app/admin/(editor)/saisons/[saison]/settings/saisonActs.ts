@@ -49,12 +49,19 @@ async function sidesWorded(write: () => Promise<unknown>, sentence: Copy): Promi
   return { ok: true, value: undefined };
 }
 
+/**
+ * What a draw and its regeneration word: the stored rules' shape, and the clubs entered short of or past it. The
+ * editor closes both acts on the read's own judgement of the groups, so a press meets that refusal only where clubs
+ * moved after the page was read.
+ */
+const DRAW_WORDS = ["rules_bracket_impossible", "rules_spiele_over_one_read", "spielplan_gruppen_off_rules", "saison_past"] as const;
+
 /** Draws the season's Spielplan from its stored rules, a first draw, which the undraw takes back whole. */
 export const drawSpielplan = action({
   lane: "admin",
   name: "drawSpielplan",
   input: OfSaison,
-  ownWords: ["rules_bracket_impossible", "rules_spiele_over_one_read", "saison_past"],
+  ownWords: DRAW_WORDS,
   run: async ({ saison_id }) => {
     await saisonsPostSpielplan(saison_id, { replace: false });
     return { ok: true, value: undefined };
@@ -67,7 +74,7 @@ export const recreateSpielplan = action({
   name: "recreateSpielplan",
   passkey: true,
   input: TouchedOfSaison,
-  ownWords: ["rules_bracket_impossible", "rules_spiele_over_one_read", "saison_past"],
+  ownWords: DRAW_WORDS,
   run: async ({ saison_id }) => {
     await saisonsPostSpielplan(saison_id, { replace: true });
     return { ok: true, value: undefined };

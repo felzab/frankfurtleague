@@ -25,7 +25,8 @@ type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
  * its inputs hold as one typed object through `run`, never as a form; an act asking a question first answers a
  * refusal in the question's own line, and its done act here, in the act's own note where it has one. `isDisabled`
  * closes the button while its inputs are incomplete, the section's fields showing what is missing, or while the press
- * would reach nobody.
+ * would reach nobody. `blocked` closes it where its write would refuse the record as it stands, which the page read,
+ * the reason in the act's line in place of its outcome, as a danger row's `blocked` stands in its row.
  */
 export function SectionAct({
   children,
@@ -34,6 +35,7 @@ export function SectionAct({
   confirm,
   run,
   isDisabled = false,
+  blocked,
 }: {
   /** The act's inputs: the kit's fields, each holding its own value for `run` to read. */
   children?: ReactNode;
@@ -42,12 +44,16 @@ export function SectionAct({
   confirm?: Question;
   run: () => Promise<ActionAnswer>;
   isDisabled?: boolean;
+  blocked?: Copy;
 }) {
   const { answer, submit, isPending } = useFormAction(run, { resetOnLeave: true });
   // A question's act runs inside the question, which shows its refusal; the line here says only that it was done, in the
   // act's own note where it moved more than its box shows, as every done answer is worded (`statusOf`).
   const [done, setDone] = useState<Copy | null>(null);
-  const status: FormStatus = confirm === undefined ? statusOf(answer, false, isPending) : done === null ? null : { tone: "saved", text: done };
+  const outcome: FormStatus = confirm === undefined ? statusOf(answer, false, isPending) : done === null ? null : { tone: "saved", text: done };
+  // A standing reason, never an outcome, so it stands outside the line's live region, as the editor's count does.
+  const status: FormStatus = blocked === undefined ? outcome : { tone: "changes", text: blocked };
+  const isClosed = isDisabled || blocked !== undefined;
 
   return (
     <>
@@ -57,7 +63,7 @@ export function SectionAct({
           variant={variant}
           label={label}
           isBusy={isPending}
-          isDisabled={isDisabled}
+          isDisabled={isClosed}
           onPress={() => submit(undefined)}
         />
       ) : (
@@ -74,7 +80,7 @@ export function SectionAct({
             <Button
               variant={variant}
               label={label}
-              isDisabled={isDisabled}
+              isDisabled={isClosed}
             />
           }
         />

@@ -65,8 +65,8 @@ export type SaisonFacts = {
   /** The season the site shows, which the switch onto this one leaves; `null` before the league's first. */
   siteShows: string | null;
   spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay } | null;
-  /** Why each danger act cannot run now, by the refusal its write would answer, which the read serves. */
-  blocked: { activate?: Copy; recreate?: Copy; undraw?: Copy };
+  /** Why the draw and each danger act cannot run now, by the refusal its write would answer, which the read serves. */
+  blocked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
 
 /** The registration links: each team's row, and how many teams the press would mail, a held link replaced or not. */
@@ -456,6 +456,7 @@ export function SaisonEditor({
             label={COPY.shared.withObject(SPIELPLAN, "create")}
             variant="primary"
             isDisabled={isClosed}
+            blocked={facts.blocked.create}
             run={() => acts.draw({ saison_id: saison })}
           />
         ) : (
