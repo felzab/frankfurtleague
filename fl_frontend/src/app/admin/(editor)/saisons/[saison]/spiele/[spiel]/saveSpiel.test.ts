@@ -82,8 +82,16 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
+// The editor's view as far as the save reads it: the fixture, and the referees and clubs it names parties by.
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => (state.read === null ? null : { spiel: state.read }),
+  getAdminSpiel: async () =>
+    state.read === null
+      ? null
+      : {
+          spiel: state.read,
+          schiedsrichter: [{ id: "64b000000000000000000006", name: "Lena Brandt" }],
+          teams: [{ id: "64b00000000000000000000a", name: "Lessing-Gymnasium" }],
+        },
 }));
 
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
@@ -333,6 +341,32 @@ describe("the match editor's question before it deletes a later result", () => {
 
     expect(answer).toMatchObject({ ok: true, value: 4 });
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}`]);
+  });
+
+  it("names under its question whom the save mails, by the editor's own names, and asks again where they change", async () => {
+    state.dryRun = {
+      ...(state.dryRun as FLPatchSpielDataResponse),
+      recipients: [
+        { art: "team", team_id: "64b000000000000000000004" },
+        { art: "team", team_id: PICKED },
+        { art: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006" },
+      ],
+    };
+    const mailed = "Ernst-Reuter-Schule, Lessing-Gymnasium und Lena Brandt";
+
+    const answer = await saveSpiel(saving({ team1: PICKED }));
+
+    expect(answer).toEqual({
+      ok: false,
+      ask: {
+        ...QUESTION,
+        facts: [{ label: COPY.admin.facts.mailTo, value: { record: mailed } }],
+        confirm: "31,33;Ernst-Reuter-Schule;Lessing-Gymnasium;Lena Brandt",
+      },
+    });
+    // A confirmation of the deletions alone covers no mail it was not shown.
+    expect(await saveSpiel({ ...saving({ team1: PICKED }), confirm: QUESTION.confirm })).toMatchObject({ ok: false });
+    expect(state.sent).toEqual([]);
   });
 
   it("asks again where the save would now delete other results than those confirmed", async () => {

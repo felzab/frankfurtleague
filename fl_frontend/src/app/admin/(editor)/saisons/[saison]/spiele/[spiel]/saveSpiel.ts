@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { COPY } from "@/core/copy";
+import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
 import { getAdminSpiel } from "@/features/spiele/queries";
@@ -13,7 +14,12 @@ import { isNoShow, NO_SONDEREREIGNIS, takesNoResult, valuesOf } from "./spielVal
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type {
+  FLPatchSpielDataPayload,
+  FLPatchSpielDataResponse,
+  FLSpieleAdminSingleResponse,
+  FLSpielJoinedAdmin,
+} from "@/core/generated/client/types";
 
 const { shape } = SpielePatchSpielBody;
 const [ortShape] = shape.ort.options;
@@ -147,11 +153,37 @@ const OWN_WORDS = [
 const numbersOf = (entries: readonly { spiel_nr: number }[]) =>
   [...new Set(entries.map(({ spiel_nr }) => spiel_nr))].toSorted((first, second) => first - second);
 
-/** The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored. */
-async function sending(id: string, changes: Changes) {
+/**
+ * The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored,
+ * beside the editor's view the read serves, which names the parties a save would mail.
+ */
+async function sending(
+  id: string,
+  changes: Changes,
+): Promise<ActionAnswer<never> | { payload: Omit<FLPatchSpielDataPayload, "version">; view: FLSpieleAdminSingleResponse }> {
   const read = await getAdminSpiel(id);
-  if (read === null) return { ok: false, reason: COPY.shared.failure.stale } as const;
-  return payloadOf(read.spiel, changes);
+  if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
+  const payload = payloadOf(read.spiel, changes);
+  return "ok" in payload ? payload : { payload, view: read };
+}
+
+/** One party a save would mail about the fixture, as the dry run reports it. */
+type Recipient = NonNullable<FLPatchSpielDataResponse["recipients"]>[number];
+
+/**
+ * The parties the save would mail, each by the name the editor's own read gives it: a club by its id among the
+ * fixture's sides and the clubs a knockout side may take, a referee by theirs among the referees offered.
+ */
+function namesOf(recipients: readonly Recipient[], view: FLSpieleAdminSingleResponse): string[] {
+  const clubs = new Map([
+    ...[view.spiel.team1, view.spiel.team2].flatMap((team) => (team === null ? [] : [[team.team_id, team.name] as const])),
+  ]);
+  for (const team of view.teams ?? []) clubs.set(team.id, team.name);
+  const referees = new Map(view.schiedsrichter.map((person) => [person.id, person.name] as const));
+  return recipients.flatMap((party) => {
+    const name = party.art === "team" ? clubs.get(party.team_id) : referees.get(party.schiedsrichter_id);
+    return name === undefined ? [] : [name];
+  });
 }
 
 /** The later matches whose stored result a write would delete: a dry run's report, never a guess. */
@@ -163,12 +195,20 @@ const voidedBy = (report: FLPatchSpielDataResponse) =>
   );
 
 /**
- * The question a save asks before it deletes a later match's result, `null` for a save deleting none. Its token
- * names the matches, so a confirmation covers exactly the results it was shown.
+ * The question a save asks before it deletes a later match's result, `null` for a save deleting none, naming under its
+ * sentence whom the save mails, as every question naming its act's mails does. Its token names the matches and the
+ * parties, so a confirmation covers exactly what it was shown. A save that only mails asks nothing.
  */
-function questionOf(voided: readonly number[]): SaveQuestion | null {
+function questionOf(report: FLPatchSpielDataResponse, view: FLSpieleAdminSingleResponse): SaveQuestion | null {
+  const voided = voidedBy(report);
   if (voided.length === 0) return null;
-  return { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids(voided), confirm: voided.join(",") };
+  const mailed = namesOf(report.recipients ?? [], view);
+  return {
+    subject: COPY.admin.spiel.ergebnis,
+    consequence: COPY.admin.spiel.voids(voided),
+    ...(mailed.length === 0 ? {} : { facts: [{ label: COPY.admin.facts.mailTo, value: { record: formatList(mailed) } }] }),
+    confirm: [voided.join(","), ...mailed].join(";"),
+  };
 }
 
 /**
@@ -190,11 +230,11 @@ export const saveSpiel = action({
   paths: { sonderereignis: "changes.sonderereignis" },
   examples: { "changes.mietpreis": COPY.admin.spielort.mietpreisExample },
   run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
-    const payload = await sending(id, changes);
-    if ("ok" in payload) return payload;
-    const sent = { ...payload, version };
+    const read = await sending(id, changes);
+    if ("ok" in read) return read;
+    const sent = { ...read.payload, version };
 
-    const question = questionOf(voidedBy(await spielePatchSpiel(id, sent, { dry_run: true })));
+    const question = questionOf(await spielePatchSpiel(id, sent, { dry_run: true }), read.view);
     if (question !== null && question.confirm !== confirm) return { ok: false, ask: question };
 
     const written = await spielePatchSpiel(id, sent, adoptsBericht === null ? undefined : { adopts_bericht: adoptsBericht });
