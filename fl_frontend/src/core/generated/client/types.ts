@@ -5177,7 +5177,7 @@ export interface FLSpielEditorSpielort {
 }
 
 /**
- * A club a knockout fixture's Begegnung offers for either side, by the name its season row holds.
+ * A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.
  *
  * `on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it
  * off or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility
@@ -5190,6 +5190,8 @@ export interface FLSpielEditorTeam {
   /** @minLength 1 */
   name: string;
   on_spieltag: boolean;
+  /** @minLength 1 */
+  shorthand: string;
 }
 
 /**

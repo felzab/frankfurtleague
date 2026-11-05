@@ -13450,7 +13450,7 @@
         "type": "object"
       },
       "FLSpielEditorTeam": {
-        "description": "A club a knockout fixture's Begegnung offers for either side, by the name its season row holds.\n\n`on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it\noff or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility\nand occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.",
+        "description": "A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.\n\n`on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it\noff or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility\nand occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.",
         "properties": {
           "fieldable": {
             "title": "Fieldable",
@@ -13469,11 +13469,17 @@
           "on_spieltag": {
             "title": "On Spieltag",
             "type": "boolean"
+          },
+          "shorthand": {
+            "minLength": 1,
+            "title": "Shorthand",
+            "type": "string"
           }
         },
         "required": [
           "id",
           "name",
+          "shorthand",
           "on_spieltag",
           "fieldable"
         ],
