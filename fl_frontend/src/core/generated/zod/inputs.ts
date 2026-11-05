@@ -1589,81 +1589,21 @@ export const RegistrierungenDeclineBody = zod
   .describe("Why the team declines, from a closed set or not at all.");
 
 /**
- * Create the next season, always `future`, answering the id it minted.
+ * Create the next season, always `future`, from its two days, answering the id it minted.
  *
  * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
- * season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
- * league holds at most one planned season; two creates racing each other mint one id, and the second is refused
- * `duplicate_key` with no path. Making the season live is a separate step.
+ * season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
+ * (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
+ * `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
+ * two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
+ * them. Making the season live is a separate step.
  * @summary Create a Saison
  */
-export const saisonsPostSaisonBodyBewerbungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyBewerbungOneStartRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const saisonsPostSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const saisonsPostSaisonBodyRegistrierungOneEndRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-
-export const saisonsPostSaisonBodyRulesDrawPointsMin = 0;
-
-export const saisonsPostSaisonBodyRulesForfeitErgebnisSiegerToreMin = 0;
-
-export const saisonsPostSaisonBodyRulesForfeitErgebnisVerliererToreMin = 0;
-
-export const saisonsPostSaisonBodyRulesMaxKadergroesseExclusiveMin = 0;
-
-export const saisonsPostSaisonBodyRulesNumberOfGruppenExclusiveMin = 0;
-export const saisonsPostSaisonBodyRulesNumberOfGruppenMax = 16;
-
-export const saisonsPostSaisonBodyRulesQualifiersPerGruppeExclusiveMin = 0;
-
-export const saisonsPostSaisonBodyRulesTeamsPerGruppeMin = 2;
-export const saisonsPostSaisonBodyRulesTeamsPerGruppeMax = 16;
-
-export const saisonsPostSaisonBodyRulesWinPointsExclusiveMin = 0;
-
 export const saisonsPostSaisonBodyStartDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const SaisonsPostSaisonBody = zod.object({
-  bewerbung: zod.union([
-    zod
-      .object({
-        end: zod.string().regex(saisonsPostSaisonBodyBewerbungOneEndRegExp),
-        start: zod.string().regex(saisonsPostSaisonBodyBewerbungOneStartRegExp),
-      })
-      .describe(
-        "The application window as a season write sends it, judged apart from the season's own span: it may open before the season does.",
-      ),
-    zod.null(),
-  ]),
   end_date: zod.string().regex(saisonsPostSaisonBodyEndDateRegExp),
-  registrierung: zod.union([
-    zod
-      .object({
-        end: zod.string().regex(saisonsPostSaisonBodyRegistrierungOneEndRegExp),
-        offen: zod.boolean(),
-      })
-      .describe(
-        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
-      ),
-    zod.null(),
-  ]),
-  rules: zod.object({
-    allowed_stufen: zod.array(zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"])).min(1),
-    draw_points: zod.int().min(saisonsPostSaisonBodyRulesDrawPointsMin),
-    forfeit_ergebnis: zod
-      .object({
-        sieger_tore: zod.int().min(saisonsPostSaisonBodyRulesForfeitErgebnisSiegerToreMin),
-        verlierer_tore: zod.int().min(saisonsPostSaisonBodyRulesForfeitErgebnisVerliererToreMin),
-      })
-      .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
-      ),
-    max_kadergroesse: zod.int().gt(saisonsPostSaisonBodyRulesMaxKadergroesseExclusiveMin),
-    number_of_gruppen: zod.int().gt(saisonsPostSaisonBodyRulesNumberOfGruppenExclusiveMin).max(saisonsPostSaisonBodyRulesNumberOfGruppenMax),
-    qualifiers_per_gruppe: zod.int().gt(saisonsPostSaisonBodyRulesQualifiersPerGruppeExclusiveMin),
-    teams_per_gruppe: zod.int().min(saisonsPostSaisonBodyRulesTeamsPerGruppeMin).max(saisonsPostSaisonBodyRulesTeamsPerGruppeMax),
-    tiebreak_order: zod.enum(["tordifferenz", "direkter_vergleich"]),
-    win_points: zod.int().gt(saisonsPostSaisonBodyRulesWinPointsExclusiveMin),
-  }),
   start_date: zod.string().regex(saisonsPostSaisonBodyStartDateRegExp),
 });
 

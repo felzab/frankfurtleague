@@ -4182,11 +4182,8 @@ export interface FLPostRegistrierungResponse {
 }
 
 export interface FLPostSaisonPayload {
-  bewerbung: FLSaisonBewerbungPayload | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
-  registrierung: FLSaisonRegistrierung | null;
-  rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
 }

@@ -1,11 +1,11 @@
 from collections.abc import Collection, Mapping
-from typing import Any
+from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
 from app.api.saisons.services import has_started, next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
 from app.api.spiele.services import build_spiele_pipeline
@@ -17,13 +17,28 @@ from app.core.readonly import ReadCollection
 CURRENT_SAISON_FILTER = {"status": "active"}
 
 
-async def pull_create_state(*, saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> tuple[str, bool]:
-    """The id the next create mints, and whether a `future` season stands: what the create judges and the list serves."""
+class CreateState(NamedTuple):
+    """What the next create makes and judges: the id it mints, the rules it carries on, and whether a `future` season stands."""
 
-    newest = await saisons_collection.find_one({}, projection={"_id": 1}, sort=[("_id", -1)], session=session)
+    saison_id: str
+    rules: FLSaisonRules
+    future_stands: bool
+
+
+async def pull_create_state(*, saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> CreateState:
+    """What the create judges and makes, the list serving its id and its refusal off the same read.
+
+    The rules are the newest season's, the likeliest value, or the league's first season's where none is stored.
+    """
+
+    newest = await saisons_collection.find_one({}, projection={"_id": 1, "rules": 1}, sort=[("_id", -1)], session=session)
     future = await saisons_collection.find_one({"status": "future"}, projection={"_id": 1}, session=session)
 
-    return next_saison_id(None if newest is None else str(newest["_id"])), future is not None
+    return CreateState(
+        saison_id=next_saison_id(None if newest is None else str(newest["_id"])),
+        rules=FIRST_SAISON_RULES if newest is None else FLSaisonRules.model_validate(newest["rules"]),
+        future_stands=future is not None,
+    )
 
 
 async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:

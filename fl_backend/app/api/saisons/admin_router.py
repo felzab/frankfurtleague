@@ -215,14 +215,14 @@ async def get_saisons_admin(
     )
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
-    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, (next_id, future_stands) = await asyncio.gather(
+    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await asyncio.gather(
         saisons_with_a_fixture_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
         count_spiele_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         pull_create_state(saisons_collection=saisons_collection),
     )
-    create_refusal = find_saison_create_refusal(future_stands=future_stands)
+    create_refusal = find_saison_create_refusal(future_stands=create_state.future_stands)
     saisons = [
         {
             **with_schedule(raw),
@@ -237,7 +237,7 @@ async def get_saisons_admin(
 
     return FLSaisonsAdminListResponse(
         saisons=FLSaisonAdminListAdapter.validate_python(saisons),
-        next_saison_id=next_id,
+        next_saison_id=create_state.saison_id,
         refusals=FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
     )
 
@@ -430,39 +430,40 @@ async def post_saison(
     db: DBClient,
 ) -> FLPostSaisonResponse:
     """
-    Create the next season, always `future`, answering the id it minted.
+    Create the next season, always `future`, from its two days, answering the id it minted.
 
     The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
-    season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
-    league holds at most one planned season; two creates racing each other mint one id, and the second is refused
-    `duplicate_key` with no path. Making the season live is a separate step.
+    season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
+    (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
+    `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
+    two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
+    them. Making the season live is a separate step.
     """
 
-    refuse(
-        find_rules_refusal(
-            stored=None,
-            proposed=saison_data.rules,
-            occupancy_by_gruppe={},
-            highest_wired_platz=0,
-        )
-    )
-
-    # After the rules: an impossible bracket makes the implied matchday count meaningless.
-    refuse(
-        find_saison_span_refusal(
-            start_date=saison_data.start_date,
-            end_date=saison_data.end_date,
-            rules=saison_data.rules,
-            spieltag_spans=[],
-        )
-    )
-
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
-        saison_id, future_stands = await pull_create_state(saisons_collection=saisons_collection, session=session)
-        refuse(find_saison_create_refusal(future_stands=future_stands))
+        # Inside the transaction, so the id, the rules and the planned season are judged on one snapshot.
+        state = await pull_create_state(saisons_collection=saisons_collection, session=session)
+        refuse(find_saison_create_refusal(future_stands=state.future_stands))
+        refuse(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}, highest_wired_platz=0))
+        # After the rules: an impossible bracket makes the implied matchday count meaningless.
+        refuse(
+            find_saison_span_refusal(
+                start_date=saison_data.start_date,
+                end_date=saison_data.end_date,
+                rules=state.rules,
+                spieltag_spans=[],
+            )
+        )
         return await post_one_to_db(
             collection=saisons_collection,
-            document={**saison_data.model_dump(mode="json"), "_id": saison_id, "status": "future"},
+            document={
+                **saison_data.model_dump(mode="json"),
+                "rules": state.rules.model_dump(mode="json"),
+                "bewerbung": None,
+                "registrierung": None,
+                "_id": state.saison_id,
+                "status": "future",
+            },
             session=session,
         )
 

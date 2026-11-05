@@ -9853,33 +9853,10 @@
       "FLPostSaisonPayload": {
         "additionalProperties": false,
         "properties": {
-          "bewerbung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonBewerbungPayload"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "end_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "End Date",
             "type": "string"
-          },
-          "registrierung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonRegistrierung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rules": {
-            "$ref": "#/components/schemas/FLSaisonRules"
           },
           "start_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -9889,10 +9866,7 @@
         },
         "required": [
           "start_date",
-          "end_date",
-          "rules",
-          "bewerbung",
-          "registrierung"
+          "end_date"
         ],
         "title": "FLPostSaisonPayload",
         "type": "object"
@@ -24473,7 +24447,7 @@
     },
     "/api/v0/saisons": {
       "post": {
-        "description": "Create the next season, always `future`, answering the id it minted.\n\nThe server names it: the year after the newest stored season's, or the league's first where none is stored, so a\nseason is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a\nleague holds at most one planned season; two creates racing each other mint one id, and the second is refused\n`duplicate_key` with no path. Making the season live is a separate step.",
+        "description": "Create the next season, always `future`, from its two days, answering the id it minted.\n\nThe server names it: the year after the newest stored season's, or the league's first where none is stored, so a\nseason is never created out of turn. Its rules carry on from that newest season, or are the league's first season's\n(`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a\n`future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of\ntwo creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against\nthem. Making the season live is a separate step.",
         "operationId": "saisons_post_saison",
         "requestBody": {
           "content": {

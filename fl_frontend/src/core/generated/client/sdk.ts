@@ -2457,12 +2457,14 @@ export const getSaisonsPostSaisonUrl = () => {
 };
 
 /**
- * Create the next season, always `future`, answering the id it minted.
+ * Create the next season, always `future`, from its two days, answering the id it minted.
  *
  * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
- * season is never created out of turn. Refused while a `future` season stands (`create_saison_future_stands`), so a
- * league holds at most one planned season; two creates racing each other mint one id, and the second is refused
- * `duplicate_key` with no path. Making the season live is a separate step.
+ * season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
+ * (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
+ * `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
+ * two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
+ * them. Making the season live is a separate step.
  * @summary Create a Saison
  */
 export const saisonsPostSaison = async (
