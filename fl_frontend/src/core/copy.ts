@@ -826,6 +826,9 @@ export const COPY = catalogue({
       termin: "Termin",
       begegnung: "Begegnung",
       provisional: "Vorläufig",
+      /** What the result's figures decide, under them in the editor: a club winning by the score, or a draw. */
+      wins: (team: Words, score: Copy) => `${textOf(team)} gewinnt ${score}`,
+      drawn: (score: Copy) => `Unentschieden ${score}`,
       /** A row's result: the goals, and after a shoot-out each side's goals and shoot-out goals added, marked „n. E.“. */
       score: (tore: Pair, elfmeterschiessen: Pair | null) =>
         elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,

@@ -249,8 +249,8 @@ async function readEditor(params: Props["params"]) {
       preview={previewSpiel}
       phase={saved.saison_phase}
       sides={{
-        team1: saved.team1 === null ? null : { record: saved.team1.name },
-        team2: saved.team2 === null ? null : { record: saved.team2.name },
+        team1: saved.team1 === null ? null : { name: { record: saved.team1.name }, plaque: { record: saved.team1.shorthand } },
+        team2: saved.team2 === null ? null : { name: { record: saved.team2.name }, plaque: { record: saved.team2.shorthand } },
       }}
       quellen={{ team1: quelleWords(saved.team1_quelle)?.long ?? null, team2: quelleWords(saved.team2_quelle)?.long ?? null }}
       clubs={clubsOf(view)}
