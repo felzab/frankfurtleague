@@ -291,9 +291,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`);
   - a registration link's entry, which names no subject, and the action log's rows written under an
     earlier address's pseudonym, until the log's twelve months.
-- **A retired row is never removed because of its age**: a referee who stopped, a club that left and
-  a past season keep their rows; a person's row goes only by an erasure or, for a pupil, by section
-  6's season rule. **Datenschutzexperte consulted.**
+- **A retired row is never removed because of its age**: a confirmed referee who stopped, a club
+  that left and a past season keep their rows; a person's row goes only by an erasure or by section
+  6's clocks, a pupil's season rule and a referee's unconfirmed entry. **Datenschutzexperte consulted.**
 
 ## 6. Retention is bounded where a bound was chosen
 
@@ -313,7 +313,8 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | An admitted registration                     | Deleted in the admission's own transaction                                                                                               | `fl_backend/app/api/registrierungen/person_router.py :: admit`                                                                                                        |
 | A pupil                                      | Once the season after their last squad season has ended, at the activation and its hourly pass                                           | `fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`                                                                                                        |
 | A registration link's entry                  | No clock; the link ends with its season's window, or when withdrawn or replaced                                                          | `fl_backend/app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an`                                                                                   |
-| A referee                                    | Until an administrator deletes the row or the referee asks; a link lasts 14 days                                                         | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`                                                                                   |
+| A referee unconfirmed or under a Widerspruch | Erased by the first hourly pass past its stored deadline's day, 14 days from its latest link, its log images redacted with it            | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`     |
+| A confirmed referee                          | Until an administrator deletes the row or the referee asks                                                                               | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                             |
 | A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                  | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                     |
 | A grant                                      | Until revoked or erased                                                                                                                  | `fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`                                                                                                   |
 | A pending grant request                      | A week after it was asked, unless decided, withdrawn or ended sooner                                                                     | `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                                       |
@@ -403,8 +404,8 @@ Every store of section 6 ends by one of four triggers, each with its mechanism:
 - **A condition on the league's calendar**: a season's `status`, judged by the hourly pass or at the
   activation, never a count of days, so a record lasts exactly as long as its purpose can.
 - **A person's request**: the erasure of section 5, run at once.
-- **The purpose standing**: a referee, a grant, a club's record, deleted by a decision and nothing
-  else.
+- **The purpose standing**: a confirmed referee, a grant, a club's record, deleted by a decision and
+  nothing else.
 
 The hourly scheduler (`fl_frontend/src/instrumentationNode.ts :: armScheduler`) runs every pass with
 no switch to hold one back, and pings the heartbeat monitor, naming on `/fail` each job that threw or
