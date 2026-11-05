@@ -581,7 +581,8 @@ export function SaisonEditor({
       ? []
       : [
           {
-            name: WORDS.umstellung,
+            // The act and its season, as the draw's rows name theirs, so the row never repeats the box's title.
+            name: COPY.shared.withObject(WORDS.onto(saison), "activate"),
             consequence: WORDS.activateConsequence(saison),
             touch,
             ...lockedBy(facts.locked.activate),

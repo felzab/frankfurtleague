@@ -9,14 +9,26 @@ import { tv } from "./tv";
 import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 
+const sectionTitle = tv({
+  base: "text-base font-semibold",
+  variants: { tone: { danger: "text-danger" } },
+});
+
 /**
  * A section's title, 16 px semibold, one step under the page's: an editor's or a Konto page's box, a read
- * page's group, the filter sheet, and a dialog's group of fields, one level under the dialog's own title.
+ * page's group, the filter sheet, and a dialog's group of fields, one level under the dialog's own title. A danger
+ * box's title takes the danger hue its edge takes (`dangerEdge`).
  */
-export function SectionTitle({ text, level = 2 }: { text: Words; level?: 2 | 3 }) {
+export function SectionTitle({ text, level = 2, tone }: { text: Words; level?: 2 | 3; tone?: "danger" }) {
   const Heading = level === 2 ? "h2" : "h3";
-  return <Heading className="text-base font-semibold">{textOf(text)}</Heading>;
+  return <Heading className={sectionTitle({ tone })}>{textOf(text)}</Heading>;
 }
+
+/**
+ * The edge of a box holding acts that destroy or retire, an editor's danger box and Konto's deletion box: the danger
+ * hue in place of the hairline, as GitHub's danger zone marks its box, the red fill kept for the buttons that destroy.
+ */
+export const dangerEdge = tv({ base: "border-danger" });
 
 /**
  * The rung a few entries are named on, 12 px medium muted, a step under a section's title: the rail's
@@ -94,8 +106,9 @@ export function SectionPlaceholder({ rows }: { rows: ReadonlyArray<FieldRow> }) 
 
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content, its 16-px title over a
- * hairline, a one-control section included. One ⓘ may follow the title. An editor's danger box is one too, holding
- * the danger rows, the one place its irreversible and retiring acts stand.
+ * hairline, a one-control section included. One ⓘ may follow the title. An editor's danger box is one too, its edge
+ * and title in the danger hue, holding the danger rows, the one place its irreversible and retiring acts stand: flat
+ * rows across the box under the rule, each parted from the next by a hairline, with no box of their own.
  */
 export function Section({
   title,
@@ -115,12 +128,15 @@ export function Section({
 }) {
   const slots = boxHead({ ruled: children !== undefined || danger !== undefined });
   return (
-    <section className={cardSurface({ class: "grid" })}>
+    <section className={cardSurface({ class: danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
       <div className={slots.head()}>
         {/* The ⓘ stands beside the heading, not in it, so the heading is named by its title alone. Its button is taller
             than the title's line, and reaches into the head's padding rather than raising one head above another. */}
         <div className="flex items-center gap-2">
-          <SectionTitle text={title} />
+          <SectionTitle
+            text={title}
+            {...(danger === undefined ? {} : { tone: "danger" })}
+          />
           {help !== undefined && (
             <span className="-my-1 flex pointer-coarse:-my-2">
               <HelpPopover
@@ -135,7 +151,7 @@ export function Section({
       {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. 8 px
           apart, each field's message line, always there, holding the rest of the space between two fields. */}
       {children !== undefined && <div className={slots.content({ class: "gap-2" })}>{children}</div>}
-      {danger !== undefined && <div className="grid gap-4 p-4">{danger}</div>}
+      {danger !== undefined && <div className="grid">{danger}</div>}
     </section>
   );
 }

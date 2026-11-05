@@ -17,7 +17,7 @@ import { useLocked } from "./draftUnsaved";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { lockedLine } from "./lockedLine";
-import { boxHead, SectionTitle } from "./Section";
+import { boxHead, dangerEdge, SectionTitle } from "./Section";
 import { PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
@@ -203,7 +203,8 @@ export function AccountBoxPlaceholder({
  * One box of a Konto page, every box the same shape: its 16-px title and one sentence under it saying what the box
  * holds, over a hairline across the box where content follows, as an editor's section heads its fields (`boxHead`),
  * its content, and a footer band holding the status line and its one act: the primary button for a save,
- * the danger button for an act whose question is a danger's, the secondary button for every other. A box holding
+ * the danger button for an act whose question is a danger's, its box then taking the danger edge and title an editor's
+ * danger box takes, the secondary button for every other. A box holding
  * one control that acts at once, Darstellung's, is the one exception: its title and sentence at the start and its
  * control at the end of one row, no footer; and a box holding nothing this page acts on, an address change an
  * administrator started, which the old address's stop link ends, shows its content and no footer. A row of the
@@ -218,9 +219,14 @@ export function AccountBox(
   ),
 ) {
   const slots = box();
+  // A box whose one act asks a danger's question, Anmeldung's deletion, is a danger box, as an editor's is.
+  const danger = props.act !== undefined && "confirm" in props.act.button && props.act.button.confirm.tone === "danger";
   const words = (
     <>
-      <SectionTitle text={props.title} />
+      <SectionTitle
+        text={props.title}
+        {...(danger ? { tone: "danger" } : {})}
+      />
       <p className={slots.description()}>{props.description}</p>
     </>
   );
@@ -247,13 +253,14 @@ export function AccountBox(
   return (
     <ActBox
       act={props.act}
-      words={words}>
+      words={words}
+      danger={danger}>
       {props.children}
     </ActBox>
   );
 }
 
-function ActBox({ act, words, children }: { act: AccountAct; words: ReactElement; children?: ReactNode }) {
+function ActBox({ act, words, danger, children }: { act: AccountAct; words: ReactElement; danger: boolean; children?: ReactNode }) {
   const slots = box();
   // The footer's own hairline parts a box with nothing under its head from the footer.
   const held = boxHead({ ruled: children !== undefined });
@@ -289,7 +296,7 @@ function ActBox({ act, words, children }: { act: AccountAct; words: ReactElement
   };
 
   return (
-    <section className={slots.root()}>
+    <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <Form
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}

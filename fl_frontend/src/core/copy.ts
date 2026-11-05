@@ -728,7 +728,6 @@ export const COPY = catalogue({
       gruppentausch: "Gruppentausch",
       ersatz: "Ersatz",
       registrierungslinks: "Registrierungslinks",
-      umstellung: "Umstellung",
       /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
       dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
 
