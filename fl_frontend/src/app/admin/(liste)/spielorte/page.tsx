@@ -25,7 +25,7 @@ const rowOf = (ort: FLSpielort): TableRow => ({
   id: ort.id,
   name: { record: ort.name },
   href: ROUTES.adminSpielort.path(ort.id),
-  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORDS.retired }, muted: true }),
+  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
   cells: {
     adresse: WORDS.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
     mietpreis: { record: formatEuro(ort.default_mietpreis) },

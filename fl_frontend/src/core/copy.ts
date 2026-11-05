@@ -172,6 +172,8 @@ export const COPY = catalogue({
 
     /** Beside the save button once the record is stored. */
     saved: "Gespeichert",
+    /** The chip of a venue or a referee taken out of use, and its greyed entry where a match books one. */
+    retired: "Stillgelegt",
 
     /**
      * The five toast titles; a toast carries no body. `linkSent` labels the referee editor's fact for the day the last
@@ -650,7 +652,6 @@ export const COPY = catalogue({
       mietpreisExample: "60",
       plzExample: "60438",
       hausnummerExample: "12a",
-      retired: "Stillgelegt",
       /** The danger box's two consequences, under the act's name and in its question alike. */
       retireConsequence: "Der Spielort steht für neue Spiele nicht mehr zur Auswahl.",
       reactivateConsequence: "Der Spielort steht wieder zur Auswahl.",

@@ -55,7 +55,7 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
 
 /** The chip after the name, as the list puts it: „Stillgelegt“, or where an entry not yet confirmed stands. */
 function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
-  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.admin.spielort.retired };
+  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
   switch (confirmationStateOf(referee)) {
     case "confirmed":
       return undefined;

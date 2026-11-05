@@ -27,7 +27,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * carrying none, since a confirmed entry is what the list expects.
  */
 function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
-  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.admin.spielort.retired };
+  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
   switch (confirmationStateOf(referee)) {
     case "confirmed":
       return undefined;

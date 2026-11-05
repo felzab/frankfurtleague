@@ -261,7 +261,7 @@ async function readEditor(params: Props["params"]) {
         option:
           spielort.inactive_since === null
             ? { id: spielort.id, label: { record: spielort.name } }
-            : { id: spielort.id, label: { record: spielort.name }, isDisabled: true, note: COPY.admin.spielort.retired },
+            : { id: spielort.id, label: { record: spielort.name }, isDisabled: true, note: COPY.shared.retired },
         price: spielort.default_mietpreis,
       }))}
       schiedsrichter={view.schiedsrichter.map((person) => ({
@@ -269,7 +269,7 @@ async function readEditor(params: Props["params"]) {
         // not to be chosen; the match's own retired referee stays listed as its retired venue does.
         option:
           person.inactive_since !== null
-            ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.admin.spielort.retired }
+            ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.retired }
             : person.confirmed
               ? { id: person.id, label: { record: person.name } }
               : { id: person.id, label: { record: person.name }, isDisabled: true, note: WORDS.unconfirmed },
