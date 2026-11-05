@@ -15,9 +15,10 @@ export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-car
 export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
 
 /**
- * The step a control's hover takes over a card's head, which `tokens.css`'s `--bg-hover` otherwise sets one step off
- * the page, and which the dark theme's head, filled with that very grey, would swallow: on the head itself, and on a
- * control standing over a head it is no child of, as the match pop-up's closing button over its band.
+ * The step a control's hover and a placeholder's bar take over a card's head, which `tokens.css`'s `--bg-hover`
+ * otherwise sets one step off the page, and which the dark theme's head, filled with that very grey, would swallow: on
+ * the head itself, and on a control standing over a head it is no child of, as the match pop-up's closing button over
+ * its band.
  */
 export const overHead = tv({ base: "[--bg-hover:var(--bg-card-head-hover)]" });
 

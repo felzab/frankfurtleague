@@ -104,11 +104,12 @@
     --target-highlight: 2s;
   }
 
-  /* The fill a control without one of its own, a secondary, quiet or icon button, takes under the pointer: a step
-     off the ground it stands on. The muted fill is that step on the page, a card and an overlay; on a card's head,
-     which the dark theme fills with the muted grey itself, the hover would vanish, so a head redeclares it as its
-     own hover's step (`cardStyles.ts :: headGround`), as the band redeclares `--focus-ring`. Resolved on the
-     root, which carries `data-theme`, so it follows the theme. */
+  /* The fill a control without one of its own, a secondary, quiet or icon button, takes under the pointer, and a
+     placeholder's bar takes while it waits (`kit/Skeleton.tsx`): a step off the ground it stands on. The muted fill
+     is that step on the page, a card and an overlay; on a card's head, which the dark theme fills with the muted grey
+     itself, the step would vanish, so a head redeclares it as its own hover's step (`cardStyles.ts :: headGround`),
+     as the band redeclares `--focus-ring`. Resolved on the root, which carries `data-theme`, so it follows the
+     theme. */
   :root {
     --bg-hover: var(--bg-muted);
   }

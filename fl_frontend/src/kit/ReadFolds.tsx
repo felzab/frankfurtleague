@@ -35,15 +35,14 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
           className={s.root()}>
           <span className={s.head()}>
             <span className={s.title()}>
-              <span className={placeholderBar("size-4", "head")} />
+              <span className={placeholderBar("size-4")} />
               <PlaceholderLine
-                ground="head"
                 text="text-base"
                 width="w-32"
               />
             </span>
             <span className={s.count()}>
-              <span className={placeholderBar("h-3 w-4", "head")} />
+              <span className={placeholderBar("h-3 w-4")} />
             </span>
           </span>
         </div>

@@ -194,7 +194,7 @@ export function AccountBoxPlaceholder({
       {foot && (
         <div className={slots.foot()}>
           <span className="min-h-5 min-w-0 flex-1" />
-          <span className={buttonPlaceholder("w-28", "head")} />
+          <span className={buttonPlaceholder("w-28")} />
         </div>
       )}
     </div>
