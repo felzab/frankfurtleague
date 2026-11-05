@@ -931,7 +931,7 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel)
 
         assert resolution.advancements[0].team1 is not None
-        assert resolution.advancements[0].team1.name == "Team 1"
+        assert resolution.advancements[0].team1.team_id == a_team(1).id
         # Arriving in a fixture it has not played, exactly as a match-fed winner does.
         assert resolution.advancements[0].team1.tore is None
         assert resolution.bracket_faults == []

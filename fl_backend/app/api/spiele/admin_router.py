@@ -291,7 +291,7 @@ async def patch_spiel(
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
 
-    Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
+    The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
     adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
     `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
     `dry_run` included.
@@ -362,7 +362,7 @@ async def patch_spiel(
         # fixture, where a clash is a fact about its neighbours.
         refuse(find_result_removal_refusal(spiel_id, spiel_data, season))
 
-        verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
+        verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season, membership)
         refuse(verdict.refusal)
 
         # The session is what makes a matchday widened by a concurrent write visible.
@@ -370,8 +370,8 @@ async def patch_spiel(
         if span is not None:
             refuse(find_fixture_date_refusal(datum=spiel_data.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
 
-        # Read whatever the payload names, unchanged reference included: these rows are where the
-        # saved names come FROM, so a copy that went stale is repaired by the next save either way.
+        # Read whatever the payload names, unchanged reference included: the booking rule judges the
+        # row each reference names, and judges the reference alone where it is new or reopened.
         resolved = ResolvedReferences(
             teams=membership,
             ort=await pull_booked_venue(
@@ -401,7 +401,7 @@ async def patch_spiel(
         return (
             season,
             verdict.releases,
-            apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved),
+            apply_payload_to_spiel(stored, spiel_data, saison_rules),
             # Returned rather than left to the caller to derive, so every transaction judging here
             # anchors what the two rules above judged.
             find_references_to_anchor(stored, spiel_data, saison_rules),

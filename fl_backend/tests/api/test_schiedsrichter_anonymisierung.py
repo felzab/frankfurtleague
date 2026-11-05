@@ -35,8 +35,8 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpielListAdapter,
-    FLSpielSchiedsrichterField,
     FLSpielSchiedsrichterFieldPublic,
+    FLSpielSchiedsrichterFieldRecord,
     unplayed_filter,
 )
 from app.api.spiele.services import BookedReferee, ResolvedReferences, find_booking_refusal
@@ -195,9 +195,11 @@ def fixture_documents() -> list[dict[str, Any]]:
     ]
 
 
-# What every repointed fixture holds afterwards: the ghost's id under a nulled name, and the fee this
-# match itself agreed.
-REPOINTED_BOOKING: dict[str, Any] = {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "name": None, "payment": DEFAULT_PAYMENT}
+# What every repointed fixture holds afterwards: the ghost's id, no name, and the fee this match itself agreed.
+REPOINTED_BOOKING: dict[str, Any] = {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "payment": DEFAULT_PAYMENT}
+
+# What every repointed image of a fixture holds: the same, the name its copy held nulled in place.
+REPOINTED_IMAGE: dict[str, Any] = {**REPOINTED_BOOKING, "name": None}
 
 
 async def an_archived_fixture(database: AsyncDatabase) -> None:
@@ -248,7 +250,10 @@ class TestTheGhostTheFixturesAreHandedTo:
     def test_the_repoint_moves_the_reference_and_the_name_and_nothing_else(self):
         """One whole update asserted rather than membership: a repoint also clearing `payment` would rewrite what a match cost."""
 
-        assert build_ghost_repoint() == {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "schiedsrichter.name": None}}
+        assert build_ghost_repoint() == {
+            "$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID},
+            "$unset": {"schiedsrichter.name": ""},
+        }
 
     def test_a_nulled_name_reaches_the_base_tier_as_a_null_and_not_as_an_initial(self):
         """`READ-REFEREE-001`'s reduction composes a forename and an initial, and one composed from nothing would read as a name."""
@@ -278,7 +283,7 @@ class TestTheRetirementKeepsTheDayItAlreadyCarries:
 # `find_booking_refusal` judges.
 A_FIXTURE_HELD_BY_THE_OTHER_REFEREE: dict[str, Any] = fixture_document(OTHER_SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 9)
 
-THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE, confirmed=False)
+THE_GHOST = BookedReferee(inactive_since=GHOST_INACTIVE_SINCE, confirmed=False)
 
 
 def booking_refusal(booked: BookedReferee, schiedsrichter_id: ObjectId):
@@ -651,7 +656,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
     ghost, fixtures = on_a_league(mongo_replica_set_url, body)
 
     assert (ghost["name"], ghost["inactive_since"]) == (None, GHOST_INACTIVE_SINCE)
-    assert [fixtures[spiel_id]["schiedsrichter"]["name"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [None] * 2
+    assert [fixtures[spiel_id]["schiedsrichter"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [REPOINTED_BOOKING] * 2
 
 
 @pytest.mark.db
@@ -801,17 +806,16 @@ def test_the_fee_the_match_agreed_survives_the_repoint(mongo_replica_set_url: st
 
 
 @pytest.mark.db
-def test_the_written_fixture_is_read_back_by_both_tiers_rather_than_refused(mongo_replica_set_url: str):
-    """A read model refusing what the erasure stored would answer 500 for a whole season's fixture list over one repointed booking.
+def test_the_written_fixture_is_read_back_rather_than_refused(mongo_replica_set_url: str):
+    """The read-back refusing what the erasure stored would stop the deploy's check over one repointed booking.
 
-    Both models, because the base tier reduces the surname where the admin tier serves it whole.
+    The record model with `extra="forbid"`, as `app/readback.py` judges it: a name left on the booking is refused too.
     """
 
     fixtures = fixtures_after_loeschen(mongo_replica_set_url)
     booking = fixtures[PLAYED_SPIEL_OID]["schiedsrichter"]
 
-    assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name is None
-    assert FLSpielSchiedsrichterField.model_validate(booking).name is None
+    assert FLSpielSchiedsrichterFieldRecord.model_validate(booking, extra="forbid").schiedsrichter_id == GHOST_SCHIEDSRICHTER_ID
 
 
 @pytest.mark.db
@@ -913,7 +917,7 @@ def test_every_fixture_image_holding_their_name_is_repointed_and_stamped(mongo_r
 
     theirs = [row for row in rows if row["document_id"] in SPIEL_OIDS[SCHIEDSRICHTER_OID]]
     assert len(theirs) == len(SPIEL_OIDS[SCHIEDSRICHTER_OID]), "a fixture of theirs filed no log row at all"
-    assert [row["before"]["schiedsrichter"] for row in theirs] == [REPOINTED_BOOKING] * len(theirs)
+    assert [row["before"]["schiedsrichter"] for row in theirs] == [REPOINTED_IMAGE] * len(theirs)
     assert {row["redacted_at"] for row in theirs} == {REDACTED_AT}
     # The match's own earlier state, which the image is the record of, stands but for the booking.
     as_seeded = {row["_id"]: {**row["before"], "schiedsrichter": None} for row in seeded}
@@ -959,7 +963,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_repointed_too(mongo_replica_s
 
     # Two: the seeded reschedule and the reassignment, both filed before the erasure ran.
     assert len(rows) == 2, f"the reassignment filed no row of its own: {rows}"
-    assert [row["before"]["schiedsrichter"] for row in rows] == [REPOINTED_BOOKING] * 2
+    assert [row["before"]["schiedsrichter"] for row in rows] == [REPOINTED_IMAGE] * 2
     assert {row["redacted_at"] for row in rows} == {REDACTED_AT}
 
 
@@ -985,7 +989,7 @@ def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica
     (row,) = on_a_league(mongo_replica_set_url, body)
 
     assert sorted(row["document_id"]) == sorted(removed), "the removal filed no array of the ids it took"
-    assert [image["schiedsrichter"] for image in row["before"]] == [REPOINTED_BOOKING] * len(removed)
+    assert [image["schiedsrichter"] for image in row["before"]] == [REPOINTED_IMAGE] * len(removed)
     assert row["redacted_at"] == REDACTED_AT
 
 

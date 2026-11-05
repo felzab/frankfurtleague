@@ -3984,7 +3984,7 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
 /**
  * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
+ * The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
  * `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
  * `dry_run` included.

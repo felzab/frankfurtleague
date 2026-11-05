@@ -2877,7 +2877,7 @@ export interface FLSpielElfmeterschiessen {
 }
 
 /**
- * The venue as the public reads serve it: which ground, and where to find it, without the rent.
+ * The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.
  */
 export interface FLSpielOrtFieldPublic {
   /** @minLength 1 */
@@ -2909,7 +2909,7 @@ export const FLSonderereignis = {
 } as const;
 
 /**
- * One side as a read serves it, with the way its club left the season, null while it has not.
+ * One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not.
  */
 export interface FLSpielTeamFieldJoined {
   austritt_type: FLAustrittType | null;
@@ -3691,7 +3691,7 @@ export interface FLSpielSchiedsrichterFieldPayload {
 /**
  * One side of a fixture as the save sends it: the team and its goals.
  *
- * The server composes the name and shorthand from the season's team row and ignores a copy sent.
+ * A name sent is ignored: a side's name and shorthand are its season row's, joined at read.
  */
 export interface FLSpielTeamFieldPayload {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4657,7 +4657,7 @@ export interface FLSperrlisteWriteResponse {
 }
 
 /**
- * The venue as stored and as the admin reads serve it, the rent included.
+ * The venue as the admin reads serve it, the rent included.
  */
 export interface FLSpielOrtField {
   /** @minLength 1 */
@@ -4671,7 +4671,7 @@ export interface FLSpielOrtField {
 }
 
 /**
- * The referee as stored and as the admin reads serve it: the whole name and the payment.
+ * The referee as the admin reads serve them: the whole name and the payment.
  */
 export interface FLSpielSchiedsrichterField {
   name: string | null;

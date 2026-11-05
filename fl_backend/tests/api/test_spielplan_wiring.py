@@ -149,7 +149,8 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
 
         season = season_of(shape)
 
-        verdicts = [(raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], payload_of(raw), season)) for raw in drawn(shape).spiele]
+        # No season rows: a release names its club off them, so one owed here raises rather than passing unseen.
+        verdicts = [(raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], payload_of(raw), season, {})) for raw in drawn(shape).spiele]
 
         assert [nr for nr, verdict in verdicts if verdict.refusal is not None] == []
         assert [nr for nr, verdict in verdicts if verdict.releases] == []

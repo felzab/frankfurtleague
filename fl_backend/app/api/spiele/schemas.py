@@ -146,7 +146,7 @@ MIN_QUALIFIERS: int = 2 ** len(PHASE_ORDER[PHASE_RANK["halbfinale"] :])
 class FLSpielTeamFieldPayload(BaseModel):
     """One side of a fixture as the save sends it: the team and its goals.
 
-    The server composes the name and shorthand from the season's team row and ignores a copy sent.
+    A name sent is ignored: a side's name and shorthand are its season row's, joined at read.
     """
 
     team_id: CustomObjectId
@@ -156,17 +156,18 @@ class FLSpielTeamFieldPayload(BaseModel):
 # Nothing joined belongs here: the payload is written back wholesale, so a field added reaches the
 # document on the next edit.
 class FLSpielTeamField(FLSpielTeamFieldPayload):
-    """One side of a fixture as stored: the team, its goals, and the name and shorthand the server composed."""
-
-    name: str = Field(min_length=1)
-    shorthand: CustomShorthand
+    """One side of a fixture as stored: the team and its goals, its name joined at read."""
 
 
 # Produced only by `build_spiele_pipeline`. Narrower than the junction row: every public surface
 # listing a fixture carries this side, and only a club's own page renders the free text a withdrawal
 # names.
 class FLSpielTeamFieldJoined(FLSpielTeamField):
-    """One side as a read serves it, with the way its club left the season, null while it has not."""
+    """One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not."""
+
+    # The season's own row, never the club's record: a past season keeps the name a club played it under.
+    name: str = Field(min_length=1)
+    shorthand: CustomShorthand
 
     # The TYPE alone, as `fl_backend/app/api/teams/schemas.py :: FLGruppenTeam` narrows a league
     # table row: a card says WHICH way a club left, its own page publishes the reason and the date.
@@ -186,9 +187,9 @@ class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
     austritt: FLAustritt | None
 
 
-# Private, so the payload and the served shape state the booked id once and publish no component of
-# their own. Each extends THIS rather than one extending the other: composing a name onto a payload
-# is what the rule forbids.
+# Private, so the stored, the sent and the served shapes state the booked id once and publish no
+# component of their own. Each extends THIS rather than one extending another: the stored one holds
+# no name, which only the read joins.
 class _SpielOrtBooking(BaseModel):
     spielort_id: CustomObjectId
 
@@ -203,8 +204,14 @@ class FLSpielOrtFieldPayload(_SpielOrtBooking):
     mietpreis: int = Field(ge=0)
 
 
+class FLSpielOrtFieldRecord(_SpielOrtBooking):
+    """The venue as a fixture stores it: which ground, and what this fixture pays for it."""
+
+    mietpreis: int = Field(ge=0)
+
+
 class FLSpielOrtFieldPublic(_SpielOrtBooking):
-    """The venue as the public reads serve it: which ground, and where to find it, without the rent."""
+    """The venue as the public reads serve it: which ground, its current name and where to find it, without the rent."""
 
     name: str = Field(min_length=1)
     # Free text rather than a URL, per `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` (COR-2).
@@ -212,7 +219,7 @@ class FLSpielOrtFieldPublic(_SpielOrtBooking):
 
 
 class FLSpielOrtField(FLSpielOrtFieldPublic):
-    """The venue as stored and as the admin reads serve it, the rent included."""
+    """The venue as the admin reads serve it, the rent included."""
 
     mietpreis: int = Field(ge=0)
 
@@ -245,12 +252,12 @@ class _SpielSchiedsrichterBooking(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-# The name sits on a shared private base rather than on the served shape, so the stored shape below
-# can carry it without inheriting the reduction the served one applies.
+# The name sits on a shared private base rather than on the public shape, so the admin shape below
+# can carry it without inheriting the reduction the public one applies.
 class _SpielSchiedsrichterNamed(BaseModel):
-    # Nullable, unlike the venue's: a referee is a person, so an erasure repoints this copy at the
-    # nameless ghost. The word a reader is shown instead is the frontend's
-    # (`fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`).
+    # Joined from the referee's row, and nullable, unlike the venue's: a referee is a person, so an
+    # erasure repoints the booking at the nameless ghost. The word a reader is shown instead is the
+    # frontend's (`fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`).
     name: CustomNonEmptyString | None
 
 
@@ -258,6 +265,12 @@ class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
     """The referee as the save sends it: who, and what this fixture pays them."""
 
     model_config = ConfigDict(extra="forbid")
+
+    payment: int = Field(ge=0)
+
+
+class FLSpielSchiedsrichterFieldRecord(_SpielSchiedsrichterBooking):
+    """The referee as a fixture stores them: who, and what this fixture pays them."""
 
     payment: int = Field(ge=0)
 
@@ -281,7 +294,7 @@ class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterNamed, BaseReadModel)
 
 # Named first so the id leads the fields, as the payload's does.
 class FLSpielSchiedsrichterField(_SpielSchiedsrichterNamed, _SpielSchiedsrichterBooking):
-    """The referee as stored and as the admin reads serve it: the whole name and the payment."""
+    """The referee as the admin reads serve them: the whole name and the payment."""
 
     payment: int = Field(ge=0)
 
@@ -424,7 +437,7 @@ class FLBracketFaultBooking(_BracketFault):
     # reader tells the ghost from a referee by comparing this and never by the null below.
     booking_id: CustomObjectId
 
-    # The fixture's own copy, null where the row carries no name.
+    # The row's name as the read joins it, null on the ghost.
     name: str | None
     inactive_since: CustomDateString
 
@@ -579,12 +592,13 @@ class FLSpielCommon(BaseReadModel):
 class FLSpiel(FLSpielCommon, Anchored):
     """One fixture as the `spiele` collection STORES it, and the shape every write composes.
 
-    The money is re-declared because `$set` writes this model's dump, and a shape without it would
-    erase `mietpreis` and `payment` on the next edit of anything else.
+    It holds no name: a side's, the venue's and the referee's are joined at read (`build_spiele_pipeline`), so a
+    rename reaches every fixture at once. The money is re-declared because `$set` writes this model's dump, and a
+    shape without it would erase `mietpreis` and `payment` on the next edit of anything else.
     """
 
-    ort: FLSpielOrtField | None
-    schiedsrichter: FLSpielSchiedsrichterField | None
+    ort: FLSpielOrtFieldRecord | None
+    schiedsrichter: FLSpielSchiedsrichterFieldRecord | None
     # 0 until a write raises it, as the create stamps it: a fixture composed before its insert, such as a draw's, has none yet.
     version: int = 0
 
@@ -716,8 +730,8 @@ class FLSpielAdvancement(_VoidedResult):
     """
 
 
-# `team_name` rather than an id: the message quoting this has no `spiele` list to join against, and
-# the rename fan-out keeps the copy it reads fresh.
+# `team_name` rather than an id: the message quoting this has no `spiele` list to join against. The
+# name is the season row's, as every read joins it.
 class FLSpielReleasedSide(_VoidedResult):
     """One side another fixture gave up so a team can play this Spieltag, and the result that destroyed."""
 

@@ -2844,7 +2844,7 @@ export const SpieleGetSpielParams = zod.object({
 /**
  * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
+ * The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
  * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
  * `dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the
  * `dry_run` included.
@@ -2944,7 +2944,7 @@ export const SpielePatchSpielBody = zod.object({
         tore: zod.union([zod.int().min(spielePatchSpielBodyTeam1OneToreOneMin), zod.null()]),
       })
       .describe(
-        "One side of a fixture as the save sends it: the team and its goals.\n\nThe server composes the name and shorthand from the season's team row and ignores a copy sent.",
+        "One side of a fixture as the save sends it: the team and its goals.\n\nA name sent is ignored: a side's name and shorthand are its season row's, joined at read.",
       ),
     zod.null(),
   ]),
@@ -2974,7 +2974,7 @@ export const SpielePatchSpielBody = zod.object({
         tore: zod.union([zod.int().min(spielePatchSpielBodyTeam2OneToreOneMin), zod.null()]),
       })
       .describe(
-        "One side of a fixture as the save sends it: the team and its goals.\n\nThe server composes the name and shorthand from the season's team row and ignores a copy sent.",
+        "One side of a fixture as the save sends it: the team and its goals.\n\nA name sent is ignored: a side's name and shorthand are its season row's, joined at read.",
       ),
     zod.null(),
   ]),

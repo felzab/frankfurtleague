@@ -379,14 +379,9 @@ def junction_by_team(drawn: DrawnSeason) -> dict[Any, Mapping[str, Any]]:
 
 
 def side_from(junction_row: Mapping[str, Any]) -> dict[str, Any]:
-    """One side as a drawn fixture must store it: the club, the season's own name for it, and no goals."""
+    """One side as a drawn fixture must store it: the club and no goals, its name joined at read off the row."""
 
-    return {
-        "team_id": junction_row["team_id"],
-        "name": junction_row["name"],
-        "shorthand": junction_row["shorthand"],
-        "tore": None,
-    }
+    return {"team_id": junction_row["team_id"], "tore": None}
 
 
 def group_fixtures(drawn: DrawnSeason) -> list[dict[str, Any]]:
@@ -531,8 +526,8 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
             assert len(pairs) == len(set(pairs)), f"gruppe {gruppe} draws a pair more than once"
             assert set(pairs) == {frozenset(pair) for pair in combinations(ids, 2)}
 
-    def test_each_side_is_stored_under_the_name_the_junction_carries(self, mongo_replica_set_url: str):
-        """The name the season is played under, off the row rather than off `teams`, and no goals: a drawn fixture has not happened."""
+    def test_each_side_is_stored_as_the_club_the_junction_holds(self, mongo_replica_set_url: str):
+        """The club and no goals, a drawn fixture having not happened, and no name, which every read joins off the row."""
 
         drawn = a_drawn_season(mongo_replica_set_url)
         junction = junction_by_team(drawn)
@@ -1040,12 +1035,27 @@ class SpieleHeldAfterTheReportsLastJudgement:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._collection, name)
 
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        if kwargs.get("session") is None and not self._judged.is_set():
-            self._judged.set()
-            await held_until(self._other)
-        return found
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        if kwargs.get("session") is not None or self._judged.is_set():
+            return cursor
+
+        # Read whole before the hold, so the judgement answers the fixture as it stood before the removal.
+        rows = await cursor.to_list()
+        self._judged.set()
+        await held_until(self._other)
+
+        return ReadRows(rows)
+
+
+@dataclass(frozen=True)
+class ReadRows:
+    """The rows a held read took, handed back as the cursor that read them would."""
+
+    rows: list[Any]
+
+    async def to_list(self, length: int | None = None) -> list[Any]:
+        return self.rows[:length] if length is not None else self.rows
 
 
 # Never `tests/isolation.py :: InterleavedCollection`, which awaits its rival inside the write: a removal nested in the

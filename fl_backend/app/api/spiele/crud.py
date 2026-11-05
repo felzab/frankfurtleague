@@ -253,14 +253,13 @@ async def pull_saison_membership(
     rows = await pull_many_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        projection={"team_id": 1, "austritt": 1, "name": 1, "shorthand": 1},
+        projection={"team_id": 1, "austritt": 1, "name": 1},
         session=session,
     )
 
     return {
         row["team_id"]: SaisonMembership(
             name=row["name"],
-            shorthand=row["shorthand"],
             # The `.get` is for the null record: a present `austritt` always carries a `datum`.
             departed_from=(row["austritt"] or {}).get("datum"),
         )
@@ -325,12 +324,12 @@ async def pull_booked_referee(
         return None
 
     row = await schiedsrichter_collection.find_one(
-        {"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1, "einwilligung.confirmed_at": 1}, session=session
+        {"_id": schiedsrichter_id}, {"inactive_since": 1, "einwilligung.confirmed_at": 1}, session=session
     )
     if row is None:
         return None
 
-    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"], confirmed=is_confirmed(row.get("einwilligung")))
+    return BookedReferee(inactive_since=row["inactive_since"], confirmed=is_confirmed(row.get("einwilligung")))
 
 
 async def anchor_a_booked_venue(

@@ -218,18 +218,17 @@ after a correction.
 **A club's group and its `austritt` are joined from the junction rather than copied onto the club**, so
 recording either reaches every surface at once instead of needing a fan-out.
 
-**A match embeds a display copy of its team, its venue and its referee beside the id**, so a fixture card
-renders without a join. The copy is never accepted from a client: the patch composes it from the row each id
-names, so an editor left open across a rename cannot resubmit the old text and undo the fan-out. A rename
-then travels into what already holds it — but **a club's rename stops at a `past` season**, and that is the
-competition's rule rather than a caching one: a finished season is the record of the name it was played
-under, which is what makes the copy in its fixtures true rather than merely old. A venue's rename and a
-referee's carry no such boundary, neither being season-scoped.
+**A match stores the ids of its teams, its venue and its referee, and no name**: every read joins the names
+(`fl_backend/app/api/spiele/services.py :: build_spiele_pipeline`), so a rename reaches every fixture at once
+and nothing holds a copy to go stale. A side's name and shorthand are its club's row in the fixture's own
+season (`saison_teams`), so **a past season keeps the name a club played it under** — the competition's rule:
+a finished season is the record of the name it was played under. A venue's and a referee's are their rows'
+current names, neither being season-scoped; a venue that moves is a new venue record. A side whose club holds
+no row in the fixture's season is a state no write makes, and a read serving it fails.
 
-**Two figures deliberately stay on the match payload while the names beside them are composed** — what this
-fixture paid for its venue, and what it paid its referee. Each is what _this fixture_ agreed rather than a
-copy of a current default, so fanning one out would rewrite history and composing one would replace an agreed
-figure with a price nobody agreed to.
+**Two figures deliberately stay on the match beside the ids** — what this fixture paid for its venue, and
+what it paid its referee. Each is what _this fixture_ agreed rather than a copy of a current default, so
+joining one would replace an agreed figure with a price nobody agreed to.
 
 **A field the server composes is still stored; a derived one is on no document at all.** A match's result
 string is stored, composed from the two goal counts so the string cannot disagree with them; a matchday's

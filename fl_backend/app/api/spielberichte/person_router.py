@@ -38,8 +38,9 @@ from app.api.spielberichte.services import (
     neu_genannt,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
+from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.config import API_VERSION
-from app.core.crud import pull_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -53,6 +54,7 @@ from app.core.dependencies import (
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.core.transactions import transaction_session
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The referee's own router, binding the referee's Funktion at router level.
@@ -63,8 +65,8 @@ router = APIRouter(
 
 BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
 
-# What the referee's list shows of a fixture, in the order it lists them.
-PERSON_EINTRAG_FIELDS = ["datum", "uhrzeit", "team1.name", "team2.name"]
+# What the referee's list shows of a fixture, in the order it lists them; the names through the join.
+PERSON_EINTRAG_FIELDS = {"datum": 1, "uhrzeit": 1, "team1.name": 1, "team2.name": 1}
 SPIELE_NEUESTE_ZUERST = [("datum", -1), ("uhrzeit", -1), ("_id", 1)]
 
 
@@ -101,16 +103,19 @@ async def get_self(
         laufende = (
             []
             if saison_id is None
-            else await pull_many_from_db(
+            else await aggregate_many_from_db(
                 collection=spiele_collection,
-                db_filter={
-                    "saison_id": saison_id,
-                    **gebucht,
-                    "datum": {"$lte": today},
-                    "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-                },
-                sort_by=SPIELE_NEUESTE_ZUERST,
-                projection=PERSON_EINTRAG_FIELDS,
+                pipeline=build_named_spiele_pipeline(
+                    {
+                        "saison_id": saison_id,
+                        **gebucht,
+                        "datum": {"$lte": today},
+                        "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
+                    },
+                    projection=PERSON_EINTRAG_FIELDS,
+                    sort_by=SPIELE_NEUESTE_ZUERST,
+                    limit=LIST_LIMIT_DEFAULT,
+                ),
                 session=session,
             )
         )
@@ -119,13 +124,16 @@ async def get_self(
         fruehere = (
             []
             if not beendete
-            else await pull_many_from_db(
+            else await aggregate_many_from_db(
                 collection=spiele_collection,
                 # Undated too: a date cleared after the report leaves the report standing, and an ended season is never dated
                 # again. A descending sort puts null last.
-                db_filter={"saison_id": {"$in": beendete}, **gebucht},
-                sort_by=SPIELE_NEUESTE_ZUERST,
-                projection=PERSON_EINTRAG_FIELDS,
+                pipeline=build_named_spiele_pipeline(
+                    {"saison_id": {"$in": beendete}, **gebucht},
+                    projection=PERSON_EINTRAG_FIELDS,
+                    sort_by=SPIELE_NEUESTE_ZUERST,
+                    limit=LIST_LIMIT_DEFAULT,
+                ),
                 session=session,
             )
         )

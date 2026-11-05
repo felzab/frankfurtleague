@@ -37,6 +37,7 @@ from app.api.spielberichte.services import (
     seiten_of,
     team_id_of,
 )
+from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -47,6 +48,7 @@ from app.core.crud import (
     pull_many_from_db,
     pull_one_from_db,
 )
+from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSpielSeite
@@ -65,7 +67,13 @@ async def pull_bericht_lage(
     `document_not_found` for a fixture that does not exist.
     """
 
-    spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection=dict(SPIEL_FIELDS), session=session)
+    # Through the name join, which the form's heading and the panel's sides read.
+    found = await aggregate_many_from_db(
+        collection=spiele_collection, pipeline=build_named_spiele_pipeline({"_id": spiel_id}, projection=SPIEL_FIELDS), session=session
+    )
+    if not found:
+        raise DocumentNotFoundError()
+    spiel = found[0]
     team_ids = [team_id for seite in SEITEN if (team_id := team_id_of(spiel, seite)) is not None]
     saison_id = str(spiel["saison_id"])
 

@@ -26,7 +26,7 @@ from app.shared.schemas.literals import FLSpielSeite
 
 SEITEN: Final[tuple[FLSpielSeite, ...]] = ("team1", "team2")
 
-# What the report's judges and its form read off the fixture; no money, no notice.
+# What the report's judges and its form read off the fixture, each side with its name joined; no money, no notice.
 SPIEL_FIELDS: Final[Mapping[str, int]] = {
     "_id": 1,
     "saison_id": 1,
@@ -36,7 +36,6 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
     "team1": 1,
     "team2": 1,
     "schiedsrichter.schiedsrichter_id": 1,
-    "schiedsrichter.name": 1,
     "sonderereignis": 1,
     "ergebnis": 1,
     "elfmeterschiessen": 1,

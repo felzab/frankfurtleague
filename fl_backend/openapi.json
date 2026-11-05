@@ -13135,7 +13135,7 @@
         "type": "object"
       },
       "FLSpielOrtField": {
-        "description": "The venue as stored and as the admin reads serve it, the rent included.",
+        "description": "The venue as the admin reads serve it, the rent included.",
         "properties": {
           "maps_link": {
             "minLength": 1,
@@ -13190,7 +13190,7 @@
         "type": "object"
       },
       "FLSpielOrtFieldPublic": {
-        "description": "The venue as the public reads serve it: which ground, and where to find it, without the rent.",
+        "description": "The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.",
         "properties": {
           "maps_link": {
             "minLength": 1,
@@ -13428,7 +13428,7 @@
         "type": "object"
       },
       "FLSpielSchiedsrichterField": {
-        "description": "The referee as stored and as the admin reads serve it: the whole name and the payment.",
+        "description": "The referee as the admin reads serve them: the whole name and the payment.",
         "properties": {
           "name": {
             "anyOf": [
@@ -13586,7 +13586,7 @@
         "type": "string"
       },
       "FLSpielTeamFieldJoined": {
-        "description": "One side as a read serves it, with the way its club left the season, null while it has not.",
+        "description": "One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not.",
         "properties": {
           "austritt_type": {
             "anyOf": [
@@ -13637,7 +13637,7 @@
         "type": "object"
       },
       "FLSpielTeamFieldPayload": {
-        "description": "One side of a fixture as the save sends it: the team and its goals.\n\nThe server composes the name and shorthand from the season's team row and ignores a copy sent.",
+        "description": "One side of a fixture as the save sends it: the team and its goals.\n\nA name sent is ignored: a side's name and shorthand are its season row's, joined at read.",
         "properties": {
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -26985,7 +26985,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nEvery name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
