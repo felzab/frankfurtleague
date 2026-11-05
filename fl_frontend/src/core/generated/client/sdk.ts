@@ -165,7 +165,6 @@ import type {
   FLSignOutResponse,
   FLSperrlisteListResponse,
   FLSperrlisteWriteResponse,
-  FLSpielberichtAdminResponse,
   FLSpielberichteSaisonResponse,
   FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
@@ -3674,28 +3673,6 @@ export const spielberichtePutSpielberichtBericht = async (
     method: "PUT",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSpielberichtPayload),
-  });
-};
-
-export const getSpielberichteGetSpielberichtVerwaltungUrl = (spielId: string) => {
-  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/verwaltung`;
-};
-
-/**
- * One fixture's report as the editor's panel reads it, whole, with the state it reads in.
- *
- * Beside it the fixture and the pupils the report names, by name. The panel picks no pupil, so it reads no squad and
- * no pupil the report does not name: a fixture holding no report serves none. The report and its state are null where
- * no report stands; `document_not_found` only for a fixture that does not exist.
- * @summary One fixture's report, whole, for an administrator
- */
-export const spielberichteGetSpielberichtVerwaltung = async (
-  spielId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielberichtAdminResponse> => {
-  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichteGetSpielberichtVerwaltungUrl(spielId), {
-    ...options,
-    method: "GET",
   });
 };
 

@@ -1,11 +1,7 @@
-import type {
-  FLSpielberichtAdminResponse,
-  FLSpielberichteSelfResponse,
-  FLSpielberichtSchiedsrichterResponse,
-} from "@/core/generated/client/types";
+import type { FLSpielberichteSelfResponse, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
-/** What both readers' reads of one report hold: the fixture, the squads, the pupils named, the report and its sides. */
-export type SpielberichtAnsicht = FLSpielberichtAdminResponse | FLSpielberichtSchiedsrichterResponse;
+/** What the referee's read of one report holds: the fixture, the squads, the pupils named, the report and its sides. */
+export type SpielberichtAnsicht = FLSpielberichtSchiedsrichterResponse;
 
 /**
  * The referee panel's reports: the running season's played fixtures and the ended seasons' reports, or why none is

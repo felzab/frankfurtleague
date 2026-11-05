@@ -2588,20 +2588,6 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
   .describe("The whole `bericht` block, written wholesale by the referee's PUT.");
 
 /**
- * One fixture's report as the editor's panel reads it, whole, with the state it reads in.
- *
- * Beside it the fixture and the pupils the report names, by name. The panel picks no pupil, so it reads no squad and
- * no pupil the report does not name: a fixture holding no report serves none. The report and its state are null where
- * no report stands; `document_not_found` only for a fixture that does not exist.
- * @summary One fixture's report, whole, for an administrator
- */
-export const spielberichteGetSpielberichtVerwaltungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielberichteGetSpielberichtVerwaltungParams = zod.object({
-  spiel_id: zod.string().regex(spielberichteGetSpielberichtVerwaltungPathSpielIdRegExp),
-});
-
-/**
  * Every confirmation row of the season, or of its one fixture.
  *
  * Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still

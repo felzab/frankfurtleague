@@ -5318,48 +5318,6 @@ export interface FLSpielberichtBericht {
 }
 
 /**
- * Each side's live squad of the season, the pupils a new entry may name.
- */
-export interface FLSpielberichtKader {
-  team1: FLSpielberichtSpieler[];
-  team2: FLSpielberichtSpieler[];
-}
-
-export interface FLSpielberichtTeam {
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
-/**
- * The fixture a report is about, as its form states it: no money, no booking, no result.
- */
-export interface FLSpielberichtSpiel {
-  datum: string | null;
-  saison_id: string;
-  saison_phase: FLSaisonPhase;
-  sonderereignis: FLSonderereignis | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  team1: FLSpielberichtTeam | null;
-  team2: FLSpielberichtTeam | null;
-  uhrzeit: string | null;
-}
-
-/**
- * The administrator's panel, with the state the report reads in, null exactly where no block stands, and both squads empty.
- */
-export interface FLSpielberichtAdminResponse {
-  bericht: FLSpielberichtBericht | null;
-  kader: FLSpielberichtKader;
-  named: FLSpielberichtSpieler[];
-  seiten_changed: FLSpielSeite[];
-  spiel: FLSpielberichtSpiel;
-  state: FLSpielberichtState | null;
-  version: number | null;
-}
-
-/**
  * One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).
  */
 export interface FLSpielberichtKartePayload {
@@ -5379,6 +5337,14 @@ export interface FLSpielberichtBerichtPayload {
   karten: FLSpielberichtKartePayload[];
   /** @maxItems 60 */
   torschuetzen: FLSpielberichtTorschuetze[];
+}
+
+/**
+ * Each side's live squad of the season, the pupils a new entry may name.
+ */
+export interface FLSpielberichtKader {
+  team1: FLSpielberichtSpieler[];
+  team2: FLSpielberichtSpieler[];
 }
 
 /**
@@ -5414,6 +5380,27 @@ export interface FLSpielberichtPersonEntry {
   submitted_at: string | null;
   team1_name: string | null;
   team2_name: string | null;
+  uhrzeit: string | null;
+}
+
+export interface FLSpielberichtTeam {
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+/**
+ * The fixture a report is about, as its form states it: no money, no booking, no result.
+ */
+export interface FLSpielberichtSpiel {
+  datum: string | null;
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  sonderereignis: FLSonderereignis | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  team1: FLSpielberichtTeam | null;
+  team2: FLSpielberichtTeam | null;
   uhrzeit: string | null;
 }
 
