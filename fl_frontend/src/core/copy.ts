@@ -194,6 +194,8 @@ export const COPY = catalogue({
 
     /** The match pop-up's way to the match's own page. */
     toSpiel: "Zum Spiel",
+    /** A club's plaque popover's way to the club's own page. */
+    toTeam: "Zum Team",
     /** A fact nobody has entered, where a sentence names it in words rather than a glyph: a match mail's ground. */
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
