@@ -197,6 +197,23 @@ describe("the kit's confirmation", () => {
 
     expect(within(screen.getByRole("alertdialog")).getByRole("status").textContent).toBe("");
   });
+
+  // The harm: Escape pressed while the act runs closing the question, so its refusal, still on its way, is shown nowhere.
+  it("keeps Escape from closing it while its act runs, and lets it again once the act has answered", async () => {
+    const answer = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => answer.resolve(DONE));
+    render(<RetireQuestion onConfirm={() => answer.promise} />);
+    await retireThroughTheQuestion();
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+
+    await act(async () => answer.resolve({ ok: false, reason: COPY.shared.failure.stale }));
+    const question = screen.getByRole("alertdialog");
+    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(COPY.shared.failure.stale));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  });
 });
 
 /** A retirement's question, opened by its own button. */
