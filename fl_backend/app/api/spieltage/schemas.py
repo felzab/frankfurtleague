@@ -1,6 +1,6 @@
-from typing import Literal, Self
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationInfo, field_validator
 
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
@@ -62,13 +62,18 @@ class FLPatchSpieltagPayload(BaseModel):
     # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
     version: int | None = None
 
-    @model_validator(mode="after")
-    def the_matchday_ends_after_it_begins(self) -> Self:
+    # A field validator at the end it judges, reading the start off `info.data`: a model validator's refusal sits at the
+    # model, a path no box answers. `beginn` is declared first, so it is validated first; where it failed it is absent from
+    # `info.data`, and its own refusal is the one answered.
+    @field_validator("ende")
+    @classmethod
+    def the_matchday_ends_after_it_begins(cls, ende: str, info: ValidationInfo) -> str:
         """A span running backwards is a typo in one of the two dates, and nothing downstream can tell which one."""
 
-        refuse_reversed_span(start=self.beginn, end=self.ende, kind="spieltag_ends_before_start")
+        if "beginn" in info.data:
+            refuse_reversed_span(start=info.data["beginn"], end=ende, kind="spieltag_ends_before_start")
 
-        return self
+        return ende
 
 
 class FLSpieltageListResponse(BaseAPIResponse):

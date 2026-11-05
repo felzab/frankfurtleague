@@ -63,11 +63,6 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
   return selectSaison(saisons, requestedSaisonId);
 }
 
-/** For a page whose reads name a season: a league holding none is sent to the page that creates one. */
-export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaisonAdmin> {
-  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/area/admin/saisons");
-}
-
 /**
  * A `[saison_id]` SEGMENT, or not-found. A segment names the page's subject, so unlike the search
  * parameter above there is no fallback: degrading would silently edit a season nobody asked for.

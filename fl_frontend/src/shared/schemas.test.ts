@@ -11,7 +11,6 @@ import {
   CustomTimeStringSchema,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
-  FLKontaktPayloadSchema,
   KONTAKT_EMAIL_MAX_LENGTH,
   KontaktEmailSchema,
   PHONE_REGEX,
@@ -144,66 +143,6 @@ describe("PHONE_REGEX", () => {
   });
 });
 
-/** A valid address, so a case about the telephone is judged on the telephone alone: the address is required. */
-const ADRESSE = "kontakt@example.de";
-
-describe("FLKontaktPayloadSchema", () => {
-  it("accepts common German phone formats", () => {
-    for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
-      expect(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, `expected "${telefon}" to be accepted`).toBe(true);
-    }
-  });
-
-  it("rejects phone numbers with letters, or shorter than 3 / longer than 20 characters", () => {
-    for (const telefon of ["ab", "06", "069-ABC-123", "+4969123456789012345678"]) {
-      expect(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, `expected "${telefon}" to be rejected`).toBe(false);
-    }
-  });
-
-  // With `\s` inside `^...$` every one of these passed here and was refused by the API. Patterns are
-  // out of the contract comparison, so a unit test is what holds the two spellings together.
-  it("rejects a phone number carrying a control character, which the backend rejects too", () => {
-    for (const telefon of ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069123\n456"]) {
-      expect(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, `expected ${JSON.stringify(telefon)} to be rejected`).toBe(
-        false,
-      );
-    }
-  });
-
-  // The telephone takes null (not supplied) and "" (supplied but cleared), two distinct states in
-  // the admin forms.
-  it("accepts null and empty string for the telephone", () => {
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: ADRESSE }).success).toBe(true);
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: "", email: ADRESSE }).success).toBe(true);
-  });
-
-  // The address is how a referee learns an administrator entered them. Both referee forms fold a
-  // cleared box to null, so this one sentence is what an empty box says.
-  it("refuses a missing address with the one sentence an empty box shows", () => {
-    const refused = FLKontaktPayloadSchema.safeParse({ telefon: null, email: null });
-    expect(refused.error?.issues.map((issue) => issue.message)).toStrictEqual(["Bitte gib eine E-Mail-Adresse ein."]);
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "" }).success).toBe(false);
-  });
-
-  // `PHONE_REGEX` refuses a value with no digit, so the union's empty branch is what takes a box
-  // holding spaces alone — as `fl_backend/app/shared/schemas/custom.py :: parse_empty_string_to_none` reads it.
-  it("takes a telefon of spaces alone as cleared rather than as malformed", () => {
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: ADRESSE }).success).toBe(true);
-  });
-
-  // Each is a value the API takes and stores: a punycode host, an atext character outside zod's
-  // class, and a local part past RFC 5321's 64.
-  it("takes every address the API stores, whose rule no zod pattern spells", () => {
-    for (const email of ["kaethe@xn--kthe-schule-l8a.example", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
-      expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, `expected "${email}" to be accepted`).toBe(true);
-    }
-  });
-
-  it("rejects a missing field outright", () => {
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: null }).success).toBe(false);
-  });
-});
-
 const RESERVED = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.";
 
 describe("KontaktEmailSchema", () => {
@@ -294,7 +233,7 @@ describe("KontaktEmailSchema", () => {
   });
 });
 
-describe("FLKontaktPayloadSchema's email bounds", () => {
+describe("KontaktEmailSchema's bounds", () => {
   // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
   function addressOfLength(total: number): string {
     const local = "a".repeat(64);
@@ -310,9 +249,9 @@ describe("FLKontaktPayloadSchema's email bounds", () => {
   }
 
   it("validates email addresses", () => {
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "info@frankfurtleague.de" }).success).toBe(true);
+    expect(KontaktEmailSchema.safeParse("info@frankfurtleague.de").success).toBe(true);
     for (const email of ["info@", "@frankfurtleague.de", "info frankfurtleague.de", "info@@x.de"]) {
-      expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, `expected "${email}" to be rejected`).toBe(false);
+      expect(KontaktEmailSchema.safeParse(email).success, `expected "${email}" to be rejected`).toBe(false);
     }
   });
 
@@ -321,9 +260,9 @@ describe("FLKontaktPayloadSchema's email bounds", () => {
   it("accepts an address at the backend ceiling and refuses the next character, in German", () => {
     const atTheCap = addressOfLength(KONTAKT_EMAIL_MAX_LENGTH);
     expect(atTheCap.length).toBe(KONTAKT_EMAIL_MAX_LENGTH);
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: atTheCap }).success, "at the cap").toBe(true);
+    expect(KontaktEmailSchema.safeParse(atTheCap).success, "at the cap").toBe(true);
 
-    const over = FLKontaktPayloadSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
+    const over = KontaktEmailSchema.safeParse(addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1));
     expect(over.success, "one over the cap").toBe(false);
     // No union carries the message, so the box names the ceiling rather than calling the address invalid.
     expect(over.error?.issues.map((issue) => issue.message)).toStrictEqual([
@@ -334,7 +273,7 @@ describe("FLKontaktPayloadSchema's email bounds", () => {
   // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic
   // does not pass. A bound here alone would refuse in German an address the API stores.
   it("accepts a local part over 64 characters, which the backend accepts too", () => {
-    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success).toBe(true);
+    expect(KontaktEmailSchema.safeParse(`${"a".repeat(65)}@example.com`).success).toBe(true);
   });
 });
 

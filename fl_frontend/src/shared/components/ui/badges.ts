@@ -4,7 +4,7 @@
  * The radius the recipes below carry, and the one every `Chip` in this app sets in place of HeroUI's. On a `Chip` it
  * overrides `rounded-2xl` from `.chip`, and a utility beats the component layer, so no `!` is needed.
  */
-export const PILL_RADIUS_CLASSES = "rounded-md";
+const PILL_RADIUS_CLASSES = "rounded-md";
 
 /**
  * A number in a pill; `min-w-6` so single digits are not ovals. Colour stays the caller's, but the brand pair is
@@ -92,9 +92,4 @@ const LABEL_BADGE_CLASSES = `inline-flex items-center fluid-xxs ${PILL_RADIUS_CL
  */
 export function labelBadge(tone: PillTone): string {
   return `${LABEL_BADGE_CLASSES} ${PILL_TINT_CLASSES[tone]}`;
-}
-
-/** A word on `trackCountBadge`'s grounds, where the tint would composite with the fill under it. */
-export function trackLabelBadge(tone: FeedbackTone): string {
-  return `${LABEL_BADGE_CLASSES} ${PILL_SOLID_CLASSES[tone]}`;
 }

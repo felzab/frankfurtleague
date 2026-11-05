@@ -197,21 +197,3 @@ export const KontaktEmailSchema = addressSchema(
     abort: true,
   }),
 );
-
-/**
- * What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. Judged
- * in the browser by the referee's create form (`AdminCreateSchiedsrichterForm.tsx`), which
- * the `server-only` generated Zod cannot serve.
- */
-export const FLKontaktPayloadSchema = z.object({
-  // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
-  // back to its own English.
-  telefon: z
-    .union([z.string().regex(PHONE_REGEX), z.string().trim().length(0)], {
-      error: "Bitte gib eine gültige Telefonnummer ein.",
-    })
-    .nullable(),
-  // Required where the telephone is not: an administrator enters a referee, and the address is how
-  // that person learns of it.
-  email: KontaktEmailSchema,
-}) satisfies z.ZodType<wire.FLKontaktPayload>;

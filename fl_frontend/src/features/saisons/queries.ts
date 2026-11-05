@@ -3,9 +3,9 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { isRecordMissing } from "@/core/errors";
 import {
-  saisonsGetErasurePreview,
   saisonsGetFrame,
   saisonsGetKoRunde,
+  saisonsGetSaisonAdmin,
   saisonsGetSaisonsAdmin,
   saisonsGetSpiel,
   saisonsGetSpielplan,
@@ -17,8 +17,8 @@ import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type {
-  FLErasurePreviewResponse,
   FLKoRundeResponse,
+  FLSaisonAdminResponse,
   FLSaisonFrameResponse,
   FLSaisonsAdminListResponse,
   FLSaisonTeamsResponse,
@@ -36,12 +36,18 @@ import type {
 export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> => runAdminRead(() => saisonsGetSaisonsAdmin()));
 
 /**
- * Whom activating `saisonId` would delete, on the statuses that activation leaves. Read afresh on every
- * render: a count from before another season's activation names people who are already gone.
+ * What the season editor shows, in its one read: the season, its clubs graded as its swap and replacement judge them,
+ * the clubs a replacement may bring in, and the shapes its draw admits; `null` where no season holds the id.
  */
-export async function getLoeschungVorschau(saisonId: string): Promise<FLErasurePreviewResponse> {
-  return runAdminRead(() => saisonsGetErasurePreview(saisonId));
-}
+// `cache` memoizes per RENDER PASS, so the tab's title and the page read it once.
+export const getAdminSaison = cache(async (saisonId: string): Promise<FLSaisonAdminResponse | null> =>
+  runAdminRead(() =>
+    saisonsGetSaisonAdmin(saisonId).catch((error: unknown) => {
+      if (isRecordMissing(error)) return null;
+      throw error;
+    }),
+  ),
+);
 
 /**
  * The season pages' frame: every season the public may read, the newest first, and the one the site is on,

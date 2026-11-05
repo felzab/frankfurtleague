@@ -149,7 +149,6 @@ export function Segmented({
 /**
  * A small multi-select of short words, such as a season's allowed Stufen: the label above, one box per answer,
  * each chosen box lifted. React Aria's `ToggleButtonGroup` in multiple selection.
- * @awaitsProduction the season editor's Stufen
  */
 export function ToggleBoxes({
   label,

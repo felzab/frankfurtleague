@@ -37,6 +37,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
@@ -149,14 +150,17 @@ async def get_spiel_verwaltung(
     spielberichte_collection: SpielberichteCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
 
     Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
-    they confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and
-    the state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves
-    them. `document_not_found` for an id no fixture holds.
+    they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
+    another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
+    group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
+    reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.
+    `document_not_found` for an id no fixture holds.
     """
 
     return await read_spiel_editor(
@@ -170,6 +174,7 @@ async def get_spiel_verwaltung(
         spielberichte_collection=spielberichte_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         outbox_collection=outbox_collection,
+        saison_teams_collection=saison_teams_collection,
     )
 
 

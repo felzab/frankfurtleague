@@ -20,7 +20,7 @@ const PLATZ = "Platz";
 const TEAM = "Team";
 const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
-const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
+const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
@@ -93,12 +93,12 @@ export const SERVER_COPY = catalogue({
     state_nichtantreten_without_two_sides: "Beide Teams stehen noch nicht fest.",
     booking_unknown_resource: {
       ort: "Der Spielort ist stillgelegt oder gelöscht.",
-      schiedsrichter: "Der Schiedsrichter ist stillgelegt oder gelöscht.",
+      schiedsrichter: "Die eingeteilte Person ist stillgelegt oder gelöscht.",
     },
-    booking_unconfirmed_schiedsrichter: "Der Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
+    booking_unconfirmed_schiedsrichter: "Die eingeteilte Person hat ihren Eintrag noch nicht bestätigt.",
     spiel_double_booked: {
       ort: "Der Spielort ist zu dieser Zeit schon belegt.",
-      schiedsrichter: "Der Schiedsrichter ist zu dieser Zeit schon eingeteilt.",
+      schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon ein anderes Spiel.",
     },
     /** The league's last owner, whose erasure would leave the administration owned by nobody. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber der Verwaltung.",
@@ -121,10 +121,20 @@ export const SERVER_COPY = catalogue({
     schiedsrichter_address_only_per_change: COPY.shared.failure.stale,
     /** A club's proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past: "Der vorgeschlagene Tag ist vorbei.",
+    // A season's rules and its activation, each a fact the person reads off the season editor itself.
+    rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
+    rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
+    activate_target_undrawn: COPY.admin.saison.noDraw,
+    activate_saison_unfinished: COPY.admin.saison.unfinished,
+    activate_spieltage_undated: COPY.admin.saison.undated,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,
     },
+    /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
+    spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
+    spieltag_span_below_spiele: "Ein Spiel des Spieltags liegt außerhalb dieses Zeitraums.",
+    spieltag_beginn_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
   } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**
@@ -325,6 +335,19 @@ export const SERVER_COPY = catalogue({
     addressChange: {
       /** The address on file's request opens on the page's question; the subject is the page's title. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
+    },
+
+    /**
+     * A team's registration link, to a confirmed contact seat: the link stands alone in the box, to be passed on
+     * rather than pressed. It names no end date, since a window moved later moves every link with it.
+     */
+    einladung: {
+      subject: (team: string) => `Registrierungslink für ${team}`,
+      passOn: (saison: string, team: string) =>
+        `Gib diesen Link an alle weiter, die in der ${COPY.shared.saisonName(saison)} für ${team} spielen.`,
+      key: "Wer den Link hat, kann sich für dein Team registrieren.",
+      admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
+      valid: "Der Link gilt bis zum Ende der Registrierung.",
     },
   },
 

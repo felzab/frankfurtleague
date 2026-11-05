@@ -8,14 +8,6 @@ export const BRAND_TILE_CLASSES =
   "flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-brand-solid-foreground shadow-sm";
 
 /**
- * The same square as a link — one step smaller, standing in a row of controls rather than beside a
- * heading. `hover:` rather than `data-hovered:`: a `next/link` writes no react-aria attribute
- * (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`).
- */
-export const BRAND_ICON_BUTTON_CLASSES =
-  "flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-brand-solid-foreground shadow-sm transition-colors duration-(--motion-base) hover:bg-brand-solid-hover";
-
-/**
  * A short identifier's chip, everything but its WIDTH: a caller declares that, two widths on one
  * element being resolved by the stylesheet's emit order with no `twMerge` in the path.
  */

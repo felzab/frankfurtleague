@@ -6,9 +6,9 @@ import { ROUTES } from "@/core/routes";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { spielortAnlegen } from "../../spielortAnlegen";
-import { SpielortFelder } from "../../SpielortFelder";
-import { SPIELORT_REGELN } from "../../spielortRegeln";
+import { createSpielort } from "../../createSpielort";
+import { SpielortFields } from "../../SpielortFields";
+import { SPIELORT_RULES } from "../../spielortRules";
 
 import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
@@ -40,8 +40,8 @@ export default function SpielortePage() {
       create={{
         title: COPY.shared.withObject(WORDS.object, "create"),
         act: { verb: "create", object: WORDS.object },
-        action: spielortAnlegen,
-        children: <SpielortFelder regeln={SPIELORT_REGELN} />,
+        action: createSpielort,
+        children: <SpielortFields rules={SPIELORT_RULES} />,
       }}
       list={{ kind: "table", search: { label: WORDS.search }, content: readSpielorte() }}
     />

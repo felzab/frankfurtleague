@@ -83,7 +83,7 @@ export function austrittZustand(type: FLAustrittType): Copy {
 }
 
 /** The badge form, for a table cell, a popover or a chip, where only two letters have room. */
-export function austrittKuerzel(type: FLAustrittType): Copy {
+function austrittKuerzel(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].kuerzel;
 }
 

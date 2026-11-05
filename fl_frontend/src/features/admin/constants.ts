@@ -64,17 +64,13 @@ export const ADMIN_SHELL_FALLBACK = {
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
-/** `/area/admin/spiele/[spiel_id]` gets no nav entry: the nav renders a link per entry, and there is no fixture index to link to. */
-export const ADMIN_SHELL_UNLISTED_SECTIONS = {
-  spiele: {
-    label: "Spiele",
-    hint: {
-      lead: "Ein einzelnes Spiel bearbeiten.",
-    },
-  },
-} as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
+/** The old frame's pages that get no nav entry, the nav rendering a link per entry: none stands today. */
+export const ADMIN_SHELL_UNLISTED_SECTIONS = {} as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
 
-/** The page of fixtures waiting on an entry, named where the erasure sends a reader to it, so a rename reaches both. */
+/**
+ * The old pages' name for the fixtures waiting on an entry, which the administrator's Übersicht shows: named in the
+ * erasure's and the rollover's sentences until their pages are rebuilt, and in no menu.
+ */
 export const HANDLUNGSBEDARF_EINTRAG = {
   id: "action_required",
   label: "Handlungsbedarf",
@@ -88,7 +84,7 @@ export const HANDLUNGSBEDARF_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The season list's entry, named where a taken season id sends a reader to the existing season, so a rename reaches both. */
-export const SAISONS_EINTRAG = {
+const SAISONS_EINTRAG = {
   id: "saisons",
   label: "Saisons",
   iconName: "Sliders",
@@ -96,44 +92,6 @@ export const SAISONS_EINTRAG = {
     lead: "Alle Saisons, mit Zeitraum und Regeln.",
     // What an admin comes here to do and cannot: no row carries a delete control, and none ever will.
     note: "Eine Saison wird nie gelöscht.",
-  },
-} as const satisfies SidemenuStructureSubOption<AdminIconName>;
-
-/** The season's matchdays, named where the season editor sends a reader to date them, so a rename reaches both. */
-export const SPIELTAGE_EINTRAG = {
-  id: "spieltage",
-  label: "Spieltage",
-  iconName: "Calendar",
-  hint: {
-    lead: "Die Spieltage der Saison.",
-    // What an admin comes here to do and cannot: this list has no create control, and the
-    // draw that makes a Spieltag is on the season page.
-    note: "Spieltage entstehen zusammen mit dem Spielplan.",
-  },
-} as const satisfies SidemenuStructureSubOption<AdminIconName>;
-
-/** The knockout rounds' entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
-export const FINALRUNDEN_EINTRAG = {
-  id: "finalrunden",
-  label: "Finalrunden",
-  iconName: "Medal",
-  hint: {
-    lead: "Die Finalrunden der Saison.",
-  },
-} as const satisfies SidemenuStructureSubOption<AdminIconName>;
-
-/** The fixture search's entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
-export const SPIELSUCHE_EINTRAG = {
-  id: "spielsuche",
-  label: "Spielsuche",
-  iconName: "Magnifier",
-  hint: {
-    lead: "Alle Spiele der Saison.",
-    points: [
-      // Herkunft is searched as the label a reader sees — „Sieger von Spiel 25“ finds the
-      // fixture fed by match 25, which no other term here would.
-      { term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
-    ],
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
@@ -208,12 +166,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     sub_options: [SAISONS_EINTRAG],
   },
 
-  // Grouped by what an admin DOES here: both are queues worked down to nothing, where every list
-  // below is one to look something up in.
+  // Grouped by what an admin DOES here: a queue worked down to nothing, where every list below is one to look
+  // something up in.
   {
     category_name: "Zu erledigen",
     sub_options: [
-      HANDLUNGSBEDARF_EINTRAG,
       {
         id: "bewerbungen",
         label: "Bewerbungen",
@@ -226,13 +183,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         },
       },
     ],
-  },
-
-  // Structure first, lookup last — not alphabetical: the Spieltage and the Finalrunden are what a
-  // season is built from, and the Spielsuche is how one fixture in it is found.
-  {
-    category_name: "Spielbetrieb",
-    sub_options: [SPIELTAGE_EINTRAG, FINALRUNDEN_EINTRAG, SPIELSUCHE_EINTRAG],
   },
 
   {
@@ -273,33 +223,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     ],
   },
 
-  // What gets booked ONTO a fixture rather than belonging to a club, which is why a referee sits
-  // beside a pitch and not beside a player.
-  {
-    category_name: "Ansetzung",
-    sub_options: [
-      {
-        id: "schiedsrichter",
-        label: "Schiedsrichter",
-        iconName: "Person",
-        hint: {
-          lead: "Alle Schiedsrichter, mit Kontakt und Honorar.",
-        },
-      },
-      {
-        id: "spielorte",
-        label: "Spielorte",
-        iconName: "MapPin",
-        hint: {
-          lead: "Alle Austragungsorte, mit Adresse und Miete.",
-        },
-      },
-    ],
-  },
-
-  // Its own group rather than rows under „Ansetzung“ or „Protokoll“: who may enter is neither a fixture
-  // nor a record of what an administrator did, and a group of its own keeps the other two answering
-  // for themselves.
+  // Its own group rather than rows under „Protokoll“: who may enter is no record of what an administrator
+  // did, and a group of its own keeps the log answering for itself.
   {
     category_name: "Zugang",
     sub_options: [
