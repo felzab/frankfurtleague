@@ -164,8 +164,8 @@ export function Segmented({
 
 /**
  * A small multi-select of short words, such as a season's allowed Stufen: the label above, one box per answer,
- * each chosen box lifted. React Aria's `ToggleButtonGroup` in multiple selection. It posts no form value, so its served
- * refusal comes as `errorMessage`, which its line shows as a field's shows its own.
+ * each chosen box edged and tinted in the link green. React Aria's `ToggleButtonGroup` in multiple selection. It
+ * posts no form value, so its served refusal comes as `errorMessage`, which its line shows as a field's shows its own.
  */
 export function ToggleBoxes({
   label,

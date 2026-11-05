@@ -59,25 +59,23 @@
   outline-width: 2px;
 }
 
-/* The active part of a composite control is a fill, the same under the pointer and the arrow keys. A chosen
-   item keeps its own mark, the inverted day of a calendar or a chosen row's tint, which the fill would cover:
-   there the focus is the 2-px ring drawn inside the item, as an item of a scrolling list draws it.
+/* The active part of a composite control is a fill, the same under the pointer and the arrow keys, and never a ring:
+   the ring belongs to the control holding the list.
 
-   A date's segment (`item`) is active while it holds the focus, since it is what the keys type into. An entry of
-   a list (`option`: a menu's entry, a select's option, a calendar's day) holds React Aria's focus past the
-   pointer: the pointer leaving it, or a menu opened by the pointer focusing its first entry, leaves the focus
-   where it was. So an entry fills while its focus is the pointer's, under it or pressing it, or the keys', or
-   while the submenu it opens stands, and never for a focus nobody is pointing at, as a native menu's
-   highlight leaves with the pointer. */
-[data-kit-focus="item"][data-focused]:not([data-selected]),
-[data-kit-focus="option"][data-focused]:is([data-hovered], [data-pressed], [data-focus-visible], [data-open]):not([data-selected]) {
+   A date's segment (`item`) is active while it holds the focus, since it is what the keys type into, and fills with
+   the muted grey. An entry of a list (`option`: a menu's entry, a select's option, a calendar's day) takes the one
+   hover layer every control takes under the pointer (`tokens.css`'s `bg-layer`), over its chosen mark too, the
+   green words or the calendar's inverted day, so a chosen entry under the pointer reads as its own mark one step
+   lit. It holds React Aria's focus past the pointer: the pointer leaving it, or a menu opened by the pointer
+   focusing its first entry, leaves the focus where it was. So an entry is lit while its focus is the pointer's,
+   under it or pressing it, or the keys', or while the submenu it opens stands, and never for a focus nobody is
+   pointing at, as a native menu's highlight leaves with the pointer. */
+[data-kit-focus="item"][data-focused] {
   background-color: var(--bg-muted);
 }
 
-[data-kit-focus="item"][data-focused][data-selected],
-[data-kit-focus="option"][data-focused]:is([data-hovered], [data-pressed], [data-focus-visible], [data-open])[data-selected] {
-  outline-width: 2px;
-  outline-offset: -2px;
+[data-kit-focus="option"][data-focused]:is([data-hovered], [data-pressed], [data-focus-visible], [data-open]) {
+  @apply bg-layer;
 }
 
 /* In a field showing its error, the active part tints red the way a chip or a callout does, 12 % of the

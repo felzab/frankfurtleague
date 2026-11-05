@@ -91,11 +91,11 @@ export default function SaisonSettingsPage({ params }: Props) {
     <EditorShell
       wait={{
         sections: [
-          ["pair"],
-          ["pair", "field", "pair"],
-          ["pair", "field"],
+          [{ columns: 2, width: "C10" }],
+          ["subhead", { columns: 3, width: "C2" }, "field", "subhead", { columns: 2, width: "C2" }],
+          [{ columns: 2, width: "C2" }, "field"],
           ["field", "field"],
-          ["pair"],
+          [{ columns: 2, width: "C10" }],
           ["field", "field"],
           ["field"],
           ["pair"],

@@ -104,12 +104,11 @@
     --target-highlight: 2s;
   }
 
-  /* The fill a control without one of its own, a secondary, quiet or icon button, takes under the pointer, and a
-     placeholder's bar takes while it waits (`kit/Skeleton.tsx`): a step off the ground it stands on. The muted fill
-     is that step on the page, a card and an overlay; on a card's head, which the dark theme fills with the muted grey
-     itself, the step would vanish, so a head redeclares it as its own hover's step (`cardStyles.ts :: headGround`),
-     as the band redeclares `--focus-ring`. Resolved on the root, which carries `data-theme`, so it follows the
-     theme. */
+  /* The fill a placeholder's bar takes while it waits (`kit/Skeleton.tsx`): a step off the ground it stands on. The
+     muted fill is that step on the page, a card and an overlay; on a card's head, which the dark theme fills with the
+     muted grey itself, the step would vanish, so a head redeclares it as the head's own step
+     (`cardStyles.ts :: headGround`), as the band redeclares `--focus-ring`. Resolved on the root, which carries
+     `data-theme`, so it follows the theme. */
   :root {
     --bg-hover: var(--bg-muted);
   }
@@ -270,6 +269,14 @@
 
   --shadow-menu: var(--menu-shadow);
   --shadow-dialog: var(--dialog-shadow);
+
+  /* The one hover, `bg-layer`: 12 % of the control's own text colour laid over its fill as an image, so it shows on
+     whatever ground or fill the control has, a primary button's green and a row's card alike, and a button's layer over
+     its row's reads as a step of its own. Inline, so `currentColor` is the colour of the element the class stands on. */
+  --background-image-layer: linear-gradient(
+    color-mix(in srgb, currentColor 12%, transparent),
+    color-mix(in srgb, currentColor 12%, transparent)
+  );
 }
 
 /* No namespace is reset to `initial` while HeroUI's stylesheets `@apply` Tailwind's default scale, so

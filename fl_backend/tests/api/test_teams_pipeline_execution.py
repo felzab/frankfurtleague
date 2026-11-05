@@ -23,6 +23,7 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 STANDARD_RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
+    loss_points=0,
     qualifiers_per_gruppe=2,
     number_of_gruppen=4,
     teams_per_gruppe=4,
@@ -180,9 +181,14 @@ def test_points_come_from_the_seasons_own_rules(league: SeededLeague):
     assert table(league, rules=unusual)["Helmholtz"]["punkte"] == 2
 
 
-def test_a_defeat_is_worth_nothing(league: SeededLeague):
-    """Bock's win and loss together are worth exactly one win."""
-    assert table(league)["Bock"]["punkte"] == STANDARD_RULES.win_points
+def test_a_defeat_scores_the_seasons_loss_points(league: SeededLeague):
+    """A season scoring a defeat shows a table a point short for every loss where the sum drops the third term.
+
+    Bock's win and loss are worth one win and one loss.
+    """
+    scored = STANDARD_RULES.model_copy(update={"loss_points": 1})
+
+    assert table(league, rules=scored)["Bock"]["punkte"] == scored.win_points + scored.loss_points
 
 
 def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):

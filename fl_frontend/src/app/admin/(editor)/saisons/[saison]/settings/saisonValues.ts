@@ -12,6 +12,7 @@ export type SaisonValues = {
   end: CalendarDay | null;
   winPoints: string;
   drawPoints: string;
+  lossPoints: string;
   tiebreak: string;
   gruppen: string;
   teamsPerGruppe: string;
@@ -34,6 +35,7 @@ export function valuesOf(saison: FLSaisonAdmin): SaisonValues {
     end: dayOf(saison.end_date),
     winPoints: String(rules.win_points),
     drawPoints: String(rules.draw_points),
+    lossPoints: String(rules.loss_points),
     tiebreak: rules.tiebreak_order,
     gruppen: String(rules.number_of_gruppen),
     teamsPerGruppe: String(rules.teams_per_gruppe),

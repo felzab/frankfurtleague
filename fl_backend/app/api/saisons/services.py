@@ -152,7 +152,7 @@ def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
 # What a started season holds fixed: a league does not change its scoring or its seeding mid-season.
 # `allowed_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
-FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_gruppe", "tiebreak_order")
+FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_points", "qualifiers_per_gruppe", "tiebreak_order")
 
 # The three the fixtures were drawn from. A RAISE is what nothing else refuses: `count_spiele` is
 # derived per matchday, so every matchday would then expect matches nobody drew, and

@@ -19,10 +19,10 @@ import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { IconName } from "./Icon";
 
-// A menu's entry, as tall as every control under a mouse and under a finger, filling under the pointer.
+// A menu's entry, as tall as every control under a mouse and under a finger, taking the one hover layer under the pointer.
 const entry = tv({
   extend: menuEntry,
-  base: "transition-colors duration-(--motion-state) hover:bg-bg-muted pointer-coarse:h-10 pointer-coarse:text-base",
+  base: "hover:bg-layer pointer-coarse:h-10 pointer-coarse:text-base",
 });
 
 /** One way on from the club: its glyph, then its words. */
@@ -59,7 +59,7 @@ export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText
       onOpenChange={setOpen}>
       <AriaButton
         data-kit-focus="ring"
-        className={plaqueLook({ known: true, class: "relative z-10 cursor-pointer" })}>
+        className={plaqueLook({ known: true, class: "relative z-10 cursor-pointer data-hovered:bg-layer data-pressed:bg-layer" })}>
         {plaque.record}
       </AriaButton>
       <Popover

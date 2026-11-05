@@ -11815,6 +11815,11 @@
           "forfeit_ergebnis": {
             "$ref": "#/components/schemas/FLSaisonForfeitErgebnis"
           },
+          "loss_points": {
+            "minimum": 0.0,
+            "title": "Loss Points",
+            "type": "integer"
+          },
           "max_kadergroesse": {
             "exclusiveMinimum": 0.0,
             "title": "Max Kadergroesse",
@@ -11854,6 +11859,7 @@
         "required": [
           "win_points",
           "draw_points",
+          "loss_points",
           "qualifiers_per_gruppe",
           "number_of_gruppen",
           "teams_per_gruppe",

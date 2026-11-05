@@ -36,9 +36,11 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
           scope="area"
           title={null}
           bar={
-            <Placeholder layout={editorBarLook()}>
-              <span className="min-w-0 flex-1" />
-              <span className={buttonPlaceholder("w-24")} />
+            <Placeholder layout={editorBarLook().bar()}>
+              <span className={editorBarLook().row()}>
+                <span className="min-w-0 flex-1" />
+                <span className={buttonPlaceholder("w-24")} />
+              </span>
             </Placeholder>
           }>
           <Waiting layout={formColumn()}>

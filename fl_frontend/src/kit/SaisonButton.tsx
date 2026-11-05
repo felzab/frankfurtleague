@@ -17,7 +17,8 @@ import { tv } from "./tv";
 const trigger = tv({
   slots: {
     place: "",
-    root: "inline-flex items-center justify-between gap-2 rounded-lg border text-sm whitespace-nowrap transition-colors duration-(--motion-state)",
+    // Under the pointer and pressed, the one hover layer, on the rail and on the band alike.
+    root: "inline-flex items-center justify-between gap-2 rounded-lg border text-sm whitespace-nowrap data-hovered:bg-layer data-pressed:bg-layer",
     lines: "grid min-w-0 gap-1 text-start",
     name: "truncate",
     span: "font-numeric text-xs font-normal text-fg-muted",
@@ -34,7 +35,7 @@ const trigger = tv({
     placement: {
       rail: {
         place: "px-3 pt-3 pb-1",
-        root: "relative min-h-14 w-full overflow-hidden border-border bg-transparent px-4 py-2 font-semibold text-fg data-hovered:bg-bg-muted data-pressed:bg-bg-muted",
+        root: "relative min-h-14 w-full overflow-hidden border-border bg-transparent px-4 py-2 font-semibold text-fg",
         lines: railFade(),
         arrow: railFade({ class: "text-fg-muted" }),
         glyph:

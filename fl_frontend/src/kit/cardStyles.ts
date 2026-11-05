@@ -8,22 +8,19 @@ import { tv } from "./tv";
 export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-card" });
 
 /**
- * The fill under the pointer of a row or a link covering a box of the card's surface: one step above the
- * card, so it shows on the raised card as on the page. A card's rows, a table's linked rows, `LinkRows` and
- * a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place) read it.
+ * A row or a link covering a box of the card's surface under the pointer: the one hover layer (`bg-layer`) over the
+ * card, so a button standing in the row lays its own over it, a step of its own. A card's rows, a table's linked
+ * rows, `LinkRows` and a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place)
+ * read it.
  */
-export const cardHover = tv({ base: "transition-colors duration-(--motion-state) hover:bg-bg-muted" });
+export const cardHover = tv({ base: "hover:bg-layer" });
 
 /**
- * The step a control's hover and a placeholder's bar take over a card's head, which `tokens.css`'s `--bg-hover`
- * otherwise sets one step off the page, and which the dark theme's head, filled with that very grey, would swallow: on
- * the head itself, and on a control standing over a head it is no child of, as the match pop-up's closing button over
- * its band.
+ * A card's head as a ground, the one band a card, Konto's box foot and the match head stand on: its fill, and the step
+ * a placeholder's bar takes on it. `tokens.css`'s `--bg-hover` sets that step one off the page, which the dark theme's
+ * head, filled with that very grey, would swallow, so the head redeclares it as its own.
  */
-export const overHead = tv({ base: "[--bg-hover:var(--bg-card-head-hover)]" });
-
-/** A card's head as a ground, the one band a card, Konto's box foot and the match head stand on: its fill and its hover step. */
-export const headGround = tv({ base: `bg-bg-card-head ${overHead()}` });
+export const headGround = tv({ base: "bg-bg-card-head [--bg-hover:var(--bg-card-head-hover)]" });
 
 /**
  * The hairline parting parts stacked one under another inside one box, drawn above every part but the first: a
@@ -93,12 +90,12 @@ export const card = tv({
     },
     // The head is the fold's button, the whole width, its title after the chevron. A folded card is its head
     // alone, so the line between head and body is the body's, and goes with it; the chevron turns to point
-    // down while the body shows. Under the pointer and pressed the head lifts a step, as every pressable row
-    // answers the pointer.
+    // down while the body shows. Under the pointer and pressed the head takes the one hover layer over its band, as
+    // every pressable row answers the pointer.
     fold: {
       true: {
         root: "group/fold",
-        head: "w-full cursor-pointer border-b-0 text-left transition-colors duration-(--motion-state) data-hovered:bg-bg-card-head-hover data-pressed:bg-bg-card-head-hover",
+        head: "w-full cursor-pointer border-b-0 text-left data-hovered:bg-layer data-pressed:bg-layer",
         title: "flex items-center gap-2",
         body: "border-t border-border",
         chevron: "flex shrink-0 text-fg-muted transition-transform duration-(--motion-state) group-data-expanded/fold:rotate-90",

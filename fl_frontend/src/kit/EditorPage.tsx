@@ -7,6 +7,7 @@ import { Form } from "react-aria-components/Form";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
@@ -30,7 +31,7 @@ import type { FormStatus } from "./useFormAction";
  * the sentence under the title saying why some of its fields cannot change, such as a season's start fixed once a
  * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
  */
-export type EditorSection = { id: string; title: Copy; help?: Copy; note?: Copy; fields: ReactElement };
+export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; note?: Copy; fields: ReactElement };
 
 /**
  * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
@@ -69,7 +70,8 @@ function DangerRow({ act }: { act: DangerAct }) {
   // replaces the consequence, which rests in the small muted face of the reason taking its place.
   const line: FormStatus = refusal === null ? lockedLine(locked ?? act.consequence) : { tone: "error", text: refusal };
   return (
-    <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] px-4 py-2 lg:min-h-13">
+    // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
+    <div className={`flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}`}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
         <StatusLine
