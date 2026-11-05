@@ -140,6 +140,7 @@ import type {
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
+  FLSaisonAdminResponse,
   FLSaisonFrameResponse,
   FLSaisonsAdminListResponse,
   FLSaisonSpielerResponse,
@@ -2619,6 +2620,32 @@ export const saisonsActivateSaison = async (
   return adminKeyTransport<FLActivateSaisonResponse>(getSaisonsActivateSaisonUrl(saisonId), {
     ...options,
     method: "POST",
+  });
+};
+
+export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+};
+
+/**
+ * Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+ *
+ * The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
+ * fixture of it has taken place (`taken_place`).
+ *
+ * Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
+ * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
+ * every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+ * season holds that id.
+ * @summary One Saison for the admin editor
+ */
+export const saisonsGetSaisonAdmin = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonAdminResponse> => {
+  return adminKeyTransport<FLSaisonAdminResponse>(getSaisonsGetSaisonAdminUrl(saisonId), {
+    ...options,
+    method: "GET",
   });
 };
 

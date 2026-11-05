@@ -1783,7 +1783,7 @@ export const SaisonsPatchSaisonBody = zod.object({
     win_points: zod.int().gt(saisonsPatchSaisonBodyRulesWinPointsExclusiveMin),
   }),
   start_date: zod.string().regex(saisonsPatchSaisonBodyStartDateRegExp),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int(),
 });
 
 /**
@@ -1794,6 +1794,22 @@ export const SaisonsPatchSaisonBody = zod.object({
  * @summary Make this the active Saison
  */
 export const SaisonsActivateSaisonParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+ *
+ * The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
+ * fixture of it has taken place (`taken_place`).
+ *
+ * Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
+ * exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
+ * every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+ * season holds that id.
+ * @summary One Saison for the admin editor
+ */
+export const SaisonsGetSaisonAdminParams = zod.object({
   saison_id: zod.string(),
 });
 

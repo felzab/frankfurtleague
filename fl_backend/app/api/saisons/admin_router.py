@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
@@ -40,7 +41,11 @@ from app.api.saisons.schemas import (
     FLPatchSaisonPayload,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
+    FLSaisonAdmin,
+    FLSaisonAdminClub,
     FLSaisonAdminListAdapter,
+    FLSaisonAdminResponse,
+    FLSaisonAdminTeam,
     FLSaisonRules,
     FLSaisonsAdminListResponse,
     FLSaisonsFilterParams,
@@ -64,6 +69,7 @@ from app.api.saisons.services import (
     holds_a_recorded_fact,
     unplayed_spiel_nrs,
     with_schedule,
+    workable_shapes,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
@@ -218,6 +224,95 @@ async def get_saisons_admin(
     ]
 
     return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
+
+
+# Declared after `/list/admin`, which it would otherwise answer with `list` as a season id; a static suffix rather than
+# a second `GET /{saison_id}`, which the public router owns at this same prefix.
+@router.get("/{saison_id}/admin", response_model=FLSaisonAdminResponse, summary="One Saison for the admin editor")
+async def get_saison_admin(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spiele_collection: SpieleCollection,
+    spieltage_collection: SpieltageCollection,
+    teams_collection: TeamsCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLSaisonAdminResponse:
+    """
+    Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.
+
+    The season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a
+    fixture of it has taken place (`taken_place`).
+
+    Each club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes
+    exactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is
+    every club still in the league holding no row of the season, which is what the replacement admits. 404 where no
+    season holds that id.
+    """
+
+    saison_raw, rows, fixtures, count_spieltage, clubs = await asyncio.gather(
+        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}),
+        pull_many_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id},
+            projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
+            sort_by=build_sort(sort_by="name", order="asc"),
+            collation=GERMAN_COLLATION,
+            limit=LIST_LIMIT_DEFAULT + 1,
+        ),
+        pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id},
+            projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
+            limit=LIST_LIMIT_DEFAULT + 1,
+        ),
+        spieltage_collection.count_documents({"saison_id": saison_id}),
+        pull_many_from_db(
+            collection=teams_collection,
+            db_filter={"inactive_since": None},
+            projection=["name", "shorthand"],
+            sort_by=build_sort(sort_by="name", order="asc"),
+            collation=GERMAN_COLLATION,
+            limit=LIST_LIMIT_DEFAULT + 1,
+        ),
+    )
+
+    # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks: a truncated list grades a
+    # club open whose taken-place fixture fell past the page, and offers a club the replacement refuses as entered.
+    for listed, what in ((rows, "teams"), (fixtures, "fixtures"), (clubs, "clubs")):
+        if len(listed) > LIST_LIMIT_DEFAULT:
+            raise ValueError(f"season {saison_id} reads more than {LIST_LIMIT_DEFAULT} {what}, which is more than one read can grade")
+
+    played = [spiel for spiel in fixtures if has_taken_place(spiel)]
+
+    def has_played(team_id: Any, *, group_only: bool) -> bool:
+        return any(
+            team_id in ((spiel.get("team1") or {}).get("team_id"), (spiel.get("team2") or {}).get("team_id"))
+            for spiel in played
+            if not group_only or spiel.get("saison_phase") == "gruppenphase"
+        )
+
+    entered = {row["team_id"] for row in rows}
+    saison = FLSaisonAdmin.model_validate(
+        {**with_schedule(saison_raw), "begun": has_started(start_date=str(saison_raw["start_date"]), today=today), "taken_place": bool(played)}
+    )
+
+    return FLSaisonAdminResponse(
+        saison=saison,
+        teams=[
+            FLSaisonAdminTeam.model_validate(
+                {
+                    **row,
+                    "group_fixture_taken_place": has_played(row["team_id"], group_only=True),
+                    "fixture_taken_place": has_played(row["team_id"], group_only=False),
+                }
+            )
+            for row in rows
+        ],
+        incoming_clubs=[FLSaisonAdminClub.model_validate(club) for club in clubs if club["_id"] not in entered],
+        shapes=workable_shapes(saison.rules),
+        count_spieltage=count_spieltage,
+    )
 
 
 @router.post(

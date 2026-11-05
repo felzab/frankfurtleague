@@ -19,6 +19,8 @@ const create = (overrides: Partial<Record<keyof FLSaisonRules, unknown>> = {}) =
   bewerbung: { start: "2025-05-01", end: "2025-06-30" },
   registrierung: { offen: true, end: "2025-08-15" },
   rules: { ...rules, ...overrides },
+  // The patch's served version; the create carries none and strips it.
+  version: 0,
 });
 
 /** Every path a failure names, so a case asserts WHICH field the message lands under. */

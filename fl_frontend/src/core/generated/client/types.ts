@@ -3566,7 +3566,7 @@ export interface FLPatchSaisonPayload {
   rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
-  version?: number | null;
+  version: number;
 }
 
 /**
@@ -4325,6 +4325,49 @@ export interface FLSaisonAdmin {
   status: FLSaisonStatus;
   taken_place: boolean;
   version: number;
+}
+
+/**
+ * A club a replacement may bring into the season: one still in the league that holds no row of it.
+ */
+export interface FLSaisonAdminClub {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  name: string;
+  shorthand: string;
+}
+
+/**
+ * One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
+ *
+ * Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
+ * `sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed
+ * where either club's is; over every fixture for the replacement, which hands the whole schedule over.
+ */
+export interface FLSaisonAdminTeam {
+  austritt: FLAustritt | null;
+  fixture_taken_place: boolean;
+  group_fixture_taken_place: boolean;
+  gruppe: FLGruppenNames;
+  name: string;
+  shorthand: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+/**
+ * What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.
+ *
+ * `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
+ * `count_spieltage` is the matchdays the season holds.
+ */
+export interface FLSaisonAdminResponse {
+  /** @minimum 0 */
+  count_spieltage: number;
+  incoming_clubs: FLSaisonAdminClub[];
+  saison: FLSaisonAdmin;
+  shapes: FLSpielplanShape[];
+  teams: FLSaisonAdminTeam[];
 }
 
 /**

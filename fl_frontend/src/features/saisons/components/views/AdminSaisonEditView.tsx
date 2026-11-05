@@ -18,7 +18,7 @@ import type {
 } from "@/features/saisons/types";
 
 type AdminSaisonEditViewProps = {
-  saison: { id: string; status: FLSaisonStatus } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
+  saison: { id: string; status: FLSaisonStatus; version: number } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
   rollover: SaisonRolloverContext;
   swap: SaisonGruppenSwapContext;
   ersatz: SaisonReplacementContext;

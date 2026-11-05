@@ -241,6 +241,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
           rules: RULES,
           bewerbung: null,
           registrierung: null,
+          version: 0,
         },
         rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
         // Two clubs in two groups, so only the start can close the picker.

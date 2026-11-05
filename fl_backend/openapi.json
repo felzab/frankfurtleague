@@ -8551,15 +8551,8 @@
             "type": "string"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -8567,7 +8560,8 @@
           "end_date",
           "rules",
           "bewerbung",
-          "registrierung"
+          "registrierung",
+          "version"
         ],
         "title": "FLPatchSaisonPayload",
         "type": "object"
@@ -10960,6 +10954,124 @@
           "taken_place"
         ],
         "title": "FLSaisonAdmin",
+        "type": "object"
+      },
+      "FLSaisonAdminClub": {
+        "description": "A club a replacement may bring into the season: one still in the league that holds no row of it.",
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "shorthand"
+        ],
+        "title": "FLSaisonAdminClub",
+        "type": "object"
+      },
+      "FLSaisonAdminResponse": {
+        "description": "What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.\n\n`shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;\n`count_spieltage` is the matchdays the season holds.",
+        "properties": {
+          "count_spieltage": {
+            "minimum": 0.0,
+            "title": "Count Spieltage",
+            "type": "integer"
+          },
+          "incoming_clubs": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonAdminClub"
+            },
+            "title": "Incoming Clubs",
+            "type": "array"
+          },
+          "saison": {
+            "$ref": "#/components/schemas/FLSaisonAdmin"
+          },
+          "shapes": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielplanShape"
+            },
+            "title": "Shapes",
+            "type": "array"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonAdminTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "saison",
+          "teams",
+          "incoming_clubs",
+          "shapes",
+          "count_spieltage"
+        ],
+        "title": "FLSaisonAdminResponse",
+        "type": "object"
+      },
+      "FLSaisonAdminTeam": {
+        "description": "One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.\n\nBoth flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's\n`sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed\nwhere either club's is; over every fixture for the replacement, which hands the whole schedule over.",
+        "properties": {
+          "austritt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAustritt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fixture_taken_place": {
+            "title": "Fixture Taken Place",
+            "type": "boolean"
+          },
+          "group_fixture_taken_place": {
+            "title": "Group Fixture Taken Place",
+            "type": "boolean"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "name",
+          "shorthand",
+          "gruppe",
+          "austritt",
+          "group_fixture_taken_place",
+          "fixture_taken_place"
+        ],
+        "title": "FLSaisonAdminTeam",
         "type": "object"
       },
       "FLSaisonBewerbung": {
@@ -23549,6 +23661,80 @@
           }
         ],
         "summary": "Make this the active Saison",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
+    "/api/v0/saisons/{saison_id}/admin": {
+      "get": {
+        "description": "Return what the season editor shows in one read: the season and its clubs, the clubs a replacement may bring in, its shapes and matchdays.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`) and whether a\nfixture of it has taken place (`taken_place`).\n\nEach club's two flags are what the group swap's and the replacement's `sides_taken_place` read, so a picker closes\nexactly the pairs and rows those writes refuse; `begun` closes both before either is pressed. `incoming_clubs` is\nevery club still in the league holding no row of the season, which is what the replacement admits. 404 where no\nseason holds that id.",
+        "operationId": "saisons_get_saison_admin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison for the admin editor",
         "tags": [
           "saisons"
         ]

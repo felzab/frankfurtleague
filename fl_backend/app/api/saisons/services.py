@@ -5,7 +5,7 @@ from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
 from app.api.spiele.schemas import FLSpiel, is_unplayed
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
@@ -285,6 +285,29 @@ def find_rules_refusal(
             )
 
     return None
+
+
+def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
+    """Every shape the draw would take beside these rules' others: each judged by `find_rules_refusal` as the draw judges it.
+
+    So the editor offers exactly the shapes the write admits, the bracket's sizes among them, rather than a copy of the
+    rules. A product the knockout ladder cannot halve to a final is skipped unjudged, the bracket rule refusing it on
+    every season; the occupancy and the span are the season's state, judged on the draw itself.
+    """
+
+    shapes: list[FLSpielplanShape] = []
+    for groups in range(1, MAX_NUMBER_OF_GROUPS + 1):
+        for teams in range(MIN_TEAMS_PER_GROUP, MAX_TEAMS_PER_GROUP + 1):
+            for qualifiers in range(1, teams + 1):
+                if not knockout_phases_for(groups * qualifiers):
+                    continue
+                shape = FLSpielplanShape(number_of_gruppen=groups, teams_per_gruppe=teams, qualifiers_per_gruppe=qualifiers)
+                # `model_copy` skips validation, safely as on the draw: the shape's own model declares the three.
+                candidate = rules.model_copy(update=shape.model_dump())
+                if find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}, highest_wired_platz=0) is None:
+                    shapes.append(shape)
+
+    return shapes
 
 
 def find_saison_span_refusal(

@@ -198,6 +198,8 @@ export const FLPatchSaisonPayloadSchema = z
     // In the PATH on the wire; here because the editor has to know which season it is saving.
     id: saisonIdReference,
     ...saisonPayloadFields,
+    // The season's `version` as the editor was served it, which the save is checked against.
+    version: z.int(),
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
   .refine((saison) => saison.bewerbung === null || windowRunsForwards(saison.bewerbung.start, saison.bewerbung.end), windowEndsAfterItOpens);

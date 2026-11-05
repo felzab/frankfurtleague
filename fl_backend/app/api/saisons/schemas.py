@@ -6,7 +6,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
 from app.core import clock
 
 # Imported rather than restated. Acyclic: no model of `teams` imports this file --
@@ -40,7 +40,9 @@ QualifiersPerGroup = Annotated[int, Field(gt=0)]
 NumberOfGroups = Annotated[int, Field(gt=0, le=MAX_NUMBER_OF_GROUPS)]
 # The floor stops a group phase generating no fixture at all; the ceiling bounds one GROUP, where
 # what a whole season may play is `rules_spiele_over_one_read`, weighing every group and the bracket at once.
-TeamsPerGroup = Annotated[int, Field(ge=2, le=16)]
+MIN_TEAMS_PER_GROUP: Final = 2
+MAX_TEAMS_PER_GROUP: Final = 16
+TeamsPerGroup = Annotated[int, Field(ge=MIN_TEAMS_PER_GROUP, le=MAX_TEAMS_PER_GROUP)]
 
 
 class FLSaisonRules(BaseModel):
@@ -256,8 +258,8 @@ class FLPostSaisonPayload(_SaisonPayload):
 # The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no
 # OpenAPI component, and the generated client names the patch's body by it.
 class FLPatchSaisonPayload(_SaisonPayload):
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the editor was served, so a save over a season another write moved since is refused as stale.
+    version: int
 
 
 class FLSwapGruppenPayload(BaseModel):
@@ -285,6 +287,31 @@ class FLSwapGruppenResponse(BaseAPIResponse):
     team2_id: CustomObjectId
     team2_gruppe: FLGruppenNames
     rewritten_spiele: int
+
+
+class FLSaisonAdminTeam(BaseReadModel):
+    """One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
+
+    Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
+    `sides_taken_place` reads: over its group fixtures for the swap, which rewrites those alone, so a pair is closed
+    where either club's is; over every fixture for the replacement, which hands the whole schedule over.
+    """
+
+    team_id: CustomObjectId
+    name: str
+    shorthand: str
+    gruppe: FLGruppenNames
+    austritt: FLAustritt | None
+    group_fixture_taken_place: bool
+    fixture_taken_place: bool
+
+
+class FLSaisonAdminClub(BaseReadModel):
+    """A club a replacement may bring into the season: one still in the league that holds no row of it."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    name: str
+    shorthand: str
 
 
 class FLSaisonsAdminListResponse(BaseAPIResponse):
@@ -394,6 +421,20 @@ class FLUndrawSpielplanResponse(BaseAPIResponse):
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
     watermark_cleared: bool
+
+
+class FLSaisonAdminResponse(BaseAPIResponse):
+    """What the season editor shows, in one read: the season, its clubs, the clubs a replacement may bring in, its shapes and its matchdays.
+
+    `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
+    `count_spieltage` is the matchdays the season holds.
+    """
+
+    saison: FLSaisonAdmin
+    teams: list[FLSaisonAdminTeam]
+    incoming_clubs: list[FLSaisonAdminClub]
+    shapes: list[FLSpielplanShape]
+    count_spieltage: int = Field(ge=0)
 
 
 class FLTeamPageSpiel(FLSpielJoined):

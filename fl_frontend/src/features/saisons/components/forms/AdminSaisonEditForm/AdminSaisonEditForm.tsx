@@ -84,7 +84,7 @@ export function AdminSaisonEditForm({
   isSaveExitAsked,
   onSaveExitAskedChange,
 }: {
-  saison: { id: string; status: FLSaisonStatus } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
+  saison: { id: string; status: FLSaisonStatus; version: number } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
@@ -142,6 +142,7 @@ export function AdminSaisonEditForm({
     rules,
     bewerbung,
     registrierung,
+    version: saison.version,
   });
 
   const draftFields: SaisonDraftFields = {

@@ -607,6 +607,7 @@ class TestTheSeasonsSpans:
             "rules": stored["rules"],
             "bewerbung": {"start": "2025-09-01", "end": "2025-10-31"},
             "registrierung": {"offen": True, "end": "2025-12-15"},
+            "version": 0,
             **overrides,
         }
 

@@ -174,6 +174,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
         rules: saison.rules,
         bewerbung: saison.bewerbung,
         registrierung: saison.registrierung,
+        version: saison.version,
       }}
       rollover={rollover}
       swap={swap}
