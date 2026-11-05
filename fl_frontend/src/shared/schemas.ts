@@ -115,9 +115,9 @@ export const ADDRESS_STADTTEIL_MAX_LENGTH = 80;
 export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 
 /**
- * `FLAddressPayload`, what every write payload embeds, judged in the browser: the venue, club and application forms
- * (`AdminCreateSpielortForm.tsx`, `AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds
- * this, and the generated Zod is `server-only`.
+ * `FLAddressPayload`, what every write payload embeds, judged in the browser: the club and application forms
+ * (`AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds this, and the generated
+ * Zod is `server-only`.
  */
 export const FLAddressPayloadSchema = z.object({
   strasse: z

@@ -27,8 +27,8 @@ check is on this page.
   this rule as a name does, each segment a league word or English, save `/impressum` and `/datenschutz`,
   the words German law and a German visitor look for (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`,
   which `fl_frontend/src/core/routes.test.ts` holds every address to but those under the two trees its
-  `UNHELD` names: `/area/admin`, the administration's old pages, until sessions 5 to 7 rebuild them,
-  and `/api/bestaetigung`, the confirmation handlers, until sessions 5, 6 and 8 move their last
+  `UNHELD` names: `/area/admin`, the administration's old pages, until sessions 6 and 7 rebuild them,
+  and `/api/bestaetigung`, the confirmation handlers, until sessions 6 and 8 move their last
   importers). A stored or served name — a collection, a field, a value, an index — follows this rule
   as a code name does: a core entity or attribute of the league keeps the glossary's German word
   (`saison_phase`, `sonderereignis`, `mietpreis`), and every other data noun is English
