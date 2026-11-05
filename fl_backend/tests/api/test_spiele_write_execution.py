@@ -1290,6 +1290,29 @@ class TestAResultEnteredAfterTheQuestionIsNotDeletedUnasked:
         assert after == before, "a refused save wrote something"
         assert after[HALBFINALE_FROM_GRUPPE_NR]["ergebnis"] == entered
 
+    def test_a_release_refused_after_its_write_is_taken_back(self, mongo_replica_set_url: str):
+        """The release writes before the save is judged stale, so a release outside the transaction would outlive the refusal.
+
+        The held fixture would keep its club removed and its result deleted, by a save that answered it was refused.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await spiele_now(database)
+            spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA))
+
+            # Confirming nothing where the release deletes the held fixture's 2:1.
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data, confirming=[])
+
+            return refused.value, before, await spiele_now(database)
+
+        refused, before, after = on_a_seeded_season(
+            mongo_replica_set_url, body, spiele=one_spieltag(opponent=BETA, ergebnis="2:1", tore=(2, 1))
+        )
+
+        assert refused.error_code == Code.VOIDED_RESULTS_STALE
+        assert after == before, "a refused save wrote something"
+
 
 # The quarter-final corrected so Alpha won it, which hands Alpha the semi-final's first slot and voids
 # the result the semi-final was played to.
