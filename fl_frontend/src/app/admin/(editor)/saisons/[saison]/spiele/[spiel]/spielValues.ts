@@ -35,6 +35,20 @@ export const isNoShow = (sonderereignis: FLSonderereignis | string | null) =>
 export const takesNoResult = (sonderereignis: FLSonderereignis | string | null) =>
   sonderereignis === "ausgefallen" || sonderereignis === "annulliert";
 
+/** The referee's proposal as „Übernehmen“ carries it into the result's fields, and the report's version it stamps. */
+export type Proposal = { version: number; values: Partial<SpielValues> };
+
+/** Whether these values still hold the proposal, every field it sets at the value it sets. */
+export const holdsProposal = (proposal: Proposal | null, values: SpielValues) =>
+  proposal !== null && Object.entries(proposal.values).every(([key, value]) => values[key as keyof SpielValues] === value);
+
+/**
+ * The report's version a save stamps adopted: only once „Übernehmen“ was pressed, and only while the values the save
+ * stores still hold its proposal, so a result changed after it is never recorded as the report's; else none.
+ */
+export const adoptsBerichtOf = (proposal: Proposal | null, pressed: boolean, saved: SpielValues): number | null =>
+  pressed && proposal !== null && holdsProposal(proposal, saved) ? proposal.version : null;
+
 const figure = (value: number | null | undefined) => (value === null || value === undefined ? "" : String(value));
 
 /**

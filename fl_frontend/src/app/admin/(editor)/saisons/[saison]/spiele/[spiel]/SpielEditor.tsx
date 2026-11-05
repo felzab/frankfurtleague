@@ -21,7 +21,7 @@ import { COPY } from "@/core/copy";
 import { admitsShootOut } from "@/features/spiele/shootOut";
 
 import { SpielortFields } from "../../../../../SpielortFields";
-import { isNoShow, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
+import { adoptsBerichtOf, holdsProposal, isNoShow, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
@@ -111,13 +111,8 @@ export function SpielEditor({
 }) {
   // „Übernehmen“ was pressed, so the save stamps the report adopted while the fields still hold its proposal.
   const [adopted, setAdopted] = useState(false);
-  const holdsProposal = (draft: SpielValues) =>
-    adoption !== null && Object.entries(adoption.values).every(([key, value]) => draft[key as keyof SpielValues] === value);
   const editor = useEditor(record, (change) =>
-    save({
-      ...change,
-      adoptsBericht: adopted && adoption !== null && holdsProposal({ ...record.values, ...change.changes }) ? adoption.version : null,
-    }),
+    save({ ...change, adoptsBericht: adoptsBerichtOf(adoption, adopted, { ...record.values, ...change.changes }) }),
   );
   const { draft, set } = editor;
   // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
@@ -350,7 +345,7 @@ export function SpielEditor({
                   {...(shootOutTyped ? {} : { consequence: WORDS.shootOutMissing })}
                 />
               )}
-              {adoption !== null && !holdsProposal(draft) && (
+              {adoption !== null && !holdsProposal(adoption, draft) && (
                 <AdoptLine
                   text={adoption.text}
                   onAdopt={() => {
