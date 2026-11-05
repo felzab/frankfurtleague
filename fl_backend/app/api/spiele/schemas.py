@@ -170,7 +170,7 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
 
     # The TYPE alone, as `fl_backend/app/api/teams/schemas.py :: FLGruppenTeam` narrows a league
     # table row: a card says WHICH way a club left, its own page publishes the reason and the date.
-    # Null ALSO covers a team holding no row at all.
+    # Every fielded club holds its season's row, which every write requires of a newly fielded side.
     austritt_type: FLAustrittType | None
 
 

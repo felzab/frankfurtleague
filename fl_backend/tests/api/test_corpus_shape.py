@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from bson import ObjectId
 
-from .conftest import SPIELE
+from .conftest import SAISON_TEAMS, SPIELE
 
 
 def test_no_club_is_fielded_twice_among_the_fixtures_sharing_a_spieltag():
@@ -22,3 +22,20 @@ def test_no_club_is_fielded_twice_among_the_fixtures_sharing_a_spieltag():
     twice = {spieltag: sorted(clubs) for spieltag, clubs in fielded.items() if len(set(clubs)) != len(clubs)}
 
     assert not twice, f"clubs fielded more than once on one Spieltag: {twice}"
+
+
+def test_every_fielded_club_holds_its_seasons_row():
+    """A corpus fielding a club with no row in the season proves the reads against a state production cannot store.
+
+    Every write refuses such a side, and every read joins the side's name from that row.
+    """
+
+    held = {(row["saison_id"], row["team_id"]) for row in SAISON_TEAMS}
+    rowless = [
+        (spiel["spiel_nr"], side["team_id"])
+        for spiel in SPIELE
+        for side in (spiel["team1"], spiel["team2"])
+        if side is not None and (spiel["saison_id"], side["team_id"]) not in held
+    ]
+
+    assert not rowless, f"fixtures fielding a club with no row in their season: {rowless}"
