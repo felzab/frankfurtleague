@@ -1837,7 +1837,7 @@ describe("what the code costs an address holding nothing", () => {
 
     const row = owed.at(-1);
     assert.ok(row !== undefined, "nothing was owed");
-    expect(row.data, "the row is not the code's").toStrictEqual({ art: "sign_in_code" });
+    expect(row.data, "the row is not the code's").toStrictEqual({ kind: "sign_in_code" });
     assert.ok(row.secret !== null, "the row carries no secret, so the mail could not have");
     assert.ok(!JSON.stringify(row).includes(otp), "the row the backend stores holds the code readable");
   });

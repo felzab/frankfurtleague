@@ -118,7 +118,7 @@ function urheberSatz(urheber: Urheber, verb: string): readonly Run[] {
 
 /** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */
 function adresseOf(data: FLGrantData, stand: FLGrantSnapshot | null): string | Vorenthalten {
-  return stand?.adresse ?? { withheld: data.withheld ?? "barred" };
+  return stand?.address ?? { withheld: data.withheld ?? "barred" };
 }
 
 /**

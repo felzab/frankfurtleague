@@ -25,15 +25,15 @@ describe("the consent each page shows", () => {
       ),
     );
 
-    expect(screen.getByRole("switch", { name: SEAT_WORDINGS.umfang.label })).toBeTruthy();
+    expect(screen.getByRole("switch", { name: SEAT_WORDINGS.scope.label })).toBeTruthy();
   });
 
   it("is the referee's name wording on the referee page", () => {
     const ansicht = { state: "valid" as const, frist: "2026-12-01", minimum_age: 16, media_minimum_age: 18 };
     render(underNext(h(SchiedsrichterBestaetigungView, { start: { zustand: "valid", ansicht: ansicht, token: "kein-echtes-token" } })));
 
-    expect(screen.getByText(SCHIEDSRICHTER_WORDINGS.umfang.question)).toBeTruthy();
-    expect(screen.getByText(SCHIEDSRICHTER_WORDINGS.umfang.options.intern)).toBeTruthy();
+    expect(screen.getByText(SCHIEDSRICHTER_WORDINGS.scope.question)).toBeTruthy();
+    expect(screen.getByText(SCHIEDSRICHTER_WORDINGS.scope.options.intern)).toBeTruthy();
   });
 
   it("is the pupil's name wording on the new pupil's registration page", () => {
@@ -55,7 +55,7 @@ describe("the consent each page shows", () => {
       ),
     );
 
-    expect(screen.getByText(SPIELER_WORDINGS.umfang.question)).toBeTruthy();
-    expect(screen.getByText(SPIELER_WORDINGS.umfang.options.intern)).toBeTruthy();
+    expect(screen.getByText(SPIELER_WORDINGS.scope.question)).toBeTruthy();
+    expect(screen.getByText(SPIELER_WORDINGS.scope.options.intern)).toBeTruthy();
   });
 });

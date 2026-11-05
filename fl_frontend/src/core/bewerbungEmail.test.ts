@@ -9,7 +9,7 @@ const { renderMail } = await import("./emailShell.ts");
 const ORIGIN = "http://localhost:3000";
 
 const ZUSAGE: FLBewerbungZusageData = {
-  art: "bewerbung_zusage",
+  kind: "bewerbung_zusage",
   team: "Ernst-Reuter-Schule",
   saison_id: "2627",
   rollen: ["ansprechperson"],
@@ -19,7 +19,7 @@ const ZUSAGE: FLBewerbungZusageData = {
 };
 
 const LINK: FLBewerbungLinkData = {
-  art: "bewerbung_confirmation",
+  kind: "bewerbung_confirmation",
   saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
   rollen: ["trainer"],

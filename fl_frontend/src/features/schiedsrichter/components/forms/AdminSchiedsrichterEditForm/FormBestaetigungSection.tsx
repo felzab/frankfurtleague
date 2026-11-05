@@ -79,9 +79,9 @@ function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEin
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">
-        {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
+        {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.scope]}
         <Beleg
-          evidence={einwilligung.evidence.umfang}
+          evidence={einwilligung.evidence.scope}
           bestaetigung={bestaetigungOf(einwilligung)}
         />
       </Angabe>

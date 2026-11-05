@@ -10,7 +10,7 @@ const ORIGIN = "http://localhost:3000";
 
 /** One person's link as a contacts save owes it, on an open row unless `row` names a closed one. */
 const data = (row: FLKontaktRow = "open", rollen: FLKontaktLinkData["rollen"] = ["ansprechperson"]) =>
-  ({ art: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", rollen, frist: "2026-10-17", row }) as const;
+  ({ kind: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", rollen, frist: "2026-10-17", row }) as const;
 
 const rendered = (facts: ReturnType<typeof data>) => {
   const mail = mailFor("kontakt_confirmation", facts, { token: "beispiel-eins", secret: null, origin: ORIGIN });

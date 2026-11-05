@@ -3,10 +3,10 @@
  * defaulted here once rather than in every fixture of a contact person.
  */
 const UNVARIED = {
-  umfang: "kontaktdaten",
+  scope: "kontaktdaten",
   media: false,
   entered_by: "bewerbung",
-  evidence: { umfang: null, media: null },
+  evidence: { scope: null, media: null },
 } as const;
 
 // Typed by its call site rather than by `FLKontaktKenntnisnahme`: `shared` imports no `features`, and the

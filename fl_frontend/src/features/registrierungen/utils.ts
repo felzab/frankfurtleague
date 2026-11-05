@@ -113,7 +113,7 @@ export function mapRegistrierungSubmitRefusal(
       };
     // Neutral, and under the address it was judged on: a stranger learns nothing about a list, and
     // the person it does concern already knows why.
-    case "registrierung_adresse_barred":
+    case "registrierung_address_barred":
       return {
         fieldErrors: {
           email: `Mit dieser E-Mail-Adresse ist keine Registrierung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
@@ -268,7 +268,7 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
         reason: "Diese Registrierung ist noch nicht bestätigt",
         repair: "Nimm sie auf, sobald die Person ihren Link bestätigt hat",
       });
-    case "registrierung_adresse_barred":
+    case "registrierung_address_barred":
       return buildRefusal({ reason: "Diese Registrierung kann nicht aufgenommen werden", repair: "Wende Dich an die Liga" });
     case "registrierung_stufe_not_allowed":
       return buildRefusal({

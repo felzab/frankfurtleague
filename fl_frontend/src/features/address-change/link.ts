@@ -1,7 +1,7 @@
 // Outside the view's "use client" module: the page reads the link on the server, where a client
 // module's exports arrive only as references to render, and calling one throws.
 import type {
-  FLAddressChangeEndArt,
+  FLAddressChangeEndKind,
   FLAddressChangeViewEndedSide,
   FLAddressChangeViewPreviousState,
   FLAddressChangeViewResponse,
@@ -31,7 +31,7 @@ export type AddressChangeView =
   | { state: DeclineOnly; way: FLAddressChangeWay }
   // Pressed, so the backend refuses the decline too: told apart from `abgelaufen`, whose link was never pressed.
   | { state: "approval_expired"; way: FLAddressChangeWay }
-  | { state: "ended"; side: FLAddressChangeViewEndedSide; art: FLAddressChangeEndArt }
+  | { state: "ended"; side: FLAddressChangeViewEndedSide; art: FLAddressChangeEndKind }
   | { state: Exclude<AddressChangeLinkState, DeclineOnly> };
 
 type WithoutPress = { state: "ended" | "confirmed" | "approval_expired" | "barred" | "invalid" };
@@ -42,7 +42,7 @@ export type AddressChangeStart =
 
 /** The read's answer as the page holds it: the side is implied by the state. */
 export function viewOf({ view }: Pick<FLAddressChangeViewResponse, "view">): AddressChangeView {
-  if (view.state === "ended") return { state: "ended", side: view.side, art: view.art };
+  if (view.state === "ended") return { state: "ended", side: view.side, art: view.kind };
   if (view.side === "previous") {
     if (view.state === "release_open" || view.state === "release_expired") return { state: "invalid" };
     return { state: view.state, gueltigBis: view.valid_until, wirksamAb: view.effective_from, way: view.way };

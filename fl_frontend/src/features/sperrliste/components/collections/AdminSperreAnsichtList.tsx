@@ -132,8 +132,8 @@ const EINTRAEGE: Eintraege = {
     ),
   // Decided on the administrators page, where whoever may decide one finds it: no link reaches a single request there.
   approval_requests: (antraege) =>
-    antraege.map(({ rolle, admin_tier }) => ({
-      text: `${rolle === "betroffen" ? "Ein offener Antrag für diese Adresse" : "Ein offener Antrag, den diese Adresse gestellt hat"}: ${ANTRAG_WAS[admin_tier]}`,
+    antraege.map(({ party, admin_tier }) => ({
+      text: `${party === "target" ? "Ein offener Antrag für diese Adresse" : "Ein offener Antrag, den diese Adresse gestellt hat"}: ${ANTRAG_WAS[admin_tier]}`,
       verweise: [],
     })),
 };

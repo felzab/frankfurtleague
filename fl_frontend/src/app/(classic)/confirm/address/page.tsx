@@ -66,11 +66,11 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
     // The new mailbox ends it by its own answer alone; the address on file by its decline, or by the change it
     // confirmed first, whichever way the new mailbox answered after.
     if (view.side === "new") {
-      if (view.art === "effective") return doneOnEnd("new", "confirmed", ended);
-      return view.art === "declined" ? doneOnEnd("new", "declined", ended) : INVALID;
+      if (view.kind === "effective") return doneOnEnd("new", "confirmed", ended);
+      return view.kind === "declined" ? doneOnEnd("new", "declined", ended) : INVALID;
     }
-    if (released !== null && (view.art === "effective" || view.art === "declined")) return doneOnEnd("previous", "confirmed", released);
-    return view.art === "declined" ? doneOnEnd("previous", "declined", ended) : INVALID;
+    if (released !== null && (view.kind === "effective" || view.kind === "declined")) return doneOnEnd("previous", "confirmed", released);
+    return view.kind === "declined" ? doneOnEnd("previous", "declined", ended) : INVALID;
   }
 
   if (view.side === "previous") {

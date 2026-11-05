@@ -71,7 +71,7 @@ function bestandZeilen({ grant, ...count }: FLAddressChangeAdminHoldings): strin
  * or the id a link names, never browsed. In no `<form>`: Enter in either box would submit it.
  */
 export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsichtGelesen | null }) {
-  const [adresse, setAdresse] = useState(anfang?.status === "read" ? anfang.view.adresse : "");
+  const [adresse, setAdresse] = useState(anfang?.status === "read" ? anfang.view.address : "");
   const [error, setError] = useState<string | null>(null);
   const [read, setGelesen] = useState<Gelesen | null>(anfang);
   // Above every read, so a read answering after a write keeps the way and the reason the start box holds.
@@ -93,7 +93,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
 
     if (res.success) {
       // The box shows the address the read was made for, so a change opened by its id names its address too.
-      setAdresse(res.view.adresse);
+      setAdresse(res.view.address);
       setGelesen({ status: "read", view: res.view });
       return;
     }
@@ -109,13 +109,13 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
     const geprueft = KontaktEmailSchema.safeParse(adresse);
     setError(geprueft.success ? null : (geprueft.error.issues[0]?.message ?? null));
     if (!geprueft.success) return;
-    void lies({ adresse: adresse.trim() });
+    void lies({ address: adresse.trim() });
   };
 
   const view = read?.status === "read" ? read.view : null;
   // After a write the address's present is read again, the box's typing kept.
   const nachSchreiben = () => {
-    if (view !== null) void lies({ adresse: view.adresse });
+    if (view !== null) void lies({ address: view.address });
   };
 
   return (
@@ -215,7 +215,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
           <FocusSlot name="adresse-aendern">
             {entwurf !== null ? (
               <AdresswechselBeantragen
-                adresse={view.adresse}
+                adresse={view.address}
                 entwurf={entwurf}
                 ersetztOffen={view.open !== null}
                 fokussieren={perDruck}

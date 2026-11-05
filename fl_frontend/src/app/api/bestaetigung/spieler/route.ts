@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         success: true as const,
         ergebnis: antwort.ergebnis,
         geburtsdatum: antwort.geburtsdatum,
-        umfang: antwort.umfang,
+        umfang: antwort.scope,
         media: antwort.media,
       };
     },

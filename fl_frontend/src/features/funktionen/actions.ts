@@ -13,7 +13,7 @@ import { loeschenAufAnfrage, readLoeschungAnsicht, recordAbmeldung } from "./mut
 import { mapAbmeldungRefusal, mapLoeschungAufAnfrageRefusal } from "./refusals";
 import { FLLoeschungAdressePayloadSchema, FLLoeschungPayloadSchema } from "./schemas";
 
-import type { FLErasureAdressePayload, FLErasurePayload, FLErasureResponse, FLErasureViewResponse } from "@/core/generated/client/types";
+import type { FLErasureAddressPayload, FLErasurePayload, FLErasureResponse, FLErasureViewResponse } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 
 /** What became of the address's sign-in account once its league records were gone. */
@@ -68,7 +68,7 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: 
  * before anyone confirms a press the backend would turn away.
  */
 export async function readLoeschungAnsichtAction(
-  rawPayload: FLErasureAdressePayload,
+  rawPayload: FLErasureAddressPayload,
 ): Promise<QueryResult<{ ansicht: FLErasureViewResponse }>> {
   return runAdminMutation("readLoeschungAnsichtAction", async () => {
     const validated = FLLoeschungAdressePayloadSchema.safeParse(rawPayload);
@@ -143,7 +143,7 @@ const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nich
  * Ends every session of an address without barring it and without a mail. A step-up
  * write: nothing brings an ended session back, and unasked, a stolen session could sign administrators out again and again.
  */
-export async function endAnmeldungenAction(rawPayload: FLErasureAdressePayload): Promise<ActionResult<{ konto: boolean }>> {
+export async function endAnmeldungenAction(rawPayload: FLErasureAddressPayload): Promise<ActionResult<{ konto: boolean }>> {
   return runAdminMutation("endAnmeldungenAction", { stepUp: true }, async () => {
     const validated = FLLoeschungAdressePayloadSchema.safeParse(rawPayload);
 

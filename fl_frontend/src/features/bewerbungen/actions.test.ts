@@ -243,7 +243,7 @@ const ENTSCHIEDEN: FLBewerbung = {
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: kenntnisnahme({ datum: "2026-09-01", confirmed_at: null }),
+      einwilligung: kenntnisnahme({ date: "2026-09-01", confirmed_at: null }),
     },
     stellvertretung: null,
     trainer_is_also: null,

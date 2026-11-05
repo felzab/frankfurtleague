@@ -45,7 +45,7 @@ const seat = (vorname: string, email: string) => ({
   nachname: "Meier",
   email,
   telefon: TELEFON[vorname] ?? "069 1234567",
-  einwilligung: { umfang: "kontaktdaten" as const, datum: "2026-10-03" },
+  einwilligung: { scope: "kontaktdaten" as const, date: "2026-10-03" },
 });
 
 /** The same seat as the read model stores it, unconfirmed. */

@@ -43,8 +43,8 @@ export function doubleOutbox(): {
       import("@/core/emailShell.ts"),
     ]);
     const secret = payload.secret === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.secret });
-    const message = mailFor(payload.data.art, payload.data, { token: null, secret: secret, origin: frontend_config.AUTH_URL });
-    assert(message !== undefined, `no builder renders the sign-in kind ${payload.data.art}`);
+    const message = mailFor(payload.data.kind, payload.data, { token: null, secret: secret, origin: frontend_config.AUTH_URL });
+    assert(message !== undefined, `no builder renders the sign-in kind ${payload.data.kind}`);
     const mail = { to: payload.an, ...renderMail(message) };
 
     if ((await answering(mail)) === "lost") {

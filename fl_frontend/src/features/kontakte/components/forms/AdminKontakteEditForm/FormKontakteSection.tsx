@@ -515,15 +515,15 @@ function KontaktpersonInputs({
         <div className={FIELD_PAIR_CLASSES}>
           <AppDatePicker
             isReadOnly={isMirrored}
-            name={`kontakte.${rolle}.einwilligung.datum`}
+            name={`kontakte.${rolle}.einwilligung.date`}
             // The record's path rather than the field's: the changed marker belongs to the record's row.
             label={<FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Erfasst am</FieldLabel>}
             calendarLabel={`${label}: Datum der Kenntnisnahme auswählen`}
-            value={toCalendarDate(person.einwilligung.datum)}
+            value={toCalendarDate(person.einwilligung.date)}
             // `""` for a cleared date is what the schema rejects with its own German message, so a
             // half-entered record is a field error rather than a silent skip.
-            onChange={(next) => setEinwilligung({ datum: next?.toString() ?? "" })}
-            onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.datum`])}
+            onChange={(next) => setEinwilligung({ date: next?.toString() ?? "" })}
+            onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.date`])}
           />
         </div>
 
@@ -534,13 +534,13 @@ function KontaktpersonInputs({
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
+              value={KONTAKT_WHATSAPP_LABELS[person.einwilligung.scope]}
               onChange={() => undefined}>
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{KONTAKT_WHATSAPP_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
             <Beleg
-              evidence={person.einwilligung.evidence.umfang}
+              evidence={person.einwilligung.evidence.scope}
               bestaetigung={bestaetigungOf(person.einwilligung)}
             />
           </div>

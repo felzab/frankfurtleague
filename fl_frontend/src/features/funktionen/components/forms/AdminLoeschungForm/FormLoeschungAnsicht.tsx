@@ -24,8 +24,8 @@ const EIGENER_ADRESSWECHSEL_ZEILE = "Eine laufende Adressänderung dieser Adress
 
 /** Who a request concerns, worded from the address the erasure is for. */
 const ANTRAG_ZEILE = {
-  betroffen: "Ein offener Antrag für diese Adresse",
-  gestellt: "Ein offener Antrag, den diese Adresse gestellt hat",
+  target: "Ein offener Antrag für diese Adresse",
+  requester: "Ein offener Antrag, den diese Adresse gestellt hat",
 } as const;
 
 /**
@@ -89,7 +89,7 @@ function zeilenOf(
     ...(admin_tier === null
       ? []
       : [{ text: admin_tier === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung" }]),
-    ...approval_requests.map(({ rolle, admin_tier: beantragt }) => ({ text: `${ANTRAG_ZEILE[rolle]}: ${ANTRAG_WAS[beantragt]}` })),
+    ...approval_requests.map(({ party, admin_tier: requestedTier }) => ({ text: `${ANTRAG_ZEILE[party]}: ${ANTRAG_WAS[requestedTier]}` })),
   ];
 }
 

@@ -179,7 +179,7 @@ export function mapBewerbungSubmitRefusal(
       };
     // A banner naming no seat, as a 403 carries no field, and neutral as the registration's is: a
     // stranger learns nothing about a list, and the person it concerns already knows why.
-    case "bewerbung_adresse_barred":
+    case "bewerbung_address_barred":
       return {
         error: buildRefusal({
           reason: "Mit einer der angegebenen E-Mail-Adressen ist keine Bewerbung möglich",

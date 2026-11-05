@@ -45,9 +45,9 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
 
         <dl className={FIELD_PAIR_CLASSES}>
           <Angabe label="Umfang">
-            {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
+            {EINWILLIGUNG_UMFANG_LABELS[einwilligung.scope]}
             <Beleg
-              evidence={einwilligung.evidence.umfang}
+              evidence={einwilligung.evidence.scope}
               bestaetigung={bestaetigungOf(einwilligung)}
             />
           </Angabe>
@@ -60,7 +60,7 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
               bestaetigung={bestaetigungOf(einwilligung)}
             />
           </Angabe>
-          <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
+          <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.date)}</Angabe>
           <Angabe label="Bestätigt am">
             {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
           </Angabe>

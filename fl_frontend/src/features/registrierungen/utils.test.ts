@@ -120,7 +120,7 @@ describe("what one refused submission shows", () => {
   });
 
   it("tells a banned address nothing about a list", () => {
-    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_adresse_barred"));
+    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_address_barred"));
     const sentence = answered?.fieldErrors?.email ?? "";
 
     expect(sentence, "the ban refusal reaches no control").not.toBe("");
@@ -153,7 +153,7 @@ describe("what one refused submission shows", () => {
   it("marks the repeated press's refusals as arrived, and no other refusal", () => {
     expect(mapRegistrierungSubmitRefusal(refused("registrierung_key_differing"))?.schonAngekommen).toBe(true);
     expect(mapRegistrierungSubmitRefusal(refused("registrierung_already_admitted"))?.schonAngekommen).toBe(true);
-    for (const code of ["document_not_found", "registrierung_closed", "registrierung_kader_full", "registrierung_adresse_barred"] as const) {
+    for (const code of ["document_not_found", "registrierung_closed", "registrierung_kader_full", "registrierung_address_barred"] as const) {
       expect(mapRegistrierungSubmitRefusal(refused(code))?.schonAngekommen, code).toBe(undefined);
     }
   });
@@ -167,7 +167,7 @@ describe("what one refused submission shows", () => {
       "registrierung_closed",
       "registrierung_stufe_not_allowed",
       "registrierung_kader_full",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
       "registrierung_key_differing",
       "registrierung_already_admitted",
     );
@@ -178,7 +178,7 @@ describe("what one refused submission shows", () => {
       "registrierung_closed",
       "registrierung_stufe_not_allowed",
       "registrierung_kader_full",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
@@ -407,7 +407,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
     const own = [
       "document_not_found",
       "registrierung_stufe_not_allowed",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
       "registrierung_unconfirmed",
       "registrierung_person_not_named",
       "registrierung_already_in_kader",
@@ -419,7 +419,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
       "duplicate_key",
       "role_not_held",
       "registrierung_stufe_not_allowed",
-      "registrierung_adresse_barred",
+      "registrierung_address_barred",
       "registrierung_unconfirmed",
       "registrierung_person_not_named",
       "registrierung_already_in_kader",
@@ -434,7 +434,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
   /* A team is never told that a pupil's address is barred: the admission's ban refusal says no more
      than that the league has to look at it. */
   it("tells a seat holder nothing about a ban", () => {
-    const sentence = mapAufnahmeRefusal(refused("registrierung_adresse_barred")) ?? "";
+    const sentence = mapAufnahmeRefusal(refused("registrierung_address_barred")) ?? "";
 
     expect(sentence).not.toBe("");
     for (const verboten of [/sperr/i, /liste/i, /blockiert/i, /E-Mail/i]) expect(sentence, sentence).not.toMatch(verboten);

@@ -64,13 +64,13 @@ export function mapAddressChangePressRefusal(error: unknown): AddressChangePress
 
 // ---- The address tool ---------------------------------------------------------------------------
 
-/** An administrator's own address, whose change is their account page's (`own_adresse`). */
+/** An administrator's own address, whose change is their account page's (`own_address`). */
 const EIGENE_ADRESSE = "Deine eigene Adresse änderst Du nicht hier, sondern auf Deiner Kontoseite.";
 
 /** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant (`admin_address`). */
 const ADMIN_ADDRESS = `Diese Adresse hat Zugang zur Verwaltung. Ändern kann sie hier nur, wer Inhaberin oder Inhaber der Verwaltung ist. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
-const ZUGANG: Readonly<Record<string, string>> = { own_adresse: EIGENE_ADRESSE, admin_address: ADMIN_ADDRESS } satisfies Partial<
+const ZUGANG: Readonly<Record<string, string>> = { own_address: EIGENE_ADRESSE, admin_address: ADMIN_ADDRESS } satisfies Partial<
   Record<Code, string>
 >;
 
@@ -186,13 +186,13 @@ function verwerfen(denied: FLAddressChangeViewableDenied | null): Omit<RefusalPa
   switch (denied) {
     case null:
       return { repair: { before: "Verwirf sie", after: "" }, where: ADRESSWECHSEL_EINTRAG.label };
-    case "admin_tier":
+    case "admin_address":
       return {
         repair: { before: "Frag eine Inhaberin oder einen Inhaber der Verwaltung, sie", after: "zu verwerfen" },
         where: ADRESSWECHSEL_EINTRAG.label,
       };
     // One's own change is refused its approval before the effect judges it, so this one is never reached by a press.
-    case "own":
+    case "own_address":
       return { repair: "Stoppe sie auf Deiner Kontoseite" };
   }
 }

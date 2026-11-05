@@ -442,7 +442,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_picked_team_already_entered",
       "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
-      "bewerbung_adresse_barred",
+      "bewerbung_address_barred",
     )) {
       expect(answerShown(code, mapBewerbungSubmitRefusal), `${code} reaches the applicant unmapped`).not.toBe(null);
     }
@@ -459,7 +459,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_picked_team_already_entered",
       "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
-      "bewerbung_adresse_barred",
+      "bewerbung_address_barred",
     ).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refused(code))));
 
     expect(new Set(answers).size, "two codes are answered with the same sentence").toBe(answers.length);

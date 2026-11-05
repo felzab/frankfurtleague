@@ -1,7 +1,7 @@
 import {
   addressChangeDeleteAddressChange,
+  addressChangeGetAddressChangeAddress,
   addressChangeGetAddressChangeAdminView,
-  addressChangeGetAddressChangeAdresse,
   addressChangeGetAddressChangeMoves,
   addressChangeGetAddressChangeView,
   addressChangeInviteAddressChange,
@@ -14,12 +14,12 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
+  FLAddressChangeAddressPayload,
+  FLAddressChangeAddressResponse,
   FLAddressChangeAdminMintResponse,
   FLAddressChangeAdminPayload,
   FLAddressChangeAdminViewPayload,
   FLAddressChangeAdminViewResponse,
-  FLAddressChangeAdressePayload,
-  FLAddressChangeAdresseResponse,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
   FLAddressChangeApprovalResponse,
@@ -72,8 +72,8 @@ export async function postAdresswechselUmzuegeErledigt(payload: FLAddressChangeM
  * The new address of the live change a link's token or a change's id names, on the system tier alone: the link's own read
  * serves no address, and this one reaches this server and never a page.
  */
-export async function postAdresswechselAdresse(payload: FLAddressChangeAdressePayload): Promise<FLAddressChangeAdresseResponse> {
-  return addressChangeGetAddressChangeAdresse(payload);
+export async function postAdresswechselAdresse(payload: FLAddressChangeAddressPayload): Promise<FLAddressChangeAddressResponse> {
+  return addressChangeGetAddressChangeAddress(payload);
 }
 
 /** A POST that reads, for the address it is handed: a GET would put a person's address in the URL every log line keeps. */

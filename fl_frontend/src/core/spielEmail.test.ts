@@ -27,7 +27,7 @@ describe("the fixture confirmation's link", () => {
      confirm through a button leading nowhere, with nothing failing. */
   it("is the button of the request the hand-out renders, its own token on the serving origin", () => {
     const data = {
-      art: "spiel_request",
+      kind: "spiel_request",
       team: "Goethe-Gymnasium",
       ansetzung: { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", ort: null },
       frist: "2026-11-10",

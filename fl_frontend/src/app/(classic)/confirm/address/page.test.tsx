@@ -42,15 +42,15 @@ describe("the person's own change, on a link opened again", () => {
   });
 
   it("names each answer and its day once the change ended, and calls every other end void", async () => {
-    expect(await stateFor({ ...ended, side: "new", art: "effective" })).toMatchObject({
+    expect(await stateFor({ ...ended, side: "new", kind: "effective" })).toMatchObject({
       sentence: COPY.shared.end.doneOn(WORDS.new.confirmed, DAY),
     });
-    expect(await stateFor({ ...ended, side: "new", art: "declined" })).toMatchObject({ declined: true });
-    expect(await stateFor({ ...ended, side: "previous", art: "declined" })).toMatchObject({ declined: true });
+    expect(await stateFor({ ...ended, side: "new", kind: "declined" })).toMatchObject({ declined: true });
+    expect(await stateFor({ ...ended, side: "previous", kind: "declined" })).toMatchObject({ declined: true });
     // Confirmed first, then declined by the new mailbox: the address on file did confirm, on its own day.
-    expect(await stateFor({ ...ended, side: "previous", art: "declined", released_on: "2026-11-03" })).toMatchObject({
+    expect(await stateFor({ ...ended, side: "previous", kind: "declined", released_on: "2026-11-03" })).toMatchObject({
       sentence: COPY.shared.end.doneOn(WORDS.previous.confirmed, "2026-11-03"),
     });
-    expect(await stateFor({ ...ended, side: "new", art: "expired" })).toMatchObject({ state: "ungueltig" });
+    expect(await stateFor({ ...ended, side: "new", kind: "expired" })).toMatchObject({ state: "ungueltig" });
   });
 });

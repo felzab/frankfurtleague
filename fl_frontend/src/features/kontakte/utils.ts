@@ -203,8 +203,8 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
         // No `geburtsdatum`: the date is the person's own to enter at their confirmation, so the
         // server carries the stored seat's forward and this editor may not name one at all.
         einwilligung: {
-          umfang: EINWILLIGUNG_UMFANG,
-          datum: person.einwilligung.datum,
+          scope: EINWILLIGUNG_UMFANG,
+          date: person.einwilligung.date,
         },
       };
 

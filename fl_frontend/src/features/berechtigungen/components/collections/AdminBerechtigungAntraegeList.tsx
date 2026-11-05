@@ -53,7 +53,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
         {antraege.map((antrag) => {
           const gestelltAm = formatInstant(antrag.asked_at);
           // What each control's name tells the row apart by: the address, or the request's moment where it is withheld.
-          const zeile = antrag.adresse ?? `Antrag vom ${gestelltAm}`;
+          const zeile = antrag.address ?? `Antrag vom ${gestelltAm}`;
           return (
             <li
               key={antrag.id}
@@ -69,7 +69,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
                     {/* A barred address is withheld on every route, so the row names the state instead. */}
                     <span className={IDENTITY_NAME_CLASSES}>
                       <VonOderGesperrt
-                        von={antrag.adresse}
+                        von={antrag.address}
                         gesperrt={antrag.barred}
                       />
                     </span>

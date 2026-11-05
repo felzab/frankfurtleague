@@ -54,7 +54,7 @@ export const FLPostRegistrierungPayloadSchema = z.object({
 });
 
 // The message an UNANSWERED control raises as well as a drifted one: nothing preselects this choice.
-const FLEinwilligungUmfangSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
+const FLEinwilligungScopeSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
   error: "Bitte wähle aus, was auf der Website stehen darf.",
 });
 
@@ -70,7 +70,7 @@ const FLEinwilligungUmfangSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
 export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   token: registrierungToken,
   geburtsdatum: CustomDateStringSchema.nullable(),
-  umfang: FLEinwilligungUmfangSchema.nullable(),
+  scope: FLEinwilligungScopeSchema.nullable(),
   // Separately answered from `umfang`, and the endpoint stores both: one press carries two
   // consents, and a media permission folded into the scope would be one nobody gave on its own.
   media: z.boolean().nullable(),
@@ -95,10 +95,10 @@ export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number
           },
           { error: alterAusserhalb(mindestalter) },
         ),
-        umfang: FLEinwilligungUmfangSchema,
+        scope: FLEinwilligungScopeSchema,
         media: z.boolean(),
       })
-    : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), umfang: z.null(), media: z.null() });
+    : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), scope: z.null(), media: z.null() });
 }
 
 /**
