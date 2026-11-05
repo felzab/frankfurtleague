@@ -38,7 +38,10 @@ export function ZusageDialog({
   /** The reason's box, posting under the name `enterZusage` reads it by. */
   children: ReactNode;
 }) {
-  const [chosen, choose] = useState(parties[0].id);
+  const [picked, choose] = useState(parties[0].id);
+  // The dialog outlives a fresh read of its row, which drops a party once its answer is entered: a pick no longer
+  // among the parties falls back to the first still to answer, never posting an answered row.
+  const chosen = parties.some((party) => party.id === picked) ? picked : parties[0].id;
 
   const enter = (form: FormData): Promise<ActionAnswer> => {
     form.set("id", chosen);
