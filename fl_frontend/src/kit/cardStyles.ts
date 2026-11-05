@@ -50,7 +50,7 @@ export const columnHead = tv({
 });
 
 /**
- * A card's look, shared by the server-rendered `Card`, `CardLink` and `CardRow` and the client `CardFold`, so a
+ * A card's look, shared by the server-rendered `Card` and `CardLink` and the client `CardFold`, so a
  * ruling on the card's surface, its head's fill or a row's hover changes one recipe. Kept apart from the
  * client module, whose every export a Server Component would receive as a reference it cannot call.
  *
@@ -74,7 +74,6 @@ export const card = tv({
     body: "min-w-0",
     foot: "flex justify-end p-4",
     chevron: "",
-    row: `relative flex min-h-14 items-stretch gap-3 ${stacked()} px-4 py-2 text-sm lg:min-h-13 ${cardHover()}`,
   },
   variants: {
     body: {
