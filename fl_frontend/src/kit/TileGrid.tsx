@@ -3,6 +3,7 @@ import Image from "next/image";
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -72,6 +73,37 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * The schools while they are read: `count` of the grid's tiles, each its plaque, its name's line and the line under
+ * it as bars, at a tile's height.
+ */
+export function SchoolTilesPlaceholder({ count }: { count: number }) {
+  const slots = grid({ kind: "school" });
+  return (
+    <div className={slots.root()}>
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className={slots.tile()}>
+          <span className={slots.content()}>
+            <span className={placeholderBar("h-6 w-10")} />
+            <span className="grid min-w-0 flex-1">
+              <PlaceholderLine
+                text="text-sm"
+                width="w-3/4"
+              />
+              <PlaceholderLine
+                text="text-xs"
+                width="w-1/3"
+              />
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

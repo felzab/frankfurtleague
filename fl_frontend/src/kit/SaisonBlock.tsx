@@ -2,13 +2,13 @@ import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { Card } from "./Card";
+import { Card, CardPlaceholder } from "./Card";
 import { stacked } from "./cardStyles";
 import { Countdown } from "./Countdown";
 import { GroupHead } from "./GroupHead";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
-import { SpielList } from "./SpielRow";
+import { SpielList, SpielListPlaceholder } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -159,6 +159,33 @@ function Body({ state }: { state: SaisonState }) {
     case "decided":
       return <Podium places={state.places} />;
   }
+}
+
+/**
+ * The season's card while the season is read: the card's own head, its name's line and its chip's place, over the
+ * running season's body, the last match and the next under their heads, the state a season spends most of its days
+ * in.
+ */
+export function SaisonBlockPlaceholder() {
+  const slots = block();
+  return (
+    <CardPlaceholder chip>
+      {[SERVER_COPY.landing.saison.last, SERVER_COPY.landing.saison.next].map((title) => (
+        <section
+          key={title}
+          className={slots.group()}>
+          <GroupHead
+            text={title}
+            inset="rows"
+          />
+          <SpielListPlaceholder
+            count={1}
+            bare
+          />
+        </section>
+      ))}
+    </CardPlaceholder>
+  );
 }
 
 /**

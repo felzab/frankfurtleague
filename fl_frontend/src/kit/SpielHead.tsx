@@ -6,6 +6,7 @@ import { Callout } from "./Callout";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
 import { Link } from "./Link";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -144,6 +145,50 @@ export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" 
 }
 
 /** The match pop-up's body, once the match is read. */
+/** A side of the head while its match is read: the plaque, the name's line and the standing's line, centred. */
+function SidePlaceholder() {
+  const style = head();
+  return (
+    <span className={style.side()}>
+      <span className={placeholderBar("h-6 w-10")} />
+      <PlaceholderLine
+        text="text-sm"
+        width="w-24 max-w-full"
+      />
+      <PlaceholderLine
+        text={style.standing()}
+        width="w-20 max-w-full"
+      />
+    </span>
+  );
+}
+
+/**
+ * A match's head on its own page while the match is read: the head's own box, its eyebrow's line over the two sides
+ * about the score, each as bars at their sizes, the line under the score kept.
+ */
+export function SpielHeadPlaceholder() {
+  const style = head({ placement: "page" });
+  return (
+    <div className={style.root()}>
+      <PlaceholderLine
+        text={style.eyebrow()}
+        width="w-24"
+      />
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
+        <SidePlaceholder />
+        <span className="grid justify-items-center pt-0.5">
+          <span className="flex h-[1em] items-center text-3xl leading-none">
+            <span className={placeholderBar("h-[0.75em] w-16")} />
+          </span>
+          <span className="h-4" />
+        </span>
+        <SidePlaceholder />
+      </div>
+    </div>
+  );
+}
+
 export type SpielPopupContent = {
   /** The dialog's name, read rather than drawn: the head names the match by its two sides. */
   title: Copy;

@@ -4,6 +4,7 @@ import { card, cardHover, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -59,6 +60,79 @@ export function Card({ title, count, chip, action, body = "rows", children, line
       {action !== undefined && <div className={s.foot()}>{action}</div>}
     </section>
   );
+}
+
+/**
+ * A card while its records are read: its own box and head, the title where the page knows it and a bar where the
+ * record names it, a bar where the count will stand, and over its body the placeholders the page's rows draw, such
+ * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place after the title, where the card carries one.
+ */
+export function CardPlaceholder({
+  title,
+  count = false,
+  chip = false,
+  children,
+}: {
+  title?: Words;
+  count?: boolean;
+  chip?: boolean;
+  children?: ReactNode;
+}) {
+  const s = card();
+  const name =
+    title === undefined ? (
+      <PlaceholderLine
+        text={s.title({ class: "flex-1" })}
+        width="w-1/3"
+      />
+    ) : (
+      <span className={s.title()}>{textOf(title)}</span>
+    );
+  return (
+    <div className={s.root()}>
+      <div className={s.head()}>
+        {chip ? (
+          <span className={s.named()}>
+            {name}
+            <span className={placeholderBar("h-5 w-16")} />
+          </span>
+        ) : (
+          name
+        )}
+        {count && (
+          <span className={s.count()}>
+            <span className={placeholderBar("h-3 w-4")} />
+          </span>
+        )}
+      </div>
+      {children !== undefined && <div className={s.body()}>{children}</div>}
+    </div>
+  );
+}
+
+/**
+ * A card's rows while they are read: `rows` of `CardActRow`'s rows at its height, each its name over its one line as
+ * bars, the chevron at its end where a row leads on.
+ */
+export function CardRowsPlaceholder({ rows }: { rows: number }) {
+  const s = actRow({ acts: false });
+  return Array.from({ length: rows }, (_, index) => (
+    <div
+      key={index}
+      className={s.root()}>
+      <span className={s.words()}>
+        <PlaceholderLine
+          text="text-sm"
+          width="w-1/2"
+        />
+        <PlaceholderLine
+          text={s.line()}
+          width="w-1/3"
+        />
+      </span>
+      <RowEnd />
+    </div>
+  ));
 }
 
 /**

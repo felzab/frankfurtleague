@@ -6,11 +6,12 @@ import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy";
 
-import { counterpart, useFrameSaison } from "./FrameNav";
+import { counterpart, useFrameSaison, useHoldsSaison } from "./FrameNav";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
 import { useRailCollapsed } from "./RailState";
 import { railFade } from "./railStyles";
+import { Placeholder, placeholderBar, PlaceholderLine, SAISON_WORDS } from "./Skeleton";
 import { tv } from "./tv";
 
 const trigger = tv({
@@ -51,6 +52,50 @@ const trigger = tv({
     },
   },
 });
+
+/**
+ * The season button while the seasons are read: the button's own box, outlined, its name and its span (in the rail)
+ * or its one line (on the band) as bars, so the entries under it never move when it lands. Collapsed, the season's
+ * glyph alone, as the button shows it.
+ */
+export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "band" }) {
+  const holds = useHoldsSaison();
+  const { place, root, lines, arrow, glyph } = trigger({ placement });
+  const ground = placement === "band" ? "band" : "page";
+  if (!holds) return null;
+  return (
+    <Placeholder layout={place()}>
+      <span className={root()}>
+        {placement === "rail" ? (
+          <>
+            <span className={glyph()}>
+              <span className={placeholderBar("size-4")} />
+            </span>
+            <span className={lines({ class: "w-full" })}>
+              <PlaceholderLine
+                text="text-sm"
+                words={SAISON_WORDS}
+              />
+              <PlaceholderLine
+                text="text-xs"
+                width="w-3/4"
+              />
+            </span>
+          </>
+        ) : (
+          <PlaceholderLine
+            text="text-sm"
+            words={SAISON_WORDS}
+            ground={ground}
+          />
+        )}
+        <span className={arrow()}>
+          <span className={placeholderBar("size-4", ground)} />
+        </span>
+      </span>
+    </Placeholder>
+  );
+}
 
 /**
  * Switching season, at the top of the rail or in the phone's top band: always a menu, even with one

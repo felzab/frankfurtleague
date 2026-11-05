@@ -2,6 +2,7 @@ import { textOf } from "@/core/copy";
 
 import { cardSurface } from "./cardStyles";
 import { Link } from "./Link";
+import { PlaceholderLine } from "./Skeleton";
 import { RecordFigures } from "./Table";
 import { tv } from "./tv";
 
@@ -64,6 +65,38 @@ const tiles = tv({
     },
   },
 });
+
+/**
+ * The tiles while the record is read: the layout's own grid with its count of tiles, each its label's line, its
+ * value's and the line under it as bars, at a tile's size.
+ */
+export function StatTilesPlaceholder({ layout }: { layout: Layout["layout"] }) {
+  return (
+    <div className={tiles({ layout }).root()}>
+      {Array.from({ length: layout === "four" ? 4 : 5 }, (_, index) => {
+        const slots = tiles({ layout, wide: layout === "five" && index === 4 });
+        return (
+          <div
+            key={index}
+            className={slots.tile({ class: cardSurface() })}>
+            <PlaceholderLine
+              text={slots.label()}
+              width="w-2/3"
+            />
+            <PlaceholderLine
+              text={slots.value()}
+              width="w-1/2"
+            />
+            <PlaceholderLine
+              text={slots.line()}
+              width="w-1/3"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * A record's figures at a glance, each in its own tile with its name over it: a club's standing, a match's

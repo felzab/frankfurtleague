@@ -13,7 +13,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLTabelleRow } from "@/core/generated/client/types";
-import type { TableProps, TableRow } from "@/kit/Table";
+import type { TableBody, TableHead, TableProps, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/tabelle">;
@@ -33,7 +33,7 @@ export default function TabellePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "tabelle" } }}
-      list={{ kind: "groups", content: readGroups(params) }}
+      list={{ kind: "groups", head: HEAD, content: readGroups(params) }}
     />
   );
 }
@@ -50,6 +50,9 @@ const COLUMNS: TableProps["columns"] = [
   { key: "differenz", label: column.differenz, figures: true, hideOnPhone: true },
   { key: "punkte", label: column.punkte, figures: true, strong: true },
 ];
+
+/** Every group's table's head, drawn while the Tabelle is read and over each group's rows once it is. */
+const HEAD: TableHead = { nameLabel: column.team, rankLabel: column.platz, columns: COLUMNS, compact: true, chevronOnPhone: false };
 
 /**
  * One club's row: its place as the backend numbers it, level clubs sharing one and a club that has played no
@@ -96,14 +99,9 @@ async function readGroups(params: Props["params"]) {
       title: SERVER_COPY.season.gruppe(gruppe),
       table: {
         label: SERVER_COPY.season.gruppe(gruppe),
-        nameLabel: column.team,
-        rankLabel: column.platz,
-        columns: COLUMNS,
-        compact: true,
-        chevronOnPhone: false,
         rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows)),
         empty: { kind: "none", plural: COPY.page.tabelle },
-      } satisfies TableProps,
+      } satisfies TableBody,
     })),
     empty: { kind: "none", plural: COPY.page.tabelle } as const,
   };

@@ -4,6 +4,7 @@ import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
+import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -61,6 +62,34 @@ const facts = tv({
     },
   },
 });
+
+/**
+ * The facts while the record is read: the boxed block's own box with `pairs` of its pairs, each a label's line over
+ * a value's, two a row where the box is wide, as `Facts` sets them.
+ */
+export function FactsPlaceholder({ pairs }: { pairs: number }) {
+  const { list, row, term, detail } = facts({ look: "boxed" });
+  return (
+    <div className="@container grid w-full gap-2 text-sm">
+      <div className={list()}>
+        {Array.from({ length: pairs }, (_, index) => (
+          <div
+            key={index}
+            className={row()}>
+            <PlaceholderLine
+              text={term()}
+              width="w-1/4"
+            />
+            <PlaceholderLine
+              text={detail()}
+              width="w-1/2"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a

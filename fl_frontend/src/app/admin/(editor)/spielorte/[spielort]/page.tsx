@@ -42,7 +42,17 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** A venue's editor, on its one read by id and its write on the version it was read at. */
 export default function SpielortEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+  return (
+    <EditorShell
+      wait={{
+        sections: [
+          ["field", "field"],
+          ["pair", "field", "pair"],
+        ],
+      }}
+      editor={readEditor(params)}
+    />
+  );
 }
 
 async function readEditor(params: Props["params"]) {

@@ -5,6 +5,7 @@ import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -247,6 +248,90 @@ function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowPro
           </span>
         </span>
       </Link>
+    </div>
+  );
+}
+
+/** A side while its match is read: the plaque and the name's line as bars, mirrored as the one-line row mirrors the first. */
+function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
+  const plaque = <span className={placeholderBar("h-6 w-10")} />;
+  return (
+    <span className={row({ mirrored }).side()}>
+      {!mirrored && plaque}
+      <PlaceholderLine
+        text="text-sm"
+        width="w-24"
+      />
+      {mirrored && plaque}
+    </span>
+  );
+}
+
+/**
+ * A match row while its match is read, in both of `SpielRow`'s forms on the row's own grid, which the box's width
+ * picks between as it picks the row's: the one line, when, the sides about the score and the chevron; or the card,
+ * the date line over each side with its goals at the right.
+ */
+function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
+  const form = forms({ chips: false });
+  return (
+    <div className={layout === "rows" ? stacked() : ""}>
+      <span className={form.line()}>
+        <span className="col-start-1 row-span-2 row-start-1">
+          <span className={placeholderBar("h-3 w-24")} />
+        </span>
+        <span className="col-start-2 row-span-2 row-start-1">
+          <SidePlaceholder mirrored />
+        </span>
+        <span className="col-start-3 row-start-1 flex justify-center">
+          <span className={placeholderBar("h-4 w-10")} />
+        </span>
+        <span className="col-start-4 row-span-2 row-start-1">
+          <SidePlaceholder />
+        </span>
+        <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
+          <RowEnd />
+        </span>
+      </span>
+      <span className={form.card()}>
+        <span className={placeholderBar("h-3 w-32")} />
+        <span />
+        <SidePlaceholder />
+        <span className={placeholderBar("ms-auto h-4 w-3")} />
+        <SidePlaceholder />
+        <span className={placeholderBar("ms-auto h-4 w-3")} />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Matches while they are read, in the box or the boxes `SpielList` sets them in: `count` rows one under another, or
+ * cards two a row from `lg` where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body.
+ */
+export function SpielListPlaceholder({ count, layout = "rows", bare = false }: { count: number; layout?: "rows" | "cards"; bare?: boolean }) {
+  const rows = Array.from({ length: count }, (_, index) => index);
+  if (layout === "cards") {
+    return (
+      <div className="grid gap-3 lg:grid-cols-2">
+        {rows.map((index) => (
+          <div
+            key={index}
+            className={cardSurface({ class: "@container overflow-hidden" })}>
+            <SpielRowPlaceholder layout="cards" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className={bare ? "@container" : cardSurface({ class: "@container overflow-hidden" })}>
+      {rows.map((index) => (
+        <SpielRowPlaceholder
+          key={index}
+          layout="rows"
+        />
+      ))}
     </div>
   );
 }
