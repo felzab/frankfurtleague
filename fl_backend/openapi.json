@@ -11159,8 +11159,6 @@
             "type": "string"
           },
           "id": {
-            "maxLength": 4,
-            "minLength": 4,
             "title": "Id",
             "type": "string"
           },
@@ -11292,8 +11290,6 @@
             "type": "string"
           },
           "id": {
-            "maxLength": 4,
-            "minLength": 4,
             "title": "Id",
             "type": "string"
           },
@@ -11414,8 +11410,6 @@
             "type": "string"
           },
           "id": {
-            "maxLength": 4,
-            "minLength": 4,
             "title": "Id",
             "type": "string"
           },

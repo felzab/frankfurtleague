@@ -66,6 +66,8 @@ class TestTheCreateMakesTheNextSeason:
             pytest.param([("2026", "past"), ("2027", "active")], "2028", id="the-year-after-the-newest"),
             # Sorted after every year by string order, so a create reading it as the newest answers 500.
             pytest.param([("2027", "active"), ("abcd", "past")], "2028", id="the-year-after-the-newest-past-an-odd-row"),
+            # Of another length too, so a list holding the row to the id's length answers 500.
+            pytest.param([("2027", "active"), ("2027-alt", "past")], "2028", id="the-year-after-the-newest-past-a-longer-row"),
         ],
     )
     def test_the_list_serves_the_id_the_create_mints(self, mongo_replica_set_url: str, stored: list[tuple[str, str]], minted: str):
