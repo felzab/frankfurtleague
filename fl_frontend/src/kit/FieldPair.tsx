@@ -1,4 +1,25 @@
+import { tv } from "./tv";
+
 import type { ReactNode } from "react";
+
+/**
+ * Where a side's message line may run past its field, on desktop, where a short field such as a score or a count
+ * is narrower than „Zwischen 1 und 16“: the line is cut at the field's width otherwise, its words adding nothing to
+ * the width a field is laid out at (`fieldStyles.ts :: messageLine`). The first side's line runs on under the second
+ * side while the second side's own line stands empty, so two messages never overlap; the second side of two short
+ * fields runs on into the row the pair leaves after it. A side at the row's end, a long field's partner, keeps its
+ * cut. On a phone each side of a pair is as wide as its share of the row, which holds its message.
+ */
+const reach = tv({
+  variants: {
+    side: {
+      first:
+        "lg:[&_[data-kit-message]]:overflow-visible lg:group-has-[[data-pair-side=second]_[data-kit-message]:not(:empty)]/pair:[&_[data-kit-message]]:overflow-hidden",
+      second: "lg:[&_[data-kit-message]]:overflow-visible",
+      none: "",
+    },
+  },
+});
 
 /**
  * Two fields that belong in one row, such as a street with its number, a postcode with its town or a day with
@@ -30,9 +51,13 @@ export function FieldPair({
     // 8 px between the rows where the two stand one under the other, as the fields of an editor's box are.
     <div
       data-pair={paired || undefined}
-      className={paired ? "flex w-full flex-wrap items-start gap-x-3 gap-y-2" : "grid w-full gap-2 lg:flex lg:items-start lg:gap-3"}>
-      <div className={short === "second" ? grows : keeps}>{first}</div>
-      <div className={short === "first" ? grows : keeps}>{second}</div>
+      className={`group/pair ${paired ? "flex w-full flex-wrap items-start gap-x-3 gap-y-2" : "grid w-full gap-2 lg:flex lg:items-start lg:gap-3"}`}>
+      <div className={reach({ side: "first", class: short === "second" ? grows : keeps })}>{first}</div>
+      <div
+        data-pair-side="second"
+        className={reach({ side: short === "both" ? "second" : "none", class: short === "first" ? grows : keeps })}>
+        {second}
+      </div>
     </div>
   );
 }

@@ -98,7 +98,8 @@ export function StatusLine({ status, placement }: { status: FormStatus; placemen
 
 /**
  * The line under a field, always there: the error once the value is committed or the form submitted,
- * else a change's consequence, else the description, else empty.
+ * else a change's consequence, else the description, else empty. `data-kit-message` names it to a `FieldPair`,
+ * which lets a short field's line run on past the field into the room beside it.
  */
 export function MessageLine({
   description,
@@ -112,12 +113,19 @@ export function MessageLine({
   const validation = useContext(FieldErrorContext);
 
   if (validation?.isInvalid) {
-    return <FieldError className={messageLine({ tone: "error" })}>{(result) => fieldMessage(result, constraints)}</FieldError>;
+    return (
+      <FieldError
+        data-kit-message
+        className={messageLine({ tone: "error" })}>
+        {(result) => fieldMessage(result, constraints)}
+      </FieldError>
+    );
   }
   if (consequence !== undefined) {
     return (
       <Text
         slot="description"
+        data-kit-message
         className={messageLine({ tone: "consequence" })}>
         {consequence}
       </Text>
@@ -127,11 +135,17 @@ export function MessageLine({
     return (
       <Text
         slot="description"
+        data-kit-message
         className={messageLine({ tone: "description" })}>
         {description}
       </Text>
     );
   }
   // An empty line holds the place, describing nothing.
-  return <div className={messageLine({ tone: "description" })} />;
+  return (
+    <div
+      data-kit-message
+      className={messageLine({ tone: "description" })}
+    />
+  );
 }
