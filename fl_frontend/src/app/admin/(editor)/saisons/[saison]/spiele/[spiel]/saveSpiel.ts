@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { action } from "@/core/action";
+import { action, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
@@ -27,12 +27,8 @@ const [schiedsrichterShape] = shape.schiedsrichter.options;
 const [teamShape] = shape.team1.options;
 const [shootOutShape] = shape.elfmeterschiessen.options;
 
-/** A figure's box: empty is no figure, digits alone a figure, anything else stays text the rule refuses. */
-const figure = (rule: z.ZodType<number>) =>
-  z.preprocess(
-    (value) => (value === "" ? null : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value),
-    z.union([rule, z.null()]),
-  );
+/** A figure's box, which the editor may leave empty: no figure where the stored fixture holds none. */
+const figure = (rule: z.ZodType<number>) => numberBox(z.union([rule, z.null()]));
 
 /** What the editor's boxes send, each held to the match write's own published rule for it. */
 const SaveSpiel = z.object({
