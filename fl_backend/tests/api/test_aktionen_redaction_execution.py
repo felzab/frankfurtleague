@@ -93,7 +93,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     await database[Collection.INVITATIONS].insert_one(
         {
             "_id": EINLADUNG,
-            **compose_einladung(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], created_by=ERASED, today="2026-03-01"),
+            **compose_einladung(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], created_by=ERASED, today="2026-03-01", sent_at=None),
         }
     )
     await patched(database, Collection.INVITATIONS, EINLADUNG, compose_revocation_update(today="2026-03-02"))

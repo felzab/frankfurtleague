@@ -5,7 +5,7 @@ from typing import Any, Final
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_open_window_saison
+from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_open_window_saison
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
     FLLandingBeforeStart,
@@ -26,11 +26,11 @@ from app.api.saisons.schemas import (
     FLTeamPageSpielListAdapter,
     saison_start,
 )
-from app.api.saisons.services import base_tier_status_term, has_started, with_schedule
+from app.api.saisons.services import base_tier_status_term, decided_podium, has_started, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
 from app.api.spielberichte.services import SEITEN, build_public_bericht_pipeline, compose_public_bericht, team_id_of
-from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedInternalListAdapter, FLSpielJoinedListAdapter, unplayed_filter
-from app.api.spiele.services import build_spiele_pipeline, podium_of
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, FLSpielTeamFieldJoinedInternal, unplayed_filter
+from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
 from app.api.spieltage.schemas import FLKoRundeResponse, FLSpielplanResponse, FLSpielplanSpieltag
@@ -201,7 +201,7 @@ async def get_landing(
     started = has_started(start_date=saison_raw["start_date"], today=today)
     # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six: one gather of seven types none
     # of its results.
-    (first_raw, recent_raw, upcoming_raw, finale_raw), (teams, counted_raw, count_spieltage) = await asyncio.gather(
+    (first_raw, recent_raw, upcoming_raw, finale_by_saison), (teams, counted_raw, count_spieltage) = await asyncio.gather(
         asyncio.gather(
             _no_rows()
             if started
@@ -226,9 +226,7 @@ async def get_landing(
             )
             if started
             else _no_rows(),
-            aggregate_many_from_db(
-                collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={**in_saison, "saison_phase": "finale"})
-            ),
+            pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
         ),
         asyncio.gather(
             _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
@@ -252,21 +250,20 @@ async def get_landing(
         count_spieltage=count_spieltage,
     )
 
-    # Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday
-    # places it, and every bracket the rules admit plays a match for third place: it is decided once all four places are
-    # in, a played final beside an unplayed match for third place still running. The internal shape, whose sides carry
-    # the exit record: a place decided once its club had left is vacant.
+    # Decided by the rule the admin list and the editor read too, so the three say the same word of one season.
+    podium = decided_podium(finale_by_saison.get(saison_id, []))
+
+    def landing_side(side: FLSpielTeamFieldJoinedInternal | None) -> FLLandingSide | None:
+        return None if side is None else FLLandingSide(name=side.name, shorthand=side.shorthand)
+
     saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided
-    match [
-        None if side is None else FLLandingSide(name=side.name, shorthand=side.shorthand)
-        for _, side in podium_of(FLSpielJoinedInternalListAdapter.validate_python(finale_raw))
-    ]:
-        case [first_place, second_place, third_place, fourth_place]:
+    match podium:
+        case (first_place, second_place, third_place, fourth_place):
             saison = FLLandingDecided(
                 id=saison_id,
                 state="decided",
                 start=start,
-                podium=(first_place, second_place, third_place, fourth_place),
+                podium=(landing_side(first_place), landing_side(second_place), landing_side(third_place), landing_side(fourth_place)),
                 counts=counts,
                 teams=teams,
             )

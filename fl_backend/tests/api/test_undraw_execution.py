@@ -14,6 +14,7 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
+    FLPatchSaisonResponse,
     FLSaisonRules,
     FLUndrawSpielplanResponse,
 )
@@ -194,7 +195,7 @@ async def call_undraw(
     )
 
 
-async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = saison_document()
