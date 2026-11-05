@@ -101,7 +101,7 @@ export function HeaderLinks({
               <AriaButton
                 aria-label={COPY.template.menu}
                 data-kit-focus="ring"
-                className="flex size-10 items-center justify-center rounded-lg text-on-brand transition-colors duration-(--motion-state) hover:bg-brand-solid-hover">
+                className="flex size-10 items-center justify-center rounded-lg text-on-brand data-hovered:bg-layer data-pressed:bg-layer">
                 <Icon
                   glyph="menu"
                   size={18}

@@ -263,11 +263,11 @@ function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
 // The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
+  base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) hover:bg-layer pointer-coarse:h-10",
   variants: {
     current: {
       true: entryMark({ mark: "place" }),
-      false: "text-fg-muted hover:bg-bg-muted hover:text-fg",
+      false: "text-fg-muted hover:text-fg",
     },
   },
 });
@@ -421,7 +421,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
       trigger={
         <AriaButton
           data-kit-focus="ring"
-          className="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm transition-colors duration-(--motion-state) data-hovered:bg-bg-muted">
+          className="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm data-hovered:bg-layer data-pressed:bg-layer">
           <span
             aria-hidden
             className={avatar({ size: "rail" })}>
@@ -668,7 +668,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
 // The way back reads a step bolder than the band's links, being the band's one act there, and answers the pointer as they do.
 const back = tv({
-  base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand transition-colors duration-(--motion-state) hover:bg-brand-solid-hover",
+  base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand hover:underline",
 });
 
 /**

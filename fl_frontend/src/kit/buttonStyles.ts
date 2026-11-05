@@ -26,20 +26,15 @@ export const buttonLook = tv({
       link: "",
     },
   },
-  // A press takes the hover's colour, so under a mouse the two are one state and a touch, which never
-  // hovers, still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
+  // Under the pointer a look lays the one hover layer over its fill (`bg-layer`, 12 % of its own words' colour), so
+  // the step shows on the page, a card, a card's head and an overlay alike, and over a row's own layer. A press takes
+  // the hover's look, so under a mouse the two are one state and a touch, which never hovers, still answers the
+  // press: React Aria's `data-pressed` on its button, `:active` on an anchor.
   compoundVariants: [
-    { look: "primary", host: "aria", class: "data-hovered:bg-brand-solid-hover data-pressed:bg-brand-solid-hover" },
-    { look: "primary", host: "link", class: "hover:bg-brand-solid-hover active:bg-brand-solid-hover" },
-    // One step off the ground it stands on (`--bg-hover`), so the hover shows on the page, a raised card, an overlay
-    // and a card's head alike; the edge keeps its 3:1 against the ground around it.
-    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-hover data-pressed:bg-bg-hover" },
-    { look: "secondary", host: "link", class: "hover:bg-bg-hover active:bg-bg-hover" },
-    { look: "icon", host: "aria", class: "data-hovered:bg-bg-hover data-pressed:bg-bg-hover" },
-    { look: "icon", host: "link", class: "hover:bg-bg-hover active:bg-bg-hover" },
+    { look: ["primary", "secondary", "danger", "icon"], host: "aria", class: "data-hovered:bg-layer data-pressed:bg-layer" },
+    { look: ["primary", "secondary", "icon"], host: "link", class: "hover:bg-layer active:bg-layer" },
     { look: "quiet", host: "aria", class: "data-hovered:bg-bg-hover data-hovered:text-fg data-pressed:bg-bg-hover data-pressed:text-fg" },
     { look: "quiet", host: "link", class: "hover:bg-bg-hover hover:text-fg active:bg-bg-hover active:text-fg" },
-    { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
   ],
 });
 

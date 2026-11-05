@@ -202,11 +202,11 @@ export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" 
 
 /**
  * A day in a date's calendar, as large as a control; the chosen day inverts. React Aria's calendar moves its focus by
- * the keys alone and marks the day under the pointer `data-hovered`, so the pointer fills a day as the keys' focus
- * does (`focus.css`), the chosen day keeping its inverted mark.
+ * the keys alone and marks the day under the pointer `data-hovered`, so the pointer lays the one hover layer on a day
+ * as the keys' focus does (`focus.css`), over the chosen day's inverted mark too.
  */
 export const calendarCell = tv({
-  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:not-data-selected:bg-bg-muted data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
+  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:bg-layer data-outside-month:text-fg-muted data-pressed:bg-layer data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
 });
 
 /**
@@ -396,7 +396,8 @@ export const choiceGroup = tv({
 /**
  * One answer of that choice, semibold once chosen. The chosen segment is raised out of its frame, the
  * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box lifts
- * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too.
+ * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too. Under the pointer and
+ * pressed, chosen or not, each takes the one hover layer.
  */
 export const choiceButton = tv({
   base: "inline-flex cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:font-semibold",
@@ -407,9 +408,9 @@ export const choiceButton = tv({
       // height beside the fields, by the touch rule at this file's head. The target is laid from the segment's own
       // inner edge: its 1-px edge, then the frame's inset and edge, 4 px up and down, its own edge at the sides.
       segmented:
-        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-hovered:not-data-selected:bg-bg-hover data-selected:border-border-control data-selected:bg-bg-muted",
+        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
-        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:not-data-selected:bg-bg-hover data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
+        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {

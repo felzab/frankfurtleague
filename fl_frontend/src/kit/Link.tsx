@@ -19,16 +19,17 @@ const link = tv({
     // link is its record's name, stretched over the row it stands in, so the whole row opens the record.
     // A card's link is the whole card, filling under the pointer as a row does.
     placement: {
-      // Under the pointer a link in text thickens its line, and a link standing alone takes one, as a link answers.
+      // Under the pointer every link of words takes an underline and its full colour, as a link answers, and one
+      // underlined already in text thickens its line. A link drawn as a row, a card or a button takes their layer.
       text: "text-brand underline hover:decoration-2",
       standalone: "text-brand hover:underline",
       // A line of detail that leads on, such as a team's place under its name: muted until the pointer is over it.
-      detail: "text-fg-muted transition-colors duration-(--motion-state) hover:text-fg",
+      detail: "text-fg-muted transition-colors duration-(--motion-state) hover:text-fg hover:underline",
       // A row's name takes its row's colour, muted in a row that no longer counts.
       row: "text-inherit after:absolute after:inset-0 after:content-['']",
       card: `block text-fg ${cardHover()}`,
       // The classic footer's links, its words and its sponsors' logos: muted until the pointer is over them.
-      footer: "rounded-md text-sm leading-6 text-fg-muted transition-colors duration-(--motion-state) hover:text-fg",
+      footer: "rounded-md text-sm leading-6 text-fg-muted transition-colors duration-(--motion-state) hover:text-fg hover:underline",
       // Drawn by `buttonLook` in the look the link names.
       button: "",
     },
@@ -43,17 +44,17 @@ const link = tv({
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
   variants: {
-    // On the band, under the pointer, the band's green takes the step the primary button's hover takes on the same
-    // green, so every link of the band answers the pointer, the one in full white too.
+    // Under the pointer a link of words takes an underline and its full colour, the one in full white already too, so
+    // every link of the band and the strip answers the pointer; the rail's foot is an entry, filled as the rail's are.
     tone: {
       // On the band: the page the visitor is on, and „Konto“, in full white.
-      band: "text-on-brand hover:bg-brand-solid-hover",
+      band: "text-on-brand hover:underline",
       // On the band, every other page: the white dimmed until the pointer is over it.
-      bandMuted: "text-on-brand/75 hover:bg-brand-solid-hover hover:text-on-brand",
+      bandMuted: "text-on-brand/75 hover:text-on-brand hover:underline",
       // The title strip's: muted until the pointer is over it.
-      strip: "text-fg-muted hover:text-fg",
+      strip: "text-fg-muted hover:text-fg hover:underline",
       // The rail's foot: filled under the pointer as the rail's entries are.
-      rail: "text-fg hover:bg-bg-muted",
+      rail: "text-fg hover:bg-layer",
     },
   },
 });

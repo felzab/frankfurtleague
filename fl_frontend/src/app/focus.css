@@ -69,9 +69,13 @@
    where it was. So an entry fills while its focus is the pointer's, under it or pressing it, or the keys', or
    while the submenu it opens stands, and never for a focus nobody is pointing at, as a native menu's
    highlight leaves with the pointer. */
-[data-kit-focus="item"][data-focused]:not([data-selected]),
-[data-kit-focus="option"][data-focused]:is([data-hovered], [data-pressed], [data-focus-visible], [data-open]):not([data-selected]) {
+[data-kit-focus="item"][data-focused]:not([data-selected]) {
   background-color: var(--bg-muted);
+}
+
+/* An entry's fill is the one hover layer every control takes under the pointer (`tokens.css`'s `bg-layer`). */
+[data-kit-focus="option"][data-focused]:is([data-hovered], [data-pressed], [data-focus-visible], [data-open]):not([data-selected]) {
+  @apply bg-layer;
 }
 
 [data-kit-focus="item"][data-focused][data-selected],
