@@ -20,7 +20,7 @@ import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address (D569). */
+/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.schiedsrichterConfirmation;
   return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
@@ -80,7 +80,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
   if (view === null) return INVALID;
 
   switch (view.state) {
-    // The entry goes when its link lapses, so an expired one stands only until the database's monitor next runs.
+    // The entry goes when its link lapses, so an expired one stands only until the hourly pass next erases.
     case "expired":
     case "barred":
       return INVALID;
