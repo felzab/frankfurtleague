@@ -2266,8 +2266,7 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
+ * `schiedsrichter_address_barred`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.
@@ -2336,8 +2335,7 @@ export const SchiedsrichterInviteSchiedsrichterParams = zod.object({
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * `schiedsrichter_address_barred` and the row stays retired.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
  * person behind it.

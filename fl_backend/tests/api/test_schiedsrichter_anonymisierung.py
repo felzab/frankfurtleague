@@ -57,7 +57,6 @@ from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS, own_einwilligung_docum
 from tests.erasure import erased
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 from .address_change_harness import answer as answer_the_change
@@ -350,7 +349,6 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=fresh_admin_actor(),
     )
     minted = await start_the_change(
         database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(bisherige), germany_now=NOW
@@ -414,7 +412,6 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=fresh_admin_actor(),
     )
 
 
@@ -638,7 +635,6 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     db=client,
                     today=TODAY,
                     now=MAIL_NOW,
-                    actor=fresh_admin_actor(),
                 )
             elif press == "delete":
                 await delete_schiedsrichter(

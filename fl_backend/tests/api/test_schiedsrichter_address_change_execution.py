@@ -31,7 +31,6 @@ from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -132,7 +131,6 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=fresh_admin_actor(),
     )
 
 

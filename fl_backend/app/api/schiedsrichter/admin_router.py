@@ -46,7 +46,6 @@ from app.api.schiedsrichter.services import (
     first_stamped,
     frist_abgelaufen,
     owes_reactivation_mint,
-    save_moves_the_link,
 )
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, hash_barred
 from app.core.collections import Collection
@@ -77,13 +76,10 @@ from app.core.dependencies import (
 )
 from app.core.routing import by_id
 from app.core.security import (
-    SessionActor,
     bind_actor,
     get_actor_auth_time,
     get_actor_email,
     verify_access_admin,
-    verify_admin_actor,
-    verify_step_up,
 )
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -187,7 +183,6 @@ async def get_schiedsrichter_by_id(
     response_model=FLPostSchiedsrichterResponse,
     status_code=201,
     summary="Create a Schiedsrichter",
-    dependencies=[Depends(verify_step_up)],
 )
 async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
@@ -269,7 +264,6 @@ async def patch_schiedsrichter(
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLPatchSchiedsrichterResponse:
@@ -289,8 +283,7 @@ async def patch_schiedsrichter(
     **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
     collected for a role nobody gives them. Their old link is retired all the same, and the
     reactivation mints the fresh one. Where a link is minted, a banned new address is refused
-    `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
-    sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
+    `schiedsrichter_address_barred`.
 
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
     fixtures of every referee already erased.
@@ -313,8 +306,6 @@ async def patch_schiedsrichter(
             session=session,
         )
         refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
-        if save_moves_the_link(stored=stored, payload_email=email):
-            verify_step_up(actor)
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
@@ -429,7 +420,6 @@ async def reactivate_schiedsrichter(
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterReactivateResponse:
@@ -439,8 +429,7 @@ async def reactivate_schiedsrichter(
     retired referee's save stores a new address and mails nothing, so coming back is what
     asks them. A row holding no address a link can go to comes back unasked, and so does one whose
     person has answered. Where a link is minted, an address on the ban list is refused
-    `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
-    `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+    `schiedsrichter_address_barred` and the row stays retired.
 
     The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
     person behind it.
@@ -461,7 +450,6 @@ async def reactivate_schiedsrichter(
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
         if email is not None:
-            verify_step_up(actor)
             barred = await hash_barred(ban_list, ban_list.hash_of(email), governing_saison_id=governing_saison_id, session=session)
             refuse(find_barred_refusal(barred=barred))
 
@@ -502,7 +490,6 @@ async def reactivate_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/confirmation/invite",
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
-    dependencies=[Depends(verify_step_up)],
 )
 async def invite_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,

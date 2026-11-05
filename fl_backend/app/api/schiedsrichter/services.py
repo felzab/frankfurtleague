@@ -453,10 +453,7 @@ def _address_moves(*, stored: Mapping[str, Any], payload_email: str) -> bool:
 
 
 def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:
-    """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox.
-
-    Either is a step-up write, a link granting its holder the answer (`app/core/security.py :: verify_step_up`).
-    """
+    """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox."""
 
     # A CONFIRMED referee's address is never the save's (`find_confirmed_address_refusal`).
     if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):

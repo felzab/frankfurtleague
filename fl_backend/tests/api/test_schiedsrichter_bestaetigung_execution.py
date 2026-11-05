@@ -45,7 +45,6 @@ from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.outbox import MAIL_NOW, drained
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
@@ -192,7 +191,6 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         db=client,
         today=today,
         now=MAIL_NOW,
-        actor=fresh_admin_actor(),
     )
 
     return await mailed(database, client, answer)
@@ -622,7 +620,6 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Maile
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=fresh_admin_actor(),
     )
 
     return await mailed(database, client, answer)
