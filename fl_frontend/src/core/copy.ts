@@ -307,8 +307,8 @@ export const COPY = catalogue({
     tabelle: "Tabelle",
     teams: "Teams",
     spielSearch: "Spielsuche",
-    /** A match's page, named by its two teams in the order the fixture lists them. */
-    spiel: (team1: Words, team2: Words) => `${textOf(team1)} gegen ${textOf(team2)}`,
+    /** A match's page, named by its two teams in the order the fixture lists them: every pairing written in words. */
+    spiel: (team1: Words, team2: Words) => `${textOf(team1)} vs. ${textOf(team2)}`,
     about: "Über die Liga",
     contact: "Kontakt",
     sponsors: "Sponsoren",

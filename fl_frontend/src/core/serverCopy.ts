@@ -898,7 +898,7 @@ export const SERVER_COPY = catalogue({
     team: (team: string, saison: string) => `${team} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Stand, Spiele und Kader.`,
     kORunde: (saison: string) => `Die K.-o.-Runde der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: der K.-o.-Baum bis zum Finale.`,
     spiel: (team1: Words, team2: Words, saison: string) =>
-      `${textOf(team1)} gegen ${textOf(team2)} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Termin, Ort, Ergebnis und Aufstellungen.`,
+      `${COPY.page.spiel(team1, team2)} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: `Die ${COPY.brand.name} erreichst du per E-Mail, auf Instagram und auf Threads.`,
     sponsors: `Die Sponsoren der ${COPY.brand.name}, und wie du die Liga unterstützen kannst.`,
     legalNotice: `Anbieterkennzeichnung der ${COPY.brand.name} nach § 5 DDG.`,

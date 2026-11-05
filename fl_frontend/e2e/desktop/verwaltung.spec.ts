@@ -87,7 +87,7 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   const editor = `/admin/saisons/${SAISON}/spiele/${await spielId(page)}`;
   await page.goto(editor);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie gegen Eiche" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie vs. Eiche" })).toBeVisible();
 
   // The kick-off's hour, then its minutes: the segmented field moves on by itself after two digits.
   const uhrzeit = page.getByRole("group", { name: /^Uhrzeit/ });
