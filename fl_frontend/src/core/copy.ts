@@ -705,7 +705,7 @@ export const COPY = catalogue({
 
       /** The span a season runs from its start to its end: the list's column and the editor's first box. */
       zeitraum: "Zeitraum",
-      /** A span's two days, the season's and each window's alike. */
+      /** A span's two days, the season's, each window's and a matchday's alike. */
       beginn: "Beginn",
       ende: "Ende",
 
