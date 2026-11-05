@@ -34,6 +34,8 @@ describe("the ceiling a referee's name is held to", () => {
     default_payment: 20,
     kontakt: { telefon: null, email: "anna.schmidt@beispiel.de" },
     schule: null,
+    // The edit's alone; the create's schema strips it.
+    version: 0,
   };
 
   for (const [label, schema] of [

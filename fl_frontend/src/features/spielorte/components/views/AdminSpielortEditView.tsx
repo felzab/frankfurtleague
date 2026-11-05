@@ -20,7 +20,7 @@ export function AdminSpielortEditView({
   spielort,
   inactiveSince,
 }: {
-  spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number };
+  spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number; version: number };
   /** The day this venue was retired, or `null` while it is in use — on no field of the form. */
   inactiveSince: string | null;
 }) {

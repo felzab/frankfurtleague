@@ -222,9 +222,11 @@ class Code(StrEnum):
     SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
-    # A played fixture never blocks: its `ort` is an embedded record.
+    # A played fixture never blocks: its `ort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
+    # and `count`, on the path's `spielort_id`.
     SPIELORT_STILL_BOOKED = auto()
-    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
+    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated. Bounded as the venue's is, on
+    # the path's `schiedsrichter_id`.
     SCHIEDSRICHTER_STILL_ASSIGNED = auto()
     # The routing layer's own refusals, raised before any handler runs.
     NO_ROUTE = auto()

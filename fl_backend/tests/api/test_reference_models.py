@@ -166,7 +166,12 @@ class TestSchiedsrichter:
 
     @pytest.mark.parametrize("model", [FLPostSchiedsrichterPayload, FLPatchSchiedsrichterPayload])
     def test_the_payload_holds_the_name_to_every_persons_ceiling(self, kontakt, assert_rejects, model):
-        body = {"kontakt": kontakt(), "schule": None, "default_payment": 20}
+        body = {
+            "kontakt": kontakt(),
+            "schule": None,
+            "default_payment": 20,
+            **({"version": 0} if model is FLPatchSchiedsrichterPayload else {}),
+        }
 
         assert_rejects(model, {**body, "name": "A" * (KONTAKT_NAME_MAX_LENGTH + 1)}, "name")
         assert len(model.model_validate({**body, "name": "A" * KONTAKT_NAME_MAX_LENGTH}).name) == KONTAKT_NAME_MAX_LENGTH

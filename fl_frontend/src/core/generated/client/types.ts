@@ -2384,7 +2384,7 @@ export const FLRefusedFieldIn = {
   cookie: "cookie",
 } as const;
 
-export type FLRefusedFieldCtx = { [key: string]: string | number | boolean };
+export type FLRefusedFieldCtx = { [key: string]: string | number | boolean | number[] };
 
 export interface FLRefusedField {
   ctx: FLRefusedFieldCtx;
@@ -3889,7 +3889,8 @@ export interface FLPatchSchiedsrichterPayload {
    */
   name: string;
   schule: string | null;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -3904,7 +3905,7 @@ export interface FLSchiedsrichterMint {
 
 export interface FLPatchSchiedsrichterResponse {
   confirmation: FLSchiedsrichterMint | null;
-  fanned_out_to_spiele: number;
+  version: number;
 }
 
 /**
@@ -4027,11 +4028,12 @@ export interface FLPatchSpielortPayload {
    * @maxLength 120
    */
   name: string;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 export interface FLPatchSpielortResponse {
-  fanned_out_to_spiele: number;
+  version: number;
 }
 
 export interface FLPatchSpieltagPayload {
@@ -4695,8 +4697,20 @@ export interface FLSaisonsSingleResponse {
   saison: FLSaison;
 }
 
+/**
+ * A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it.
+ */
+export interface FLSchiedsrichterConfirmation {
+  declined_at: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  reminded_at: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  sent_at: string;
+}
+
 export interface FLSchiedsrichter {
-  confirmation: FLConfirmation | null;
+  confirmation: FLSchiedsrichterConfirmation | null;
   /** @minimum 0 */
   default_payment: number;
   einwilligung: FLEinwilligung | null;
@@ -4757,6 +4771,16 @@ export interface FLSchiedsrichterConfirmationResponse {
   scope: FLEinwilligungScope;
 }
 
+export type FLSchiedsrichterConfirmationState = (typeof FLSchiedsrichterConfirmationState)[keyof typeof FLSchiedsrichterConfirmationState];
+
+export const FLSchiedsrichterConfirmationState = {
+  valid: "valid",
+  confirmed: "confirmed",
+  declined: "declined",
+  expired: "expired",
+  barred: "barred",
+} as const;
+
 /**
  * What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
  *
@@ -4768,7 +4792,7 @@ export interface FLSchiedsrichterConfirmationViewResponse {
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;
-  state: FLConfirmationState;
+  state: FLSchiedsrichterConfirmationState;
 }
 
 export interface FLSchiedsrichterListResponse {

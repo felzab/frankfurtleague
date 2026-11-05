@@ -2163,8 +2163,8 @@ export const SchiedsrichterPatchEinwilligungBody = zod
  * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
  * fixture stores.
  *
- * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
- * (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
+ * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
+ * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
  * list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
  * (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
  * judged before anything is written, so a mistyped year spends nothing.
@@ -2192,6 +2192,28 @@ export const SchiedsrichterPostConfirmationBody = zod.object({
 });
 
 /**
+ * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+ *
+ * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
+ * unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+ * re-send or reactivation asks the person again.
+ *
+ * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
+ * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
+ * is not asked: an objection gives the league nothing a ban withholds.
+ * @summary Decline one Schiedsrichter's entry
+ */
+export const schiedsrichterPostDeclineBodyTokenMax = 128;
+
+export const schiedsrichterPostDeclineBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const SchiedsrichterPostDeclineBody = zod
+  .object({
+    token: zod.string().min(1).max(schiedsrichterPostDeclineBodyTokenMax).regex(schiedsrichterPostDeclineBodyTokenRegExp),
+  })
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
+
+/**
  * Answer what this token opens: the link's state and deadline, and both age floors.
  *
  * **Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the
@@ -2216,7 +2238,7 @@ export const SchiedsrichterGetConfirmationViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.
+ * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2245,9 +2267,10 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
 });
 
 /**
- * Update a referee, then update the embedded name on every Spiel that uses them.
+ * Update a referee on the `version` the editor was served, answering the version stored.
  *
- * Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
+ * The editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so
+ * nothing else is written; each fixture keeps the `payment` agreed for it.
  *
  * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
@@ -2260,12 +2283,11 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_address_barred`. A save retiring or minting a link is refused `confirmation_required` from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
+ * `schiedsrichter_address_barred`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.
- * @summary Update a Schiedsrichter and fan the change out
+ * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
@@ -2284,6 +2306,8 @@ export const schiedsrichterPatchSchiedsrichterBodyNameMax = 80;
 export const schiedsrichterPatchSchiedsrichterBodyNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const schiedsrichterPatchSchiedsrichterBodySchuleOneMax = 120;
 
+export const schiedsrichterPatchSchiedsrichterBodyVersionMin = 0;
+
 export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   default_payment: zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
   kontakt: zod.object({
@@ -2296,7 +2320,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   }),
   name: zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyNameMax).regex(schiedsrichterPatchSchiedsrichterBodyNameRegExp),
   schule: zod.union([zod.string().max(schiedsrichterPatchSchiedsrichterBodySchuleOneMax), zod.null()]),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int().min(schiedsrichterPatchSchiedsrichterBodyVersionMin),
 });
 
 /**
@@ -2305,7 +2329,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered (`confirmation_exists`), where they carry no email address
+ * answered, consenting or objecting (`confirmation_exists`), where they carry no email address
  * (`schiedsrichter_no_address`), and where that address is on the ban list
  * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
@@ -2328,8 +2352,7 @@ export const SchiedsrichterInviteSchiedsrichterParams = zod.object({
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_address_barred` and the row stays retired, and one from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * `schiedsrichter_address_barred` and the row stays retired.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
  * person behind it.
@@ -3469,7 +3492,7 @@ export const SpielortePostSpielortBody = zod.object({
 /**
  * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
  *
- * Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
+ * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
  * while an unplayed fixture is still booked here (`spielort_still_booked`).
  * @summary Deactivate a Spielort (soft delete)
  */
@@ -3480,9 +3503,10 @@ export const SpielorteDeleteSpielortParams = zod.object({
 });
 
 /**
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+ * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
  *
- * Deactivated ones included -- a historical match's venue is the case worth answering.
+ * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
+ * the editor reactivates one, and a historical match's venue is the case worth answering.
  * @summary One Spielort
  */
 export const spielorteGetSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3492,11 +3516,12 @@ export const SpielorteGetSpielortParams = zod.object({
 });
 
 /**
- * Update a venue, then update every Spiel that embeds it.
+ * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
  *
- * The fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is
- * NOT fanned out -- the rent on a match is what was agreed for that match.
- * @summary Update a Spielort and fan the change out
+ * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
+ * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
+ * unique index.
+ * @summary Update a Spielort
  */
 export const spielortePatchSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
@@ -3518,6 +3543,8 @@ export const spielortePatchSpielortBodyDefaultMietpreisMin = 0;
 
 export const spielortePatchSpielortBodyNameMax = 120;
 
+export const spielortePatchSpielortBodyVersionMin = 0;
+
 export const SpielortePatchSpielortBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(spielortePatchSpielortBodyAddressHausnummerMax).regex(spielortePatchSpielortBodyAddressHausnummerRegExp),
@@ -3528,7 +3555,7 @@ export const SpielortePatchSpielortBody = zod.object({
   }),
   default_mietpreis: zod.int().min(spielortePatchSpielortBodyDefaultMietpreisMin),
   name: zod.string().min(1).max(spielortePatchSpielortBodyNameMax),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+  version: zod.int().min(spielortePatchSpielortBodyVersionMin),
 });
 
 /**

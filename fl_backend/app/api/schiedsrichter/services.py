@@ -1,9 +1,12 @@
 from collections.abc import Mapping, Sequence
+from datetime import date, datetime, time, timedelta
 from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
+from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState
 from app.api.spiele.schemas import unplayed_filter
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -19,7 +22,6 @@ from app.shared.schemas.bounds import (
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 from app.shared.schemas.kontakt import FLKontakt
-from app.shared.schemas.literals import FLConfirmationState
 
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
@@ -139,7 +141,8 @@ def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
     """Why retiring this referee must be refused, or `None`.
 
-    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition of "still to come".
+    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition of "still to come", named with its count on the path's
+    id as the venue's refusal names it.
     """
 
     if not upcoming_spiel_nrs:
@@ -148,6 +151,9 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_STILL_ASSIGNED,
         status=HTTPStatus.CONFLICT,
+        fields=(("schiedsrichter_id",),),
+        location="path",
+        bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
     )
 
 
@@ -156,31 +162,45 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 
 
 # The record's confirmation block, under which the hand-out stores the hashes it mints.
-BESTAETIGUNG_FELD: Final = "confirmation"
+CONFIRMATION_FIELD: Final = "confirmation"
 
 # Where the hand-out stores the hashes of the links it mints, and the address it mints them for.
-TOKEN_HASHES_PATH: Final = f"{BESTAETIGUNG_FELD}.token_hashes"
+TOKEN_HASHES_PATH: Final = f"{CONFIRMATION_FIELD}.token_hashes"
+# The day the person objected through their link. On the block, so a mint replacing it asks them afresh: only a save
+# moving the address mints over an answer, the objection then having come from a mailbox the entry no longer names.
+DECLINED_AT_PATH: Final = f"{CONFIRMATION_FIELD}.declined_at"
 ADDRESS_PATH: Final = "kontakt.email"
 
 EINWILLIGUNG_FELD: Final = "einwilligung"
 
+# The instant the database removes an unanswered or declined entry (`app/core/constraints.py :: TTL_INDEXES`). On the
+# record rather than inside the block: a retired referee's corrected address drops the block, and the entry its
+# person never confirmed still goes on the clock its last link started.
+ERASE_AT_FIELD: Final = "erase_at"
 
-def bestaetigung_frist_from(*, today: str) -> str:
+
+def confirmation_deadline_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
 
     return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS)
 
 
-def compose_bestaetigung(*, today: str) -> dict[str, Any]:
+def erase_at_from(*, frist: str) -> datetime:
+    """The German midnight closing the deadline's day: the link still answers on that day, so the entry outlives it."""
+
+    return datetime.combine(date.fromisoformat(frist) + timedelta(days=1), time(), tzinfo=clock.GERMANY)
+
+
+def compose_confirmation(*, today: str) -> dict[str, Any]:
     """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today, nobody reminded."""
 
-    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "frist": bestaetigung_frist_from(today=today)}
+    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "frist": confirmation_deadline_from(today=today)}
 
 
 def compose_mint_update(*, today: str) -> dict[str, Any]:
-    """The WHOLE block, so every link the referee was sent before stops working at this write."""
+    """The WHOLE block, so every link the referee was sent before stops working at this write, and the clock it restarts."""
 
-    return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
+    return {CONFIRMATION_FIELD: compose_confirmation(today=today), ERASE_AT_FIELD: erase_at_from(frist=confirmation_deadline_from(today=today))}
 
 
 def compose_einwilligung(*, scope: str, media: bool, today: str) -> dict[str, Any]:
@@ -211,7 +231,14 @@ def compose_confirmation_update(
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
     record = compose_initial(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
-    return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
+    # The clock goes with the answer: a confirmed entry stays until its person or the league ends it.
+    return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
+
+
+def compose_decline_update(*, today: str) -> Mapping[str, Any]:
+    """The objection's one write: its day on the block, the entry left to go on the clock its link started."""
+
+    return {"$set": {DECLINED_AT_PATH: today}}
 
 
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
@@ -238,14 +265,26 @@ def link_is_over(*, frist: str, today: str) -> bool:
     return frist < today
 
 
-def frist_abgelaufen(block: Mapping[str, Any] | None, *, today: str) -> bool:
+def deadline_passed(block: Mapping[str, Any] | None, *, today: str) -> bool:
     """Whether the link a referee holds has passed its deadline; false where they hold none."""
 
     return block is not None and link_is_over(frist=block["frist"], today=today)
 
 
-def zustand_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, barred: bool) -> FLConfirmationState:
-    """What a reopened link shows: the ban first, then a stamp over the deadline.
+def is_declined(confirmation: Any) -> bool:
+    """Whether the person objected through the link their block holds."""
+
+    return isinstance(confirmation, Mapping) and confirmation.get("declined_at") is not None
+
+
+def has_answered(*, einwilligung: Any, confirmation: Any) -> bool:
+    """Whether the person answered their link either way, which spends it: a consent's stamp or an objection's day."""
+
+    return is_confirmed(einwilligung=einwilligung) or is_declined(confirmation)
+
+
+def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, barred: bool) -> FLSchiedsrichterConfirmationState:
+    """What a reopened link shows: the ban first, then an answer over the deadline.
 
     A person who answered on the last valid day is shown that they did.
     """
@@ -255,6 +294,9 @@ def zustand_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str
 
     if is_confirmed(einwilligung=einwilligung):
         return "confirmed"
+
+    if is_declined(confirmation):
+        return "declined"
 
     return "expired" if link_is_over(frist=confirmation["frist"], today=today) else "valid"
 
@@ -287,11 +329,11 @@ def find_expired_token_refusal(*, frist: str, today: str) -> WriteRefusal | None
     )
 
 
-def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
-    """Why this entry takes no second answer, or `None`. The single use: a stamp is what spends the link."""
+def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> WriteRefusal | None:
+    """Why this entry takes no second answer, or `None`. The single use: a stamp or an objection is what spends the link."""
 
-    # The STAMP and never a nulled hash: the hash stays live so a second press is told why.
-    if not is_confirmed(einwilligung=einwilligung):
+    # The answer and never a nulled hash: the hash stays live so a second press is told why.
+    if not has_answered(einwilligung=einwilligung, confirmation=confirmation):
         return None
 
     return WriteRefusal(
@@ -336,7 +378,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     return None
 
 
-def find_medien_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:
+def find_media_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:
     """Why this referee's media consent is refused, or `None`.
 
     Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
@@ -411,10 +453,7 @@ def _address_moves(*, stored: Mapping[str, Any], payload_email: str) -> bool:
 
 
 def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:
-    """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox.
-
-    Either is a step-up write, a link granting its holder the answer (`app/core/security.py :: verify_step_up`).
-    """
+    """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox."""
 
     # A CONFIRMED referee's address is never the save's (`find_confirmed_address_refusal`).
     if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
@@ -438,7 +477,7 @@ def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: 
     )
 
 
-def compose_korrektur_update(
+def compose_correction_update(
     *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, today: str
 ) -> tuple[dict[str, Any], bool]:
     """The save's update, and whether it owes a fresh consent link.
@@ -451,7 +490,7 @@ def compose_korrektur_update(
         return {"$set": dict(payload)}, False
 
     if stored.get("inactive_since") is not None:
-        return {"$set": dict(payload), "$unset": {BESTAETIGUNG_FELD: ""}}, False
+        return {"$set": dict(payload), "$unset": {CONFIRMATION_FIELD: ""}}, False
 
     # An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
     # credential in the wrong inbox.
@@ -461,21 +500,23 @@ def compose_korrektur_update(
 def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
     """Whether bringing this referee back mints them a link: retired, unanswered, and holding an address a link can go to.
 
-    A row with no such address comes back unasked; entering one is the save that mints.
+    A row with no such address comes back unasked; entering one is the save that mints. A person who objected is
+    asked nothing again.
     """
 
     return (
         stored.get("inactive_since") is not None
-        and not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD))
+        and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(CONFIRMATION_FIELD))
         and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
     )
 
 
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
 # of the row is what must not reach them.
-BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
+CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
-    f"{BESTAETIGUNG_FELD}.frist": 1,
+    f"{CONFIRMATION_FIELD}.frist": 1,
+    DECLINED_AT_PATH: 1,
     # For the ban list alone, as the answer's read takes it: the response model declares no field to
     # carry it.
     "kontakt.email": 1,
@@ -485,14 +526,20 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 
 # Narrower than the view's: the answer takes its wording from the payload rather than the row. The
 # address is what the press asks the ban list of, and no answer carries it.
-BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
+CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
-    f"{BESTAETIGUNG_FELD}.frist": 1,
+    f"{CONFIRMATION_FIELD}.frist": 1,
+    DECLINED_AT_PATH: 1,
     "kontakt.email": 1,
 }
 
-# What the re-send judges, and the address it hashes against the ban list.
-EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.confirmed_at": 1}
+# What the re-send and the reactivation judge, and the address they hash against the ban list.
+INVITE_FIELDS: Mapping[str, int] = {
+    "inactive_since": 1,
+    "kontakt.email": 1,
+    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
+    DECLINED_AT_PATH: 1,
+}
 
 
 def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
@@ -505,9 +552,9 @@ def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) 
     }
 
 
-# An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason: the link's hash stays off a person-tier read.
+# An INCLUSION, for `CONFIRMATION_VIEW_FIELDS`' reason: the link's hash stays off a person-tier read.
 # The fee is the referee's own data, which the confirmation page says they can always see.
-SELBST_FIELDS: Mapping[str, int] = {
+SELF_FIELDS: Mapping[str, int] = {
     "name": 1,
     "schule": 1,
     "kontakt": 1,
@@ -528,4 +575,4 @@ def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     Unbounded: a capped list reads as a person holding fewer records.
     """
 
-    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": dict(SELF_REFEREE_ORDER)}]
+    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELF_FIELDS)}, {"$sort": dict(SELF_REFEREE_ORDER)}]

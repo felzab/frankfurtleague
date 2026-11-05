@@ -33,6 +33,8 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
   default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
   kontakt: FLKontaktPayloadSchema,
   schule: z.string().nullable(),
+  // The record's version the form was opened at, which the backend's save requires.
+  version: z.int().nonnegative(),
 });
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
 

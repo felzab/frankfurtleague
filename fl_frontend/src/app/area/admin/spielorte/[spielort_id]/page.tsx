@@ -39,6 +39,7 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
         name: spielort.name,
         address: spielort.address,
         default_mietpreis: spielort.default_mietpreis,
+        version: spielort.version,
       }}
       inactiveSince={spielort.inactive_since}
     />

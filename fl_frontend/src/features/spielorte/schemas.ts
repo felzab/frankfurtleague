@@ -23,6 +23,8 @@ export type FLPostSpielortPayload = z.infer<typeof FLPostSpielortPayloadSchema>;
 export const FLPatchSpielortPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   ...spielortPayloadFields,
+  // The record's version the form was opened at, which the backend's save requires.
+  version: z.int().nonnegative(),
 });
 export type FLPatchSpielortPayload = z.infer<typeof FLPatchSpielortPayloadSchema>;
 
