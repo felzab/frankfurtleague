@@ -1,5 +1,6 @@
 import "server-only";
 
+import { requires } from "@/core/action";
 import {
   SchiedsrichterPatchSchiedsrichterBody,
   schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax,
@@ -22,15 +23,16 @@ export type SchiedsrichterRules = {
 
 type Body = typeof SchiedsrichterPostSchiedsrichterBody | typeof SchiedsrichterPatchSchiedsrichterBody;
 
-/** A field is required where the write takes no `null` for it, as its generated type says. */
-const takesNull = (field: { safeParse: (value: unknown) => { success: boolean } }) => field.safeParse(null).success;
-
+/**
+ * The name's box posts "" while empty; every other box is read as no value then (`blankIsNull`, `numberBox`), an
+ * address left empty being no address.
+ */
 const requiredOf = ({ shape }: Body): SchiedsrichterRules["required"] => ({
-  name: !takesNull(shape.name),
-  email: !takesNull(shape.kontakt.shape.email),
-  telefon: !takesNull(shape.kontakt.shape.telefon),
-  schule: !takesNull(shape.schule),
-  honorar: !takesNull(shape.default_payment),
+  name: requires(shape.name, ""),
+  email: requires(shape.kontakt.shape.email, null),
+  telefon: requires(shape.kontakt.shape.telefon, null),
+  schule: requires(shape.schule, null),
+  honorar: requires(shape.default_payment, null),
 });
 
 /** The create's rules, which the dialog over the list holds its boxes to. */

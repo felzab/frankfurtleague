@@ -276,9 +276,12 @@ export const SERVER_COPY = catalogue({
       movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDatumLong(day)}`,
       movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} verlegt`,
       moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
-      /** The block's rows of a move, beside the slot's own: the moment it left and the one it moved to. */
-      previous: "Bisher",
-      next: "Neu",
+      /**
+       * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
+       * „Übernehmen“'s question names them by.
+       */
+      previous: COPY.admin.facts.before,
+      next: COPY.admin.facts.after,
       /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
       previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
       /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */

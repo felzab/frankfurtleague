@@ -5,6 +5,12 @@ import { tv } from "./tv";
  * frame, the message line, the drawn box of a checkbox, radio or switch, and the menu a select or a
  * combo box opens. Each is a `tv()` recipe, which the class lint reads. A border's colour is named
  * because HeroUI's base sheet colours every element's border.
+ *
+ * The touch rule: every pressable control's press target is at least the kit's control height on a touch screen,
+ * 40 px (32 with a mouse), as WCAG 2.5.8's target size asks with the kit's own figure; a link inside running text is
+ * the exception that criterion makes for inline targets. A control drawn at that height is its own target; one drawn
+ * smaller keeps its look and reaches the height through its row (`toggleRow`) or through a target laid over its
+ * frame's inset (`choiceButton`'s segment).
  */
 
 /**
@@ -198,10 +204,12 @@ export const calendarCell = tv({
 export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
 /**
- * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right.
+ * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. The row is the control's press
+ * target, its label included, and on a touch screen it is the kit's control height at least, 10 px over and under
+ * a line's 20 px, by the touch rule at this file's head.
  */
 export const toggleRow = tv({
-  base: "items-start text-sm text-fg data-disabled:opacity-50",
+  base: "items-start text-sm text-fg data-disabled:opacity-50 pointer-coarse:py-2.5",
   variants: {
     // A radio's answer stands alone; a checkbox's or a switch's row takes its field's two columns.
     in: {
@@ -382,7 +390,12 @@ export const choiceButton = tv({
   base: "inline-flex cursor-default items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:font-semibold",
   variants: {
     kind: {
-      segmented: "h-full rounded-md border border-transparent data-selected:border-border-control data-selected:bg-bg-muted",
+      // Drawn inside its frame's 2-px inset and 1-px edge, 26 px with a mouse and 34 on a touch screen; its press target
+      // reaches over both, the frame's whole 32 or 40 px, so the raised segment keeps its look and the frame its
+      // height beside the fields, by the touch rule at this file's head. The target is laid from the segment's own
+      // inner edge: its 1-px edge, then the frame's inset and edge, 4 px up and down, its own edge at the sides.
+      segmented:
+        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
         "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-10",
     },

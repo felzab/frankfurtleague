@@ -1024,7 +1024,7 @@ x /var/log/frankfurtleague/nginx
 **The erasure journal's lines are copied into a file per day,
 `/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
 erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
-every consent a person withdraws on their own record, every Widerspruch made through a seat's link,
+every consent a person withdraws on their own record, every Widerspruch made through a seat's link or a referee's,
 every address change declined, stopped or discarded and every one taking effect, and every request
 for a grant refused, withdrawn or ended by its address changing; a restore runs each erasure
 again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
@@ -1496,7 +1496,8 @@ going on to name it since its hash matches nothing the record holds. Four things
 
 - **A grant made after a journalled withdrawal and before the restore's end** is in no journal, so
   the choice stays withdrawn, the safe side, until its person grants it again on the account page.
-- **A Widerspruch's replay mails nobody**, its submitter having been told when it was made.
+- **A Widerspruch's replay mails nobody**: an application's submitter was told when it was made, and
+  a season row's seat's and a referee's tell nobody.
 - **An address change that took effect inside the window, started before the snapshot**, replays
   from its line, moving every record again; **one started inside the window** reads `left for
 review`, the restored database holding no change to move: ask the person to start it again on their

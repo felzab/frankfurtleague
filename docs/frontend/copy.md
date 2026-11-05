@@ -144,7 +144,8 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   confirmed seat or address change, `end.toAccount` where Konto is the one place to change what was
   done and for an address change's or a deletion's link that no longer holds, `end.toHome` after
   anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
-- **A Vorschau line** names the changed fields by their own labels; there are no change-list labels.
+- **A Vorschau line** says a fact about the record as it is stored, such as a match's pairing, its
+  day and its result or „Noch kein Ergebnis“; never the unsaved changes, which the save bar counts.
 
 ## Help text is one of four kinds
 

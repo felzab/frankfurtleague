@@ -48,7 +48,7 @@ const head = tv({
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     // Cut with „…“ where the side's third of the head is too narrow, as a phone's is for a long name.
     name: "max-w-full min-w-0 truncate text-sm",
-    standing: "min-w-0 text-xs [overflow-wrap:anywhere]",
+    standing: "min-w-0 text-xs wrap-anywhere",
   },
   variants: {
     placement: {

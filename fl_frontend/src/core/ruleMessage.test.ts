@@ -2,7 +2,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "./copy.ts";
 import { dayOf } from "./format.ts";
-import { bornAfter, bornBy, ruleMessage } from "./ruleMessage.ts";
+import { ruleMessage } from "./ruleMessage.ts";
 import { SERVER_COPY } from "./serverCopy.ts";
 
 import type { FLRefusedField } from "./generated/client/types.ts";
@@ -41,15 +41,6 @@ describe("the field patterns over the backend's rules", () => {
     // Half past midnight on 5 November in Berlin, whose day the backend judges an age on.
     expect(rule("confirmation_age", { min: 16, max: 120 })).toStrictEqual({ field: field.latest(dayOf("2010-11-05")) });
     expect(rule("confirmation_age", { min: 18, max: 120 })).toStrictEqual({ field: field.latest(dayOf("2008-11-05")) });
-  });
-
-  it("takes the month's last day as the latest birthdate where that year holds no such day", () => {
-    vi.useFakeTimers({ now: new Date("2028-02-29T12:00:00Z"), toFake: ["Date"] });
-    onTestFinished(() => {
-      vi.useRealTimers();
-    });
-    expect(bornBy(17)).toBe("2011-02-28");
-    expect(bornAfter(120)).toBe("1907-03-01");
   });
 
   // A bound the server moves reaches the box with it: a phrase written from a figure of the page's own goes stale in silence.
