@@ -28,7 +28,7 @@ from app.api.schiedsrichter.services import (
     build_ghost_repoint,
     build_ghost_schiedsrichter,
     build_unplayed_assignment_filter,
-    compose_bestaetigung,
+    compose_confirmation,
     first_stamped,
 )
 from app.api.spiele.schemas import (
@@ -62,7 +62,7 @@ from tests.worker import worker_database
 from .address_change_harness import answer as answer_the_change
 from .address_change_harness import start as start_the_change
 
-DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
+DATABASE_NAME = worker_database("fl_schiedsrichter_erasure_test")
 
 
 # Fixed rather than generated, so a failure names the same row every run.
@@ -164,7 +164,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "inactive_since": None,
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
-        "confirmation": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
+        "confirmation": {**compose_confirmation(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
         "einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, media=True),
         "geburtsdatum": GEBURTSDATUM,
         "version": 0,
@@ -330,7 +330,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
     Without the edits the log would hold no contact value and every assertion below would pass vacuously.
     """
 
-    bisherige = FORMER_KONTAKT[schiedsrichter_id]["email"]
+    former_email = FORMER_KONTAKT[schiedsrichter_id]["email"]
     served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": schiedsrichter_id}, {"version": 1})
     assert served is not None
     await patch_schiedsrichter(
@@ -339,7 +339,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
             name=REFEREE_NAMES[schiedsrichter_id],
             schule=SCHULE,
             default_payment=DEFAULT_PAYMENT,
-            kontakt=FLKontaktPayload(telefon=KONTAKT[schiedsrichter_id]["telefon"], email=bisherige),
+            kontakt=FLKontaktPayload(telefon=KONTAKT[schiedsrichter_id]["telefon"], email=former_email),
             version=served["version"],
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -350,7 +350,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         now=MAIL_NOW,
     )
     minted = await start_the_change(
-        database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(bisherige), germany_now=NOW
+        database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(former_email), germany_now=NOW
     )
     await answer_the_change(database, client, minted.token, germany_now=NOW)
 
@@ -518,7 +518,7 @@ def test_the_ghost_is_written_where_no_ghost_stood(mongo_replica_set_url: str):
 
 
 @pytest.mark.db
-def test_a_second_loeschung_reuses_the_one_ghost(mongo_replica_set_url: str):
+def test_a_second_erasure_reuses_the_one_ghost(mongo_replica_set_url: str):
     """Kills writing a fresh sentinel per run, which would leave one nameless row per erased person and refuse the second on the name index."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -568,7 +568,7 @@ def test_the_ghost_is_off_the_list_an_administrator_works_from(mongo_replica_set
 
 
 @pytest.mark.db
-def test_the_single_read_answers_for_neither_the_geloescht_referee_nor_the_ghost(mongo_replica_set_url: str):
+def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mongo_replica_set_url: str):
     """Kills a by-id read that still serves the ghost, whose page would be a referee nobody can act on.
 
     Both ids in one case, the answer being the same 404 for the same reason: neither names a person.
@@ -674,7 +674,7 @@ def test_an_ordinary_retired_referee_is_still_brought_back(mongo_replica_set_url
     assert on_a_league(mongo_replica_set_url, body) is None
 
 
-def after_loeschen_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:
+def after_erasing_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:
     """One league holding a played fixture and an unplayed one, so the two halves are read off a single run."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -687,13 +687,13 @@ def after_loeschen_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping
 
 
 @pytest.mark.db
-def test_an_unplayed_fixture_does_not_stop_the_loeschung_and_takes_the_ghost(mongo_replica_set_url: str):
+def test_an_unplayed_fixture_does_not_stop_the_erasure_and_takes_the_ghost(mongo_replica_set_url: str):
     """`DELETE` owes `schiedsrichter_still_assigned` and this does not: a request to be forgotten is not something a booking may block.
 
     Kills consulting that refusal here, and kills leaving an erased person named on work still to come.
     """
 
-    fixtures, referees = after_loeschen_one_fixture_left_to_play(mongo_replica_set_url)
+    fixtures, referees = after_erasing_one_fixture_left_to_play(mongo_replica_set_url)
 
     assert SCHIEDSRICHTER_OID not in referees
     # Still owing a result, so this cannot pass on an erasure that composed one instead.
@@ -705,7 +705,7 @@ def test_an_unplayed_fixture_does_not_stop_the_loeschung_and_takes_the_ghost(mon
 def test_the_played_fixture_beside_it_takes_the_ghost_too(mongo_replica_set_url: str):
     """Kills a repoint narrowed to what is still to be played: a match that was played records that somebody officiated it and what it cost."""
 
-    fixtures, _ = after_loeschen_one_fixture_left_to_play(mongo_replica_set_url)
+    fixtures, _ = after_erasing_one_fixture_left_to_play(mongo_replica_set_url)
 
     assert fixtures[PLAYED_SPIEL_OID]["schiedsrichter"] == REPOINTED_BOOKING
 
@@ -744,7 +744,7 @@ def test_another_referees_fixture_keeps_its_assignment(mongo_replica_set_url: st
     }
 
 
-def fixtures_after_loeschen(url: str) -> dict[Any, Mapping[str, Any]]:
+def fixtures_after_erasure(url: str) -> dict[Any, Mapping[str, Any]]:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await erase_the_referee(database, client)
 
@@ -761,7 +761,7 @@ def test_every_fixture_they_officiated_is_repointed(mongo_replica_set_url: str):
     it reached.
     """
 
-    fixtures = fixtures_after_loeschen(mongo_replica_set_url)
+    fixtures = fixtures_after_erasure(mongo_replica_set_url)
 
     assert [fixtures[spiel_id]["schiedsrichter"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [REPOINTED_BOOKING] * 2
 
@@ -806,7 +806,7 @@ def test_the_written_fixture_is_read_back_by_both_tiers_rather_than_refused(mong
     Both models, because the base tier reduces the surname where the admin tier serves it whole.
     """
 
-    fixtures = fixtures_after_loeschen(mongo_replica_set_url)
+    fixtures = fixtures_after_erasure(mongo_replica_set_url)
     booking = fixtures[PLAYED_SPIEL_OID]["schiedsrichter"]
 
     assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name is None

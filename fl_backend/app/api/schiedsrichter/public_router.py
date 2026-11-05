@@ -11,9 +11,9 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationViewResponse,
 )
 from app.api.schiedsrichter.services import (
-    BESTAETIGUNG_ANSICHT_FIELDS,
-    BESTAETIGUNG_ANTWORT_FIELDS,
-    BESTAETIGUNG_FELD,
+    CONFIRMATION_ANSWER_FIELDS,
+    CONFIRMATION_FIELD,
+    CONFIRMATION_VIEW_FIELDS,
     EINWILLIGUNG_FELD,
     build_token_filter,
     compose_confirmation_update,
@@ -24,7 +24,7 @@ from app.api.schiedsrichter.services import (
     find_expired_token_refusal,
     find_media_refusal,
     find_unknown_token_refusal,
-    zustand_of,
+    state_of,
 )
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.core.config import API_VERSION
@@ -83,22 +83,22 @@ async def get_confirmation_view(
     token_hash = hash_token(view_data.token)
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    raw = await schiedsrichter_collection.find_one(build_token_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANSICHT_FIELDS))
+    raw = await schiedsrichter_collection.find_one(build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_VIEW_FIELDS))
     refuse(find_unknown_token_refusal(found=raw is not None))
     assert raw is not None
 
-    bestaetigung = raw[BESTAETIGUNG_FELD]
+    block = raw[CONFIRMATION_FIELD]
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
     barred = await barred_addresses(ban_list, [str((raw.get("kontakt") or {}).get("email") or "")])
 
     return FLSchiedsrichterConfirmationViewResponse(
-        state=zustand_of(einwilligung=einwilligung, confirmation=bestaetigung, today=today, barred=bool(barred)),
+        state=state_of(einwilligung=einwilligung, confirmation=block, today=today, barred=bool(barred)),
         # Served rather than retyped on the page: the floor the write is judged by is the one the
         # paragraph a person reads before consenting has to state.
         minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS,
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
-        frist=bestaetigung["frist"],
+        frist=block["frist"],
     )
 
 
@@ -145,16 +145,16 @@ async def post_confirmation(
         """
 
         raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANTWORT_FIELDS), session=session
+            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
         )
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
 
-        # The STAMP is asked first, as `zustand_of` ranks it: a person who answered on the last
+        # The STAMP is asked first, as `state_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[BESTAETIGUNG_FELD]))
-        refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_expired_token_refusal(frist=raw[CONFIRMATION_FIELD]["frist"], today=today))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         barred = await barred_addresses(
@@ -221,13 +221,13 @@ async def post_decline(
         """Judge, then write, everything judged read in-session, so a second press is refused by the first answer."""
 
         raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANTWORT_FIELDS), session=session
+            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
         )
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
 
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[BESTAETIGUNG_FELD]))
-        refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_expired_token_refusal(frist=raw[CONFIRMATION_FIELD]["frist"], today=today))
 
         await patch_one_in_db(
             collection=schiedsrichter_collection,

@@ -33,11 +33,11 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterFilterParams,
 )
 from app.api.schiedsrichter.services import (
-    BESTAETIGUNG_FELD,
+    CONFIRMATION_FIELD,
     EINWILLIGUNG_FELD,
     ERASE_AT_FIELD,
-    bestaetigung_frist_from,
-    compose_bestaetigung,
+    compose_confirmation,
+    confirmation_deadline_from,
     erase_at_from,
 )
 from app.core.codes import Code
@@ -55,7 +55,7 @@ from tests.worker import worker_database
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_schiedsrichter_bestaetigung_test")
+DATABASE_NAME = worker_database("fl_schiedsrichter_confirmation_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -259,10 +259,10 @@ class TestTheCreateIsTheInvitation:
         response, row = on_a_league(mongo_replica_set_url, body, referees=[])
 
         assert response.answer.confirmation is not None
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(response.token))]
-        assert row[BESTAETIGUNG_FELD]["frist"] == response.answer.confirmation.frist == bestaetigung_frist_from(today=TODAY)
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
+        assert row[CONFIRMATION_FIELD]["frist"] == response.answer.confirmation.frist == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
-        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(frist=bestaetigung_frist_from(today=TODAY))
+        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(frist=confirmation_deadline_from(today=TODAY))
 
     def test_a_banned_address_leaves_no_referee_behind(self, mongo_replica_set_url: str):
         """What the create's transaction is for: judged outside one, the row stands with a live link the caller was told had been refused."""
@@ -312,7 +312,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
         corrected, row, old_link = on_a_league(mongo_replica_set_url, body)
 
         assert corrected.answer.confirmation is not None
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(corrected.token))]
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(corrected.token))]
         assert row["kontakt"]["email"] == CORRECTED_EMAIL
         assert old_link.error_code == Code.LINK_INVALID
 
@@ -338,7 +338,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
 
         assert saved.answer.confirmation is None
         assert row["kontakt"]["email"] == CORRECTED_EMAIL
-        assert BESTAETIGUNG_FELD not in row
+        assert CONFIRMATION_FIELD not in row
         assert old_link.error_code == Code.LINK_INVALID
         assert row[ERASE_AT_FIELD] == clock
 
@@ -375,7 +375,7 @@ class TestTheReSend:
         second, row, first_link = on_a_league(mongo_replica_set_url, body)
 
         assert second.token is not None
-        assert row[BESTAETIGUNG_FELD] == {**compose_bestaetigung(today=TODAY), "token_hashes": [hash_token(second.token)]}
+        assert row[CONFIRMATION_FIELD] == {**compose_confirmation(today=TODAY), "token_hashes": [hash_token(second.token)]}
         assert first_link.error_code == Code.LINK_INVALID
 
     def test_the_admin_list_serves_no_hash_for_a_referee_who_holds_one(self, mongo_replica_set_url: str):
@@ -383,7 +383,7 @@ class TestTheReSend:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await resend(database, client)
-            assert (await stored(database))[BESTAETIGUNG_FELD]["token_hashes"]
+            assert (await stored(database))[CONFIRMATION_FIELD]["token_hashes"]
 
             return await get_schiedsrichter(
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], filters=FLSchiedsrichterFilterParams()
@@ -411,7 +411,7 @@ class TestTheReSend:
 
         assert before == EMAIL
         assert response.answer.confirmation.email == CORRECTED_EMAIL
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(response.token))]
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
 
     def test_a_retired_referee_is_refused(self, mongo_replica_set_url: str):
         """Mailed, a retired person is asked to consent to a role nobody gives them."""
@@ -433,7 +433,7 @@ class TestTheReSend:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.SCHIEDSRICHTER_RETIRED
-        assert BESTAETIGUNG_FELD not in row
+        assert CONFIRMATION_FIELD not in row
 
     def test_a_referee_who_has_already_answered_is_refused_and_keeps_their_block(self, mongo_replica_set_url: str):
         """A fresh link for them can never be spent, and minting one would start the deletion clock on a confirmed entry."""
@@ -450,7 +450,7 @@ class TestTheReSend:
         first, refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_EXISTS
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(first.token))]
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert ERASE_AT_FIELD not in row
 
     def test_an_address_on_the_ban_list_is_refused(self, mongo_replica_set_url: str):
@@ -467,7 +467,7 @@ class TestTheReSend:
         refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=BANNED_EMAIL)])
 
         assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
-        assert BESTAETIGUNG_FELD not in row
+        assert CONFIRMATION_FIELD not in row
 
 
 async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Mailed:
@@ -500,7 +500,7 @@ class TestTheReactivation:
 
         assert row["inactive_since"] is None
         assert response.answer.confirmation.email == EMAIL
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(response.token))]
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert ERASE_AT_FIELD in row
 
     def test_a_referee_who_has_answered_comes_back_unasked(self, mongo_replica_set_url: str):
@@ -516,7 +516,7 @@ class TestTheReactivation:
         first, response, row = on_a_league(mongo_replica_set_url, body)
 
         assert response.answer.confirmation is None
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(first.token))]
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert ERASE_AT_FIELD not in row
 
     def test_a_banned_address_is_refused_and_the_row_stays_retired(self, mongo_replica_set_url: str):
@@ -534,7 +534,7 @@ class TestTheReactivation:
 
         assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
         assert row["inactive_since"] == RETIRED["inactive_since"]
-        assert BESTAETIGUNG_FELD not in row
+        assert CONFIRMATION_FIELD not in row
 
 
 class TestTheConfirmation:
@@ -640,7 +640,7 @@ class TestTheDecline:
 
         clock, row, asked_again, state = on_a_league(mongo_replica_set_url, body)
 
-        assert row[BESTAETIGUNG_FELD]["declined_at"] == TODAY
+        assert row[CONFIRMATION_FIELD]["declined_at"] == TODAY
         assert row[ERASE_AT_FIELD] == clock
         assert row.get(EINWILLIGUNG_FELD) is None
         assert asked_again.error_code == Code.CONFIRMATION_EXISTS

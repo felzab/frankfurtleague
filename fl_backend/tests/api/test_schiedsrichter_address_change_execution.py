@@ -20,7 +20,7 @@ from app.api.address_change.schemas import FLAddressChangeAdminPayload
 from app.api.schiedsrichter.admin_router import invite_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
-from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
+from app.api.schiedsrichter.services import CONFIRMATION_FIELD
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -213,4 +213,4 @@ class TestAnUnconfirmedReferee:
 
         assert saved.confirmation is not None
         assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
-        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(mail.token))]
+        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(mail.token))]

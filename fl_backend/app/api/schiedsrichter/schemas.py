@@ -95,7 +95,7 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     version: int = 0
 
 
-class FLSchiedsrichterBestaetigungRecord(FLSchiedsrichterConfirmation):
+class FLSchiedsrichterConfirmationRecord(FLSchiedsrichterConfirmation):
     """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its links' hashes with it."""
 
     # Empty until the hand-out mints the link the write owed; each hand-out's link replaces the one before it.
@@ -105,7 +105,7 @@ class FLSchiedsrichterBestaetigungRecord(FLSchiedsrichterConfirmation):
 class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
-    confirmation: FLSchiedsrichterBestaetigungRecord | None = None
+    confirmation: FLSchiedsrichterConfirmationRecord | None = None
     # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which
     # expires (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
     erase_at: datetime | None = None

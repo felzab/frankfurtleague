@@ -22,7 +22,7 @@ from app.core.crud import ensure_one_in_db, erase_many_from_db, patch_many_in_db
 from app.shared.schemas.custom import CustomObjectId
 
 
-async def owe_the_bestaetigung(
+async def owe_the_confirmation(
     *,
     outbox_collection: AsyncCollection,
     schiedsrichter_id: Any,

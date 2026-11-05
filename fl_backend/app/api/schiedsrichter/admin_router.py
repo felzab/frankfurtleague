@@ -11,7 +11,7 @@ from app.api.address_change.services import build_address_filter
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
-from app.api.schiedsrichter.crud import owe_the_bestaetigung
+from app.api.schiedsrichter.crud import owe_the_confirmation
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
@@ -27,15 +27,16 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSingleResponse,
 )
 from app.api.schiedsrichter.services import (
-    BESTAETIGUNG_FELD,
-    EINLADEN_FIELDS,
+    CONFIRMATION_FIELD,
     EINWILLIGUNG_FELD,
-    bestaetigung_frist_from,
+    INVITE_FIELDS,
     build_real_referees_filter,
     build_referee_filter,
     build_unplayed_assignment_filter,
-    compose_korrektur_update,
+    compose_correction_update,
     compose_mint_update,
+    confirmation_deadline_from,
+    deadline_passed,
     find_already_answered_refusal,
     find_barred_refusal,
     find_confirmed_address_refusal,
@@ -43,7 +44,6 @@ from app.api.schiedsrichter.services import (
     find_referee_retire_refusal,
     find_retired_refusal,
     first_stamped,
-    frist_abgelaufen,
     owes_reactivation_mint,
 )
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, hash_barred
@@ -166,7 +166,7 @@ async def get_schiedsrichter_by_id(
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
-        confirmation_expired=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
+        confirmation_expired=deadline_passed(schiedsrichter_raw.get(CONFIRMATION_FIELD), today=today),
         address_change_id=None if open is None else open["_id"],
         address_change_viewable_denied=None if identifier is None else denied.get(identifier),
         delivery=await state_of(
@@ -224,11 +224,11 @@ async def post_schiedsrichter(
             },
             session=session,
         )
-        await owe_the_bestaetigung(
+        await owe_the_confirmation(
             outbox_collection=outbox_collection,
             schiedsrichter_id=created.inserted_id,
             email=email,
-            frist=bestaetigung_frist_from(today=today),
+            frist=confirmation_deadline_from(today=today),
             version=0,
             now=now,
             session=session,
@@ -245,7 +245,7 @@ async def post_schiedsrichter(
         created_id=post_operation.inserted_id,
         # The payload's own address, which this transaction wrote: there is no earlier row for a
         # rival save to have moved between the caller's read and the write.
-        confirmation=FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=email),
+        confirmation=FLSchiedsrichterMint(frist=confirmation_deadline_from(today=today), email=email),
     )
 
 
@@ -304,7 +304,7 @@ async def patch_schiedsrichter(
             session=session,
         )
         refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
-        update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, today=today)
+        update, minted = compose_correction_update(stored=stored, payload=payload, payload_email=email, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
         # ban list is asked on the hash alone then (`schiedsrichter_address_barred`).
@@ -324,11 +324,11 @@ async def patch_schiedsrichter(
         if minted:
             # The CORRECTED address this transaction wrote, never the stored one it replaced: mailing the link to the
             # address the save moved away from is the defect the fresh link exists to end.
-            await owe_the_bestaetigung(
+            await owe_the_confirmation(
                 outbox_collection=outbox_collection,
                 schiedsrichter_id=updated_document.id,
                 email=email,
-                frist=bestaetigung_frist_from(today=today),
+                frist=confirmation_deadline_from(today=today),
                 version=updated_document.version,
                 now=now,
                 session=session,
@@ -343,7 +343,7 @@ async def patch_schiedsrichter(
         answer, re_minted = await session.with_transaction(correct_and_ask)
 
     if re_minted:
-        answer.confirmation = FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=email)
+        answer.confirmation = FLSchiedsrichterMint(frist=confirmation_deadline_from(today=today), email=email)
 
     return answer
 
@@ -433,7 +433,7 @@ async def reactivate_schiedsrichter(
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            projection=dict(EINLADEN_FIELDS),
+            projection=dict(INVITE_FIELDS),
             session=session,
         )
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
@@ -454,11 +454,11 @@ async def reactivate_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         if email is not None:
-            await owe_the_bestaetigung(
+            await owe_the_confirmation(
                 outbox_collection=outbox_collection,
                 schiedsrichter_id=updated["_id"],
                 email=email,
-                frist=bestaetigung_frist_from(today=today),
+                frist=confirmation_deadline_from(today=today),
                 version=updated[VERSION_FIELD],
                 now=now,
                 session=session,
@@ -468,10 +468,10 @@ async def reactivate_schiedsrichter(
 
     # One transaction, so a row never comes back without the link it was owed.
     async with transaction_session(db) as session:
-        _, gemintet_fuer = await session.with_transaction(reactivate_and_ask)
+        _, minted_for = await session.with_transaction(reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
-        confirmation=None if gemintet_fuer is None else FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=gemintet_fuer),
+        confirmation=None if minted_for is None else FLSchiedsrichterMint(frist=confirmation_deadline_from(today=today), email=minted_for),
     )
 
 
@@ -518,12 +518,12 @@ async def invite_schiedsrichter(
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            projection=dict(EINLADEN_FIELDS),
+            projection=dict(INVITE_FIELDS),
             session=session,
         )
 
         refuse(find_retired_refusal(inactive_since=stored.get("inactive_since")))
-        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(BESTAETIGUNG_FELD)))
+        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(CONFIRMATION_FIELD)))
 
         email = (stored.get("kontakt") or {}).get("email")
         refuse(find_missing_address_refusal(email=email))
@@ -542,11 +542,11 @@ async def invite_schiedsrichter(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
-        await owe_the_bestaetigung(
+        await owe_the_confirmation(
             outbox_collection=outbox_collection,
             schiedsrichter_id=updated["_id"],
             email=str(email),
-            frist=bestaetigung_frist_from(today=today),
+            frist=confirmation_deadline_from(today=today),
             version=updated[VERSION_FIELD],
             now=now,
             session=session,
@@ -557,6 +557,6 @@ async def invite_schiedsrichter(
     # The address ANSWERED is the one read in-session above, never one the caller read before this
     # request: a save moving it in between would otherwise send the link to the previous mailbox.
     async with transaction_session(db) as session:
-        gemintet_fuer = await session.with_transaction(judge_and_mint)
+        minted_for = await session.with_transaction(judge_and_mint)
 
-    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=gemintet_fuer))
+    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(frist=confirmation_deadline_from(today=today), email=minted_for))
