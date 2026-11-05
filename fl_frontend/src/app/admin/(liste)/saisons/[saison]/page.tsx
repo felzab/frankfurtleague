@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ListPage } from "@/kit/ListPage";
 import { TextField } from "@/kit/TextField";
 
+import { requires } from "@/core/action";
 import { COPY, textOf } from "@/core/copy";
 import { isRecordMissing } from "@/core/errors";
 import { dayOf, formatList, timeOf } from "@/core/format";
@@ -125,7 +126,7 @@ function faultLine(fault: FLBracketFault): Copy {
 }
 
 /** Whether the Zusage's write asks for the party's row, which its segments choose. */
-const PARTY_REQUIRED = !SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id.safeParse("").success;
+const PARTY_REQUIRED = requires(SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id, "");
 
 /** The box asking how a party's agreement reached the league, drawn here so the write's schema stays on the server. */
 function ReasonField() {
@@ -136,7 +137,7 @@ function ReasonField() {
       name="begruendung"
       width="W3"
       kind="text"
-      isRequired={!SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung.safeParse("").success}
+      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung, "")}
       maxLength={spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax}
     />
   );

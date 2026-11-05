@@ -106,6 +106,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
   return (
     <SectionAct
       label={COPY.shared.withObject(WORDS.gruppen, "swap")}
+      inputs={[first, second]}
       isDisabled={locked || first === null || second === null}
       run={async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second }))}>
       <ComboBox
@@ -154,6 +155,7 @@ function Replacement({
   return (
     <SectionAct
       label={COPY.shared.withObject(TEAM, "replace")}
+      inputs={[out, into]}
       isDisabled={locked || consequence === undefined}
       // Asked only once both clubs are chosen, the button staying closed until then.
       confirm={{ verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" }}
