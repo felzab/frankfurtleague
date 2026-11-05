@@ -7,7 +7,7 @@ import { saisonsPostSaison } from "@/core/generated/client/sdk";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 import { SaisonsPostSaisonBody } from "@/core/generated/zod/inputs";
 
-import { getAdminSaisons } from "./queries";
+import { getNewestAdminSaison } from "./queries";
 
 import type { FLSaisonRules } from "@/core/generated/client/types";
 
@@ -48,9 +48,7 @@ export const createSaison = action({
   ownWords: ["duplicate_key", "saison_year_out_of_range", "saison_ends_before_start", "rules_bracket_impossible"],
   paths: { id: "id", start_date: "start_date", end_date: "end_date" },
   run: async (form) => {
-    const { saisons } = await getAdminSaisons();
-    // Served oldest first, by id.
-    const newest = saisons.at(-1);
+    const newest = await getNewestAdminSaison();
     await saisonsPostSaison({ ...form, rules: newest?.rules ?? FIRST_SAISON_RULES, bewerbung: null, registrierung: null });
     return { ok: true, value: undefined };
   },
