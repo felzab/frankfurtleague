@@ -10,7 +10,7 @@ import type { PersonEintrag } from "./constants";
 
 /** The address one Funktion opens on. */
 function funktionHref(funktion: Role): string {
-  switch (funktion.art) {
+  switch (funktion.kind) {
     case "kontakt":
       return teamHref(funktion.team_id, funktion.saison_id);
     case "spieler":
@@ -48,17 +48,17 @@ export function zieleOf(funktionen: readonly Role[]): FunktionZiel[] {
  */
 export function soleTeamOf(ziele: readonly FunktionZiel[]): string | null {
   const [erstes, ...weitere] = ziele;
-  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].art === "kontakt" ? erstes.href : null;
+  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].kind === "kontakt" ? erstes.href : null;
 }
 
 /** One address's two lines: what it is, and which of the person's Funktionen lead there. */
 export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } {
   const [erste] = ziel.funktionen;
 
-  switch (erste.art) {
+  switch (erste.kind) {
     case "kontakt": {
       // Every seat at one address shares its team and season, so the first names both.
-      const gehalten = new Set(ziel.funktionen.flatMap((funktion) => (funktion.art === "kontakt" ? [funktion.rolle] : [])));
+      const gehalten = new Set(ziel.funktionen.flatMap((funktion) => (funktion.kind === "kontakt" ? [funktion.rolle] : [])));
       // In `KONTAKT_ROLLEN`'s order rather than the lookup's, so one person's roles read alike on every visit.
       const rollen = KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.label);
       return { titel: erste.team_name, detail: `Saison ${erste.saison_id} · ${formatList(rollen)}` };
@@ -82,7 +82,7 @@ export function funktionOrteOf(funktionen: readonly Role[]): FunktionOrt[] {
   return orte.map(({ ziel, titel, detail }) => {
     const [erste] = ziel.funktionen;
     // One team in two seasons is two places under one title, which a screen reader would name alike.
-    const geteilt = erste.art === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
+    const geteilt = erste.kind === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
     const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
 
     return { href: ziel.href, titel: titel, detail: detail, name: name };
@@ -95,8 +95,8 @@ export function funktionOrteOf(funktionen: readonly Role[]): FunktionOrt[] {
  */
 export function personEintraegeOf(funktionen: readonly Role[]): ReadonlySet<PersonEintrag> {
   const eintraege = new Set<PersonEintrag>(["landing"]);
-  if (funktionen.some((funktion) => funktion.art === "spieler")) eintraege.add("spieler");
-  if (funktionen.some((funktion) => funktion.art === "schiedsrichter")) eintraege.add("schiedsrichter");
+  if (funktionen.some((funktion) => funktion.kind === "spieler")) eintraege.add("spieler");
+  if (funktionen.some((funktion) => funktion.kind === "schiedsrichter")) eintraege.add("schiedsrichter");
 
   return eintraege;
 }
