@@ -6,6 +6,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useDraftUnsaved } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
 import { statusOf, useFormAction } from "./useFormAction";
 
@@ -26,7 +27,8 @@ type Question = Omit<ConfirmDialogProps, "trigger" | "open" | "onConfirm">;
  * refusal in the question's own line, and its done act here, in the act's own note where it has one. `isDisabled`
  * closes the button while its inputs are incomplete, the section's fields showing what is missing, or while the press
  * would reach nobody. `blocked` closes it where its write would refuse the record as it stands, which the page read,
- * the reason in the act's line in place of its outcome, as a danger row's `blocked` stands in its row.
+ * the reason in the act's line in place of its outcome, as a danger row's `blocked` stands in its row; inside an editor
+ * whose draft holds unsaved changes the act is closed the same way (`useDraftUnsaved`).
  */
 export function SectionAct({
   children,
@@ -51,9 +53,12 @@ export function SectionAct({
   // act's own note where it moved more than its box shows, as every done answer is worded (`statusOf`).
   const [done, setDone] = useState<Copy | null>(null);
   const outcome: FormStatus = confirm === undefined ? statusOf(answer, false, isPending) : done === null ? null : { tone: "saved", text: done };
+  const unsaved = useDraftUnsaved();
+  // What the record holds closes the act before an unsaved draft does: the draft's save would not open it.
+  const reason = blocked ?? unsaved;
   // A standing reason, never an outcome, so it stands outside the line's live region, as the editor's count does.
-  const status: FormStatus = blocked === undefined ? outcome : { tone: "changes", text: blocked };
-  const isClosed = isDisabled || blocked !== undefined;
+  const status: FormStatus = reason === undefined ? outcome : { tone: "changes", text: reason };
+  const isClosed = isDisabled || reason !== undefined;
 
   return (
     <>

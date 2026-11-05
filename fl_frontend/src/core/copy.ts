@@ -428,6 +428,8 @@ export const COPY = catalogue({
     changes: "Änderungen",
     changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
     changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
+    /** In an editor's act's own line while its draft holds unsaved changes, which close every act of it. */
+    draftUnsaved: "Gesperrt, solange Änderungen ungespeichert sind",
     /** The chip after an editor's title while its record is closed read-only, its season finished. */
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
