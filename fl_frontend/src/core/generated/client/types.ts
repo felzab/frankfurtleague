@@ -5142,10 +5142,11 @@ export interface FLSpielEditorBericht {
 }
 
 /**
- * A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired.
+ * A referee the editor offers: their whole name, the fee they default to, how they answered their entry, and the day they retired.
  */
 export interface FLSpielEditorSchiedsrichter {
   confirmed: boolean;
+  declined: boolean;
   /** @minimum 0 */
   default_payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */

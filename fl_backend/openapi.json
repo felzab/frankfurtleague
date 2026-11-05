@@ -13354,10 +13354,14 @@
         "type": "object"
       },
       "FLSpielEditorSchiedsrichter": {
-        "description": "A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired.",
+        "description": "A referee the editor offers: their whole name, the fee they default to, how they answered their entry, and the day they retired.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
+            "type": "boolean"
+          },
+          "declined": {
+            "title": "Declined",
             "type": "boolean"
           },
           "default_payment": {
@@ -13393,6 +13397,7 @@
           "name",
           "default_payment",
           "confirmed",
+          "declined",
           "inactive_since"
         ],
         "title": "FLSpielEditorSchiedsrichter",

@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import Field
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
 from app.api.spielberichte.crud import pull_bericht_lage, pull_genannt
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
@@ -53,13 +54,15 @@ class FLSpielEditorSpielort(BaseReadModel):
 
 
 class FLSpielEditorSchiedsrichter(BaseReadModel):
-    """A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired."""
+    """A referee the editor offers: their whole name, the fee they default to, how they answered their entry, and the day they retired."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     name: CustomNonEmptyString
     default_payment: int = Field(ge=0)
-    # Offered unconfirmed too, so the editor marks the one a save refuses (`booking_unconfirmed_schiedsrichter`).
+    # Offered unconfirmed too, so the editor marks the one a save refuses (`booking_unconfirmed_schiedsrichter`), and
+    # whether that is an objection, after which nobody asks the person again, or no answer yet.
     confirmed: bool
+    declined: bool
     inactive_since: CustomOptionalDateString
 
 
@@ -259,7 +262,7 @@ async def read_spiel_editor(
             db_filter={**_offered(gebuchter_schiedsrichter), "_id": {"$ne": GHOST_SCHIEDSRICHTER_ID}},
             limit=LIST_LIMIT_MAX,
             sort_by=[("name", 1)],
-            projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at"],
+            projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],
             collation=GERMAN_COLLATION,
         ),
         _none()
@@ -286,7 +289,9 @@ async def read_spiel_editor(
         saison_status=saison_raw["status"],
         spielorte=[FLSpielEditorSpielort.model_validate(row) for row in spielorte_raw],
         schiedsrichter=[
-            FLSpielEditorSchiedsrichter.model_validate({**row, "confirmed": is_confirmed(row.get("einwilligung"))})
+            FLSpielEditorSchiedsrichter.model_validate(
+                {**row, "confirmed": is_confirmed(row.get("einwilligung")), "declined": is_declined(row.get("confirmation"))}
+            )
             for row in schiedsrichter_raw
         ],
         teams=teams,
