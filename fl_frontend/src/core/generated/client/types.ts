@@ -3657,6 +3657,22 @@ export interface FLOverviewSpielbestaetigungRow {
   spiel: FLSpielJoinedAdmin;
 }
 
+export interface FLSpielRecipientTeam {
+  art: "team";
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export interface FLSpielRecipientSchiedsrichter {
+  art: "schiedsrichter";
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+}
+
 export type FLOverviewVorschlagRowKind = (typeof FLOverviewVorschlagRowKind)[keyof typeof FLOverviewVorschlagRowKind];
 
 export const FLOverviewVorschlagRowKind = {
@@ -3676,13 +3692,13 @@ export interface FLSpielbestaetigungAppointment {
 /**
  * A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.
  *
- * Each act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`
- * those the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,
- * none once its day has gone by.
+ * Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
+ * names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
+ * discard tells the date stands, none once its day has gone by.
  */
 export interface FLOverviewVorschlagRow {
-  adoption_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
-  discard_recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[];
+  adoption_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
+  discard_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
   kind: FLOverviewVorschlagRowKind;
   spiel: FLSpielJoinedAdmin;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4039,7 +4055,7 @@ export interface FLSpielReleasedSide {
  * `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
  * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
  * `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
- * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
+ * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
  * `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
  * the set a save names in its body to delete them.
  */
@@ -4047,7 +4063,7 @@ export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
   bericht_adopted: boolean | null;
   bracket_faults: FLBracketFault[];
-  recipients: (FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter)[] | null;
+  recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
   voided_results: FLSpielVoidedResult[];

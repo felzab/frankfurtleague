@@ -88,16 +88,9 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
-// The editor's view as far as the save reads it: the fixture, and the referees and clubs it names parties by.
+// The editor's view as far as the save reads it: the fixture.
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () =>
-    state.read === null
-      ? null
-      : {
-          spiel: state.read,
-          schiedsrichter: [{ id: "64b000000000000000000006", name: "Lena Brandt" }],
-          teams: [{ id: "64b00000000000000000000a", name: "Lessing-Gymnasium" }],
-        },
+  getAdminSpiel: async () => (state.read === null ? null : { spiel: state.read }),
 }));
 
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
@@ -371,13 +364,13 @@ describe("the match editor's question before it deletes a later result", () => {
     expect(state.sent).toMatchObject([{ voided_results: [] }]);
   });
 
-  it("names under its question whom the save mails, in their names' order, and asks again where they change", async () => {
+  it("names under its question whom the save mails, by the dry run's names in their order, and asks again where they change", async () => {
     state.dryRun = {
       ...(state.dryRun as FLPatchSpielDataResponse),
       recipients: [
-        { art: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006" },
-        { art: "team", team_id: PICKED },
-        { art: "team", team_id: "64b000000000000000000004" },
+        { art: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006", name: "Lena Brandt" },
+        { art: "team", team_id: PICKED, name: "Lessing-Gymnasium" },
+        { art: "team", team_id: "64b000000000000000000004", name: "Ernst-Reuter-Schule" },
       ],
     };
     const question = await asked({ team1: PICKED });
@@ -393,7 +386,7 @@ describe("the match editor's question before it deletes a later result", () => {
 
     // A confirmation covers no mail it was not shown.
     state.sent = [];
-    state.dryRun = { ...served, recipients: [{ art: "team", team_id: PICKED }] };
+    state.dryRun = { ...served, recipients: [{ art: "team", team_id: PICKED, name: "Lessing-Gymnasium" }] };
     expect(await saveSpiel({ ...saving({ team1: PICKED }), confirm: question.confirm })).toMatchObject({ ok: false, ask: {} });
     expect(state.sent).toEqual([]);
   });

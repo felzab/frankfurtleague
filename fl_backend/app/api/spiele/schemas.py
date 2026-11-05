@@ -750,13 +750,29 @@ FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbest
 FLSpielbestaetigungParteiListAdapter: TypeAdapter[list[FLSpielbestaetigungPartei]] = TypeAdapter(list[FLSpielbestaetigungPartei])
 
 
+# A party an act mails, by the name the record holding it gives: a club's season row, a referee's own. Named where it is
+# read, so a page naming whom an act mails names a party no read of its own holds, a club swapped off the fixture or a
+# retired referee taken off it among them, and drops none.
+class FLSpielRecipientTeam(FLSpielbestaetigungPartyTeam):
+    name: CustomNonEmptyString
+
+
+class FLSpielRecipientSchiedsrichter(FLSpielbestaetigungPartySchiedsrichter):
+    name: CustomNonEmptyString
+
+
+FLSpielRecipient = Annotated[FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter, Field(discriminator="art")]
+
+FLSpielRecipientListAdapter: TypeAdapter[list[FLSpielRecipient]] = TypeAdapter(list[FLSpielRecipient])
+
+
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
 
     `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
     adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
     `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
-    so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.
+    so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
     `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
     the set a save names in its body to delete them.
     """
@@ -767,4 +783,4 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     version: int
     bericht_adopted: bool | None
-    recipients: list[FLSpielbestaetigungPartei] | None
+    recipients: list[FLSpielRecipient] | None

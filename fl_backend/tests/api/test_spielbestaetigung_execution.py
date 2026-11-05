@@ -49,6 +49,7 @@ from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -1807,12 +1808,15 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
         assert on_a_refereed_fixture(mongo_replica_set_url, body) == SCHIEDSRICHTER
 
 
-# As the dry run serves each party.
-CLUB1, CLUB2, OTTOS = (
-    {"art": "team", "team_id": str(TEAM1)},
-    {"art": "team", "team_id": str(TEAM2)},
-    {"art": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
+# As the dry run serves each party: by the name its own record holds, a club's season row and a referee's.
+CLUB1, CLUB2, OTTOS, UTES = (
+    {"art": "team", "team_id": str(TEAM1), "name": "Adler"},
+    {"art": "team", "team_id": str(TEAM2), "name": "Biber"},
+    {"art": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER), "name": REFEREE},
+    {"art": "schiedsrichter", "schiedsrichter_id": str(UTE), "name": "Ute Lang"},
 )
+# Ute's own row about the fixture's slot, from a booking taken off before the pass closed it.
+UTES_ROW = ObjectId("6890a1b2c3d4e5f607d50062")
 
 
 class TestTheDryRunNamesWhomTheSaveHasThePassMail:
@@ -1824,6 +1828,7 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
             pytest.param({"uhrzeit": "19:30:00"}, [CLUB1, CLUB2, OTTOS], id="a-move-tells-every-party-asked"),
             pytest.param({"schiedsrichter": None}, [OTTOS], id="the-referee-taken-off-is-told-alone"),
             pytest.param({"notiz": "Halle umgebucht"}, [], id="a-note-tells-nobody"),
+            pytest.param({"sonderereignis": "ausgefallen"}, [CLUB1, CLUB2, OTTOS], id="a-call-off-tells-every-party-asked"),
         ],
     )
     def test_the_dry_run_names_the_parties_the_pass_tells(
@@ -1852,6 +1857,53 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
         assert sorted((party.model_dump() for party in on_a_refereed_fixture(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
             [CLUB1, OTTOS], key=str
         )
+
+    def test_a_party_no_read_of_the_editor_holds_is_named_by_its_own_record(self, mongo_replica_set_url: str):
+        """A referee no list of the editor holds is still named in the question naming the save's mails.
+
+        The harm: a referee taken off and retired since, mailed of the call-off and left out of that question.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SCHIEDSRICHTER].update_one({"_id": UTE}, {"$set": {"inactive_since": "2027-04-20"}})
+            preview = await speichern(database, client, await spiel_now(database), dry_run=True, sonderereignis="ausgefallen")
+
+            return preview.recipients
+
+        rows = [confirmation(ROW1, TEAM1), confirmation(ROW2, TEAM2), referee_row(), referee_row(UTES_ROW, schiedsrichter_id=UTE)]
+
+        assert sorted((party.model_dump() for party in on_a_refereed_fixture(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
+            [CLUB1, CLUB2, OTTOS, UTES], key=str
+        )
+
+    def test_the_ghost_an_erasure_leaves_on_a_row_is_no_recipient(self, mongo_replica_set_url: str):
+        """The ghost holds no address and no name: a question naming it would name a mail nobody is sent."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            preview = await speichern(database, client, await spiel_now(database), dry_run=True, sonderereignis="ausgefallen")
+
+            return preview.recipients
+
+        rows = [confirmation(ROW1, TEAM1), confirmation(ROW2, TEAM2), referee_row(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)]
+
+        assert sorted((party.model_dump() for party in on_a_refereed_fixture(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
+            [CLUB1, CLUB2], key=str
+        )
+
+    def test_a_club_out_by_the_fixtures_day_has_the_pass_tell_nobody(self, mongo_replica_set_url: str):
+        """A club out by the fixture's day has the pass close every row for the exit, owing nobody a notice.
+
+        The harm: the dry run judging without the season's exits, naming a mail the pass never sends.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            austritt = {"type": "rueckzug", "grund": "Abgemeldet", "datum": DATUM}
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": austritt}})
+            preview = await speichern(database, client, await spiel_now(database), dry_run=True, schiedsrichter=None)
+
+            return preview.recipients
+
+        assert on_a_refereed_fixture(mongo_replica_set_url, body) == []
 
 
 class TestARowAnswersOnlyToItsOwnReferee:

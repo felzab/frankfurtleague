@@ -268,8 +268,9 @@ class TestEachKindLandsOnItsCard:
             {"art": "team", "team_id": str(HOME)},
             {"art": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
         )
-        assert sorted(proposed["adoption_recipients"], key=str) == sorted([away, home], key=str)
-        assert proposed["discard_recipients"] == [away]
+        # Each recipient by the name its season row holds, so the questions name a party no fixture shows.
+        assert sorted(proposed["adoption_recipients"], key=str) == sorted([{**away, "name": "Goethe"}, {**home, "name": "Lessing"}], key=str)
+        assert proposed["discard_recipients"] == [{**away, "name": "Goethe"}]
         assert sorted(overdue["parties"], key=str) == sorted(
             [
                 {"spielbestaetigung_id": str(ROWS[0]["_id"]), "party": home, "deadline": "2026-03-14"},

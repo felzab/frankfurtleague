@@ -14,12 +14,7 @@ import { isNoShow, NO_SONDEREREIGNIS, takesNoResult, valuesOf } from "./spielVal
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type {
-  FLPatchSpielDataPayload,
-  FLPatchSpielDataResponse,
-  FLSpieleAdminSingleResponse,
-  FLSpielJoinedAdmin,
-} from "@/core/generated/client/types";
+import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 const { shape } = SpielePatchSpielBody;
 const [ortShape] = shape.ort.options;
@@ -151,49 +146,23 @@ const OWN_WORDS = [
 const numbersOf = (entries: readonly { spiel_nr: number }[]) =>
   [...new Set(entries.map(({ spiel_nr }) => spiel_nr))].toSorted((first, second) => first - second);
 
-/**
- * The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored,
- * beside the editor's view the read serves, which names the parties a save would mail.
- */
-async function sending(
-  id: string,
-  changes: Changes,
-): Promise<ActionAnswer<never> | { payload: Omit<FLPatchSpielDataPayload, "version">; view: FLSpieleAdminSingleResponse }> {
+/** The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored. */
+async function sending(id: string, changes: Changes): Promise<ActionAnswer<never> | Omit<FLPatchSpielDataPayload, "version">> {
   const read = await getAdminSpiel(id);
-  if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
-  const payload = payloadOf(read.spiel, changes);
-  return "ok" in payload ? payload : { payload, view: read };
-}
-
-/** One party a save would mail about the fixture, as the dry run reports it. */
-type Recipient = NonNullable<FLPatchSpielDataResponse["recipients"]>[number];
-
-/**
- * The parties the save would mail, each by the name the editor's own read gives it: a club by its id among the
- * fixture's sides and the clubs a knockout side may take, a referee by theirs among the referees offered.
- */
-function namesOf(recipients: readonly Recipient[], view: FLSpieleAdminSingleResponse): string[] {
-  const clubs = new Map([
-    ...[view.spiel.team1, view.spiel.team2].flatMap((team) => (team === null ? [] : [[team.team_id, team.name] as const])),
-  ]);
-  for (const team of view.teams ?? []) clubs.set(team.id, team.name);
-  const referees = new Map(view.schiedsrichter.map((person) => [person.id, person.name] as const));
-  return recipients.flatMap((party) => {
-    const name = party.art === "team" ? clubs.get(party.team_id) : referees.get(party.schiedsrichter_id);
-    return name === undefined ? [] : [name];
-  });
+  return read === null ? { ok: false, reason: COPY.shared.failure.stale } : payloadOf(read.spiel, changes);
 }
 
 /**
  * The question a save asks before it deletes a later match's result, `null` for a save deleting none, naming under its
- * sentence whom the save mails, as every question naming its act's mails does. Its token names each deleted result by
+ * sentence whom the save mails, each by the name the dry run reads off its own record, as every question naming its
+ * act's mails does. Its token names each deleted result by
  * its value as well as its match, and the parties in their names' order, so a confirmation covers exactly what it was
  * shown and an unchanged save is never asked twice. A save that only mails asks nothing.
  */
-function questionOf(report: FLPatchSpielDataResponse, view: FLSpieleAdminSingleResponse): SaveQuestion | null {
+function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
   const voided = report.voided_results;
   if (voided.length === 0) return null;
-  const mailed = namesOf(report.recipients ?? [], view).toSorted((one, other) => one.localeCompare(other, "de"));
+  const mailed = (report.recipients ?? []).map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
   return {
     subject: COPY.admin.spiel.ergebnis,
     consequence: COPY.admin.spiel.voids(numbersOf(voided)),
@@ -223,12 +192,12 @@ export const saveSpiel = action({
   paths: { sonderereignis: "changes.sonderereignis" },
   examples: { "changes.mietpreis": COPY.admin.spielort.mietpreisExample },
   run: async ({ id, version, adoptsBericht, changes, confirm }): Promise<ActionAnswer<number>> => {
-    const read = await sending(id, changes);
-    if ("ok" in read) return read;
-    const sent = { ...read.payload, version };
+    const payload = await sending(id, changes);
+    if ("ok" in payload) return payload;
+    const sent = { ...payload, version };
 
     const report = await spielePatchSpiel(id, sent, { dry_run: true });
-    const question = questionOf(report, read.view);
+    const question = questionOf(report);
     if (question !== null && question.confirm !== confirm) return { ok: false, ask: question };
 
     // The write deletes only the results confirmed, refusing where its own transaction finds others to delete.

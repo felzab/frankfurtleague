@@ -8683,23 +8683,23 @@
         "type": "object"
       },
       "FLOverviewVorschlagRow": {
-        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.\n\nEach act's recipients are the parties the backend mails of it, so its question names them: `adoption_recipients`\nthose the confirmation pass tells of the move, `discard_recipients` the club the discard tells the date stands,\nnone once its day has gone by.",
+        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.\n\nEach act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question\nnames them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the\ndiscard tells the date stands, none once its day has gone by.",
         "properties": {
           "adoption_recipients": {
             "items": {
               "discriminator": {
                 "mapping": {
-                  "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
-                  "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
                 },
                 "propertyName": "art"
               },
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
                 },
                 {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
                 }
               ]
             },
@@ -8710,17 +8710,17 @@
             "items": {
               "discriminator": {
                 "mapping": {
-                  "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
-                  "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
                 },
                 "propertyName": "art"
               },
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
                 },
                 {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
                 }
               ]
             },
@@ -9372,7 +9372,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a\n`dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved\nso, and would not as it stands: told of the move, of the referee taken off it, or of its call-off.\n`voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:\nthe set a save names in its body to delete them.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a\n`dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved\nso, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.\n`voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:\nthe set a save names in its body to delete them.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -9405,17 +9405,17 @@
                 "items": {
                   "discriminator": {
                     "mapping": {
-                      "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
-                      "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                      "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                      "team": "#/components/schemas/FLSpielRecipientTeam"
                     },
                     "propertyName": "art"
                   },
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+                      "$ref": "#/components/schemas/FLSpielRecipientTeam"
                     },
                     {
-                      "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+                      "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
                     }
                   ]
                 },
@@ -14367,6 +14367,58 @@
           "ausgang"
         ],
         "title": "FLSpielQuelleSpiel",
+        "type": "object"
+      },
+      "FLSpielRecipientSchiedsrichter": {
+        "properties": {
+          "art": {
+            "const": "schiedsrichter",
+            "title": "Art",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schiedsrichter_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "schiedsrichter_id",
+          "name"
+        ],
+        "title": "FLSpielRecipientSchiedsrichter",
+        "type": "object"
+      },
+      "FLSpielRecipientTeam": {
+        "properties": {
+          "art": {
+            "const": "team",
+            "title": "Art",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "team_id",
+          "name"
+        ],
+        "title": "FLSpielRecipientTeam",
         "type": "object"
       },
       "FLSpielReleasedSide": {
@@ -28919,7 +28971,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass\nwould mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,\nby the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass\nwould mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,\nby the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save\ndeletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,\nand is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:\na result entered or changed after the question was asked is never deleted unasked.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
