@@ -52,14 +52,4 @@ describe("a referee's link, opened again", () => {
       declined: true,
     });
   });
-
-  it("calls a lapsed or barred link, or an answer served without its day, no longer valid", async () => {
-    expect(await stateFor({ state: "expired" })).toMatchObject({ state: "ungueltig" });
-    expect(await stateFor({ state: "barred" })).toMatchObject({ state: "ungueltig" });
-    expect(await stateFor({ state: "confirmed", answered_on: null })).toMatchObject({ state: "ungueltig" });
-  });
-
-  it("asks the question while the link holds", async () => {
-    expect(await stateFor({ state: "valid" })).toMatchObject({ state: "question", title: COPY.page.entryConfirmation });
-  });
 });

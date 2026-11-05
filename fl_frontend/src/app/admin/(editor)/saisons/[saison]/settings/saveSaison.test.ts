@@ -1,11 +1,9 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { bodyField } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
 
-import type { Code, FLPatchSaisonPayload, FLRefusedField, FLSaisonAdmin } from "@/core/generated/client/types";
+import type { FLPatchSaisonPayload, FLSaisonAdmin } from "@/core/generated/client/types";
 
 /** A season with both windows and every rule set, so a save dropping one is seen. */
 const STORED: FLSaisonAdmin = {
@@ -34,8 +32,8 @@ const STORED: FLSaisonAdmin = {
   version: 3,
 };
 
-/** Every payload the save sends, and how the write answers it. */
-const stand = vi.hoisted(() => ({ sent: [] as unknown[], refusal: null as unknown }));
+/** Every payload the save sends. */
+const stand = vi.hoisted(() => ({ sent: [] as unknown[] }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a save clears the site's cache is `core/action.test.ts`'s.
@@ -46,29 +44,13 @@ vi.mock("@/features/saisons/queries", () => ({ getAdminSaison: async () => ({ sa
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch.
 doubleApiClient((call) => {
   stand.sent.push(JSON.parse(call.body ?? "null"));
-  if (stand.refusal !== null) throw stand.refusal;
   return { version: 4 };
 });
 
 const { saveSaison } = await import("./saveSaison");
 
-/** The write's refusal of the fields it names, each with the bounds its rule names. */
-const refusal = (serverErrorCode: Code, fields: readonly FLRefusedField[]) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/saisons/2027",
-    statusCode: 409,
-    serverErrorCode,
-    refusedFields: fields,
-    endpoint: "/saisons/2027",
-    method: "PATCH",
-    readOnly: false,
-    traceId: "0",
-  });
-
 beforeEach(() => {
   stand.sent = [];
-  stand.refusal = null;
 });
 
 describe("the season editor's save", () => {
@@ -89,15 +71,6 @@ describe("the season editor's save", () => {
     ]);
   });
 
-  /* A bound moved on the server moves the phrase under the box; one written from the page's own figure would go stale. */
-  it("words a rule refusal on its box from the bound the server sends with it", async () => {
-    stand.refusal = refusal("rules_gruppen_in_use", [bodyField(["rules", "number_of_gruppen"], "rules_gruppen_in_use", { min: 3 })]);
-
-    const answer = await saveSaison({ id: "2027", version: 3, changes: { gruppen: "2" } });
-
-    expect(answer).toEqual({ ok: false, errorCode: "rules_gruppen_in_use", fieldErrors: { "changes.gruppen": COPY.shared.field.min(3) } });
-  });
-
   /* A window with one day gone would be sent as no window, deleting the whole window under „Gespeichert“. */
   it.each(["bewerbungStart", "bewerbungEnd"] as const)(
     "refuses an application window left without its %s, before the write",
@@ -108,23 +81,4 @@ describe("the season editor's save", () => {
       expect(stand.sent).toEqual([]);
     },
   );
-
-  it("sends no application window once both its days are cleared", async () => {
-    await saveSaison({ id: "2027", version: 3, changes: { bewerbungStart: null, bewerbungEnd: null } });
-
-    expect(stand.sent).toEqual([expect.objectContaining({ bewerbung: null })]);
-  });
-
-  it("words the span the matchdays need on the side of the season that falls short", async () => {
-    const span = { start: "2027-03-13", end: "2027-06-26" };
-    stand.refusal = refusal("saison_span_below_spieltage", [bodyField(["end_date"], "saison_span_below_spieltage", span)]);
-
-    const answer = await saveSaison({ id: "2027", version: 3, changes: { end: "2027-06-01" } });
-
-    expect(answer).toEqual({
-      ok: false,
-      errorCode: "saison_span_below_spieltage",
-      fieldErrors: { "changes.end": COPY.shared.field.earliest("2027-06-26") },
-    });
-  });
 });

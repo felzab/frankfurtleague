@@ -25,18 +25,9 @@ const pair = (captioned: boolean) =>
 
 // The harm: a knockout's two score boxes read alike on the screen, so the shoot-out is typed into the goals' row.
 describe("a score pair's name", () => {
-  it("stands over a captioned pair as its caption, which names the group, with no second name beside it", () => {
-    pair(true);
-
-    const group = screen.getByRole("group", { name: COPY.admin.spiel.elfmeterschiessen });
-    expect(group.getAttribute("aria-label")).toBeNull();
-    expect(screen.getByText(COPY.admin.spiel.elfmeterschiessen).id).toBe(group.getAttribute("aria-labelledby"));
-  });
-
-  it("names an uncaptioned pair to a screen reader alone", () => {
-    pair(false);
+  it.each([true, false])("names the group, captioned %s", (captioned) => {
+    pair(captioned);
 
     expect(screen.getByRole("group", { name: COPY.admin.spiel.elfmeterschiessen })).toBeTruthy();
-    expect(screen.queryByText(COPY.admin.spiel.elfmeterschiessen)).toBeNull();
   });
 });

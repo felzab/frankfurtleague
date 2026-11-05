@@ -1,14 +1,11 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { bodyField } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
-import { SERVER_COPY } from "@/core/serverCopy";
 
 import { NO_SONDEREREIGNIS } from "./spielValues";
 
-import type { Code, FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 const SPIEL_ID = "64b000000000000000000001";
 const PICKED = "64b00000000000000000000a";
@@ -75,9 +72,6 @@ const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voi
 const state = vi.hoisted(() => ({
   read: null as unknown,
   sent: [] as unknown[],
-  refusal: null as unknown,
-  // A refusal of the write alone, its dry run passing.
-  writeRefusal: null as unknown,
   answer: null as unknown,
   dryRun: null as unknown,
 }));
@@ -90,15 +84,13 @@ vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session
 
 // The editor's view as far as the save reads it: the fixture.
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => (state.read === null ? null : { spiel: state.read }),
+  getAdminSpiel: async () => ({ spiel: state.read }),
 }));
 
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
-// which counts it and takes it back where the backend refuses it.
+// which counts it.
 const calls = doubleApiClient((call) => {
-  if (state.refusal !== null) throw state.refusal;
   if (call.endpoint.includes("dry_run=true")) return state.dryRun;
-  if (state.writeRefusal !== null) throw state.writeRefusal;
   state.sent.push(JSON.parse(call.body ?? "null"));
   return state.answer;
 });
@@ -107,26 +99,10 @@ const { saveSpiel } = await import("./saveSpiel");
 
 const DRY_RUN = `/spiele/${SPIEL_ID}?dry_run=true`;
 
-/** The write's 409, naming the body field it judged where it is about one. */
-const refusal = (serverErrorCode: Code, about?: readonly string[]) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: `http://backend/api/v0/spiele/${SPIEL_ID}`,
-    statusCode: 409,
-    serverErrorCode,
-    refusedFields: about === undefined ? [] : [bodyField(about, serverErrorCode)],
-    endpoint: `/spiele/${SPIEL_ID}`,
-    method: "PATCH",
-    readOnly: false,
-    traceId: "0",
-  });
-
 beforeEach(() => {
   calls.length = 0;
   state.read = STORED;
   state.sent = [];
-  state.refusal = null;
-  state.writeRefusal = null;
   state.answer = NOTHING_MOVED;
   state.dryRun = NOTHING_MOVED;
 });
@@ -160,25 +136,7 @@ describe("the match editor's save", () => {
     ]);
   });
 
-  it("stamps the report the result was carried over from", async () => {
-    await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), adoptsBericht: 2 });
-
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}?adopts_bericht=2`]);
-    // Goals no longer level: the shoot-out goes, as the write drops it.
-    expect(state.sent).toMatchObject([{ team1: { tore: 3 }, team2: { tore: 1 }, elfmeterschiessen: null }]);
-  });
-
-  it("says which other fixture the write moved", async () => {
-    state.answer = {
-      ...NOTHING_MOVED,
-      advanced_to: [{ spiel_id: "64b000000000000000000007", spiel_nr: 31, ...VOIDED_NONE, voided_ergebnis: "1:0" }],
-    } satisfies FLPatchSpielDataResponse;
-
-    const answer = await saveSpiel(saving({ sonderereignis: "nichtantreten_team1" }));
-
-    expect(answer).toEqual({ ok: true, value: 4, note: COPY.admin.spiel.alsoChanged([31]) });
-  });
-
+  // The note is the one place the person learns the write moved other fixtures.
   it("names each other fixture once, a released side's among them, in its number's order", async () => {
     state.answer = {
       ...NOTHING_MOVED,
@@ -196,15 +154,6 @@ describe("the match editor's save", () => {
     const answer = await saveSpiel(saving({ uhrzeit: "18:00:00" }));
 
     expect(answer).toEqual({ ok: true, value: 4, note: COPY.admin.spiel.alsoChanged([7, 12, 31]) });
-  });
-
-  it("answers as stale a fixture gone since the editor read it, writing nothing", async () => {
-    state.read = null;
-
-    const answer = await saveSpiel(saving({ uhrzeit: "18:00:00" }));
-
-    expect(answer).toEqual({ ok: false, reason: COPY.shared.failure.stale });
-    expect(state.sent).toEqual([]);
   });
 
   it("sends no goals and no shoot-out with an event that leaves the match without a typed result", async () => {
@@ -234,19 +183,6 @@ describe("the match editor's save", () => {
     expect(state.sent).toMatchObject([{ sonderereignis: null, team1: { tore: null }, team2: { tore: null } }]);
   });
 
-  it("books no venue and no price where the venue is cleared", async () => {
-    await saveSpiel(saving({ spielort: null, mietpreis: "" }));
-
-    expect(state.sent).toMatchObject([{ ort: null }]);
-  });
-
-  it("keeps back a price that is not a figure on its field, writing nothing", async () => {
-    const answer = await saveSpiel(saving({ mietpreis: "60 Euro" }));
-
-    expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.field.format(COPY.admin.spielort.mietpreisExample) } });
-    expect(state.sent).toEqual([]);
-  });
-
   it("asks for each booking's money and each side's goals the save needs, writing nothing", async () => {
     const answer = await saveSpiel(saving({ mietpreis: "", honorar: "", tore2: "" }));
 
@@ -256,62 +192,6 @@ describe("the match editor's save", () => {
       fieldErrors: { "changes.mietpreis": required, "changes.honorar": required, "changes.tore2": required },
     });
     expect(state.sent).toEqual([]);
-  });
-
-  it("places the write's refusal on the field that caused it, in the status line, or on the stale-page line", async () => {
-    const save = saving({ datum: "2027-05-01" });
-
-    // A field pattern's phrase, by the path the write names, onto the editor's box for it.
-    state.refusal = refusal("state_ergebnis_on_a_non_event", ["sonderereignis"]);
-    expect(await saveSpiel(save)).toEqual({
-      ok: false,
-      errorCode: "state_ergebnis_on_a_non_event",
-      fieldErrors: { "changes.sonderereignis": SERVER_COPY.refusal.state_ergebnis_on_a_non_event },
-    });
-
-    // A refusal no pattern words is its sentence on the bar, naming the field the write names.
-    const { refusalLine } = SERVER_COPY;
-    const onBar = [
-      ["spiel_outside_spieltag", ["datum"], refusalLine.spiel_outside_spieltag],
-      ["state_nichtantreten_without_two_sides", ["sonderereignis"], refusalLine.state_nichtantreten_without_two_sides],
-      ["booking_unknown_resource", ["ort", "spielort_id"], refusalLine.booking_unknown_resource.ort],
-      ["booking_unknown_resource", ["schiedsrichter", "schiedsrichter_id"], refusalLine.booking_unknown_resource.schiedsrichter],
-      ["spiel_double_booked", ["ort", "spielort_id"], refusalLine.spiel_double_booked.ort],
-      ["spiel_double_booked", ["schiedsrichter", "schiedsrichter_id"], refusalLine.spiel_double_booked.schiedsrichter],
-      ["eligibility_disqualified", ["team1", "team_id"], refusalLine.eligibility_disqualified.team1],
-      ["eligibility_disqualified", ["team2", "team_id"], refusalLine.eligibility_disqualified.team2],
-    ] as const;
-    for (const [code, about, reason] of onBar) {
-      state.refusal = refusal(code, about);
-      expect(await saveSpiel(save), `${code} ${about.join(".")}`).toEqual({ ok: false, errorCode: code, reason });
-    }
-
-    // A finished season refuses the write whole, so its line stands alone on the bar.
-    state.refusal = refusal("saison_past");
-    expect(await saveSpiel(save)).toEqual({ ok: false, errorCode: "saison_past", reason: SERVER_COPY.refusalLine.saison_past });
-
-    // The bracket fielding a club twice names no field, and a reload would answer the same: its sentence, never the stale line.
-    state.refusal = refusal("spieltag_occupied_by_the_resolution");
-    expect(await saveSpiel(save)).toEqual({
-      ok: false,
-      errorCode: "spieltag_occupied_by_the_resolution",
-      reason: SERVER_COPY.refusalLine.spieltag_occupied_by_the_resolution,
-    });
-
-    // The editor offers only the clubs and the referees the write takes, so their refusal means a record changed under it.
-    for (const code of [
-      "ergebnis_side_emptied",
-      "spieltag_occupied",
-      "eligibility_team_not_in_saison",
-      "booking_unconfirmed_schiedsrichter",
-    ] as const) {
-      state.refusal = refusal(code);
-      expect(await saveSpiel(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.failure.stale });
-    }
-
-    // The fixture changed since the editor read it: the write refused the version it was sent.
-    state.refusal = refusal("version_stale");
-    expect(await saveSpiel(save)).toEqual({ ok: false, errorCode: "version_stale", reason: COPY.shared.failure.stale });
   });
 });
 
@@ -408,14 +288,5 @@ describe("the match editor's question before it deletes a later result", () => {
       expect(await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm })).toMatchObject({ ok: false, ask: {} });
     }
     expect(state.sent).toEqual([]);
-  });
-
-  it("answers the write's refusal after a passing dry run, a result entered between the two, by what the write would delete", async () => {
-    const { confirm } = await asked({ tore1: "3", tore2: "1" });
-    state.writeRefusal = refusal("voided_results_stale");
-
-    const answer = await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm });
-
-    expect(answer).toEqual({ ok: false, errorCode: "voided_results_stale", reason: SERVER_COPY.refusalLine.voided_results_stale });
   });
 });

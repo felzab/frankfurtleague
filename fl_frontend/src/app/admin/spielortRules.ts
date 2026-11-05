@@ -17,7 +17,7 @@ import {
 } from "@/core/generated/zod/inputs";
 
 /** The fields of a venue, by the names its create dialog and its editor post. */
-export type SpielortField = "name" | "strasse" | "hausnummer" | "plz" | "stadtteil" | "stadt" | "mietpreis";
+type SpielortField = "name" | "strasse" | "hausnummer" | "plz" | "stadtteil" | "stadt" | "mietpreis";
 
 /** What a venue write asks of each field, read on the server so its schema never reaches the browser. */
 export type SpielortRules = { required: Readonly<Record<SpielortField, boolean>>; maxLength: Readonly<Partial<Record<SpielortField, number>>> };

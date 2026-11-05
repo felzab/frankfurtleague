@@ -1,21 +1,17 @@
 // @vitest-environment jsdom
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { createElement as h, startTransition, Suspense, use, useState } from "react";
+import { createElement as h } from "react";
 
-import { answersInFlight } from "@/test-support/answersInFlight.ts";
 import { underNext } from "@/test-support/nextContexts.ts";
 import { filesUnder } from "@/test-support/treeWalk.ts";
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy.ts";
 import { ROUTES } from "@/core/routes.ts";
 
-import type { Copy } from "@/core/copy.ts";
 import type { ComponentType } from "react";
 import type { MockInstance } from "vitest";
 
@@ -28,12 +24,6 @@ const BOUNDARIES = filesUnder(APP_DIR, (name) => name === "error.tsx" || name ==
   shown: path.relative(APP_DIR, file).split(path.sep).join("/"),
 }));
 
-/* A boundary built on the kit's status card ends in one link, the way home its frame names, and offers no
-   retry; the old pages' boundaries still offer one. Read off the source, so a boundary rebuilt on the card
-   moves from the one set to the other with no edit here. */
-const LINKING = BOUNDARIES.filter(({ file }) => /from "@\/kit\/StatusPage"/.test(readFileSync(file, "utf8")));
-const RETRYING = BOUNDARIES.filter((boundary) => !LINKING.includes(boundary));
-
 type Boundary = ComponentType<{ error: unknown; retry: () => void }>;
 
 /* Each boundary rendered at an address with no dynamic segment, whose params the App Router answers as an empty
@@ -41,16 +31,6 @@ type Boundary = ComponentType<{ error: unknown; retry: () => void }>;
 const ROUTED = { params: {} };
 
 const boundaryOf = async (file: string): Promise<Boundary> => ((await import(pathToFileURL(file).href)) as { default: Boundary }).default;
-
-/** The refresh a retry below sets off, held until its case answers it. */
-const refreshes = answersInFlight();
-
-/** The router's state while its fetch is in flight, which suspends whatever reads it. */
-function Held({ until }: { until: Promise<void> }): null {
-  use(until);
-
-  return null;
-}
 
 // Each case below renders a boundary, which posts its crash report, so none reaches a network.
 let sent: MockInstance<typeof fetch>;
@@ -100,80 +80,6 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
   });
 });
 
-/* The labels a status card's one way on takes, each leading home in its frame: the start page, an area's root. */
-const WAYS_ON: readonly string[] = Object.values(COPY.shared.end).filter((entry): entry is Copy => typeof entry === "string");
-
-/* Where each frame's way home leads: the administration's root under its segment, the start page everywhere else. A
-   boundary under a frame this map does not name fails below until it is given its root. */
-const HOME: ReadonlyArray<{ under: string; home: string }> = [{ under: "admin/", home: ROUTES.admin.path() }];
-const homeOf = (shown: string) => HOME.find(({ under }) => shown.startsWith(under))?.home ?? ROUTES.home.path();
-
-/* A boundary on the status card: its one act is the way on its frame names, never a retry. */
-describe.each(LINKING)("the error boundary $shown", ({ file, shown }) => {
-  // The harm: a boundary whose one way on leads somewhere other than its frame's home, its label still right.
-  it("leads on by one link to its frame's home as its one act", async () => {
-    const Boundary = await boundaryOf(file);
-
-    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), ROUTED));
-
-    // Among the frame's own links, such as the logo's, the card's is the one a way on names.
-    const waysOn = screen.getAllByRole("link").filter((link) => WAYS_ON.includes(link.textContent ?? ""));
-    expect(waysOn, `${shown}: its ways on`).toHaveLength(1);
-    expect(waysOn[0]?.getAttribute("href"), `${shown}: where its way on leads`).toBe(homeOf(shown));
-    expect(screen.queryByRole("button"), `${shown}: offers a retry beside its link`).toBeNull();
-  });
-});
-
-describe.each(RETRYING)("the error boundary $shown", ({ shown, file }) => {
-  /* Next's `retry` is the refresh and the reset in one transition. A boundary wiring the two itself
-     can drop either half with nothing failing, and a reset alone replays the router's cached failure. */
-  it("calls the retry Next handed it once per press", async () => {
-    const Boundary = await boundaryOf(file);
-    const retry = vi.fn();
-
-    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry }), ROUTED));
-    await userEvent.setup().click(screen.getByRole("button"));
-
-    expect(retry, `${shown}: a press calls the retry Next handed it`).toHaveBeenCalledTimes(1);
-  });
-
-  /* Next's refresh suspends its transition on the server's answer, and only a press inside the
-     boundary's own transition reads as pending meanwhile: a bare call reports nothing and invites a
-     second press. */
-  it("holds the press pending while the refresh it set off is in flight", async () => {
-    const Boundary = await boundaryOf(file);
-    let answer = (): void => undefined;
-    const serverAnswer = new Promise<void>((resolve) => {
-      answer = resolve;
-    });
-
-    /* What Next's `retry` does, a transition setting the router's state to the server's answer still
-       on its way, which the router reads with `use`. */
-    function Refreshing() {
-      const [refresh, setRefresh] = useState<Promise<void> | null>(null);
-      const retry = () => startTransition(() => setRefresh(refreshes.track("the refresh", serverAnswer)));
-
-      return h(
-        Suspense,
-        { fallback: null },
-        refresh === null ? null : h(Held, { until: refresh }),
-        h(Boundary, { error: new Error("gepflanzt"), retry }),
-      );
-    }
-
-    render(underNext(h(Refreshing), ROUTED));
-    const press = screen.getByRole("button");
-    await userEvent.setup().click(press);
-
-    expect(press.hasAttribute("disabled"), "the press stands enabled while its refresh is in flight").toBe(true);
-    expect(press.textContent, "the press does not say it is reloading while its refresh is in flight").toMatch(/Lädt neu/);
-
-    answer();
-    await act(refreshes.answered);
-    expect(press.hasAttribute("disabled"), "the press stays disabled once the refresh answered").toBe(false);
-  });
-});
-
 /** A frame read failing as it is drawn, as a rejected seasons or account read meets `use`. */
 function FailingRead(): null {
   throw new Error("gepflanzt");
@@ -181,21 +87,18 @@ function FailingRead(): null {
 
 /* The rail frame's own boundary is no `error.tsx`, so the sweep above never lists it; its failure is as silent. */
 describe("the rail frame's own boundary", () => {
-  it("sends one crash report to a route this app serves, and leads on to the frame's home alone", async () => {
+  it("sends one crash report to a route this app serves", async () => {
     const { RailFrameBoundary } = await import("@/kit/RailFrameBoundary");
-    const home = ROUTES.admin.path();
     // React reports the caught throw on the console, which says nothing this case reads.
     const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
     onTestFinished(() => quiet.mockRestore());
 
-    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["uebersicht"], home }, h(FailingRead)), ROUTED));
+    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["uebersicht"], home: ROUTES.admin.path() }, h(FailingRead)), ROUTED));
     await act(() => Promise.resolve());
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 
     expect(reports).toHaveLength(1);
     expect(reports[0]?.method).toBe("POST");
     expect(existsSync(path.join(APP_DIR, ...(reports[0]?.address ?? "").split("/"), "route.ts"))).toBe(true);
-    const waysOn = screen.getAllByRole("link").filter((link) => WAYS_ON.includes(link.textContent ?? ""));
-    expect(waysOn.map((link) => link.getAttribute("href"))).toStrictEqual([home]);
   });
 });

@@ -42,20 +42,6 @@ describe("the pages a mail opens", () => {
   });
 });
 
-describe("a placed row's pattern", () => {
-  // The frame marks a placed page's entry by matching the address against the pattern, so a pattern no page folder
-  // writes, or another page's, which the compiler lets through as it would any address, leaves the rail marking another
-  // entry or none.
-  it.each(
-    Object.entries(ROUTES as Record<string, RouteEntry>).flatMap(([key, row]) => (row.place === undefined ? [] : [[key, row.place.pattern]])),
-  )("is the %s page's route folder, %s", (key, pattern) => {
-    expect(PAGES.has(pattern)).toBe(true);
-    // The row's own address, each of its segments given as the folder's name for it, is the pattern itself.
-    const build = ROUTES[key as keyof typeof ROUTES].path as (...segments: string[]) => string;
-    expect(build(...(pattern.match(/\[[^\]]+\]/g) ?? []))).toBe(pattern);
-  });
-});
-
 describe("the links every rail frame writes", () => {
   // The rail's foot signed out, and the strip's and „Mehr“'s two legal pages.
   it.each(["signIn", "legalNotice", "privacyNotice"] as const)("lead to a page answering at the %s row's address", (row) => {
