@@ -1520,6 +1520,15 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
+    def test_a_resolution_seating_a_club_beside_itself_in_the_second_side_is_refused(self, unresolved_slot_beside_a_hand_set_one):
+        """The resolution fills either side, so a rule reading only `team1` would seat a club twice through `team2` unrefused."""
+
+        saison = unresolved_slot_beside_a_hand_set_one
+        refusal = advancement_refusal(saison, advancement(saison, 30, team2=team(ADLER, "Adler")))
+
+        assert refusal is not None
+        assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
+
     def test_a_resolution_that_creates_no_pair_is_permitted(self, unresolved_slot_beside_a_hand_set_one):
         """The same slot settling on anybody else, which is the ordinary case the refusal must not reach."""
 
