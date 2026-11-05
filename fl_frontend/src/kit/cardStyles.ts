@@ -76,8 +76,6 @@ export const card = tv({
     head: `grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border ${headGround()} px-4 py-3`,
     title: "text-base font-semibold break-words",
     count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
-    // A title with its chip after it, the chip keeping its size while the title wraps.
-    named: "flex min-w-0 items-center gap-2",
     // A chip at the head's end, in the count's place: the season card's state.
     end: "col-start-2 row-start-1 flex self-center",
     line: "col-span-2 text-sm text-fg-muted",

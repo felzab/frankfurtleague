@@ -56,6 +56,17 @@ function Parts({ words, aside, sections }: { words: ReactNode; aside: ReactNode;
   );
 }
 
+/** The lead's paragraphs under the tagline, the same once read and while the read waits, the page knowing them first. */
+function Lead({ lead }: { lead: ReadonlyArray<Copy> }) {
+  return (
+    <div className={hero().lead()}>
+      {lead.map((paragraph) => (
+        <p key={paragraph}>{paragraph}</p>
+      ))}
+    </div>
+  );
+}
+
 /** The parts once the read has landed. */
 async function Read({ lead, content }: { lead: ReadonlyArray<Copy>; content: Promise<LandingContent> }) {
   const { primary, secondary, aside, sections } = await content;
@@ -64,11 +75,7 @@ async function Read({ lead, content }: { lead: ReadonlyArray<Copy>; content: Pro
     <Parts
       words={
         <>
-          <div className={slots.lead()}>
-            {lead.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
+          <Lead lead={lead} />
           <div className={slots.acts()}>
             <Link
               href={primary.href}
@@ -122,7 +129,7 @@ export function LandingPage({
             <Parts
               words={
                 <>
-                  <p className={slots.lead()}>{lead}</p>
+                  <Lead lead={lead} />
                   <Waiting layout={slots.acts()}>
                     <span className={buttonPlaceholder("w-28")} />
                     <span className={buttonPlaceholder("w-36")} />

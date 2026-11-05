@@ -438,8 +438,8 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
 }
 
 /**
- * The rail's foot while the session is judged: the row `AccountRow` draws, its avatar, its two lines and its „…“ as
- * bars of their sizes, so the foot keeps its height and the entries above stay where they are.
+ * The rail's foot while the session is judged: the row `AccountRow` draws, its avatar and its two lines as bars of
+ * their sizes, so the foot keeps its height and the entries above stay where they are.
  */
 export function AccountRowPlaceholder() {
   return (
@@ -454,9 +454,6 @@ export function AccountRowPlaceholder() {
           text="text-xs"
           width="w-1/2"
         />
-      </span>
-      <span className={railFade()}>
-        <span className={placeholderBar("size-4")} />
       </span>
     </Placeholder>
   );

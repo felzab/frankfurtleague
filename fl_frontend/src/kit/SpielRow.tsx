@@ -292,7 +292,7 @@ function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
         <span className="col-start-2 row-span-2 row-start-1">
           <SidePlaceholder mirrored />
         </span>
-        <span className="col-start-3 row-start-1 flex justify-center">
+        <span className={scoreCell({ shootOut: false, class: "flex justify-center" })}>
           <span className={placeholderBar("h-4 w-10")} />
         </span>
         <span className="col-start-4 row-span-2 row-start-1">

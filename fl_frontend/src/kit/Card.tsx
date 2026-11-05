@@ -65,7 +65,7 @@ export function Card({ title, count, chip, action, body = "rows", children, line
 /**
  * A card while its records are read: its own box and head, the title where the page knows it and a bar where the
  * record names it, a bar where the count will stand, and over its body the placeholders the page's rows draw, such
- * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place after the title, where the card carries one.
+ * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place at the head's end, where the card carries one.
  */
 export function CardPlaceholder({
   title,
@@ -82,7 +82,7 @@ export function CardPlaceholder({
   const name =
     title === undefined ? (
       <PlaceholderLine
-        text={s.title({ class: "flex-1" })}
+        text={s.title()}
         width="w-1/3"
       />
     ) : (
@@ -91,13 +91,11 @@ export function CardPlaceholder({
   return (
     <div className={s.root()}>
       <div className={s.head()}>
-        {chip ? (
-          <span className={s.named()}>
-            {name}
+        {name}
+        {chip && (
+          <span className={s.end()}>
             <span className={placeholderBar("h-5 w-16")} />
           </span>
-        ) : (
-          name
         )}
         {count && (
           <span className={s.count()}>
