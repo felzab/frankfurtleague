@@ -117,7 +117,7 @@ def born(sent: dict[str, Any]) -> dict[str, Any]:
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {**sent["einwilligung"], "confirmed_at": None, "medien": False, "entered_by": "liga"}
+    return {**sent["einwilligung"], "confirmed_at": None, "media": False, "entered_by": "liga"}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -286,11 +286,11 @@ class TestTheBlockIsWritten:
 
         assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
         assert response.kontakte is not None
-        # The record each seat was born with, `medien` included: the echo is the row, its absent
+        # The record each seat was born with, `media` included: the echo is the row, its absent
         # evidence read as none set.
         assert response.kontakte.model_dump(mode="json") == {
             seat: (
-                {**value, "einwilligung": {**value["einwilligung"], "nachweis": {"umfang": None, "medien": None}}}
+                {**value, "einwilligung": {**value["einwilligung"], "evidence": {"umfang": None, "media": None}}}
                 if isinstance(value, dict)
                 else value
             )
@@ -504,9 +504,9 @@ class TestAnLoeschungLandingMidSaveIsNotUndone:
 
             return loeschungen[0], refused.value, await row_now(database)
 
-        loeschung, refusal, stored = on_a_league(mongo_replica_set_url, body)
+        erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert loeschung.kontakt_seats == 1, "the interference emptied no seat, so the save had nothing to undo"
+        assert erasure.kontakt_seats == 1, "the interference emptied no seat, so the save had nothing to undo"
         assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"][GELOESCHT_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
@@ -846,11 +846,11 @@ class TestAKeptRecordKeepsItsEvidence:
             "umfang": "kontaktdaten_whatsapp",
             "datum": "2026-03-01",
             "confirmed_at": CONFIRMED_ON,
-            "medien": True,
+            "media": True,
             "entered_by": "bewerbung",
-            "nachweis": {
+            "evidence": {
                 "umfang": {"am": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["umfang"]},
-                "medien": {"am": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["medien"]},
+                "media": {"am": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]},
             },
         }
         seeded = {**PARTLY_CONFIRMED, "trainer": {**PARTLY_CONFIRMED["trainer"], "einwilligung": confirmed}}

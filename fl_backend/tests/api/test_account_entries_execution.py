@@ -18,7 +18,7 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.crud import find_eigene_eintraege
+from app.api.identity.crud import find_own_entries
 from app.api.registrierungen.schemas import FLRegistrierungSeite
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
@@ -50,11 +50,11 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
 
-DATABASE_NAME = worker_database("fl_account_eintraege_test")
+DATABASE_NAME = worker_database("fl_account_entries_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-KONTO_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
+ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -79,7 +79,7 @@ PAST, ACTIVE = "2025", "2026"
 WILTRUDIS = "wiltrudis.ehrenpreis@schule.de"
 # Asked with its domain in capitals, stored folded.
 KAETHE = "kaethe@XN--MLLER-KVA.DE"
-NIEMAND = "niemand@schule.de"
+NOBODY = "niemand@schule.de"
 
 TEAMS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 6)]
 
@@ -104,15 +104,15 @@ EXPECTED: dict[str, set[tuple[str, str]]] = {
         ("spieler", str(PUPIL)),
         ("schiedsrichter", str(REFEREE_LIVE)),
         ("schiedsrichter", str(REFEREE_RETIRED)),
-        ("sitze", f"{TEAMS[0]}/{PAST}"),
-        ("sitze", f"{TEAMS[1]}/{ACTIVE}"),
-        ("sitze", f"{TEAMS[2]}/{ACTIVE}"),
+        ("seats", f"{TEAMS[0]}/{PAST}"),
+        ("seats", f"{TEAMS[1]}/{ACTIVE}"),
+        ("seats", f"{TEAMS[2]}/{ACTIVE}"),
         ("bewerbungen", str(BEWERBUNG_PENDING)),
         ("registrierungen", str(REGISTRIERUNG_NEW)),
         ("registrierungen", str(REGISTRIERUNG_RETURNING)),
     },
     KAETHE: {("schiedsrichter", str(REFEREE_KAETHE)), ("registrierungen", str(REGISTRIERUNG_KAETHE))},
-    NIEMAND: set(),
+    NOBODY: set(),
 }
 
 
@@ -137,7 +137,7 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03") -> dict[str, A
         email=email,
         telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
-        einwilligung={"datum": "2026-09-01", "medien": True},
+        einwilligung={"datum": "2026-09-01", "media": True},
     )
 
 
@@ -162,11 +162,11 @@ def _registrierung(
 ) -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
-    gewaehlt: dict[str, Any] = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {}
-    bestaetigt = (
+    chosen: dict[str, Any] = {"umfang": "kader_oeffentlich", "media": True} if seite == "bestaetigung_spieler" else {}
+    confirmed = (
         None
         if seite is None
-        else registrierung_confirmed(geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
+        else registrierung_confirmed(geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **chosen)
     )
 
     return registrierung_document(
@@ -182,7 +182,7 @@ def _registrierung(
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
-        confirmed=bestaetigt,
+        confirmed=confirmed,
     )
 
 
@@ -244,16 +244,16 @@ def _served(body: dict[str, Any]) -> set[tuple[str, str]]:
     return {
         *((("spieler", body["spieler"]["spieler_id"]),) if body["spieler"] is not None else ()),
         *(("schiedsrichter", entry["schiedsrichter_id"]) for entry in body["schiedsrichter"]),
-        *(("sitze", f"{entry['team_id']}/{entry['saison_id']}") for entry in body["seats"]),
+        *(("seats", f"{entry['team_id']}/{entry['saison_id']}") for entry in body["seats"]),
         *(("bewerbungen", entry["bewerbung_id"]) for entry in body["bewerbungen"]),
         *(("registrierungen", entry["registrierung_id"]) for entry in body["registrierungen"]),
     }
 
 
-def _gezaehlt(eintraege: frozenset[tuple[str, Any]]) -> set[tuple[str, str]]:
+def _counted(entries: frozenset[tuple[str, Any]]) -> set[tuple[str, str]]:
     """The gate's set in the read's spelling."""
 
-    return {(art, f"{key[0]}/{key[1]}" if art == "sitze" else str(key)) for art, key in eintraege}
+    return {(art, f"{key[0]}/{key[1]}" if art == "seats" else str(key)) for art, key in entries}
 
 
 @pytest.mark.db
@@ -262,16 +262,16 @@ def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replica_set_
     async def run() -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
             await _seed(database)
-            _subjekt, eintraege = await find_eigene_eintraege(sign_in_identifier(address), record_collections(database))
+            _subject, entries = await find_own_entries(sign_in_identifier(address), record_collections(database))
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                response = await http.get(KONTO_PATH, headers=_person(address))
+                response = await http.get(ACCOUNT_PATH, headers=_person(address))
                 assert response.status_code == 200, response.text
 
-            return _gezaehlt(eintraege), _served(response.json())
+            return _counted(entries), _served(response.json())
 
-    gezaehlt, served = on_the_seed_loop(run())
+    counted, served = on_the_seed_loop(run())
 
-    assert served == gezaehlt
+    assert served == counted
     assert served == EXPECTED[address]
 
 
@@ -283,21 +283,21 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
             await _seed(database)
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                return await http.get(KONTO_PATH, headers=_person(WILTRUDIS))
+                return await http.get(ACCOUNT_PATH, headers=_person(WILTRUDIS))
 
     response = on_the_seed_loop(run())
 
     assert response.status_code == 200, response.text
     [entry] = [entry for entry in response.json()["registrierungen"] if entry["registrierung_id"] == str(REGISTRIERUNG_NEW)]
-    assert {key: value for key, value in entry.items() if key != "nachweis_stand"} == {
+    assert {key: value for key, value in entry.items() if key != "evidence_state"} == {
         "registrierung_id": str(REGISTRIERUNG_NEW),
         "team_name": "Schule3",
         "saison_id": ACTIVE,
         "umfang": "kader_oeffentlich",
-        "medien": True,
+        "media": True,
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
         "geburtsdatum": "2008-05-09",
     }
-    assert set(entry["nachweis_stand"]) == {"umfang", "medien"}
-    assert all(isinstance(value, str) for value in entry["nachweis_stand"].values())
+    assert set(entry["evidence_state"]) == {"umfang", "media"}
+    assert all(isinstance(value, str) for value in entry["evidence_state"].values())

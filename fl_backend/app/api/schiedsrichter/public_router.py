@@ -19,7 +19,7 @@ from app.api.schiedsrichter.services import (
     compose_confirmation_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
-    find_bestaetigung_gesperrt_refusal,
+    find_confirmation_barred_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
@@ -39,7 +39,7 @@ from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
@@ -60,7 +60,7 @@ router = APIRouter(
     openapi_extra=SAFE,
 )
 async def get_confirmation_view(
-    ansicht_data: Annotated[FLTokenPayload, Body()],
+    view_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterReadCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
@@ -79,7 +79,7 @@ async def get_confirmation_view(
     so the page offers a barred referee nothing to press.
     """
 
-    token_hash = hash_token(ansicht_data.token)
+    token_hash = hash_token(view_data.token)
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
     raw = await schiedsrichter_collection.find_one(build_token_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANSICHT_FIELDS))
@@ -89,14 +89,14 @@ async def get_confirmation_view(
     bestaetigung = raw[BESTAETIGUNG_FELD]
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
-    gesperrt = await adressen_gesperrt(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])
+    barred = await adressen_gesperrt(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])
 
     return FLSchiedsrichterConfirmationViewResponse(
-        state=zustand_of(einwilligung=einwilligung, confirmation=bestaetigung, today=today, barred=bool(gesperrt)),
+        state=zustand_of(einwilligung=einwilligung, confirmation=bestaetigung, today=today, barred=bool(barred)),
         # Served rather than retyped on the page: the floor the write is judged by is the one the
         # paragraph a person reads before consenting has to state.
         minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS,
-        medien_minimum_age=MEDIEN_MIN_AGE_YEARS,
+        media_minimum_age=MEDIA_MIN_AGE_YEARS,
         frist=bestaetigung["frist"],
     )
 
@@ -125,7 +125,7 @@ async def post_confirmation(
     Refuses, in this order: a token no referee holds (`link_invalid`), an entry already confirmed
     (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
     list holds now, whenever the link was minted (`link_barred`), an age outside what this consent asks
-    (`confirmation_age`), and a media consent from a referee below `medien_minimum_age` (`medien_age`) -- the last two
+    (`confirmation_age`), and a media consent from a referee below `media_minimum_age` (`media_age`) -- the last two
     judged before anything is written, so a mistyped year spends nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
@@ -134,7 +134,7 @@ async def post_confirmation(
 
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterConfirmationResponse:
         """Judge, then write, everything judged read in-session.
@@ -156,12 +156,12 @@ async def post_confirmation(
         refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
-        gesperrt = await adressen_gesperrt(
-            sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")], massgebliche_saison_id=massgebliche_saison_id, session=session
+        barred = await adressen_gesperrt(
+            sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")], governing_saison_id=governing_saison_id, session=session
         )
-        refuse(find_bestaetigung_gesperrt_refusal(barred=bool(gesperrt)))
+        refuse(find_confirmation_barred_refusal(barred=bool(barred)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
-        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
+        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, media=antwort_data.media, today=today))
 
         await patch_one_in_db(
             collection=schiedsrichter_collection,
@@ -169,7 +169,7 @@ async def post_confirmation(
             update=compose_confirmation_update(
                 geburtsdatum=antwort_data.geburtsdatum,
                 umfang=antwort_data.umfang,
-                medien=antwort_data.medien,
+                media=antwort_data.media,
                 text_versions=by_choice(antwort_data.text_versions),
                 today=today,
                 am=log_stamp(germany_now),
@@ -182,7 +182,7 @@ async def post_confirmation(
         # whole row, and this answer is bounded to what the page renders.
         return FLSchiedsrichterConfirmationResponse(
             umfang=antwort_data.umfang,
-            medien=antwort_data.medien,
+            media=antwort_data.media,
             confirmed_at=today,
         )
 

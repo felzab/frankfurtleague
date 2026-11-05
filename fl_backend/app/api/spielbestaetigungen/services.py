@@ -431,11 +431,11 @@ def vereinsnamen_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: Ansetzung
     """The clubs a notice about a moved row names: each side as the fixture fields it now, a side it lost by its season row."""
 
     snapshot = spielbestaetigung_raw["ansetzung"]
-    namen = {row.get("team_id"): row.get("name") for row in lage.vereine}
+    names = {row.get("team_id"): row.get("name") for row in lage.vereine}
 
     def side_name(slot: str, snapshot_key: str) -> str:
         side = lage.spiel.get(slot)
-        return str(side["name"]) if isinstance(side, Mapping) else str(namen.get(snapshot[snapshot_key]) or "")
+        return str(side["name"]) if isinstance(side, Mapping) else str(names.get(snapshot[snapshot_key]) or "")
 
     return side_name("team1", "team1_id"), side_name("team2", "team2_id")
 
@@ -461,11 +461,11 @@ def ansicht_snapshot_of(
 
     snapshot = spielbestaetigung_raw["ansetzung"]
     # Empty only for a club no document names at all, a dangling id a replacement exists to repair.
-    namen = {**vereinsnamen, **{row.get("team_id"): str(row.get("name") or "") for row in lage.vereine}}
+    names = {**vereinsnamen, **{row.get("team_id"): str(row.get("name") or "") for row in lage.vereine}}
 
     return FLSpielbestaetigungViewAnsetzung(
-        team1_name=namen.get(snapshot["team1_id"], ""),
-        team2_name=namen.get(snapshot["team2_id"], ""),
+        team1_name=names.get(snapshot["team1_id"], ""),
+        team2_name=names.get(snapshot["team2_id"], ""),
         datum=snapshot["datum"],
         uhrzeit=snapshot["uhrzeit"],
         spielort=spielort,
@@ -571,14 +571,14 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     for the mint day no row stores.
     """
 
-    offen = {"party.art": "team", **build_answerable_filter()}
+    open = {"party.art": "team", **build_answerable_filter()}
 
     return {
         "saison_id": saison_id,
         "$or": [
             build_verwerfbar_filter(),
-            {**offen, "frist": {"$lt": today}},
-            {**offen, "frist": today, "asked_at": {"$in": [None, today]}},
+            {**open, "frist": {"$lt": today}},
+            {**open, "frist": today, "asked_at": {"$in": [None, today]}},
         ],
     }
 
@@ -623,14 +623,14 @@ def find_fremde_zeile_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None
 def compose_schiedsrichter_antwort_update(*, antwort: FLSpielbestaetigungAntwortArt, begruendung: str | None, today: str) -> dict[str, Any]:
     """A decline closes its own row in the write emptying the referee's slot: left open, it would hold a re-booking of them unasked."""
 
-    gesetzt: dict[str, Any] = {
+    set_fields: dict[str, Any] = {
         # No holder digest: that is a seat's, and a referee answers as the person their record names.
         "antwort": {"art": antwort, "am": today, "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
     }
     if antwort == "declined":
-        gesetzt.update(compose_closing_update(grund=GRUND_EIGENE_ABSAGE, today=today)["$set"])
+        set_fields.update(compose_closing_update(grund=GRUND_EIGENE_ABSAGE, today=today)["$set"])
 
-    return {"$set": gesetzt}
+    return {"$set": set_fields}
 
 
 def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
@@ -664,10 +664,10 @@ def schiedsrichter_zustand_of(
 ) -> FLSpielbestaetigungSchiedsrichterZustand:
     """What the panel shows of a referee's own row: the link's state, which no ban and no proposal reaches here."""
 
-    zustand = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today, barred=False, vorschlag_offen=None)
-    assert zustand != "barred" and zustand != "vorschlag" and zustand != "discarded"
+    state = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today, barred=False, vorschlag_offen=None)
+    assert state != "barred" and state != "vorschlag" and state != "discarded"
 
-    return zustand
+    return state
 
 
 def eingetragen_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
@@ -1019,12 +1019,12 @@ def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
     return _notice_to_come(row=row, grund="discarded", spiel={}, today=today)
 
 
-def spiel_mail_termin_of(*, spielbestaetigung_raw: Mapping[str, Any], namen: tuple[str, str]) -> FLSpielMailAppointment:
+def spiel_mail_termin_of(*, spielbestaetigung_raw: Mapping[str, Any], names: tuple[str, str]) -> FLSpielMailAppointment:
     """The slot a row was about, as a notice about it states it, the clubs named as `vereinsnamen_of` names them."""
 
     ansetzung = spielbestaetigung_raw["ansetzung"]
 
-    return FLSpielMailAppointment(team1=namen[0], team2=namen[1], datum=ansetzung["datum"], uhrzeit=ansetzung["uhrzeit"])
+    return FLSpielMailAppointment(team1=names[0], team2=names[1], datum=ansetzung["datum"], uhrzeit=ansetzung["uhrzeit"])
 
 
 def spiel_mail_ansetzung_of(view: FLSpielbestaetigungViewAnsetzung) -> FLSpielMailAnsetzung:
@@ -1044,7 +1044,7 @@ def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appoint
 
     empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
     if grund == "ansetzung_changed":
-        return FLSpielNoticeData(art="spiel_new_angesetzt", recipient=empfaenger, appointment=appointment)
+        return FLSpielNoticeData(art="spiel_new_scheduled", recipient=empfaenger, appointment=appointment)
     if grund == "abgesagt":
         return FLSpielNoticeData(art="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
     if grund == "schiedsrichter_switched":

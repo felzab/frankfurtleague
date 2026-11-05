@@ -81,7 +81,7 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
             ImageAddress("adresse", "adresse", None),
             ImageAddress("granted_by", "granted_by", ERASED_ACTOR_MARKER),
         ),
-        DbCollection.SPERRLISTE: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
+        DbCollection.BAN_LIST: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
         DbCollection.INVITATIONS: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
         DbCollection.BEWERBUNGEN: (ImageAddress("decision.von", "decision.von", ERASED_ACTOR_MARKER),),
         DbCollection.REGISTRIERUNGEN: (ImageAddress("decision.von", "decision.von", ERASED_ACTOR_MARKER),),
@@ -104,14 +104,15 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
 )
 
 
-def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple[ImageAddress, ...]:
+def carried_by_the_effect(addresses: Sequence[ImageAddress], new_address: str) -> tuple[ImageAddress, ...]:
     """What an effect writes over the replaced address in these images: who acted carries to the new address.
 
     A record's own subject's address goes, as the erasure takes it.
     """
 
     return tuple(
-        ImageAddress(address.path, address.overwritten, neue if address.replacement == ERASED_ACTOR_MARKER else None) for address in addresses
+        ImageAddress(address.path, address.overwritten, new_address if address.replacement == ERASED_ACTOR_MARKER else None)
+        for address in addresses
     )
 
 

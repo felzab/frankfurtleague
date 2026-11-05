@@ -263,7 +263,7 @@ class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
                 filed.append(await database[Collection.ACTION_LOG].count_documents(on_the_row) - rows_before)
 
             grants = GrantsReadThenRival(database[Collection.GRANTS], keep_the_seat)
-            outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, berechtigungen_collection=grants))
+            outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, grants_collection=grants))
 
             return outcome, written, filed, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 

@@ -11,9 +11,9 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity import crud as identity_crud
-from app.api.identity.crud import funktionen_aus
+from app.api.identity.crud import roles_from
 from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
-from app.api.identity.services import eigene_eintraege, seat_saison_statuses
+from app.api.identity.services import own_entries, seat_saison_statuses
 from app.api.identity.system_router import get_sign_in
 from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
@@ -44,7 +44,7 @@ from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
 
-DATABASE_NAME = worker_database("fl_identity_anmeldung_test")
+DATABASE_NAME = worker_database("fl_identity_sign_in_test")
 
 PATH = f"/api/v{API_VERSION}/identity/sign_in"
 
@@ -53,48 +53,48 @@ ACTIVE_SAISON = "2526"
 STAMP = "2026-01-20"
 
 # One mailbox per case, each spelled so that a hit in the corpus cannot be a coincidence.
-SITZ_AKTIV = "sitz.aktiv@schule.de"
-SITZ_VERGANGEN = "sitz.vergangen@schule.de"
-SITZ_AUSGETRETEN = "sitz.ausgetreten@schule.de"
-SITZ_OFFEN = "sitz.offen@schule.de"
-SITZ_AUSGETRETEN_OFFEN = "sitz.ausgetreten.offen@schule.de"
-BEWERBUNG_OFFEN = "bewerbung.offen@schule.de"
-BEWERBUNG_ENTSCHIEDEN = "bewerbung.entschieden@schule.de"
-BEWERBUNG_UNBESTAETIGT = "bewerbung.unbestaetigt@schule.de"
-SPIELER_AKTIV = "spieler.aktiv@schule.de"
-SPIELER_EHEMALIG = "spieler.ehemalig@schule.de"
-PFEIFE_AKTIV = "pfeife.aktiv@schule.de"
-PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
-PFEIFE_OFFEN = "pfeife.offen@schule.de"
-PFEIFE_RUHESTAND_OFFEN = "pfeife.ruhestand.offen@schule.de"
-GEIST = "geist@schule.de"
+SEAT_ACTIVE = "sitz.aktiv@schule.de"
+SEAT_PAST = "sitz.vergangen@schule.de"
+SEAT_EXITED = "sitz.ausgetreten@schule.de"
+SEAT_OPEN = "sitz.offen@schule.de"
+SEAT_EXITED_OPEN = "sitz.ausgetreten.offen@schule.de"
+BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
+BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.de"
+BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
+SPIELER_ACTIVE = "spieler.aktiv@schule.de"
+SPIELER_FORMER = "spieler.ehemalig@schule.de"
+WHISTLE_ACTIVE = "pfeife.aktiv@schule.de"
+WHISTLE_RETIRED = "pfeife.ruhestand@schule.de"
+WHISTLE_OPEN = "pfeife.offen@schule.de"
+WHISTLE_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.de"
+GHOST = "geist@schule.de"
 # A registration stored as every payload stores an address, folded, and asked in another spelling.
-REGISTRIERT = "rita.registriert@schule.de"
-REGISTRIERT_STORED = REGISTRIERT
-REGISTRIERT_ABGELEHNT = "rita.abgelehnt@schule.de"
-REGISTRIERT_OFFEN = "rita.offen@schule.de"
-REGISTRIERT_OHNE_WAHL = "rita.ohnewahl@schule.de"
-GESPERRT = "gerda.gesperrt@schule.de"
-VERWALTUNG = "verena.verwaltung@schule.de"
-NIEMAND = "niemand.hierverzeichnet@example.com"
+REGISTERED = "rita.registriert@schule.de"
+REGISTERED_STORED = REGISTERED
+REGISTERED_DECLINED = "rita.abgelehnt@schule.de"
+REGISTERED_OPEN = "rita.offen@schule.de"
+REGISTERED_WITHOUT_CHOICE = "rita.ohnewahl@schule.de"
+BARRED = "gerda.gesperrt@schule.de"
+ADMIN = "verena.verwaltung@schule.de"
+NOBODY = "niemand.hierverzeichnet@example.com"
 
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 8)]
-SITZ_AKTIV_ROW = (TEAM_OIDS[0], ACTIVE_SAISON)
-SITZ_VERGANGEN_ROW = (TEAM_OIDS[1], PAST_SAISON)
-SITZ_AUSGETRETEN_ROW = (TEAM_OIDS[2], ACTIVE_SAISON)
-BEWERBUNG_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860011")
-BEWERBUNG_ENTSCHIEDEN_OID = ObjectId("6890a1b2c3d4e5f607860012")
-BEWERBUNG_UNBESTAETIGT_OID = ObjectId("6890a1b2c3d4e5f607860013")
-SPIELER_AKTIV_OID = ObjectId("6890a1b2c3d4e5f607860021")
-SPIELER_EHEMALIG_OID = ObjectId("6890a1b2c3d4e5f607860022")
-PFEIFE_AKTIV_OID = ObjectId("6890a1b2c3d4e5f607860031")
-PFEIFE_RUHESTAND_OID = ObjectId("6890a1b2c3d4e5f607860032")
-PFEIFE_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
-PFEIFE_RUHESTAND_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860034")
+SEAT_ACTIVE_ROW = (TEAM_OIDS[0], ACTIVE_SAISON)
+SEAT_PAST_ROW = (TEAM_OIDS[1], PAST_SAISON)
+SEAT_EXITED_ROW = (TEAM_OIDS[2], ACTIVE_SAISON)
+BEWERBUNG_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860011")
+BEWERBUNG_DECIDED_OID = ObjectId("6890a1b2c3d4e5f607860012")
+BEWERBUNG_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607860013")
+SPIELER_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860021")
+SPIELER_FORMER_OID = ObjectId("6890a1b2c3d4e5f607860022")
+WHISTLE_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860031")
+WHISTLE_RETIRED_OID = ObjectId("6890a1b2c3d4e5f607860032")
+WHISTLE_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
+WHISTLE_RETIRED_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860034")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607860041")
-REGISTRIERUNG_ABGELEHNT_OID = ObjectId("6890a1b2c3d4e5f607860042")
-REGISTRIERUNG_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860043")
-REGISTRIERUNG_OHNE_WAHL_OID = ObjectId("6890a1b2c3d4e5f607860044")
+REGISTRIERUNG_DECLINED_OID = ObjectId("6890a1b2c3d4e5f607860042")
+REGISTRIERUNG_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860043")
+REGISTRIERUNG_WITHOUT_CHOICE_OID = ObjectId("6890a1b2c3d4e5f607860044")
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607860051")
 
 
@@ -151,7 +151,7 @@ def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **field
         else {
             "geburtsdatum": "2009-05-04",
             "umfang": "intern",
-            "medien": False,
+            "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
             "am": "2026-01-03T08:00:00+00:00",
@@ -164,65 +164,65 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            _row(*SITZ_AKTIV_ROW, "SAX", trainer=_seat(SITZ_AKTIV), ansprechperson=_seat(GESPERRT)),
-            _row(*SITZ_VERGANGEN_ROW, "SVX", trainer=_seat(SITZ_VERGANGEN)),
+            _row(*SEAT_ACTIVE_ROW, "SAX", trainer=_seat(SEAT_ACTIVE), ansprechperson=_seat(BARRED)),
+            _row(*SEAT_PAST_ROW, "SVX", trainer=_seat(SEAT_PAST)),
             _row(
-                *SITZ_AUSGETRETEN_ROW,
+                *SEAT_EXITED_ROW,
                 "SWX",
                 austritt=dict(AUSTRITT),
-                trainer=_seat(SITZ_AUSGETRETEN),
-                ansprechperson=_seat(SITZ_AUSGETRETEN_OFFEN, confirmed_at=None),
+                trainer=_seat(SEAT_EXITED),
+                ansprechperson=_seat(SEAT_EXITED_OPEN, confirmed_at=None),
             ),
-            _row(TEAM_OIDS[3], ACTIVE_SAISON, "SOX", trainer=_seat(SITZ_OFFEN, confirmed_at=None)),
+            _row(TEAM_OIDS[3], ACTIVE_SAISON, "SOX", trainer=_seat(SEAT_OPEN, confirmed_at=None)),
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_many(
         [
-            _bewerbung(BEWERBUNG_OFFEN_OID, status="submitted", trainer=_seat(BEWERBUNG_OFFEN)),
-            _bewerbung(BEWERBUNG_ENTSCHIEDEN_OID, status="declined", trainer=_seat(BEWERBUNG_ENTSCHIEDEN)),
-            _bewerbung(BEWERBUNG_UNBESTAETIGT_OID, status="submitted", trainer=_seat(BEWERBUNG_UNBESTAETIGT, confirmed_at=None)),
+            _bewerbung(BEWERBUNG_OPEN_OID, status="submitted", trainer=_seat(BEWERBUNG_OPEN)),
+            _bewerbung(BEWERBUNG_DECIDED_OID, status="declined", trainer=_seat(BEWERBUNG_DECIDED)),
+            _bewerbung(BEWERBUNG_UNCONFIRMED_OID, status="submitted", trainer=_seat(BEWERBUNG_UNCONFIRMED, confirmed_at=None)),
         ]
     )
     await database[Collection.SPIELER].insert_many(
         [
-            spieler_document(SPIELER_AKTIV_OID, "Anna", "Aktiv", email=SPIELER_AKTIV),
-            spieler_document(SPIELER_EHEMALIG_OID, "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
+            spieler_document(SPIELER_ACTIVE_OID, "Anna", "Aktiv", email=SPIELER_ACTIVE),
+            spieler_document(SPIELER_FORMER_OID, "Anna", "Ehemalig", email=SPIELER_FORMER, inactive_since="2026-03-01"),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(PFEIFE_AKTIV_OID, PFEIFE_AKTIV, "A. Aktiv"),
-            _referee(PFEIFE_RUHESTAND_OID, PFEIFE_RUHESTAND, "B. Ruhestand", inactive_since="2026-03-01"),
-            _referee(PFEIFE_OFFEN_OID, PFEIFE_OFFEN, "C. Offen", einwilligung=None),
-            _referee(PFEIFE_RUHESTAND_OFFEN_OID, PFEIFE_RUHESTAND_OFFEN, "E. Ruhestand-Offen", inactive_since="2026-03-01", einwilligung=None),
+            _referee(WHISTLE_ACTIVE_OID, WHISTLE_ACTIVE, "A. Aktiv"),
+            _referee(WHISTLE_RETIRED_OID, WHISTLE_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
+            _referee(WHISTLE_OPEN_OID, WHISTLE_OPEN, "C. Offen", einwilligung=None),
+            _referee(WHISTLE_RETIRED_OPEN_OID, WHISTLE_RETIRED_OPEN, "E. Ruhestand-Offen", inactive_since="2026-03-01", einwilligung=None),
             # The ghost as no write leaves it: an address, a stamp, not retired, so its id alone keeps it out.
-            _referee(GHOST_SCHIEDSRICHTER_ID, GEIST, "D. Geist"),
+            _referee(GHOST_SCHIEDSRICHTER_ID, GHOST, "D. Geist"),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
-            _registrierung(REGISTRIERUNG_OID, REGISTRIERT_STORED),
-            _registrierung(REGISTRIERUNG_ABGELEHNT_OID, REGISTRIERT_ABGELEHNT, status="declined"),
-            _registrierung(REGISTRIERUNG_OFFEN_OID, REGISTRIERT_OFFEN, confirmed=False),
+            _registrierung(REGISTRIERUNG_OID, REGISTERED_STORED),
+            _registrierung(REGISTRIERUNG_DECLINED_OID, REGISTERED_DECLINED, status="declined"),
+            _registrierung(REGISTRIERUNG_OPEN_OID, REGISTERED_OPEN, confirmed=False),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
         _registrierung(
-            REGISTRIERUNG_OHNE_WAHL_OID,
-            REGISTRIERT_OHNE_WAHL,
+            REGISTRIERUNG_WITHOUT_CHOICE_OID,
+            REGISTERED_WITHOUT_CHOICE,
             confirmed=False,
             **compose_confirmation_update(
-                geburtsdatum="2009-05-04", umfang=None, medien=None, text_versions=None, today="2026-01-03", am="2026-01-03T08:00:00+00:00"
+                geburtsdatum="2009-05-04", umfang=None, media=None, text_versions=None, today="2026-01-03", am="2026-01-03T08:00:00+00:00"
             )["$set"],
         )
     )
-    await database[Collection.SPERRLISTE].insert_one(ban_document(GESPERRT, bis=ACTIVE_SAISON))
+    await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, bis=ACTIVE_SAISON))
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_one(
-        {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
+        {"_id": GRANT_OID, "adresse": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
     )
     await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "angekuendigt_am": granted}
+        {"_id": GRANT_OID, "adresse": ADMIN, "admin_tier": "administration", "angekuendigt_am": granted}
     )
 
 
@@ -241,26 +241,26 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def call_anmeldung(database: AsyncDatabase, email: str) -> FLSignInResponse:
+async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
     async with database.client.start_session(snapshot=True) as session:
         return await get_sign_in(
-            anmeldung_data=FLSubjectPayload(email=email),
+            sign_in_data=FLSubjectPayload(email=email),
             records=record_collections(database),
             sperrliste=ban_list(database),
-            berechtigungen_collection=database[Collection.GRANTS],
+            grants_collection=database[Collection.GRANTS],
             session=session,
         )
 
 
 def answered(url: str, email: str) -> FLSignInResponse:
-    return on_a_league(url, lambda database: call_anmeldung(database, email))
+    return on_a_league(url, lambda database: call_sign_in(database, email))
 
 
 def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
     async def body(database: AsyncDatabase) -> frozenset[tuple[str, Any]]:
-        _, eintraege = await identity_crud.find_eigene_eintraege(sign_in_identifier(email), record_collections(database))
+        _, entries = await identity_crud.find_own_entries(sign_in_identifier(email), record_collections(database))
 
-        return eintraege
+        return entries
 
     return on_a_league(url, body)
 
@@ -270,42 +270,44 @@ class TestWhatCountsAsAnOwnRecord:
     """`account` per kind and state, one mailbox each, so a kind dropped from the gate fails its own case."""
 
     @pytest.mark.parametrize(
-        ("email", "eintrag"),
+        ("email", "entry"),
         [
-            pytest.param(SITZ_AKTIV, ("sitze", SITZ_AKTIV_ROW), id="a seat on the running season"),
-            pytest.param(SITZ_VERGANGEN, ("sitze", SITZ_VERGANGEN_ROW), id="a past season's seat"),
-            pytest.param(SITZ_AUSGETRETEN, ("sitze", SITZ_AUSGETRETEN_ROW), id="a withdrawn team's seat"),
-            pytest.param(BEWERBUNG_OFFEN, ("bewerbungen", BEWERBUNG_OFFEN_OID), id="a seat on a pending application"),
-            pytest.param(SPIELER_AKTIV, ("spieler", SPIELER_AKTIV_OID), id="a live pupil"),
-            pytest.param(SPIELER_EHEMALIG, ("spieler", SPIELER_EHEMALIG_OID), id="a retired pupil"),
-            pytest.param(PFEIFE_AKTIV, ("schiedsrichter", PFEIFE_AKTIV_OID), id="a live referee"),
-            pytest.param(PFEIFE_RUHESTAND, ("schiedsrichter", PFEIFE_RUHESTAND_OID), id="a retired referee"),
-            pytest.param(REGISTRIERT, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),
+            pytest.param(SEAT_ACTIVE, ("seats", SEAT_ACTIVE_ROW), id="a seat on the running season"),
+            pytest.param(SEAT_PAST, ("seats", SEAT_PAST_ROW), id="a past season's seat"),
+            pytest.param(SEAT_EXITED, ("seats", SEAT_EXITED_ROW), id="a withdrawn team's seat"),
+            pytest.param(BEWERBUNG_OPEN, ("bewerbungen", BEWERBUNG_OPEN_OID), id="a seat on a pending application"),
+            pytest.param(SPIELER_ACTIVE, ("spieler", SPIELER_ACTIVE_OID), id="a live pupil"),
+            pytest.param(SPIELER_FORMER, ("spieler", SPIELER_FORMER_OID), id="a retired pupil"),
+            pytest.param(WHISTLE_ACTIVE, ("schiedsrichter", WHISTLE_ACTIVE_OID), id="a live referee"),
+            pytest.param(WHISTLE_RETIRED, ("schiedsrichter", WHISTLE_RETIRED_OID), id="a retired referee"),
+            pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),
             pytest.param(
-                REGISTRIERT_OHNE_WAHL, ("registrierungen", REGISTRIERUNG_OHNE_WAHL_OID), id="a returning pupil's registration, asking no choice"
+                REGISTERED_WITHOUT_CHOICE,
+                ("registrierungen", REGISTRIERUNG_WITHOUT_CHOICE_OID),
+                id="a returning pupil's registration, asking no choice",
             ),
         ],
     )
-    def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, eintrag: tuple[str, Any]):
+    def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, entry: tuple[str, Any]):
         """The whole set, so a case naming the right record beside a wrong one fails too."""
 
-        assert own_records(mongo_replica_set_url, email) == {eintrag}
+        assert own_records(mongo_replica_set_url, email) == {entry}
         assert answered(mongo_replica_set_url, email).account is True
 
     @pytest.mark.parametrize(
         "email",
         [
-            pytest.param(SITZ_OFFEN, id="an unconfirmed seat"),
-            pytest.param(BEWERBUNG_ENTSCHIEDEN, id="a seat on a decided application"),
-            pytest.param(BEWERBUNG_UNBESTAETIGT, id="an unconfirmed seat on a pending application"),
-            pytest.param(PFEIFE_OFFEN, id="an unconfirmed referee"),
-            pytest.param(PFEIFE_RUHESTAND_OFFEN, id="an unconfirmed retired referee"),
-            pytest.param(PFEIFE_AKTIV.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
-            pytest.param(SITZ_AUSGETRETEN_OFFEN, id="an unconfirmed seat on a withdrawn team's row"),
-            pytest.param(GEIST, id="the placeholder referee"),
-            pytest.param(REGISTRIERT_ABGELEHNT, id="a declined registration"),
-            pytest.param(REGISTRIERT_OFFEN, id="an unconfirmed registration"),
-            pytest.param(NIEMAND, id="nothing at all"),
+            pytest.param(SEAT_OPEN, id="an unconfirmed seat"),
+            pytest.param(BEWERBUNG_DECIDED, id="a seat on a decided application"),
+            pytest.param(BEWERBUNG_UNCONFIRMED, id="an unconfirmed seat on a pending application"),
+            pytest.param(WHISTLE_OPEN, id="an unconfirmed referee"),
+            pytest.param(WHISTLE_RETIRED_OPEN, id="an unconfirmed retired referee"),
+            pytest.param(WHISTLE_ACTIVE.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
+            pytest.param(SEAT_EXITED_OPEN, id="an unconfirmed seat on a withdrawn team's row"),
+            pytest.param(GHOST, id="the placeholder referee"),
+            pytest.param(REGISTERED_DECLINED, id="a declined registration"),
+            pytest.param(REGISTERED_OPEN, id="an unconfirmed registration"),
+            pytest.param(NOBODY, id="nothing at all"),
         ],
     )
     def test_a_record_holding_no_consent_of_its_own_person_admits_nothing(self, mongo_replica_set_url: str, email: str):
@@ -318,7 +320,7 @@ class TestTheFlagsBesideIt:
     def test_records_awaiting_confirmation_raise_the_subject_s_flag_and_admit_nothing_else(self, mongo_replica_set_url: str):
         """The flag is `POST /identity/subject`'s own; only the records granting a panel raise it."""
 
-        assert [(answered(mongo_replica_set_url, email).unconfirmed) for email in (SITZ_OFFEN, BEWERBUNG_UNBESTAETIGT)] == [
+        assert [(answered(mongo_replica_set_url, email).unconfirmed) for email in (SEAT_OPEN, BEWERBUNG_UNCONFIRMED)] == [
             True,
             False,
         ]
@@ -326,21 +328,21 @@ class TestTheFlagsBesideIt:
     def test_an_address_sharing_only_a_local_part_with_an_unconfirmed_referee_awaits_nothing(self, mongo_replica_set_url: str):
         """The address pre-filter reads that referee's row, and only the fold after the read keeps the flag down and the gate shut."""
 
-        answer = answered(mongo_replica_set_url, PFEIFE_OFFEN.replace("@schule.de", "@anderswo.de"))
+        answer = answered(mongo_replica_set_url, WHISTLE_OPEN.replace("@schule.de", "@anderswo.de"))
 
         assert (answer.unconfirmed, answer.account) == (False, False)
 
     def test_a_barred_address_is_flagged_and_still_counted(self, mongo_replica_set_url: str):
         """The ban narrows nothing beside it: refusing the barred holder is the gate's own decision."""
 
-        answer = answered(mongo_replica_set_url, GESPERRT)
+        answer = answered(mongo_replica_set_url, BARRED)
 
         assert (answer.barred, answer.account) == (True, True)
 
     def test_a_grant_is_answered_beside_records_it_does_not_need(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, VERWALTUNG)
+        answer = answered(mongo_replica_set_url, ADMIN)
 
-        assert (answer.verwaltung, answer.account, answer.barred) == ("administration", False, False)
+        assert (answer.admin_tier, answer.account, answer.barred) == ("administration", False, False)
 
 
 def test_a_seat_whose_season_has_no_row_is_raised_rather_than_dropped():
@@ -351,7 +353,7 @@ def test_a_seat_whose_season_has_no_row_is_raised_rather_than_dropped():
         seat_saison_statuses([{"saison_id": ACTIVE_SAISON, "saison": []}])
 
 
-def test_every_funktion_list_is_drawn_from_the_own_records():
+def test_every_role_list_is_drawn_from_the_own_records():
     """One row seating the mailbox confirmed and again unconfirmed in another spelling, and an unconfirmed referee row.
 
     Kills a Funktion list built from the rows the pre-filter matched rather than from the own records. Both judgements
@@ -369,16 +371,16 @@ def test_every_funktion_list_is_drawn_from_the_own_records():
     referee_rows: list[Mapping[str, Any]] = [_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None)]
     pupil_rows: list[Mapping[str, Any]] = [spieler_document(ObjectId(), "Ortrud", "Zwiebelmayer", email=identifier)]
 
-    subjekt = funktionen_aus(identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows)
-    eintraege = eigene_eintraege(
+    subject = roles_from(identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows)
+    entries = own_entries(
         identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows, bewerbung_rows=[], registrierung_rows=[]
     )
 
-    assert [sitz.rolle for sitz in subjekt.seats] == ["trainer"]
-    assert {("sitze", (sitz.team_id, sitz.saison_id)) for sitz in subjekt.seats} | {
-        ("spieler", e.spieler_id) for e in subjekt.spieler
-    } <= eintraege
-    assert subjekt.schiedsrichter == []
+    assert [seat.rolle for seat in subject.seats] == ["trainer"]
+    assert {("seats", (seat.team_id, seat.saison_id)) for seat in subject.seats} | {
+        ("spieler", e.spieler_id) for e in subject.spieler
+    } <= entries
+    assert subject.schiedsrichter == []
 
 
 @functools.cache
@@ -397,9 +399,9 @@ def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica
 
     async def _answered() -> Response:
         async with app_client(mongo_replica_set_url, app=_served()) as http:
-            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTRIERT_STORED.upper()})
+            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTERED_STORED.upper()})
 
     response = asyncio.run(_answered())
 
     assert response.status_code == 200
-    assert response.json() == {"unconfirmed": False, "account": True, "barred": False, "verwaltung": None}
+    assert response.json() == {"unconfirmed": False, "account": True, "barred": False, "admin_tier": None}

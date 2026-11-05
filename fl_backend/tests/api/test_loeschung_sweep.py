@@ -25,8 +25,8 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import erasure_due_page, saison_statuses
-from app.api.identity.schemas import FLLoeschungSweepParams
-from app.api.identity.system_router import LOESCHUNGEN_PER_PASS, sweep_erasure
+from app.api.identity.schemas import FLErasureSweepParams
+from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.saisons.admin_router import activate_saison
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
@@ -172,7 +172,7 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
 
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
     return await sweep_erasure(
-        params=FLLoeschungSweepParams(nach=nach),
+        params=FLErasureSweepParams(nach=nach),
         **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
         sperrliste=ban_list(database),
         db=client,
@@ -233,7 +233,7 @@ async def population(database: AsyncDatabase) -> list[Any]:
     seite, _ = await erasure_due_page(
         await saison_statuses(saisons_collection=database[Collection.SAISONS]),
         nach=None,
-        groesse=WHOLE,
+        size=WHOLE,
         spieler_collection=database[Collection.SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
     )
@@ -374,7 +374,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
         {
             "_id": GRANT,
             "adresse": ADDRESS,
-            "verwaltung": "administration",
+            "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
         }
@@ -386,7 +386,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     await edited(database, Collection.REGISTRIERUNGEN, REACHED_REGISTRATION, {"$set": {"nummer": "7"}})
     await edited(database, Collection.SAISON_TEAMS, SEAT_ROW, {"$set": {"gruppe": "B"}})
     await edited(database, Collection.SCHIEDSRICHTER, REFEREE, {"$set": {"schule": "Lindenschule"}})
-    await edited(database, Collection.GRANTS, GRANT, {"$set": {"verwaltung": "administration"}})
+    await edited(database, Collection.GRANTS, GRANT, {"$set": {"admin_tier": "administration"}})
 
 
 class TestThePupilsOwnDataAlone:
@@ -464,7 +464,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
             # Another person's, at the address the pupil held when the run read them.
-            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, nachname="Fremd"))
+            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, nachname="Foreign"))
             await database[Collection.REGISTRIERUNGEN].update_one({"_id": numbered(5001)}, {"$set": {"email": corrected}})
 
             async def correct_it() -> None:
@@ -592,7 +592,7 @@ BELOW_THE_ENDED = {PLANNED_BELOW: "future", "2024": "active", "2025": "past"}
 
 class TestAnActivationInsideThePupilsTransactionKeepsThem:
     def test_the_pupil_stands(self, mongo_replica_set_url: str):
-        """Remove the planned season's anchor in `loeschen_if_still_due` and the pupil goes.
+        """Remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
 
         The pupil's only row is in the planned season, which activating it keeps; the transaction read it planned.
         """
@@ -613,7 +613,7 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
                     saisons_collection=database[Collection.SAISONS],
                     spiele_collection=database[Collection.SPIELE],
                     spieltage_collection=database[Collection.SPIELTAGE],
-                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    ban_list_collection=database[Collection.BAN_LIST],
                     db=client,
                 )
 
@@ -771,14 +771,14 @@ class TestEachCallTakesAShare:
         """The shipped share, seeded one over: ignore it and the first call takes everybody and ends the pass."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, *(a_due_pupil(position) for position in range(LOESCHUNGEN_PER_PASS + 1)))
+            await seeded(database, *(a_due_pupil(position) for position in range(ERASURES_PER_PASS + 1)))
             answers = await a_pass(database, client)
 
             return [(answer.spieler, answer.remaining, answer.nach) for answer in answers], await run(database, client)
 
         answers, later = on_a_league(mongo_replica_set_url, body)
 
-        assert answers == [(LOESCHUNGEN_PER_PASS, 1, numbered(LOESCHUNGEN_PER_PASS - 1)), (1, 0, None)]
+        assert answers == [(ERASURES_PER_PASS, 1, numbered(ERASURES_PER_PASS - 1)), (1, 0, None)]
         assert (later.spieler, later.remaining, later.nach) == (0, 0, None)
 
     def test_a_share_of_failing_pupils_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
@@ -787,8 +787,8 @@ class TestEachCallTakesAShare:
         Restart each call at the lowest id and the same share fails every call, the last pupil never reached.
         """
 
-        failing = range(1, LOESCHUNGEN_PER_PASS + 1)
-        last = LOESCHUNGEN_PER_PASS + 1
+        failing = range(1, ERASURES_PER_PASS + 1)
+        last = ERASURES_PER_PASS + 1
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, *(a_due_pupil(position) for position in [*failing, last]))
@@ -802,7 +802,7 @@ class TestEachCallTakesAShare:
 
         answers, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert answers == [(0, LOESCHUNGEN_PER_PASS), (1, 0)]
+        assert answers == [(0, ERASURES_PER_PASS), (1, 0)]
         assert standing == 0
 
 
@@ -816,9 +816,9 @@ class TestNoJournalLine:
             return (await run(database, client)).spieler
 
         with caplog.at_level(logging.INFO):
-            geloescht = on_a_league(mongo_replica_set_url, body)
+            erased_count = on_a_league(mongo_replica_set_url, body)
 
-        assert geloescht == 1
+        assert erased_count == 1
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
 
@@ -826,7 +826,7 @@ class TestNoJournalLine:
 
 
 # Two runs apart by this many pupils, both inside one share.
-FEW = LOESCHUNGEN_PER_PASS // 2
+FEW = ERASURES_PER_PASS // 2
 
 # The server's first batch for a cursor naming no size: one pending registration more takes the read a `getMore`.
 FIRST_BATCH = 101
@@ -869,7 +869,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await seeded(
                 database,
-                *(shape for position in range(LOESCHUNGEN_PER_PASS + 1) for shape in (a_due_pupil(position), a_report_naming(position))),
+                *(shape for position in range(ERASURES_PER_PASS + 1) for shape in (a_due_pupil(position), a_report_naming(position))),
                 {Collection.REGISTRIERUNGEN: waiting},
             )
 
@@ -878,5 +878,5 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         answer, names = on_a_league(mongo_replica_set_url, body)
 
         # The premise first: a full share erased, and the pending registrations read past the first batch.
-        assert (answer.spieler, names["getMore"]) == (LOESCHUNGEN_PER_PASS, 1), names
-        assert names.total() - LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON == OTHER_COMMANDS, names
+        assert (answer.spieler, names["getMore"]) == (ERASURES_PER_PASS, 1), names
+        assert names.total() - ERASURES_PER_PASS * COMMANDS_A_PERSON == OTHER_COMMANDS, names

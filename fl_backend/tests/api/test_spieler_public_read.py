@@ -60,7 +60,7 @@ SPIELER_OIDS = {
     "Mueller": ObjectId("6890a1b2c3d4e5f607390011"),
     "Adler": ObjectId("6890a1b2c3d4e5f607390012"),
     # No surname at all: absent is not the same fact as withheld, and must not read as an initial.
-    "Ohne": ObjectId("6890a1b2c3d4e5f607390013"),
+    "Without": ObjectId("6890a1b2c3d4e5f607390013"),
     # A surname whose first letter is two bytes.
     "Oeztuerk": ObjectId("6890a1b2c3d4e5f607390014"),
     # The PERSON is retired and the squad row is live -- `READ-SQUAD-001`'s case.
@@ -476,7 +476,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     # are keyed by forename below, and one case greps the whole payload for a leak.
                     _spieler("Mueller", "Maxim", "Müller"),
                     _spieler("Adler", "Marek", "Adler"),
-                    _spieler("Ohne", "Lena", None),
+                    _spieler("Without", "Lena", None),
                     _spieler("Oeztuerk", "Timo", "Öztürk"),
                     _spieler("Weber", "Jonas", "Weber", inactive_since="2026-05-01"),
                     _spieler("Kraus", RETIRED_ROW_VORNAME, "Kraus"),
@@ -486,7 +486,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                 [
                     _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
                     _squad_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
-                    _squad_row("Ohne", nummer=None, position=None, stufe=None),
+                    _squad_row("Without", nummer=None, position=None, stufe=None),
                     _squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
                     _squad_row("Weber", nummer="1", position="Tor", stufe="Q2"),
                     _squad_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),

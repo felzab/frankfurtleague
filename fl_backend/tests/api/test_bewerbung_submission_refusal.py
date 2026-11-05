@@ -333,12 +333,12 @@ class TestWhatTheServerComposes:
             "umfang": "kontaktdaten",
             "datum": TODAY,
             "confirmed_at": None,
-            "medien": False,
+            "media": False,
             "entered_by": "bewerbung",
         }
 
     def test_the_composed_block_stores_no_field_the_payload_carried_beside_the_wording(self):
-        """`erteilt` is the form's tickbox, not a stored field: the record IS the consent, and `False` is a body this endpoint refuses."""
+        """`given` is the form's tickbox, not a stored field: the record IS the consent, and `False` is a body this endpoint refuses."""
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
@@ -346,7 +346,7 @@ class TestWhatTheServerComposes:
             "umfang",
             "datum",
             "confirmed_at",
-            "medien",
+            "media",
             "entered_by",
         }
 
@@ -370,7 +370,7 @@ class TestWhatTheServerComposes:
         assert composed["stellvertretung"]["vorname"] == "Stellan"
 
     def test_a_consent_the_applicant_did_not_give_is_refused_rather_than_stored(self):
-        """`erteilt: Literal[True]`: an unticked box is a 422, never a stored record saying somebody declined."""
+        """`given: Literal[True]`: an unticked box is a 422, never a stored record saying somebody declined."""
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": False}))
@@ -643,38 +643,38 @@ class TestTheStrongPlayersFitInsideTheSquad:
     """
 
     @pytest.mark.parametrize(
-        ("groesse", "gute"),
+        ("size", "gute"),
         [
             pytest.param(14, 13, id="comfortably inside"),
             pytest.param(14, 14, id="the whole squad, which is the boundary"),
             pytest.param(1, 0, id="the smallest squad and no strong player"),
         ],
     )
-    def test_a_count_at_or_below_the_squad_is_accepted(self, groesse: int, gute: int):
+    def test_a_count_at_or_below_the_squad_is_accepted(self, size: int, gute: int):
         """Equal is accepted: a school may rate every player it expects."""
 
-        kader = {"expected_size": groesse, "good_spieler": gute}
+        kader = {"expected_size": size, "good_spieler": gute}
 
         assert FLPostBewerbungPayload.model_validate(submission(kader=kader)).kader.good_spieler == gute
 
     @pytest.mark.parametrize(
-        ("groesse", "gute"),
+        ("size", "gute"),
         [
             pytest.param(14, 15, id="one over the squad"),
             pytest.param(1, 2, id="one over the smallest squad"),
             pytest.param(14, BEWERBUNG_KADER_SIZE_MAX, id="inside its own ceiling and still past the squad"),
         ],
     )
-    def test_a_count_above_the_squad_is_refused(self, groesse: int, gute: int):
+    def test_a_count_above_the_squad_is_refused(self, size: int, gute: int):
         """The third row matters: both fields clear their own bounds, so only the pair rule can refuse it."""
 
-        kader = {"expected_size": groesse, "good_spieler": gute}
+        kader = {"expected_size": size, "good_spieler": gute}
 
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kader=kader))
 
         # The ceiling rides as the context the frontend words „Höchstens {max}“ from.
-        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [("good_spieler_exceed_kader", {"max": groesse})]
+        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [("good_spieler_exceed_kader", {"max": size})]
 
 
 def stored_application(**overrides: Any) -> dict[str, Any]:

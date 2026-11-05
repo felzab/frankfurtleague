@@ -19,14 +19,14 @@ from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
-from app.api.adresswechsel.services import compose_record
+from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.core.recording import log_stamp
-from app.shared.einwilligung_nachweis import CHOICES, NACHWEIS, TextVersions, compose_beleg, compose_geboren
-from app.shared.schemas.einwilligung import FLMedienTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
+from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_born, compose_receipt
+from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay, FLKontaktEnteredBy
 from app.shared.tokens import hash_token
 from tests.config import build_test_config
@@ -49,11 +49,11 @@ def label_of(alias: TypeAliasType) -> str:
 
 
 # The labels each kind of record's press names, keyed by the choice each evidences.
-SEAT_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLWhatsappTextVersion), "medien": label_of(FLMedienTextVersion)}
-SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLNameKaderTextVersion), "medien": label_of(FLMedienTextVersion)}
+SEAT_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLWhatsappTextVersion), "media": label_of(FLMediaTextVersion)}
+SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLNameKaderTextVersion), "media": label_of(FLMediaTextVersion)}
 SCHIEDSRICHTER_TEXT_VERSIONS: Final[TextVersions] = {
     "umfang": label_of(FLNameSpielplanTextVersion),
-    "medien": label_of(FLMedienTextVersion),
+    "media": label_of(FLMediaTextVersion),
 }
 
 
@@ -65,12 +65,12 @@ def confirmed_instant(tag: str) -> str:
 
 # A pupil's record as their own confirmation wrote it and their admission carried it onto the person,
 # publishing the name and no media.
-EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
+EINWILLIGUNG: Final[Mapping[str, Any]] = compose_born(
     block={
         "umfang": "kader_oeffentlich",
         "datum": "2026-01-20",
         "confirmed_at": "2026-01-20",
-        "medien": False,
+        "media": False,
     },
     am=confirmed_instant("2026-01-20"),
     text_versions=SPIELER_TEXT_VERSIONS,
@@ -396,10 +396,12 @@ def kontaktperson_document(
         # As `app/api/bewerbungen/services.py :: compose_confirmation_update` answers the seat: both
         # choices with their evidence, judged against the seat as seated.
         block = {**seated, "confirmed_at": confirmed_at, **(einwilligung or {})}
-        if NACHWEIS not in block:
-            beleg_am = am if am is not None else confirmed_instant(confirmed_at)
-            block[NACHWEIS] = {
-                choice: compose_beleg(saved=seated, choice=choice, value=block[choice], am=beleg_am, text_version=SEAT_TEXT_VERSIONS[choice])
+        if EVIDENCE not in block:
+            receipt_at = am if am is not None else confirmed_instant(confirmed_at)
+            block[EVIDENCE] = {
+                choice: compose_receipt(
+                    saved=seated, choice=choice, value=block[choice], am=receipt_at, text_version=SEAT_TEXT_VERSIONS[choice]
+                )
                 for choice in CHOICES
             }
 
@@ -467,18 +469,18 @@ def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str,
     `fields` laid over the block.
     """
 
-    geboren = compose_geboren(
+    born = compose_born(
         block={
             "umfang": "kader_oeffentlich",
             "datum": confirmed_at,
             "confirmed_at": confirmed_at,
-            "medien": False,
+            "media": False,
         },
         am=am if am is not None else confirmed_instant(confirmed_at),
         text_versions=text_versions,
     )
 
-    return {**geboren, **fields}
+    return {**born, **fields}
 
 
 def schiedsrichter_document(
@@ -505,14 +507,14 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, geburtsdatum: str, today: str, am: str, umfang: str | None = None, medien: bool | None = None) -> dict[str, Any]:
+def registrierung_confirmed(*, geburtsdatum: str, today: str, am: str, umfang: str | None = None, media: bool | None = None) -> dict[str, Any]:
     """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
 
     return {
         "geburtsdatum": geburtsdatum,
         "umfang": umfang,
-        "medien": medien,
-        "text_versions": None if umfang is None and medien is None else SPIELER_TEXT_VERSIONS,
+        "media": media,
+        "text_versions": None if umfang is None and media is None else SPIELER_TEXT_VERSIONS,
         "today": today,
         "am": am,
     }

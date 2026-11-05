@@ -200,7 +200,7 @@ def either(database: AsyncDatabase, collection: Collection, stand_in: Any) -> An
     return database[collection] if stand_in is None else stand_in
 
 
-async def ansicht(
+async def read_view(
     database: AsyncDatabase,
     raw: str,
     *,
@@ -210,7 +210,7 @@ async def ansicht(
     saison_teams: Any = None,
 ) -> FLSpielbestaetigungViewResponse:
     return await get_spielbestaetigung_view(
-        ansicht_data=FLTokenPayload(token=raw),
+        view_data=FLTokenPayload(token=raw),
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
@@ -268,7 +268,7 @@ async def row_now(database: AsyncDatabase, row_id: ObjectId) -> Mapping[str, Any
 class TestWhatALinkOpens:
     def test_an_open_link_states_the_fixture_its_side_and_its_deadline(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await ansicht(database, token(TEAM2, "ansprechperson"))
+            return await read_view(database, token(TEAM2, "ansprechperson"))
 
         view = on_a_fixture(mongo_replica_set_url, body)
 
@@ -294,7 +294,7 @@ class TestWhatALinkOpens:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"), begruendung="Die Halle ist belegt")
 
-            return await ansicht(database, token(TEAM2, "trainer")), await ansicht(database, token(TEAM1, "stellvertretung"))
+            return await read_view(database, token(TEAM2, "trainer")), await read_view(database, token(TEAM1, "stellvertretung"))
 
         other, own = on_a_fixture(mongo_replica_set_url, body)
 
@@ -310,7 +310,7 @@ class TestWhatALinkOpens:
             await antworten(database, client, token(TEAM1, "trainer"))
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "ausgefallen"}})
 
-            return await ansicht(database, token(TEAM1, "trainer")), await ansicht(database, token(TEAM2, "trainer"))
+            return await read_view(database, token(TEAM1, "trainer")), await read_view(database, token(TEAM2, "trainer"))
 
         agreed, unanswered = on_a_fixture(mongo_replica_set_url, body)
 
@@ -335,7 +335,7 @@ class TestWhatALinkOpens:
             ort = {"spielort_id": elsewhere, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 30}
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"ort": ort, "datum": None}})
 
-            return await ansicht(database, token(TEAM1, "trainer"))
+            return await read_view(database, token(TEAM1, "trainer"))
 
         view = on_a_fixture(mongo_replica_set_url, body)
 
@@ -355,8 +355,8 @@ class TestWhatALinkOpens:
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"_id": ROW2}, {"$set": {"closed": {"am": TODAY, "grund": "spiel_decided"}}}
             )
-            closed = await ansicht(database, token(TEAM2, "trainer"))
-            unknown = [await outcome_of(ansicht(database, "geraten")), await outcome_of(antworten(database, client, "geraten"))]
+            closed = await read_view(database, token(TEAM2, "trainer"))
+            unknown = [await outcome_of(read_view(database, "geraten")), await outcome_of(antworten(database, client, "geraten"))]
 
             return closed.state, unknown
 
@@ -385,7 +385,7 @@ class TestAFixtureRemovedBetweenTheViewsTwoReads:
                 await database[Collection.SPIELE].delete_one({"_id": SPIEL})
 
             confirmations = ConfirmationsRunningARivalAfterTheRowRead(database[Collection.SPIELBESTAETIGUNGEN], undraw)
-            outcome = await outcome_of(ansicht(database, token(TEAM1, "trainer"), spielbestaetigungen=confirmations))
+            outcome = await outcome_of(read_view(database, token(TEAM1, "trainer"), spielbestaetigungen=confirmations))
 
             return outcome, confirmations.passes
 
@@ -453,7 +453,7 @@ class TestWhatAnAnonymousReadLoads:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             spiele = ReadsRecorded(database[Collection.SPIELE])
             saison_teams = ReadsRecorded(database[Collection.SAISON_TEAMS])
-            await ansicht(database, token(TEAM1, "stellvertretung"), spiele=spiele, saison_teams=saison_teams)
+            await read_view(database, token(TEAM1, "stellvertretung"), spiele=spiele, saison_teams=saison_teams)
 
             return spiele.loaded, saison_teams.loaded
 
@@ -526,7 +526,7 @@ class TestTheSeatTheAnswerRecords:
             )
             await ablehnen(database, client, token(TEAM1, "stellvertretung"), ("2027-05-15", "18:00:00"), begruendung="Die Halle ist belegt")
 
-            return await row_now(database, ROW1), await ansicht(database, token(TEAM1, "stellvertretung"))
+            return await row_now(database, ROW1), await read_view(database, token(TEAM1, "stellvertretung"))
 
         row, view = on_a_fixture(mongo_replica_set_url, body)
 
@@ -570,14 +570,14 @@ class TestEveryMailedLinkLivesToTheDeadline:
         rows = [confirmation(ROW1, TEAM1, hashes=mailed), confirmation(ROW2, TEAM2)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            view = await ansicht(database, token(TEAM1, "ansprechperson", nth))
+            view = await read_view(database, token(TEAM1, "ansprechperson", nth))
             await antworten(database, client, token(TEAM1, "ansprechperson", nth))
 
             return view.state, await row_now(database, ROW1)
 
-        zustand, row = on_a_fixture(mongo_replica_set_url, body, rows=rows)
+        state, row = on_a_fixture(mongo_replica_set_url, body, rows=rows)
 
-        assert zustand == "valid"
+        assert state == "valid"
         assert row["antwort"]["von"]["rolle"] == "ansprechperson"
 
 
@@ -666,15 +666,15 @@ class TestALinkToAnAddressBarredAfterTheMint:
     def test_the_view_shows_the_ban_the_answer_is_refused_and_a_lift_lets_it_answer(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ban = documents.ban_document("klara@example.com", bis=SAISON_ID)
-            await database[Collection.SPERRLISTE].insert_one(ban)
+            await database[Collection.BAN_LIST].insert_one(ban)
 
-            view = await ansicht(database, token(TEAM1, "stellvertretung"))
+            view = await read_view(database, token(TEAM1, "stellvertretung"))
             refused = await outcome_of(antworten(database, client, token(TEAM1, "stellvertretung")))
             unwritten = (await row_now(database, ROW1))["antwort"]
             # Another seat of the same club holds an address the list does not.
-            other_seat = (await ansicht(database, token(TEAM1, "trainer"))).state
+            other_seat = (await read_view(database, token(TEAM1, "trainer"))).state
 
-            await database[Collection.SPERRLISTE].delete_one({"_id": ban["_id"]})
+            await database[Collection.BAN_LIST].delete_one({"_id": ban["_id"]})
             lifted = await outcome_of(antworten(database, client, token(TEAM1, "stellvertretung")))
 
             return view.state, refused, unwritten, other_seat, lifted
@@ -689,7 +689,7 @@ class TestTheLinkLookupWalksAnIndex:
         async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
             plans = []
             for call in (
-                lambda watched, _watching: ansicht(watched, token(TEAM1, "trainer")),
+                lambda watched, _watching: read_view(watched, token(TEAM1, "trainer")),
                 lambda watched, watching: antworten(watched, watching, token(TEAM1, "trainer")),
             ):
                 _, sent = await plans_of_sent_reads(
@@ -878,14 +878,14 @@ class TestALinkToAReplacedClubsFixture:
                 spiele_collection=database[Collection.SPIELE],
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.ACTION_LOG],
+                action_log_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db=client,
                 today=TODAY,
                 germany_now=datetime(2027, 5, 1, 12, 0, tzinfo=ZoneInfo("Europe/Berlin")),
             )
 
-            return await ansicht(database, token(TEAM1, "trainer"))
+            return await read_view(database, token(TEAM1, "trainer"))
 
         view = on_a_fixture(mongo_replica_set_url, body)
 
@@ -908,7 +908,7 @@ class TestWhatALinksOwnRowReadLoads:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"), begruendung="Die Halle ist belegt")
             viewed = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
-            view = await ansicht(database, token(TEAM1, "stellvertretung"), spielbestaetigungen=viewed)
+            view = await read_view(database, token(TEAM1, "stellvertretung"), spielbestaetigungen=viewed)
             pressed = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
             outcome = await outcome_of(antworten(database, client, token(TEAM1, "stellvertretung"), spielbestaetigungen=pressed))
 
@@ -954,10 +954,10 @@ class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"))
-            standing = await ansicht(database, token(TEAM2, "trainer"))
+            standing = await read_view(database, token(TEAM2, "trainer"))
             await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": ROW1}, {"$set": {"closed": {"am": TODAY, "grund": "discarded"}}})
 
-            return standing, await ansicht(database, token(TEAM2, "trainer"))
+            return standing, await read_view(database, token(TEAM2, "trainer"))
 
         standing, discarded = on_a_fixture(mongo_replica_set_url, body)
 
@@ -1075,10 +1075,10 @@ class TestTheDiscard:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
-            declined = await ansicht(database, token(TEAM1, "stellvertretung"))
+            declined = await read_view(database, token(TEAM1, "stellvertretung"))
             await verwerfen(database, client, ROW1)
 
-            return declined.state, (await ansicht(database, token(TEAM1, "stellvertretung"))).state
+            return declined.state, (await read_view(database, token(TEAM1, "stellvertretung"))).state
 
         assert on_a_fixture(mongo_replica_set_url, body) == ("declined", "discarded")
 
@@ -1533,9 +1533,9 @@ class TestARefereesDeclineReturnsTheFixture:
 
             return (await eigene(database, client)).spielbestaetigungen
 
-        (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body)
+        (entry,) = on_a_refereed_fixture(mongo_replica_set_url, body)
 
-        assert (eintrag.id, eintrag.state, eintrag.begruendung, eintrag.entered) == (REFEREE_ROW, "declined", DECLINE_REASON, False)
+        assert (entry.id, entry.state, entry.begruendung, entry.entered) == (REFEREE_ROW, "declined", DECLINE_REASON, False)
 
     def test_booking_the_same_referee_again_leaves_them_unheld(self, mongo_replica_set_url: str):
         """Held, the declined row would keep the next pass from asking them about the booking at all."""
@@ -1690,9 +1690,9 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
     )
     def test_a_booking_decided_on_the_empty_slot_lands(self, mongo_replica_set_url: str, loaded_after: bool, referee: ObjectId):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            vorher = await spiel_now(database)
+            before = await spiel_now(database)
             await absagen(database, client)
-            geladen = await spiel_now(database) if loaded_after else vorher
+            geladen = await spiel_now(database) if loaded_after else before
             await speichern(database, client, geladen, schiedsrichter={"schiedsrichter_id": referee, "payment": 20})
 
             return (await spiel_now(database))["schiedsrichter"]["schiedsrichter_id"]
@@ -1780,12 +1780,12 @@ class TestARefereeAnswersUntilTheDayNotTheDeadline:
 
     def test_past_the_rows_deadline_the_referee_still_answers(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            (offen,) = (await eigene(database, client, today=PAST_THE_FRIST)).spielbestaetigungen
+            (open,) = (await eigene(database, client, today=PAST_THE_FRIST)).spielbestaetigungen
             answered = await einsatz_antworten(database, client, today=PAST_THE_FRIST)
             # The control: the club's row, the same deadline stored, refuses on the same day.
             club = await outcome_of(antworten(database, client, token(TEAM1, "trainer"), today=PAST_THE_FRIST))
 
-            return offen.state, answered.state, club
+            return open.state, answered.state, club
 
         assert on_a_refereed_fixture(mongo_replica_set_url, body) == ("valid", "zugesagt", Code.ANSETZUNG_FRIST_PAST)
 
@@ -1830,9 +1830,9 @@ class TestTheRefereesOwnRows:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return (await eigene(database, client)).spielbestaetigungen
 
-        eintraege = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[confirmation(ROW1, TEAM1), earlier, referee_row(), utes])
+        entries = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[confirmation(ROW1, TEAM1), earlier, referee_row(), utes])
 
-        assert [(eintrag.id, eintrag.state, eintrag.ansetzung.datum) for eintrag in eintraege] == [(REFEREE_ROW, "valid", DATUM)]
+        assert [(entry.id, entry.state, entry.ansetzung.datum) for entry in entries] == [(REFEREE_ROW, "valid", DATUM)]
 
     def test_a_moved_row_still_its_fixtures_newest_names_the_slot_it_asked_about(self, mongo_replica_set_url: str):
         """Moved past the answer window, so no fresh request exists: the card shows what the referee was asked, not the new slot."""
@@ -1863,11 +1863,11 @@ class TestTheRefereesOwnRows:
             )
             return (await eigene(database, client)).spielbestaetigungen
 
-        (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body)
+        (entry,) = on_a_refereed_fixture(mongo_replica_set_url, body)
 
-        assert (eintrag.state, eintrag.ansetzung.datum, eintrag.ansetzung.uhrzeit) == ("invalid", asked["datum"], asked["uhrzeit"])
-        assert eintrag.ansetzung.spielort is not None
-        assert eintrag.ansetzung.spielort.name == "Halle Ost"
+        assert (entry.state, entry.ansetzung.datum, entry.ansetzung.uhrzeit) == ("invalid", asked["datum"], asked["uhrzeit"])
+        assert entry.ansetzung.spielort is not None
+        assert entry.ansetzung.spielort.name == "Halle Ost"
 
     def test_a_fixture_moved_past_one_reads_worth_of_rows_is_still_one_card(self, mongo_replica_set_url: str):
         """Its history rows outrun one read, its fixtures do not: the cap counts the cards the panel shows."""
@@ -1881,9 +1881,9 @@ class TestTheRefereesOwnRows:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return (await eigene(database, client)).spielbestaetigungen
 
-        eintraege = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[*history, referee_row()])
+        entries = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[*history, referee_row()])
 
-        assert [(eintrag.id, eintrag.state) for eintrag in eintraege] == [(REFEREE_ROW, "valid")]
+        assert [(entry.id, entry.state) for entry in entries] == [(REFEREE_ROW, "valid")]
 
     def test_the_read_walks_the_referees_index(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
@@ -1918,14 +1918,14 @@ class TestTheRefereesOwnRows:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return (await eigene(database, client)).spielbestaetigungen
 
-        eintraege = on_a_refereed_fixture(
+        entries = on_a_refereed_fixture(
             mongo_replica_set_url,
             body,
             rows=[referee_row(), later, long_ago, lately, open_later],
             spiele=[later_spiel, long_ago_spiel, lately_spiel, open_later_spiel],
         )
 
-        assert [(eintrag.id, eintrag.past) for eintrag in eintraege] == [
+        assert [(entry.id, entry.past) for entry in entries] == [
             (REFEREE_ROW, False),
             (open_later["_id"], False),
             (later["_id"], False),
@@ -1944,9 +1944,9 @@ class TestTheRefereesOwnRows:
             await database[Collection.SAISONS].insert_one(documents.saison_document("2026", "past"))
             return (await eigene(database, client)).spielbestaetigungen
 
-        eintraege = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[referee_row(), past_row], spiele=[past_spiel])
+        entries = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[referee_row(), past_row], spiele=[past_spiel])
 
-        assert [eintrag.id for eintrag in eintraege] == [REFEREE_ROW]
+        assert [entry.id for entry in entries] == [REFEREE_ROW]
 
     # A no-show entered before the day decides the fixture, yet nobody is due at the ground either.
     @pytest.mark.parametrize("sonderereignis", ["annulliert", "nichtantreten_team2"])
@@ -1957,9 +1957,9 @@ class TestTheRefereesOwnRows:
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": sonderereignis}})
             return (await eigene(database, client)).spielbestaetigungen
 
-        (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[referee_row(antwort=ZUGESAGT)])
+        (entry,) = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[referee_row(antwort=ZUGESAGT)])
 
-        assert eintrag.state == "abgesagt"
+        assert entry.state == "abgesagt"
 
     def test_the_leagues_zusage_is_marked_and_its_reason_not_theirs_to_read(self, mongo_replica_set_url: str):
         """The settle recorded through its endpoint, so the row is one a writer leaves."""
@@ -1969,9 +1969,9 @@ class TestTheRefereesOwnRows:
 
             return (await eigene(database, client)).spielbestaetigungen
 
-        (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body)
+        (entry,) = on_a_refereed_fixture(mongo_replica_set_url, body)
 
-        assert (eintrag.state, eintrag.begruendung, eintrag.entered) == ("zugesagt", None, True)
+        assert (entry.state, entry.begruendung, entry.entered) == ("zugesagt", None, True)
 
     def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

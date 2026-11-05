@@ -74,7 +74,7 @@ class NestedPayload(BaseModel):
     """The two shapes a form path takes past a top-level key: a sub-object and a list entry."""
 
     kontakt: NestedKontakt
-    namen: list[NamePayload]
+    names: list[NamePayload]
 
 
 # A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
@@ -210,13 +210,13 @@ class TestTheRefusedFieldsReachTheCaller:
     """A 422 names where each refusal sits, so a form marks that field."""
 
     def test_each_field_is_named_by_its_path_inside_the_body(self):
-        body = refused({"kontakt": {"email": "far-too-long"}, "namen": [{"vorname": "Anna"}, {"vorname": REJECTED_NAME}]})
+        body = refused({"kontakt": {"email": "far-too-long"}, "names": [{"vorname": "Anna"}, {"vorname": REJECTED_NAME}]})
 
         # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries. Pydantic's
         # own kinds carry no context: a caller words each from its kind, so the pattern stays on the server.
         assert body["fields"] == [
             {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long", "ctx": {}},
-            {"in": "body", "path": ["namen", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {}},
+            {"in": "body", "path": ["names", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {}},
         ]
 
     def test_a_rule_s_bound_reaches_the_caller_as_its_context(self):
@@ -239,7 +239,7 @@ class TestTheRefusedFieldsReachTheCaller:
         )
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
-        body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
+        body = refused({"kontakt": {"email": "a@b"}, "names": [{"vorname": REJECTED_NAME}]})
 
         # The exact key sets, so a value or a message under any name moves this.
         assert set(body) == {"error_code", "trace_id", "fields"}
@@ -434,7 +434,7 @@ class TestAccessLine:
 
 
 async def crash() -> None:
-    raise KeyError("verwaltung")
+    raise KeyError("admin_tier")
 
 
 async def break_after_the_status() -> StreamingResponse:

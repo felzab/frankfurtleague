@@ -24,7 +24,7 @@ class FLSignInCodeData(BaseModel):
 
 
 class FLPasskeyData(BaseModel):
-    art: Literal["passkey_hinzugefuegt", "passkey_erased"]
+    art: Literal["passkey_added", "passkey_erased"]
     instant: AwareDatetime
     # The reader's own account page, a path on the site's origin, which is where either event is acted on.
     account: Annotated[str, StringConstraints(pattern=r"^/[a-z0-9/_-]*$", max_length=256)]
@@ -39,10 +39,10 @@ FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasu
 # --- The league's mails.
 
 
-class FLSperreData(BaseModel):
+class FLBanData(BaseModel):
     """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`)."""
 
-    art: Literal["sperre"]
+    art: Literal["ban"]
     grund: str
     barred_until_saison_id: str
 
@@ -148,7 +148,7 @@ class FLSpielEinteilungData(BaseModel):
 class FLSpielNoticeData(BaseModel):
     """A party's word that a fixture it was asked about moved or was called off: the slot it was asked about."""
 
-    art: Literal["spiel_new_angesetzt", "spiel_abgesagt"]
+    art: Literal["spiel_new_scheduled", "spiel_abgesagt"]
     # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
     recipient: Literal["team", "schiedsrichter"]
     appointment: FLSpielMailAppointment
@@ -266,10 +266,10 @@ class FLBewerbungErasureData(BaseModel):
     pending: list[FLBewerbungPerson]
 
 
-class FLBewerbungWiderspruchData(BaseModel):
+class FLBewerbungObjectionData(BaseModel):
     """A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too."""
 
-    art: Literal["bewerbung_widerspruch"]
+    art: Literal["bewerbung_objection"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     declined: FLBewerbungPerson
@@ -293,7 +293,7 @@ FLOutboxData = Annotated[
     FLSignInCodeData
     | FLPasskeyData
     | FLAccountErasureData
-    | FLSperreData
+    | FLBanData
     | FLGrantData
     | FLAddressChangeLinkData
     | FLAddressChangeNoticeData
@@ -313,7 +313,7 @@ FLOutboxData = Annotated[
     | FLBewerbungZusageData
     | FLBewerbungAbsageData
     | FLBewerbungErasureData
-    | FLBewerbungWiderspruchData
+    | FLBewerbungObjectionData
     | FLKontaktLinkData,
     Field(discriminator="art"),
 ]
@@ -321,10 +321,10 @@ FLOutboxData = Annotated[
 # Every member's `art`, spelled again as one closed set for the row's own field, which outlives its data.
 FLOutboxArt = Literal[
     "sign_in_code",
-    "passkey_hinzugefuegt",
+    "passkey_added",
     "passkey_erased",
     "account_erasure",
-    "sperre",
+    "ban",
     "grant",
     "address_change_link",
     "address_change_notice",
@@ -334,7 +334,7 @@ FLOutboxArt = Literal[
     "spiel_request",
     "spiel_reminder",
     "spiel_einteilung",
-    "spiel_new_angesetzt",
+    "spiel_new_scheduled",
     "spiel_abgesagt",
     "spiel_einteilung_lifted",
     "spiel_vorschlag_discarded",
@@ -348,7 +348,7 @@ FLOutboxArt = Literal[
     "bewerbung_zusage",
     "bewerbung_absage",
     "bewerbung_erasure",
-    "bewerbung_widerspruch",
+    "bewerbung_objection",
     "kontakt_confirmation",
 ]
 

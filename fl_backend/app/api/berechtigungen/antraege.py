@@ -27,17 +27,17 @@ from app.core.journal import JournalLine
 from app.core.readonly import ReadCollection
 from app.core.security import erasure_journal_hash
 from app.shared.schemas.bounds import APPROVAL_DAYS
-from app.shared.schemas.literals import FLApprovalDenied, FLVerwaltung
+from app.shared.schemas.literals import FLAdminTier, FLApprovalDenied
 
 
-def compose_antrag(*, adresse: str, verwaltung: str, grant_id: ObjectId | None, started_by: str, now: datetime) -> dict[str, Any]:
+def compose_antrag(*, adresse: str, admin_tier: str, grant_id: ObjectId | None, started_by: str, now: datetime) -> dict[str, Any]:
     """The whole request a grant or a promotion inserts, its `approval` the block an address change's approval keeps."""
 
     return {
         "adresse": adresse,
         "grant_id": grant_id,
         "approval": {
-            "verwaltung": verwaltung,
+            "admin_tier": admin_tier,
             # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
             "asked_at": now.astimezone(UTC),
             # The address change's week: an approver away for a weekend is no reason to ask again.
@@ -53,48 +53,48 @@ def build_offen_filter(now: datetime) -> dict[str, Any]:
     return {"approval.bis": {"$gt": now.astimezone(UTC)}}
 
 
-def ist_offen(antrag: Mapping[str, Any], *, now: datetime) -> bool:
-    return as_utc(antrag["approval"]["bis"]) > now.astimezone(UTC)
+def ist_offen(approval_request: Mapping[str, Any], *, now: datetime) -> bool:
+    return as_utc(approval_request["approval"]["bis"]) > now.astimezone(UTC)
 
 
 def antrag_steht(
-    antrag: Mapping[str, Any], *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]], barred: Set[str]
+    approval_request: Mapping[str, Any], *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]], barred: Set[str]
 ) -> bool:
     """Whether the request's requester still holds, since before it and unbarred, the tier it asks for.
 
     A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too.
     """
 
-    genehmigung = antrag["approval"]
-    von = str(genehmigung["started_by"])
+    approval = approval_request["approval"]
+    von = str(approval["started_by"])
 
     return von not in barred and haelt_seit(
-        von, verwaltung=str(genehmigung["verwaltung"]), vor=genehmigung["asked_at"], grants=grants, announced=announced
+        von, admin_tier=str(approval["admin_tier"]), before=approval["asked_at"], grants=grants, announced=announced
     )
 
 
 async def read_the_antraege(
-    *, berechtigungen_antraege_collection: AsyncCollection, now: datetime, session: AsyncClientSession | None = None
+    *, grants_approval_requests_collection: AsyncCollection, now: datetime, session: AsyncClientSession | None = None
 ) -> list[Mapping[str, Any]]:
     """Every request not yet lapsed, oldest first, unbounded: one per address, as few as the grants that make them."""
 
     return await aggregate_many_from_db(
-        collection=berechtigungen_antraege_collection,
+        collection=grants_approval_requests_collection,
         pipeline=[{"$match": build_offen_filter(now)}, {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}}],
         session=session,
     )
 
 
 async def read_the_antraege_of(
-    *, berechtigungen_antraege_collection: ReadCollection, identifier: str, now: datetime, session: AsyncClientSession | None
+    *, grants_approval_requests_collection: ReadCollection, identifier: str, now: datetime, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """Every request not yet lapsed about this folded address or made by it, oldest first: what an erasure of it removes."""
 
     return await aggregate_many_from_db(
-        collection=berechtigungen_antraege_collection,
+        collection=grants_approval_requests_collection,
         pipeline=[
             {"$match": {"$or": [{"adresse": identifier}, {"approval.started_by": identifier}], **build_offen_filter(now)}},
-            {"$project": {"adresse": 1, "approval.verwaltung": 1, "approval.asked_at": 1}},
+            {"$project": {"adresse": 1, "approval.admin_tier": 1, "approval.asked_at": 1}},
             {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}},
         ],
         session=session,
@@ -102,12 +102,12 @@ async def read_the_antraege_of(
 
 
 async def pull_the_antrag(
-    *, berechtigungen_antraege_collection: AsyncCollection, approval_request_id: ObjectId, now: datetime, session: AsyncClientSession
+    *, grants_approval_requests_collection: AsyncCollection, approval_request_id: ObjectId, now: datetime, session: AsyncClientSession
 ) -> Mapping[str, Any]:
     """The request this id names, or 404 where none stands: decided, withdrawn, erased or lapsed alike."""
 
     found = await aggregate_many_from_db(
-        collection=berechtigungen_antraege_collection,
+        collection=grants_approval_requests_collection,
         pipeline=[{"$match": {"_id": approval_request_id, **build_offen_filter(now)}}],
         session=session,
     )
@@ -118,7 +118,7 @@ async def pull_the_antrag(
 
 
 async def clear_the_address_in_session(
-    *, berechtigungen_antraege_collection: AsyncCollection, adresse: str, now: datetime, session: AsyncClientSession
+    *, grants_approval_requests_collection: AsyncCollection, adresse: str, now: datetime, session: AsyncClientSession
 ) -> None:
     """Refuse a second request for this folded address, and remove a lapsed one the unique index would hold against it.
 
@@ -126,14 +126,14 @@ async def clear_the_address_in_session(
     """
 
     rows = await aggregate_many_from_db(
-        collection=berechtigungen_antraege_collection,
+        collection=grants_approval_requests_collection,
         pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"approval.bis": 1}}],
         session=session,
     )
-    refuse(find_antrag_offen_refusal(offen=any(ist_offen(row, now=now) for row in rows)))
+    refuse(find_antrag_offen_refusal(open=any(ist_offen(row, now=now) for row in rows)))
     if rows:
         await delete_many_from_db(
-            collection=berechtigungen_antraege_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
+            collection=grants_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
         )
 
 
@@ -161,26 +161,26 @@ async def settle_the_notices_in_session(
 
 async def settle_the_requesters_notices_in_session(
     *,
-    berechtigungen_antraege_collection: AsyncCollection,
+    grants_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     started_by: str,
-    verwaltung: FLVerwaltung | None,
+    admin_tier: FLAdminTier | None,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
     """The unsent notices of the open requests this folded address made and its grant no longer carries.
 
-    Every one where the grant went (`verwaltung` None), and those asking `verwaltung` alone where the holder lost that
+    Every one where the grant went (`admin_tier` None), and those asking `admin_tier` alone where the holder lost that
     tier. The requests stay, `antrag_steht` refusing their approval; their mail goes, since no approver could act on it.
     """
 
     rows = await aggregate_many_from_db(
-        collection=berechtigungen_antraege_collection,
+        collection=grants_approval_requests_collection,
         pipeline=[
             {
                 "$match": {
                     "approval.started_by": started_by,
-                    **({} if verwaltung is None else {"approval.verwaltung": verwaltung}),
+                    **({} if admin_tier is None else {"approval.admin_tier": admin_tier}),
                     **build_offen_filter(now),
                 }
             },
@@ -193,7 +193,7 @@ async def settle_the_requesters_notices_in_session(
 
 async def remove_the_antrag_in_session(
     *,
-    berechtigungen_antraege_collection: AsyncCollection,
+    grants_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     approval_request_id: ObjectId,
     now: datetime,
@@ -201,13 +201,13 @@ async def remove_the_antrag_in_session(
 ) -> None:
     """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
 
-    await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": approval_request_id}, session=session)
+    await delete_many_from_db(collection=grants_approval_requests_collection, db_filter={"_id": approval_request_id}, session=session)
     await settle_the_notices_in_session(outbox_collection=outbox_collection, antrag_ids=[approval_request_id], now=now, session=session)
 
 
 async def end_the_antraege_about_in_session(
     *,
-    berechtigungen_antraege_collection: AsyncCollection,
+    grants_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     adresse: str,
     now: datetime,
@@ -219,13 +219,13 @@ async def end_the_antraege_about_in_session(
     """
 
     rows = await aggregate_many_from_db(
-        collection=berechtigungen_antraege_collection,
+        collection=grants_approval_requests_collection,
         pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"adresse": 1, "approval": 1}}],
         session=session,
     )
     for row in rows:
         await remove_the_antrag_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            grants_approval_requests_collection=grants_approval_requests_collection,
             outbox_collection=outbox_collection,
             approval_request_id=row["_id"],
             now=now,
@@ -237,7 +237,7 @@ async def end_the_antraege_about_in_session(
 
 async def loeschen_antraege_in_session(
     *,
-    berechtigungen_antraege_collection: AsyncCollection,
+    grants_approval_requests_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     identifier: str,
     now: datetime,
@@ -249,13 +249,13 @@ async def loeschen_antraege_in_session(
     """
 
     rows = await aggregate_many_from_db(
-        collection=berechtigungen_antraege_collection,
+        collection=grants_approval_requests_collection,
         pipeline=[{"$match": {"$or": [{"adresse": identifier}, {"approval.started_by": identifier}]}}, {"$project": {"_id": 1}}],
         session=session,
     )
     if rows:
         await erase_many_from_db(
-            collection=berechtigungen_antraege_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
+            collection=grants_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
         )
         await settle_the_notices_in_session(
             outbox_collection=outbox_collection, antrag_ids=[row["_id"] for row in rows], now=now, session=session
@@ -265,25 +265,25 @@ async def loeschen_antraege_in_session(
 
 
 # How a request ended, as its journal line names it: the replay tells again whom the end told.
-AntragEndeLine = Literal["antrag_abgelehnt", "antrag_zurueckgezogen", "antrag_beendet"]
+AntragEndeLine = Literal["approval_request_declined", "approval_request_withdrawn", "approval_request_ended"]
 
 
-def antrag_line(*, antrag: Mapping[str, Any], art: AntragEndeLine, am: str, key: SecretStr) -> JournalLine:
+def antrag_line(*, approval_request: Mapping[str, Any], art: AntragEndeLine, am: str, key: SecretStr) -> JournalLine:
     """An ended request's line, so a restore from before its end does not bring it back to be approved."""
 
     return JournalLine(
-        person_hash=erasure_journal_hash(str(antrag["adresse"]), key=key),
+        person_hash=erasure_journal_hash(str(approval_request["adresse"]), key=key),
         art=art,
         collection=Collection.GRANT_APPROVAL_REQUESTS,
-        record_id=antrag["_id"],
+        record_id=approval_request["_id"],
         am=am,
     )
 
 
-def find_antrag_offen_refusal(*, offen: bool) -> WriteRefusal | None:
+def find_antrag_offen_refusal(*, open: bool) -> WriteRefusal | None:
     """`grant_approval_request_open`: a request for this address waits already, which its approver or a refusal decides first."""
 
-    if not offen:
+    if not open:
         return None
 
     return WriteRefusal(
@@ -292,7 +292,7 @@ def find_antrag_offen_refusal(*, offen: bool) -> WriteRefusal | None:
     )
 
 
-def find_genehmigung_verwehrt_refusal(*, denied: FLApprovalDenied | None) -> WriteRefusal | None:
+def find_approval_denied_refusal(*, denied: FLApprovalDenied | None) -> WriteRefusal | None:
     """Why this administrator may not decide the request, or `None`.
 
     `grant_approval_denied` for a request about the actor or made by them, `grant_approval_owner` for an owner's

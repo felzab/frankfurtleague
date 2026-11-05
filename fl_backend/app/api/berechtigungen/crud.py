@@ -17,11 +17,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.services import (
     Mitteilung,
-    berechtigt_seit,
     compare,
     compose_announced,
     compose_mitteilung,
-    inhaber_seit,
+    granted_since,
+    owner_since,
     stand_of,
 )
 from app.api.outbox.schemas import FLGrantData, FLOutboxReference
@@ -37,20 +37,18 @@ from app.core.crud import (
     post_one_to_db,
 )
 from app.core.readonly import ReadCollection
-from app.shared.schemas.literals import FLVerwaltung
+from app.shared.schemas.literals import FLAdminTier
 
 
-async def read_berechtigungen(
-    *, berechtigungen_collection: ReadCollection, session: AsyncClientSession | None = None
-) -> list[Mapping[str, Any]]:
+async def read_berechtigungen(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
     """Every grant, by address, and unbounded: the floor and the recipients are both judged over the whole list."""
 
-    return await aggregate_many_from_db(collection=berechtigungen_collection, pipeline=[{"$sort": {"adresse": ASCENDING}}], session=session)
+    return await aggregate_many_from_db(collection=grants_collection, pipeline=[{"$sort": {"adresse": ASCENDING}}], session=session)
 
 
 async def pull_the_list_to_judge(
     *,
-    berechtigungen_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
     # REQUIRED: the anchor is what closes the race, so forgetting the session has to be a TypeError
     # at the call rather than a silent reopening of it.
     session: AsyncClientSession,
@@ -61,11 +59,11 @@ async def pull_the_list_to_judge(
     lands second meets a write conflict and retries.
     """
 
-    grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+    grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
 
     # Exactly the rows the read returned, each named: the rows judged are the rows a rival must meet.
     await anchor_in_db(
-        collection=berechtigungen_collection,
+        collection=grants_collection,
         db_filter={"_id": {"$in": [grant["_id"] for grant in grants]}},
         session=session,
     )
@@ -75,7 +73,7 @@ async def pull_the_list_to_judge(
 
 async def _grant_and_its_record_in(
     *,
-    berechtigungen_collection: ReadCollection,
+    grants_collection: ReadCollection,
     adresse: str,
     fields: list[str],
     # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), or a commit landing between the
@@ -88,7 +86,7 @@ async def _grant_and_its_record_in(
     """
 
     found = await aggregate_many_from_db(
-        collection=berechtigungen_collection,
+        collection=grants_collection,
         pipeline=[
             {"$match": {"adresse": adresse}},
             {"$limit": 1},
@@ -98,7 +96,7 @@ async def _grant_and_its_record_in(
                     "from": Collection.GRANTS_ANNOUNCED,
                     "localField": "_id",
                     "foreignField": "_id",
-                    "pipeline": [{"$project": {"adresse": 1, "verwaltung": 1}}],
+                    "pipeline": [{"$project": {"adresse": 1, "admin_tier": 1}}],
                     "as": "angekuendigt",
                 }
             },
@@ -112,8 +110,8 @@ async def _grant_and_its_record_in(
 
 
 async def verwaltung_of(
-    *, berechtigungen_collection: ReadCollection, adresse: str, session: AsyncClientSession
-) -> tuple[FLVerwaltung, datetime, datetime | None] | None:
+    *, grants_collection: ReadCollection, adresse: str, session: AsyncClientSession
+) -> tuple[FLAdminTier, datetime, datetime | None] | None:
     """The tier this address holds, and when the grant and the tier took effect, or `None`.
 
     Each caller folds an address the address rule admitted, and a row equal to
@@ -121,27 +119,27 @@ async def verwaltung_of(
     """
 
     grant = await _grant_and_its_record_in(
-        berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung", "appointed_at"], session=session
+        grants_collection=grants_collection, adresse=adresse, fields=["admin_tier", "appointed_at"], session=session
     )
     if grant is None:
         return None
 
     row, angekuendigt = grant
-    seit = berechtigt_seit(row, angekuendigt)
+    seit = granted_since(row, angekuendigt)
     if seit is None:
         return None
 
     # The tier in effect rather than the row's: a promotion made in the database and not yet found is
     # no session's, so it is answered as the administrator it still is.
-    inhaber = inhaber_seit(row, angekuendigt)
+    owner = owner_since(row, angekuendigt)
 
-    return ("administration" if inhaber is None else "owner"), seit, inhaber
+    return ("administration" if owner is None else "owner"), seit, owner
 
 
 async def live_unbarred_grant_since(
     identifier: str,
     *,
-    berechtigungen_collection: ReadCollection,
+    grants_collection: ReadCollection,
     sperrliste: BanList,
     session: AsyncClientSession,
 ) -> datetime | None:
@@ -154,13 +152,13 @@ async def live_unbarred_grant_since(
     # frontend's own grant read moments before, so the ban read that order would spare is almost never spared. The ban
     # read takes no session, so the gathered pair never runs two operations on one.
     grant, barred = await asyncio.gather(
-        _grant_and_its_record_in(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[], session=session),
+        _grant_and_its_record_in(grants_collection=grants_collection, adresse=identifier, fields=[], session=session),
         adressen_gesperrt(sperrliste, [identifier]),
     )
     if grant is None or barred:
         return None
 
-    return berechtigt_seit(*grant)
+    return granted_since(*grant)
 
 
 # A grant's notice still to be handed out: the one shape a ban or an erasure rewrites, a sent one being past saying.
@@ -171,7 +169,7 @@ async def owe_in_session(
     mitteilungen: Sequence[Mitteilung],
     *,
     outbox_collection: AsyncCollection,
-    berechtigungen_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
     # A request's approvers, in place of every holder.
@@ -190,20 +188,20 @@ async def owe_in_session(
         return
     holders: set[str] = set()
     if an is None:
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         holders = {str(row["adresse"]) for row in grants}
 
     mails: list[OwedMail] = []
     for mitteilung in mitteilungen:
-        daten = FLGrantData.model_validate(mitteilung.data)
-        genannt = {stand.adresse for stand in (daten.now, daten.before) if stand is not None and stand.adresse is not None}
+        data = FLGrantData.model_validate(mitteilung.data)
+        genannt = {stand.adresse for stand in (data.now, data.before) if stand is not None and stand.adresse is not None}
         mails.extend(
             OwedMail(
                 # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
                 # a database edit's notice beside its own (`revoke_in_session`).
-                key=f"grant/{mitteilung.grant_id}/{daten.change}/{daten.author}/{now.isoformat()}/{adresse}",
+                key=f"grant/{mitteilung.grant_id}/{data.change}/{data.author}/{now.isoformat()}/{adresse}",
                 an=adresse,
-                data=daten,
+                data=data,
                 reference=reference,
             )
             for adresse in sorted(set(an) if an is not None else holders | genannt)
@@ -231,23 +229,21 @@ async def withhold_in_the_postausgang(*, outbox_collection: AsyncCollection, adr
 
 
 async def read_the_announced(
-    *, berechtigungen_angekuendigt_collection: ReadCollection, session: AsyncClientSession | None = None
+    *, grants_announced_collection: ReadCollection, session: AsyncClientSession | None = None
 ) -> list[Mapping[str, Any]]:
     """Every announced row: the whole record is the other half of every comparison."""
 
-    return await aggregate_many_from_db(
-        collection=berechtigungen_angekuendigt_collection, pipeline=[{"$sort": {"_id": ASCENDING}}], session=session
-    )
+    return await aggregate_many_from_db(collection=grants_announced_collection, pipeline=[{"$sort": {"_id": ASCENDING}}], session=session)
 
 
 async def grant_in_session(
     *,
     adresse: str,
-    verwaltung: str,
+    admin_tier: str,
     granted_by: str,
     barred: Set[str],
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_angekuendigt_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -261,7 +257,7 @@ async def grant_in_session(
 
     document: dict[str, Any] = {
         "adresse": adresse,
-        "verwaltung": verwaltung,
+        "admin_tier": admin_tier,
         # The bound actor rather than a payload field, so the grant and its `aktionen` row name one person.
         "granted_by": granted_by,
         "granted_at": now,
@@ -270,11 +266,11 @@ async def grant_in_session(
         "gesehen_am": now,
         **({} if fortgefuehrt is None else {"fortgefuehrt": fortgefuehrt}),
     }
-    created = await post_one_to_db(collection=berechtigungen_collection, document=document, session=session)
+    created = await post_one_to_db(collection=grants_collection, document=document, session=session)
 
     stand = stand_of(document)
     await post_one_to_db(
-        collection=berechtigungen_angekuendigt_collection,
+        collection=grants_announced_collection,
         document=compose_announced(grant_id=created.inserted_id, stand=stand, now=now),
         session=session,
     )
@@ -283,7 +279,7 @@ async def grant_in_session(
             compose_mitteilung(
                 grant_id=created.inserted_id,
                 art="granted",
-                jetzt=stand,
+                current=stand,
                 before=None,
                 changed_by=granted_by,
                 now=now,
@@ -291,7 +287,7 @@ async def grant_in_session(
             )
         ],
         outbox_collection=outbox_collection,
-        berechtigungen_collection=berechtigungen_collection,
+        grants_collection=grants_collection,
         now=now,
         session=session,
     )
@@ -304,10 +300,10 @@ async def revoke_in_session(
     grant: Mapping[str, Any],
     # The grant's own announced row, or none.
     announced: Sequence[Mapping[str, Any]],
-    entzogen_von: str,
+    revoked_by: str,
     barred: Set[str],
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_angekuendigt_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -318,30 +314,30 @@ async def revoke_in_session(
     """
 
     mitteilungen = [
-        compose_mitteilung(grant_id=changed_id, art=art, jetzt=jetzt, before=vorher, changed_by=None, now=now, barred=barred)
-        for changed_id, art, jetzt, vorher in compare(grants=[grant], announced=announced)
+        compose_mitteilung(grant_id=changed_id, art=art, current=current, before=before, changed_by=None, now=now, barred=barred)
+        for changed_id, art, current, before in compare(grants=[grant], announced=announced)
     ]
     mitteilungen.append(
         compose_mitteilung(
             grant_id=grant["_id"],
             art="revoked",
-            jetzt=None,
+            current=None,
             before=stand_of(grant),
-            changed_by=entzogen_von,
+            changed_by=revoked_by,
             now=now,
             barred=barred,
         )
     )
 
-    await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": grant["_id"]}, session=session)
+    await delete_many_from_db(collection=grants_collection, db_filter={"_id": grant["_id"]}, session=session)
     # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
     # none.
-    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)
+    await erase_many_from_db(collection=grants_announced_collection, db_filter={"_id": grant["_id"]}, session=session)
     # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `before`.
     await owe_in_session(
         mitteilungen,
         outbox_collection=outbox_collection,
-        berechtigungen_collection=berechtigungen_collection,
+        grants_collection=grants_collection,
         now=now,
         session=session,
     )

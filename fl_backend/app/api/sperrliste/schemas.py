@@ -4,7 +4,7 @@ from typing import Annotated, Final
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 from pydantic_core import PydanticCustomError
 
-from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRLISTE_GRUND_MAX_LENGTH
+from app.shared.schemas.bounds import BAN_LIST_REASON_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
@@ -67,7 +67,7 @@ class FLPostSperrlistePayload(BaseModel):
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     grund: Annotated[
         str,
-        StringConstraints(max_length=SPERRLISTE_GRUND_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=BAN_LIST_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
         AfterValidator(refuse_an_address_in_the_reason),

@@ -31,15 +31,15 @@ from app.core.collections import Collection as Sammlung
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import TextVersions, compose_choices
+from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
+    CONTACT_MIN_AGE_YEARS,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
-    VERTRETUNG_MIN_AGE_YEARS,
 )
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
@@ -276,14 +276,14 @@ def build_schluessel_filter(*, key: str) -> Mapping[str, Any]:
     return {"idempotency_key": {"$eq": key, "$type": "string"}}
 
 
-def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:
     """Why this key cannot be replayed, or `None`: it already carries an application sent with other details.
 
     Refused rather than answered as the stored one, which would tell the applicant a changed field
     had arrived.
     """
 
-    if gespeichert == fingerabdruck:
+    if saved == fingerabdruck:
         return None
 
     return WriteRefusal(
@@ -298,13 +298,13 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
     Named by no client, who could otherwise dress a transcription as a signature.
     """
 
-    # `medien` written false rather than left off: nobody filling a seat for another person may give
+    # `media` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
     return {
         "umfang": "kontaktdaten",
         "datum": today,
         "confirmed_at": None,
-        "medien": False,
+        "media": False,
         "entered_by": entered_by,
     }
 
@@ -312,8 +312,8 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
 # Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen.
 SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
     "trainer": BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
-    "ansprechperson": VERTRETUNG_MIN_AGE_YEARS,
-    "stellvertretung": VERTRETUNG_MIN_AGE_YEARS,
+    "ansprechperson": CONTACT_MIN_AGE_YEARS,
+    "stellvertretung": CONTACT_MIN_AGE_YEARS,
 }
 
 
@@ -391,7 +391,7 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
 
 
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
-KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis")
+KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.media", "einwilligung.evidence")
 
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
@@ -660,16 +660,16 @@ def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
 def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, barred: bool, saison_status: Any) -> FLBewerbungEinwilligungZustand:
     """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
-    bestaetigungen = row.get("confirmations")
-    over = saison_link_is_over(frist=saison_frist_of(confirmations=bestaetigungen, seat=seat), today=today)
-    zustand = _zustand(kontakte=row.get("kontakte"), confirmations=bestaetigungen, seat=seat, over=over, barred=barred)
+    confirmations = row.get("confirmations")
+    over = saison_link_is_over(frist=saison_frist_of(confirmations=confirmations, seat=seat), today=today)
+    state = _zustand(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat, over=over, barred=barred)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
     # (`link_expired`), while a closed row's link still takes one (`kontakt_saison_past`).
-    if zustand == "valid" and not row_takes_confirmations(saison_status=saison_status, austritt=row.get("austritt")):
+    if state == "valid" and not row_takes_confirmations(saison_status=saison_status, austritt=row.get("austritt")):
         return "saison_past"
 
-    return zustand
+    return state
 
 
 def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
@@ -828,7 +828,7 @@ def compose_confirmation_update(
     today: str,
     text_versions: TextVersions,
     whatsapp: bool,
-    medien: bool,
+    media: bool,
     am: str,
 ) -> Mapping[str, Any]:
     """The ONE update a confirmation is, on every seat the person holds.
@@ -848,7 +848,7 @@ def compose_confirmation_update(
             compose_choices(
                 path=pfad,
                 saved=kontakte[seat]["einwilligung"],
-                gesetzt={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "medien": medien},
+                set_fields={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "media": media},
                 am=am,
                 text_versions=text_versions,
             )
@@ -938,7 +938,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
     return {"_id": bewerbung_id, "status": "submitted", **unanswered}
 
 
-def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     """`bewerbung_adresse_barred`: the ban list holds one of the addresses a submission names.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
@@ -1194,12 +1194,12 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unerreichbar
     if link_is_over(confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), status=bewerbung_raw.get("status"), today=today):
         return []
 
-    kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
+    kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
 
     return [
         seat_named(seat) or cast(FLKontaktRolle, seat)
         for seat in KONTAKT_ROLLEN
-        if seat_reminder_is_due(kontakte=kontakte, confirmations=bestaetigungen, seat=seat, today=today, unerreichbar=seat in unerreichbar)
+        if seat_reminder_is_due(kontakte=kontakte, confirmations=confirmations, seat=seat, today=today, unerreichbar=seat in unerreichbar)
     ]
 
 
@@ -1541,7 +1541,7 @@ def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewe
     return {"diese_saison": {"saison_id": saison_id}, "other_saison": {"saison_id": {"$ne": saison_id}}}
 
 
-def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequence[str] | None) -> dict[str, Any]:
+def build_bewerbungen_saison_term(*, saison_id: str | None, saison_reference: Sequence[str] | None) -> dict[str, Any]:
     """Which seasons the read covers, as the bar's relation to the season the caller named.
 
     A relation rather than the id alone, the bar offering a complement no `saison_id` can express.
@@ -1551,10 +1551,10 @@ def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequenc
         return {}
 
     # The parameter's older meaning, kept: a caller naming no relation asked for that season's queue.
-    if saisonbezug is None:
+    if saison_reference is None:
         return {"saison_id": saison_id}
 
-    picked = [relation for relation in get_args(FLBewerbungSaisonReference.__value__) if relation in saisonbezug]
+    picked = [relation for relation in get_args(FLBewerbungSaisonReference.__value__) if relation in saison_reference]
 
     # Every relation picked is every season, and so the facet turned off.
     if len(picked) != 1:
@@ -1591,7 +1591,7 @@ DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
     {
         "$group": {
             "_id": {"saison_id": "$saison_id", "team_id": "$team_id", "shorthand": "$schule.shorthand"},
-            "anzahl": {"$sum": 1},
+            "count": {"$sum": 1},
         }
     },
 )
@@ -1608,7 +1608,7 @@ def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[s
 def _dublette_schluessel(gruppe: Mapping[str, Any]) -> str | None:
     """One application's collision key, `None` where it names neither a club nor a Kürzel.
 
-    Composed the way `fl_frontend/src/features/bewerbungen/duplicates.ts :: dublettenSchluessel`
+    Composed the way `fl_frontend/src/features/bewerbungen/duplicates.ts :: duplicatesKey`
     composes a served row's, which is the comparison that marks the row.
     """
 
@@ -1631,7 +1631,7 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
     parted only by a stored code's case or padding is one collision at both ends.
     """
 
-    gehalten: dict[str, int] = {}
+    held: dict[str, int] = {}
 
     for cell in cells:
         schluessel = _dublette_schluessel(cell["_id"])
@@ -1639,10 +1639,10 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
         if schluessel is None:
             continue
 
-        gehalten[schluessel] = gehalten.get(schluessel, 0) + cell["anzahl"]
+        held[schluessel] = held.get(schluessel, 0) + cell["count"]
 
     # Sorted, so an unchanged queue answers the same list twice.
-    return sorted(schluessel for schluessel, anzahl in gehalten.items() if anzahl > 1)
+    return sorted(schluessel for schluessel, count in held.items() if count > 1)
 
 
 def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
@@ -1687,14 +1687,14 @@ def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str
 def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> dict[str, Any]:
     """A stored application with each seat's last mail beside its bookkeeping, as every read serves it."""
 
-    bestaetigungen = row.get("confirmations")
-    if not isinstance(bestaetigungen, Mapping):
+    confirmations = row.get("confirmations")
+    if not isinstance(confirmations, Mapping):
         return dict(row)
 
     return {
         **row,
         "confirmations": {
             seat: {**entry, "delivery": seat_lage(row=row, lagen=lagen, seat=seat)} if isinstance(entry, Mapping) else entry
-            for seat, entry in bestaetigungen.items()
+            for seat, entry in confirmations.items()
         },
     }

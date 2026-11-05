@@ -1,7 +1,7 @@
 """
 API · a referee's address in the editor: the save never moves a confirmed one, which an address change alone moves
 
-The change itself, its links and its effect are `tests/api/test_adresswechsel_execution.py`'s; here the editor's save
+The change itself, its links and its effect are `tests/api/test_address_change_execution.py`'s; here the editor's save
 beside a change standing on the referee's address.
 """
 
@@ -15,8 +15,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.admin_router import post_address_change_verwaltung
-from app.api.adresswechsel.schemas import FLAddressChangeVerwaltungPayload
+from app.api.address_change.admin_router import post_address_change_admin
+from app.api.address_change.schemas import FLAddressChangeAdminPayload
 from app.api.schiedsrichter.admin_router import invite_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
@@ -37,7 +37,7 @@ from tests.worker import worker_database
 # Module level: every case below reaches a real mongod, each write being one transaction.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_schiedsrichter_adresswechsel_test")
+DATABASE_NAME = worker_database("fl_schiedsrichter_address_change_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -94,7 +94,7 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                             "token": mail.token,
                             "geburtsdatum": "1984-05-09",
                             "umfang": "kader_oeffentlich",
-                            "medien": True,
+                            "media": True,
                             "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
                         }
                     ),
@@ -130,17 +130,17 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
 async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """An administrator's start through the address tool, with a reason, so the new mailbox is owed its link at once."""
 
-    return await post_address_change_verwaltung(
-        adresswechsel_data=FLAddressChangeVerwaltungPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
-        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
+    return await post_address_change_admin(
+        address_change_data=FLAddressChangeAdminPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
+        address_change_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
-        berechtigungen_collection=database[Collection.GRANTS],
-        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        grants_collection=database[Collection.GRANTS],
+        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+        grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         db=client,
         operator="admin@frankfurtleague.de",
         auth_time=0,

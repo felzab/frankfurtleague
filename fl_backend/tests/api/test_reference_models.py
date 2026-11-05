@@ -280,7 +280,7 @@ class TestEinwilligung:
 
         assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "medien", "nachweis"])
+    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "media", "evidence"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """Each key a stored record carries, so a model accepting one fewer would let the read-back pass a row missing it."""
 
@@ -292,9 +292,9 @@ class TestEinwilligung:
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
         """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
 
-        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", medien=True))
+        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", media=True))
 
-        assert parsed.medien is True
+        assert parsed.media is True
         assert parsed.umfang == "kader_oeffentlich"
 
     @pytest.mark.parametrize(
@@ -342,13 +342,13 @@ class TestTheConsentRecordStoredAndReadBack:
 
     def test_a_confirmed_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
 
-        stored = self._written(mongo_url, einwilligung(medien=True))
+        stored = self._written(mongo_url, einwilligung(media=True))
         parsed = FLSpielerWithMemberships.model_validate(
             {**stored, "address_change_id": None, "address_change_viewable_denied": None, "memberships": []}
         )
 
         assert parsed.einwilligung is not None
-        assert (parsed.einwilligung.umfang, parsed.einwilligung.medien) == ("kader_oeffentlich", True)
+        assert (parsed.einwilligung.umfang, parsed.einwilligung.media) == ("kader_oeffentlich", True)
 
 
 class TestSaisonSpielerRow:

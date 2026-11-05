@@ -153,7 +153,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
@@ -510,9 +510,9 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
 
             return getattr(response, counted), await database[Collection.REGISTRIERUNGEN].count_documents({"saison_id": SAISON_ID})
 
-        geloescht, left = on_a_league(mongo_replica_set_url, body, status=status)
+        erased_count, left = on_a_league(mongo_replica_set_url, body, status=status)
 
-        assert (geloescht, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
+        assert (erased_count, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
 
 
 # Under the driver's first batch, so a page read is one command however many rows it holds.

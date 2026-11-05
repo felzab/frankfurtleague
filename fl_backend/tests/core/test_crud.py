@@ -260,7 +260,7 @@ class TestPatchOneInDb:
         ("replaced", "stored"),
         [
             pytest.param({"_id": ObjectId(TEAM_OID), "spiele": 1}, {"_id": ObjectId(TEAM_OID), "spiele": 1.0}, id="an integer made a double"),
-            pytest.param({"_id": ObjectId(TEAM_OID), "aktiv": 1}, {"_id": ObjectId(TEAM_OID), "aktiv": True}, id="an integer made a boolean"),
+            pytest.param({"_id": ObjectId(TEAM_OID), "active": 1}, {"_id": ObjectId(TEAM_OID), "active": True}, id="an integer made a boolean"),
             pytest.param(
                 {"_id": ObjectId(TEAM_OID), "spiele": 1},
                 {"_id": ObjectId(TEAM_OID), "spiele": Int64(1)},

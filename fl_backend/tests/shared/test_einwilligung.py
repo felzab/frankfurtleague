@@ -11,7 +11,7 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationPayload, 
 from app.api.spieler.schemas import FLSpielerRecord
 from app.api.teams.schemas import FLKontaktKenntnisnahme
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import CHOICES, NACHWEIS, FLEinwilligungChoice
+from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, FLEinwilligungChoice
 from app.shared.schemas.einwilligung import (
     FLEinwilligungTextVersion,
     FLSchiedsrichterTextVersions,
@@ -103,11 +103,11 @@ class TestARecordCitesItsKindsWordings:
         assert others, "every kind's choice shares its words with no other choice"
         for other in others:
             stored = document()
-            beleg = block(stored)[NACHWEIS][choice]
+            receipt = block(stored)[EVIDENCE][choice]
             if cited_by == "the grant it ended":
-                beleg["given_before"] = {"am": beleg["am"], "text_version": other}
+                receipt["given_before"] = {"am": receipt["am"], "text_version": other}
             else:
-                beleg["text_version"] = other
+                receipt["text_version"] = other
             with pytest.raises(ValidationError) as refused:
                 model.model_validate(stored)
             assert [error["type"] for error in refused.value.errors()] == ["text_version_of_another_wording"], other
@@ -122,26 +122,26 @@ def _replaced(kind: type[FLSeatTextVersions] | type[FLSpielerTextVersions] | typ
     """`kind`'s labels with `choice`'s replaced, an instance a payload's field takes as it is: Pydantic revalidates none."""
 
     labels = {**kind.current, choice: STALE}
-    return kind.model_construct(umfang=labels["umfang"], medien=labels["medien"])
+    return kind.model_construct(umfang=labels["umfang"], media=labels["media"])
 
 
-def _seat_answer(*, umfang: str, medien: bool, text_versions: Any) -> Any:
+def _seat_answer(*, umfang: str, media: bool, text_versions: Any) -> Any:
     return TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
         {
             "antwort": "given",
             "token": "raw-trainer",
             "geburtsdatum": "1984-05-09",
             "whatsapp": umfang == "kontaktdaten_whatsapp",
-            "medien": medien,
+            "media": media,
             "text_versions": text_versions,
         }
     )
 
 
 def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
-    def validate(*, umfang: str, medien: bool, text_versions: Any) -> Any:
+    def validate(*, umfang: str, media: bool, text_versions: Any) -> Any:
         return model.model_validate(
-            {"token": "raw-link", "geburtsdatum": "1984-05-09", "umfang": umfang, "medien": medien, "text_versions": text_versions}
+            {"token": "raw-link", "geburtsdatum": "1984-05-09", "umfang": umfang, "media": media, "text_versions": text_versions}
         )
 
     return validate
@@ -162,6 +162,6 @@ class TestAConfirmationGrantsUnderItsCurrentWording:
     @pytest.mark.parametrize("choice", CHOICES)
     def test_a_grant_under_a_replaced_label_is_refused(self, validate: Callable[..., Any], kind: Any, giving: str, choice: str):
         with pytest.raises(ValidationError) as refused:
-            validate(umfang=giving, medien=True, text_versions=_replaced(kind, choice))
+            validate(umfang=giving, media=True, text_versions=_replaced(kind, choice))
 
         assert [error["type"] for error in refused.value.errors()] == ["grant_wording_stale"]

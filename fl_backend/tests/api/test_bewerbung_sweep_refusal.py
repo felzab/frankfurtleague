@@ -46,7 +46,7 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
     }
 
 
-def bestaetigungen(*, sent_at: str = MAILED_ON_THE_MARK, **entries: Any) -> dict[str, Any]:
+def confirmations(*, sent_at: str = MAILED_ON_THE_MARK, **entries: Any) -> dict[str, Any]:
     """Three live entries mailed on one day, any of them replaced by a case's own."""
 
     return {**minted_confirmations(hashes=HASHES, today=sent_at), **entries}
@@ -83,7 +83,7 @@ def application(**overrides: Any) -> dict[str, Any]:
         "team_id": None,
         "kontakte": kontakte(),
         "confirmation_deadline": "2026-04-12",
-        "confirmations": bestaetigungen(),
+        "confirmations": confirmations(),
         "decision": None,
         **overrides,
     }
@@ -121,7 +121,7 @@ class TestTheReminderMark:
         ],
     )
     def test_each_boundary_falls_where_the_bound_says(self, sent_at: str, due: bool):
-        block = bestaetigungen(sent_at=sent_at)
+        block = confirmations(sent_at=sent_at)
 
         assert seat_reminder_is_due(kontakte=kontakte(), confirmations=block, seat="trainer", today=TODAY, unerreichbar=False) == due
         assert BEWERBUNG_REMINDER_DAYS == 3
@@ -130,18 +130,18 @@ class TestTheReminderMark:
         ("kontakte_block", "bookkeeping", "why"),
         [
             pytest.param(
-                kontakte(trainer=kontaktperson_document("Quillhilde", confirmed_at=YESTERDAY)), bestaetigungen(), "confirmed", id="confirmed"
+                kontakte(trainer=kontaktperson_document("Quillhilde", confirmed_at=YESTERDAY)), confirmations(), "confirmed", id="confirmed"
             ),
             pytest.param(
-                kontakte(), bestaetigungen(trainer={**bestaetigungen()["trainer"], "declined_at": YESTERDAY}), "declined", id="declined"
+                kontakte(), confirmations(trainer={**confirmations()["trainer"], "declined_at": YESTERDAY}), "declined", id="declined"
             ),
             pytest.param(
                 kontakte(),
-                bestaetigungen(trainer={**bestaetigungen()["trainer"], "reminded_at": YESTERDAY}),
+                confirmations(trainer={**confirmations()["trainer"], "reminded_at": YESTERDAY}),
                 "reminded once",
                 id="reminded once",
             ),
-            pytest.param(kontakte(trainer=None), bestaetigungen(trainer=None), "erased", id="erased"),
+            pytest.param(kontakte(trainer=None), confirmations(trainer=None), "erased", id="erased"),
         ],
     )
     def test_a_seat_that_has_spoken_been_reminded_or_been_emptied_is_not_reminded(self, kontakte_block: Any, bookkeeping: Any, why: str):
@@ -154,7 +154,7 @@ class TestTheReminderMark:
     def test_a_re_sent_seat_reaches_its_own_mark_later(self):
         """A re-send moves `sent_at`, so that seat is reminded on its own day while the others go now."""
 
-        block = bestaetigungen(stellvertretung={**bestaetigungen()["stellvertretung"], "sent_at": TODAY})
+        block = confirmations(stellvertretung={**confirmations()["stellvertretung"], "sent_at": TODAY})
 
         assert reminder_seats(bewerbung_raw=application(confirmations=block), today=TODAY, unerreichbar=()) == ["trainer", "ansprechperson"]
 

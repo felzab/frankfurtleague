@@ -160,8 +160,8 @@ class _ArchiveCollection:
                 continue
 
             cell_id = {name: at(document, reference) for name, reference in stages["$group"]["_id"].items()}
-            held = grouped.setdefault(tuple(cell_id.values()), {"_id": cell_id, "anzahl": 0})
-            held["anzahl"] += 1
+            held = grouped.setdefault(tuple(cell_id.values()), {"_id": cell_id, "count": 0})
+            held["count"] += 1
 
         return _Cells(list(grouped.values()))
 
@@ -202,7 +202,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
         get_bewerbungen(
             bewerbungen_collection=cast(AsyncCollection, collection),
             outbox_collection=cast(AsyncCollection, _NothingStored()),
-            sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
+            sperrliste=ban_list({Collection.BAN_LIST: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
     )
@@ -502,28 +502,28 @@ class TestWhatCountsAsOneCollisionKey:
         """Why the fold cannot move into the pipeline: MongoDB parts `gg` from `GG`, leaving two cells of one."""
 
         cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "ggx"}, "anzahl": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": " GGX "}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "ggx"}, "count": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": " GGX "}, "count": 1},
         ]
 
         assert dubletten_schluessel_of(cells) == [KUERZEL_PAAR]
 
     def test_a_key_one_application_holds_is_named_by_nothing(self):
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "anzahl": 1}]
+        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1}]
 
         assert dubletten_schluessel_of(cells) == []
 
     def test_a_cell_naming_neither_a_club_nor_a_kuerzel_is_passed_over(self):
         """The row `bewerbung_subject_unresolved` refuses, and two of them are not a pair."""
 
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": None}, "anzahl": 4}]
+        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": None}, "count": 4}]
 
         assert dubletten_schluessel_of(cells) == []
 
     def test_the_season_parts_two_cells_sharing_a_kuerzel(self):
         cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "anzahl": 1},
-            {"_id": {"saison_id": "2025", "team_id": None, "shorthand": "GGX"}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1},
+            {"_id": {"saison_id": "2025", "team_id": None, "shorthand": "GGX"}, "count": 1},
         ]
 
         assert dubletten_schluessel_of(cells) == []
@@ -532,8 +532,8 @@ class TestWhatCountsAsOneCollisionKey:
         """`GG` as a club id is nothing a school could propose, and the words in the key are what keep them apart."""
 
         cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": "GGX", "shorthand": None}, "anzahl": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": "GGX", "shorthand": None}, "count": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1},
         ]
 
         assert dubletten_schluessel_of(cells) == []
@@ -542,7 +542,7 @@ class TestWhatCountsAsOneCollisionKey:
         """The frontend composes its half from a row's `team_id` string, so the two only meet on that spelling."""
 
         club = ObjectId("6890a1b2c3d4e5f600009999")
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": club, "shorthand": None}, "anzahl": 2}]
+        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": club, "shorthand": None}, "count": 2}]
 
         assert dubletten_schluessel_of(cells) == [f"{SAISON_ID} team {club}"]
 
@@ -703,7 +703,7 @@ class TestEachSeatReadsItsLastMail:
     """The join the reads serve `delivery` by: one person is sent one mail for two seats, read by the seat it mirrors."""
 
     def test_a_trainer_who_is_another_seats_person_reads_that_seats_mail_and_an_emptied_seat_reads_none(self):
-        gesendet = FLOutboxStatus(state="sent", delivery=None)
+        sent = FLOutboxStatus(state="sent", delivery=None)
         aufgegeben = FLOutboxStatus(state="abandoned", delivery=None)
         row = {
             "_id": "bewerbung",
@@ -715,9 +715,9 @@ class TestEachSeatReadsItsLastMail:
             },
         }
 
-        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): gesendet, ("bewerbung", "trainer"): aufgegeben})
+        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): aufgegeben})
 
-        assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == gesendet
+        assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == sent
         assert served["confirmations"]["stellvertretung"] is None
 
     def test_a_seat_nobody_was_owed_a_mail_reads_null(self):

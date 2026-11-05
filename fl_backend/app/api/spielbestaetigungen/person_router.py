@@ -5,9 +5,9 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import find_eigener_eintrag_refusal
-from app.api.identity.crud import funktionen_of
-from app.api.identity.lookup import SubjektLookup
+from app.api.account.services import find_own_entry_refusal
+from app.api.identity.crud import roles_of
+from app.api.identity.lookup import SubjectLookup
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielbestaetigungen.crud import (
     EIGENE_ZEILE_FIELDS,
@@ -74,7 +74,7 @@ async def get_self(
     saisons_collection: SaisonsCollection,
     spielorte_collection: SpielorteCollection,
     teams_collection: TeamsCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungenSelfResponse:
@@ -97,8 +97,8 @@ async def get_self(
     # A snapshot, so every row is judged against the fixture and clubs of its own moment; never a transaction, which a
     # read writing nothing has no conflict to retry.
     async with db.start_session(snapshot=True) as session:
-        subjekt = await funktionen_of(identifier, records, session=session)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
 
         # The seasons the pass mints in, as `app/api/spielbestaetigungen/system_router.py :: get_sweep_saisons` lists them.
         saisons = await pull_many_from_db(
@@ -109,7 +109,7 @@ async def get_self(
             pipeline=[
                 *build_current_rows_pipeline(
                     saison_ids=[str(saison["_id"]) for saison in saisons],
-                    schiedsrichter_ids=[eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter],
+                    schiedsrichter_ids=[entry.schiedsrichter_id for entry in subject.schiedsrichter],
                     projection=EIGENE_ZEILE_FIELDS,
                 ),
                 {"$limit": LIST_LIMIT_MAX + 1},
@@ -157,9 +157,9 @@ async def get_self(
             }
         )
 
-    eintraege = list(map(eintrag_of, rows))
-    kommend = sorted((e for e in eintraege if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.datum, str(e.id)))
-    vergangen = sorted((e for e in eintraege if e.past), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
+    entries = list(map(eintrag_of, rows))
+    kommend = sorted((e for e in entries if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.datum, str(e.id)))
+    vergangen = sorted((e for e in entries if e.past), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
 
     return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*kommend, *vergangen])
 
@@ -177,7 +177,7 @@ async def post_schiedsrichter_antwort(
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungSchiedsrichterAntwortResponse:
@@ -205,8 +205,8 @@ async def post_schiedsrichter_antwort(
     async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAntwortResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
 
-        subjekt = await funktionen_of(identifier, records, session=session)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
 
         # The seasons the panel lists: a row of a season ended since is no booking left to answer, its slot the archive's.
         saisons = await pull_many_from_db(
@@ -220,7 +220,7 @@ async def post_schiedsrichter_antwort(
         )
         refuse(
             find_fremde_zeile_refusal(
-                spielbestaetigung_raw=row, schiedsrichter_ids=[eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter]
+                spielbestaetigung_raw=row, schiedsrichter_ids=[entry.schiedsrichter_id for entry in subject.schiedsrichter]
             )
         )
         assert row is not None
@@ -266,7 +266,7 @@ async def post_schiedsrichter_antwort(
         else:
             # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction
             # raises no conflict: all judged again outside it before answering.
-            jetzt = await pull_ansetzung_lage(
+            current = await pull_ansetzung_lage(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
@@ -275,8 +275,8 @@ async def post_schiedsrichter_antwort(
                 session=None,
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
-            assert jetzt is not None
-            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=jetzt, today=today))
+            assert current is not None
+            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=current, today=today))
 
         return FLSpielbestaetigungSchiedsrichterAntwortResponse(spielbestaetigung_id=spielbestaetigung_id, state=antwort_data.antwort)
 

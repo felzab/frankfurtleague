@@ -25,11 +25,11 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.schemas import (
+    FLErasure,
     FLErasureAdressePayload,
     FLErasurePayload,
     FLErasureResponse,
     FLErasureViewResponse,
-    FLLoeschung,
 )
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.core.codes import Code
@@ -169,7 +169,7 @@ async def geloescht_by_the_handler(
     """The route's own function outside a request, as `OPERATOR` signed in a minute ago, for a case driving the driver itself."""
 
     return await post_erasure(
-        loeschung_data=FLErasurePayload(email=email, anlass=anlass),
+        erasure_data=FLErasurePayload(email=email, anlass=anlass),
         **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
@@ -187,7 +187,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
 
     async with client.start_session(snapshot=True) as session:
         return await get_erasure_view(
-            ansicht_data=FLErasureAdressePayload(email=email),
+            view_data=FLErasureAdressePayload(email=email),
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -195,10 +195,10 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             spiele_collection=database[Collection.SPIELE],
-            berechtigungen_collection=database[Collection.GRANTS],
-            berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
+            grants_collection=database[Collection.GRANTS],
+            grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
+            grants_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
+            address_change_collection=database[Collection.ADDRESS_CHANGES],
             sperrliste=ban_list(database),
             session=session,
             config=CONFIG,
@@ -320,10 +320,10 @@ EXPECTED_ANSICHT = {
     "own_address_change": None,
     # A grant asked for their address and one they asked for another's.
     "approval_requests": [
-        {"approval_request_id": str(ANTRAG_FOR_THEM_OID), "verwaltung": "administration", "rolle": "betroffen"},
-        {"approval_request_id": str(ANTRAG_BY_THEM_OID), "verwaltung": "administration", "rolle": "gestellt"},
+        {"approval_request_id": str(ANTRAG_FOR_THEM_OID), "admin_tier": "administration", "rolle": "betroffen"},
+        {"approval_request_id": str(ANTRAG_BY_THEM_OID), "admin_tier": "administration", "rolle": "gestellt"},
     ],
-    "verwaltung": "administration",
+    "admin_tier": "administration",
     "barred": False,
 }
 
@@ -407,7 +407,7 @@ class TestTheirOwnAddress:
 
 @pytest.mark.db
 class TestAGrantHoldersAddress:
-    """`verwaltung_adresse`: judged inside the erasure's transaction, and in the reveal's snapshot."""
+    """`admin_address`: judged inside the erasure's transaction, and in the reveal's snapshot."""
 
     @pytest.mark.parametrize(
         ("path", "body", "address"),
@@ -438,7 +438,7 @@ class TestAGrantHoldersAddress:
         with caplog.at_level(logging.INFO):
             response, untouched = on_a_league(mongo_replica_set_url, run)
 
-        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.VERWALTUNG_ADRESSE, True)
+        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.ADMIN_ADDRESS, True)
         assert journal_lines(caplog) == []
 
     def test_a_grant_landing_inside_the_loeschung_is_refused_by_its_retry(self, mongo_replica_set_url: str):
@@ -453,8 +453,8 @@ class TestAGrantHoldersAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Asked at the suite's clock, a century ahead of the real one, so no TTL pass removes it: the rival approves it.
             await database[Collection.GRANT_APPROVAL_REQUESTS].delete_many({"adresse": IDENTIFIER})
-            antrag = await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
-                compose_antrag(adresse=IDENTIFIER, verwaltung="administration", grant_id=None, started_by=OWNER, now=NOW)
+            approval_request = await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
+                compose_antrag(adresse=IDENTIFIER, admin_tier="administration", grant_id=None, started_by=OWNER, now=NOW)
             )
             held = await where_held(database, *THEIR_VALUES)
             served = _app()
@@ -462,7 +462,7 @@ class TestAGrantHoldersAddress:
 
                 async def grant() -> None:
                     approved = await http.post(
-                        f"/api/v{API_VERSION}/grants/approval_requests/{antrag.inserted_id}/approval",
+                        f"/api/v{API_VERSION}/grants/approval_requests/{approval_request.inserted_id}/approval",
                         headers=StampedHeaders(ANOTHER_ADMINISTRATOR, ADMIN_KEY),
                     )
                     granted.append(approved.status_code)
@@ -484,8 +484,8 @@ class TestAGrantHoldersAddress:
 
         response, held, left, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json().get("error_code"), granted) == (403, Code.VERWALTUNG_ADRESSE, [200])
-        assert row is not None and row["verwaltung"] == "administration"
+        assert (response.status_code, response.json().get("error_code"), granted) == (403, Code.ADMIN_ADDRESS, [200])
+        assert row is not None and row["admin_tier"] == "administration"
         # The rows the grant wrote aside, every value stands where it stood.
         assert {value: [name for name in found if name not in THE_GRANTS_OWN_ROWS] for value, found in left.items()} == held
         # The premise last: the first attempt passed its judgement and read the pupils, which a grant landing first refuses.
@@ -524,28 +524,28 @@ class TestTheReveal:
             await database[Collection.ADDRESS_CHANGES].insert_one(
                 address_change_document(adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
             )
-            ansicht = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
+            view = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
 
-            return ansicht, (await posted(mongo_replica_set_url, PATH, loeschung_of(), by=OWNER)).json()
+            return view, (await posted(mongo_replica_set_url, PATH, loeschung_of(), by=OWNER)).json()
 
-        ansicht, geloescht = on_a_league(mongo_replica_set_url, body)
+        view, erased = on_a_league(mongo_replica_set_url, body)
         named = {
-            "spieler": len(ansicht["spieler"]),
-            "saison_spieler": sum(len(spieler["kader"]) for spieler in ansicht["spieler"]),
-            "schiedsrichter": len(ansicht["schiedsrichter"]),
-            "kontakt_seats": len(ansicht["seats"]) + len(ansicht["bewerbungen"]),
-            "registrierungen": len(ansicht["registrierungen"]),
-            "address_change": len(ansicht["address_change"]) + (ansicht["own_address_change"] is not None),
-            "grants_approval_requests": len(ansicht["approval_requests"]),
+            "spieler": len(view["spieler"]),
+            "saison_spieler": sum(len(spieler["kader"]) for spieler in view["spieler"]),
+            "schiedsrichter": len(view["schiedsrichter"]),
+            "kontakt_seats": len(view["seats"]) + len(view["bewerbungen"]),
+            "registrierungen": len(view["registrierungen"]),
+            "address_change": len(view["address_change"]) + (view["own_address_change"] is not None),
+            "grants_approval_requests": len(view["approval_requests"]),
         }
 
-        assert named == {key: geloescht[key] for key in named}
+        assert named == {key: erased[key] for key in named}
         # The grant is named by its tier and removed.
-        assert (ansicht["verwaltung"], geloescht["grants"]) == ("administration", 1)
+        assert (view["admin_tier"], erased["grants"]) == ("administration", 1)
         # Every count is compared above or one the reveal names nothing of: a count added to the answer fails here until placed.
-        assert {*named, "grants", *COUNTED_AND_NOT_NAMED} == set(FLLoeschung.model_fields)
+        assert {*named, "grants", *COUNTED_AND_NOT_NAMED} == set(FLErasure.model_fields)
         # The premise: an address holding nothing would agree on zeros.
-        assert all(geloescht[key] for key in FLLoeschung.model_fields)
+        assert all(erased[key] for key in FLErasure.model_fields)
 
 
 # The address the seed's referee change moves away from, given a grant by the cases below.
@@ -653,7 +653,7 @@ THE_GRANTS_OWN_ROWS = frozenset({Collection.GRANTS_ANNOUNCED, Collection.OUTBOX}
 @pytest.mark.db
 class TestAnotherAdministratorsAddress:
     def test_an_owner_ends_another_administrators_grant_and_its_notice_names_them(self, mongo_replica_set_url: str):
-        """Only an owner presses here (`verwaltung_adresse`)."""
+        """Only an owner presses here (`admin_address`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await posted(mongo_replica_set_url, PATH, loeschung_of(ANOTHER_ADMINISTRATOR), by=OWNER)
@@ -685,19 +685,19 @@ class TestRowsNoMailboxNames:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ghost = build_ghost_schiedsrichter()
             await database[Collection.SCHIEDSRICHTER].insert_one({**ghost, "kontakt": {**ghost["kontakt"], "email": SENTINEL_ADDRESS}})
-            ansicht = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(SENTINEL_ADDRESS))
-            loeschung = await posted(mongo_replica_set_url, PATH, loeschung_of(SENTINEL_ADDRESS))
+            view = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(SENTINEL_ADDRESS))
+            erasure = await posted(mongo_replica_set_url, PATH, loeschung_of(SENTINEL_ADDRESS))
 
             return (
-                ansicht.json(),
-                loeschung.json(),
+                view.json(),
+                erasure.json(),
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": GHOST_SCHIEDSRICHTER_ID}),
             )
 
-        ansicht, geloescht, referees = on_a_league_of_its_own(mongo_replica_set_url, body)
+        view, erased, referees = on_a_league_of_its_own(mongo_replica_set_url, body)
 
-        assert ansicht["schiedsrichter"] == []
-        assert (geloescht["schiedsrichter"], referees) == (0, 1)
+        assert view["schiedsrichter"] == []
+        assert (erased["schiedsrichter"], referees) == (0, 1)
 
 
 @pytest.mark.db

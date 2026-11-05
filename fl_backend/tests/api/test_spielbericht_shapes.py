@@ -110,36 +110,36 @@ class TestOnlyANewCautionOwesItsReason:
 
     @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
     def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
-        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), gespeichert=None)
+        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), saved=None)
 
         assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
-        assert find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None)), gespeichert=None) is None
+        assert find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None)), saved=None) is None
 
     @pytest.mark.parametrize("minute", ["12", "14"], ids=["resent-as-stored", "its-minute-corrected"])
     def test_a_caution_stored_stripped_is_resent_without_one(self, minute: str):
         stripped = {"karten": [karte("gelb", None)]}
 
-        assert find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None, minute=minute)), gespeichert=stripped) is None
+        assert find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None, minute=minute)), saved=stripped) is None
 
     @pytest.mark.parametrize(
-        "neu",
+        "new",
         [
             pytest.param(karte("gelb_rot", None), id="another-colour"),
             pytest.param(karte("gelb", None, spieler_id=AUSGETRAGEN1), id="another-pupil"),
         ],
     )
-    def test_any_other_caution_is_refused(self, neu: dict[str, Any]):
+    def test_any_other_caution_is_refused(self, new: dict[str, Any]):
         stripped = {"karten": [karte("gelb", None)]}
 
-        assert refused_with(Code.BERICHT_GRUND_MISSING, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
+        assert refused_with(Code.BERICHT_GRUND_MISSING, find_grund_fehlt_refusal(payload=mit_karten(new), saved=stripped))
 
     def test_each_stripped_card_excuses_one_caution(self):
         stripped = {"karten": [karte("gelb", None)]}
 
-        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), gespeichert=stripped)
+        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), saved=stripped)
 
         assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
 
@@ -239,16 +239,16 @@ class TestANewlyNamedPupilIsInTheSquad:
     def test_a_pupil_outside_the_second_sides_live_squad_is_refused(self):
         """Each side is judged against its own squad, the second as the first: a goal must never be stored under a pupil nobody fielded."""
 
-        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
+        new = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
 
-        assert refused_with(Code.BERICHT_NOT_IN_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
+        assert refused_with(Code.BERICHT_NOT_IN_KADER, find_nicht_im_kader_refusal(lage=lage(), new=new))
 
 
 # The clubs `spiel` fields, as the report's last write found them.
 SEITEN: dict[FLSpielSeite, ObjectId | None] = {"team1": TEAM1, "team2": TEAM2}
 
 
-def gespeichert(**fields: Any) -> FLSpielberichtBericht:
+def saved(**fields: Any) -> FLSpielberichtBericht:
     return FLSpielberichtBericht.model_validate(bericht_document(**{"seiten": SEITEN, **fields}))
 
 
@@ -268,26 +268,26 @@ class TestTheAdoptedStateIsDerivedFromThree:
     """The adoption, the block's version and the stored result; the 1:0 proposal of `bericht_document` throughout."""
 
     def test_adopted_unchanged_and_matching_reads_uebernommen(self):
-        assert bericht_zustand_of(gespeichert(**ADOPTED), gespielt(1, 0)) == "adopted"
+        assert bericht_zustand_of(saved(**ADOPTED), gespielt(1, 0)) == "adopted"
 
     def test_a_scorer_corrected_after_the_adoption_reads_abweichend_though_the_goals_still_match(self):
         """The case the version exists for: a result-only comparison reads it adopted."""
 
-        assert bericht_zustand_of(gespeichert(**ADOPTED, version=2), gespielt(1, 0)) == "differing"
+        assert bericht_zustand_of(saved(**ADOPTED, version=2), gespielt(1, 0)) == "differing"
 
     def test_the_sides_swapped_read_abweichend(self):
-        assert bericht_zustand_of(gespeichert(**ADOPTED), gespielt(0, 1)) == "differing"
+        assert bericht_zustand_of(saved(**ADOPTED), gespielt(0, 1)) == "differing"
 
     def test_a_result_the_administrator_typed_without_adopting_reads_abweichend(self):
-        assert bericht_zustand_of(gespeichert(), gespielt(1, 0)) == "differing"
+        assert bericht_zustand_of(saved(), gespielt(1, 0)) == "differing"
 
     def test_a_fixture_holding_no_result_reads_vorgeschlagen_however_it_was_stamped(self):
-        assert bericht_zustand_of(gespeichert(), spiel()) == "vorgeschlagen"
-        assert bericht_zustand_of(gespeichert(**ADOPTED), spiel()) == "vorgeschlagen"
+        assert bericht_zustand_of(saved(), spiel()) == "vorgeschlagen"
+        assert bericht_zustand_of(saved(**ADOPTED), spiel()) == "vorgeschlagen"
 
     def test_a_no_show_matches_on_its_event_whatever_goals_the_forfeit_composed(self):
         no_show = {"team1_tore": None, "team2_tore": None, "elfmeterschiessen": None, "sonderereignis": "nichtantreten_team2"}
-        bericht = gespeichert(**ADOPTED, ergebnis_vorschlag=no_show, torschuetzen=[])
+        bericht = saved(**ADOPTED, ergebnis_vorschlag=no_show, torschuetzen=[])
 
         assert bericht_zustand_of(bericht, gespielt(3, 0, sonderereignis="nichtantreten_team2")) == "adopted"
         assert bericht_zustand_of(bericht, gespielt(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
@@ -296,13 +296,13 @@ class TestTheAdoptedStateIsDerivedFromThree:
     def test_a_fixture_called_off_since_the_report_reads_abgesagt(self, sonderereignis: str):
         """Read-only and awaiting nobody: no write can adopt a report on a match that took no place."""
 
-        assert bericht_zustand_of(gespeichert(), spiel(sonderereignis=sonderereignis)) == "abgesagt"
-        assert bericht_zustand_of(gespeichert(**ADOPTED), spiel(sonderereignis=sonderereignis)) == "abgesagt"
+        assert bericht_zustand_of(saved(), spiel(sonderereignis=sonderereignis)) == "abgesagt"
+        assert bericht_zustand_of(saved(**ADOPTED), spiel(sonderereignis=sonderereignis)) == "abgesagt"
 
     def test_an_abandonment_saved_without_its_result_reads_vorgeschlagen(self):
         """It still owes a result, so nothing stands to differ from."""
 
-        assert bericht_zustand_of(gespeichert(), spiel(sonderereignis="abgebrochen")) == "vorgeschlagen"
+        assert bericht_zustand_of(saved(), spiel(sonderereignis="abgebrochen")) == "vorgeschlagen"
 
 
 class TestAReportAboutOtherClubsReadsItsOwnState:
@@ -312,16 +312,16 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
     def test_a_side_fielding_another_club_reads_teams_geaendert_whatever_the_result(self, seite: str):
         """Adopted and matching, or holding no result: the proposal still names the clubs that left."""
 
-        bericht = gespeichert(**ADOPTED, seiten={**SEITEN, seite: ObjectId()})
+        bericht = saved(**ADOPTED, seiten={**SEITEN, seite: ObjectId()})
 
         assert bericht_zustand_of(bericht, gespielt(1, 0)) == "teams_changed"
         assert bericht_zustand_of(bericht, spiel()) == "teams_changed"
 
     def test_a_slot_filled_since_an_open_one_was_reported_reads_teams_geaendert(self):
-        assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team2": None}), spiel()) == "teams_changed"
+        assert bericht_zustand_of(saved(seiten={**SEITEN, "team2": None}), spiel()) == "teams_changed"
 
     def test_a_fixture_called_off_reads_abgesagt_first(self):
-        assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "abgesagt"
+        assert bericht_zustand_of(saved(seiten={**SEITEN, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "abgesagt"
 
     def test_both_forms_are_served_the_sides_that_moved(self):
         """The referee's read carries no `state`, so this is what its form marks a moved side's entries by."""
@@ -336,7 +336,7 @@ def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> F
     """An adopted 1:1 proposal, with or without a shoot-out."""
 
     vorschlag = {"team1_tore": team1, "team2_tore": team2, "elfmeterschiessen": elfmeterschiessen, "sonderereignis": None}
-    return gespeichert(**ADOPTED, ergebnis_vorschlag=vorschlag)
+    return saved(**ADOPTED, ergebnis_vorschlag=vorschlag)
 
 
 class TestAShootOutIsComparedWhereTheFixtureKeepsOne:
@@ -376,8 +376,8 @@ class TestAGroupFixtureTakesNoShootOut:
 
         # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
         with pytest.raises(APIError) as refused:
-            judge_bericht(lage=lage(), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
-        judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
+            judge_bericht(lage=lage(), payload=vorschlag, saved=None, new=keine, today=TODAY)
+        judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, saved=None, new=keine, today=TODAY)
 
         assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_THE_GRUPPE
 

@@ -179,7 +179,7 @@ async def loeschen_person_in_session(
     spieler_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     spielberichte_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     spieler_id: CustomObjectId,
     # The caller's, so several erasures in one transaction redact under one instant.
     stamp: str,
@@ -217,7 +217,7 @@ async def loeschen_person_in_session(
     # Last, and it passes over the two rows the removals above just recorded: those carry a
     # filter and a count and no `document_id`, so the erasure stays legible as an action.
     redacted = await redact_log_rows_in_db(
-        action_log_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         # The squad branch is empty where the person held no row, which matches nothing.
         targets=[(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])],
         at=stamp,

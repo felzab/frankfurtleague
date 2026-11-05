@@ -218,7 +218,7 @@ async def call_activate(
         saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        ban_list_collection=database[Collection.BAN_LIST],
         db=client,
     )
 

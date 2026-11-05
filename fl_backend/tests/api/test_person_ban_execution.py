@@ -36,7 +36,7 @@ UNBARRED = "frei@beispielschule.de"
 
 
 def _probe() -> dict[str, bool]:
-    return {"erreicht": True}
+    return {"reached": True}
 
 
 def answered(url: str, email: str, *, bis: str, barred: str = BARRED) -> tuple[int, Any]:
@@ -45,7 +45,7 @@ def answered(url: str, email: str, *, bis: str, barred: str = BARRED) -> tuple[i
     async def _run() -> tuple[int, Any]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(saison_document(RUNNING, "active", rules=rules_document()))
-            await database[Collection.SPERRLISTE].insert_one(ban_document(barred, bis=bis))
+            await database[Collection.BAN_LIST].insert_one(ban_document(barred, bis=bis))
 
             app = create_app(CONFIG)
             app.add_api_route(PROBE, _probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS["spieler"])])
@@ -69,10 +69,10 @@ def test_a_person_a_standing_ban_holds_is_refused(mongo_url: str, email: str):
 def test_a_person_no_ban_holds_is_served(mongo_url: str):
     """The control, beside a ban on another address."""
 
-    assert answered(mongo_url, UNBARRED, bis="2031") == (200, {"erreicht": True})
+    assert answered(mongo_url, UNBARRED, bis="2031") == (200, {"reached": True})
 
 
 def test_a_ban_whose_last_season_has_passed_bars_nobody(mongo_url: str):
     """Compared against the running season, as every other reader of the list compares it."""
 
-    assert answered(mongo_url, BARRED, bis="2025") == (200, {"erreicht": True})
+    assert answered(mongo_url, BARRED, bis="2025") == (200, {"reached": True})

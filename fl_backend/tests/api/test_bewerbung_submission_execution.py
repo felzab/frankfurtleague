@@ -152,7 +152,7 @@ SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 
 
 async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbungen: Any = None, **overrides: Any) -> Any:
@@ -173,11 +173,11 @@ async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbunge
     )
 
 
-async def ansicht(database: AsyncDatabase, token: str) -> Any:
+async def view(database: AsyncDatabase, token: str) -> Any:
     """What the confirmation page shows for this link."""
 
     return await get_einwilligung_view(
-        ansicht_data=FLTokenPayload(token=token),
+        view_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -245,7 +245,7 @@ class TestWhatASubmissionStores:
                 "umfang": "kontaktdaten",
                 "datum": TODAY,
                 "confirmed_at": None,
-                "medien": False,
+                "media": False,
                 "entered_by": "bewerbung",
             }
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
@@ -371,7 +371,7 @@ class TestWhatTheCreateOwes:
         async def body(database: AsyncDatabase) -> Any:
             response = await submit(database)
             mails = await drained(database, database.client)
-            views = {mail.an: await ansicht(database, mail.token or "") for mail in mails}
+            views = {mail.an: await view(database, mail.token or "") for mail in mails}
             document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
             assert document is not None
@@ -915,7 +915,7 @@ class TestABannedContactAddress:
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
         async def body(database: AsyncDatabase) -> tuple[str, int]:
-            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
             with pytest.raises(APIError) as failure:
                 await submit(database)
 
@@ -928,7 +928,7 @@ class TestABannedContactAddress:
 
         async def body(database: AsyncDatabase) -> Any:
             first = await submit(database, key=SCHLUESSEL)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
             before = await database[Collection.BEWERBUNGEN].find_one({})
             second = await submit(database, key=SCHLUESSEL)
             after = await database[Collection.BEWERBUNGEN].find({}).to_list()

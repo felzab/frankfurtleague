@@ -6,9 +6,9 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.services import find_eigener_eintrag_refusal
-from app.api.identity.crud import funktionen_of
-from app.api.identity.lookup import SubjektLookup
+from app.api.account.services import find_own_entry_refusal
+from app.api.identity.crud import roles_of
+from app.api.identity.lookup import SubjectLookup
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielberichte.crud import (
@@ -74,7 +74,7 @@ async def get_self(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     spielberichte_collection: SpielberichteCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielberichteSelfResponse:
@@ -93,9 +93,9 @@ async def get_self(
     # A snapshot, so the fixtures served are those of the records judged; never a transaction, which a read writing
     # nothing has no conflict to retry in.
     async with db.start_session(snapshot=True) as session:
-        subjekt = await funktionen_of(identifier, records, session=session)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
-        gebucht = {"schiedsrichter.schiedsrichter_id": {"$in": [record.schiedsrichter_id for record in subjekt.schiedsrichter]}}
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+        gebucht = {"schiedsrichter.schiedsrichter_id": {"$in": [record.schiedsrichter_id for record in subject.schiedsrichter]}}
 
         saison_id = await pull_massgebliche_saison_id(saisons_collection, session=session)
         laufende = (
@@ -139,7 +139,7 @@ async def get_self(
 
     eingereicht = {bericht["spiel_id"]: bericht["bericht"]["submitted_at"] for bericht in berichte}
 
-    def eintrag(spiel: Mapping[str, Any]) -> dict[str, Any]:
+    def entry(spiel: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "spiel_id": spiel["_id"],
             "datum": spiel.get("datum"),
@@ -150,9 +150,9 @@ async def get_self(
         }
 
     return FLSpielberichteSelfResponse(
-        spiele=[FLSpielberichtPersonEntry.model_validate(eintrag(spiel)) for spiel in laufende],
+        spiele=[FLSpielberichtPersonEntry.model_validate(entry(spiel)) for spiel in laufende],
         # An ended season's fixture holding no report has nothing for its read-only page to show.
-        earlier=[FLSpielberichtPersonEarlierEntry.model_validate(eintrag(spiel)) for spiel in fruehere if spiel["_id"] in eingereicht],
+        earlier=[FLSpielberichtPersonEarlierEntry.model_validate(entry(spiel)) for spiel in fruehere if spiel["_id"] in eingereicht],
     )
 
 
@@ -169,7 +169,7 @@ async def get_spielbericht_bericht(
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielberichtSchiedsrichterResponse:
@@ -188,8 +188,8 @@ async def get_spielbericht_bericht(
     """
 
     async with db.start_session(snapshot=True) as session:
-        subjekt = await funktionen_of(identifier, records, session=session)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
 
         lage = await pull_bericht_lage(
             spiele_collection=spiele_collection,
@@ -200,12 +200,12 @@ async def get_spielbericht_bericht(
         )
         refuse(
             find_nicht_geleitet_refusal(
-                spiel_raw=lage.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subjekt.schiedsrichter]
+                spiel_raw=lage.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subject.schiedsrichter]
             )
         )
 
         # After the season, the referee's page is a view of the report: no squad to pick from, no write.
-        abgeschlossen = ist_abgeschlossen(lage)
+        completed = ist_abgeschlossen(lage)
         kader_offen = kader_ist_offen(lage, today=today)
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         genannt = await pull_genannt(
@@ -217,7 +217,7 @@ async def get_spielbericht_bericht(
         )
 
     return FLSpielberichtSchiedsrichterResponse.model_validate(
-        {**compose_ansicht(lage, kader_offen=kader_offen, named=genannt, dokument=dokument), "completed": abgeschlossen}
+        {**compose_ansicht(lage, kader_offen=kader_offen, named=genannt, dokument=dokument), "completed": completed}
     )
 
 
@@ -239,7 +239,7 @@ async def put_spielbericht_bericht(
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
-    records: SubjektLookup,
+    records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -276,9 +276,9 @@ async def put_spielbericht_bericht(
     async def write_the_report(session: AsyncClientSession) -> tuple[FLSpielberichtSchiedsrichterResponse, bool]:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
 
-        subjekt = await funktionen_of(identifier, records, session=session)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
-        eigene = [record.schiedsrichter_id for record in subjekt.schiedsrichter]
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+        eigene = [record.schiedsrichter_id for record in subject.schiedsrichter]
 
         lage = await pull_bericht_lage(
             spiele_collection=spiele_collection,
@@ -287,26 +287,26 @@ async def put_spielbericht_bericht(
             spiel_id=spiel_id,
             session=session,
         )
-        gespeichert = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
-        block = None if gespeichert is None else gespeichert.get("bericht")
-        neu = neu_genannt(payload, block, lage.spiel)
+        saved = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
+        block = None if saved is None else saved.get("bericht")
+        new = neu_genannt(payload, block, lage.spiel)
         refuse(find_nicht_geleitet_refusal(spiel_raw=lage.spiel, schiedsrichter_ids=eigene))
         refuse(find_saison_beendet_refusal(lage))
-        refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
-        judge_bericht(lage=lage, payload=payload, gespeichert=block, neu=neu, today=today)
+        refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, saved=block))
+        judge_bericht(lage=lage, payload=payload, saved=block, new=new, today=today)
 
-        await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
+        await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*new.values()), session=session)
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
             spiel_raw=lage.spiel,
-            gespeichert=gespeichert,
+            saved=saved,
             payload=payload,
             von=FLSpielberichtVonSchiedsrichter(art="schiedsrichter", schiedsrichter_id=lage.spiel["schiedsrichter"]["schiedsrichter_id"]),
             now=now,
             version=bericht_data.version,
             session=session,
         )
-        if gespeichert is None:
+        if saved is None:
             # After the insert, so a rival first write meets it there rather than blocking on the season.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=lage.spiel["saison_id"], session=session)
         genannt = await pull_genannt(
@@ -316,9 +316,9 @@ async def put_spielbericht_bericht(
         # Nothing judged is written here, so a referee retired or taken off, a fixture re-dated or called off, a pupil
         # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction.
         async with db.start_session(snapshot=True) as ausserhalb:
-            subjekt_jetzt = await funktionen_of(identifier, records, session=ausserhalb)
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt_jetzt.schiedsrichter)))
-        jetzt = await pull_bericht_lage(
+            subjekt_jetzt = await roles_of(identifier, records, session=ausserhalb)
+        refuse(find_own_entry_refusal(held=bool(subjekt_jetzt.schiedsrichter)))
+        current = await pull_bericht_lage(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
@@ -327,16 +327,16 @@ async def put_spielbericht_bericht(
         )
         refuse(
             find_nicht_geleitet_refusal(
-                spiel_raw=jetzt.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subjekt_jetzt.schiedsrichter]
+                spiel_raw=current.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subjekt_jetzt.schiedsrichter]
             )
         )
-        refuse(find_saison_beendet_refusal(jetzt))
-        judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
+        refuse(find_saison_beendet_refusal(current))
+        judge_bericht(lage=current, payload=payload, saved=block, new=new, today=today)
 
-        angelegt = gespeichert is None or gespeichert.get("bericht") is None
-        ansicht = {**compose_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument), "completed": False}
+        angelegt = saved is None or saved.get("bericht") is None
+        view = {**compose_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument), "completed": False}
 
-        return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
+        return FLSpielberichtSchiedsrichterResponse.model_validate(view), angelegt
 
     async with transaction_session(db) as session:
         answer, angelegt = await session.with_transaction(write_the_report)

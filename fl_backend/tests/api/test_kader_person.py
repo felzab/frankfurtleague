@@ -80,7 +80,7 @@ TRAINER_ALLEIN = "trainer.kader@schule.de"
 GROSS_STORED = "gross.kader@schule.de"
 GROSS_ASKED = "GROSS.KADER@schule.DE"
 B_ANSPRECH = "b.ansprech.kader@schule.de"
-GESPERRT = "gesperrt.kader@schule.de"
+BARRED = "gesperrt.kader@schule.de"
 
 SEAT_TELEFON = "+49 69 5550199"
 PUPIL_EMAIL_DOMAIN = "schueler.example.de"
@@ -137,7 +137,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _junction(PAST_SAISON, TEAM_A, "Adler", ansprechperson=_seat(ANSPRECH)),
             _junction(FUTURE_SAISON, TEAM_A, "Adler", ansprechperson=_seat(B_ANSPRECH)),
             _junction(ACTIVE_SAISON, TEAM_B, "Biber", ansprechperson=_seat(B_ANSPRECH)),
-            _junction(ACTIVE_SAISON, TEAM_C, "Kranich", ansprechperson=_seat(GESPERRT)),
+            _junction(ACTIVE_SAISON, TEAM_C, "Kranich", ansprechperson=_seat(BARRED)),
         ]
     )
     await database[Collection.SPIELER].insert_many(
@@ -162,7 +162,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _row(C_PUPIL, TEAM_C, nummer="4"),
         ]
     )
-    await database[Collection.SPERRLISTE].insert_one(ban_document(GESPERRT, bis=FUTURE_SAISON))
+    await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, bis=FUTURE_SAISON))
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -368,7 +368,7 @@ class TestABarredSeatHolder:
     def test_each_operation_is_refused_and_writes_nothing(
         self, mongo_replica_set_url: str, method: str, path: str, body: Mapping[str, Any] | None
     ):
-        answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path, GESPERRT, body)
+        answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path, BARRED, body)
 
         assert answer == (403, Code.PERSON_BARRED)
         assert untouched

@@ -7,8 +7,8 @@ the request wrote nothing, and the frontend clears the site's cache by that prom
 `unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
 db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
 address change, whose records no cached read serves:
-`app/api/adresswechsel/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
-and `app/api/adresswechsel/public_router.py :: post_address_change_answer` (`address_change_ended`).
+`app/api/address_change/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
+and `app/api/address_change/public_router.py :: post_address_change_answer` (`address_change_ended`).
 """
 
 from enum import StrEnum, auto
@@ -159,7 +159,7 @@ class Code(StrEnum):
     GRANT_WORDING_STALE = auto()
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
-    MEDIEN_AGE = auto()
+    MEDIA_AGE = auto()
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
     ELIGIBILITY_TEAM_NOT_IN_SAISON = auto()
@@ -177,15 +177,15 @@ class Code(StrEnum):
     KONTAKT_ROW_WITHOUT_SAISON = auto()
     KONTAKT_SAISON_PAST = auto()
     # 403 and not 409, `grant_only_owner`'s precedent: the refusal is about who asks. An administrator's
-    # own records go through their account page, or through an owner (`verwaltung_adresse`).
+    # own records go through their account page, or through an owner (`admin_address`).
     OWN_ADRESSE = auto()
     # Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
     # a database paste could hand the administration on.
     LAST_OWNER_ERASURE = auto()
     # 403 for who asks, as `own_adresse`: without it an administrator ends another's grant, which a revoke
     # reserves to an owner (`grant_only_owner`).
-    VERWALTUNG_ADRESSE = auto()
-    # 403 for who asks, as `verwaltung_adresse`: an erasure ends every change naming its address, and ending a grant
+    ADMIN_ADDRESS = auto()
+    # 403 for who asks, as `admin_address`: an erasure ends every change naming its address, and ending a grant
     # holder's change is a discard, which only an owner may make of it.
     FOREIGN_ADDRESS_CHANGE = auto()
     # Refused rather than answered: a league always holds a live `owner`,
@@ -250,8 +250,8 @@ class Code(StrEnum):
     # address: two conditions under one code are two a frontend cannot part.
     SCHIEDSRICHTER_ADRESSE_BARRED = auto()
     SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE = auto()
-    SPERRLISTE_NO_SAISON = auto()
-    SPERRLISTE_VERWALTUNG = auto()
+    BAN_LIST_NO_SAISON = auto()
+    BAN_LIST_ADMIN = auto()
     SPIELPLAN_ALREADY_DRAWN = auto()
     SPIELPLAN_SPIELTAGE_HELD = auto()
     # One code, because one repair reaches all three: every offered group holding exactly

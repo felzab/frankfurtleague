@@ -5,7 +5,7 @@ from pydantic_core import PydanticCustomError
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
-from app.shared.alter import whole_years_between
+from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -516,7 +516,7 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
     """Which kit colours one season has already assigned, naming no club."""
 
     saison_id: str
-    # `vergeben` as the Kürzel read means it -- taken, and by nobody this answer names. A LIST rather
+    # `taken` as the Kürzel read means it -- taken, and by nobody this answer names. A LIST rather
     # than a set, JSON having none; `assigned_trikot_farben` is what makes it distinct and ordered.
     taken: list[FLTrikotFarbe]
 
@@ -524,7 +524,7 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
-# What a reopened link shows. `abgelaufen` is a spent link, its deadline passed or its application
+# What a reopened link shows. `expired` is a spent link, its deadline passed or its application
 # decided, said one way; `barred` ranks first.
 # `saison_past`, a season row's alone, takes a Widerspruch and no consent (`kontakt_saison_past`).
 FLBewerbungEinwilligungZustand = Literal["valid", "confirmed", "declined", "expired", "saison_past", "barred"]
@@ -558,8 +558,8 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     # The PERSON's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     minimum_age: int
-    # The age from which the page offers the media switch, `medien_age`'s floor.
-    medien_minimum_age: int = Field(gt=0)
+    # The age from which the page offers the media switch, `media_age`'s floor.
+    media_minimum_age: int = Field(gt=0)
 
 
 class FLBewerbungEinwilligungGiven(BaseModel):
@@ -573,15 +573,13 @@ class FLBewerbungEinwilligungGiven(BaseModel):
     geburtsdatum: CustomDateString
     whatsapp: bool
     # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
-    medien: bool
+    media: bool
     # The wordings the confirming person saw beside the two switches, which their evidence cites.
     text_versions: FLSeatTextVersions
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(
-            self.text_versions, {"umfang": "kontaktdaten_whatsapp" if self.whatsapp else "kontaktdaten", "medien": self.medien}
-        )
+        refuse_a_stale_grant(self.text_versions, {"umfang": "kontaktdaten_whatsapp" if self.whatsapp else "kontaktdaten", "media": self.media})
         return self
 
 
@@ -610,7 +608,7 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     whatsapp: bool
     # As stored on every seat the answer wrote, as the referee's answer carries it: `false` after a
     # Widerspruch, which stores no answer.
-    medien: bool
+    media: bool
 
 
 class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
@@ -620,8 +618,8 @@ class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
     ergebnis: FLEinwilligungErgebnis
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
-    # `FLBewerbungEinwilligungAntwortResponse.medien`'s.
-    medien: bool
+    # `FLBewerbungEinwilligungAntwortResponse.media`'s.
+    media: bool
 
 
 FLEinwilligungAntwortResponse = Annotated[

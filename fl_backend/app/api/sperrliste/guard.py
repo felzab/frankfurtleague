@@ -34,7 +34,7 @@ async def verify_person_is_unbarred(
     return actor
 
 
-def person_actor_binder(funktion: ActorRole) -> Callable[..., AsyncIterator[str]]:
+def person_actor_binder(role: ActorRole) -> Callable[..., AsyncIterator[str]]:
     """The binder a person's router declares, fixing the Funktion its writes are recorded under and yielding the folded identifier.
 
     The Funktion is never read off the request: the handler re-derives that the person holds it before
@@ -50,13 +50,13 @@ def person_actor_binder(funktion: ActorRole) -> Callable[..., AsyncIterator[str]
         identifier = sign_in_identifier(actor.email)
         pseudonym = actor_pseudonym(identifier, key=config.sperrliste_key)
 
-        return Attribution(PersonActor(pseudonym=pseudonym, role=funktion), identifier)
+        return Attribution(PersonActor(pseudonym=pseudonym, role=role), identifier)
 
     return actor_binder(the_person)
 
 
 PERSON_ACTOR_BINDERS: Final[Mapping[ActorRole, Callable[..., AsyncIterator[str]]]] = {
-    funktion: person_actor_binder(funktion) for funktion in get_args(ActorRole)
+    role: person_actor_binder(role) for role in get_args(ActorRole)
 }
 
 # A handler's folded address, from the binder its router declares, which FastAPI then runs once a

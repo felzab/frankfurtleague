@@ -91,7 +91,7 @@ async def listed(database: AsyncDatabase) -> Any:
     """The list read with its two dependencies: the season the ban list compares against, and the key."""
 
     return await get_sperrliste(
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        ban_list_collection=database[Collection.BAN_LIST],
         sperrliste=ban_list(database),
     )
 
@@ -101,7 +101,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
 
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return [row async for row in database[Collection.SPERRLISTE].find().sort("_id", 1)]
+    return [row async for row in database[Collection.BAN_LIST].find().sort("_id", 1)]
 
 
 class TestWhatABanStores:
@@ -110,7 +110,7 @@ class TestWhatABanStores:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
             await ban(database, client)
-            stored = await database[Collection.SPERRLISTE].find_one({})
+            stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
             return stored
@@ -128,7 +128,7 @@ class TestWhatABanStores:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client)
-            stored = await database[Collection.SPERRLISTE].find_one({})
+            stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
             return stored["key_version"]
@@ -140,7 +140,7 @@ class TestWhatABanStores:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
             await ban(database, client)
-            stored = await database[Collection.SPERRLISTE].find_one({})
+            stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
             return stored
@@ -196,7 +196,7 @@ class TestASecondBanOfOneAddress:
 
             assert raised.value.error_code == Code.DUPLICATE_KEY
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 1
 
@@ -212,7 +212,7 @@ class TestASecondBanOfOneAddress:
             duplicate = ban_document(BANNED_RETYPED, bis=LAST_COVERED)
 
             with pytest.raises(DuplicateKeyError):
-                await database[Collection.SPERRLISTE].insert_one(duplicate)
+                await database[Collection.BAN_LIST].insert_one(duplicate)
 
         on_a_clean_list(mongo_replica_set_url, body)
 
@@ -223,26 +223,26 @@ class TestASecondBanOfOneAddress:
             await ban(database, client)
             await ban(database, client, email=OTHER)
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 2
 
 
 class TestABanOfAnAdministratorsAddress:
-    """`sperrliste_verwaltung`: an address holding a grant takes no ban, whatever its spelling and whichever tier it holds."""
+    """`ban_list_admin`: an address holding a grant takes no ban, whatever its spelling and whichever tier it holds."""
 
     def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             # `ADMIN` holds `administration` rather than `owner`, so the refusal reads every grant.
             with pytest.raises(APIError) as raised:
                 await ban(database, client, email=ADMIN.upper())
-            refused = await database[Collection.SPERRLISTE].count_documents({})
+            refused = await database[Collection.BAN_LIST].count_documents({})
             # The control: a check refusing every address would pass the refusal above.
             await ban(database, client)
 
             return raised.value.error_code, refused
 
-        assert on_a_clean_list(mongo_replica_set_url, body) == (Code.SPERRLISTE_VERWALTUNG, 0)
+        assert on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 0)
 
 
 class TestTheCheckASignUpWillAsk:
@@ -254,9 +254,9 @@ class TestTheCheckASignUpWillAsk:
 
             return [
                 await address_is_gesperrt(
-                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    ban_list_collection=database[Collection.BAN_LIST],
                     adresse_hash=adresse_hash(typed, key=CONFIG.sperrliste_key),
-                    massgebliche_saison_id=ACTIVE_SAISON_ID,
+                    governing_saison_id=ACTIVE_SAISON_ID,
                 )
                 for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ")
             ]
@@ -270,9 +270,9 @@ class TestTheCheckASignUpWillAsk:
             await ban(database, client)
 
             return await address_is_gesperrt(
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 adresse_hash=adresse_hash(OTHER, key=CONFIG.sperrliste_key),
-                massgebliche_saison_id=ACTIVE_SAISON_ID,
+                governing_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False
@@ -284,14 +284,14 @@ class TestTheCheckASignUpWillAsk:
             created = await ban(database, client)
             await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 db=client,
             )
 
             return await address_is_gesperrt(
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
-                massgebliche_saison_id=ACTIVE_SAISON_ID,
+                governing_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False
@@ -348,7 +348,7 @@ class TestWhatTheListServes:
             await ban(database, client, email=OTHER)
 
             served = await listed(database)
-            capped = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=1)
+            capped = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=1)
 
             return served.count_total, capped[1]
 
@@ -362,7 +362,7 @@ class TestWhatTheListServes:
             await ban(database, client)
             await ban(database, client, email=OTHER)
 
-            rows, anzahl_gesamt = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=1)
+            rows, anzahl_gesamt = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=1)
 
             return len(rows), anzahl_gesamt
 
@@ -372,7 +372,7 @@ class TestWhatTheListServes:
         """`$count` emits NO document over an empty collection, so the reader has to answer zero for itself."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            rows, anzahl_gesamt = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=10)
+            rows, anzahl_gesamt = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=10)
 
             return len(rows), anzahl_gesamt
 
@@ -383,7 +383,7 @@ class TestWhatTheListServes:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await ban(database, client)
-            rows, _ = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=10)
+            rows, _ = await read_sperrliste_page(ban_list_collection=database[Collection.BAN_LIST], limit=10)
 
             return sorted(rows[0])
 
@@ -415,7 +415,7 @@ class TestLiftingABan:
 
             await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 db=client,
             )
 
@@ -433,7 +433,7 @@ class TestLiftingABan:
             created = await ban(database, client)
             await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 db=client,
             )
             recorded = await database[Collection.ACTION_LOG].find_one({"operation": "delete_many", "collection": "sperrliste"})
@@ -460,11 +460,11 @@ class TestLiftingABan:
             with pytest.raises(DocumentNotFoundError):
                 await delete_sperrliste_entry(
                     sperrliste_id=ObjectId("6890a1b2c3d4e5f60794ffff"),
-                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    ban_list_collection=database[Collection.BAN_LIST],
                     db=client,
                 )
 
-            return await database[Collection.SPERRLISTE].count_documents({})
+            return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 1
 
@@ -508,7 +508,7 @@ class TestTheKeyTheRowsWereTakenUnder:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            await database[Collection.SPERRLISTE].insert_one(
+            await database[Collection.BAN_LIST].insert_one(
                 ban_document(
                     BANNED,
                     bis=LAST_COVERED,
@@ -520,9 +520,9 @@ class TestTheKeyTheRowsWereTakenUnder:
             )
 
             return await address_is_gesperrt(
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                ban_list_collection=database[Collection.BAN_LIST],
                 adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
-                massgebliche_saison_id=ACTIVE_SAISON_ID,
+                governing_saison_id=ACTIVE_SAISON_ID,
             )
 
         assert on_a_clean_list(mongo_replica_set_url, body) is False

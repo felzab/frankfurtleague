@@ -288,7 +288,7 @@ bind_system_actor = actor_binder(_the_application)
 
 # The action log's label under the `sperrliste_key` secret file's key, beside the ban list's
 # (`app/api/sperrliste/services.py :: SPERRLISTE_SCHLUESSEL_VERSION`); one label per purpose.
-ACTOR_PSEUDONYM_VERSION: Final = "akteur-v1"
+ACTOR_PSEUDONYM_VERSION: Final = "actor-v1"
 
 
 def _keyed_fold(address: str, *, key: SecretStr, label: str) -> str:
@@ -309,7 +309,7 @@ def actor_pseudonym(identifier: str, *, key: SecretStr) -> str:
 
 # The erasure journal's label, a third beside the ban list's and the log's: under theirs a line would name a ban
 # row's digest or, on a choice, its person's log pseudonym, which an erasure's line alone names.
-ERASURE_JOURNAL_VERSION: Final = "loeschung-v1"
+ERASURE_JOURNAL_VERSION: Final = "erasure-v1"
 
 
 def erasure_journal_hash(identifier: str, *, key: SecretStr) -> str:

@@ -6,8 +6,8 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.adresswechsel.crud import verwehrte_adressen
-from app.api.adresswechsel.services import build_address_filter
+from app.api.address_change.crud import denied_addresses
+from app.api.address_change.services import build_address_filter
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
@@ -39,8 +39,8 @@ from app.api.schiedsrichter.services import (
     compose_korrektur_update,
     compose_mint_update,
     find_already_confirmed_refusal,
+    find_barred_refusal,
     find_bestaetigte_adresse_refusal,
-    find_gesperrt_refusal,
     find_missing_address_refusal,
     find_referee_retire_refusal,
     find_retired_refusal,
@@ -138,9 +138,9 @@ async def get_schiedsrichter(
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    address_change_collection: AddressChangeCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
@@ -161,21 +161,21 @@ async def get_schiedsrichter_by_id(
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
     email = (schiedsrichter_raw.get("kontakt") or {}).get("email")
     identifier = sign_in_identifier(email) if isinstance(email, str) else None
-    offen = None if identifier is None else await adresswechsel_collection.find_one(build_address_filter(identifier), {"_id": 1})
-    verwehrt = await verwehrte_adressen(
-        [] if offen is None or identifier is None else [identifier],
-        akteur=sign_in_identifier(operator),
+    open = None if identifier is None else await address_change_collection.find_one(build_address_filter(identifier), {"_id": 1})
+    denied = await denied_addresses(
+        [] if open is None or identifier is None else [identifier],
+        actor=sign_in_identifier(operator),
         auth_time=auth_time,
-        berechtigungen_collection=berechtigungen_collection,
-        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        grants_collection=grants_collection,
+        grants_announced_collection=grants_announced_collection,
         session=None,
     )
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
         confirmation_expired=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
-        address_change_id=None if offen is None else offen["_id"],
-        address_change_viewable_denied=None if identifier is None else verwehrt.get(identifier),
+        address_change_id=None if open is None else open["_id"],
+        address_change_viewable_denied=None if identifier is None else denied.get(identifier),
         delivery=await state_of(
             outbox_collection=outbox_collection,
             reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], seat=None),
@@ -213,16 +213,16 @@ async def post_schiedsrichter(
     email = schiedsrichter_data.kontakt.email
     # Outside the transaction, whose callback may run again: the hash reads nothing, and the season
     # may be read before it (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    gehasht = sperrliste.hash_of(email)
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    hashed = sperrliste.hash_of(email)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def judge_and_create(session: AsyncClientSession) -> Any:
         """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
 
         # The season stays `None` while no season is running, and the ban list is asked on the
         # hash alone, as the correction and the re-send ask it (`schiedsrichter_adresse_barred`).
-        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_gesperrt_refusal(barred=gesperrt))
+        barred = await hash_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session)
+        refuse(find_barred_refusal(barred=barred))
 
         created = await insert_live(
             collection=schiedsrichter_collection,
@@ -299,10 +299,10 @@ async def patch_schiedsrichter(
 
     payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
     email = schiedsrichter_data.kontakt.email
-    gehasht = sperrliste.hash_of(email)
+    hashed = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and read on every
     # save: whether a mint is owed is decided in-session below.
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def rename_and_fan_out(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
         # In-session, so the judgement below reads the address and the record this save replaces
@@ -321,8 +321,8 @@ async def patch_schiedsrichter(
         # The season is NOT a condition here: it is `None` while no season is running, and the
         # ban list is asked on the hash alone then (`schiedsrichter_adresse_barred`).
         if minted:
-            gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-            refuse(find_gesperrt_refusal(barred=gesperrt))
+            barred = await hash_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session)
+            refuse(find_barred_refusal(barred=barred))
 
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
@@ -448,7 +448,7 @@ async def reactivate_schiedsrichter(
     """
 
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def reactivate_and_ask(session: AsyncClientSession) -> tuple[Mapping[str, Any], str | None]:
         """Judged on the row as the transaction reads it, so a retry re-judges it."""
@@ -463,10 +463,8 @@ async def reactivate_schiedsrichter(
 
         if email is not None:
             verify_step_up(actor)
-            gesperrt = await hash_gesperrt(
-                sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session
-            )
-            refuse(find_gesperrt_refusal(barred=gesperrt))
+            barred = await hash_gesperrt(sperrliste, sperrliste.hash_of(email), governing_saison_id=governing_saison_id, session=session)
+            refuse(find_barred_refusal(barred=barred))
 
         # ONE write, the mint riding the revival's `$set`: the press is one action, and two writes file
         # two log rows for it.
@@ -532,7 +530,7 @@ async def invite_schiedsrichter(
     """
 
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def judge_and_mint(session: AsyncClientSession) -> str:
         """Judge, then replace the block and owe the link, and answer the address it is owed to.
@@ -556,9 +554,9 @@ async def invite_schiedsrichter(
 
         # Hashed inside the callback, where the ban endpoint hoists its own: the address is not known
         # until the read above, and the hash reads no document a retry could see differently.
-        gehasht = sperrliste.hash_of(str(email))
-        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_gesperrt_refusal(barred=gesperrt))
+        hashed = sperrliste.hash_of(str(email))
+        barred = await hash_gesperrt(sperrliste, hashed, governing_saison_id=governing_saison_id, session=session)
+        refuse(find_barred_refusal(barred=barred))
 
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,

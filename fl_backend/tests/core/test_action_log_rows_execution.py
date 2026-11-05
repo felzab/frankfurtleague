@@ -18,7 +18,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_aktionen_rows_test")
+DATABASE_NAME = worker_database("fl_action_log_rows_test")
 
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607600001")

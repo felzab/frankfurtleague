@@ -33,7 +33,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
-from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
 from app.shared.tokens import hash_token
@@ -85,12 +85,12 @@ TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
 GEBURTSDATUM = "2009-05-04"
 # The label of the media wording a press withdrawing it is given under.
-KONTO_LABEL = SPIELER_TEXT_VERSIONS["medien"]
+KONTO_LABEL = SPIELER_TEXT_VERSIONS["media"]
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
 RULES: Mapping[str, Any] = documents.rules_document(max_kadergroesse=3, allowed_stufen=["Q1", "Q2"])
 
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -206,7 +206,7 @@ def registrierung_document(
         else {
             "geburtsdatum": geburtsdatum,
             "umfang": "intern",
-            "medien": False,
+            "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-03-31",
             "am": "2026-03-31T08:00:00+00:00",
@@ -245,7 +245,7 @@ async def admit(
             database,
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -350,7 +350,7 @@ STORED_GRANT = {choice: {"am": STORED_AM, "text_version": label} for choice, lab
 
 def granted_by_an_earlier_registration() -> dict[str, Any]:
     return documents.own_einwilligung_document(
-        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", am=STORED_AM, medien=True
+        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", am=STORED_AM, media=True
     )
 
 
@@ -397,7 +397,7 @@ class TestWhatAnAdmissionWrites:
                     token=TOKEN,
                     geburtsdatum=GEBURTSDATUM,
                     umfang="intern",
-                    medien=False,
+                    media=False,
                     text_versions=FLSpielerTextVersions.model_validate(SPIELER_TEXT_VERSIONS),
                 ),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -587,7 +587,7 @@ class TestABarredAddress:
     def test_the_admission_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(FOLDED_EMAIL, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOLDED_EMAIL, bis=STANDING))
             before = await snapshot(database)
             code = await refused(admit(database, client, registrierung_id))
 
@@ -602,7 +602,7 @@ class TestABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             listed = await read(database, client)
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(TYPED_EMAIL, bis=STANDING))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document(TYPED_EMAIL, bis=STANDING))
 
             return listed.registrierungen[0].admissible, await refused(admit(database, client, registrierung_id)), await persons(database)
 
@@ -669,7 +669,7 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(
-                a_stored_person(stored_id, einwilligung={**granted_by_an_earlier_registration(), "medien": False})
+                a_stored_person(stored_id, einwilligung={**granted_by_an_earlier_registration(), "media": False})
             )
             registrierung_id = await seed(database, registrierung_document())
             fresh = (await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}) or {})["einwilligung"]
@@ -679,14 +679,14 @@ class TestThePersonAnAdmissionNames:
 
         fresh, einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        assert fresh["nachweis"], "the registration carries no evidence, so nothing proves it was carried"
+        assert fresh["evidence"], "the registration carries no evidence, so nothing proves it was carried"
         # The narrowed scope names the grant the stored record held, which its own confirmation evidenced.
         assert fresh["umfang"] == "intern", "the registration narrows nothing, so no grant ends here"
         assert einwilligung == {
             **fresh,
-            "nachweis": {
-                **fresh["nachweis"],
-                "umfang": {**fresh["nachweis"]["umfang"], "given_before": STORED_GRANT["umfang"]},
+            "evidence": {
+                **fresh["evidence"],
+                "umfang": {**fresh["evidence"]["umfang"], "given_before": STORED_GRANT["umfang"]},
             },
         }
 
@@ -697,10 +697,10 @@ class TestThePersonAnAdmissionNames:
         """
 
         stored_id = ObjectId()
-        bestaetigt = compose_confirmation_update(
+        confirmed = compose_confirmation_update(
             geburtsdatum=GEBURTSDATUM,
             umfang="intern",
-            medien=True,
+            media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
             am="2026-03-31T08:00:00+00:00",
@@ -708,10 +708,10 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_by_an_earlier_registration()))
-            registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
+            registrierung_id = await seed(database, registrierung_document(einwilligung=confirmed))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
-                gespeichert=stored, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
+                saved=stored, chosen={"media": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
             )
             assert press is not None, "the press moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
@@ -723,17 +723,17 @@ class TestThePersonAnAdmissionNames:
 
         # The withdrawal is newer than the registration's grant, so it stands with its own evidence,
         # naming the stored grant it ended.
-        assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
+        assert (einwilligung["media"], einwilligung["evidence"]["media"]) == (
             False,
             {
                 "am": "2026-04-01T09:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "given_before": STORED_GRANT["medien"],
+                "given_before": STORED_GRANT["media"],
             },
         )
         # The scope set at the registration is newer than the person's stored grant, so it is renewed,
         # naming that grant.
-        assert (einwilligung["umfang"], einwilligung["nachweis"]["umfang"]) == (
+        assert (einwilligung["umfang"], einwilligung["evidence"]["umfang"]) == (
             "intern",
             {
                 "am": "2026-03-31T08:00:00+00:00",
@@ -747,10 +747,10 @@ class TestThePersonAnAdmissionNames:
         """The account page's registration control, then the admission: the withdrawal is newer than every grant, so it stands."""
 
         stored_id = ObjectId()
-        bestaetigt = compose_confirmation_update(
+        confirmed = compose_confirmation_update(
             geburtsdatum=GEBURTSDATUM,
             umfang="intern",
-            medien=True,
+            media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
             am="2026-03-31T08:00:00+00:00",
@@ -758,15 +758,15 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_by_an_earlier_registration()))
-            registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
+            registrierung_id = await seed(database, registrierung_document(einwilligung=confirmed))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
                 einwilligung_data=FLAccountEinwilligungPayload.model_validate(
                     {
                         "umfang": "intern",
-                        "medien": False,
+                        "media": False,
                         "text_versions": dict(SPIELER_TEXT_VERSIONS),
-                        "nachweis_stand": nachweis_stand_of(bloecke=[bestaetigt]),
+                        "evidence_state": evidence_state_of(blocks=[confirmed]),
                     }
                 ),
                 identifier=FOLDED_EMAIL,
@@ -783,12 +783,12 @@ class TestThePersonAnAdmissionNames:
 
         # Carried onto the person, the withdrawal ends the grant the PERSON's record held, as the account
         # page's own press on it would.
-        assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
+        assert (einwilligung["media"], einwilligung["evidence"]["media"]) == (
             False,
             {
                 "am": "2026-04-01T07:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "given_before": STORED_GRANT["medien"],
+                "given_before": STORED_GRANT["media"],
             },
         )
 
@@ -855,7 +855,7 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
             token=TOKEN,
             geburtsdatum=None,
             umfang=None,
-            medien=None,
+            media=None,
             text_versions=None,
         ),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -964,7 +964,7 @@ class TestAReturningRegistration:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             view = await get_confirmation_view(
-                ansicht_data=FLTokenPayload(token=TOKEN),
+                view_data=FLTokenPayload(token=TOKEN),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
@@ -973,7 +973,7 @@ class TestAReturningRegistration:
             )
             held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
-                gespeichert=held, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
+                saved=held, chosen={"media": False}, am="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
             )
             assert press is not None, "the withdrawal moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
@@ -985,7 +985,7 @@ class TestAReturningRegistration:
         view, einwilligung = on_a_league(mongo_replica_set_url, body)
 
         assert view.seite == "bestaetigung_spieler_wiederkehrend"
-        assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]["text_version"]) == (False, KONTO_LABEL)
+        assert (einwilligung["media"], einwilligung["evidence"]["media"]["text_version"]) == (False, KONTO_LABEL)
 
 
 class TestARetiredPerson:

@@ -46,7 +46,7 @@ from app.core.dependencies import (
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
-from app.shared.schemas.actor import FLVonAdmin
+from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -58,11 +58,11 @@ router = APIRouter(
 def _admin_ansicht(
     lage: BerichtLage, *, kader_offen: bool, named: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
 ) -> FLSpielberichtAdminResponse:
-    ansicht = compose_ansicht(lage, kader_offen=kader_offen, named=named, dokument=dokument)
-    bericht = ansicht["bericht"]
-    zustand = None if bericht is None else bericht_zustand_of(FLSpielberichtBericht.model_validate(bericht), lage.spiel)
+    view = compose_ansicht(lage, kader_offen=kader_offen, named=named, dokument=dokument)
+    bericht = view["bericht"]
+    state = None if bericht is None else bericht_zustand_of(FLSpielberichtBericht.model_validate(bericht), lage.spiel)
 
-    return FLSpielberichtAdminResponse.model_validate({**ansicht, "state": zustand})
+    return FLSpielberichtAdminResponse.model_validate({**view, "state": state})
 
 
 @router.get(
@@ -188,25 +188,25 @@ async def patch_spielbericht(
             spiel_id=spiel_id,
             session=session,
         )
-        gespeichert = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
-        block = None if gespeichert is None else gespeichert.get("bericht")
-        neu = neu_genannt(payload, block, lage.spiel)
-        refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
-        judge_bericht(lage=lage, payload=payload, gespeichert=block, neu=neu, today=today)
+        saved = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
+        block = None if saved is None else saved.get("bericht")
+        new = neu_genannt(payload, block, lage.spiel)
+        refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, saved=block))
+        judge_bericht(lage=lage, payload=payload, saved=block, new=new, today=today)
 
-        await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
-        von: FLSpielberichtVon = FLVonAdmin(art="admin")
+        await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*new.values()), session=session)
+        von: FLSpielberichtVon = FLByAdmin(art="admin")
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
             spiel_raw=lage.spiel,
-            gespeichert=gespeichert,
+            saved=saved,
             payload=payload,
             von=von,
             now=now,
             version=bericht_data.version,
             session=session,
         )
-        if gespeichert is None:
+        if saved is None:
             # After the insert, so a rival first write meets it there rather than blocking on the season.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=lage.spiel["saison_id"], session=session)
         genannt = await pull_genannt(
@@ -214,14 +214,14 @@ async def patch_spielbericht(
         )
 
         # For the referee's write's reason.
-        jetzt = await pull_bericht_lage(
+        current = await pull_bericht_lage(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
             spiel_id=spiel_id,
             session=None,
         )
-        judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
+        judge_bericht(lage=current, payload=payload, saved=block, new=new, today=today)
 
         # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
         return _admin_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument)

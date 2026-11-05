@@ -822,9 +822,9 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
         empty, proposed, differing, admin = on_the_league(mongo_replica_set_url, body)
 
         assert (empty.bericht, empty.state) == (None, None)
-        assert [(eintrag.spiel_id, eintrag.state) for eintrag in proposed.spielberichte] == [(SPIEL, "vorgeschlagen")]
+        assert [(entry.spiel_id, entry.state) for entry in proposed.spielberichte] == [(SPIEL, "vorgeschlagen")]
         # The sides swapped: 1:0 proposed, 0:1 saved.
-        assert [(eintrag.spiel_id, eintrag.state) for eintrag in differing.spielberichte] == [(SPIEL, "differing")]
+        assert [(entry.spiel_id, entry.state) for entry in differing.spielberichte] == [(SPIEL, "differing")]
         assert admin.state == "differing"
         assert admin.bericht is not None and admin.bericht.karten[0].grund == "foulspiel"
 
@@ -866,7 +866,7 @@ class TestEachReportReadKeepsToTheFixturesSeason:
                 spielberichte_collection=database[Collection.SPIELBERICHTE], saison_id=SAISON_ID, session=None
             )
 
-            return geschrieben, [eintrag.spiel_id for eintrag in states.spielberichte], counted
+            return geschrieben, [entry.spiel_id for entry in states.spielberichte], counted
 
         geschrieben, listed, counted = on_the_league(mongo_replica_set_url, body)
 
@@ -891,7 +891,7 @@ class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
                     saison_id=SAISON_ID,
                     today=TODAY,
                 )
-                return {spiel.id for spiel in listed.spiele}, [(eintrag.spiel_id, eintrag.state) for eintrag in listed.spielberichte]
+                return {spiel.id for spiel in listed.spiele}, [(entry.spiel_id, entry.state) for entry in listed.spielberichte]
 
             unreported = await triage()
             await put(database, client, bericht())
@@ -989,7 +989,7 @@ class TestAReportOutlivingItsFixturesClub:
                     saisons_collection=database[Collection.SAISONS],
                     saison_id=SAISON_ID,
                 )
-                return admin.state, [eintrag.state for eintrag in season.spielberichte if eintrag.spiel_id == VIERTELFINALE]
+                return admin.state, [entry.state for entry in season.spielberichte if entry.spiel_id == VIERTELFINALE]
 
             await a_reported_quarter_final(database, client, None)
             moved = await zustaende()

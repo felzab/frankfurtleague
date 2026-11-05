@@ -49,7 +49,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     ),
     # It is also the READ path: the sign-up check is one indexed equality against this key, so
     # dropping the index costs a collection scan per submission as well as the rule.
-    UniqueIndex(Collection.SPERRLISTE, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
+    UniqueIndex(Collection.BAN_LIST, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
     # `$type` rather than the equality `{"widerrufen_am": None}`, which also matches a row missing
     # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
     # supports and names no null form at all
@@ -117,7 +117,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
     # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
-    # ending's null address out; a keyed read carries it too (`app/api/adresswechsel/services.py :: build_address_filter`),
+    # ending's null address out; a keyed read carries it too (`app/api/address_change/services.py :: build_address_filter`),
     # or the planner scans.
     UniqueIndex(
         Collection.ADDRESS_CHANGES,
@@ -183,7 +183,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
     # running for a whole season at once, on both (`app/api/identity/crud.py :: unattribute_in_session`,
-    # `:: loeschen_pupil_actor_in_session`).
+    # `:: erase_pupil_actor_in_session`).
     SupportIndex(
         Collection.ACTION_LOG,
         "action_log_actor_pseudonym",

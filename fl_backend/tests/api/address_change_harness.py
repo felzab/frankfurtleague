@@ -21,21 +21,21 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.account.person_router import delete_address_change as stop_on_the_account_page
 from app.api.account.person_router import get_address_change, post_address_change
 from app.api.account.schemas import FLAccountAddressChangePayload
-from app.api.adresswechsel.admin_router import (
+from app.api.address_change.admin_router import (
     delete_address_change,
-    get_address_change_verwaltung_view,
+    get_address_change_admin_view,
     invite_address_change,
+    post_address_change_admin,
     post_address_change_approval,
-    post_address_change_verwaltung,
 )
-from app.api.adresswechsel.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
-from app.api.adresswechsel.schemas import (
+from app.api.address_change.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
+from app.api.address_change.schemas import (
+    FLAddressChangeAdminPayload,
+    FLAddressChangeAdminViewPayload,
     FLAddressChangeAnswerPayload,
-    FLAddressChangeVerwaltungPayload,
-    FLAddressChangeVerwaltungViewPayload,
-    FLAdresswechselSweepParams,
+    FLAddressChangeSweepParams,
 )
-from app.api.adresswechsel.system_router import sweep_address_change
+from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -110,7 +110,7 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
             today="2126-03-31",
             am="2126-03-31T08:00:00+00:00",
             umfang="intern",
-            medien=False,
+            media=False,
         )
         if confirmed
         else None,
@@ -237,11 +237,11 @@ def on_a_person(url: str, database_name: str, body: Body, *, pupil: bool = True,
     return on_the_seed_loop(_run())
 
 
-async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: str = "administration") -> ObjectId:
+async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, admin_tier: str = "administration") -> ObjectId:
     """A grant at `adresse`, written as the Playground writes one, before the clock's first sight of it."""
 
     grant_id = ObjectId()
-    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "adresse": adresse, "verwaltung": verwaltung})
+    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "adresse": adresse, "admin_tier": admin_tier})
 
     return grant_id
 
@@ -348,7 +348,7 @@ async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str
     started = await handed_out(
         database,
         client,
-        await call(post_address_change, database, client, adresswechsel_data=FLAccountAddressChangePayload(email=email), **given),
+        await call(post_address_change, database, client, address_change_data=FLAccountAddressChangePayload(email=email), **given),
         now=now,
     )
     if not released:
@@ -367,18 +367,18 @@ def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -
 async def administrator_starts(
     database: AsyncDatabase, client: AsyncMongoClient, *, grund: str, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
-    payload = FLAddressChangeVerwaltungPayload.model_validate({"adresse": adresse, "email": email, "grund": grund})
+    payload = FLAddressChangeAdminPayload.model_validate({"adresse": adresse, "email": email, "grund": grund})
     return await handed_out(
         database,
         client,
-        await call(post_address_change_verwaltung, database, client, adresswechsel_data=payload, **given),
+        await call(post_address_change_admin, database, client, address_change_data=payload, **given),
         now=given.get("germany_now", NOW),
     )
 
 
 def tool_read(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN, **key: Any) -> Awaitable[Any]:
-    payload = FLAddressChangeVerwaltungViewPayload.model_validate(key)
-    return call(get_address_change_verwaltung_view, database, client, ansicht_data=payload, operator=operator)
+    payload = FLAddressChangeAdminViewPayload.model_validate(key)
+    return call(get_address_change_admin_view, database, client, view_data=payload, operator=operator)
 
 
 async def resend(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:
@@ -413,15 +413,15 @@ def answer(
 
 
 def stop_by_link(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, **given: Any) -> Awaitable[Any]:
-    return call(post_address_change_stop, database, client, stopp_data=FLTokenPayload(token=_handed(token)), **given)
+    return call(post_address_change_stop, database, client, stop_data=FLTokenPayload(token=_handed(token)), **given)
 
 
 def view(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, **given: Any) -> Awaitable[Any]:
-    return call(get_address_change_view, database, client, ansicht_data=FLTokenPayload(token=_handed(token)), **given)
+    return call(get_address_change_view, database, client, view_data=FLTokenPayload(token=_handed(token)), **given)
 
 
 def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **given: Any) -> Awaitable[Any]:
-    return call(sweep_address_change, database, client, params=FLAdresswechselSweepParams(nach=nach), **given)
+    return call(sweep_address_change, database, client, params=FLAddressChangeSweepParams(nach=nach), **given)
 
 
 async def refused_code(call: Awaitable[Any]) -> str:

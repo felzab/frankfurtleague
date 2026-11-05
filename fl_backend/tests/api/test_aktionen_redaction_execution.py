@@ -14,7 +14,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.services import compose_end_update, compose_genehmigung
+from app.api.address_change.services import compose_approval, compose_end_update
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits
 from app.api.berechtigungen.antraege import compose_antrag
@@ -64,7 +64,7 @@ ENTSCHEIDUNG = {"made_at": "2026-03-01", "von": GELOESCHT, "grund": "Zu spät ei
 
 
 def grant(grant_id: ObjectId, adresse: str, granted_by: str) -> dict[str, Any]:
-    return {"_id": grant_id, "adresse": adresse, "verwaltung": "administration", "granted_by": granted_by, "granted_at": GRANTED_AT}
+    return {"_id": grant_id, "adresse": adresse, "admin_tier": "administration", "granted_by": granted_by, "granted_at": GRANTED_AT}
 
 
 async def patched(database: AsyncDatabase, collection: Collection, document_id: Any, update: Mapping[str, Any]) -> None:
@@ -80,10 +80,10 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
         [grant(OWN_GRANT, GELOESCHT, OTHER_ADMIN), grant(THEIR_GRANT, GRANTEE, GELOESCHT), grant(CONTROL_GRANT, "x@example.com", OTHER_ADMIN)]
     )
     # Their own grant's tier change, and a grant they made revoked: the second keeps an array of images.
-    await patched(database, Collection.GRANTS, OWN_GRANT, {"$set": {"verwaltung": "owner"}})
-    await patched(database, Collection.GRANTS, CONTROL_GRANT, {"$set": {"verwaltung": "owner"}})
+    await patched(database, Collection.GRANTS, OWN_GRANT, {"$set": {"admin_tier": "owner"}})
+    await patched(database, Collection.GRANTS, CONTROL_GRANT, {"$set": {"admin_tier": "owner"}})
     ban = documents.ban_document("gesperrt@example.com", bis="2030", created_by=GELOESCHT)
-    await database[Collection.SPERRLISTE].insert_one(ban)
+    await database[Collection.BAN_LIST].insert_one(ban)
     await database[Collection.INVITATIONS].insert_one(
         {
             "_id": EINLADUNG,
@@ -137,7 +137,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
                     token_hash="w" * 64,
                     day="2026-03-01",
                     way="waiting_period",
-                    approval=compose_genehmigung(verwaltung="administration", started_by=GELOESCHT, now=GRANTED_AT),
+                    approval=compose_approval(admin_tier="administration", started_by=GELOESCHT, now=GRANTED_AT),
                 ),
             },
         ]
@@ -149,25 +149,27 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
         [
             {
                 "_id": ASKED_FOR_THEM,
-                **compose_antrag(adresse=GELOESCHT, verwaltung="administration", grant_id=None, started_by=OTHER_ADMIN, now=GRANTED_AT),
+                **compose_antrag(adresse=GELOESCHT, admin_tier="administration", grant_id=None, started_by=OTHER_ADMIN, now=GRANTED_AT),
             },
             {
                 "_id": ASKED_BY_THEM,
-                **compose_antrag(adresse=GRANTEE, verwaltung="administration", grant_id=None, started_by=GELOESCHT, now=GRANTED_AT),
+                **compose_antrag(adresse=GRANTEE, admin_tier="administration", grant_id=None, started_by=GELOESCHT, now=GRANTED_AT),
             },
         ]
     )
     async with client.start_session() as session:
         await delete_many_from_db(collection=database[Collection.GRANTS], db_filter={"_id": THEIR_GRANT}, session=session)
-        await delete_many_from_db(collection=database[Collection.SPERRLISTE], db_filter={"_id": ban["_id"]}, session=session)
-        for antrag in (ASKED_FOR_THEM, ASKED_BY_THEM):
-            await delete_many_from_db(collection=database[Collection.GRANT_APPROVAL_REQUESTS], db_filter={"_id": antrag}, session=session)
+        await delete_many_from_db(collection=database[Collection.BAN_LIST], db_filter={"_id": ban["_id"]}, session=session)
+        for approval_request in (ASKED_FOR_THEM, ASKED_BY_THEM):
+            await delete_many_from_db(
+                collection=database[Collection.GRANT_APPROVAL_REQUESTS], db_filter={"_id": approval_request}, session=session
+            )
 
 
 async def run_the_pass(database: AsyncDatabase, client: AsyncMongoClient, identifier: str) -> int:
     async def in_session(session: Any) -> int:
         return await redact_address_in_images(
-            aktionen_collection=database[Collection.ACTION_LOG], identifier=identifier, stamp=STAMP, session=session
+            action_log_collection=database[Collection.ACTION_LOG], identifier=identifier, stamp=STAMP, session=session
         )
 
     async with transaction_session(client) as session:
@@ -227,7 +229,7 @@ class TestTheJudgement:
 
         assert authored == {
             (Collection.GRANTS, "granted_by"),
-            (Collection.SPERRLISTE, "created_by"),
+            (Collection.BAN_LIST, "created_by"),
             (Collection.INVITATIONS, "created_by"),
             (Collection.BEWERBUNGEN, "decision.von"),
             (Collection.REGISTRIERUNGEN, "decision.von"),
@@ -272,7 +274,7 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     assert (own["adresse"], own["granted_by"]) == (None, OTHER_ADMIN)
     (theirs,) = image_of(log, Collection.GRANTS, THEIR_GRANT)["before"]
     assert (theirs["adresse"], theirs["granted_by"]) == (GRANTEE, ERASED_ACTOR_MARKER)
-    (ban,) = next(row for row in log if row["collection"] == str(Collection.SPERRLISTE))["before"]
+    (ban,) = next(row for row in log if row["collection"] == str(Collection.BAN_LIST))["before"]
     assert (ban["created_by"], ban["grund"]) == (ERASED_ACTOR_MARKER, "Falsches Geburtsdatum bei der Anmeldung")
     einladung = image_of(log, Collection.INVITATIONS, EINLADUNG)["before"]
     assert (einladung["created_by"], einladung["token_hashes"]) == (ERASED_ACTOR_MARKER, ["h" * 64])
@@ -287,7 +289,7 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     started = image_of(log, Collection.ADDRESS_CHANGES, STARTED_BY_THEM)["before"]
     assert (started["adresse"], started["approval"]["started_by"]) == (REFEREE_STORED, ERASED_ACTOR_MARKER)
     ((for_them,), (by_them,)) = (
-        image_of(log, Collection.GRANT_APPROVAL_REQUESTS, antrag)["before"] for antrag in (ASKED_FOR_THEM, ASKED_BY_THEM)
+        image_of(log, Collection.GRANT_APPROVAL_REQUESTS, approval_request)["before"] for approval_request in (ASKED_FOR_THEM, ASKED_BY_THEM)
     )
     assert (for_them["adresse"], for_them["approval"]["started_by"]) == (None, OTHER_ADMIN)
     assert (by_them["adresse"], by_them["approval"]["started_by"]) == (GRANTEE, ERASED_ACTOR_MARKER)
