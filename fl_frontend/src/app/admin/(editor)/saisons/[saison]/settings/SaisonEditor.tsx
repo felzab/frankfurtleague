@@ -69,8 +69,8 @@ export type SaisonFacts = {
   blocked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
 
-/** The registration links: each team's row, and how many teams the press would mail, a held link replaced or not. */
-export type SaisonLinks = { rows: readonly TableRow[]; mailed: number; replacing: boolean };
+/** The registration links: each team's row, how many teams the press would mail, and how many of those hold a link it replaces. */
+export type SaisonLinks = { rows: readonly TableRow[]; mailed: number; replacing: number };
 
 /** The acts the editor's sections and its danger rows press, each a server action naming its season. */
 export type SaisonActs = {

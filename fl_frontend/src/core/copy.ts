@@ -723,8 +723,7 @@ export const COPY = catalogue({
       registrierungslinks: "Registrierungslinks",
       umstellung: "Umstellung",
       /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
-      dangerBox: (draw: boolean, activation: boolean) =>
-        draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung",
+      dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
 
       winPoints: "Punkte pro Sieg",
       drawPoints: "Punkte pro Unentschieden",
@@ -787,13 +786,18 @@ export const COPY = catalogue({
       addressBarred: "Adresse auf der Sperrliste",
       /** The registration links' done line, the rows saying the rest. */
       sentTo: (count: number) => (count === 1 ? "An 1 Team gesendet" : `An ${formatNumber(count)} Teams gesendet`),
-      /** The registration links' send: how many teams it mails, and whether a link one of them holds stops opening. */
-      dispatchConsequence: (count: number, replacing: boolean) => {
-        if (!replacing)
+      /**
+       * The registration links' send: how many teams it mails, and how many of them hold a link that stops opening,
+       * none, all or some.
+       */
+      dispatchConsequence: (count: number, replacing: number) => {
+        if (replacing === 0)
           return count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`;
-        return count === 1
-          ? "1 Team bekommt einen neuen Link, und sein bisheriger gilt nicht mehr."
-          : `${formatNumber(count)} Teams bekommen einen neuen Link, und ihr bisheriger gilt nicht mehr.`;
+        if (replacing === count)
+          return count === 1
+            ? "1 Team bekommt einen neuen Link, und sein bisheriger gilt nicht mehr."
+            : `${formatNumber(count)} Teams bekommen einen neuen Link, und ihr bisheriger gilt nicht mehr.`;
+        return `${formatNumber(count)} Teams bekommen ihren Link per E-Mail, und bei ${formatNumber(replacing)} davon gilt der bisherige nicht mehr.`;
       },
 
       /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
