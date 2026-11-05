@@ -127,7 +127,7 @@ class FLActionLogEntry(BaseModel):
     stand_secured: bool
     modified_count: int | None
     redacted_at: str | None
-    anlass: str | None
+    erasure_reason: str | None
 
     @model_validator(mode="before")
     @classmethod
@@ -191,7 +191,7 @@ class FLAktionRecord(BaseModel):
     before: dict[str, Any] | list[dict[str, Any]] | None
     modified_count: int | None
     redacted_at: str | None
-    anlass: str | None
+    erasure_reason: str | None
 
 
 FLAktionenListAdapter = TypeAdapter(list[FLActionLogEntry])

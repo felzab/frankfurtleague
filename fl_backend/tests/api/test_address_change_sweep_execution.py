@@ -220,7 +220,7 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
         "before": dict(row),
         "modified_count": None,
         "redacted_at": None,
-        "anlass": None,
+        "erasure_reason": None,
     }
 
 

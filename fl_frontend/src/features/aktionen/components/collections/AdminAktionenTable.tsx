@@ -245,9 +245,9 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       {renderDatensatz(aktion)}
       {renderStandBadge(aktion)}
       {/* The request an erasure answered, on each row it filed: the person's own values are gone from them. */}
-      {aktion.anlass !== null && (
+      {aktion.erasure_reason !== null && (
         <span className="muted-meta wrap-break-word">
-          Anlass: <span className="text-foreground">{aktion.anlass}</span>
+          Anlass: <span className="text-foreground">{aktion.erasure_reason}</span>
         </span>
       )}
       {renderAufruf(aktion)}

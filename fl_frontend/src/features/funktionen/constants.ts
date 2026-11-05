@@ -10,10 +10,10 @@ import type React from "react";
 import type { TeamSeat } from "./teamSeats";
 
 /**
- * The erasure's `anlass` bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because the endpoint's
+ * The erasure's `reason` bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because the endpoint's
  * `payload_refused` marks an over-long box with a generic sentence rather than the bound's German.
  */
-export const LOESCHUNG_ANLASS_MAX_LENGTH = 200;
+export const ERASURE_REASON_MAX_LENGTH = 200;
 
 /** `PersonIconName` is derived from this, so an `iconName` typo below is a compile error. */
 export const PERSON_SIDEMENU_ICONS = {

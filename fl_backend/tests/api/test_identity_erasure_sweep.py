@@ -4,7 +4,7 @@ API · the season-after rule's run and its preview, against the shipped indexes 
 The league has two seasons ended, one running and one planned, so the rule keeps a squad row in the
 latest ended one and every later one. Every pupil a case seeds is held against what the rule says of
 them, and every reach claim is asked of the whole database, so a step taken from the run fails here.
-The decisions underneath are `tests/api/test_loeschung_sweep_refusal.py`'s.
+The decisions underneath are `tests/api/test_identity_erasure_sweep_refusal.py`'s.
 """
 
 import asyncio
@@ -64,7 +64,7 @@ from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
 from .conftest import config_for
-from .test_loeschung_sweep_refusal import COMMANDS_A_PERSON, OTHER_COMMANDS
+from .test_identity_erasure_sweep_refusal import COMMANDS_A_PERSON, OTHER_COMMANDS
 
 pytestmark = pytest.mark.db
 
@@ -223,7 +223,7 @@ def refusing_its_redaction(spieler_id: ObjectId) -> dict[str, Any]:
         "before": pupil(spieler_id, "vorher@beispielschule.de"),
         "modified_count": None,
         "redacted_at": None,
-        "anlass": None,
+        "erasure_reason": None,
     }
 
 
@@ -865,7 +865,7 @@ class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_a_full_share(self, mongo_replica_set_url: str):
-        """`tests/api/test_loeschung_sweep_refusal.py`'s budget: a share and one more due, the pending registrations past the first batch.
+        """`tests/api/test_identity_erasure_sweep_refusal.py`'s budget: a share and one more due, pending registrations past the first batch.
 
         A command added to the call turns this red, so the share is judged against the deadline again.
         """

@@ -216,7 +216,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 "before": None,
                 "modified_count": None,
                 "redacted_at": None,
-                "anlass": None,
+                "erasure_reason": None,
             }
         )
     finally:

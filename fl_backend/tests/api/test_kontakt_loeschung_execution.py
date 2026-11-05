@@ -34,7 +34,7 @@ from tests.documents import confirmed_kenntnisnahme, minted_confirmations
 from tests.erasure import erased
 from tests.worker import worker_database
 
-from .test_loeschung_auf_anfrage import revealed
+from .test_identity_erasure_on_request import revealed
 
 DATABASE_NAME = worker_database("fl_kontakt_loeschung_test")
 

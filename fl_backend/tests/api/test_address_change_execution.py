@@ -2381,7 +2381,7 @@ def erase(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
         post_erasure,
         database,
         client,
-        erasure_data=FLErasurePayload(email=email, anlass="Auf Anfrage per Brief"),
+        erasure_data=FLErasurePayload(email=email, reason="Auf Anfrage per Brief"),
         operator=OWNER,
     )
 

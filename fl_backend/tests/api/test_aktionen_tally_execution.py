@@ -74,7 +74,7 @@ def log_row(
         "before": {"name": "Lessing"},
         "modified_count": None,
         "redacted_at": None,
-        "anlass": None,
+        "erasure_reason": None,
     }
 
 

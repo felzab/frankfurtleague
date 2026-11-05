@@ -619,11 +619,11 @@ export interface FLActionLogEntryRequest {
  */
 export interface FLActionLogEntry {
   actor: FLActorWithAddressRow | FLActorPerson;
-  anlass: string | null;
   at: string;
   collection: string;
   db_filter: FLActionLogEntryDbFilter;
   document_id: string | null;
+  erasure_reason: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   modified_count: number | null;
@@ -651,12 +651,12 @@ export type FLActionLogEntryWithBeforeDbFilter = { [key: string]: string } | nul
  */
 export interface FLActionLogEntryWithBefore {
   actor: FLActorWithAddressRow | FLActorPerson;
-  anlass: string | null;
   at: string;
   before: FLActionLogEntryWithBeforeBefore;
   collection: string;
   db_filter: FLActionLogEntryWithBeforeDbFilter;
   document_id: string | null;
+  erasure_reason: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   modified_count: number | null;
@@ -2206,17 +2206,17 @@ export interface FLErasureAddressPayload {
  */
 export interface FLErasurePayload {
   /**
-   * @minLength 1
-   * @maxLength 200
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  anlass: string;
-  /**
    * Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`.
    * @maxLength 254
    * @pattern @
    */
   email: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  reason: string;
 }
 
 /**
