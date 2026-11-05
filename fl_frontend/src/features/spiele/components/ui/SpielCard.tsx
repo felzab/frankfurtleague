@@ -35,7 +35,7 @@ export function SpielCard({
   asListitem = true,
   today,
   isFinishedSaison,
-  confirmations: confirmations,
+  confirmations,
   berichtChip,
 }: {
   spielData: FLSpiel;
@@ -191,7 +191,7 @@ export function SpielCard({
  */
 function AntwortChips({
   spielData,
-  confirmations: confirmations,
+  confirmations,
   austritte,
   today,
 }: {

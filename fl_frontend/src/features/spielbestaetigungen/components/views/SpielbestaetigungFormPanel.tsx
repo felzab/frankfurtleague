@@ -92,14 +92,14 @@ const toTime = (stored: string): Time | null => (stored === "" ? null : parseTim
 /** A refused press as the panel it swaps the form for: an answered link keeps the seat that answered. */
 function spentAbschluss(
   state: SpielbestaetigungLinkZustand,
-  beantwortetVon: FLSpielbestaetigungVon | undefined,
-  termin: FLSpielbestaetigungAppointment | undefined,
+  answeredBy: FLSpielbestaetigungVon | undefined,
+  appointment: FLSpielbestaetigungAppointment | undefined,
 ): SpielbestaetigungAbschluss {
   // As an answered state without its seat: a discard read back without the date it kept claims nothing either.
-  if (state === "discarded") return termin === undefined ? { zustand: "invalid" } : { zustand: state, appointment: termin };
+  if (state === "discarded") return appointment === undefined ? { zustand: "invalid" } : { zustand: state, appointment };
   if (state !== "zugesagt" && state !== "declined") return { zustand: state };
   // A route answering an answered state without its seat is the dead-link panel's: claiming nothing about who answered.
-  return beantwortetVon === undefined ? { zustand: "invalid" } : { zustand: state, answered_by: beantwortetVon };
+  return answeredBy === undefined ? { zustand: "invalid" } : { zustand: state, answered_by: answeredBy };
 }
 
 /**

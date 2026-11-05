@@ -41,7 +41,7 @@ export type AddressChangeStart =
   (Exclude<AddressChangeView, WithoutPress> & { token: string }) | Extract<AddressChangeView, WithoutPress> | { state: "unlesbar" };
 
 /** The read's answer as the page holds it: the side is implied by the state. */
-export function viewOf({ view: view }: Pick<FLAddressChangeViewResponse, "view">): AddressChangeView {
+export function viewOf({ view }: Pick<FLAddressChangeViewResponse, "view">): AddressChangeView {
   if (view.state === "ended") return { state: "ended", side: view.side, art: view.art };
   if (view.side === "previous") {
     if (view.state === "release_open" || view.state === "release_expired") return { state: "invalid" };

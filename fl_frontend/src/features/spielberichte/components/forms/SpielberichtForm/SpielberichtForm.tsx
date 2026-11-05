@@ -74,11 +74,11 @@ export function SpielberichtForm({
   const stepUp = useStepUp();
 
   const eroeffnung = eroeffnungOf(stored, kontext);
-  const { saved: gespeichert } = eroeffnung;
+  const { saved } = eroeffnung;
   const [draft, setDraft] = useState<SpielberichtDraft>(eroeffnung.entwurf);
   const [hasSaved, setHasSaved] = useState(false);
   // Past every stored entry's key, so an added entry never reuses one React still holds.
-  const nextKey = useRef(Math.max(gespeichert.torschuetzen.length, gespeichert.karten.length));
+  const nextKey = useRef(Math.max(saved.torschuetzen.length, saved.karten.length));
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
     // The success's own words negated, the press reading „Speichern“; never „nicht gesendet“, which the register
@@ -88,7 +88,7 @@ export function SpielberichtForm({
       failureTitle: "Spielbericht nicht gespeichert",
     });
 
-  const status = deriveSpielberichtDraftStatus({ context: kontext, stored: gespeichert, draft, fieldErrors });
+  const status = deriveSpielberichtDraftStatus({ context: kontext, stored: saved, draft, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the refreshed report arrives and the two agree.
@@ -105,7 +105,7 @@ export function SpielberichtForm({
   };
 
   const resetDraftToStored = () => {
-    setDraft(gespeichert);
+    setDraft(saved);
     setSubmitFieldErrors({}, {});
   };
 

@@ -89,7 +89,7 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
 
     // Refused rather than listed, in the ban's own order: the ban refuses an address holding a grant or barred already,
     // so its list would be work for nothing.
-    const { admin_tier: admin_tier, barred: barred, ...view } = read;
+    const { admin_tier, barred, ...view } = read;
     if (admin_tier !== null) return refusalResult(verwaltungAmFeld());
     if (barred) return refusalResult(schonGesperrtAmFeld());
 

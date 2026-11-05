@@ -117,22 +117,22 @@ const EINTRAEGE: Eintraege = {
         ],
   // A change the tool refuses this reader carries no link there, its line saying where it opens instead.
   address_change: (addressChange, saisonHref) =>
-    addressChange.map(({ address_change_id: adresswechsel_id, viewable_denied: einsehbar_verwehrt }) =>
-      einsehbar_verwehrt === null
+    addressChange.map(({ address_change_id, viewable_denied }) =>
+      viewable_denied === null
         ? {
             text: "Eine laufende Adressänderung auf diese Adresse",
             verweise: [
               {
                 label: SPERRE_ANSICHT_VERWEISE.adresswechsel,
-                href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${adresswechsel_id}`),
+                href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${address_change_id}`),
               },
             ],
           }
-        : { text: `Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}`, verweise: [] },
+        : { text: `Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[viewable_denied]}`, verweise: [] },
     ),
   // Decided on the administrators page, where whoever may decide one finds it: no link reaches a single request there.
   approval_requests: (antraege) =>
-    antraege.map(({ rolle, admin_tier: admin_tier }) => ({
+    antraege.map(({ rolle, admin_tier }) => ({
       text: `${rolle === "betroffen" ? "Ein offener Antrag für diese Adresse" : "Ein offener Antrag, den diese Adresse gestellt hat"}: ${ANTRAG_WAS[admin_tier]}`,
       verweise: [],
     })),

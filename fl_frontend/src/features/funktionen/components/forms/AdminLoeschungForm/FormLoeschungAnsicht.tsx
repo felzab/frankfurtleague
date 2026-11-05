@@ -36,13 +36,13 @@ function zeilenOf(
   {
     spieler,
     schiedsrichter,
-    seats: sitze,
+    seats,
     bewerbungen,
     registrierungen,
-    own_address_change: eigener_adresswechsel,
-    address_change: adresswechsel,
+    own_address_change,
+    address_change,
     admin_tier,
-    approval_requests: antraege,
+    approval_requests,
   }: FLErasureViewResponse,
   saisonHref: (path: string) => string,
 ): Zeile[] {
@@ -58,7 +58,7 @@ function zeilenOf(
     ...schiedsrichter.map(({ name }) => ({
       text: name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`,
     })),
-    ...sitze.map(({ rolle, team_name, saison_id, vorname, nachname }) => ({
+    ...seats.map(({ rolle, team_name, saison_id, vorname, nachname }) => ({
       text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
     ...bewerbungen.map(({ rolle, saison_id, vorname, nachname }) => ({
@@ -71,25 +71,25 @@ function zeilenOf(
           : `Registrierung bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
     // The address's own change, served only to a reader the address tool admits to it, so its line opens it there.
-    ...(eigener_adresswechsel === null
+    ...(own_address_change === null
       ? []
       : [
           {
             text: EIGENER_ADRESSWECHSEL_ZEILE,
-            href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${eigener_adresswechsel.address_change_id}`),
+            href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${own_address_change.address_change_id}`),
           },
         ]),
     // A pending change names no person of its own, so its line opens the change in the address tool, or says why the
     // tool would refuse this reader and where it opens instead.
-    ...adresswechsel.map(({ address_change_id: adresswechsel_id, viewable_denied: einsehbar_verwehrt }) =>
-      einsehbar_verwehrt === null
-        ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) }
-        : { text: `${ADRESSWECHSEL_ZEILE}. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}` },
+    ...address_change.map(({ address_change_id, viewable_denied }) =>
+      viewable_denied === null
+        ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/area/admin/adresswechsel?adresswechsel=${address_change_id}`) }
+        : { text: `${ADRESSWECHSEL_ZEILE}. ${EINSEHBAR_VERWEHRT[viewable_denied]}` },
     ),
     ...(admin_tier === null
       ? []
       : [{ text: admin_tier === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung" }]),
-    ...antraege.map(({ rolle, admin_tier: beantragt }) => ({ text: `${ANTRAG_ZEILE[rolle]}: ${ANTRAG_WAS[beantragt]}` })),
+    ...approval_requests.map(({ rolle, admin_tier: beantragt }) => ({ text: `${ANTRAG_ZEILE[rolle]}: ${ANTRAG_WAS[beantragt]}` })),
   ];
 }
 

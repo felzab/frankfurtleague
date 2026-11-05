@@ -215,7 +215,7 @@ function AblehnenButton({ antwort }: { antwort: Presse }) {
 
 const AKTIONEN_CLASSES = "flex w-full flex-col items-stretch gap-2 sm:flex-row sm:justify-end";
 
-function AntwortPanel({ gueltigBis, way: way, antwort }: { gueltigBis: string; way: FLAddressChangeWay; antwort: Presse }) {
+function AntwortPanel({ gueltigBis, way, antwort }: { gueltigBis: string; way: FLAddressChangeWay; antwort: Presse }) {
   const { sende, isPending, gedrueckt } = antwort;
 
   return (
@@ -292,7 +292,7 @@ function stoppSatz(zustand: OldViewPreviousState, way: FLAddressChangeWay, wirks
  */
 function StoppPanel({
   zustand,
-  way: way,
+  way,
   wirksamAb,
   antwort,
 }: {

@@ -25,7 +25,7 @@ const EINLEITUNG = [
   "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
 ] as const;
 
-export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSaisonId }: FLBanData, { origin }: MailOrigin): Mail {
+export function buildSperreEmail({ grund, barred_until_saison_id }: FLBanData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: "Deine E-Mail-Adresse ist gesperrt",
@@ -37,7 +37,7 @@ export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSai
         // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held.
         "Bestehende Anmeldungen mit dieser Adresse werden beendet.",
         // INCLUSIVE, where a bare „bis“ is not: a reader told the ban ends „bis 2031“ reads the whole of that season as free.
-        [{ strong: `Die Sperre gilt bis einschließlich der Saison ${gesperrtBisSaisonId}.` }],
+        [{ strong: `Die Sperre gilt bis einschließlich der Saison ${barred_until_saison_id}.` }],
         // What the form's hint promises the mail explains, so the two say one thing.
         "Danach endet die Sperre von selbst. Du musst dafür nichts tun.",
       ],

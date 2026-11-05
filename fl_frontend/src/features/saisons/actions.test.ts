@@ -253,7 +253,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* Which panel the answer sends the admin to follows the request: a first draw carries no numbers,
      a replace carries its own, and the action reads that off what it sent. */
   it("answers the draw's refusals for the panel the request took its numbers from", async () => {
-    const { number_of_gruppen: number_of_gruppen, teams_per_gruppe: teams_per_gruppe, qualifiers_per_gruppe: qualifiers_per_gruppe } = RULES;
+    const { number_of_gruppen, teams_per_gruppe, qualifiers_per_gruppe } = RULES;
 
     for (const [payload, carriedShape] of [
       [{ id: SAISON_ID }, false],

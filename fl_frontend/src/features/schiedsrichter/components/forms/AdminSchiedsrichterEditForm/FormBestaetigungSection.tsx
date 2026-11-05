@@ -49,7 +49,7 @@ const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.
 function LinkStand({
   confirmation: bestaetigung,
   offenUndAbgelaufen,
-  delivery: delivery,
+  delivery,
 }: {
   confirmation: FLConfirmation;
   offenUndAbgelaufen: boolean;
@@ -113,7 +113,7 @@ export function FormBestaetigungSection({
   isRetired,
   confirmation: bestaetigung,
   istAbgelaufen,
-  delivery: delivery,
+  delivery,
   einwilligung,
   geburtsdatum,
   isDirty,

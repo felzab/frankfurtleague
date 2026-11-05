@@ -186,7 +186,7 @@ export function kontakteEditorKey(
 ): string {
   const team = { id, name, shorthand, inactive_since };
   if (membership === null) return JSON.stringify({ team, saison, membership });
-  const { confirmations: _bestaetigungen, address_change: _address_change, ...gesaet } = membership;
+  const { confirmations: _confirmations, address_change: _address_change, ...gesaet } = membership;
 
   return JSON.stringify({ team, saison, membership: gesaet });
 }

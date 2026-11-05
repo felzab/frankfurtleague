@@ -217,7 +217,7 @@ export function toWebsiteUrl(typed: string): string | null {
  * because the empty offer is a boundary a test can exercise without rendering.
  */
 export function offeredTrikotFarben({
-  taken: taken,
+  taken,
   value,
 }: {
   taken: readonly FLTrikotFarbe[];

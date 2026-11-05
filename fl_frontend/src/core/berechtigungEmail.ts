@@ -75,7 +75,7 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
 /** The change's sentence, a named address set in the emphasis grade. */
-function aenderungsSatz({ art, adresse, owner: owner }: Zugangsaenderung): readonly Run[] {
+function aenderungsSatz({ art, adresse, owner }: Zugangsaenderung): readonly Run[] {
   const subject: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.withheld];
 
   switch (art) {

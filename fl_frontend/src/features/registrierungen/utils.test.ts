@@ -192,8 +192,8 @@ describe("what one refused submission shows", () => {
  * A link's own read as the handler hands it: an open link at these floors, or `null` where the read failed. The
  * media floor is one no link is served today.
  */
-const floorOf = (jahre: number | null, medienJahre = 21) =>
-  readOf(jahre === null ? null : { zustand: "valid", ansicht: { minimum_age: jahre, media_minimum_age: medienJahre } });
+const floorOf = (minimumAge: number | null, mediaMinimumAge = 21) =>
+  readOf(minimumAge === null ? null : { zustand: "valid", ansicht: { minimum_age: minimumAge, media_minimum_age: mediaMinimumAge } });
 
 /** A link's own read answering `link`, counting how often it was asked. */
 const readOf = (link: GelesenerLink | null) => {

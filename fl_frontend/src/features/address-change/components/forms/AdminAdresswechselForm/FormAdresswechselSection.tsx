@@ -56,12 +56,12 @@ const ZAEHLER: readonly (readonly [keyof Omit<FLAddressChangeAdminHoldings, "gra
   ["registrierungen", "Eine Registrierung", "Registrierungen"],
 ];
 
-function bestandZeilen({ grant: berechtigung, ...count }: FLAddressChangeAdminHoldings): string[] {
+function bestandZeilen({ grant, ...count }: FLAddressChangeAdminHoldings): string[] {
   const zeilen = ZAEHLER.filter(([feld]) => count[feld] > 0).map(([feld, eins, viele]) =>
     count[feld] === 1 ? eins : `${String(count[feld])} ${viele}`,
   );
-  if (berechtigung !== null) {
-    zeilen.push(berechtigung === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung");
+  if (grant !== null) {
+    zeilen.push(grant === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung");
   }
   return zeilen;
 }

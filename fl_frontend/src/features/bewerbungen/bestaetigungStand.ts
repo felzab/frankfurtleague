@@ -41,23 +41,23 @@ export type SitzBestaetigung = {
 
 /** Each seat's state, in the label table's order. */
 export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] {
-  const { confirmations: confirmations, kontakte, status } = bewerbung;
+  const { confirmations, kontakte, status } = bewerbung;
 
   // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's, which
   // every admin section is ordered by (`docs/decisions.md`, **admin**).
   return KONTAKT_ROLLEN.map(({ value, label }) => {
     const person = kontakte[value];
     const verlauf = confirmations[value];
-    const bestaetigtAm = person?.einwilligung.confirmed_at ?? null;
-    const abgelehntAm = verlauf?.declined_at ?? null;
+    const confirmedAt = person?.einwilligung.confirmed_at ?? null;
+    const declinedAt = verlauf?.declined_at ?? null;
 
     // The stamp on the record wins over the block: a seat confirms once, and the block goes on
     // carrying the day its link went out.
     const stand: Stand =
-      bestaetigtAm !== null
-        ? { art: "confirmed", at: bestaetigtAm }
-        : abgelehntAm !== null
-          ? { art: "declined", at: abgelehntAm }
+      confirmedAt !== null
+        ? { art: "confirmed", at: confirmedAt }
+        : declinedAt !== null
+          ? { art: "declined", at: declinedAt }
           : // Either half missing is terminal, and `ausstehend` is left holding only the seats a link
             // can still reach: the endpoint refuses to mint against a null entry, and a null slot
             // names nobody who could answer one.
