@@ -127,6 +127,23 @@ def booked_image_edits(image: Mapping[str, Any], schiedsrichter_id: Any) -> dict
     return {**build_ghost_repoint()["$set"], **({"schiedsrichter.name": None} if "name" in booking else {})}
 
 
+def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`duplicate_key` on the name: another referee, a retired one included, holds it.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
+    answers a race between two writes, as `duplicate_key` with no field.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.DUPLICATE_KEY,
+        status=HTTPStatus.CONFLICT,
+        fields=(("name",),),
+    )
+
+
 def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
     """The day already stamped, or today.
 

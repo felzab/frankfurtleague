@@ -3044,7 +3044,8 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
  * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
- * Refused `schiedsrichter_address_barred` where the address given is on the ban list.
+ * Refused where another referee holds the name (`duplicate_key`, naming `name`), then
+ * `schiedsrichter_address_barred` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichter = async (
@@ -3335,6 +3336,8 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
  * `schiedsrichter_address_barred`.
+ *
+ * Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.

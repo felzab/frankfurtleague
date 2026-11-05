@@ -294,6 +294,27 @@ class TestTheCreateIsTheInvitation:
         assert on_a_league(mongo_replica_set_url, body, referees=[]).error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
 
 
+class TestANameAnotherRefereeHolds:
+    def test_the_create_and_the_save_are_refused_on_the_name_box(self, mongo_replica_set_url: str):
+        """Refused by the index alone, the duplicate names no field, and the editor shows a failure line naming no reason."""
+
+        holder = referee_document(_id=ObjectId("6890a1b2c3d4e5f607810002"), kontakt={"telefon": None, "email": "andere@example.com"})
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as created:
+                await create(database, client, email="neu@example.com")
+            with pytest.raises(APIError) as saved:
+                await correct(database, client, email=EMAIL)
+
+            return created.value, saved.value, await database[Collection.SCHIEDSRICHTER].count_documents({})
+
+        # The referee the save edits under another name, beside the one holding the name every payload here sends.
+        created, saved, rows = on_a_league(mongo_replica_set_url, body, referees=[referee_document(name="Howard Webb"), holder])
+
+        assert [(refused.error_code, refused.fields) for refused in (created, saved)] == [(Code.DUPLICATE_KEY, (("name",),))] * 2
+        assert rows == 2
+
+
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
     """The ruled behaviour: the old link was posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox."""
 
