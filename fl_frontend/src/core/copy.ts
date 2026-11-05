@@ -659,6 +659,8 @@ export const COPY = catalogue({
 
     /** A referee's fee for a match: the referee's own default, and a match's booking. */
     honorar: "Honorar",
+    /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
+    facts: { before: "Bisher", after: "Neu", fromNow: "Ab sofort", mailTo: "E-Mail an" },
     /** A venue's and a referee's danger box, holding the act retiring the record or bringing it back. */
     stilllegung: "Stilllegung",
 
@@ -789,6 +791,8 @@ export const COPY = catalogue({
       isCurrent: "Die Website zeigt diese Saison.",
       onto: (saison: string) => `Auf ${saisonName(saison)}`,
       activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${saisonName(saison)}.`,
+      /** The activation's question, over the season the site leaves and the one it takes. */
+      activateQuestion: "Die Website wechselt die Saison.",
       /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
       unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
       undated: "Diese Saison hat noch Spieltage ohne Datum.",

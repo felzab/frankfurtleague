@@ -5,7 +5,7 @@ import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
 import { isRecordMissing } from "@/core/errors";
-import { dayOf, timeOf } from "@/core/format";
+import { dayOf, formatList, timeOf } from "@/core/format";
 import { saisonsGetSaisonOverview } from "@/core/generated/client/sdk";
 import {
   SpielbestaetigungenEnterSpielbestaetigungBody,
@@ -32,6 +32,7 @@ type Props = PageProps<"/admin/saisons/[saison]">;
 
 const WORDS = SERVER_COPY.overview;
 const SPIEL = COPY.admin.spiel;
+const FACTS = COPY.admin.facts;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
@@ -49,6 +50,10 @@ function clubOf(spiel: FLSpielJoinedAdmin, teamId: string): Words | null {
   const side = [spiel.team1, spiel.team2].find((team) => team?.team_id === teamId);
   return side === undefined || side === null ? null : { record: side.name };
 }
+
+/** Everybody a move mails „Spiel verlegt“: both clubs and the booked referee, by the names the fixture holds. */
+const partiesOf = (spiel: FLSpielJoinedAdmin): string[] =>
+  [spiel.team1?.name, spiel.team2?.name, spiel.schiedsrichter?.name].filter((name): name is string => typeof name === "string");
 
 /** A stored day and hour as the catalogue's sentences take a slot. */
 const slotOf = (datum: string | null, uhrzeit: string | null) => ({ day: dayOf(datum), time: timeOf(uhrzeit) });
@@ -146,13 +151,28 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
       const team = clubOf(spiel, row.team_id);
       const proposed = slotOf(row.vorschlag.datum, row.vorschlag.uhrzeit);
       const current = slotOf(spiel.datum, spiel.uhrzeit);
+      const [from, to] = [COPY.spielplan.when(current.day, current.time), COPY.spielplan.when(proposed.day, proposed.time)];
       return {
-        line: WORDS.proposal(COPY.spielplan.when(proposed.day, proposed.time), team),
+        line: WORDS.proposal(to, team),
         acts: (
           <VorschlagActs
             id={row.spielbestaetigung_id}
-            adoptConsequence={WORDS.adoptConsequence(current, proposed)}
-            discardConsequence={WORDS.discardConsequence(current, team ?? nameOf(spiel))}
+            adopt={{
+              consequence: WORDS.adoptConsequence,
+              facts: [
+                { label: FACTS.before, value: from },
+                { label: FACTS.after, value: to },
+                { label: FACTS.mailTo, value: { record: formatList(partiesOf(spiel)) } },
+              ],
+            }}
+            discard={{
+              consequence: WORDS.discardConsequence,
+              facts: [
+                { label: SPIEL.termin, value: from },
+                { label: SPIEL.proposal, value: to },
+                { label: FACTS.mailTo, value: team ?? nameOf(spiel) },
+              ],
+            }}
           />
         ),
       };

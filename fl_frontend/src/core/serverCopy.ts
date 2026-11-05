@@ -2,10 +2,10 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatDatumLong, formatDayAndTime, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDatum, formatDatumLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
-import type { CalendarDay, Uhrzeit } from "./format";
+import type { CalendarDay } from "./format";
 import type { Code, FLBookingResource, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
@@ -24,9 +24,6 @@ const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
-// A fixture's slot inside a sentence, „14. März 2027 um 15:30“, or as its row writes it while it lacks either half.
-type Slot = { day: CalendarDay | null; time: Uhrzeit | null };
-const momentOf = ({ day, time }: Slot) => (day === null || time === null ? COPY.spielplan.when(day, time) : formatDayAndTime(day, time));
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
@@ -218,11 +215,10 @@ export const SERVER_COPY = catalogue({
         string
       >,
     },
-    /** „Übernehmen“'s consequence, by the fixture's slot and the proposed one, each a moment in a sentence. */
-    adoptConsequence: (from: Slot, to: Slot) =>
-      `Das Spiel wird vom ${momentOf(from)} auf den ${momentOf(to)} verlegt, und alle Beteiligten bekommen „Spiel verlegt“.`,
-    /** „Verwerfen“'s, by the slot the fixture keeps and the club that proposed another. */
-    discardConsequence: (at: Slot, team: Words) => `Das Spiel bleibt am ${momentOf(at)}, und ${textOf(team)} bekommt „Termin bleibt“.`,
+    /** „Übernehmen“'s sentence, over the two slots and whom „Spiel verlegt“ goes to. */
+    adoptConsequence: "Das Spiel wird verlegt.",
+    /** „Verwerfen“'s, over the slot the fixture keeps, the one proposed and the club „Termin bleibt“ goes to. */
+    discardConsequence: "Der Termin bleibt.",
   },
 
   /**

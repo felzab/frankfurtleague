@@ -62,6 +62,8 @@ export type SaisonFacts = {
   takenPlace: boolean;
   /** The site shows this season. */
   isCurrent: boolean;
+  /** The season the site shows, which the switch onto this one leaves; `null` before the league's first. */
+  siteShows: string | null;
   spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay } | null;
   /** Why each danger act cannot run now, by the refusal its write would answer, which the read serves. */
   blocked: { activate?: Copy; recreate?: Copy; undraw?: Copy };
@@ -522,6 +524,15 @@ export function SaisonEditor({
     },
   ];
 
+  // What the draw's regeneration and its removal delete, which each question counts under its sentence.
+  const drawCounts =
+    facts.spielplan === null
+      ? []
+      : [
+          { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
+          { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
+        ];
+
   const danger: DangerAct[] = [
     ...(drawn
       ? [
@@ -534,6 +545,7 @@ export function SaisonEditor({
               verb: "recreate",
               subject: SPIELPLAN,
               consequence: WORDS.recreateConsequence,
+              facts: drawCounts,
               tone: "danger",
               onConfirm: () => acts.recreate(of),
             },
@@ -547,6 +559,7 @@ export function SaisonEditor({
               verb: "delete",
               subject: SPIELPLAN,
               consequence: WORDS.deleteConsequence,
+              facts: drawCounts,
               tone: "danger",
               onConfirm: () => acts.undraw(of),
             },
@@ -565,7 +578,14 @@ export function SaisonEditor({
             confirm: {
               verb: "activate",
               subject: WORDS.onto(saison),
-              consequence: WORDS.activateConsequence(saison),
+              consequence: WORDS.activateQuestion,
+              facts: [
+                {
+                  label: COPY.admin.facts.before,
+                  value: facts.siteShows === null ? COPY.shared.noValue : COPY.shared.saisonName(facts.siteShows),
+                },
+                { label: COPY.admin.facts.fromNow, value: COPY.shared.saisonName(saison) },
+              ],
               tone: "primary",
               onConfirm: () => acts.activate(of),
             },

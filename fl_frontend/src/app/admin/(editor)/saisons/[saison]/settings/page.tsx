@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { getAdminSaison } from "@/features/saisons/queries";
+import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
 import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -86,8 +86,10 @@ export default function SaisonSettingsPage({ params }: Props) {
 }
 
 async function readEditor(params: Props["params"]) {
-  const [{ saison, teams, incoming_clubs, shapes, refusals, invitations }, judged] = await Promise.all([
+  // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
+  const [{ saison, teams, incoming_clubs, shapes, refusals, invitations }, { saisons }, judged] = await Promise.all([
     readSaison(params),
+    getAdminSaisons(),
     judgeAdminRequest(),
   ]);
   // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in
@@ -108,6 +110,7 @@ async function readEditor(params: Props["params"]) {
         begun: saison.begun,
         takenPlace: saison.taken_place,
         isCurrent: saison.status === "active",
+        siteShows: saisons.find((listed) => listed.status === "active")?.id ?? null,
         spielplan:
           saison.spielplan === null
             ? null
