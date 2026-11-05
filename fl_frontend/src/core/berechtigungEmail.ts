@@ -126,7 +126,7 @@ function adresseOf(data: FLGrantData, stand: FLGrantSnapshot | null): string | V
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
 function zugangsaenderungOf(data: FLGrantData): Zugangsaenderung {
-  const stand = data.change === "revoked" ? data.before : data.now;
+  const stand = data.change === "revoked" ? data.before : data.current;
 
   return { art: data.change, adresse: adresseOf(data, stand), owner: stand?.admin_tier === "owner" };
 }
