@@ -137,7 +137,7 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03") -> dict[str, A
         email=email,
         telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
-        einwilligung={"datum": "2026-09-01", "media": True},
+        einwilligung={"date": "2026-09-01", "media": True},
     )
 
 
@@ -162,7 +162,7 @@ def _registrierung(
 ) -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
-    chosen: dict[str, Any] = {"umfang": "kader_oeffentlich", "media": True} if seite == "bestaetigung_spieler" else {}
+    chosen: dict[str, Any] = {"scope": "kader_oeffentlich", "media": True} if seite == "bestaetigung_spieler" else {}
     confirmed = (
         None
         if seite is None
@@ -293,11 +293,11 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "registrierung_id": str(REGISTRIERUNG_NEW),
         "team_name": "Schule3",
         "saison_id": ACTIVE,
-        "umfang": "kader_oeffentlich",
+        "scope": "kader_oeffentlich",
         "media": True,
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
         "geburtsdatum": "2008-05-09",
     }
-    assert set(entry["evidence_state"]) == {"umfang", "media"}
+    assert set(entry["evidence_state"]) == {"scope", "media"}
     assert all(isinstance(value, str) for value in entry["evidence_state"].values())

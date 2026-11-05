@@ -242,8 +242,8 @@ class TestWhatASubmissionStores:
             # Born with the applicant's acknowledgement, naming the application as who seated the
             # person, and no evidence: no person has set a choice yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
-                "umfang": "kontaktdaten",
-                "datum": TODAY,
+                "scope": "kontaktdaten",
+                "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
                 "entered_by": "bewerbung",

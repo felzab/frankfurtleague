@@ -116,7 +116,7 @@ function referee(name, schule, payment, email, inactiveSince) {
 // label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
 // kind shares.
 const CONSENTED = day(-60);
-const LABELS = { umfang: "2026-11-name-kader-1", media: "2026-11-medien-1" };
+const LABELS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" };
 
 // A journey's person: a referee no fixture books, as their own confirmation leaves the row
 // (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
@@ -130,11 +130,11 @@ function journeyPerson(name, email) {
     ...referee(name, null, 20, email, null),
     geburtsdatum: day(-20 * 365),
     einwilligung: {
-      umfang: "intern",
-      datum: CONSENTED,
+      scope: "intern",
+      date: CONSENTED,
       confirmed_at: CONSENTED,
       media: false,
-      evidence: { umfang: evidence("2026-11-name-spielplan-1"), media: evidence(LABELS.media) },
+      evidence: { scope: evidence("2026-11-name-spielplan-1"), media: evidence(LABELS.media) },
     },
   };
 }
@@ -454,11 +454,11 @@ function pupil(vorname, nachname) {
     email: `${vorname}.${nachname}@schule.example`.toLowerCase(),
     geburtsdatum: day(-16 * 365),
     einwilligung: {
-      umfang: "kader_oeffentlich",
-      datum: CONSENTED,
+      scope: "kader_oeffentlich",
+      date: CONSENTED,
       confirmed_at: CONSENTED,
       media: false,
-      evidence: { umfang: evidence("umfang"), media: evidence("media") },
+      evidence: { scope: evidence("scope"), media: evidence("media") },
     },
     inactive_since: null,
   };

@@ -332,7 +332,7 @@ export interface FLAccountAddressChangeResponse {
  */
 export interface FLEinwilligungState {
   media: string | null;
-  umfang: string | null;
+  scope: string | null;
 }
 
 export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
@@ -343,9 +343,9 @@ export const FLKontaktRolle = {
   stellvertretung: "stellvertretung",
 } as const;
 
-export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
+export type FLKontaktKenntnisnahmeScope = (typeof FLKontaktKenntnisnahmeScope)[keyof typeof FLKontaktKenntnisnahmeScope];
 
-export const FLKontaktKenntnisnahmeUmfang = {
+export const FLKontaktKenntnisnahmeScope = {
   kontaktdaten: "kontaktdaten",
   kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
@@ -364,12 +364,12 @@ export interface FLAccountBewerbungSeatEinwilligung {
   rollen: FLKontaktRolle[];
   saison_id: string;
   schule: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
+  scope: FLKontaktKenntnisnahmeScope;
 }
 
-export type FLEinwilligungUmfang = (typeof FLEinwilligungUmfang)[keyof typeof FLEinwilligungUmfang];
+export type FLEinwilligungScope = (typeof FLEinwilligungScope)[keyof typeof FLEinwilligungScope];
 
-export const FLEinwilligungUmfang = {
+export const FLEinwilligungScope = {
   kader_oeffentlich: "kader_oeffentlich",
   intern: "intern",
 } as const;
@@ -382,24 +382,24 @@ export const FLEinwilligungUmfang = {
  */
 export interface FLAccountEinwilligung {
   media: boolean;
-  umfang: FLEinwilligungUmfang;
+  scope: FLEinwilligungScope;
 }
 
 export interface FLEinwilligungStatePayload {
   media: string | null;
-  umfang: string | null;
+  scope: string | null;
 }
 
 export type FLCitedMediaTextVersion = "2026-11-medien-1";
 
-export type FLSpielerUmfangTextVersion = "2026-11-name-kader-1";
+export type FLSpielerScopeTextVersion = "2026-11-name-kader-1";
 
 /**
  * A pupil's two wordings: the name on the squad and the media switch.
  */
 export interface FLSpielerTextVersions {
   media: FLCitedMediaTextVersion;
-  umfang: FLSpielerUmfangTextVersion;
+  scope: FLSpielerScopeTextVersion;
 }
 
 /**
@@ -408,8 +408,8 @@ export interface FLSpielerTextVersions {
 export interface FLAccountEinwilligungPayload {
   evidence_state: FLEinwilligungStatePayload;
   media: boolean;
+  scope: FLEinwilligungScope;
   text_versions: FLSpielerTextVersions;
-  umfang: FLEinwilligungUmfang;
 }
 
 /**
@@ -423,8 +423,8 @@ export interface FLAccountRegistrierungEinwilligung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
   saison_id: string;
+  scope: FLEinwilligungScope | null;
   team_name: string | null;
-  umfang: FLEinwilligungUmfang | null;
   vorname: string;
 }
 
@@ -467,10 +467,10 @@ export interface FLAccountSeatEinwilligung {
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
+  scope: FLKontaktKenntnisnahmeScope;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
 /**
@@ -1236,12 +1236,12 @@ export const FLKontaktEnteredBy = {
   liga: "liga",
 } as const;
 
-export type FLSeatUmfangTextVersion = "2026-11-whatsapp-1";
+export type FLSeatScopeTextVersion = "2026-11-whatsapp-1";
 
-export type FLSchiedsrichterUmfangTextVersion = "2026-11-name-spielplan-1";
+export type FLSchiedsrichterScopeTextVersion = "2026-11-name-spielplan-1";
 
 export type FLEinwilligungTextVersion =
-  FLSeatUmfangTextVersion | FLSpielerUmfangTextVersion | FLSchiedsrichterUmfangTextVersion | FLCitedMediaTextVersion;
+  FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion;
 
 /**
  * When a person set one consent choice, and under which wording.
@@ -1265,7 +1265,7 @@ export interface FLEinwilligungEvidence {
  */
 export interface FLEinwilligungEvidenceSet {
   media: FLEinwilligungEvidence | null;
-  umfang: FLEinwilligungEvidence | null;
+  scope: FLEinwilligungEvidence | null;
 }
 
 /**
@@ -1278,11 +1278,11 @@ export interface FLEinwilligungEvidenceSet {
 export interface FLKontaktKenntnisnahme {
   confirmed_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  datum: string;
+  date: string;
   entered_by: FLKontaktEnteredBy;
   evidence: FLEinwilligungEvidenceSet;
   media: boolean;
-  umfang: FLKontaktKenntnisnahmeUmfang;
+  scope: FLKontaktKenntnisnahmeScope;
 }
 
 /**
@@ -1464,7 +1464,7 @@ export interface FLBewerbungEinwilligungDeclined {
  */
 export interface FLSeatTextVersions {
   media: FLCitedMediaTextVersion;
-  umfang: FLSeatUmfangTextVersion;
+  scope: FLSeatScopeTextVersion;
 }
 
 /**
@@ -2183,10 +2183,10 @@ export interface FLEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   confirmed_at: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  datum: string;
+  date: string;
   evidence: FLEinwilligungEvidenceSet;
   media: boolean;
-  umfang: FLEinwilligungUmfang;
+  scope: FLEinwilligungScope;
 }
 
 /**
@@ -3007,8 +3007,8 @@ export interface FLKontaktInviteResponse {
 
 export interface FLKontaktKenntnisnahmePayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  datum: string;
-  umfang: "kontaktdaten";
+  date: string;
+  scope: "kontaktdaten";
 }
 
 /**
@@ -4065,17 +4065,17 @@ export interface FLRegistrierungDecisionRow {
 }
 
 /**
- * A pending registration's consent record, each choice and `datum` optional here alone.
+ * A pending registration's consent record, each choice and `date` optional here alone.
  *
  * A returning pupil's page asks no choice.
  */
 export interface FLRegistrierungEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   confirmed_at: string;
-  datum: string | null;
+  date: string | null;
   evidence: FLEinwilligungEvidenceSet;
   media: boolean | null;
-  umfang: FLEinwilligungUmfang | null;
+  scope: FLEinwilligungScope | null;
 }
 
 /**
@@ -4144,6 +4144,7 @@ export interface FLRegistrierungAdmitPayload {
 export interface FLRegistrierungConfirmationPayload {
   geburtsdatum: string | null;
   media: boolean | null;
+  scope: FLEinwilligungScope | null;
   text_versions: FLSpielerTextVersions | null;
   /**
    * @minLength 1
@@ -4151,7 +4152,6 @@ export interface FLRegistrierungConfirmationPayload {
    * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
-  umfang: FLEinwilligungUmfang | null;
 }
 
 /**
@@ -4161,7 +4161,7 @@ export interface FLRegistrierungConfirmationResponse {
   ergebnis: "confirmed";
   geburtsdatum: string | null;
   media: boolean | null;
-  umfang: FLEinwilligungUmfang | null;
+  scope: FLEinwilligungScope | null;
 }
 
 export type FLRegistrierungConfirmationViewResponseSeite =
@@ -4472,7 +4472,7 @@ export interface FLSchiedsrichter {
  */
 export interface FLSchiedsrichterTextVersions {
   media: FLCitedMediaTextVersion;
-  umfang: FLSchiedsrichterUmfangTextVersion;
+  scope: FLSchiedsrichterScopeTextVersion;
 }
 
 /**
@@ -4481,8 +4481,8 @@ export interface FLSchiedsrichterTextVersions {
 export interface FLSchiedsrichterAccountEinwilligungPayload {
   evidence_state: FLEinwilligungStatePayload;
   media: boolean;
+  scope: FLEinwilligungScope;
   text_versions: FLSchiedsrichterTextVersions;
-  umfang: FLEinwilligungUmfang;
 }
 
 export type FLSchiedsrichterConfirmationFristDays = 14;
@@ -4491,6 +4491,7 @@ export interface FLSchiedsrichterConfirmationPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   geburtsdatum: string;
   media: boolean;
+  scope: FLEinwilligungScope;
   text_versions: FLSchiedsrichterTextVersions;
   /**
    * @minLength 1
@@ -4498,7 +4499,6 @@ export interface FLSchiedsrichterConfirmationPayload {
    * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
-  umfang: FLEinwilligungUmfang;
 }
 
 /**
@@ -4511,7 +4511,7 @@ export interface FLSchiedsrichterConfirmationResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   confirmed_at: string;
   media: boolean;
-  umfang: FLEinwilligungUmfang;
+  scope: FLEinwilligungScope;
 }
 
 /**
@@ -4585,8 +4585,8 @@ export interface FLSchiedsrichterSingleResponse {
 export interface FLSeatEinwilligungPayload {
   evidence_state: FLEinwilligungStatePayload;
   media: boolean;
+  scope: FLKontaktKenntnisnahmeScope;
   text_versions: FLSeatTextVersions;
-  umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
 /**

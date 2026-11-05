@@ -56,7 +56,7 @@ from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
     FLKontaktEnteredBy,
-    FLKontaktKenntnisnahmeUmfang,
+    FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
     FLSchulform,
     FLSortOrder,
@@ -127,8 +127,8 @@ class FLAustrittPayload(FLAustritt):
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
 # both on every write path, and a payload declaring either is a route to an answer nobody gave.
 class _KontaktKenntnisnahmeWritable(BaseModel):
-    umfang: Literal["kontaktdaten"]
-    datum: CustomDateString
+    scope: Literal["kontaktdaten"]
+    date: CustomDateString
 
 
 class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
@@ -139,11 +139,11 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     (`docs/glossary.md :: Einwilligung`).
     """
 
-    umfang: FLKontaktKenntnisnahmeUmfang
+    scope: FLKontaktKenntnisnahmeScope
     # The day this person confirmed the seat themselves; null until they do.
     confirmed_at: CustomOptionalDateString
     # The one consent on this record, to photographs, video and interviews, and on the READ model
-    # alone for `umfang`'s reason.
+    # alone for `scope`'s reason.
     media: bool
     # Written once, by the write that seats the person, and moved by nothing else: who seated them,
     # the applicant or the league.

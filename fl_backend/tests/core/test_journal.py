@@ -42,8 +42,8 @@ LINES = {
         collection=Collection.SPIELER,
         record_id=RECORD,
         at=AT,
-        text_versions={"umfang": "2026-11-name-kader-1", "media": "2026-11-medien-1"},
-        choices={"umfang": "intern", "media": False},
+        text_versions={"scope": "2026-11-name-kader-1", "media": "2026-11-medien-1"},
+        choices={"scope": "intern", "media": False},
     ),
     "a Widerspruch": JournalLine(
         person_hash=PERSON, art="objection", collection=Collection.BEWERBUNGEN, record_id=RECORD, at=AT, seats=("trainer", "ansprechperson")
@@ -78,8 +78,8 @@ def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     assert LINES["an erasure naming no holder"].text() == f"{JOURNAL_TOKEN} {PERSON} erasure pseudonym={PSEUDONYM}"
     assert LINES["an older erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} erasure"
     assert LINES["a withdrawal"].text() == (
-        f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at={AT} text_version.umfang=2026-11-name-kader-1 "
-        "text_version.media=2026-11-medien-1 umfang=intern media=false"
+        f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at={AT} text_version.scope=2026-11-name-kader-1 "
+        "text_version.media=2026-11-medien-1 scope=intern media=false"
     )
     assert (
         LINES["an address change taking effect"].text()
@@ -111,11 +111,11 @@ def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
             f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at={AT} text_version.media=2026-11-medien-1 media=true", id="a grant"
         ),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at={AT} text_version.umfang=2026-11-name-kader-1 umfang=x@y.de",
+            f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at={AT} text_version.scope=2026-11-name-kader-1 scope=x@y.de",
             id="an address as a value",
         ),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at=2026-10-15T10:00:00 text_version.umfang=v umfang=intern", id="no offset"
+            f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at=2026-10-15T10:00:00 text_version.scope=v scope=intern", id="no offset"
         ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection spieler/{RECORD} at={AT} seats=trainer", id="a Widerspruch on a pupil"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection bewerbungen/{RECORD} at={AT}", id="a Widerspruch naming no seat"),
@@ -170,11 +170,11 @@ def test_a_line_nothing_could_replay_is_refused_rather_than_read(message: str):
 @pytest.mark.parametrize(
     ("collection", "labels"),
     [
-        pytest.param(Collection.SPIELER, {"umfang": "2026-11-name-kader-1", "media": "2026-11-medien-1"}, id="a pupil"),
-        pytest.param(Collection.REGISTRIERUNGEN, {"umfang": "2026-11-name-kader-1", "media": "2026-11-medien-1"}, id="a registration"),
-        pytest.param(Collection.SCHIEDSRICHTER, {"umfang": "2026-11-name-spielplan-1", "media": "2026-11-medien-1"}, id="a referee"),
-        pytest.param(Collection.SAISON_TEAMS, {"umfang": "2026-11-whatsapp-1", "media": "2026-11-medien-1"}, id="a contact seat"),
-        pytest.param(Collection.BEWERBUNGEN, {"umfang": "2026-11-whatsapp-1", "media": "2026-11-medien-1"}, id="an application's seat"),
+        pytest.param(Collection.SPIELER, {"scope": "2026-11-name-kader-1", "media": "2026-11-medien-1"}, id="a pupil"),
+        pytest.param(Collection.REGISTRIERUNGEN, {"scope": "2026-11-name-kader-1", "media": "2026-11-medien-1"}, id="a registration"),
+        pytest.param(Collection.SCHIEDSRICHTER, {"scope": "2026-11-name-spielplan-1", "media": "2026-11-medien-1"}, id="a referee"),
+        pytest.param(Collection.SAISON_TEAMS, {"scope": "2026-11-whatsapp-1", "media": "2026-11-medien-1"}, id="a contact seat"),
+        pytest.param(Collection.BEWERBUNGEN, {"scope": "2026-11-whatsapp-1", "media": "2026-11-medien-1"}, id="an application's seat"),
     ],
 )
 def test_a_withdrawal_naming_one_label_for_its_press_replays_under_its_kinds_labels(
@@ -182,10 +182,8 @@ def test_a_withdrawal_naming_one_label_for_its_press_replays_under_its_kinds_lab
 ):
     """An older day file's spelling: refused, the restore would leave every such withdrawal's consent restored."""
 
-    umfang = "intern" if collection in (Collection.SPIELER, Collection.REGISTRIERUNGEN, Collection.SCHIEDSRICHTER) else "kontaktdaten"
-    line = parse_line(
-        f"{JOURNAL_TOKEN} {PERSON} withdrawal {collection}/{RECORD} at={AT} text_version=2026-10-konto umfang={umfang} media=false"
-    )
+    scope = "intern" if collection in (Collection.SPIELER, Collection.REGISTRIERUNGEN, Collection.SCHIEDSRICHTER) else "kontaktdaten"
+    line = parse_line(f"{JOURNAL_TOKEN} {PERSON} withdrawal {collection}/{RECORD} at={AT} text_version=2026-10-konto scope={scope} media=false")
 
     assert line == JournalLine(
         person_hash=PERSON,
@@ -194,7 +192,7 @@ def test_a_withdrawal_naming_one_label_for_its_press_replays_under_its_kinds_lab
         record_id=RECORD,
         at=AT,
         text_versions=labels,
-        choices={"umfang": umfang, "media": False},
+        choices={"scope": scope, "media": False},
     )
 
 

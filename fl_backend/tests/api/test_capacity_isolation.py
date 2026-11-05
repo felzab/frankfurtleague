@@ -104,7 +104,7 @@ def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
-SEATED: Final = {"datum": "2026-01-15"}
+SEATED: Final = {"date": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:

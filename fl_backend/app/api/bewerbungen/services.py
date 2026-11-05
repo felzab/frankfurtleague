@@ -301,8 +301,8 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
     # `media` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
     return {
-        "umfang": "kontaktdaten",
-        "datum": today,
+        "scope": "kontaktdaten",
+        "date": today,
         "confirmed_at": None,
         "media": False,
         "entered_by": entered_by,
@@ -350,8 +350,8 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
 # --- The CONFIRMATION.
 
-KONTAKT_UMFANG = "kontaktdaten"
-KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
+KONTAKT_SCOPE = "kontaktdaten"
+KONTAKT_SCOPE_WHATSAPP = "kontaktdaten_whatsapp"
 
 
 def days_after(*, day: str, days: int) -> str:
@@ -391,7 +391,7 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
 
 
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
-KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.media", "einwilligung.evidence")
+KONTAKT_WAHL_FIELDS: Final = ("einwilligung.scope", "einwilligung.media", "einwilligung.evidence")
 
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
@@ -841,14 +841,14 @@ def compose_confirmation_update(
     for seat in seats:
         pfad = f"kontakte.{seat}.einwilligung"
         written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
-        # Field by field, never the block whole: `entered_by` and `datum` are the seating's, and
+        # Field by field, never the block whole: `entered_by` and `date` are the seating's, and
         # what it tells stands after the answer.
         written[f"{pfad}.confirmed_at"] = today
         written.update(
             compose_choices(
                 path=pfad,
                 saved=kontakte[seat]["einwilligung"],
-                set_fields={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "media": media},
+                set_fields={"scope": KONTAKT_SCOPE_WHATSAPP if whatsapp else KONTAKT_SCOPE, "media": media},
                 at=at,
                 text_versions=text_versions,
             )

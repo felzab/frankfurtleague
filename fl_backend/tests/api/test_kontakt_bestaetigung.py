@@ -91,7 +91,7 @@ def person(vorname: str) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 
@@ -103,7 +103,7 @@ def stored(vorname: str, *, confirmed_at: str | None = None) -> dict[str, Any]:
     return documents.kontaktperson_document(
         vorname,
         confirmed_at=confirmed_at,
-        einwilligung={"datum": sent["einwilligung"]["datum"]},
+        einwilligung={"date": sent["einwilligung"]["date"]},
         entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
@@ -617,7 +617,7 @@ SAISON_ANSICHT_RESOLVES = frozenset(
     | {"kontakte.trainer_is_also", "saison_id", "name", "austritt"}
 )
 SAISON_ANTWORT_RESOLVES = (
-    SAISON_ANSICHT_RESOLVES | _seat_paths("kontakte", "einwilligung.umfang", "einwilligung.media", "einwilligung.evidence") | {"_id"}
+    SAISON_ANSICHT_RESOLVES | _seat_paths("kontakte", "einwilligung.scope", "einwilligung.media", "einwilligung.evidence") | {"_id"}
 )
 
 
@@ -673,7 +673,7 @@ class TestTheLinkConfirms:
         )
         seat = row["kontakte"]["ansprechperson"]
         assert (seat["geburtsdatum"], seat["einwilligung"]["confirmed_at"]) == (AN_ADULTS_BIRTHDATE, TODAY)
-        assert seat["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
+        assert seat["einwilligung"]["scope"] == "kontaktdaten_whatsapp"
         assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] is None, "the press reached a seat its link does not open"
         assert after == [(SAISON_ID, "ansprechperson")]
 
@@ -723,7 +723,7 @@ class TestTheLinkConfirms:
         assert [mint.rollen for mint in response.confirmations] == [[newly]]
         assert (view.rolle, view.also_rolle, view.minimum_age) == (newly, None, SEAT_MIN_AGE_YEARS[newly])
         held = row["kontakte"][confirmed]
-        assert (held["einwilligung"]["confirmed_at"], held["einwilligung"]["umfang"]) == ("2026-03-20", "kontaktdaten")
+        assert (held["einwilligung"]["confirmed_at"], held["einwilligung"]["scope"]) == ("2026-03-20", "kontaktdaten")
         assert row["kontakte"][newly]["einwilligung"]["confirmed_at"] == TODAY, "the press confirmed nothing, so this case proves nothing"
 
     def test_a_widerspruch_empties_the_seat_and_records_it(self, mongo_replica_set_url: str):

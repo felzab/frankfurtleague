@@ -146,7 +146,7 @@ def person(nachname: str, telefon: str) -> dict[str, Any]:
         "email": email,
         "telefon": telefon,
         "geburtsdatum": "1979-03-14",
-        "einwilligung": confirmed_kenntnisnahme(datum="2026-01-05"),
+        "einwilligung": confirmed_kenntnisnahme(date="2026-01-05"),
     }
 
 

@@ -10,8 +10,8 @@ from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import (
     FLAddressChangeWaitsOn,
     FLAddressChangeWay,
-    FLEinwilligungUmfang,
-    FLKontaktKenntnisnahmeUmfang,
+    FLEinwilligungScope,
+    FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
 )
 from app.shared.schemas.responses import BaseAPIResponse
@@ -24,7 +24,7 @@ class FLAccountEinwilligung(BaseModel):
     precondition a press echoes.
     """
 
-    umfang: FLEinwilligungUmfang
+    scope: FLEinwilligungScope
     media: bool
 
 
@@ -65,7 +65,7 @@ class FLAccountSeatEinwilligung(BaseModel):
     # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # Each on where any held slot's is, so a withdrawal stays offered.
-    umfang: FLKontaktKenntnisnahmeUmfang
+    scope: FLKontaktKenntnisnahmeScope
     media: bool
     # Over every held slot, for `FLAccountSpielerEinwilligung.evidence_state`'s reason.
     evidence_state: FLEinwilligungState
@@ -88,7 +88,7 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     # For `FLAccountSeatEinwilligung.rollen`'s reason.
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # For `FLAccountSeatEinwilligung`'s reasons.
-    umfang: FLKontaktKenntnisnahmeUmfang
+    scope: FLKontaktKenntnisnahmeScope
     media: bool
     evidence_state: FLEinwilligungState
 
@@ -102,7 +102,7 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     saison_id: str
     # Both null on a returning pupil's registration, which asked none: the page shows its stored data
     # and offers no consent control, the person's own record holding their choices.
-    umfang: FLEinwilligungUmfang | None
+    scope: FLEinwilligungScope | None
     media: bool | None
     evidence_state: FLEinwilligungState
     # As the registration stores them: the facts the account page's box names its pupil by.

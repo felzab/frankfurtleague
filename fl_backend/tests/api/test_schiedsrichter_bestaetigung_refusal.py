@@ -46,7 +46,7 @@ LIVE_BLOCK: Mapping[str, Any] = {**compose_bestaetigung(today=TODAY), "token_has
 
 
 def confirmed(*, confirmed_at: str = TODAY) -> dict[str, Any]:
-    return {**compose_einwilligung(umfang="intern", media=False, today=TODAY), "confirmed_at": confirmed_at}
+    return {**compose_einwilligung(scope="intern", media=False, today=TODAY), "confirmed_at": confirmed_at}
 
 
 class TestTheStoredBlock:
@@ -70,7 +70,7 @@ class TestTheRecordTheConfirmationWrites:
 
         update = compose_confirmation_update(
             geburtsdatum=AN_ADULTS_BIRTHDATE,
-            umfang="kader_oeffentlich",
+            scope="kader_oeffentlich",
             media=True,
             text_versions=SCHIEDSRICHTER_TEXT_VERSIONS,
             today=TODAY,
@@ -85,7 +85,7 @@ class TestTheRecordTheConfirmationWrites:
 
         update = compose_confirmation_update(
             geburtsdatum=AN_ADULTS_BIRTHDATE,
-            umfang="kader_oeffentlich",
+            scope="kader_oeffentlich",
             media=True,
             text_versions=SCHIEDSRICHTER_TEXT_VERSIONS,
             today=TODAY,
@@ -93,21 +93,21 @@ class TestTheRecordTheConfirmationWrites:
         )
 
         assert update["$set"][EINWILLIGUNG_FELD]["evidence"] == {
-            "umfang": {"at": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["umfang"]},
+            "scope": {"at": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["scope"]},
             "media": {"at": CONFIRMED_AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
         }
 
     def test_the_record_carries_the_media_answer_even_when_it_is_off(self):
         """An off switch is an answer, so the key is stored rather than omitted for the model's default to supply."""
 
-        assert compose_einwilligung(umfang="intern", media=False, today=TODAY)["media"] is False
+        assert compose_einwilligung(scope="intern", media=False, today=TODAY)["media"] is False
 
     def test_the_record_is_given_and_confirmed_in_one_press(self):
         """Nobody but the referee answers on their own link."""
 
-        record = compose_einwilligung(umfang="intern", media=False, today=TODAY)
+        record = compose_einwilligung(scope="intern", media=False, today=TODAY)
 
-        assert record["datum"] == record["confirmed_at"] == TODAY
+        assert record["date"] == record["confirmed_at"] == TODAY
 
 
 class TestWhatALeakedLinkLearns:
@@ -140,7 +140,7 @@ class TestWhatALeakedLinkLearns:
     def test_the_answer_declares_exactly_what_the_press_echoes(self):
         """The same equality on the press's answer, which the same token holder reads."""
 
-        assert set(FLSchiedsrichterConfirmationResponse.model_fields) == {"umfang", "media", "confirmed_at"}
+        assert set(FLSchiedsrichterConfirmationResponse.model_fields) == {"scope", "media", "confirmed_at"}
 
     @pytest.mark.parametrize("model", [FLSchiedsrichterConfirmationViewResponse, FLSchiedsrichterConfirmationResponse], ids=["view", "antwort"])
     def test_neither_base_tier_answer_carries_the_mint(self, model: type[BaseModel]):
@@ -213,7 +213,7 @@ class TestTheTokenPayloadBound:
                 {
                     "token": RAW_TOKEN,
                     "geburtsdatum": AN_ADULTS_BIRTHDATE,
-                    "umfang": "intern",
+                    "scope": "intern",
                     "text_versions": dict(SCHIEDSRICHTER_TEXT_VERSIONS),
                 }
             )

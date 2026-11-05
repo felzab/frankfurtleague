@@ -128,7 +128,7 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
         if not confirmed
         else {
             "geburtsdatum": "2009-05-04",
-            "umfang": "intern",
+            "scope": "intern",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",

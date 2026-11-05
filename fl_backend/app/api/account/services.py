@@ -209,7 +209,7 @@ def context_teams_lookup(local_field: str) -> Mapping[str, Any]:
 
 
 def _account_einwilligung(block: Mapping[str, Any]) -> dict[str, Any]:
-    return {"umfang": block["umfang"], "media": block["media"]}
+    return {"scope": block["scope"], "media": block["media"]}
 
 
 def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -326,7 +326,7 @@ def seat_choices_of_row(blocks: Sequence[Mapping[str, Any]]) -> dict[FLEinwillig
     """
 
     return {
-        "umfang": "kontaktdaten_whatsapp" if any(is_given("umfang", block.get("umfang")) for block in blocks) else "kontaktdaten",
+        "scope": "kontaktdaten_whatsapp" if any(is_given("scope", block.get("scope")) for block in blocks) else "kontaktdaten",
         "media": any(is_given("media", block.get("media")) for block in blocks),
     }
 
@@ -474,7 +474,7 @@ def compose_registrierungen_self(
                 "registrierung_id": row["_id"],
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
-                "umfang": block.get("umfang"),
+                "scope": block.get("scope"),
                 "media": is_given("media", block.get("media")) if traegt_wahlen(block) else None,
                 "evidence_state": evidence_state_of(blocks=[block]),
                 **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum")},

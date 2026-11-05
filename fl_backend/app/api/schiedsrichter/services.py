@@ -183,23 +183,23 @@ def compose_mint_update(*, today: str) -> dict[str, Any]:
     return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
 
 
-def compose_einwilligung(*, umfang: str, media: bool, today: str) -> dict[str, Any]:
+def compose_einwilligung(*, scope: str, media: bool, today: str) -> dict[str, Any]:
     """The record as the person's own press writes it.
 
-    `datum` and `confirmed_at` are one day here where a pupil's are two: nobody enters this record
+    `date` and `confirmed_at` are one day here where a pupil's are two: nobody enters this record
     administratively, so it is given and confirmed in the same press.
     """
 
     return {
-        "umfang": umfang,
-        "datum": today,
+        "scope": scope,
+        "date": today,
         "confirmed_at": today,
         "media": media,
     }
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str, media: bool, text_versions: TextVersions, today: str, at: str
+    *, geburtsdatum: str, scope: str, media: bool, text_versions: TextVersions, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is.
 
@@ -209,7 +209,7 @@ def compose_confirmation_update(
 
     # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
-    record = compose_born(block=compose_einwilligung(umfang=umfang, media=media, today=today), at=at, text_versions=text_versions)
+    record = compose_born(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 

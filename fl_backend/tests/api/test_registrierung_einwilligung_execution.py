@@ -63,7 +63,7 @@ FOLDED_EMAIL = "quillhilde@example.com"
 # Against `TODAY`, `2010-04-01` is 16 to the day and `2010-04-02` is 15 years and 364 days.
 AT_THE_FLOOR = "2010-04-01"
 A_DAY_SHORT = "2010-04-02"
-# Eighteen by the held consent's `datum`, as its media yes requires
+# Eighteen by the held consent's `date`, as its media yes requires
 # (`app/api/registrierungen/services.py :: find_medien_refusal`): a record no write could store proves nothing.
 A_RETURNING_PUPILS_BIRTHDATE = "2007-07-14"
 
@@ -79,7 +79,7 @@ def einwilligung(**overrides: Any) -> dict[str, Any]:
     """The returning pupil's record as their own confirmation of an earlier season left it."""
 
     stored = documents.own_einwilligung_document(
-        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2025-09-02", umfang="intern", media=True
+        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2025-09-02", scope="intern", media=True
     )
 
     return {**stored, **overrides}
@@ -165,7 +165,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     body = {
         "token": token,
         "geburtsdatum": AT_THE_FLOOR,
-        "umfang": "kader_oeffentlich",
+        "scope": "kader_oeffentlich",
         # Off, because the default date is sixteen: a media consent is refused below eighteen.
         "media": False,
         "text_versions": THIS_SEASONS_LABELS,
@@ -270,18 +270,18 @@ class TestWhatAConfirmationWrites:
 
         assert document["geburtsdatum"] == AT_THE_FLOOR
         assert document["einwilligung"] == {
-            "umfang": "kader_oeffentlich",
-            "datum": TODAY,
+            "scope": "kader_oeffentlich",
+            "date": TODAY,
             "confirmed_at": TODAY,
             "media": False,
             "evidence": {
-                "umfang": {"at": AT, "text_version": THIS_SEASONS_LABELS["umfang"]},
+                "scope": {"at": AT, "text_version": THIS_SEASONS_LABELS["scope"]},
                 "media": {"at": AT, "text_version": THIS_SEASONS_LABELS["media"]},
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmation"]["token_hashes"] == [TOKEN_HASH]
-        assert (response.ergebnis, response.geburtsdatum, response.umfang, response.media) == (
+        assert (response.ergebnis, response.geburtsdatum, response.scope, response.media) == (
             "confirmed",
             AT_THE_FLOOR,
             "kader_oeffentlich",
@@ -312,13 +312,13 @@ class TestWhatAConfirmationWrites:
         """Publication and media are two consents under one record, so an off switch is stored rather than derived from the scope."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW, umfang="intern", media=False)
+            await answer(database, client, RAW, scope="intern", media=False)
 
             return await stored(database)
 
         record = on_a_league(mongo_replica_set_url, body)["einwilligung"]
 
-        assert (record["umfang"], record["media"]) == ("intern", False)
+        assert (record["scope"], record["media"]) == ("intern", False)
 
     def test_a_returning_pupils_press_stores_the_stamp_alone(self, mongo_replica_set_url: str):
         """The page asked no choice and no date, so the stored date is written and echoed nowhere.
@@ -328,7 +328,7 @@ class TestWhatAConfirmationWrites:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             held = await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
-            response = await answer(database, client, RAW, geburtsdatum=None, umfang=None, media=None, text_versions=None)
+            response = await answer(database, client, RAW, geburtsdatum=None, scope=None, media=None, text_versions=None)
 
             return response, await stored(database), held, await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
 
@@ -336,7 +336,7 @@ class TestWhatAConfirmationWrites:
 
         assert document["einwilligung"] == {"confirmed_at": TODAY}
         assert document["geburtsdatum"] == A_RETURNING_PUPILS_BIRTHDATE
-        assert (response.ergebnis, response.geburtsdatum, response.umfang, response.media) == ("confirmed", None, None, None)
+        assert (response.ergebnis, response.geburtsdatum, response.scope, response.media) == ("confirmed", None, None, None)
         assert person == held
 
     def test_a_stored_date_below_the_floor_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
@@ -344,7 +344,7 @@ class TestWhatAConfirmationWrites:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW, geburtsdatum=None, umfang=None, media=None, text_versions=None)
+                await answer(database, client, RAW, geburtsdatum=None, scope=None, media=None, text_versions=None)
 
             return refused.value.error_code, await stored(database)
 
@@ -369,18 +369,18 @@ class TestTheChoicesThePageAsks:
     @pytest.mark.parametrize(
         ("held", "label", "wahlen"),
         [
-            pytest.param([], THIS_SEASONS_LABELS, {"umfang": None, "media": None}, id="the new pupil's page, sent no choice"),
+            pytest.param([], THIS_SEASONS_LABELS, {"scope": None, "media": None}, id="the new pupil's page, sent no choice"),
             pytest.param([], THIS_SEASONS_LABELS, {"media": None}, id="the new pupil's page, sent no media answer"),
             pytest.param([], None, {}, id="the new pupil's page, sent no labels"),
-            pytest.param([spieler_document(SPIELER_OID)], None, {"umfang": "intern", "media": False}, id="the returning page, sent both"),
-            pytest.param([spieler_document(SPIELER_OID)], None, {"umfang": None, "media": True}, id="the returning page, sent a media grant"),
+            pytest.param([spieler_document(SPIELER_OID)], None, {"scope": "intern", "media": False}, id="the returning page, sent both"),
+            pytest.param([spieler_document(SPIELER_OID)], None, {"scope": None, "media": True}, id="the returning page, sent a media grant"),
             pytest.param(
-                [spieler_document(SPIELER_OID)], THIS_SEASONS_LABELS, {"umfang": None, "media": None}, id="the returning page, sent labels"
+                [spieler_document(SPIELER_OID)], THIS_SEASONS_LABELS, {"scope": None, "media": None}, id="the returning page, sent labels"
             ),
             pytest.param(
                 [spieler_document(SPIELER_OID)],
                 None,
-                {"umfang": None, "media": None},
+                {"scope": None, "media": None},
                 id="the returning page, sent a date",
             ),
             pytest.param([], THIS_SEASONS_LABELS, {"geburtsdatum": None}, id="the new pupil's page, sent no date"),
@@ -410,14 +410,14 @@ class TestTheLinkIsSpentByTheStamp:
             await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, media=True)
 
             with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, umfang="intern", media=False)
+                await answer(database, client, RAW, scope="intern", media=False)
 
             return conflict.value.error_code, await stored(database), await read_view(database, RAW)
 
         code, document, view = on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.CONFIRMATION_EXISTS
-        assert (document["einwilligung"]["umfang"], document["einwilligung"]["media"]) == ("kader_oeffentlich", True)
+        assert (document["einwilligung"]["scope"], document["einwilligung"]["media"]) == ("kader_oeffentlich", True)
         assert view.state == "confirmed"
 
     def test_an_age_refusal_spends_nothing(self, mongo_replica_set_url: str):

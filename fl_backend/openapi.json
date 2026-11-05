@@ -527,8 +527,8 @@
             "title": "Schule",
             "type": "string"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
           }
         },
         "required": [
@@ -536,7 +536,7 @@
           "schule",
           "saison_id",
           "rollen",
-          "umfang",
+          "scope",
           "media",
           "evidence_state"
         ],
@@ -550,12 +550,12 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLAccountEinwilligung",
@@ -572,15 +572,15 @@
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSpielerTextVersions"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "text_versions"
@@ -908,6 +908,16 @@
             "title": "Saison Id",
             "type": "string"
           },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligungScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "team_name": {
             "anyOf": [
               {
@@ -919,16 +929,6 @@
             ],
             "title": "Team Name"
           },
-          "umfang": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "vorname": {
             "title": "Vorname",
             "type": "string"
@@ -938,7 +938,7 @@
           "registrierung_id",
           "team_name",
           "saison_id",
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "vorname",
@@ -1057,6 +1057,9 @@
             "title": "Saison Id",
             "type": "string"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
+          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -1065,9 +1068,6 @@
           "team_name": {
             "title": "Team Name",
             "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -1075,7 +1075,7 @@
           "team_name",
           "saison_id",
           "rollen",
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "media_offered",
@@ -4987,9 +4987,9 @@
             "title": "Confirmed At",
             "type": "string"
           },
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "evidence": {
@@ -4999,13 +4999,13 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           }
         },
         "required": [
-          "umfang",
-          "datum",
+          "scope",
+          "date",
           "confirmed_at",
           "media",
           "evidence"
@@ -5062,7 +5062,7 @@
               }
             ]
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLEinwilligungEvidence"
@@ -5074,7 +5074,7 @@
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLEinwilligungEvidenceSet",
@@ -5098,6 +5098,13 @@
         "title": "FLEinwilligungReceipt",
         "type": "object"
       },
+      "FLEinwilligungScope": {
+        "enum": [
+          "kader_oeffentlich",
+          "intern"
+        ],
+        "type": "string"
+      },
       "FLEinwilligungState": {
         "description": "Each choice's state where the account page was served, null where the record carried no evidence for it.\n\nA consent PATCH's precondition, echoed back as served, never a secret.",
         "properties": {
@@ -5112,7 +5119,7 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
                 "type": "string"
@@ -5121,11 +5128,11 @@
                 "type": "null"
               }
             ],
-            "title": "Umfang"
+            "title": "Scope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLEinwilligungState",
@@ -5145,7 +5152,7 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
                 "type": "string"
@@ -5154,11 +5161,11 @@
                 "type": "null"
               }
             ],
-            "title": "Umfang"
+            "title": "Scope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLEinwilligungStatePayload",
@@ -5167,25 +5174,18 @@
       "FLEinwilligungTextVersion": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/FLSeatUmfangTextVersion"
+            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSpielerUmfangTextVersion"
+            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
           },
           {
-            "$ref": "#/components/schemas/FLSchiedsrichterUmfangTextVersion"
+            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
           },
           {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           }
         ]
-      },
-      "FLEinwilligungUmfang": {
-        "enum": [
-          "kader_oeffentlich",
-          "intern"
-        ],
-        "type": "string"
       },
       "FLErasureAdressePayload": {
         "additionalProperties": false,
@@ -7158,9 +7158,9 @@
             ],
             "title": "Confirmed At"
           },
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "entered_by": {
@@ -7173,13 +7173,13 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
           }
         },
         "required": [
-          "umfang",
-          "datum",
+          "scope",
+          "date",
           "confirmed_at",
           "media",
           "entered_by",
@@ -7191,25 +7191,25 @@
       "FLKontaktKenntnisnahmePayload": {
         "additionalProperties": false,
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
-          "umfang": {
+          "scope": {
             "const": "kontaktdaten",
-            "title": "Umfang",
+            "title": "Scope",
             "type": "string"
           }
         },
         "required": [
-          "umfang",
-          "datum"
+          "scope",
+          "date"
         ],
         "title": "FLKontaktKenntnisnahmePayload",
         "type": "object"
       },
-      "FLKontaktKenntnisnahmeUmfang": {
+      "FLKontaktKenntnisnahmeScope": {
         "enum": [
           "kontaktdaten",
           "kontaktdaten_whatsapp"
@@ -10271,6 +10271,16 @@
             ],
             "title": "Media"
           },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinwilligungScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "text_versions": {
             "anyOf": [
               {
@@ -10287,22 +10297,12 @@
             "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
-          },
-          "umfang": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
           "token",
           "geburtsdatum",
-          "umfang",
+          "scope",
           "media",
           "text_versions"
         ],
@@ -10340,10 +10340,10 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
+                "$ref": "#/components/schemas/FLEinwilligungScope"
               },
               {
                 "type": "null"
@@ -10354,7 +10354,7 @@
         "required": [
           "ergebnis",
           "geburtsdatum",
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLRegistrierungConfirmationResponse",
@@ -10500,14 +10500,14 @@
         "type": "object"
       },
       "FLRegistrierungEinwilligung": {
-        "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice.",
+        "description": "A pending registration's consent record, each choice and `date` optional here alone.\n\nA returning pupil's page asks no choice.",
         "properties": {
           "confirmed_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Confirmed At",
             "type": "string"
           },
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10517,7 +10517,7 @@
                 "type": "null"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "evidence": {
             "$ref": "#/components/schemas/FLEinwilligungEvidenceSet"
@@ -10533,10 +10533,10 @@
             ],
             "title": "Media"
           },
-          "umfang": {
+          "scope": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLEinwilligungUmfang"
+                "$ref": "#/components/schemas/FLEinwilligungScope"
               },
               {
                 "type": "null"
@@ -10545,8 +10545,8 @@
           }
         },
         "required": [
-          "umfang",
-          "datum",
+          "scope",
+          "date",
           "confirmed_at",
           "media",
           "evidence"
@@ -11947,15 +11947,15 @@
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSchiedsrichterTextVersions"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "evidence_state",
           "text_versions"
@@ -12000,6 +12000,9 @@
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSchiedsrichterTextVersions"
           },
@@ -12009,15 +12012,12 @@
             "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
           "token",
           "geburtsdatum",
-          "umfang",
+          "scope",
           "media",
           "text_versions"
         ],
@@ -12036,12 +12036,12 @@
             "title": "Media",
             "type": "boolean"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          "scope": {
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "confirmed_at"
         ],
@@ -12147,6 +12147,10 @@
         ],
         "title": "FLSchiedsrichterReactivateResponse",
         "type": "object"
+      },
+      "FLSchiedsrichterScopeTextVersion": {
+        "const": "2026-11-name-spielplan-1",
+        "type": "string"
       },
       "FLSchiedsrichterSelf": {
         "description": "The referee's own page's read: the record and its fee.\n\nThe fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.",
@@ -12279,20 +12283,16 @@
           "media": {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLSchiedsrichterUmfangTextVersion"
+          "scope": {
+            "$ref": "#/components/schemas/FLSchiedsrichterScopeTextVersion"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLSchiedsrichterTextVersions",
         "type": "object"
-      },
-      "FLSchiedsrichterUmfangTextVersion": {
-        "const": "2026-11-name-spielplan-1",
-        "type": "string"
       },
       "FLSchulform": {
         "enum": [
@@ -12316,21 +12316,25 @@
             "title": "Media",
             "type": "boolean"
           },
+          "scope": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
+          },
           "text_versions": {
             "$ref": "#/components/schemas/FLSeatTextVersions"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media",
           "text_versions",
           "evidence_state"
         ],
         "title": "FLSeatEinwilligungPayload",
         "type": "object"
+      },
+      "FLSeatScopeTextVersion": {
+        "const": "2026-11-whatsapp-1",
+        "type": "string"
       },
       "FLSeatTextVersions": {
         "additionalProperties": false,
@@ -12339,20 +12343,16 @@
           "media": {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLSeatUmfangTextVersion"
+          "scope": {
+            "$ref": "#/components/schemas/FLSeatScopeTextVersion"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLSeatTextVersions",
         "type": "object"
-      },
-      "FLSeatUmfangTextVersion": {
-        "const": "2026-11-whatsapp-1",
-        "type": "string"
       },
       "FLSignInCodeData": {
         "properties": {
@@ -15973,6 +15973,10 @@
         "title": "FLSpielerSaisonsResponse",
         "type": "object"
       },
+      "FLSpielerScopeTextVersion": {
+        "const": "2026-11-name-kader-1",
+        "type": "string"
+      },
       "FLSpielerSelf": {
         "description": "The pupil's own page's read: the record and every squad row it holds.\n\nThe squad rows are this read's alone: the account page lists none, so its entry extends the record without them.",
         "properties": {
@@ -16178,20 +16182,16 @@
           "media": {
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           },
-          "umfang": {
-            "$ref": "#/components/schemas/FLSpielerUmfangTextVersion"
+          "scope": {
+            "$ref": "#/components/schemas/FLSpielerScopeTextVersion"
           }
         },
         "required": [
-          "umfang",
+          "scope",
           "media"
         ],
         "title": "FLSpielerTextVersions",
         "type": "object"
-      },
-      "FLSpielerUmfangTextVersion": {
-        "const": "2026-11-name-kader-1",
-        "type": "string"
       },
       "FLSpielerWithMemberships": {
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
@@ -24691,7 +24691,7 @@
     },
     "/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung": {
       "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`evidence_state` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to\n`true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to\n`kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`evidence_state` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to\n`true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
         "operationId": "schiedsrichter_patch_einwilligung",
         "parameters": [
           {
@@ -27247,7 +27247,7 @@
     },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `media` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a\ngrant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a\ngrant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
@@ -30179,7 +30179,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung": {
       "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `media`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`evidence_state` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is\nmissing (`media_age`). Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`evidence_state` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is\nmissing (`media_age`). Each refusal writes nothing.",
         "operationId": "teams_patch_einwilligung",
         "parameters": [
           {

@@ -12,7 +12,7 @@ from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpieler
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAddressChangeViewableDenied,
-    FLEinwilligungUmfang,
+    FLEinwilligungScope,
     FLSpielerPosition,
     FLSpielerStufe,
 )
@@ -34,12 +34,12 @@ class FLEinwilligung(BaseModel):
     consented, and no surface can tell that from one somebody gave.
     """
 
-    umfang: FLEinwilligungUmfang
+    scope: FLEinwilligungScope
     # The day consent was given. A record is born of its person's own confirmation, so it is that day.
-    datum: CustomDateString
+    date: CustomDateString
     # The day its person confirmed it: a record is born confirmed.
     confirmed_at: CustomDateString
-    # A SECOND consent under one record rather than a third `umfang` member: publication and media
+    # A SECOND consent under one record rather than a third `scope` member: publication and media
     # are independent answers, so withdrawing one leaves the other standing.
     media: bool
     # Each choice's evidence (`app/shared/einwilligung_evidence.py`). Never null: a choice's evidence

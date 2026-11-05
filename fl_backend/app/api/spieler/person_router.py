@@ -316,7 +316,7 @@ async def patch_einwilligung(
 
     Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
     the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
-    PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `media` to `true`) is
+    PATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is
     taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
@@ -331,7 +331,7 @@ async def patch_einwilligung(
     """
 
     eigener_eintrag = build_self_pupil_filter(identifier)
-    chosen: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
+    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
     # One instant for the evidence and its journal line, so a replay stamps the moment the person pressed.
     at = log_stamp(germany_now)
     journal = Journal()

@@ -77,7 +77,7 @@ def test_only_an_adopted_unchanged_report_publishes_its_scorers_and_cards(adopti
 @pytest.fixture(scope="module")
 def seeded_url(mongo_url: str) -> Iterator[str]:
     spiel = adopted_match()
-    intern = {**documents.EINWILLIGUNG, "umfang": "intern"}
+    intern = {**documents.EINWILLIGUNG, "scope": "intern"}
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):

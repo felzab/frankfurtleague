@@ -150,7 +150,7 @@ def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **field
         if not confirmed
         else {
             "geburtsdatum": "2009-05-04",
-            "umfang": "intern",
+            "scope": "intern",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
@@ -212,7 +212,7 @@ async def _seed(database: AsyncDatabase) -> None:
             REGISTERED_WITHOUT_CHOICE,
             confirmed=False,
             **compose_confirmation_update(
-                geburtsdatum="2009-05-04", umfang=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
+                geburtsdatum="2009-05-04", scope=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
             )["$set"],
         )
     )

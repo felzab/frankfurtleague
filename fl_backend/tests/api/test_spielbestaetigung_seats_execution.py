@@ -76,7 +76,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 
@@ -87,7 +87,7 @@ def stored(vorname: str) -> dict[str, Any]:
 
     return documents.kontaktperson_document(
         vorname,
-        einwilligung={"datum": sent["einwilligung"]["datum"]},
+        einwilligung={"date": sent["einwilligung"]["date"]},
         entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],

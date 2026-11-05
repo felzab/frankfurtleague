@@ -262,7 +262,7 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
 
     confirmation = compose_confirmation_update(
         geburtsdatum="2009-05-04",
-        umfang="intern",
+        scope="intern",
         media=False,
         text_versions=SPIELER_TEXT_VERSIONS,
         today=TODAY,

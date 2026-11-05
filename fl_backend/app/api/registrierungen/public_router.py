@@ -450,7 +450,7 @@ async def post_confirmation(
         refuse(
             find_wahlen_refusal(
                 seite=seite,
-                umfang=antwort_data.umfang,
+                scope=antwort_data.scope,
                 media=antwort_data.media,
                 text_versions=antwort_data.text_versions,
                 geburtsdatum=antwort_data.geburtsdatum,
@@ -471,7 +471,7 @@ async def post_confirmation(
             db_filter={"_id": raw["_id"]},
             update=compose_confirmation_update(
                 geburtsdatum=geburtsdatum,
-                umfang=antwort_data.umfang,
+                scope=antwort_data.scope,
                 media=antwort_data.media,
                 text_versions=None if antwort_data.text_versions is None else by_choice(antwort_data.text_versions),
                 today=today,
@@ -486,7 +486,7 @@ async def post_confirmation(
         return FLRegistrierungConfirmationResponse(
             ergebnis="confirmed",
             geburtsdatum=antwort_data.geburtsdatum,
-            umfang=antwort_data.umfang,
+            scope=antwort_data.scope,
             media=antwort_data.media,
         )
 

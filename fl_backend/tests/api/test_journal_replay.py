@@ -125,7 +125,7 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         "Ortrud" if confirmed else "Ida",
         confirmed_at="2126-09-03" if confirmed else None,
         geburtsdatum=ADULT if confirmed else None,
-        einwilligung={"umfang": "kontaktdaten_whatsapp", "media": True} if confirmed else {},
+        einwilligung={"scope": "kontaktdaten_whatsapp", "media": True} if confirmed else {},
     )
     return {**seat, "email": email}
 
@@ -250,7 +250,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 geburtsdatum=ADULT,
                 today="2126-09-21",
                 at="2126-09-21T08:00:00+00:00",
-                umfang="kader_oeffentlich",
+                scope="kader_oeffentlich",
                 media=True,
             ),
         )
@@ -284,7 +284,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
     # Its confirmation stamped evidence, so the page serves that evidence's stand.
     stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": REGISTRATION_OID})
     assert stored is not None
-    body = {**_withdrawal("konto_spieler", umfang="intern", media=True), "evidence_state": evidence_state_of(blocks=[stored["einwilligung"]])}
+    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": evidence_state_of(blocks=[stored["einwilligung"]])}
 
     return await http.patch(f"{V}/registrierungen/account/{REGISTRATION_OID}/einwilligung", json=body, headers=_person(REGISTRANT))
 
@@ -301,7 +301,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/spieler/account/einwilligung",
-            json=_withdrawal("konto_spieler", umfang="intern", media=False),
+            json=_withdrawal("konto_spieler", scope="intern", media=False),
             headers=_person(PERSON),
         ),
         Collection.SPIELER,
@@ -310,7 +310,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
-            json=_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", media=False),
+            json=_withdrawal("konto_schiedsrichter", scope="kader_oeffentlich", media=False),
             headers=_person(PERSON),
         ),
         Collection.SCHIEDSRICHTER,
@@ -319,7 +319,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", umfang="kontaktdaten", media=True),
+            json=_withdrawal("konto_kontakt", scope="kontaktdaten", media=True),
             headers=_person(PERSON),
         ),
         Collection.SAISON_TEAMS,
@@ -328,7 +328,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/bewerbungen/{APPLICATION_OID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", umfang="kontaktdaten_whatsapp", media=False),
+            json=_withdrawal("konto_kontakt", scope="kontaktdaten_whatsapp", media=False),
             headers=_person(PERSON),
         ),
         Collection.BEWERBUNGEN,
@@ -633,7 +633,7 @@ async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabas
     [line] = journalled(caplog)
     # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
     _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
-    body = {**_withdrawal("konto_spieler", umfang="intern", media=True), "evidence_state": (await _served(http))["spieler"]["evidence_state"]}
+    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": (await _served(http))["spieler"]["evidence_state"]}
     granted = await http.patch(f"{V}/spieler/account/einwilligung", json=body, headers=_person(PERSON))
     assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
 

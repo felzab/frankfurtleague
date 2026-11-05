@@ -93,7 +93,7 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                         {
                             "token": mail.token,
                             "geburtsdatum": "1984-05-09",
-                            "umfang": "kader_oeffentlich",
+                            "scope": "kader_oeffentlich",
                             "media": True,
                             "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
                         }

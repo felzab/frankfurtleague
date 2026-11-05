@@ -3023,7 +3023,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  * Writes those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing
  * else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
  * public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
- * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+ * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
  * `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
@@ -4100,7 +4100,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
  *
  * Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
  * the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
- * PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `media` to `true`) is
+ * PATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is
  * taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
@@ -5013,7 +5013,7 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
  * One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
  * differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
  * other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
- * other standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `media`
+ * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
  * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
  * person confirmed a seat on, a past season's included.
  *

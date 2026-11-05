@@ -205,7 +205,7 @@ def registrierung_document(
         if not confirmed
         else {
             "geburtsdatum": geburtsdatum,
-            "umfang": "intern",
+            "scope": "intern",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-03-31",
@@ -372,7 +372,7 @@ class TestWhatAnAdmissionWrites:
             "Okonkwo-Brandt",
             GEBURTSDATUM,
         )
-        assert person["einwilligung"]["confirmed_at"] == "2026-03-31" and person["einwilligung"]["umfang"] == "intern"
+        assert person["einwilligung"]["confirmed_at"] == "2026-03-31" and person["einwilligung"]["scope"] == "intern"
         assert len(rows) == 1
         assert {key: rows[0][key] for key in ("team_id", "saison_id", "nummer", "position", "stufe", "rolle", "inactive_since")} == {
             "team_id": TEAM_OID,
@@ -396,7 +396,7 @@ class TestWhatAnAdmissionWrites:
                 antwort_data=FLRegistrierungConfirmationPayload(
                     token=TOKEN,
                     geburtsdatum=GEBURTSDATUM,
-                    umfang="intern",
+                    scope="intern",
                     media=False,
                     text_versions=FLSpielerTextVersions.model_validate(SPIELER_TEXT_VERSIONS),
                 ),
@@ -681,12 +681,12 @@ class TestThePersonAnAdmissionNames:
 
         assert fresh["evidence"], "the registration carries no evidence, so nothing proves it was carried"
         # The narrowed scope names the grant the stored record held, which its own confirmation evidenced.
-        assert fresh["umfang"] == "intern", "the registration narrows nothing, so no grant ends here"
+        assert fresh["scope"] == "intern", "the registration narrows nothing, so no grant ends here"
         assert einwilligung == {
             **fresh,
             "evidence": {
                 **fresh["evidence"],
-                "umfang": {**fresh["evidence"]["umfang"], "given_before": STORED_GRANT["umfang"]},
+                "scope": {**fresh["evidence"]["scope"], "given_before": STORED_GRANT["scope"]},
             },
         }
 
@@ -699,7 +699,7 @@ class TestThePersonAnAdmissionNames:
         stored_id = ObjectId()
         confirmed = compose_confirmation_update(
             geburtsdatum=GEBURTSDATUM,
-            umfang="intern",
+            scope="intern",
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
@@ -733,12 +733,12 @@ class TestThePersonAnAdmissionNames:
         )
         # The scope set at the registration is newer than the person's stored grant, so it is renewed,
         # naming that grant.
-        assert (einwilligung["umfang"], einwilligung["evidence"]["umfang"]) == (
+        assert (einwilligung["scope"], einwilligung["evidence"]["scope"]) == (
             "intern",
             {
                 "at": "2026-03-31T08:00:00+00:00",
-                "text_version": SPIELER_TEXT_VERSIONS["umfang"],
-                "given_before": STORED_GRANT["umfang"],
+                "text_version": SPIELER_TEXT_VERSIONS["scope"],
+                "given_before": STORED_GRANT["scope"],
             },
         )
         assert einwilligung["confirmed_at"] == "2026-03-31"
@@ -749,7 +749,7 @@ class TestThePersonAnAdmissionNames:
         stored_id = ObjectId()
         confirmed = compose_confirmation_update(
             geburtsdatum=GEBURTSDATUM,
-            umfang="intern",
+            scope="intern",
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
@@ -763,7 +763,7 @@ class TestThePersonAnAdmissionNames:
                 registrierung_id=registrierung_id,
                 einwilligung_data=FLAccountEinwilligungPayload.model_validate(
                     {
-                        "umfang": "intern",
+                        "scope": "intern",
                         "media": False,
                         "text_versions": dict(SPIELER_TEXT_VERSIONS),
                         "evidence_state": evidence_state_of(blocks=[confirmed]),
@@ -854,7 +854,7 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
         antwort_data=FLRegistrierungConfirmationPayload(
             token=TOKEN,
             geburtsdatum=None,
-            umfang=None,
+            scope=None,
             media=None,
             text_versions=None,
         ),

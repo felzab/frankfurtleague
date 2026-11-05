@@ -513,7 +513,7 @@ class TestTheRefereesNameFollowsTheirConsent:
     def test_an_agreed_referee_publishing_internally_is_served_nameless_and_named_on_the_admin_tier(self, mongo_url: str):
         fixture = a_refereed_fixture()
         rows = [a_referee_row(fixture, antwort=zugesagt())]
-        intern = {**published(), "umfang": "intern"}
+        intern = {**published(), "scope": "intern"}
 
         document = on_a_refereed_fixture(mongo_url, rows, joined, einwilligung=intern, fixture=fixture)
 

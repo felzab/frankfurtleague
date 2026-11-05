@@ -168,7 +168,7 @@ async def post_confirmation(
             db_filter={"_id": raw["_id"]},
             update=compose_confirmation_update(
                 geburtsdatum=antwort_data.geburtsdatum,
-                umfang=antwort_data.umfang,
+                scope=antwort_data.scope,
                 media=antwort_data.media,
                 text_versions=by_choice(antwort_data.text_versions),
                 today=today,
@@ -181,7 +181,7 @@ async def post_confirmation(
         # Read off the document the filter found rather than the update's echo: the echo carries the
         # whole row, and this answer is bounded to what the page renders.
         return FLSchiedsrichterConfirmationResponse(
-            umfang=antwort_data.umfang,
+            scope=antwort_data.scope,
             media=antwort_data.media,
             confirmed_at=today,
         )

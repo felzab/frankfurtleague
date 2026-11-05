@@ -1377,7 +1377,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
             IDENTIFIER,
             confirmed={
                 "geburtsdatum": GEBURTSDATUM,
-                "umfang": "intern",
+                "scope": "intern",
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": YESTERDAY,

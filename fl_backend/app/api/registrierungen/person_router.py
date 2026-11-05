@@ -457,7 +457,7 @@ async def patch_einwilligung(
     `choices_stale` and `giving_not_allowed`.
     """
 
-    chosen: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "media": einwilligung_data.media}
+    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     at = log_stamp(germany_now)
     journal = Journal()

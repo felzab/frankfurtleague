@@ -109,7 +109,7 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
             geburtsdatum="2009-05-04",
             today="2126-03-31",
             at="2126-03-31T08:00:00+00:00",
-            umfang="intern",
+            scope="intern",
             media=False,
         )
         if confirmed

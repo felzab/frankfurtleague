@@ -1058,7 +1058,7 @@ def a_payload_person(vorname: str, nachname: str, telefon: str) -> dict[str, Any
         "nachname": nachname,
         "email": f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 

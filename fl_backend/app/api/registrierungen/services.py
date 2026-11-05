@@ -465,14 +465,14 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
     return person_raw["geburtsdatum"] if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
-def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, media: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
+def find_wahlen_refusal(*, seite: FLRegistrierungSeite, scope: Any, media: Any, text_versions: Any, geburtsdatum: Any) -> WriteRefusal | None:
     """`registrierung_choices_unsuitable`: the body answers what its page did not ask, or leaves out what it did.
 
     Both choices, their wordings and a birthdate on the new pupil's page, none of the four on the returning pupil's.
     """
 
     asked = seite == SEITE_NEU
-    if all((value is not None) == asked for value in (umfang, media, text_versions, geburtsdatum)):
+    if all((value is not None) == asked for value in (scope, media, text_versions, geburtsdatum)):
         return None
 
     return WriteRefusal(
@@ -499,7 +499,7 @@ def find_medien_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteR
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, umfang: str | None, media: bool | None, text_versions: TextVersions | None, today: str, at: str
+    *, geburtsdatum: str, scope: str | None, media: bool | None, text_versions: TextVersions | None, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
@@ -507,22 +507,22 @@ def compose_confirmation_update(
     would hold a birthdate nobody had yet consented to the league keeping.
     """
 
-    if umfang is None and media is None:
+    if scope is None and media is None:
         # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
-        # `datum`, the day a consent was given.
+        # `date`, the day a consent was given.
         return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"confirmed_at": today}}}
 
-    if umfang is None or media is None or text_versions is None:
+    if scope is None or media is None or text_versions is None:
         raise ValueError("a confirmation answers both choices or neither, as `find_wahlen_refusal` holds a body to its page")
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
     # no earlier choice stands on this block; the admission carries its evidence onto the person.
     record = compose_born(
         block={
-            "umfang": umfang,
-            # `datum` and `confirmed_at` are one day here: this press is both the giving of the
+            "scope": scope,
+            # `date` and `confirmed_at` are one day here: this press is both the giving of the
             # consent and the confirming of it.
-            "datum": today,
+            "date": today,
             "confirmed_at": today,
             "media": media,
         },
@@ -801,7 +801,7 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dic
 def traegt_wahlen(einwilligung: Any) -> bool:
     """Whether a registration's record carries its pupil's choices, which a returning pupil's confirmation never does."""
 
-    return isinstance(einwilligung, Mapping) and "umfang" in einwilligung
+    return isinstance(einwilligung, Mapping) and "scope" in einwilligung
 
 
 def compose_person_update(*, registrierung_raw: Mapping[str, Any], saved: Any, adresse: str) -> Mapping[str, Any]:

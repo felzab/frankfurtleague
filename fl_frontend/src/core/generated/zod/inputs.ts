@@ -612,7 +612,7 @@ export const BewerbungenPostEinwilligungBody = zod.union([
       text_versions: zod
         .object({
           media: zod.literal("2026-11-medien-1"),
-          umfang: zod.literal("2026-11-whatsapp-1"),
+          scope: zod.literal("2026-11-whatsapp-1"),
         })
         .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
       token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyOneTokenMax).regex(bewerbungenPostEinwilligungBodyOneTokenRegExp),
@@ -768,16 +768,16 @@ export const BewerbungenPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-whatsapp-1"),
+        scope: zod.literal("2026-11-whatsapp-1"),
       })
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
-    umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
     "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
@@ -1386,16 +1386,16 @@ export const RegistrierungenPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kader_oeffentlich", "intern"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-name-kader-1"),
+        scope: zod.literal("2026-11-name-kader-1"),
       })
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
-    umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
   .describe("A pupil's or a registration's own two choices on their record.");
 
@@ -1420,17 +1420,17 @@ export const RegistrierungenPostConfirmationBody = zod
       zod.string().regex(registrierungenPostConfirmationBodyGeburtsdatumThreeRegExp),
     ]),
     media: zod.union([zod.boolean(), zod.null()]),
+    scope: zod.union([zod.enum(["kader_oeffentlich", "intern"]), zod.null()]),
     text_versions: zod.union([
       zod
         .object({
           media: zod.literal("2026-11-medien-1"),
-          umfang: zod.literal("2026-11-name-kader-1"),
+          scope: zod.literal("2026-11-name-kader-1"),
         })
         .describe("A pupil's two wordings: the name on the squad and the media switch."),
       zod.null(),
     ]),
     token: zod.string().min(1).max(registrierungenPostConfirmationBodyTokenMax).regex(registrierungenPostConfirmationBodyTokenRegExp),
-    umfang: zod.union([zod.enum(["kader_oeffentlich", "intern"]), zod.null()]),
   })
   .describe("One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents.");
 
@@ -2102,7 +2102,7 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  * Writes those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing
  * else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
  * public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
- * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+ * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
  * `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
@@ -2125,16 +2125,16 @@ export const SchiedsrichterPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kader_oeffentlich", "intern"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-name-spielplan-1"),
+        scope: zod.literal("2026-11-name-spielplan-1"),
       })
       .describe("A referee's two wordings: the name on the fixtures and the media switch."),
-    umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
   .describe("A referee's own two choices on their record.");
 
@@ -2164,14 +2164,14 @@ export const schiedsrichterPostConfirmationBodyTokenRegExp = new RegExp("^[^\\x0
 export const SchiedsrichterPostConfirmationBody = zod.object({
   geburtsdatum: zod.string().regex(schiedsrichterPostConfirmationBodyGeburtsdatumRegExp),
   media: zod.boolean(),
+  scope: zod.enum(["kader_oeffentlich", "intern"]),
   text_versions: zod
     .object({
       media: zod.literal("2026-11-medien-1"),
-      umfang: zod.literal("2026-11-name-spielplan-1"),
+      scope: zod.literal("2026-11-name-spielplan-1"),
     })
     .describe("A referee's two wordings: the name on the fixtures and the media switch."),
   token: zod.string().min(1).max(schiedsrichterPostConfirmationBodyTokenMax).regex(schiedsrichterPostConfirmationBodyTokenRegExp),
-  umfang: zod.enum(["kader_oeffentlich", "intern"]),
 });
 
 /**
@@ -3146,7 +3146,7 @@ export const SpieleGetSpielVerwaltungParams = zod.object({
  *
  * Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
  * the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
- * PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `media` to `true`) is
+ * PATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is
  * taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
@@ -3164,16 +3164,16 @@ export const SpielerPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kader_oeffentlich", "intern"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-name-kader-1"),
+        scope: zod.literal("2026-11-name-kader-1"),
       })
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
-    umfang: zod.enum(["kader_oeffentlich", "intern"]),
   })
   .describe("A pupil's or a registration's own two choices on their record.");
 
@@ -3877,7 +3877,7 @@ export const TeamsPatchSaisonTeamBody = zod
  * One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
  * differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
  * other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
- * other standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `media`
+ * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
  * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
  * person confirmed a seat on, a past season's included.
  *
@@ -3900,16 +3900,16 @@ export const TeamsPatchEinwilligungBody = zod
   .object({
     evidence_state: zod.object({
       media: zod.union([zod.string(), zod.null()]),
-      umfang: zod.union([zod.string(), zod.null()]),
+      scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
+    scope: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
-        umfang: zod.literal("2026-11-whatsapp-1"),
+        scope: zod.literal("2026-11-whatsapp-1"),
       })
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
-    umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
   })
   .describe(
     "A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
@@ -4036,7 +4036,7 @@ export const TeamsPatchSaisonTeamKontakteParams = zod.object({
   saison_id: zod.string(),
 });
 
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDatumRegExp = new RegExp(
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDateRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax = 254;
@@ -4048,7 +4048,7 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneTelefon
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneVornameMax = 80;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDatumRegExp = new RegExp(
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDateRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax = 254;
@@ -4060,7 +4060,7 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneTelefo
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneVornameMax = 80;
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneVornameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDatumRegExp = new RegExp(
+export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDateRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax = 254;
@@ -4081,8 +4081,8 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
           ansprechperson: zod.union([
             zod.object({
               einwilligung: zod.object({
-                datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDatumRegExp),
-                umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
+                date: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEinwilligungDateRegExp),
+                scope: zod.literal("kontaktdaten").meta({ title: "Scope" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneAnsprechpersonOneEmailMax),
               nachname: zod
@@ -4102,8 +4102,8 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
           stellvertretung: zod.union([
             zod.object({
               einwilligung: zod.object({
-                datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDatumRegExp),
-                umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
+                date: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEinwilligungDateRegExp),
+                scope: zod.literal("kontaktdaten").meta({ title: "Scope" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneStellvertretungOneEmailMax),
               nachname: zod
@@ -4123,8 +4123,8 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
           trainer: zod.union([
             zod.object({
               einwilligung: zod.object({
-                datum: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDatumRegExp),
-                umfang: zod.literal("kontaktdaten").meta({ title: "Umfang" }),
+                date: zod.string().regex(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEinwilligungDateRegExp),
+                scope: zod.literal("kontaktdaten").meta({ title: "Scope" }),
               }),
               email: zod.string().max(teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneEmailMax),
               nachname: zod

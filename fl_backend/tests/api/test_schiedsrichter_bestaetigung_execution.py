@@ -230,7 +230,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     body = {
         "token": token,
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
-        "umfang": "kader_oeffentlich",
+        "scope": "kader_oeffentlich",
         "media": True,
         "text_versions": dict(TEXT_VERSIONS),
         **overrides,
@@ -690,16 +690,16 @@ class TestTheConfirmation:
         # Each choice evidenced by the confirmation, its instant in UTC: `NOW` is half past noon in
         # Frankfurt's summer time.
         assert row[EINWILLIGUNG_FELD] == {
-            "umfang": "kader_oeffentlich",
-            "datum": TODAY,
+            "scope": "kader_oeffentlich",
+            "date": TODAY,
             "confirmed_at": TODAY,
             "media": True,
             "evidence": {
-                "umfang": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["umfang"]},
+                "scope": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["scope"]},
                 "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
             },
         }
-        assert (response.umfang, response.media, response.confirmed_at) == ("kader_oeffentlich", True, TODAY)
+        assert (response.scope, response.media, response.confirmed_at) == ("kader_oeffentlich", True, TODAY)
 
     def test_a_second_press_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -707,7 +707,7 @@ class TestTheConfirmation:
             await confirm(database, client, minted.token)
 
             with pytest.raises(APIError) as refused:
-                await confirm(database, client, minted.token, umfang="intern")
+                await confirm(database, client, minted.token, scope="intern")
 
             return refused.value, await stored(database)
 
@@ -715,7 +715,7 @@ class TestTheConfirmation:
 
         assert refused.error_code == Code.CONFIRMATION_EXISTS
         # The first answer stands: a refusal that wrote would have replaced the scope this person chose.
-        assert row[EINWILLIGUNG_FELD]["umfang"] == "kader_oeffentlich"
+        assert row[EINWILLIGUNG_FELD]["scope"] == "kader_oeffentlich"
 
     def test_a_press_after_the_deadline_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -799,13 +799,13 @@ class TestAWithheldNameReachesOneCollection:
     def test_the_scope_is_written_on_the_referees_own_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await confirm(database, client, minted.token, umfang="intern", media=False)
+            await confirm(database, client, minted.token, scope="intern", media=False)
 
             return await stored(database)
 
         row = on_a_league(mongo_replica_set_url, body)
 
-        assert row[EINWILLIGUNG_FELD]["umfang"] == "intern"
+        assert row[EINWILLIGUNG_FELD]["scope"] == "intern"
         assert row[EINWILLIGUNG_FELD]["media"] is False
 
     def test_the_fixture_they_officiated_is_byte_identical_afterwards(self, mongo_replica_set_url: str):
@@ -814,7 +814,7 @@ class TestAWithheldNameReachesOneCollection:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await stored_fixture(database)
             minted = await resend(database, client)
-            await confirm(database, client, minted.token, umfang="intern", media=False)
+            await confirm(database, client, minted.token, scope="intern", media=False)
 
             return before, await stored_fixture(database)
 

@@ -165,7 +165,7 @@ class TestTheClubsContacts:
             "email": "ida@example.com",
             "telefon": "+4917010000001",
             # A seat the applicant's form would store, so the step-up alone refuses.
-            "einwilligung": {"umfang": "kontaktdaten", "datum": "2026-03-01"},
+            "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
         }
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
@@ -182,7 +182,7 @@ class TestTheClubsContacts:
         confirmed = kontaktperson_document(
             "Ida",
             confirmed_at="2026-03-02",
-            einwilligung={"datum": "2026-03-01"},
+            einwilligung={"date": "2026-03-01"},
             nachname="Musterfrau",
             email="ida@example.com",
             telefon="+4917010000001",
@@ -234,7 +234,7 @@ def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, An
         **(
             {
                 "einwilligung": own_einwilligung_document(
-                    text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-21", umfang="intern"
+                    text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-21", scope="intern"
                 ),
                 "geburtsdatum": "1984-05-09",
             }

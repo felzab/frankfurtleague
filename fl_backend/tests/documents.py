@@ -49,10 +49,10 @@ def label_of(alias: TypeAliasType) -> str:
 
 
 # The labels each kind of record's press names, keyed by the choice each evidences.
-SEAT_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLWhatsappTextVersion), "media": label_of(FLMediaTextVersion)}
-SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"umfang": label_of(FLNameKaderTextVersion), "media": label_of(FLMediaTextVersion)}
+SEAT_TEXT_VERSIONS: Final[TextVersions] = {"scope": label_of(FLWhatsappTextVersion), "media": label_of(FLMediaTextVersion)}
+SPIELER_TEXT_VERSIONS: Final[TextVersions] = {"scope": label_of(FLNameKaderTextVersion), "media": label_of(FLMediaTextVersion)}
 SCHIEDSRICHTER_TEXT_VERSIONS: Final[TextVersions] = {
-    "umfang": label_of(FLNameSpielplanTextVersion),
+    "scope": label_of(FLNameSpielplanTextVersion),
     "media": label_of(FLMediaTextVersion),
 }
 
@@ -67,8 +67,8 @@ def confirmed_instant(tag: str) -> str:
 # publishing the name and no media.
 EINWILLIGUNG: Final[Mapping[str, Any]] = compose_born(
     block={
-        "umfang": "kader_oeffentlich",
-        "datum": "2026-01-20",
+        "scope": "kader_oeffentlich",
+        "date": "2026-01-20",
         "confirmed_at": "2026-01-20",
         "media": False,
     },
@@ -416,10 +416,10 @@ def kontaktperson_document(
     }
 
 
-def confirmed_kenntnisnahme(*, datum: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
+def confirmed_kenntnisnahme(*, date: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
     """A seat's record as its applicant's seating and then its own person's confirmation left it, for a seat a case spells itself."""
 
-    return dict(kontaktperson_document("Kenntnis", confirmed_at=confirmed_at, einwilligung={"datum": datum})["einwilligung"])
+    return dict(kontaktperson_document("Kenntnis", confirmed_at=confirmed_at, einwilligung={"date": date})["einwilligung"])
 
 
 def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
@@ -471,8 +471,8 @@ def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str,
 
     born = compose_born(
         block={
-            "umfang": "kader_oeffentlich",
-            "datum": confirmed_at,
+            "scope": "kader_oeffentlich",
+            "date": confirmed_at,
             "confirmed_at": confirmed_at,
             "media": False,
         },
@@ -507,14 +507,14 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, geburtsdatum: str, today: str, at: str, umfang: str | None = None, media: bool | None = None) -> dict[str, Any]:
+def registrierung_confirmed(*, geburtsdatum: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
     """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
 
     return {
         "geburtsdatum": geburtsdatum,
-        "umfang": umfang,
+        "scope": scope,
         "media": media,
-        "text_versions": None if umfang is None and media is None else SPIELER_TEXT_VERSIONS,
+        "text_versions": None if scope is None and media is None else SPIELER_TEXT_VERSIONS,
         "today": today,
         "at": at,
     }

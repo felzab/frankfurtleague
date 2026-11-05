@@ -92,7 +92,7 @@ async def seed(database: AsyncDatabase) -> ObjectId:
             frist="2026-04-06",
             confirmed={
                 "geburtsdatum": "2009-05-04",
-                "umfang": "intern",
+                "scope": "intern",
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": "2026-03-31",
@@ -186,7 +186,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
     return await patch_einwilligung(
         einwilligung_data=FLAccountEinwilligungPayload.model_validate(
             {
-                "umfang": "intern",
+                "scope": "intern",
                 "media": False,
                 "text_versions": dict(documents.SPIELER_TEXT_VERSIONS),
                 # The stand the account page served for the record as the corpus seeds it.

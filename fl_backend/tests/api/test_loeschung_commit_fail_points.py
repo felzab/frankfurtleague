@@ -381,7 +381,7 @@ class TestAPersonsOwnPress:
     def test_a_press_whose_commit_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
-        withdrawn = {"umfang": "intern", "media": False}
+        withdrawn = {"scope": "intern", "media": False}
 
         async def chosen(database: AsyncDatabase) -> dict[str, Any]:
             stored = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
@@ -409,11 +409,11 @@ class TestAPersonsOwnPress:
     def test_a_press_on_a_stale_stand_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
 
-        stale = {"umfang": "a" * 64, "media": None}
+        stale = {"scope": "a" * 64, "media": None}
 
         async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            withdrawal = _withdrawal("konto_spieler", umfang="intern", media=False)
+            withdrawal = _withdrawal("konto_spieler", scope="intern", media=False)
             with caplog.at_level(logging.INFO):
                 refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "evidence_state": stale}, headers=_person(PERSON))
                 refused_lines = len(journalled(caplog))

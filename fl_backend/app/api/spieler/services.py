@@ -56,7 +56,7 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
 
     # Both, never the scope alone: publication rests on the person's own confirmation, so a name is
     # withheld unless the stamp reads as one.
-    return einwilligung.get("umfang") == "kader_oeffentlich" and is_confirmed(einwilligung)
+    return einwilligung.get("scope") == "kader_oeffentlich" and is_confirmed(einwilligung)
 
 
 # The two NAME fields alone: a withheld row keeps its `nummer` and `position`, so a `$cond` reaching
