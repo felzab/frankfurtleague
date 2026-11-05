@@ -522,8 +522,8 @@ describe("the German one refusal code is given", () => {
   it("finds every rendering of the retired-club refusal before judging one", () => {
     expect(
       RETIRED_RENDERINGS.length,
-      `team_retired is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
-    ).toBe(7);
+      `team_retired is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the six this case reads`,
+    ).toBe(6);
     for (const { where, sentences } of RETIRED_RENDERINGS) {
       expect(sentences.length, `${where} holds no rendered sentence`).not.toBe(0);
     }
