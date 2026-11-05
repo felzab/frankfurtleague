@@ -108,6 +108,14 @@
     font-synthesis: none;
   }
 
+  /* Every control shows the pointing hand, as a link does: Tailwind 4's preflight gives a button the browser's
+     arrow, and its upgrade guide restores the hand with this rule. A kit recipe drawing an entry that is no
+     button, a menu's or a list's, names `cursor-pointer` itself. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   /* Session 8: goes with the old pages; the kit's focus is `focus.css`'s, which outranks it. */
   /* The focus indicator for everything HeroUI does not style itself, matching the
      width, offset and colour its own `focus-ring` resolves to. It CAN double up on

@@ -8,7 +8,7 @@ import { Form } from "react-aria-components/Form";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { cardSurface, stacked } from "./cardStyles";
+import { cardSurface, headGround, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
@@ -107,7 +107,7 @@ const box = tv({
     head: "grid gap-1",
     description: "text-sm text-fg-muted",
     content: "grid justify-items-start gap-4",
-    foot: "flex items-center gap-3 border-t border-border bg-bg-card-head px-4 py-3",
+    foot: `flex items-center gap-3 border-t border-border ${headGround()} px-4 py-3`,
     // The one box without a footer: its words at the start and its control at the end, in one row that wraps on a
     // phone too narrow for both.
     inline: "flex flex-wrap items-center justify-between gap-4 p-4",

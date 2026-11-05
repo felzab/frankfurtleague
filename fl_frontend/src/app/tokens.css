@@ -104,6 +104,15 @@
     --target-highlight: 2s;
   }
 
+  /* The fill a control without one of its own, a secondary, quiet or icon button, takes under the pointer: a step
+     off the ground it stands on. The muted fill is that step on the page, a card and an overlay; on a card's head,
+     which the dark theme fills with the muted grey itself, the hover would vanish, so a head redeclares it as its
+     own hover's step (`cardStyles.ts :: headGround`), as the band redeclares `--focus-ring`. Resolved on the
+     root, which carries `data-theme`, so it follows the theme. */
+  :root {
+    --bg-hover: var(--bg-muted);
+  }
+
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
      is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
      default `ease` applies. */
@@ -239,6 +248,7 @@
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
   --color-bg-card-head-hover: var(--bg-card-head-hover);
+  --color-bg-hover: var(--bg-hover);
   --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);

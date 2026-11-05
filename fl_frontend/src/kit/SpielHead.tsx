@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { COPY, textOf } from "@/core/copy";
 
 import { Callout } from "./Callout";
+import { headGround } from "./cardStyles";
 import { CutText } from "./CutText";
 import { RouteDialog } from "./Dialog";
 import { Facts } from "./Facts";
@@ -44,7 +45,7 @@ export type SpielHeadProps = {
 const head = tv({
   extend: sideMarks,
   slots: {
-    root: "grid justify-items-center gap-4 bg-bg-card-head p-6",
+    root: `grid justify-items-center gap-4 ${headGround()} p-6`,
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     // Cut with „…“ where the side's third of the head is too narrow, as a phone's is for a long name.

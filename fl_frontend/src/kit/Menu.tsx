@@ -73,9 +73,9 @@ export type MenuProps = {
 
 type Size = "desktop" | "phone";
 
-// An entry that acts keeps the arrow; an entry with an address renders an `a`, which shows the pointing hand
-// as every link does, so it takes `menuEntry` alone.
-const item = tv({ extend: menuEntry, base: "cursor-default" });
+// An entry that acts shows the pointing hand, as every control does; an entry with an address renders an `a`, which
+// shows it as every link does, so it takes `menuEntry` alone.
+const item = tv({ extend: menuEntry, base: "cursor-pointer" });
 
 // The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({
