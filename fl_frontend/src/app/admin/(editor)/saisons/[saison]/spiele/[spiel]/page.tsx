@@ -169,10 +169,11 @@ const openRowOf = (rows: readonly FLSpielbestaetigung[], party: (row: FLSpielbes
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined, declined: Copy): TableRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
-  if (row === undefined) return { ...shown, chip: { tone: "neutral", label: COPY.template.open }, cells: { answer: WORDS.notAsked } };
+  // One word in one hue, the area's for a state still waiting: the cell beside it says whether the party was asked.
+  const open = { tone: "warn", label: COPY.template.open } as const;
+  if (row === undefined) return { ...shown, chip: open, cells: { answer: WORDS.notAsked } };
   const { antwort } = row;
-  if (antwort === null)
-    return { ...shown, chip: { tone: "warn", label: COPY.template.open }, cells: { answer: WORDS.answerBy(dayOf(row.frist)) } };
+  if (antwort === null) return { ...shown, chip: open, cells: { answer: WORDS.answerBy(dayOf(row.frist)) } };
   const cells: Record<string, Words> = {
     answer: antwort.von.art === "admin" ? WORDS.enteredByLeague : { record: formatDatum(dayOf(antwort.am)) },
   };
