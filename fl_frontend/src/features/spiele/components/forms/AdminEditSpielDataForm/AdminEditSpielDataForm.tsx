@@ -202,11 +202,11 @@ export function AdminEditSpielDataForm({
   };
 
   // Both sides submit as they stand, `null` included: an empty picker is how a bracket slot the
-  // group phase has not filled yet is recorded. The stand is the referee this editor was served, never the draft's pick.
+  // group phase has not filled yet is recorded. The version is the one this editor was served.
   const buildPayload = (): FLPatchSpielDataPayloadDraft => ({
     ...draft,
     spiel_id: spielData.id,
-    schiedsrichter_stand: spielData.schiedsrichter?.schiedsrichter_id ?? null,
+    version: spielData.version,
   });
 
   // The fixture as it will stand once saved, built once so the preview, the categorisation and the
@@ -613,8 +613,6 @@ export function AdminEditSpielDataForm({
                     : uebernahmeGesperrt(spielbericht.lesen.bericht.seiten, { team1: team1Payload, team2: team2Payload })
                 }
                 eingesetzt={eingesetztStand(uebernimmtBericht, spielbericht?.lesen.bericht?.version ?? null)}
-                hatEntwurf={isDirty}
-                today={today}
               />
             )}
 

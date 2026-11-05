@@ -94,7 +94,8 @@ def with_the_slot_cleared(season: tuple[FLSpiel, ...], spiel_id: Any) -> tuple[F
 def payload_of(raw: Mapping[str, Any]) -> FLPatchSpielDataPayload:
     """The drawn fixture resubmitted unchanged -- the body `PATCH /spiele/{spiel_id}` carries when nothing was edited."""
 
-    return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS})
+    # A drawn fixture is composed before its insert stamps a version, so the editor reads it at 0.
+    return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS} | {"version": raw.get("version", 0)})
 
 
 class TestTheShapesAreSeasonsThatCanExist:
@@ -149,7 +150,8 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
 
         season = season_of(shape)
 
-        verdicts = [(raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], payload_of(raw), season)) for raw in drawn(shape).spiele]
+        # No season rows: a release names its club off them, so one owed here raises rather than passing unseen.
+        verdicts = [(raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], payload_of(raw), season, {})) for raw in drawn(shape).spiele]
 
         assert [nr for nr, verdict in verdicts if verdict.refusal is not None] == []
         assert [nr for nr, verdict in verdicts if verdict.releases] == []

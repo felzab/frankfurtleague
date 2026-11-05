@@ -12,13 +12,13 @@ def test_no_club_is_fielded_twice_among_the_fixtures_sharing_a_spieltag():
     so a pipeline proved against it is proved against nothing.
     """
 
-    fielded: dict[ObjectId, list[str]] = defaultdict(list)
+    fielded: dict[ObjectId, list[ObjectId]] = defaultdict(list)
 
     for spiel in SPIELE:
         for side in (spiel["team1"], spiel["team2"]):
             if side is not None:
-                fielded[spiel["spieltag_id"]].append(side["name"])
+                fielded[spiel["spieltag_id"]].append(side["team_id"])
 
-    twice = {spieltag: sorted(names) for spieltag, names in fielded.items() if len(set(names)) != len(names)}
+    twice = {spieltag: sorted(clubs) for spieltag, clubs in fielded.items() if len(set(clubs)) != len(clubs)}
 
     assert not twice, f"clubs fielded more than once on one Spieltag: {twice}"

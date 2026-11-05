@@ -13,6 +13,7 @@ from pymongo import MongoClient
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
@@ -40,6 +41,10 @@ HOME = ObjectId("6890a1b2c3d4e5f607230011")
 AWAY = ObjectId("6890a1b2c3d4e5f607230012")
 SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230021")
 SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230022")
+# The editor's offers: a live venue and a venue retired and booked nowhere, a live referee who has not confirmed.
+LIVE_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230023")
+RETIRED_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230024")
+UNCONFIRMED_SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230025")
 
 MIETPREIS = 80
 PAYMENT = 30
@@ -60,18 +65,58 @@ def spiel_document() -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALX", "tore": 2},
-        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BEX", "tore": 1},
+        team1={"team_id": HOME, "tore": 2},
+        team2={"team_id": AWAY, "tore": 1},
         datum="2026-03-15",
         uhrzeit="14:00:00",
-        ort={"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
-        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "Ada Kern", "payment": PAYMENT},
+        ort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
+        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
 
 
-def junction_row() -> dict[str, Any]:
-    return documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT))
+def junction_rows() -> list[dict[str, Any]]:
+    return [
+        documents.saison_team_document(SAISON_ID, HOME, "Alpha", "ALX"),
+        documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT)),
+    ]
+
+
+def spielort_row(spielort_id: ObjectId, name: str, *, inactive_since: str | None) -> dict[str, Any]:
+    return {
+        "_id": spielort_id,
+        "name": name,
+        "address": dict(documents.ADDRESS),
+        "maps_link": f"{name}, Frankfurt",
+        "default_mietpreis": 70,
+        "inactive_since": inactive_since,
+    }
+
+
+def schiedsrichter_rows() -> list[dict[str, Any]]:
+    """The booked referee, retired since and confirmed; a live one who never confirmed; and the ghost, offered never."""
+
+    confirmed = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-10")
+    return [
+        documents.schiedsrichter_document(
+            SCHIEDSRICHTER_ID,
+            email="ada@example.com",
+            name="Ada Kern",
+            default_payment=PAYMENT,
+            einwilligung=confirmed,
+            inactive_since="2026-04-01",
+        ),
+        documents.schiedsrichter_document(
+            UNCONFIRMED_SCHIEDSRICHTER_ID, email="bo@example.com", name="Bo Lenz", default_payment=25, einwilligung=None
+        ),
+        {
+            **documents.schiedsrichter_document(
+                GHOST_SCHIEDSRICHTER_ID, email="ghost@example.com", name="Ghost", default_payment=0, einwilligung=None
+            ),
+            "name": None,
+            "inactive_since": "2000-01-01",
+        },
+    ]
 
 
 @functools.cache
@@ -108,7 +153,15 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         # Finished, the one status that closes the editor, so the served status is this row's and no default's.
         database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "past"))
         database[Collection.SPIELE].insert_one(spiel_document())
-        database[Collection.SAISON_TEAMS].insert_one(junction_row())
+        database[Collection.SAISON_TEAMS].insert_many(junction_rows())
+        database[Collection.SPIELORTE].insert_many(
+            [
+                spielort_row(SPIELORT_ID, "Sportplatz Ost", inactive_since="2026-04-01"),
+                spielort_row(LIVE_SPIELORT_ID, "Halle Nord", inactive_since=None),
+                spielort_row(RETIRED_SPIELORT_ID, "Platz West", inactive_since="2026-02-01"),
+            ]
+        )
+        database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_rows())
 
         with unwritten(mongo_replica_set_url, database_name):
             yield mongo_replica_set_url
@@ -177,6 +230,24 @@ def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url
     assert spiel["team1"]["austritt_type"] is None
     # The season's status, read off the fixture's own season, which closes the editor once past.
     assert response.json()["saison_status"] == "past"
+
+
+@pytest.mark.db
+def test_the_editor_offers_the_live_rows_and_the_ones_the_fixture_books(seeded_url: str):
+    """Offering a retired row the fixture does not book, or the ghost, puts a booking on the editor the save then refuses.
+
+    The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is
+    offered marked, the save refusing them.
+    """
+
+    answer = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH).json()
+
+    assert [(row["name"], row["inactive_since"]) for row in answer["spielorte"]] == [("Halle Nord", None), ("Sportplatz Ost", "2026-04-01")]
+    assert [(row["name"], row["confirmed"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
+        ("Ada Kern", True, "2026-04-01"),
+        ("Bo Lenz", False, None),
+    ]
+    assert (answer["spielbericht"], answer["spielbestaetigungen"]) == (None, [])
 
 
 @pytest.mark.db

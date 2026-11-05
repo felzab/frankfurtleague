@@ -35,6 +35,8 @@ const INSTANT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyl
 const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
 const UHRZEIT_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+// A stored day and time together, read in UTC as the time alone is, in the instant's own form.
+const DAY_AND_TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", dateStyle: "long", timeStyle: "short" });
 const NUMBER = new Intl.NumberFormat("de-DE");
 const SIGNED = new Intl.NumberFormat("de-DE", { signDisplay: "exceptZero" });
 const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
@@ -80,6 +82,16 @@ export function formatUhrzeit(time: Uhrzeit | Date): string {
 export function formatInstant(instant: string | Date): string {
   const date = typeof instant === "string" ? new Date(instant) : instant;
   return Number.isNaN(date.getTime()) ? String(instant) : INSTANT.format(date);
+}
+
+/**
+ * „14. März 2027 um 15:30“: a fixture's stored day and time inside a sentence or a mail, worded as `formatInstant`
+ * words an instant. The pair is the league's wall clock and names no instant, so no zone may move it.
+ */
+export function formatDayAndTime(day: CalendarDay, time: Uhrzeit): string {
+  const [year = 0, month = 1, dayOfMonth = 1] = day.split("-").map(Number);
+  const [hour = 0, minute = 0] = time.split(":").map(Number);
+  return DAY_AND_TIME_SAVED.format(Date.UTC(year, month - 1, dayOfMonth, hour, minute));
 }
 
 /**

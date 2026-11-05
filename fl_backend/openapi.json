@@ -197,7 +197,6 @@
           "bewerbung_seat_differently_seated",
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
-          "booking_schiedsrichter_moved",
           "spiel_double_booked",
           "spiel_outside_spieltag",
           "spieltag_outside_saison",
@@ -9260,18 +9259,6 @@
               }
             ]
           },
-          "schiedsrichter_stand": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Schiedsrichter Stand"
-          },
           "sonderereignis": {
             "anyOf": [
               {
@@ -9339,15 +9326,8 @@
             "title": "Uhrzeit"
           },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -9362,7 +9342,7 @@
           "ort",
           "schiedsrichter",
           "notiz",
-          "schiedsrichter_stand"
+          "version"
         ],
         "title": "FLPatchSpielDataPayload",
         "type": "object"
@@ -13270,6 +13250,133 @@
         "title": "FLSpielAdvancement",
         "type": "object"
       },
+      "FLSpielEditorBericht": {
+        "description": "The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.\n\n`version` is the one an adoption names (`adopts_bericht`), `seiten` the clubs the report is about, and `named`\neach pupil a goal names, by the names their record holds.",
+        "properties": {
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          },
+          "named": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "title": "Named",
+            "type": "array"
+          },
+          "seiten": {
+            "$ref": "#/components/schemas/FLSpielberichtSeiten"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FLSpielberichtState"
+          },
+          "torschuetzen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
+            },
+            "title": "Torschuetzen",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "version",
+          "ergebnis_vorschlag",
+          "seiten",
+          "torschuetzen",
+          "named"
+        ],
+        "title": "FLSpielEditorBericht",
+        "type": "object"
+      },
+      "FLSpielEditorSchiedsrichter": {
+        "description": "A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired.",
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "default_payment": {
+            "minimum": 0.0,
+            "title": "Default Payment",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "default_payment",
+          "confirmed",
+          "inactive_since"
+        ],
+        "title": "FLSpielEditorSchiedsrichter",
+        "type": "object"
+      },
+      "FLSpielEditorSpielort": {
+        "description": "A venue the editor offers: its name, the rent it defaults to, and the day it retired, null while it serves.",
+        "properties": {
+          "default_mietpreis": {
+            "minimum": 0.0,
+            "title": "Default Mietpreis",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "default_mietpreis",
+          "inactive_since"
+        ],
+        "title": "FLSpielEditorSpielort",
+        "type": "object"
+      },
       "FLSpielEinteilungData": {
         "description": "A referee's word that they are booked onto a fixture, which they answer on their own panel.",
         "properties": {
@@ -13881,7 +13988,7 @@
         "type": "object"
       },
       "FLSpielOrtField": {
-        "description": "The venue as stored and as the admin reads serve it, the rent included.",
+        "description": "The venue as the admin reads serve it, the rent included.",
         "properties": {
           "maps_link": {
             "minLength": 1,
@@ -13936,7 +14043,7 @@
         "type": "object"
       },
       "FLSpielOrtFieldPublic": {
-        "description": "The venue as the public reads serve it: which ground, and where to find it, without the rent.",
+        "description": "The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.",
         "properties": {
           "maps_link": {
             "minLength": 1,
@@ -14185,7 +14292,7 @@
         "type": "object"
       },
       "FLSpielSchiedsrichterField": {
-        "description": "The referee as stored and as the admin reads serve it: the whole name and the payment.",
+        "description": "The referee as the admin reads serve them: the whole name and the payment.",
         "properties": {
           "name": {
             "anyOf": [
@@ -14343,7 +14450,7 @@
         "type": "string"
       },
       "FLSpielTeamFieldJoined": {
-        "description": "One side as a read serves it, with the way its club left the season, null while it has not.",
+        "description": "One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not.",
         "properties": {
           "austritt_type": {
             "anyOf": [
@@ -14394,7 +14501,7 @@
         "type": "object"
       },
       "FLSpielTeamFieldPayload": {
-        "description": "One side of a fixture as the save sends it: the team and its goals.\n\nThe server composes the name and shorthand from the season's team row and ignores a copy sent.",
+        "description": "One side of a fixture as the save sends it: the team and its goals.\n\nA name sent is ignored: a side's name and shorthand are its season row's, joined at read.",
         "properties": {
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -14441,7 +14548,7 @@
         "type": "object"
       },
       "FLSpielberichtAdminResponse": {
-        "description": "The administrator's panel, with the state the report reads in, null exactly where no block stands.\n\nBoth squads empty unless the read asks `kader`, the correction's form; a write answers them always.",
+        "description": "The administrator's panel, with the state the report reads in, null exactly where no block stands, and both squads empty.",
         "properties": {
           "bericht": {
             "anyOf": [
@@ -14737,7 +14844,7 @@
       },
       "FLSpielberichtKartePayload": {
         "additionalProperties": false,
-        "description": "One card as a write sends it: a caution names its reason unless the stored card's reason was stripped.",
+        "description": "One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).",
         "properties": {
           "farbe": {
             "$ref": "#/components/schemas/FLKartenFarbe"
@@ -14805,7 +14912,7 @@
       },
       "FLSpielberichtPayload": {
         "additionalProperties": false,
-        "description": "The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.",
+        "description": "The whole `bericht` block, written wholesale by the referee's PUT.",
         "properties": {
           "bericht": {
             "$ref": "#/components/schemas/FLSpielberichtBerichtPayload"
@@ -16424,18 +16531,53 @@
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
-        "description": "One fixture for the admin editor, money included, and its season's status.\n\nOn the response rather than on the fixture: the editor alone asks it, to open a finished season's match\nread-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
+        "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.\n\n`saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's\nmatch read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
         "properties": {
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielEditorSchiedsrichter"
+            },
+            "title": "Schiedsrichter",
+            "type": "array"
+          },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+          },
+          "spielbericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielEditorBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spielbestaetigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigung"
+            },
+            "title": "Spielbestaetigungen",
+            "type": "array"
+          },
+          "spielorte": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielEditorSpielort"
+            },
+            "title": "Spielorte",
+            "type": "array"
           }
         },
         "required": [
           "spiel",
-          "saison_status"
+          "saison_status",
+          "spielorte",
+          "schiedsrichter",
+          "spielbericht",
+          "spielbestaetigungen"
         ],
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
@@ -16450,6 +16592,36 @@
           "spiel"
         ],
         "title": "FLSpieleSingleResponse",
+        "type": "object"
+      },
+      "FLSpieleSpielplanAdminResponse": {
+        "description": "A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.\n\n`current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;\nin a finished season, the last. Null for a season with no matchday.",
+        "properties": {
+          "current_spieltag_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Spieltag Id"
+          },
+          "spieltage": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielplanSpieltagAdmin"
+            },
+            "title": "Spieltage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spieltage",
+          "current_spieltag_id"
+        ],
+        "title": "FLSpieleSpielplanAdminResponse",
         "type": "object"
       },
       "FLSpielerAdminSingleResponse": {
@@ -17239,6 +17411,84 @@
           "spiele"
         ],
         "title": "FLSpielplanSpieltag",
+        "type": "object"
+      },
+      "FLSpielplanSpieltagAdmin": {
+        "description": "One matchday as the administrator's Spiele list shows it, its matches in the admin shape.",
+        "properties": {
+          "beginn": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beginn"
+          },
+          "count_spiele": {
+            "minimum": 0.0,
+            "title": "Count Spiele",
+            "type": "integer"
+          },
+          "ende": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ende"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+            },
+            "title": "Spiele",
+            "type": "array"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "beginn",
+          "ende",
+          "position",
+          "saison_phase",
+          "saison_id",
+          "version",
+          "count_spiele",
+          "spiele"
+        ],
+        "title": "FLSpielplanSpieltagAdmin",
         "type": "object"
       },
       "FLSpieltag": {
@@ -26680,91 +26930,6 @@
         ]
       }
     },
-    "/api/v0/spielberichte/{spiel_id}": {
-      "patch": {
-        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `differing` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\n`bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's\nwrite.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`\nother than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated or whose day is\nstill to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a\ngroup-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil newly named on a side outside that side's live squad of the season\n(`bericht_not_in_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,\nby side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_missing`). Each\nbut `bericht_meanwhile_changed` is asked again outside the transaction just before answering; a write of the report landing\nmid-press conflicts with this one, whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two pages\nopened on no report: the later is refused.",
-        "operationId": "spielberichte_patch_spielbericht",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spiel_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spiel Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSpielberichtPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielberichtAdminResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Write one fixture's report as an administrator",
-        "tags": [
-          "spielberichte"
-        ]
-      }
-    },
     "/api/v0/spielberichte/{spiel_id}/bericht": {
       "get": {
         "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report, with both squads\nempty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,\n`completed` is true and the read is the report alone, both squads empty, which its referee writes no more.\nRefused\n`role_not_held` where the address holds no confirmed, live referee record, and `bericht_not_officiated` where the fixture\nis booked to none of its records; `document_not_found` for a fixture that does not exist.",
@@ -26935,7 +27100,7 @@
     },
     "/api/v0/spielberichte/{spiel_id}/verwaltung": {
       "get": {
-        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with\n`kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture\nholding no report serves none. The report and its state are null where no report stands; `document_not_found` only for\na fixture that does not exist.",
+        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture and the pupils the report names, by name. The panel picks no pupil, so it reads no squad and\nno pupil the report does not name: a fixture holding no report serves none. The report and its state are null where\nno report stands; `document_not_found` only for a fixture that does not exist.",
         "operationId": "spielberichte_get_spielbericht_verwaltung",
         "parameters": [
           {
@@ -26946,18 +27111,6 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Spiel Id",
               "type": "string"
-            }
-          },
-          {
-            "description": "Serve both clubs' live squads of the season, for a form picking from them",
-            "in": "query",
-            "name": "kader",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "Serve both clubs' live squads of the season, for a form picking from them",
-              "title": "Kader",
-              "type": "boolean"
             }
           }
         ],
@@ -27875,6 +28028,82 @@
         ]
       }
     },
+    "/api/v0/spiele/spielplan": {
+      "get": {
+        "description": "Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.\n\nEach round holds its matches by number, and the rounds come in the order they are played. The matchday to open on\nis the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its\nlast. `document_not_found` for a season id naming no season. Writes nothing.",
+        "operationId": "spiele_get_spiele_spielplan",
+        "parameters": [
+          {
+            "description": "The season whose matchdays and knockout rounds the list shows",
+            "in": "query",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "description": "The season whose matchdays and knockout rounds the list shows",
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieleSpielplanAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison's Spiele by matchday, for the admin Spiele list",
+        "tags": [
+          "spiele"
+        ]
+      }
+    },
     "/api/v0/spiele/{spiel_id}": {
       "get": {
         "description": "Return one match by its id, answering 404 for a match of a season this tier may not read.",
@@ -27950,7 +28179,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nEvery name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing. A `past` season's fixture is refused (`saison_past`), the\n`dry_run` included.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
@@ -28067,7 +28296,7 @@
     },
     "/api/v0/spiele/{spiel_id}/verwaltung": {
       "get": {
-        "description": "Return one match in the admin shape, money included, for the editor, with its season's status.",
+        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; the fixture's report as its Spielbericht section shows it, its goals, its proposal and\nthe state it reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves\nthem. `document_not_found` for an id no fixture holds.",
         "operationId": "spiele_get_spiel_verwaltung",
         "parameters": [
           {
@@ -28134,7 +28363,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "One Spiel for the admin editor",
+        "summary": "One Spiel and all the match editor offers and shows beside it",
         "tags": [
           "spiele"
         ]
