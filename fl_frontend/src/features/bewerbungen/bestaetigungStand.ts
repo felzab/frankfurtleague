@@ -9,8 +9,8 @@ type BewerbungSitze = Pick<FLBewerbung, "confirmations" | "kontakte">;
 
 /** What one seat's confirmation has reached. A seat that has answered carries the day it answered on. */
 type Stand =
-  | { art: "confirmed"; am: string }
-  | { art: "declined"; am: string }
+  | { art: "confirmed"; at: string }
+  | { art: "declined"; at: string }
   // No day: an erasure takes the seat's block with the person it belonged to, and the day it
   // happened on is stored nowhere the application can be read from.
   | { art: "erased" }
@@ -32,22 +32,22 @@ export type SitzBestaetigung = {
   stand: Stand;
   /**
    * What became of the last mail owed this seat, `null` where none was. **Beside `stand` and never inside it**: a seat
-   * can be `bestaetigt` and have had an earlier link bounce.
+   * can be `confirmed` and have had an earlier link bounce.
    */
   delivery: FLOutboxStatus | null;
   /** Rendered here rather than by each surface: the strip and the fact panel say one thing about one seat. */
-  satz: string;
+  sentence: string;
 };
 
 /** Each seat's state, in the label table's order. */
 export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] {
-  const { confirmations: bestaetigungen, kontakte, status } = bewerbung;
+  const { confirmations: confirmations, kontakte, status } = bewerbung;
 
   // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's, which
   // every admin section is ordered by (`docs/decisions.md`, **admin**).
   return KONTAKT_ROLLEN.map(({ value, label }) => {
     const person = kontakte[value];
-    const verlauf = bestaetigungen[value];
+    const verlauf = confirmations[value];
     const bestaetigtAm = person?.einwilligung.confirmed_at ?? null;
     const abgelehntAm = verlauf?.declined_at ?? null;
 
@@ -55,9 +55,9 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung,
     // carrying the day its link went out.
     const stand: Stand =
       bestaetigtAm !== null
-        ? { art: "confirmed", am: bestaetigtAm }
+        ? { art: "confirmed", at: bestaetigtAm }
         : abgelehntAm !== null
-          ? { art: "declined", am: abgelehntAm }
+          ? { art: "declined", at: abgelehntAm }
           : // Either half missing is terminal, and `ausstehend` is left holding only the seats a link
             // can still reach: the endpoint refuses to mint against a null entry, and a null slot
             // names nobody who could answer one.
@@ -83,7 +83,7 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung,
       zugleichTrainer: kontakte.trainer_is_also === value,
       stand: stand,
       delivery: verlauf?.delivery ?? null,
-      satz: standSatz(stand),
+      sentence: standSatz(stand),
     };
   });
 }
@@ -106,9 +106,9 @@ function istEndgueltig({ stand }: SitzBestaetigung): boolean {
  * an erasure being one the league made and cannot take back.
  */
 export function endstand(staende: readonly SitzBestaetigung[]): string | null {
-  if (staende.some((sitz) => sitz.stand.art === "declined")) return "Widerspruch";
+  if (staende.some((seat) => seat.stand.art === "declined")) return "Widerspruch";
 
-  return staende.some((sitz) => sitz.stand.art === "erased") ? "Eintrag gelöscht" : null;
+  return staende.some((seat) => seat.stand.art === "erased") ? "Eintrag gelöscht" : null;
 }
 
 /**
@@ -125,10 +125,10 @@ function leerSatz(stand: Stand): string {
  * heard from the league. A reminder a ban keeps back leaves nothing on the seat, so it reads as sent.
  */
 function standSatz(stand: Stand): string {
-  if (stand.art === "confirmed") return `Bestätigt am ${formatSpielDatum(stand.am)}`;
+  if (stand.art === "confirmed") return `Bestätigt am ${formatSpielDatum(stand.at)}`;
   // The queue's badge word in its participle: „Abgelehnt“ is the APPLICATION's own status, and one
   // root for a seat's refusal and the league's decision puts two facts about one row under one word.
-  if (stand.art === "declined") return `Widersprochen am ${formatSpielDatum(stand.am)}`;
+  if (stand.art === "declined") return `Widersprochen am ${formatSpielDatum(stand.at)}`;
   // One sentence for both, because it is one fact: neither seat can be confirmed. A second wording
   // would read as a third terminal state beside the Widerspruch.
   if (stand.art === "erased" || stand.art === "unbeantwortet") return "Keine Bestätigung mehr möglich";
@@ -144,12 +144,12 @@ function standSatz(stand: Stand): string {
  * would put a second message in one mailbox over one decision.
  */
 export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<KontaktRolle> {
-  const wartend = staende.filter((sitz) => sitz.stand.art === "pending");
+  const wartend = staende.filter((seat) => seat.stand.art === "pending");
   // Only where the Trainer's own row carries a control: a claimed pair whose Trainer seat has been
   // answered or emptied would otherwise be left with no way to send a link at all.
-  const gepaart = wartend.some((sitz) => sitz.rolle === "trainer");
+  const gepaart = wartend.some((seat) => seat.rolle === "trainer");
 
-  return new Set(wartend.filter((sitz) => !(gepaart && sitz.zugleichTrainer)).map((sitz) => sitz.rolle));
+  return new Set(wartend.filter((seat) => !(gepaart && seat.zugleichTrainer)).map((seat) => seat.rolle));
 }
 
 /**
@@ -158,16 +158,16 @@ export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<K
  * parts them by the day the decline left behind.
  */
 export function sitzAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<KontaktRolle> {
-  const ausgestiegen = new Set(staende.filter((sitz) => sitz.stand.art === "declined").map((sitz) => sitz.rolle));
-  const spiegel = staende.find((sitz) => sitz.zugleichTrainer)?.rolle ?? null;
+  const ausgestiegen = new Set(staende.filter((seat) => seat.stand.art === "declined").map((seat) => seat.rolle));
+  const spiegel = staende.find((seat) => seat.zugleichTrainer)?.rolle ?? null;
 
   if (spiegel !== null) {
     // NOT `linkAngebot`'s pairing: the re-send sends to whichever seat of a pair still stands, where
     // this write refuses unless both stepped out (`:: find_reseat_refusal`), so a control on one
     // half alone is a press refused.
-    const beide = ausgestiegen.has("trainer") && ausgestiegen.has(spiegel);
+    const both = ausgestiegen.has("trainer") && ausgestiegen.has(spiegel);
     ausgestiegen.delete(spiegel);
-    if (!beide) ausgestiegen.delete("trainer");
+    if (!both) ausgestiegen.delete("trainer");
   }
 
   return ausgestiegen;
@@ -181,10 +181,10 @@ function sindEinePerson(a: SitzBestaetigung, b: SitzBestaetigung): boolean {
   return (a.rolle === "trainer" && b.zugleichTrainer) || (b.rolle === "trainer" && a.zugleichTrainer);
 }
 
-/** Every address the correction on `sitz` may not take: another person's, never its own mirror's. */
-export function adressenAndererPersonen(staende: readonly SitzBestaetigung[], sitz: SitzBestaetigung): string[] {
+/** Every address the correction on `seat` may not take: another person's, never its own mirror's. */
+export function adressenAndererPersonen(staende: readonly SitzBestaetigung[], seat: SitzBestaetigung): string[] {
   return staende
-    .filter((andere) => andere.rolle !== sitz.rolle && !sindEinePerson(andere, sitz))
+    .filter((andere) => andere.rolle !== seat.rolle && !sindEinePerson(andere, seat))
     .map((andere) => andere.email)
     .filter((adresse) => adresse !== null);
 }
@@ -199,20 +199,20 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[], teamName: 
     return "Ohne eine neue Schule und ohne ein bestehendes Team steht nicht fest, wer aufgenommen würde. Bleibt nur die Absage.";
   }
 
-  const offen = staende.filter(istOffen);
+  const open = staende.filter(istOffen);
 
-  if (offen.length === 0) return null;
+  if (open.length === 0) return null;
 
   // FIRST: a row carrying both an erasure and a Widerspruch can still only be declined, so the
   // sentence naming the reseat would send the administrator to a dead end.
-  if (offen.some(istEndgueltig)) {
+  if (open.some(istEndgueltig)) {
     // „löschen lassen“ rather than „gelöscht“, the erasure being the league's act on the person's request.
     return "Eine Kontaktperson hat ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.";
   }
 
   // The repair beside the refusal: the control it sends the administrator to is `sitzAngebot`'s, so
   // both have to select the declined seat or this points at a row carrying no such control.
-  if (offen.some((sitz) => sitz.stand.art === "declined")) {
+  if (open.some((seat) => seat.stand.art === "declined")) {
     return "Eine Kontaktperson hat widersprochen. Besetze ihre Rolle mit einer anderen Person oder lehne die Bewerbung ab.";
   }
 
@@ -245,19 +245,19 @@ export function loeschungsSatz({
   // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/system_router.py :: loeschen_the_unconfirmed`): an
   // application whose submitter's last mail did not arrive stands, so a promised deletion is false for exactly the row
   // an administrator can still repair.
-  const gehalten = staende.find((sitz) => sitz.rolle === "ansprechperson")?.delivery?.undeliverable === true;
+  const held = staende.find((seat) => seat.rolle === "ansprechperson")?.delivery?.undeliverable === true;
 
   // The deadline's own day still reads as ahead: the link answers on it, and the sweep deletes the day after.
   if (!istAbgelaufen) {
     // „Die Frist für die Bestätigungen“ is the deletion notice's own phrase, so the administrator reads
     // what the school is sent (`fl_frontend/src/core/bewerbungEmail.ts`).
-    return gehalten
+    return held
       ? `Die Frist für die Bestätigungen läuft bis zum ${tag}. Gelöscht wird die Bewerbung danach nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.`
       : `Bleibt eine Bestätigung bis zum ${tag} aus, wird die Bewerbung gelöscht.`;
   }
 
-  return gehalten
+  return held
     ? `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.`
-    : // The scheduler's own cadence (`fl_frontend/src/instrumentation-node.ts :: armScheduler`).
+    : // The scheduler's own cadence (`fl_frontend/src/instrumentationNode.ts :: armScheduler`).
       `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.`;
 }

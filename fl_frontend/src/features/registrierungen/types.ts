@@ -72,7 +72,7 @@ export type SpielerBestaetigungStart =
 export type SpielerBestaetigungGespeichert = {
   geburtsdatum: string | null;
   umfang: FLEinwilligungUmfang | null;
-  medien: boolean | null;
+  media: boolean | null;
 };
 
 /**

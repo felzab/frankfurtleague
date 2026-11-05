@@ -19,13 +19,13 @@ import type { ActionRequiredCategory, FLSpielWithDraftFields } from "@/features/
 export function AdminSpielEditView({
   spielData,
   today,
-  bestaetigungen,
+  confirmations,
   spielbericht,
 }: {
   spielData: FLSpielJoinedAdmin;
   today: string;
   /** `null` where the read failed, which the panel says. */
-  bestaetigungen: readonly FLSpielbestaetigung[] | null;
+  confirmations: readonly FLSpielbestaetigung[] | null;
   /** `null` where its read failed, which the panel says. */
   spielbericht?: SpielberichtStand | null;
 }) {
@@ -57,7 +57,7 @@ export function AdminSpielEditView({
         isFinishedSaison={isFinishedSaison}
         isActiveSaison={isActiveSaison}
         today={today}
-        bestaetigungen={bestaetigungen}
+        confirmations={confirmations}
         spielbericht={spielbericht}
         categorize={categorize}
         pageHeader={{

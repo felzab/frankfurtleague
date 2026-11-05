@@ -115,7 +115,7 @@ const sends = (method: string, readOnly?: boolean, thrown?: unknown) =>
 function create(thrown?: unknown) {
   return action({
     lane: "admin",
-    name: "anlegen",
+    name: "create",
     input: Venue,
     run: async (input) => {
       state.steps.push(`body ${JSON.stringify(input)}`);
@@ -154,7 +154,7 @@ describe("the admin lane", () => {
     const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", plz: "60438" });
 
     expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
-    expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "anlegen", name: "Error" } }]);
+    expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "create", name: "Error" } }]);
     expect(state.steps.at(-1)).toBe("updateTag site");
   });
 });
@@ -180,7 +180,7 @@ describe("the person lane", () => {
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await register({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(state.steps).toStrictEqual(["person guard"]);
-    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "keine_sitzung" } }]);
+    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "no_session" } }]);
   });
 
   it.each([
@@ -233,7 +233,7 @@ describe("the account's own acts", () => {
   const signOut = action({
     lane: "person",
     claim: "account",
-    name: "abmelden",
+    name: "sign_out",
     input: z.object(PAGE_HOLDER),
     run: async (_input, { served }) => {
       state.steps.push(`body ${JSON.stringify(served)}`);
@@ -268,7 +268,7 @@ describe("the public lane", () => {
   const send = action({
     lane: "public",
     botCheck: true,
-    name: "senden",
+    name: "send",
     input: z.object({ email: z.email() }),
     run: async ({ email }) => {
       state.steps.push("body");
@@ -279,7 +279,7 @@ describe("the public lane", () => {
   it("answers the bot check's refusal before anything of the input is read", async () => {
     state.botCheck = COPY.shared.botCheck.confirm;
     const posted = new FormData();
-    posted.set("email", "keine-adresse");
+    posted.set("email", "no-address");
     posted.set("cf-turnstile-response", "token");
 
     expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck.confirm });

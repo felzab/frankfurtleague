@@ -599,7 +599,7 @@ export function FormTeamPicker({
           fixture. A warning, never a refusal. */}
       <InlineBanners
         banners={banners}
-        spot={`${fieldName}-qualifikation`}
+        spot={`${fieldName}-qualification`}
       />
 
       {choice === "manuell" ? (

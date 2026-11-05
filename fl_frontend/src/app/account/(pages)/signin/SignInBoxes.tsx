@@ -4,7 +4,7 @@ import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { requestErasure, startAddressChange, withdrawAddressChange } from "@/features/konto/personActions";
+import { requestErasure, startAddressChange, withdrawAddressChange } from "@/features/account/personActions";
 
 import type { Copy } from "@/core/copy";
 

@@ -1,7 +1,7 @@
 """
 API · the erasure registry's decisions a database need not answer
 
-Collections standing in for the reads each decision makes: `app/api/identity/crud.py :: LoeschungJournal`'s
+Collections standing in for the reads each decision makes: `app/api/identity/crud.py :: ErasureJournal`'s
 one `find` after the commit, and the aggregates `:: resolve_subject` sends.
 """
 
@@ -15,8 +15,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import NetworkTimeout
 
-from app.api.identity.crud import LoeschungJournal, Subject, resolve_subject
-from app.api.identity.schemas import FLLoeschung
+from app.api.identity.crud import ErasureJournal, Subject, resolve_subject
+from app.api.identity.schemas import FLErasure
 from app.core.codes import Code
 from app.core.journal import JOURNAL_TOKEN
 from tests.config import build_test_config
@@ -24,7 +24,7 @@ from tests.config import build_test_config
 IDENTIFIER = "zorbanax.quillfeather@example.org"
 
 # One grant taken, so the journal reads the grants once the erasure committed.
-A_GRANT_TAKEN = FLLoeschung(
+A_GRANT_TAKEN = FLErasure(
     spieler=0,
     saison_spieler=0,
     schiedsrichter=0,
@@ -33,7 +33,7 @@ A_GRANT_TAKEN = FLLoeschung(
     registrierungen=0,
     address_change=0,
     grants=1,
-    grants_approval_requests=0,
+    grant_approval_requests=0,
 )
 
 
@@ -52,17 +52,17 @@ class _GrantsUnread:
 def test_a_committed_loeschung_whose_grant_warning_fails_answers_and_journals(caplog: pytest.LogCaptureFixture):
     """Catches the warning's read raising out of the journal: the person is answered an error for an erasure that landed."""
 
-    async def geloescht() -> FLLoeschung:
-        journal = LoeschungJournal[FLLoeschung](
+    async def erase() -> FLErasure:
+        journal = ErasureJournal[FLErasure](
             IDENTIFIER,
             key=build_test_config().sperrliste_key,
-            berechtigungen_collection=cast(AsyncCollection, _GrantsUnread()),
+            grants_collection=cast(AsyncCollection, _GrantsUnread()),
         )
         async with journal:
             return journal.took(A_GRANT_TAKEN)
 
     with caplog.at_level(logging.INFO):
-        answer = asyncio.run(geloescht())
+        answer = asyncio.run(erase())
 
     messages = [record.getMessage() for record in caplog.records]
 
@@ -99,7 +99,7 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind:
     """Catches a kind read for no step, and a kind left unread answered as an empty list, on which a step erases nothing."""
 
     collections = {
-        name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen", "adresswechsel")
+        name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen", "address_changes")
     }
 
     subject = asyncio.run(
@@ -118,7 +118,7 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind:
         "schiedsrichter": 0,
         "spieler": 1,
         "registrierungen": 1,
-        "adresswechsel": 0,
+        "address_changes": 0,
     }
     assert (subject.spieler, subject.registrierungen) == ([], [])
     with pytest.raises(RuntimeError):

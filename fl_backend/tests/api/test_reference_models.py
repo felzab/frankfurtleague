@@ -280,7 +280,7 @@ class TestEinwilligung:
 
         assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "medien", "nachweis"])
+    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "media", "evidence"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """Each key a stored record carries, so a model accepting one fewer would let the read-back pass a row missing it."""
 
@@ -292,9 +292,9 @@ class TestEinwilligung:
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
         """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
 
-        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", medien=True))
+        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", media=True))
 
-        assert parsed.medien is True
+        assert parsed.media is True
         assert parsed.umfang == "kader_oeffentlich"
 
     @pytest.mark.parametrize(
@@ -342,13 +342,13 @@ class TestTheConsentRecordStoredAndReadBack:
 
     def test_a_confirmed_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
 
-        stored = self._written(mongo_url, einwilligung(medien=True))
+        stored = self._written(mongo_url, einwilligung(media=True))
         parsed = FLSpielerWithMemberships.model_validate(
             {**stored, "address_change_id": None, "address_change_viewable_denied": None, "memberships": []}
         )
 
         assert parsed.einwilligung is not None
-        assert (parsed.einwilligung.umfang, parsed.einwilligung.medien) == ("kader_oeffentlich", True)
+        assert (parsed.einwilligung.umfang, parsed.einwilligung.media) == ("kader_oeffentlich", True)
 
 
 class TestSaisonSpielerRow:
@@ -581,8 +581,8 @@ class TestSaison:
         newest = clock.now().year + 1
         year = FIRST_SAISON_YEAR - 1 if side == "before the first season" else newest + 1
         body = {"id": str(year), "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        body["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
-        body["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
+        body["bewerbung"] = {"offen": True, "start": "2025-11-01", "end": "2025-12-15"}
+        body["registrierung"] = {"offen": False, "von": "2026-01-05", "end": "2026-02-05"}
 
         with pytest.raises(ValidationError) as failure:
             FLPostSaisonPayload.model_validate(body)
@@ -605,8 +605,8 @@ class TestTheSeasonsSpans:
             "start_date": stored["start_date"],
             "end_date": stored["end_date"],
             "rules": stored["rules"],
-            "bewerbung": {"offen": True, "von": "2025-09-01", "bis": "2025-10-31"},
-            "registrierung": {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"},
+            "bewerbung": {"offen": True, "start": "2025-09-01", "end": "2025-10-31"},
+            "registrierung": {"offen": True, "von": "2025-11-01", "end": "2025-12-15"},
             **overrides,
         }
 
@@ -622,7 +622,7 @@ class TestTheSeasonsSpans:
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None)).bewerbung is None
 
     def test_refuses_a_window_ending_before_it_opens(self, saison):
-        reversed_window = {"offen": False, "von": "2025-10-31", "bis": "2025-09-01"}
+        reversed_window = {"offen": False, "start": "2025-10-31", "end": "2025-09-01"}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
@@ -631,7 +631,7 @@ class TestTheSeasonsSpans:
 
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
-        before_the_saison = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
+        before_the_saison = {"offen": False, "start": "2025-01-01", "end": "2025-02-01"}
 
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_saison)).bewerbung is not None
 
@@ -655,7 +655,7 @@ class TestTheSeasonsSpans:
 
     def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
         """The third caller's own kind: the two windows raise different kinds, and one moved alone is what this catches."""
-        reversed_window = {"offen": False, "von": "2025-12-15", "bis": "2025-11-01"}
+        reversed_window = {"offen": False, "von": "2025-12-15", "end": "2025-11-01"}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
@@ -664,7 +664,7 @@ class TestTheSeasonsSpans:
 
     def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
         """Two decisions rather than one span: registration may legitimately close before applications do."""
-        overlapping = {"offen": True, "von": "2025-08-01", "bis": "2025-09-15"}
+        overlapping = {"offen": True, "von": "2025-08-01", "end": "2025-09-15"}
 
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=overlapping)).registrierung is not None
 
@@ -806,8 +806,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
         new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
-        new_saison["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
-        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"}
+        new_saison["bewerbung"] = {"offen": True, "start": "2025-11-01", "end": "2025-12-15"}
+        new_saison["registrierung"] = {"offen": False, "von": "2026-01-05", "end": "2026-02-05"}
         new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 

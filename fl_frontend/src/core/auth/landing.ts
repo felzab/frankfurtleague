@@ -11,8 +11,8 @@ import { passkeysOf } from "./passkeys";
 import { readLibrarySession, readRequestSession, servedSessionOf } from "./session";
 import { isFreshForEnrolment, isWithinPersonLifetime, PASSKEY_FACTOR } from "./sessionStamps";
 
+import type { Grant } from "../grant";
 import type { SubjectSession } from "../subject";
-import type { Verwaltung } from "../verwaltung";
 import type { ServedSession } from "./session";
 
 /** Where `/signin/continue` sends the session it was handed, before `/area` is resolved to the page it leads to. */
@@ -56,16 +56,16 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
-  const subjekt = await subjectOrNull(served.user.email);
-  if (subjekt === null) return { destination: "/area", served: served, subject: null };
+  const subjectRecord = await subjectOrNull(served.user.email);
+  if (subjectRecord === null) return { destination: "/area", served: served, subject: null };
 
   // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
   // and one left standing serves again on the ban's lift with no sign-in.
-  if (subjekt.barred) return ended(read);
+  if (subjectRecord.barred) return ended(read);
 
   // As the person guard builds it (`fl_frontend/src/core/subject.ts`), off this one lookup.
-  const subject = { email: asSignInIdentifier(served.user.email), admin: isAdminSession(served, subjekt), subject: subjekt };
-  return { destination: await destinationOf(served, subjekt), served: served, subject: subject };
+  const subject = { email: asSignInIdentifier(served.user.email), admin: isAdminSession(served, subjectRecord), subject: subjectRecord };
+  return { destination: await destinationOf(served, subjectRecord), served: served, subject: subject };
 }
 
 /**
@@ -78,11 +78,11 @@ async function ended(read: ServedSession): Promise<Landing> {
   return { destination: "/signin", served: null, subject: null };
 }
 
-async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
-  if (verwaltung.verwaltung !== null) {
+async function destinationOf(served: ServedSession, grant: Grant): Promise<SignInDestination> {
+  if (grant.admin_tier !== null) {
     // The guard's own verdict rather than a second spelling of it: `/area` sends a granted session
     // the guard refuses on to `/area/admin`, whose guards send it back here.
-    if (isAdminSession(served, verwaltung)) return "/area";
+    if (isAdminSession(served, grant)) return "/area";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
     // afresh rather than being sent to a person's landing with no way to the step they owe.
@@ -128,10 +128,10 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 
   // An unread read offers no card, for the landing's reason; a barred subject none either, its
   // enrolment being refused.
-  const subjekt = await subjectOrNull(served.user.email);
-  if (subjekt === null || subjekt.barred) return null;
+  const subject = await subjectOrNull(served.user.email);
+  if (subject === null || subject.barred) return null;
 
-  const step = await passkeyStepOf(served, subjekt.verwaltung !== null);
+  const step = await passkeyStepOf(served, subject.admin_tier !== null);
   if (step === null) return null;
 
   // Folded as `getAdminSession` folds the actor it records: the stored row is the library's own

@@ -116,16 +116,16 @@ function referee(name, schule, payment, email, inactiveSince) {
 // label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
 // kind shares.
 const CONSENTED = day(-60);
-const LABELS = { umfang: "2026-11-name-kader-1", medien: "2026-11-medien-1" };
+const LABELS = { umfang: "2026-11-name-kader-1", media: "2026-11-medien-1" };
 
 // A journey's person: a referee no fixture books, as their own confirmation leaves the row
 // (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
 // the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
 // (`SCHIEDSRICHTER_TEXT_VERSIONS`). A referee row is its person's own only once confirmed
-// (`fl_backend/app/api/identity/services.py :: ist_eigener_schiedsrichter`), so an address change or an erasure moves
+// (`fl_backend/app/api/identity/services.py :: is_own_schiedsrichter`), so an address change or an erasure moves
 // nothing of a row without one.
 function journeyPerson(name, email) {
-  const evidence = (textVersion) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
+  const evidence = (textVersion) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: textVersion });
   return {
     ...referee(name, null, 20, email, null),
     geburtsdatum: day(-20 * 365),
@@ -133,8 +133,8 @@ function journeyPerson(name, email) {
       umfang: "intern",
       datum: CONSENTED,
       confirmed_at: CONSENTED,
-      medien: false,
-      nachweis: { umfang: evidence("2026-11-name-spielplan-1"), medien: evidence(LABELS.medien) },
+      media: false,
+      evidence: { umfang: evidence("2026-11-name-spielplan-1"), media: evidence(LABELS.media) },
     },
   };
 }
@@ -173,17 +173,17 @@ const GRANTS = [
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, verwaltung]) => ({
+].map(([adresse, admin_tier]) => ({
   _id: ObjectId(),
   adresse,
-  verwaltung,
+  admin_tier,
   granted_by: "MADE-UP-SEED",
   granted_at: GRANTED_AT,
   gesehen_am: GRANTED_AT,
 }));
 
 // The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
-const ANNOUNCED = GRANTS.map(({ _id, adresse, verwaltung }) => ({ _id, adresse, verwaltung, angekuendigt_am: GRANTED_AT }));
+const ANNOUNCED = GRANTS.map(({ _id, adresse, admin_tier }) => ({ _id, adresse, admin_tier, angekuendigt_am: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -446,7 +446,7 @@ const GHOST_SPIELER = {
 
 // Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
 function pupil(vorname, nachname) {
-  const evidence = (choice) => ({ am: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
+  const evidence = (choice) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
     _id: ObjectId(),
     vorname,
@@ -457,8 +457,8 @@ function pupil(vorname, nachname) {
       umfang: "kader_oeffentlich",
       datum: CONSENTED,
       confirmed_at: CONSENTED,
-      medien: false,
-      nachweis: { umfang: evidence("umfang"), medien: evidence("medien") },
+      media: false,
+      evidence: { umfang: evidence("umfang"), media: evidence("media") },
     },
     inactive_since: null,
   };

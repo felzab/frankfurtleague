@@ -3,9 +3,9 @@ import { assert, describe, expect, it } from "vitest";
 import {
   buildRefusal,
   LADE_NEU_UND_VERSUCHE_ES_ERNEUT,
+  TRY_AGAIN,
   UNHANDLED_FIELD_REFUSAL,
   UNKNOWN_REFUSAL,
-  VERSUCHE_ES_ERNEUT,
   VERSUCHE_ES_ERNEUT_SATZ,
 } from "./refusal.ts";
 
@@ -62,11 +62,11 @@ describe("UNKNOWN_REFUSAL", () => {
   });
 });
 
-/* The approved words, spelled out. A repair takes `VERSUCHE_ES_ERNEUT` and a closing retry sentence
+/* The approved words, spelled out. A repair takes `TRY_AGAIN` and a closing retry sentence
    appends `VERSUCHE_ES_ERNEUT_SATZ`; only a retry inside a longer sentence is written out at its site. */
-describe("VERSUCHE_ES_ERNEUT", () => {
+describe("TRY_AGAIN", () => {
   it("is the approved retry, as a repair and as a sentence", () => {
-    expect(VERSUCHE_ES_ERNEUT).toBe("Versuche es erneut");
+    expect(TRY_AGAIN).toBe("Versuche es erneut");
     expect(VERSUCHE_ES_ERNEUT_SATZ).toBe("Versuche es erneut.");
   });
 
@@ -77,6 +77,6 @@ describe("VERSUCHE_ES_ERNEUT", () => {
 
   it("is the reload refusal's sentence, and its repair, in the same words", () => {
     expect(UNKNOWN_REFUSAL).toBe(`${LADE_NEU_UND_VERSUCHE_ES_ERNEUT}.`);
-    assert.ok(LADE_NEU_UND_VERSUCHE_ES_ERNEUT.endsWith(VERSUCHE_ES_ERNEUT.replace(/^V/, "v")));
+    assert.ok(LADE_NEU_UND_VERSUCHE_ES_ERNEUT.endsWith(TRY_AGAIN.replace(/^V/, "v")));
   });
 });

@@ -74,7 +74,7 @@ export function SpielberichtForm({
   const stepUp = useStepUp();
 
   const eroeffnung = eroeffnungOf(stored, kontext);
-  const { gespeichert } = eroeffnung;
+  const { saved: gespeichert } = eroeffnung;
   const [draft, setDraft] = useState<SpielberichtDraft>(eroeffnung.entwurf);
   const [hasSaved, setHasSaved] = useState(false);
   // Past every stored entry's key, so an added entry never reuses one React still holds.
@@ -175,7 +175,7 @@ export function SpielberichtForm({
 
             <FormTorschuetzenSection
               kontext={kontext}
-              eintraege={draft.torschuetzen}
+              entries={draft.torschuetzen}
               onChange={(torschuetzen) => change({ torschuetzen })}
               onAdd={() =>
                 change({ torschuetzen: [...draft.torschuetzen, { key: neuerKey(), seite: null, spieler: "", minute: "", eigentor: false }] })

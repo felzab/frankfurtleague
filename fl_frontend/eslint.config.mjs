@@ -8,6 +8,7 @@ import nextTs from "eslint-config-next/typescript";
 import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import { getDefaultSelectors } from "eslint-plugin-better-tailwindcss/defaults";
 import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/types";
+import checkFile from "eslint-plugin-check-file";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
@@ -189,7 +190,7 @@ const SECRET_READERS = Object.fromEntries(
     // The system's key calls the backend as the system, past every guard on an admin's session.
     [["src/core/api.ts"], ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
     [["src/core/turnstile.ts"], ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
-    [["src/instrumentation-node.ts"], ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
+    [["src/instrumentationNode.ts"], ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
   ].map(([owners, importNames, secret]) => [
     secret,
     {
@@ -226,7 +227,7 @@ const OWN_ACCOUNT_DELETION = {
   regex: moduleNamed(String.raw`auth\x2Faccounts`),
   importNames: ["deleteOwnAccount"],
   message:
-    "deleteOwnAccount deletes the account around whatever eraser it is handed: fl_frontend/src/features/konto/personActions.ts imports it, handing it the backend's own erasure, and a *.test.ts(x) file may; nothing else may.",
+    "deleteOwnAccount deletes the account around whatever eraser it is handed: fl_frontend/src/features/account/personActions.ts imports it, handing it the backend's own erasure, and a *.test.ts(x) file may; nothing else may.",
 };
 
 /**
@@ -295,7 +296,7 @@ const BACKGROUND_PASSES = [
   {
     operations: ["outbox_post_handout", "outbox_post_result"],
     wrapper: { file: "src/core/mail.ts", names: ["drainOutbox"] },
-    runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
+    runners: ["src/instrumentationNode.ts", "src/core/afterResponse.ts"],
   },
   {
     operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
@@ -309,13 +310,13 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["address_change_sweep_address_change"],
-    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["postAdresswechselSweep"] },
-    runners: ["src/features/adresswechsel/sweep.ts"],
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["postAdresswechselSweep"] },
+    runners: ["src/features/address-change/sweep.ts"],
   },
   {
     operations: ["address_change_get_address_change_moves", "address_change_post_address_change_moves_done"],
-    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
-    runners: ["src/features/adresswechsel/umzug.ts"],
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
+    runners: ["src/features/address-change/umzug.ts"],
   },
   {
     operations: ["identity_get_references"],
@@ -390,7 +391,7 @@ const IMPORT_BANS = [
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
-  importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
+  importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
@@ -404,7 +405,7 @@ const IMPORT_BANS = [
       "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
     ),
     PRODUCTION,
-    { allow: ["src/instrumentation.ts", "src/instrumentation-node.ts", "src/core/auth/browserClient.ts"] },
+    { allow: ["src/instrumentation.ts", "src/instrumentationNode.ts", "src/core/auth/browserClient.ts"] },
   ),
 ];
 
@@ -503,13 +504,15 @@ const handedOnError = (object) =>
 
 /**
  * `appToast.failure` titles a write of unknown outcome neutrally, where a danger titled at the site says
- * it did not happen. `gesendet` is a public form's transport answer, whose `error` is no action's, in a
+ * it did not happen. `sent` is a public form's transport answer, whose `error` is no action's, in a
  * module posting one.
  */
+// Redesign: `gesendet` goes with the confirmation pages sessions 6 to 8 delete, the last spelling it.
+const SENT = "/^(?:sent|gesendet)$/";
 const FAILURE_BY_HAND = syntax(
   [
-    ...handedOnError(':not([object.name="gesendet"])'),
-    ...handedOnError('[object.name="gesendet"]').map((site) => `Program:not(:has(ImportSpecifier[imported.name="postPublicForm"])) ${site}`),
+    ...handedOnError(`:not([object.name=${SENT}])`),
+    ...handedOnError(`[object.name=${SENT}]`).map((site) => `Program:not(:has(ImportSpecifier[imported.name="postPublicForm"])) ${site}`),
   ].join(", "),
   "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there.",
 );
@@ -709,12 +712,12 @@ const SOURCE_BANS = [
     SOURCE,
     {
       only: [
+        "account",
         "admin",
         "aktionen",
         "bewerbungen",
         "einladungen",
         "funktionen",
-        "konto",
         "registrierungen",
         "schiedsrichter",
         "sperrliste",
@@ -1317,6 +1320,16 @@ const BAN_BLOCKS = [
 
 const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
 
+// The name shapes, as micromatch's extended globs, in the forms eslint-plugin-check-file writes its own conventions.
+const KEBAB = "+([a-z])*([a-z0-9])*(-+([a-z0-9]))";
+const CAMEL = "+([a-z])*([a-z0-9])*([A-Z]*([a-z0-9]))";
+const PASCAL = "*([A-Z]*([a-z0-9]))";
+const PARAM = "+([a-z])*([a-z0-9])*(_+([a-z0-9]))";
+/** A route folder: kebab-case, or a dynamic segment named as its param, a catch-all, a group, an intercepted route or a slot. */
+const ROUTE_FOLDER_CASE = String.raw`@(${KEBAB}|\[${PARAM}\]|\[...${CAMEL}\]|\(${KEBAB}\)|\(.\)${KEBAB}|\@${KEBAB})`;
+/** A module after its main export, a component after its component. */
+const MODULE_FILE_CASE = `@(${CAMEL}|${PASCAL})`;
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -1467,6 +1480,26 @@ const eslintConfig = defineConfig([
       "jsx-a11y/no-interactive-element-to-noninteractive-role": [
         "error",
         { ...jsxA11y.flatConfigs.recommended.rules["jsx-a11y/no-interactive-element-to-noninteractive-role"][1], td: ["cell"] },
+      ],
+    },
+  },
+
+  // File and folder names by kind (`docs/writing.md`): every folder kebab-case, a route folder in the App Router's own
+  // forms around it, a dynamic segment named as its param; every module camelCase and every component PascalCase,
+  // before its middle extensions. Next.js's kebab-case file conventions keep Next's names. A file or folder a later
+  // session deletes or rebuilds passes through the suppressions file until that session renames it.
+  {
+    files: ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
+    plugins: { "check-file": checkFile },
+    rules: {
+      "check-file/folder-naming-convention": [
+        "error",
+        { "src/!(app)/**/": "KEBAB_CASE", "src/app/**/": ROUTE_FOLDER_CASE, "e2e/**/": "KEBAB_CASE" },
+      ],
+      "check-file/filename-naming-convention": [
+        "error",
+        { "src/**/!(not-found|global-error).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
+        { ignoreMiddleExtensions: true },
       ],
     },
   },

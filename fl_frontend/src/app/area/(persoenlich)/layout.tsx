@@ -52,7 +52,7 @@ async function PersonEntries() {
   // The hold's own read, memoised per render; a refused session keeps the fallback, the page turning it away.
   const subject = await getSubjectSession();
   if (subject === null) return <PersonSidemenuEntries structure={personStructureFor(new Set(["landing"]))} />;
-  const { roles: funktionen } = rolesOf(subject);
+  const { roles: roles } = rolesOf(subject);
 
-  return <PersonSidemenuEntries structure={personStructureFor(personEintraegeOf(funktionen))} />;
+  return <PersonSidemenuEntries structure={personStructureFor(personEintraegeOf(roles))} />;
 }

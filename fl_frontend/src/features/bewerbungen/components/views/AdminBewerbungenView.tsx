@@ -11,7 +11,7 @@ import { BewerbungenUnvollstaendigNotice } from "../ui/BewerbungenUnvollstaendig
 
 import type { FLBewerbungenListResponse } from "@/core/generated/client/types";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
-import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { ReadingDirection } from "@/shared/utils/readingDirection";
 import type { BewerbungenUnvollstaendig } from "../ui/BewerbungenUnvollstaendigNotice";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
@@ -44,7 +44,7 @@ export function AdminBewerbungenView({
   /** Which keys collide over the WHOLE queue, which is the only place a pair the read's cap parted is visible. */
   dublettenSchluessel: FLBewerbungenListResponse["duplicates_key"];
   /** Required whether or not the read was cut short: the bar offers the other end of a complete queue too. */
-  richtung: Leserichtung;
+  richtung: ReadingDirection;
   /** Present only where the endpoint answered with part of the queue, and then carrying the ways out of it. */
   unvollstaendig?: BewerbungenUnvollstaendig | null;
 }) {

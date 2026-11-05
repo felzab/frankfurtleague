@@ -387,7 +387,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     logged.length = 0;
 
     const outcome = await relay.hangFrom("commitTransaction", () =>
-      settledWithin(OPERATION_BOUND * 2, "the hung removal", () => removePasskey({ id: account.id, verwaltung: false }, held.id)),
+      settledWithin(OPERATION_BOUND * 2, "the hung removal", () => removePasskey({ id: account.id, admin: false }, held.id)),
     );
     // As the case above: the transaction the hung commit left would hold the store's rows for a minute.
     const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);

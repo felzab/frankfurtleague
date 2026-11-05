@@ -15,14 +15,14 @@ export function kontakteMayMoveLinks(stored: FLSaisonTeamKontakte | null, sent: 
   if (sent === null) return false;
 
   return SITZE.some((rolle) => {
-    const neu = sent[rolle];
-    const alt = stored?.[rolle] ?? null;
+    const newSeat = sent[rolle];
+    const oldSeat = stored?.[rolle] ?? null;
     // Filling a seat mints, and emptying one voids its links on the team's match confirmations that season, answered and
     // closed ones too, a confirmed seat's included (`fl_backend/app/api/teams/services.py :: voids_a_live_link`).
-    if (alt === null) return neu !== null;
-    if (neu === null) return true;
+    if (oldSeat === null) return newSeat !== null;
+    if (newSeat === null) return true;
 
     // The person is the seat's identity, and the telephone is not part of it.
-    return neu.email !== alt.email || neu.vorname !== alt.vorname || neu.nachname !== alt.nachname;
+    return newSeat.email !== oldSeat.email || newSeat.vorname !== oldSeat.vorname || newSeat.nachname !== oldSeat.nachname;
   });
 }

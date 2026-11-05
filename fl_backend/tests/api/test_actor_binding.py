@@ -298,7 +298,7 @@ def test_the_public_binder_names_the_public_whatever_the_headers_say():
 
     def probe() -> dict[str, bool]:
         seen.append((actor_var.get(), request_var.get()))
-        return {"erreicht": True}
+        return {"reached": True}
 
     app.add_api_route(PUBLIC_PROBE, probe, methods=["POST"], dependencies=[Depends(bind_public_actor)])
     response = TestClient(app, raise_server_exceptions=False).post(PUBLIC_PROBE, headers=actor_headers(ACTOR))
@@ -311,8 +311,8 @@ def test_the_public_binder_names_the_public_whatever_the_headers_say():
 KNOWN_MASTER = SecretStr("known-answer-key".ljust(64, "0"))
 KNOWN_IDENTIFIER = "anna@beispielschule.de"
 # The VALUE, computed outside this package with `hmac` and `hashlib` alone:
-# HMAC-SHA256(HMAC-SHA256(master, "akteur-v1"), identifier), nothing under `app/` imported.
-KNOWN_PSEUDONYM = "a34dad0e53a78bc549a6035faaa0dd5febf37bb83ca1585a8109fc0e626f8722"
+# HMAC-SHA256(HMAC-SHA256(master, "actor-v1"), identifier), nothing under `app/` imported.
+KNOWN_PSEUDONYM = "23bd7fa5b508d2a92d2cb34a1fe9418c4a956f2a43a3df44e0cf8c133fb57209"
 
 MIXED_CASE = "Anna@BeispielSchule.DE"
 
@@ -336,7 +336,7 @@ PERSON_PROBE = "/api/v0/person-probe"
 
 
 def _probe() -> dict[str, bool]:
-    return {"erreicht": True}
+    return {"reached": True}
 
 
 def person_client() -> TestClient:
@@ -428,8 +428,8 @@ class TestThePseudonym:
         assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != adresse_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
 
 
-# The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "loeschung-v1".
-KNOWN_JOURNAL_HASH = "4bfa0be6fffe4c90adfc3290ec83efeb21a9845508cf2d170b39d047266a84a1"
+# The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "erasure-v1".
+KNOWN_JOURNAL_HASH = "18eae5d2b55d4f7332413b1832628a846888b1f2f591819933dba6b4a554f398"
 
 
 class TestTheJournalHash:

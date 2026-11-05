@@ -27,7 +27,7 @@ vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal
 
 type Spielort = { name: string };
 
-const NAME = COPY.page.verwaltungSpielorte;
+const NAME = COPY.page.adminSpielorte;
 const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
@@ -327,7 +327,7 @@ describe("the kit's dialog", () => {
   it("opened from a combo box's create entry, starts from the typed name and closes on „Zurück“", async () => {
     render(<SpielortFieldWithDialog />);
     await userEvent.type(screen.getByRole("combobox"), "Sportpark Süd");
-    await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.createEntry }));
+    await userEvent.click(screen.getByRole("option", { name: COPY.admin.spielort.createEntry }));
 
     expect((screen.getByRole("textbox", { name: INPUT }) as HTMLInputElement).value).toBe("Sportpark Süd");
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
@@ -351,10 +351,10 @@ function SpielortFieldWithDialog() {
   return (
     <>
       <ComboBox
-        label={COPY.verwaltung.spielort.object}
+        label={COPY.admin.spielort.object}
         options={[{ id: "ost", label: { record: "Sportplatz Ost" } }]}
         create={{
-          label: COPY.verwaltung.spielort.createEntry,
+          label: COPY.admin.spielort.createEntry,
           onCreate: (typed) => {
             setName(typed);
             setOpen(true);

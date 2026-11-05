@@ -11,7 +11,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.identity.schemas import FLErasureResponse, FLErasureViewResponse
-from app.api.identity.services import build_loeschung_seat_pipeline
+from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
 from app.api.kontakte.services import (
     build_clearing_update,
@@ -585,14 +585,14 @@ def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_se
         async def in_session(session: Any) -> Any:
             reached = {
                 collection: await aggregate_many_from_db(
-                    collection=database[collection], pipeline=build_loeschung_seat_pipeline(folded), session=session
+                    collection=database[collection], pipeline=build_erasure_seat_pipeline(folded), session=session
                 )
                 for collection in (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
             }
             return await loeschen_kontaktperson_in_session(
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.ACTION_LOG],
+                action_log_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 identifier=VARIANT_REQUEST_EMAIL,
                 key=build_test_config().sperrliste_key,
@@ -716,8 +716,8 @@ def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss(mongo
 
 # An identifier holding no `@`: the spellings the fold claims, and a value each anchor keeps out, the end two of them
 # and the start one.
-NO_AT_IDENTIFIER = "kein-at"
-NO_AT_CLAIMED: tuple[str, ...] = (NO_AT_IDENTIFIER, "KEIN-AT", f"{chr(0x20)}kein-at{chr(0xA0)}")
+NO_AT_IDENTIFIER = "no-at"
+NO_AT_CLAIMED: tuple[str, ...] = (NO_AT_IDENTIFIER, "NO-AT", f"{chr(0x20)}no-at{chr(0xA0)}")
 NO_AT_UNCLAIMED: tuple[str, ...] = ("kein-atx", "kein-at@example.com", "xkein-at")
 
 
@@ -760,7 +760,7 @@ def test_the_pattern_takes_every_spelling_the_fold_claims_and_no_other_address(a
 # metacharacters, a NUL, case partners outside ASCII, and near misses of each identifier below. Built from code points.
 SERVER_CORPUS: tuple[str, ...] = (
     *("", chr(0x20), chr(0x20) * 3, chr(0xA0), f"{chr(0x20)}{chr(0xA0)}{chr(0x09)}", chr(0x3000), chr(0xFEFF), chr(0x85)),
-    *(f"{chr(0xFEFF)}kein-at{chr(0x3000)}", f"{chr(0x85)}kein-at", *NO_AT_CLAIMED, *NO_AT_UNCLAIMED),
+    *(f"{chr(0xFEFF)}no-at{chr(0x3000)}", f"{chr(0x85)}no-at", *NO_AT_CLAIMED, *NO_AT_UNCLAIMED),
     *("kein-at@", "KEIN-AT@", f"{chr(0x20)}kein-at@{chr(0xA0)}", "kein-at@@", "kein-at@x@y"),
     *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.de", "a@bx@c"),
     *("@x.de", f"@{chr(0xFF58)}.de", "@X.DE", "x@x.de", "@", "@@"),
@@ -981,13 +981,13 @@ def after_revealing_a_shared_inbox(url: str) -> FLErasureViewResponse:
 def test_both_colleagues_on_one_shared_inbox_are_named(mongo_replica_set_url: str):
     """Kills a reveal answering for the seat it was opened from: two PEOPLE hold this address, one season apart."""
 
-    ansicht = after_revealing_a_shared_inbox(mongo_replica_set_url)
+    view = after_revealing_a_shared_inbox(mongo_replica_set_url)
 
-    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.seats] == [
+    assert [(seat.nachname, seat.saison_id) for seat in view.seats] == [
         (GELOESCHT_NACHNAME, EARLIER_SAISON),
         (BYSTANDER_NACHNAME, LATER_SAISON),
     ]
-    assert ansicht.bewerbungen == []
+    assert view.bewerbungen == []
 
 
 @pytest.mark.db
@@ -997,8 +997,8 @@ def test_the_reveal_lists_exactly_the_seats_the_loeschung_then_clears(mongo_repl
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         return await call_ansicht(database, client), await call_loeschung(database, client)
 
-    ansicht, response = on_a_league(mongo_replica_set_url, body)
-    named = len(ansicht.seats) + len(ansicht.bewerbungen)
+    view, response = on_a_league(mongo_replica_set_url, body)
+    named = len(view.seats) + len(view.bewerbungen)
 
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
     assert named == sum(EXPECTED_SLOTS.values())
@@ -1029,7 +1029,7 @@ def a_reason_of_theirs(saison_id: str = LATER_SAISON) -> dict[str, Any]:
         a_fixture_of(TEAM_A_OID, saison_id=saison_id),
         party={"art": "team", "team_id": TEAM_A_OID},
         antwort=documents.kontakt_antwort_document("trainer", GELOESCHT_EMAIL, begruendung="Wir sind auf Klassenfahrt"),
-        closed={"am": "2026-04-02", "grund": "ansetzung_changed"},
+        closed={"at": "2026-04-02", "grund": "ansetzung_changed"},
     )
 
 

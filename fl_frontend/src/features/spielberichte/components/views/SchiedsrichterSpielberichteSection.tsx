@@ -55,7 +55,7 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
                   <SpielKarte
                     key={spiel.spiel_id}
                     spiel={spiel}
-                    gesendet={spiel.submitted_at !== null}
+                    sent={spiel.submitted_at !== null}
                   />
                 ))}
               </ul>
@@ -72,7 +72,7 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
                     <SpielKarte
                       key={spiel.spiel_id}
                       spiel={spiel}
-                      gesendet={null}
+                      sent={null}
                     />
                   ))}
                 </ul>
@@ -85,11 +85,11 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
   );
 }
 
-/** One fixture's card; `gesendet` null on an ended season's, whose report stands and only opens to be read. */
-function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonEarlierEntry; gesendet: boolean | null }) {
+/** One fixture's card; `sent` null on an ended season's, whose report stands and only opens to be read. */
+function SpielKarte({ spiel, sent }: { spiel: FLSpielberichtPersonEarlierEntry; sent: boolean | null }) {
   const paarung = `${spiel.team1_name ?? PLACEHOLDER.slot} gegen ${spiel.team2_name ?? PLACEHOLDER.slot}`;
   const datum = spiel.datum === null ? nichtHinterlegt("Termin") : formatSpielDatum(spiel.datum);
-  const worte = gesendet === false ? "Spielbericht eintragen" : "Spielbericht ansehen";
+  const words = sent === false ? "Spielbericht eintragen" : "Spielbericht ansehen";
 
   return (
     <li className={`${card()} flex w-full flex-col gap-3 p-4 sm:flex-row sm:items-center`}>
@@ -100,15 +100,15 @@ function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonEarlierEnt
         </span>
       </div>
       {/* „Gespeichert“, the save's own word: the report may be the league's, which the referee never sent. */}
-      {gesendet !== null && <span className={labelBadge(gesendet ? "success" : "warning")}>{gesendet ? "Gespeichert" : "Offen"}</span>}
+      {sent !== null && <span className={labelBadge(sent ? "success" : "warning")}>{sent ? "Gespeichert" : "Offen"}</span>}
       <Link
         href={`${SCHIEDSRICHTER_HREF}/spielbericht/${spiel.spiel_id}`}
         prefetch={false}
         // The words first, which speech input says, then what tells the cards apart: one pairing can
         // meet twice, in its group and in a knockout round (WCAG 2.5.3).
-        aria-label={benannt(worte, spiel.datum === null ? `${paarung}, ${datum}` : `${paarung} am ${datum}`)}
+        aria-label={benannt(words, spiel.datum === null ? `${paarung}, ${datum}` : `${paarung} am ${datum}`)}
         className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
-        {worte}
+        {words}
       </Link>
     </li>
   );

@@ -93,7 +93,7 @@ export function AdminEditSpielDataForm({
   isFinishedSaison,
   isActiveSaison,
   today,
-  bestaetigungen,
+  confirmations,
   spielbericht,
   categorize,
   pageHeader,
@@ -109,7 +109,7 @@ export function AdminEditSpielDataForm({
   isActiveSaison: boolean;
   today: string;
   /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
-  bestaetigungen?: readonly FLSpielbestaetigung[] | null;
+  confirmations?: readonly FLSpielbestaetigung[] | null;
   /** The fixture's report as the page read it on this open, `null` where the read failed; absent, the editor mounts no panel for it. */
   spielbericht?: SpielberichtStand | null;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
@@ -426,12 +426,12 @@ export function AdminEditSpielDataForm({
    * the save is still the administrator's, through the same gate and dialog as a typed result.
    */
   const uebernehmeVorschlag = (bericht: FLSpielberichtBericht) => {
-    const { team1_tore, team2_tore, elfmeterschiessen: elfmeter, sonderereignis: ereignis } = bericht.ergebnis_vorschlag;
+    const { team1_tore, team2_tore, elfmeterschiessen: elfmeter, sonderereignis: event } = bericht.ergebnis_vorschlag;
     if (team1Payload) setTeam1Payload({ ...team1Payload, tore: team1_tore });
     if (team2Payload) setTeam2Payload({ ...team2Payload, tore: team2_tore });
     setElfmeterschiessen(elfmeter);
-    setSonderereignis(ereignis);
-    setHasSonderereignis(ereignis !== null);
+    setSonderereignis(event);
+    setHasSonderereignis(event !== null);
     setErgebnisCanBeEdited(true);
     setEingesetzt({ version: bericht.version, vorschlag: bericht.ergebnis_vorschlag });
   };
@@ -640,9 +640,9 @@ export function AdminEditSpielDataForm({
               banners={banners}
             />
 
-            {bestaetigungen !== undefined && (
+            {confirmations !== undefined && (
               <SpielbestaetigungPanel
-                rows={bestaetigungen}
+                rows={confirmations}
                 spiel={spielData}
                 parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
                 // `teams` joins each club's exit from this season on every read.

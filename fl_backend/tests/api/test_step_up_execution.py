@@ -59,7 +59,7 @@ SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607950011")
 REFEREE_EMAIL = "collina@example.com"
 MOVED_EMAIL = "collina.pierluigi@example.com"
 
-REGISTRIERUNG: dict[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+REGISTRIERUNG: dict[str, Any] = {"offen": True, "von": "2026-03-01", "end": "2026-04-30"}
 
 Body = Callable[[AsyncDatabase, AsyncClient], Awaitable[Any]]
 
@@ -326,46 +326,46 @@ class TestTheRefereesReturn:
 
 
 # An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.
-GELOESCHT_ADMINISTRATOR = "zugang.anfrage@example.com"
+ERASED_ADMINISTRATOR = "zugang.anfrage@example.com"
 
 
 async def an_administrators_grant(database: AsyncDatabase) -> None:
     await database[Collection.GRANTS].insert_one(
         {
-            "adresse": GELOESCHT_ADMINISTRATOR,
-            "verwaltung": "administration",
+            "adresse": ERASED_ADMINISTRATOR,
+            "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
             "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
         }
     )
 
 
-def an_loeschung_of(email: str) -> dict[str, str]:
+def an_erasure_of(email: str) -> dict[str, str]:
     return {"email": email, "anlass": "Mail vom 30.03.2026"}
 
 
-class TestAnLoeschungOnRequestEndingAGrant:
+class TestAnErasureOnRequestEndingAGrant:
     """An administrator's erasure asks the revoke's window on the calls taking a live grant."""
 
     URL = f"/api/v{API_VERSION}/identity/erasure"
 
-    def test_an_loeschung_ending_a_grant_from_a_sign_in_past_that_window_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+    def test_an_erasure_ending_a_grant_from_a_sign_in_past_that_window_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int, int]:
             # Inside the step-up window, past the revoke's by a minute: this suite's `OLDER` is past both.
             OLDER = StampedHeaders(ADMIN, ADMIN_KEY, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
             logged = await database[Collection.ACTION_LOG].count_documents({})
-            response = await http.post(self.URL, headers=OLDER, json=an_loeschung_of(GELOESCHT_ADMINISTRATOR))
+            response = await http.post(self.URL, headers=OLDER, json=an_erasure_of(ERASED_ADMINISTRATOR))
             return (
                 refused(response),
-                await database[Collection.GRANTS].count_documents({"adresse": GELOESCHT_ADMINISTRATOR}),
+                await database[Collection.GRANTS].count_documents({"adresse": ERASED_ADMINISTRATOR}),
                 await database[Collection.ACTION_LOG].count_documents({}) - logged,
             )
 
         assert on_a_season(mongo_replica_set_url, body, seed=an_administrators_grant) == (True, 1, 0)
 
-    def test_an_loeschung_ending_a_grant_from_a_fresh_sign_in_takes_it(self, mongo_replica_set_url: str):
+    def test_an_erasure_ending_a_grant_from_a_fresh_sign_in_takes_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, int]:
-            response = await http.post(self.URL, headers=FRESH, json=an_loeschung_of(GELOESCHT_ADMINISTRATOR))
+            response = await http.post(self.URL, headers=FRESH, json=an_erasure_of(ERASED_ADMINISTRATOR))
             return response.status_code, response.json()["grants"]
 
         assert on_a_season(mongo_replica_set_url, body, seed=an_administrators_grant) == (200, 1)
@@ -373,6 +373,6 @@ class TestAnLoeschungOnRequestEndingAGrant:
     def test_an_address_holding_no_grant_asks_the_step_up_window_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> int:
             past_the_revokes = StampedHeaders(ADMIN, ADMIN_KEY, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
-            return (await http.post(self.URL, headers=past_the_revokes, json=an_loeschung_of("niemand@example.com"))).status_code
+            return (await http.post(self.URL, headers=past_the_revokes, json=an_erasure_of("niemand@example.com"))).status_code
 
         assert on_a_season(mongo_replica_set_url, body) == 200

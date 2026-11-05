@@ -270,7 +270,7 @@ export function FormRegelnSection({
               that cannot produce them leaves the bracket short. */}
           <InlineBanners
             banners={banners}
-            spot="regeln-qualifikanten"
+            spot="regeln-qualifiers"
           />
         </div>
 

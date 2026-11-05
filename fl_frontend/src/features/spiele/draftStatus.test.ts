@@ -10,7 +10,7 @@ import type { ActionRequiredCategory } from "./types.ts";
 const TEAM_1 = "6890a1b2c3d4e5f607182932";
 const TEAM_2 = "6890a1b2c3d4e5f607182933";
 const ORT = "6890a1b2c3d4e5f607182940";
-const SCHIRI = "6890a1b2c3d4e5f607182950";
+const SCHIEDSRICHTER = "6890a1b2c3d4e5f607182950";
 
 /** The joined withdrawal rides along because an endpoint joins it; nothing here asserts on it. */
 const side = (team_id: string, name: string, shorthand: string, tore: number | null): FLSpielTeamFieldJoined => ({
@@ -32,7 +32,7 @@ const STORED: FLSpielJoinedAdmin = {
   datum: "2026-08-12",
   uhrzeit: "18:30:00",
   ort: { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 },
-  schiedsrichter: { schiedsrichter_id: SCHIRI, name: "Pierluigi Collina", payment: 40 },
+  schiedsrichter: { schiedsrichter_id: SCHIEDSRICHTER, name: "Pierluigi Collina", payment: 40 },
   team1: side(TEAM_1, "Team A", "TA", 3),
   team2: side(TEAM_2, "Team B", "TB", 1),
   team1_quelle: null,

@@ -88,7 +88,7 @@ export function BewerbungView({
         {zustand === "running" && fenster !== null && (
           <FensterFakten
             saisonId={saisonId}
-            bis={fenster.bis}
+            bis={fenster.end}
           />
         )}
 
@@ -133,7 +133,7 @@ export function BewerbungView({
       {zustand === "noch-nicht" && fenster !== null && (
         <ZustandPanel
           titel="Die Bewerbung ist noch nicht offen"
-          text={`Für die Saison ${saisonId} kannst Du Dich ab dem ${formatSpielDatum(fenster.von)} bewerben. Schau dann wieder vorbei.`}
+          text={`Für die Saison ${saisonId} kannst Du Dich ab dem ${formatSpielDatum(fenster.start)} bewerben. Schau dann wieder vorbei.`}
         />
       )}
 

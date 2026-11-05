@@ -11,11 +11,11 @@ import pytest
 
 from app.api.identity import system_router
 from app.api.identity.services import (
-    abgeschlossene_saison_id,
-    behaltene_saison_ids,
+    closed_by,
+    completed_saison_id,
     erasure_due,
-    geschlossen_durch,
-    offene_adressen,
+    kept_saison_ids,
+    open_addresses,
     statuses_after_activating,
 )
 from app.core.middlewares import REQUEST_DEADLINE_S
@@ -25,42 +25,42 @@ LEAGUE: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "past", "2025": "pa
 ADDRESS = "thessaly.okonkwo@beispielschule.de"
 
 
-def faellig(
-    kader: list[str], *, statuses: dict[str, FLSaisonStatus] = LEAGUE, offene: frozenset[str] = frozenset(), email: Any = ADDRESS
+def due_for_erasure(
+    kader: list[str], *, statuses: dict[str, FLSaisonStatus] = LEAGUE, open: frozenset[str] = frozenset(), email: Any = ADDRESS
 ) -> bool:
-    return erasure_due(email=email, kader_saison_ids=kader, offene=offene, behalten=behaltene_saison_ids(statuses))
+    return erasure_due(email=email, kader_saison_ids=kader, open=open, kept=kept_saison_ids(statuses))
 
 
 class TestTheKeptSeasons:
     def test_the_latest_ended_season_and_every_one_not_ended_are_kept(self):
-        assert behaltene_saison_ids(LEAGUE) == {"2025", "2026", "2027"}
+        assert kept_saison_ids(LEAGUE) == {"2025", "2026", "2027"}
 
     def test_the_latest_ended_season_is_the_greatest_id_whatever_order_the_seasons_are_read_in(self):
-        assert abgeschlossene_saison_id({"2025": "past", "2026": "active", "2023": "past"}) == "2025"
+        assert completed_saison_id({"2025": "past", "2026": "active", "2023": "past"}) == "2025"
 
     def test_while_no_season_has_ended_nobody_is_due(self):
         """Even a pupil holding no squad row at all: the rule counts from a season's end, and none has come."""
 
         statuses: dict[str, FLSaisonStatus] = {"2026": "active", "2027": "future"}
 
-        assert (behaltene_saison_ids(statuses), abgeschlossene_saison_id(statuses)) == (None, None)
-        assert not faellig([], statuses=statuses)
+        assert (kept_saison_ids(statuses), completed_saison_id(statuses)) == (None, None)
+        assert not due_for_erasure([], statuses=statuses)
 
     def test_a_planned_season_below_the_one_just_ended_keeps_nobody(self):
         """Never activated, it stays planned for good, and a status rule would keep its pupils for ever."""
 
         statuses: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "future", "2025": "past", "2026": "active"}
 
-        assert behaltene_saison_ids(statuses) == {"2025", "2026"}
-        assert faellig(["2024"], statuses=statuses)
+        assert kept_saison_ids(statuses) == {"2025", "2026"}
+        assert due_for_erasure(["2024"], statuses=statuses)
 
     def test_a_running_season_below_the_one_just_ended_still_keeps_its_pupils(self):
         """Activation refuses no lower id, so the running season is kept by its status whatever its id."""
 
         statuses: dict[str, FLSaisonStatus] = {"2024": "active", "2025": "past", "2026": "future"}
 
-        assert behaltene_saison_ids(statuses) == {"2024", "2025", "2026"}
-        assert not faellig(["2024"], statuses=statuses)
+        assert kept_saison_ids(statuses) == {"2024", "2025", "2026"}
+        assert not due_for_erasure(["2024"], statuses=statuses)
 
 
 class TestTheDueJudgement:
@@ -76,37 +76,37 @@ class TestTheDueJudgement:
         ],
     )
     def test_a_row_in_a_kept_season_keeps_its_pupil(self, kader: list[str], due: bool):
-        assert faellig(kader) is due
+        assert due_for_erasure(kader) is due
 
     def test_a_pending_registration_keeps_its_pupil(self):
-        offene = offene_adressen([{"status": "submitted", "email": ADDRESS}])
+        open = open_addresses([{"status": "submitted", "email": ADDRESS}])
 
-        assert offene == {ADDRESS}
-        assert not faellig([], offene=offene)
+        assert open == {ADDRESS}
+        assert not due_for_erasure([], open=open)
 
     def test_a_declined_registration_keeps_nobody(self):
-        assert offene_adressen([{"status": "declined", "email": ADDRESS}]) == frozenset()
+        assert open_addresses([{"status": "declined", "email": ADDRESS}]) == frozenset()
 
     def test_a_pupil_holding_no_address_is_never_due(self):
         """The registry erases by address, and nothing else may erase by a name."""
 
-        assert not faellig([], email=None)
+        assert not due_for_erasure([], email=None)
 
 
 class TestTheStatusesAnActivationLeaves:
     def test_the_running_season_ends_and_the_target_runs(self):
         assert statuses_after_activating(LEAGUE, "2027") == {**LEAGUE, "2026": "past", "2027": "active"}
-        assert geschlossen_durch(LEAGUE, "2027") == "2026"
+        assert closed_by(LEAGUE, "2027") == "2026"
 
     def test_activating_the_running_season_again_ends_nothing(self):
         assert statuses_after_activating(LEAGUE, "2026") == LEAGUE
-        assert geschlossen_durch(LEAGUE, "2026") is None
+        assert closed_by(LEAGUE, "2026") is None
 
     def test_a_league_with_no_running_season_closes_none(self):
         statuses: dict[str, FLSaisonStatus] = {"2025": "past", "2026": "future"}
 
-        assert geschlossen_durch(statuses, "2026") is None
-        assert behaltene_saison_ids(statuses_after_activating(statuses, "2026")) == {"2025", "2026"}
+        assert closed_by(statuses, "2026") is None
+        assert kept_saison_ids(statuses_after_activating(statuses, "2026")) == {"2025", "2026"}
 
 
 # One pupil's commands on the wire at their costliest, a report naming them, whose repoint writes a log row; pinned by
@@ -121,11 +121,11 @@ OTHER_COMMANDS = 3 + 1
 # The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.
 PER_COMMAND_S = 0.00203
 
-# The round trip `system_router.LOESCHUNGEN_PER_PASS`'s comment sizes the share for.
+# The round trip `system_router.ERASURES_PER_PASS`'s comment sizes the share for.
 ROUND_TRIP_S = 0.037
 
 
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case counting its own pupils, and times out a whole call in production."""
 
-    assert (system_router.LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S
+    assert (system_router.ERASURES_PER_PASS * COMMANDS_A_PERSON + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

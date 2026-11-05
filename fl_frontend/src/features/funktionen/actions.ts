@@ -116,7 +116,7 @@ export async function loeschenAufAnfrageAction(
       const haeltZugang =
         !isWithinEnrolmentWindow(session.session.createdAt) &&
         // The panel's reveal, never the subject lookup, which refuses an address stored under an older rule the erasure takes.
-        (await readLoeschungAnsicht({ email: validated.data.email })).verwaltung !== null;
+        (await readLoeschungAnsicht({ email: validated.data.email })).admin_tier !== null;
       const unconfirmed = haeltZugang ? refuseUnconfirmed(session, "enrolment") : null;
       if (unconfirmed !== null) return unconfirmed;
 

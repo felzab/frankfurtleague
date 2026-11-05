@@ -79,7 +79,7 @@ async def loeschen_referee_in_session(
     *,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     schiedsrichter_id: CustomObjectId,
     # ONE stamp for both passes below, so a row cannot say which of the two reached it; the caller's,
     # so several erasures in one transaction redact under one instant.
@@ -118,14 +118,14 @@ async def loeschen_referee_in_session(
     )
 
     await redact_log_rows_in_db(
-        action_log_collection=aktionen_collection, targets=[(Collection.SCHIEDSRICHTER, [schiedsrichter_id])], at=stamp, session=session
+        action_log_collection=action_log_collection, targets=[(Collection.SCHIEDSRICHTER, [schiedsrichter_id])], at=stamp, session=session
     )
 
     # The `spiele` rows, which the pass above cannot reach: every fixture stores a COPY of the
     # name, so each edit filed an image carrying it under the fixture's id. The booking alone goes;
     # each image keeps its result.
     await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_booked_image_filter(schiedsrichter_id),
         judge=lambda image: booked_image_edits(image, schiedsrichter_id),
         stamp=stamp,

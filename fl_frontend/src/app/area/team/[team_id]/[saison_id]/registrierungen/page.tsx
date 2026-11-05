@@ -1,7 +1,7 @@
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { RegistrierungenView } from "@/features/registrierungen/components/views/RegistrierungenView";
 import { getOffeneRegistrierungen } from "@/features/registrierungen/queries";
-import { leserichtungHrefFromRoute, parseLeserichtung, umgekehrt } from "@/shared/utils/leserichtung";
+import { opposite, parseReadingDirection, readingDirectionHrefFromRoute } from "@/shared/utils/readingDirection";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -12,7 +12,7 @@ export default async function RegistrierungenPage({ params, searchParams }: Next
 
   const { team_id, saison_id } = await params;
   const query = (await searchParams) ?? {};
-  const richtung = parseLeserichtung(query);
+  const richtung = parseReadingDirection(query);
 
   const read = await readAsSeatHolder(() => getOffeneRegistrierungen(team_id, saison_id, richtung));
   if ("forbidden" in read) return read.forbidden;
@@ -22,7 +22,7 @@ export default async function RegistrierungenPage({ params, searchParams }: Next
     <RegistrierungenView
       registrierungen={offen.registrierungen}
       adresse={{ team_id: team_id, saison_id: saison_id }}
-      unvollstaendig={offen.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(query, umgekehrt(richtung)) }}
+      unvollstaendig={offen.complete ? null : { richtung: richtung, umkehrHref: readingDirectionHrefFromRoute(query, opposite(richtung)) }}
     />
   );
 }

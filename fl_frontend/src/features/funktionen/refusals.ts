@@ -32,7 +32,7 @@ const VERDECKTER_ADRESSWECHSEL = `Die Löschung würde eine laufende Adressände
 
 const LOESCHEN_WORTE: Readonly<Record<string, string>> = {
   own_adresse: EIGENE_ADRESSE_LOESCHEN,
-  verwaltung_adresse: VERWALTUNG_LOESCHEN,
+  admin_address: VERWALTUNG_LOESCHEN,
   foreign_address_change: VERDECKTER_ADRESSWECHSEL,
 } satisfies Partial<Record<Code, string>>;
 
@@ -49,6 +49,6 @@ export const mapLoeschungAufAnfrageRefusal = mapper(LOESCHEN_WORTE);
 export const isLoeschungRefusal = (satz: string): boolean => Object.values(LOESCHEN_WORTE).includes(satz);
 
 /** The sign-out's refusals, in the sign-out's own words, `null` for the rest. */
-export const mapAbmeldungRefusal = mapper({ own_adresse: EIGENE_ADRESSE_ABMELDEN, verwaltung_adresse: INHABER_ABMELDEN } satisfies Partial<
+export const mapAbmeldungRefusal = mapper({ own_adresse: EIGENE_ADRESSE_ABMELDEN, admin_address: INHABER_ABMELDEN } satisfies Partial<
   Record<Code, string>
 >);

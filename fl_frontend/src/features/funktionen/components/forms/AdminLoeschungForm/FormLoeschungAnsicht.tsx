@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { formatList } from "@/core/format";
+import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
-import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -41,7 +41,7 @@ function zeilenOf(
     registrierungen,
     own_address_change: eigener_adresswechsel,
     address_change: adresswechsel,
-    verwaltung,
+    admin_tier: verwaltung,
     approval_requests: antraege,
   }: FLErasureViewResponse,
   saisonHref: (path: string) => string,
@@ -89,7 +89,7 @@ function zeilenOf(
     ...(verwaltung === null
       ? []
       : [{ text: verwaltung === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung" }]),
-    ...antraege.map(({ rolle, verwaltung: beantragt }) => ({ text: `${ANTRAG_ZEILE[rolle]}: ${ANTRAG_WAS[beantragt]}` })),
+    ...antraege.map(({ rolle, admin_tier: beantragt }) => ({ text: `${ANTRAG_ZEILE[rolle]}: ${ANTRAG_WAS[beantragt]}` })),
   ];
 }
 

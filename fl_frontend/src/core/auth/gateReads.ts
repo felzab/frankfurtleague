@@ -3,17 +3,17 @@ import "server-only";
 import { APIError } from "better-auth/api";
 
 import { asSignInIdentifier } from "../emailAddress";
+import { grantOf } from "../grant";
 import { logger } from "../logging";
-import { lookUpAnmeldung, lookUpSubjekt } from "../signInGate";
-import { verwaltungOf } from "../verwaltung";
+import { lookUpSignIn, lookUpSubject } from "../signInGate";
 
-import type { AnmeldungRecords } from "../signInGate";
+import type { Grant } from "../grant";
+import type { SignInRecords } from "../signInGate";
 import type { SubjectSession } from "../subject";
-import type { Verwaltung } from "../verwaltung";
 
 /** Logged where the grant was asked for, as the send gate's own failure is: the error's name alone. */
-function logUnreadVerwaltung(failed: unknown): void {
-  logger.error("auth.verwaltung_unread", undefined, {
+function logUnreadGrant(failed: unknown): void {
+  logger.error("auth.grant_unread", undefined, {
     name: failed instanceof Error ? failed.name : "unknown",
   });
 }
@@ -22,11 +22,11 @@ function logUnreadVerwaltung(failed: unknown): void {
  * The gate's answer an enrolment is judged by, where an unread read must refuse rather than admit: a
  * barred address would otherwise enrol while the backend is down.
  */
-export async function enrolmentSignIn(email: string): Promise<AnmeldungRecords> {
+export async function enrolmentSignIn(email: string): Promise<SignInRecords> {
   try {
-    return await lookUpAnmeldung(asSignInIdentifier(email));
+    return await lookUpSignIn(asSignInIdentifier(email));
   } catch (failed) {
-    logUnreadVerwaltung(failed);
+    logUnreadGrant(failed);
     throw APIError.fromStatus("SERVICE_UNAVAILABLE");
   }
 }
@@ -34,19 +34,19 @@ export async function enrolmentSignIn(email: string): Promise<AnmeldungRecords> 
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
 export async function subjectOrNull(email: string): Promise<SubjectSession["subject"] | null> {
   try {
-    return await lookUpSubjekt(asSignInIdentifier(email));
+    return await lookUpSubject(asSignInIdentifier(email));
   } catch (failed) {
-    logUnreadVerwaltung(failed);
+    logUnreadGrant(failed);
     return null;
   }
 }
 
 /** The grant and when it took effect, where an unread one admits nobody: `null` where the backend could not say. */
-export async function verwaltungOrNull(email: string): Promise<Verwaltung | null> {
+export async function grantOrNull(email: string): Promise<Grant | null> {
   try {
-    return await verwaltungOf(email);
+    return await grantOf(email);
   } catch (failed) {
-    logUnreadVerwaltung(failed);
+    logUnreadGrant(failed);
     return null;
   }
 }

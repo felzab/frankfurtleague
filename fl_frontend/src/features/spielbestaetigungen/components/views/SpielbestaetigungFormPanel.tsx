@@ -91,15 +91,15 @@ const toTime = (stored: string): Time | null => (stored === "" ? null : parseTim
 
 /** A refused press as the panel it swaps the form for: an answered link keeps the seat that answered. */
 function spentAbschluss(
-  zustand: SpielbestaetigungLinkZustand,
+  state: SpielbestaetigungLinkZustand,
   beantwortetVon: FLSpielbestaetigungVon | undefined,
   termin: FLSpielbestaetigungAppointment | undefined,
 ): SpielbestaetigungAbschluss {
   // As an answered state without its seat: a discard read back without the date it kept claims nothing either.
-  if (zustand === "discarded") return termin === undefined ? { zustand: "invalid" } : { zustand: zustand, appointment: termin };
-  if (zustand !== "zugesagt" && zustand !== "declined") return { zustand: zustand };
+  if (state === "discarded") return termin === undefined ? { zustand: "invalid" } : { zustand: state, appointment: termin };
+  if (state !== "zugesagt" && state !== "declined") return { zustand: state };
   // A route answering an answered state without its seat is the dead-link panel's: claiming nothing about who answered.
-  return beantwortetVon === undefined ? { zustand: "invalid" } : { zustand: zustand, answered_by: beantwortetVon };
+  return beantwortetVon === undefined ? { zustand: "invalid" } : { zustand: state, answered_by: beantwortetVon };
 }
 
 /**
@@ -126,25 +126,25 @@ export function SpielbestaetigungFormPanel({
 
   useForgiveFixed({ antwort: vorschlagPayload(token, entwurf) });
 
-  const verlassen = (paths: readonly string[]) => validatePaths("antwort", vorschlagPayload(token, entwurf), paths);
+  const left = (paths: readonly string[]) => validatePaths("antwort", vorschlagPayload(token, entwurf), paths);
 
   const sende = async (payload: FLSpielbestaetigungAntwortPayload): Promise<void> => {
-    const gesendet = await postPublicForm<SpielbestaetigungAntwort>("/api/bestaetigung/spiel", payload);
+    const sent = await postPublicForm<SpielbestaetigungAntwort>("/api/bestaetigung/spiel", payload);
 
-    if (!gesendet.answered) {
+    if (!sent.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, { description: gesendet.error });
+      appToast.danger(sent.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, { description: sent.error });
       return;
     }
 
-    const antwort = gesendet.body;
+    const antwort = sent.body;
 
     // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
     startTransition(() => {
       if (!antwort.success) {
         reportRefusedConfirmation(antwort, {
-          onZustand: (zustand) => onAbschluss(spentAbschluss(zustand, antwort.answered_by, antwort.appointment)),
+          onState: (state) => onAbschluss(spentAbschluss(state, antwort.answered_by, antwort.appointment)),
           // The hook owns the press's one toast: none where a box shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(
@@ -250,7 +250,7 @@ export function SpielbestaetigungFormPanel({
                     calendarLabel="Neues Datum auswählen"
                     value={toCalendarDate(entwurf.datum)}
                     onChange={(next) => setEntwurf({ ...entwurf, datum: next?.toString() ?? "" })}
-                    onBlur={() => verlassen(["vorschlag.datum"])}
+                    onBlur={() => left(["vorschlag.datum"])}
                     // The calendar alone: the endpoint judges a past date, and the field marks a half-typed one otherwise.
                     minValue={parseDate(getGermanTodayStr())}
                   />
@@ -259,7 +259,7 @@ export function SpielbestaetigungFormPanel({
                     label={<Label className={FIELD_LABEL_CLASSES}>Neuer Anpfiff</Label>}
                     value={toTime(entwurf.uhrzeit)}
                     onChange={(next) => setEntwurf({ ...entwurf, uhrzeit: next?.toString() ?? "" })}
-                    onBlur={() => verlassen(["vorschlag.uhrzeit"])}
+                    onBlur={() => left(["vorschlag.uhrzeit"])}
                   />
                 </div>
 
@@ -268,7 +268,7 @@ export function SpielbestaetigungFormPanel({
                   name="begruendung"
                   value={entwurf.begruendung}
                   onChange={(next) => setEntwurf({ ...entwurf, begruendung: next })}
-                  onBlur={() => verlassen(["begruendung"])}
+                  onBlur={() => left(["begruendung"])}
                   maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
                   <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
                   <Input className={FIELD_INPUT_CLASSES} />

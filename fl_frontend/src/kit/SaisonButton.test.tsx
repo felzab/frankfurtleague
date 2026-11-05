@@ -24,7 +24,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const PUBLIC: readonly SaisonPage[] = ["spielplan"];
-const VERWALTUNG: readonly SaisonPage[] = ["verwaltungOverview", "verwaltungSpiele", "verwaltungTeams"];
+const ADMIN: readonly SaisonPage[] = ["adminOverview", "adminSpiele", "adminTeams"];
 
 describe("the same page in the other season", () => {
   it("swaps the season in a season page's address", () => {
@@ -36,8 +36,8 @@ describe("the same page in the other season", () => {
         path: "/admin/saisons/2027/teams",
         params: { saison: "2027" },
         to: "2026",
-        home: "verwaltungOverview",
-        pages: VERWALTUNG,
+        home: "adminOverview",
+        pages: ADMIN,
       }),
     ).toBe("/admin/saisons/2026/teams");
   });
@@ -51,16 +51,14 @@ describe("the same page in the other season", () => {
         path: "/admin/saisons/2027/spiele/abc",
         params: { saison: "2027", spiel: "abc" },
         to: "2026",
-        home: "verwaltungOverview",
-        pages: VERWALTUNG,
+        home: "adminOverview",
+        pages: ADMIN,
       }),
     ).toBe("/admin/saisons/2026/spiele");
   });
 
   it("lands a page whose address names no season on the season's first page", () => {
-    expect(counterpart({ path: "/admin/spielorte", params: {}, to: "2026", home: "verwaltungOverview", pages: VERWALTUNG })).toBe(
-      "/admin/saisons/2026",
-    );
+    expect(counterpart({ path: "/admin/spielorte", params: {}, to: "2026", home: "adminOverview", pages: ADMIN })).toBe("/admin/saisons/2026");
   });
 });
 
@@ -81,7 +79,7 @@ async function renderButton(
   await act(async () => {
     render(
       <RouterProvider navigate={navigate}>
-        <SaisonScope value={{ saisons: Promise.resolve(saisons), home: "verwaltungOverview", pages: VERWALTUNG }}>
+        <SaisonScope value={{ saisons: Promise.resolve(saisons), home: "adminOverview", pages: ADMIN }}>
           <Suspense fallback={null}>
             <SaisonButton placement={placement} />
           </Suspense>

@@ -2,7 +2,7 @@ import { RailFrame } from "@/kit/RailFrame";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { readAccount } from "@/features/konto/account";
+import { readAccount } from "@/features/account/account";
 
 import { ACCOUNT_ENTRIES } from "./entries";
 

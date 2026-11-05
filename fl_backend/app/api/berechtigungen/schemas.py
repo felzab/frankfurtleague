@@ -6,7 +6,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLAddressChangeWay, FLApprovalDenied, FLVerwaltung
+from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLAddressChangeWay, FLAdminTier, FLApprovalDenied
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -40,9 +40,9 @@ FLBerechtigungVorenthalten = Literal["barred", "erased"]
 class FLBerechtigungFortgefuehrt(BaseModel):
     """The since-whens a grant moved by its holder's own address change carries of the row it replaced."""
 
-    berechtigt_seit: datetime
+    granted_since: datetime
     # Null where the replaced row held no owner's power.
-    inhaber_seit: datetime | None
+    owner_since: datetime | None
 
 
 class FLBerechtigung(Anchored):
@@ -50,7 +50,7 @@ class FLBerechtigung(Anchored):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
     # once they are erased, and the marker the paste names itself by for one made in the Playground.
     granted_by: CustomNonEmptyString
@@ -86,7 +86,7 @@ class FLGrantAddressChange(BaseModel):
     grund: str | None
     # Whether the new mailbox has confirmed, so the approval would make the change take effect.
     confirmed: bool
-    bis: FLUtcInstant
+    until: FLUtcInstant
     # Why the reader may not approve it, or null where they may.
     denied: FLApprovalDenied | None
     # Why the address tool refuses it the reader, null where it opens it: a refused approval sends them to discard it there.
@@ -100,7 +100,7 @@ class FLGrantRow(BaseModel):
     # Null exactly where `barred` is set: a barred address is answered on no route.
     adresse: str | None
     barred: bool
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     # Null exactly where `granted_by_barred` is set, as `adresse` is beside `barred`.
     granted_by: str | None
     granted_by_barred: bool
@@ -115,9 +115,9 @@ class FLBerechtigungAntragGenehmigung(BaseModel):
     """What a request waits on, the block an address change's approval keeps too, so one judgement reads both."""
 
     # The tier the request asks for, and the one its approver and its requester must hold.
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     asked_at: datetime
-    bis: datetime
+    until: datetime
     # Folded, as `granted_by` stores an administrator.
     started_by: CustomNonEmptyString
 
@@ -141,12 +141,12 @@ class FLGrantApprovalRequestRow(BaseModel):
     adresse: str | None
     barred: bool
     grant_id: CustomObjectId | None
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     # Null exactly where `started_by_barred` is set.
     started_by: str | None
     started_by_barred: bool
     asked_at: FLUtcInstant
-    bis: FLUtcInstant
+    until: FLUtcInstant
     # Whether its requester still holds, since before it, the tier it asks for: a request outlives no revoke, demotion or ban
     # of the person who made it.
     stands: bool
@@ -173,7 +173,7 @@ class FLPostGrantPayload(BaseModel):
 class FLPatchGrantPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     # The `version` the list served the grant at; absent, the change is checked against nothing.
     version: int | None = None
 
@@ -214,7 +214,7 @@ class FLGrantSnapshot(BaseModel):
 
     # Null where the address was barred when it was written or is barred now, or its holder is erased.
     adresse: str | None
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
 
 
 class FLBerechtigungAngekuendigt(BaseModel):
@@ -222,5 +222,5 @@ class FLBerechtigungAngekuendigt(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
-    verwaltung: FLVerwaltung
+    admin_tier: FLAdminTier
     angekuendigt_am: datetime

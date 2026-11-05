@@ -169,15 +169,15 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
 }
 
 /** What befell a match in a visitor's words: a no-show names the side that did not turn up. */
-function sonderereignisOf(ereignis: FLSonderereignis, spiel: FLSpielJoined): Copy {
+function sonderereignisOf(event: FLSonderereignis, spiel: FLSpielJoined): Copy {
   const words = COPY.spielplan.sonderereignis;
-  switch (ereignis) {
+  switch (event) {
     case "nichtantreten_team1":
       return words.nichtAngetreten(sidesOf(spiel).team1.name);
     case "nichtantreten_team2":
       return words.nichtAngetreten(sidesOf(spiel).team2.name);
     default:
-      return words[ereignis];
+      return words[event];
   }
 }
 
@@ -186,11 +186,11 @@ function sonderereignisOf(ereignis: FLSonderereignis, spiel: FLSpielJoined): Cop
  * result; `null` where the match is simply played. A no-show's consequence names the side that turned up.
  */
 export function ereignisOf(spiel: FLSpielJoined): { title: Copy; text: Copy } | null {
-  const ereignis = spiel.sonderereignis;
-  if (ereignis === null) return null;
-  const title = sonderereignisOf(ereignis, spiel);
+  const event = spiel.sonderereignis;
+  if (event === null) return null;
+  const title = sonderereignisOf(event, spiel);
   const { consequence } = COPY.spielplan.sonderereignis;
-  switch (ereignis) {
+  switch (event) {
     case "nichtantreten_team1":
       return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team2.name) };
     case "nichtantreten_team2":
@@ -198,6 +198,6 @@ export function ereignisOf(spiel: FLSpielJoined): { title: Copy; text: Copy } | 
     case "abgebrochen":
       return { title, text: spiel.ergebnis === null ? consequence.abgebrochenOpen : consequence.abgebrochenScored };
     default:
-      return { title, text: consequence[ereignis] };
+      return { title, text: consequence[event] };
   }
 }

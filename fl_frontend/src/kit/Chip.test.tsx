@@ -14,13 +14,13 @@ describe("a chip written as letters", () => {
       <Chip
         tone="danger"
         label={disqualifikation.kuerzel}
-        spoken={disqualifikation.zustand}
+        spoken={disqualifikation.state}
       />,
     );
     const chip = within(container);
 
     expect(chip.getByText(disqualifikation.kuerzel).getAttribute("aria-hidden")).toBe("true");
-    expect(chip.getByText(disqualifikation.zustand).classList).toContain("sr-only");
+    expect(chip.getByText(disqualifikation.state).classList).toContain("sr-only");
   });
 
   it("is read as its label where it names no spoken word", () => {

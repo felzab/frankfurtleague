@@ -25,7 +25,7 @@ import type { SpielberichtFieldPath, SpielberichtKontext, TorschuetzeDraft } fro
  */
 export function FormTorschuetzenSection({
   kontext,
-  eintraege,
+  entries,
   onChange,
   onAdd,
   fieldErrors,
@@ -34,7 +34,7 @@ export function FormTorschuetzenSection({
   istNichtantreten,
 }: {
   kontext: SpielberichtKontext;
-  eintraege: readonly TorschuetzeDraft[];
+  entries: readonly TorschuetzeDraft[];
   onChange: (next: readonly TorschuetzeDraft[]) => void;
   onAdd: () => void;
   fieldErrors: FieldErrors;
@@ -49,7 +49,7 @@ export function FormTorschuetzenSection({
   const listStatus = useFieldStatus<SpielberichtFieldPath>("bericht.torschuetzen");
 
   const update = (key: number, change: Partial<TorschuetzeDraft>) =>
-    onChange(eintraege.map((eintrag) => (eintrag.key === key ? { ...eintrag, ...change } : eintrag)));
+    onChange(entries.map((entry) => (entry.key === key ? { ...entry, ...change } : entry)));
 
   return (
     <section className={panel.root()}>
@@ -74,31 +74,31 @@ export function FormTorschuetzenSection({
       <div className={panel.body()}>
         {istNichtantreten && <p className="muted-hint">Bei einem Nichtantreten gibt es keine Torschützen.</p>}
 
-        {!istNichtantreten && eintraege.length > 0 && (
+        {!istNichtantreten && entries.length > 0 && (
           <ul
             aria-label="Torschützen"
             className="flex w-full flex-col gap-3">
-            {eintraege.map((eintrag, index) => {
+            {entries.map((entry, index) => {
               const pfad = `bericht.torschuetzen.${String(index)}`;
               const wofuer = `Tor ${String(index + 1)}`;
-              const optionen = personOptionen(kontext, eintrag.seite, eintrag.spieler === UNBEKANNT ? "" : eintrag.spieler);
+              const optionen = personOptionen(kontext, entry.seite, entry.spieler === UNBEKANNT ? "" : entry.spieler);
 
               return (
-                <li key={eintrag.key}>
+                <li key={entry.key}>
                   {/* Each entry repeats „Team“, „Minute“ and the rest: a group named by its title qualifies them (W3C ARIA17). */}
                   <div
                     role="group"
-                    aria-labelledby={`${titelId}-${String(eintrag.key)}`}
+                    aria-labelledby={`${titelId}-${String(entry.key)}`}
                     className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
                     <div className="flex w-full flex-row items-center justify-between gap-3">
                       <span
-                        id={`${titelId}-${String(eintrag.key)}`}
+                        id={`${titelId}-${String(entry.key)}`}
                         className="fluid-xs font-bold text-foreground">
                         {wofuer}
                       </span>
                       <EntfernenButton
                         wofuer={wofuer}
-                        onPress={() => onChange(eintraege.filter((other) => other.key !== eintrag.key))}
+                        onPress={() => onChange(entries.filter((other) => other.key !== entry.key))}
                       />
                     </div>
 
@@ -107,25 +107,25 @@ export function FormTorschuetzenSection({
                         name={`${pfad}.seite`}
                         label="Team"
                         placeholder="Team wählen"
-                        value={eintrag.seite}
+                        value={entry.seite}
                         options={seitenOptionen(kontext)}
                         // Another side's squad names other pupils, so a person picked for the first does not survive the switch.
                         onChange={(seite) =>
-                          update(eintrag.key, seite === eintrag.seite ? {} : { seite, spieler: eintrag.spieler === UNBEKANNT ? UNBEKANNT : "" })
+                          update(entry.key, seite === entry.seite ? {} : { seite, spieler: entry.spieler === UNBEKANNT ? UNBEKANNT : "" })
                         }
                         error={fieldErrors[`${pfad}.seite`]}
                       />
                       <AuswahlSelect<string>
                         name={`${pfad}.spieler_id`}
                         label="Spielerin oder Spieler"
-                        placeholder={eintrag.seite === null ? "Zuerst das Team wählen" : "Person wählen"}
-                        value={eintrag.spieler === "" ? null : eintrag.spieler}
+                        placeholder={entry.seite === null ? "Zuerst das Team wählen" : "Person wählen"}
+                        value={entry.spieler === "" ? null : entry.spieler}
                         options={[{ id: UNBEKANNT, label: TORSCHUETZE_UNBEKANNT_LABEL }, ...optionen]}
-                        onChange={(spieler) => update(eintrag.key, { spieler })}
+                        onChange={(spieler) => update(entry.key, { spieler })}
                         error={fieldErrors[`${pfad}.spieler_id`]}
                         hint={personHinweis({
-                          geleert: geleert.has(eintrag.key) && eintrag.spieler === "",
-                          ohneKaderSatz: ohneKader(kontext, eintrag.seite)
+                          geleert: geleert.has(entry.key) && entry.spieler === "",
+                          ohneKaderSatz: ohneKader(kontext, entry.seite)
                             ? "Für dieses Team ist kein Kader hinterlegt. Jedes Tor trägst Du dann als „unbekannt“ ein."
                             : null,
                         })}
@@ -135,15 +135,15 @@ export function FormTorschuetzenSection({
                     <div className={FIELD_PAIR_CLASSES}>
                       <MinuteField
                         name={`${pfad}.minute`}
-                        value={eintrag.minute}
-                        onChange={(minute) => update(eintrag.key, { minute })}
+                        value={entry.minute}
+                        onChange={(minute) => update(entry.key, { minute })}
                         onBlur={() => onValidateFields([`${pfad}.minute`])}
                       />
                       {/* The shared `Switch`: HeroUI's checkbox has no stylesheet in this tree and would render unstyled. */}
                       <div className="flex w-full flex-col justify-end">
                         <Switch
-                          isSelected={eintrag.eigentor}
-                          onChange={(eigentor) => update(eintrag.key, { eigentor })}>
+                          isSelected={entry.eigentor}
+                          onChange={(eigentor) => update(entry.key, { eigentor })}>
                           <Switch.Content className={panel.switchContent()}>
                             Eigentor
                             <Switch.Control className={panel.switchControl()}>
@@ -166,7 +166,7 @@ export function FormTorschuetzenSection({
         {!istNichtantreten && (
           <HinzufuegenButton
             label="Tor hinzufügen"
-            anzahl={eintraege.length}
+            count={entries.length}
             onPress={onAdd}
           />
         )}

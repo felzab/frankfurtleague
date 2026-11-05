@@ -56,7 +56,7 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
   switch (error.serverErrorCode) {
     // The two counts together are at fault, so neither field: the failure line says it, as the form's own check does.
     case "rules_bracket_impossible":
-      return { error: COPY.verwaltung.saison.bracketImpossible };
+      return { error: COPY.admin.saison.bracketImpossible };
     case "rules_gruppen_in_use":
       return { fieldErrors: { "rules.number_of_gruppen": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
     case "rules_capacity_below_use":
@@ -159,7 +159,7 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
       return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
     // These three read the shape alone, whose numbers the Spielplan panel holds.
     case "rules_bracket_impossible":
-      return COPY.verwaltung.saison.bracketImpossible;
+      return COPY.admin.saison.bracketImpossible;
     case "rules_qualifiers_above_gruppe":
       return shapeFaultMessage(GROUP_OVER_QUALIFIES);
     case "rules_spiele_over_one_read":
@@ -230,7 +230,7 @@ export function mapSwapRefusal(error: unknown): string | null {
       return "Diese Saison hat inzwischen begonnen. Lade die Seite neu.";
     // Before the start, so a result entered early: the swap moves no goals and would hand it to the other club.
     case "sides_taken_place":
-      return SERVER_COPY.verwaltung.swapSidesTakenPlace;
+      return SERVER_COPY.admin.swapSidesTakenPlace;
     case "swap_spieltag_clash":
       return "Durch den Tausch stünde ein Team zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.";
     // Lifting the record is an open path, so the sentence names all three steps.

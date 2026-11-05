@@ -141,7 +141,7 @@ export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; u
 
 /** The link's own view, read again after a refused press: its floors where it is open, its state where not. A failed read is `null` beside it. */
 export type GelesenerLink =
-  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly medien_minimum_age: number } }
+  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly media_minimum_age: number } }
   | { readonly zustand: SpielerLinkZustand };
 
 // A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller
@@ -177,8 +177,8 @@ export async function mapBestaetigungRefusal(
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
-    case "medien_age":
-      return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
+    case "media_age":
+      return { error: medienNochNicht((await ansicht())?.media_minimum_age ?? null) };
     // Answers the page did not ask, or none where it asked: a drifted client, or a page whose person changed since
     // it opened first, a new pupil's page asking both choices and a returning pupil's neither. The mail's link
     // reopens it.

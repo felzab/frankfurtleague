@@ -8,8 +8,8 @@ import { TextField } from "@/kit/TextField";
 import { loadAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { signOutOthers } from "@/features/account/personActions";
 import { describeSetUpRefusal } from "@/features/auth/passkeyAnswers";
-import { signOutOthers } from "@/features/konto/personActions";
 import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 

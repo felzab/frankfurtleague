@@ -285,7 +285,7 @@ async def post_event(
             "_id": event_data.id,
             "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
         },
-        update={"$set": {"delivery": {"state": event_data.state, "grund": event_data.grund, "am": event_data.am}}},
+        update={"$set": {"delivery": {"state": event_data.state, "grund": event_data.grund, "at": event_data.at}}},
     )
 
     return FLOutboxEventResponse(applied=result.modified_count > 0)

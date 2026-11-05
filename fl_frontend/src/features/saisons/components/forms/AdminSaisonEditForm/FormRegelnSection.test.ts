@@ -260,7 +260,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
             { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
             { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
           ],
-          bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
+          holdings: { spiele: 15, erfasst: 2, angesetzt: 4 },
           eingereichteBerichte: 0,
         },
         hasDrawnSpiele: true,
@@ -291,11 +291,11 @@ describe("the season editor's one reading of the season, handed to its panels", 
     const { unmount } = render(editor(true));
     expect(startSegments().length).toBeGreaterThan(0);
     expect(startSegments().every((segment) => segment.getAttribute("aria-readonly") === "true")).toBe(true);
-    assert.ok(screen.getByText(COPY.verwaltung.saison.startFixed));
+    assert.ok(screen.getByText(COPY.admin.saison.startFixed));
     unmount();
 
     render(editor(false));
     expect(startSegments().some((segment) => segment.getAttribute("aria-readonly") === "true")).toBe(false);
-    expect(screen.queryByText(COPY.verwaltung.saison.startFixed)).toBe(null);
+    expect(screen.queryByText(COPY.admin.saison.startFixed)).toBe(null);
   });
 });

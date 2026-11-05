@@ -133,7 +133,7 @@ async def sweep_saison(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
-    aktionen_collection: ActionLogCollection,
+    action_log_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     outbox_collection: OutboxCollection,
@@ -190,7 +190,7 @@ async def sweep_saison(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=action_log_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -317,7 +317,7 @@ async def sweep_saison(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=action_log_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -350,7 +350,7 @@ async def sweep_saison(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=action_log_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -385,7 +385,7 @@ async def sweep_saison(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=action_log_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -433,7 +433,7 @@ async def sweep_saison(
         # The block alone leaves the row's images, as it leaves the row: its exit record and every
         # earlier state are the season's, not the people's.
         redacted = await redact_images_in_session(
-            aktionen_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, cleared)]),
             judge=contact_block_image_edits,
             stamp=stamp,
@@ -455,7 +455,7 @@ async def sweep_saison(
 
         return await strip_the_seasons_confirmations(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            aktionen_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             saison_id=saison_id,
             stamp=stamp,
             session=session,
@@ -472,14 +472,14 @@ async def sweep_saison(
 
         return await strip_the_seasons_reports(
             spielberichte_collection=spielberichte_collection,
-            aktionen_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             saison_id=saison_id,
             stamp=stamp,
             session=session,
         )
 
     # Every erasure before the reminder, which owes a mail only to an application still standing.
-    ohne_entscheidung, redacted_undecided, fehlgeschlagen = 0, 0, 0
+    ohne_entscheidung, redacted_undecided, failed = 0, 0, 0
     # AHEAD of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
     # leaves nobody to chase, and a notice about an application this pass erased is a notice about nothing.
     if season_has_ended(saison_status=saison_status):
@@ -490,7 +490,7 @@ async def sweep_saison(
             what="Application",
             clock="season's end",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
 
     abgelehnte, redacted_declined, passed = await drain(
         db=db,
@@ -499,7 +499,7 @@ async def sweep_saison(
         what="Application",
         clock="decline",
     )
-    fehlgeschlagen += len(passed)
+    failed += len(passed)
 
     angenommene, geleert, redacted_accepted = 0, 0, 0
     # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
@@ -511,7 +511,7 @@ async def sweep_saison(
             what="Application",
             clock="acceptance",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
 
         cleared, passed = await run_isolated(
             db=db,
@@ -522,7 +522,7 @@ async def sweep_saison(
             what="Season team",
             clock="contact block",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
 
         # Each strip answers the log rows it redacted, which `redacted_action_log` counts with every other clock's.
         stripped_confirmations, passed = await run_isolated(
@@ -534,7 +534,7 @@ async def sweep_saison(
             what="Season",
             clock="confirmation strip",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
 
         stripped_reports, passed = await run_isolated(
             db=db,
@@ -545,20 +545,20 @@ async def sweep_saison(
             what="Season",
             clock="report strip",
         )
-        fehlgeschlagen += len(passed)
+        failed += len(passed)
         geleert = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared) + sum(stripped_confirmations) + sum(stripped_reports)
 
     # The fourteen-day clock after the season's end and before the reminder: an application erased leaves nobody to
     # chase, and a season that has ended took its undecided rows already.
-    geloescht, redacted_unconfirmed, passed = await drain(
+    erased_count, redacted_unconfirmed, passed = await drain(
         db=db,
         page_of=loeschen_the_unconfirmed,
         page=SWEEP_PAGE,
         what="Application",
         clock="fourteen-day",
     )
-    fehlgeschlagen += len(passed)
+    failed += len(passed)
 
     reminded, passed = await run_isolated(
         db=db,
@@ -569,16 +569,16 @@ async def sweep_saison(
         what="Application",
         clock="reminder",
     )
-    fehlgeschlagen += len(passed)
+    failed += len(passed)
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,
         reminded=sum(reminded),
-        erased=geloescht,
+        erased=erased_count,
         erased_declined=abgelehnte,
         erased_accepted=angenommene,
         erased_without_decision=ohne_entscheidung,
         kontakt_blocks_emptied=geleert,
         redacted_action_log=redacted_declined + redacted_accepted + redacted_undecided + redacted_unconfirmed,
-        failed=fehlgeschlagen,
+        failed=failed,
     )

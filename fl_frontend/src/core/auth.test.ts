@@ -125,7 +125,7 @@ const A_SEAT = SEAT;
 const GRANTED_BEFORE_ANY_SESSION = "2026-01-01T00:00:00Z";
 
 /** What the store answers the administrator of every case below: a grant and no league record. */
-const A_GRANT = { ...NOTHING_HELD, verwaltung: "administration" as const, granted_since: GRANTED_BEFORE_ANY_SESSION };
+const A_GRANT = { ...NOTHING_HELD, admin_tier: "administration" as const, granted_since: GRANTED_BEFORE_ANY_SESSION };
 
 /**
  * Keyed by the folded address the gate posts; every address named nowhere is unbarred and holds
@@ -181,7 +181,7 @@ afterAll(() => {
 
 /** A stored passkey as the plugin's own routes read one, so an admitted route would really act. */
 const aPasskeyFor = (userId: string) => ({
-  id: "ein-passkey",
+  id: "a-passkey",
   userId: userId,
   credentialID: "fabricated-credential",
   publicKey: "fabricated-public-key",
@@ -230,7 +230,7 @@ const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
-const { holdsOwnersTier } = await import("./verwaltung.ts");
+const { holdsOwnersTier } = await import("./grant.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -538,7 +538,7 @@ describe("what the mounted HTTP surface answers", () => {
     for (const path of [...IN_PROCESS_ONLY, ...REFUSED]) {
       const method = mountedMethods.get(path) === "POST" ? "POST" : "GET";
       // A pattern segment is never what a request carries, so a concrete one stands in for it.
-      const asked = path.replace(/:\w+/, "irgendein-wert");
+      const asked = path.replace(/:\w+/, "any-value");
       const answer = await overHttp(asked, { method, cookie, body: method === "POST" ? {} : undefined });
 
       expect(answer.status, `${method} ${asked} answered ${String(answer.status)}`).toBe(404);
@@ -696,7 +696,7 @@ describe("a grant the backend cannot answer for", () => {
     expect((await getSignInLanding()).destination).toBe("/area");
     expect(await getPasskeyStep()).toBe(null);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
-      Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { name: "APINetworkError" }]),
+      Array.from({ length: 3 }, () => ["auth.grant_unread", { name: "APINetworkError" }]),
     );
   });
 
@@ -741,11 +741,11 @@ describe("a passkey session made before its grant", () => {
     madeByPasskey(store, row);
     ageRow(row, { created: HOUR_MS });
     if (onASecond) row.createdAt = new Date(Math.floor(row.createdAt.getTime() / 1000) * 1000);
-    const berechtigtSeit = grantedAfterMs === null ? null : new Date(row.createdAt.getTime() + grantedAfterMs).toISOString();
-    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, granted_since: berechtigtSeit });
+    const grantedSince = grantedAfterMs === null ? null : new Date(row.createdAt.getTime() + grantedAfterMs).toISOString();
+    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, granted_since: grantedSince });
     arriveAs(cookie);
 
-    return { created: row.createdAt, granted: berechtigtSeit };
+    return { created: row.createdAt, granted: grantedSince };
   }
 
   it("administers on no lane, and is told to sign in", async () => {
@@ -863,7 +863,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const seen = await served(cookie);
     assert.ok(seen);
     const made = new Date(seen.session.createdAt).getTime();
-    const promotedAt = (instant: number) => ({ ...A_GRANT, verwaltung: "owner" as const, inhaber_seit: new Date(instant).toISOString() });
+    const promotedAt = (instant: number) => ({ ...A_GRANT, admin_tier: "owner" as const, owner_since: new Date(instant).toISOString() });
 
     expect([
       holdsOwnersTier(seen.session.createdAt, promotedAt(made)),
@@ -912,7 +912,7 @@ describe("a passkey session whose passkey is gone", () => {
   it("reads the row by the session's own account", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
-    for (const held of store.passkey) Reflect.set(held, "userId", "ein-anderes-konto");
+    for (const held of store.passkey) Reflect.set(held, "userId", "another-account");
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
@@ -973,7 +973,7 @@ describe("the passkey touch an act declares", () => {
 
 /* A second authenticator, for the cases where one account enrols twice: the plugin only checks the
    credential id it is handed, so a second registration needs no key of its own to be verified. */
-const SECOND_RAW_ID = Buffer.from("fabricated-credential-id-zwei");
+const SECOND_RAW_ID = Buffer.from("fabricated-credential-id-two");
 
 /** The whole ceremony a browser runs, from the options call to the assertion the plugin verifies. */
 async function assertPasskey(cookie: string, userVerified: boolean): Promise<Response> {
@@ -1060,8 +1060,8 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
 });
 
 /** A host this stack does not serve, spelled the three ways a caller can name itself. */
-const FOREIGN_ORIGIN = "https://fremde-seite.example";
-const FOREIGN = { host: "fremde-seite.example", "x-forwarded-host": "fremde-seite.example", origin: FOREIGN_ORIGIN };
+const FOREIGN_ORIGIN = "https://foreign-site.example";
+const FOREIGN = { host: "foreign-site.example", "x-forwarded-host": "foreign-site.example", origin: FOREIGN_ORIGIN };
 
 describe("which relying party and which origin a ceremony is judged against", () => {
   /* A passkey is bound to the relying party its enrolment named, and every one of these headers is
@@ -1194,8 +1194,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
   it("refuses the enrolment that would take a person past the cap", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    for (let index = 0; index < PASSKEY_LIMIT; index += 1)
-      store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
+    for (let index = 0; index < PASSKEY_LIMIT; index += 1) store.passkey.push({ ...aPasskeyFor(row.userId), id: `a-passkey-${String(index)}` });
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     expect(store.passkey.length).toBe(PASSKEY_LIMIT);
@@ -1206,8 +1205,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
   it("refuses the enrolment that would take an administrator past the cap", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
-    for (let index = 0; index < PASSKEY_LIMIT; index += 1)
-      store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
+    for (let index = 0; index < PASSKEY_LIMIT; index += 1) store.passkey.push({ ...aPasskeyFor(row.userId), id: `a-passkey-${String(index)}` });
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     expect(store.passkey.length).toBe(PASSKEY_LIMIT);
@@ -1606,7 +1604,7 @@ describe("which session a new sign-in replaces", () => {
 
 describe("the step-up every change to passkeys and sign-ins asks for", () => {
   const judged = (email: string, authFactor: string, age: number) =>
-    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor }, verwaltung: email === ADMIN_EMAIL });
+    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor }, admin: email === ADMIN_EMAIL });
 
   it("admits a person signed in by either factor inside the window, and neither past it", () => {
     for (const factor of ["code", "passkey"]) {
@@ -1625,7 +1623,7 @@ describe("the step-up every change to passkeys and sign-ins asks for", () => {
 
   it("takes a stamp it cannot read for no step-up at all", () => {
     expect(
-      isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, verwaltung: false }),
+      isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, admin: false }),
     ).toBe(false);
   });
 });
@@ -1757,7 +1755,7 @@ describe("what the library's own log stream reaches this application as", () => 
     const answer = await handler.POST(
       new Request("http://localhost:3000/api/auth/passkey/verify-authentication", {
         method: "POST",
-        headers: { ...ORIGIN, cookie, origin: "https://fremde-seite.example", "content-type": "application/json" },
+        headers: { ...ORIGIN, cookie, origin: "https://foreign-site.example", "content-type": "application/json" },
         body: JSON.stringify({ response: {} }),
       }),
     );
@@ -1771,7 +1769,7 @@ describe("what the library's own log stream reaches this application as", () => 
       // Exactly these: the library hands its logger the rejected value among the arguments, and a
       // key added beside them is how one reaches the stream under a name nobody reads for it.
       expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
-      assert.ok(!JSON.stringify(line).includes("fremde-seite"), "the submitted origin reached the stream");
+      assert.ok(!JSON.stringify(line).includes("foreign-site"), "the submitted origin reached the stream");
     }
   });
 
@@ -1781,7 +1779,7 @@ describe("what the library's own log stream reaches this application as", () => 
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     // A stored passkey whose key the verifier cannot read, which is an internal failure rather than
     // a refusal: the library hands its logger the error object itself.
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "kein-schluessel" });
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "no-key" });
     logged.length = 0;
 
     expect((await assertPasskey(cookie, true)).status).toBe(400);
@@ -2199,7 +2197,7 @@ describe("which addresses the send gate mails", () => {
     [
       "an address holding an `owner` grant",
       ADMIN_EMAIL,
-      { ...NOTHING_HELD, verwaltung: "owner", granted_since: GRANTED_BEFORE_ANY_SESSION },
+      { ...NOTHING_HELD, admin_tier: "owner", granted_since: GRANTED_BEFORE_ANY_SESSION },
       "admitted",
     ],
     // The ban ahead of the grant: the order a gate judging the grant first would answer otherwise.
@@ -2508,7 +2506,7 @@ const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[
 });
 
 /** The backend's refusal of the erasure for a ban entered since the request was judged, as the API client raises one. */
-async function loeschungRefused(): Promise<Error> {
+async function erasureRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
@@ -2550,17 +2548,17 @@ describe("a person's own account deletion", () => {
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
     const bystander = await seedAccount("unbeteiligt-loeschung@example.org");
     const person = await seedAccount("loeschende@example.org");
-    const loeschungen: string[] = [];
+    const erasures: string[] = [];
 
     const answer = await asPerson("loeschende@example.org", () =>
       deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        loeschungen.push("erased");
+        erasures.push("erased");
         return Promise.resolve({});
       }),
     );
 
     expect(answer).toBe("deleted");
-    expect(loeschungen, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
+    expect(erasures, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
     expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
@@ -2570,19 +2568,19 @@ describe("a person's own account deletion", () => {
   /* The library spends the link before the erasure runs, so the press says so rather than offering the link again. */
   it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it, its link spent", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
-    const refusal = await loeschungRefused();
-    const loeschungen: string[] = [];
+    const refusal = await erasureRefused();
+    const erasures: string[] = [];
 
     expect(
       await asPerson("verweigert-loeschung@example.org", () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          loeschungen.push("asked");
+          erasures.push("asked");
           return Promise.reject(refusal);
         }),
       ),
     ).toBe("spentUnerased");
 
-    expect(loeschungen, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
+    expect(erasures, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
@@ -2591,13 +2589,13 @@ describe("a person's own account deletion", () => {
      reaching it with one would be told of a deletion while a fresh link went out instead. */
   it("answers an empty token as no link, mailing, erasing and deleting nothing", async () => {
     const person = await seedAccount("leerer-link@example.org");
-    const loeschungen: string[] = [];
+    const erasures: string[] = [];
     const mailed = sent.length;
     const tokens = store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length;
 
     const answer = await asPerson("leerer-link@example.org", () =>
       deleteOwnAccount("", new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        loeschungen.push("erased");
+        erasures.push("erased");
         return Promise.resolve({});
       }),
     );
@@ -2605,7 +2603,7 @@ describe("a person's own account deletion", () => {
     expect(answer).toBe("linkRefused");
     expect(sent.length, "an empty token mailed a new link").toBe(mailed);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length).toBe(tokens);
-    expect(loeschungen).toStrictEqual([]);
+    expect(erasures).toStrictEqual([]);
     expect(heldOf(person).user).toBe(1);
   });
 
@@ -2614,17 +2612,17 @@ describe("a person's own account deletion", () => {
   it("refuses a link minted for another account, erasing and deleting nothing", async () => {
     const holder = await seedAccount("linkhalterin@example.org");
     const other = await signIn("andere-sitzung@example.org");
-    const loeschungen: string[] = [];
+    const erasures: string[] = [];
 
     const answer = await asPerson("andere-sitzung@example.org", () =>
       deleteOwnAccount(holder.token, new Headers({ ...ORIGIN, cookie: other.cookie }), () => {
-        loeschungen.push("erased");
+        erasures.push("erased");
         return Promise.resolve({});
       }),
     );
 
     expect(answer).toBe("linkRefused");
-    expect(loeschungen).toStrictEqual([]);
+    expect(erasures).toStrictEqual([]);
     expect(heldOf(holder).user).toStrictEqual(1);
     expect(store.user.filter((user) => user.id === other.row.userId).length).toBe(1);
   });
@@ -2634,7 +2632,7 @@ describe("a person's own account deletion", () => {
   it("deletes nothing where no erasure was handed in, or where the request acts for another person", async () => {
     const person = await seedAccount("ohne-loeschung@example.org");
     const headers = new Headers({ ...ORIGIN, cookie: person.cookie });
-    const loeschungen: string[] = [];
+    const erasures: string[] = [];
 
     await expect(
       asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
@@ -2645,7 +2643,7 @@ describe("a person's own account deletion", () => {
     await expect(
       asPerson("jemand-anderes@example.org", () =>
         deleteOwnAccount(mailedToken("ohne-loeschung@example.org"), headers, () => {
-          loeschungen.push("erased");
+          erasures.push("erased");
           return Promise.resolve({});
         }),
       ),
@@ -2654,7 +2652,7 @@ describe("a person's own account deletion", () => {
       (thrown: Error) => thrown.name === "DeletionOutcomeUnknown" && (thrown.cause as Error).name === "DeletionWithoutErasure",
     );
 
-    expect(loeschungen, "another person's records were erased").toStrictEqual([]);
+    expect(erasures, "another person's records were erased").toStrictEqual([]);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });

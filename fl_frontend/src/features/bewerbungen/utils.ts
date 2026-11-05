@@ -1,7 +1,7 @@
 import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { medienZuJung } from "@/features/konto/einwilligung";
+import { medienZuJung } from "@/features/account/einwilligung";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -276,8 +276,8 @@ export async function mapEinwilligungRefusal(
     }
     // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
     // The floor is the view's as the age refusal's is, so a view that went unread names none.
-    case "medien_age":
-      return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
+    case "media_age":
+      return { error: medienNochNicht((await ansicht())?.media_minimum_age ?? null) };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
     // form either: the page offers no Widerspruch to a barred address.
     case "link_barred":
@@ -315,11 +315,11 @@ export function fensterZustand(fenster: FLBewerbungWindowResponse | null, today:
   if (fenster.saison_ended) return "vorbei";
   // Before either date: the league closed it, which is not the same as a deadline passing.
   if (!fenster.offen) return "closed";
-  if (today < fenster.von) return "noch-nicht";
+  if (today < fenster.start) return "noch-nicht";
 
   // Never `vorbei` by default: `laeuft` is false with the span still open where this clock and the
   // server's disagree, and "abgelaufen" would name a deadline nobody reached.
-  return today > fenster.bis ? "vorbei" : "closed";
+  return today > fenster.end ? "vorbei" : "closed";
 }
 
 /**

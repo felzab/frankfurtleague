@@ -114,7 +114,7 @@ async def nummern_rows(
 async def loeschen_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     # Each carrying its `_id` and `saison_id`, as the erasure's subject read them.
     registrierungen: Sequence[Mapping[str, Any]],
     stamp: str,
@@ -130,14 +130,14 @@ async def loeschen_registrierungen_in_session(
     ids = [row["_id"] for row in registrierungen]
     # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
     # keep what this removal destroys.
-    geloescht = await erase_many_from_db(
+    erased = await erase_many_from_db(
         collection=registrierungen_collection,
         db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
         session=session,
     )
     # A delivery record and every pre-image a confirmation or a decline filed go with the document.
     await redact_log_rows_in_db(
-        action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+        action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
     )
 
-    return geloescht.deleted_count
+    return erased.deleted_count

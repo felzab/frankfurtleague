@@ -5,10 +5,9 @@ import { getRequestTraceId, runWithRequestScope } from "./requestScope.ts";
 import type { FLOutboxHandout, FLOutboxResultPayload } from "./generated/client/types.ts";
 
 /** Everything the drain did, in the order it did it: a send to the provider, or a report to the backend. */
-type Schritt =
-  { art: "send"; url: string; headers: Headers; body: Record<string, unknown> } | { art: "report"; payload: FLOutboxResultPayload };
+type Step = { art: "send"; url: string; headers: Headers; body: Record<string, unknown> } | { art: "report"; payload: FLOutboxResultPayload };
 
-const schritte: Schritt[] = [];
+const steps: Step[] = [];
 
 /** The claims the backend hands out in turn, the last empty one standing for every call after it. */
 let claims: { mails: FLOutboxHandout[]; abandoned: number }[] = [];
@@ -30,7 +29,7 @@ const SDK_DOUBLE = {
     return { lease: held ? "claim-1" : null, mails: claim.mails, abandoned: claim.abandoned };
   },
   outboxPostResult: async (payload: FLOutboxResultPayload) => {
-    schritte.push({ art: "report", payload });
+    steps.push({ art: "report", payload });
     const { result } = payload;
     const counted = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
     const key = ({ sent: "sent", retry: "repeated", abandon: "abandoned", held: "held" } as const)[result];
@@ -71,7 +70,7 @@ const { drainOutbox, takeDrainCounts } = await import("./mail.ts");
 const handed = (n: number, attempt = 1): FLOutboxHandout => ({
   id: String(n).padStart(24, "a"),
   an: `person${String(n)}@example.org`,
-  data: { art: "sperre", grund: "Grund", barred_until_saison_id: "2627" },
+  data: { art: "ban", grund: "Grund", barred_until_saison_id: "2627" },
   token: null,
   secret: null,
   attempt: attempt,
@@ -79,13 +78,13 @@ const handed = (n: number, attempt = 1): FLOutboxHandout => ({
 
 beforeEach(() => {
   takeDrainCounts();
-  schritte.length = 0;
+  steps.length = 0;
   claims = [];
   apiKey = "re_test";
   liveTrace = undefined;
   provider = () => Response.json({ id: "re-1" });
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
-    schritte.push({
+    steps.push({
       art: "send",
       url: String(url),
       headers: new Headers(init?.headers),
@@ -95,9 +94,9 @@ beforeEach(() => {
   });
 });
 
-const sends = () => schritte.filter((schritt): schritt is Extract<Schritt, { art: "send" }> => schritt.art === "send");
+const sends = () => steps.filter((step): step is Extract<Step, { art: "send" }> => step.art === "send");
 // Each report's outcome, its claim aside: every case's claim is the one the double hands out.
-const reports = () => schritte.flatMap((schritt) => (schritt.art === "report" ? [omitClaim(schritt.payload)] : []));
+const reports = () => steps.flatMap((step) => (step.art === "report" ? [omitClaim(step.payload)] : []));
 const omitClaim = ({ lease: _claim, ...result }: FLOutboxResultPayload) => result;
 
 describe("one drain of the Postausgang", () => {
@@ -109,7 +108,7 @@ describe("one drain of the Postausgang", () => {
 
     await drainOutbox();
 
-    expect(schritte.map((schritt) => schritt.art)).toStrictEqual(["send", "report", "send", "report"]);
+    expect(steps.map((step) => step.art)).toStrictEqual(["send", "report", "send", "report"]);
     expect(sends().map(({ headers }) => headers.get("Idempotency-Key"))).toStrictEqual([
       `outbox/${handed(1).id}/1`,
       `outbox/${handed(2).id}/3`,
@@ -170,8 +169,8 @@ describe("one drain of the Postausgang", () => {
      deletion link, and every mail behind it with them. */
   it("gives up a secret its key no longer opens, and sends the mail behind it", async () => {
     const { symmetricEncrypt } = await import("better-auth/crypto");
-    const fremd = await symmetricEncrypt({ key: "a-key-since-replaced-not-a-credential", data: "123456" });
-    claims = [{ mails: [{ ...handed(1), secret: fremd }, handed(2)], abandoned: 0 }];
+    const foreign = await symmetricEncrypt({ key: "a-key-since-replaced-not-a-credential", data: "123456" });
+    claims = [{ mails: [{ ...handed(1), secret: foreign }, handed(2)], abandoned: 0 }];
 
     await drainOutbox();
 

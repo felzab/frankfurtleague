@@ -57,7 +57,7 @@ const SELECTED_BADGE_CLASSES = `${COUNT_BADGE_CLASSES} bg-brand-solid-foreground
 export function AdminSpieleActionRequiredView({
   overviewSpiele,
   bracketFaults,
-  bestaetigungen,
+  confirmations,
   bestaetigungenVollstaendig,
   spielberichte,
   today,
@@ -66,7 +66,7 @@ export function AdminSpieleActionRequiredView({
   overviewSpiele: FLSpiel[];
   bracketFaults: FLBracketFault[];
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
-  bestaetigungen: readonly FLSpielbestaetigung[] | null;
+  confirmations: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
   /** The season's reports and their states, served with the list. */
   spielberichte: readonly FLSpielberichtStateEntry[];
@@ -76,12 +76,12 @@ export function AdminSpieleActionRequiredView({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // Grouped once for the categories, the notes and the cards alike.
-  const saison = useMemo(() => saisonBestaetigungen(bestaetigungen ?? KEINE_BESTAETIGUNGEN, bracketFaults), [bestaetigungen, bracketFaults]);
+  const saison = useMemo(() => saisonBestaetigungen(confirmations ?? KEINE_BESTAETIGUNGEN, bracketFaults), [confirmations, bracketFaults]);
 
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: saison, spielberichte }),
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, confirmations: saison, spielberichte }),
     [overviewSpiele, today, bracketFaults, saison, spielberichte],
   );
 
@@ -89,9 +89,9 @@ export function AdminSpieleActionRequiredView({
   const berichtChipsBySpielId = useMemo(
     () =>
       new Map(
-        spielberichte.flatMap((eintrag) => {
-          const chip = berichtChip(eintrag);
-          return chip === null ? [] : [[eintrag.spiel_id, chip] as const];
+        spielberichte.flatMap((entry) => {
+          const chip = berichtChip(entry);
+          return chip === null ? [] : [[entry.spiel_id, chip] as const];
         }),
       ),
     [spielberichte],
@@ -202,14 +202,14 @@ export function AdminSpieleActionRequiredView({
 
       {/* Standing, never dismissible: a tab reads zero or short for as long as the rows are. The read serves every open
           row whole, so a cut reaches the closed ones alone, and of those the categories read a referee's decline. */}
-      {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
+      {(confirmations === null || !bestaetigungenVollstaendig) && (
         <div className="flex w-full max-w-page flex-col px-4 pb-4 sm:px-8">
           <Callout
             severity="warning"
             title={
-              bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
+              confirmations === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
             }>
-            {bestaetigungen === null
+            {confirmations === null
               ? // Every category the rows fill, the referee's decline among them: its tab would read a cleared zero.
                 `Die Kategorien zu Terminvorschlägen, Bestätigungen und „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu.`
               : `Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ kann deshalb Spiele auslassen.`}
@@ -240,7 +240,7 @@ export function AdminSpieleActionRequiredView({
                   isFinishedSaison={isFinishedSaison}
                   isAdmin
                   notes={notes[section.category]}
-                  bestaetigungen={saison}
+                  confirmations={saison}
                   berichtChipsBySpielId={berichtChipsBySpielId}
                 />
               </SpielCardGrid>

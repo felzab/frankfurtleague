@@ -89,7 +89,7 @@ class TestARetriedMint:
                 await database[Collection.INVITATIONS].insert_one(dict(SEEDED_LINK))
 
                 zeile = await _mail_one_team(
-                    einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.INVITATIONS])),
+                    invitations_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.INVITATIONS])),
                     outbox_collection=database[Collection.OUTBOX],
                     db=cast(AsyncMongoClient, client),
                     saison_id=SAISON_ID,

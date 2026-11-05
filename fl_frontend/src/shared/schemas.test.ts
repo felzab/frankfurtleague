@@ -204,7 +204,7 @@ describe("FLKontaktPayloadSchema", () => {
   });
 });
 
-const RESERVIERT = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.";
+const RESERVED = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.";
 
 describe("KontaktEmailSchema", () => {
   const refusals = (value: unknown): string[] => KontaktEmailSchema.safeParse(value).error?.issues.map((issue) => issue.message) ?? [];
@@ -274,7 +274,7 @@ describe("KontaktEmailSchema", () => {
 
     for (const name of SPECIAL_USE_DOMAINS) {
       for (const email of [`trainer@example.${name}`, `Trainer@Schule.${name.toUpperCase()}`]) {
-        expect(refusals(email), email).toStrictEqual([RESERVIERT]);
+        expect(refusals(email), email).toStrictEqual([RESERVED]);
       }
     }
   });
@@ -347,7 +347,7 @@ describe("ExternalUrlSchema", () => {
     // A password and no user at all, so neither half of the check stands in for the other.
     "https://:geheim@evil.com",
   ];
-  const HARMLOS = ["https://www.carl-schurz-schule.de", "http://example.de", "https://a.b.example.de/pfad?q=1#top"];
+  const HARMLESS = ["https://www.carl-schurz-schule.de", "http://example.de", "https://a.b.example.de/pfad?q=1#top"];
   // The whole reason this schema exists: bare z.url() accepts every one of these.
   it("rejects the script-bearing schemes that z.url() lets through", () => {
     for (const url of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<script>1</script>", "vbscript:x", "file:///etc/passwd"]) {
@@ -368,7 +368,7 @@ describe("ExternalUrlSchema", () => {
   });
 
   it("accepts ordinary http and https links", () => {
-    for (const url of HARMLOS) {
+    for (const url of HARMLESS) {
       expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be accepted`).toBe(true);
     }
   });
@@ -383,9 +383,9 @@ describe("ExternalUrlSchema", () => {
   it("accepts nothing that navigates anywhere but the host it displays", () => {
     // The property the case above samples: a listed spelling proves only that spelling, and userinfo
     // has more of them than a test can name.
-    const accepted = [...USERINFO, ...HARMLOS].filter((url) => ExternalUrlSchema.safeParse(url).success);
+    const accepted = [...USERINFO, ...HARMLESS].filter((url) => ExternalUrlSchema.safeParse(url).success);
 
-    expect(accepted, "the corpus proves nothing unless the harmless half still parses").toStrictEqual(HARMLOS);
+    expect(accepted, "the corpus proves nothing unless the harmless half still parses").toStrictEqual(HARMLESS);
     for (const url of accepted) {
       expect(new URL(url).username, `${url}: accepted while carrying a user`).toBe("");
       expect(new URL(url).password, `${url}: accepted while carrying a password`).toBe("");

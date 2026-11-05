@@ -69,10 +69,10 @@ const begruendungFehler = (begruendung: string): string | null => {
 const parteiName = (zeile: FLSpielbestaetigung, spiel: SpielStand, { teams, schiedsrichter }: Partei): string => {
   const { party: partei } = zeile;
   if (partei.art === "team") {
-    const seite = [spiel.team1, spiel.team2].find((eintrag) => eintrag?.team_id === partei.team_id);
+    const seite = [spiel.team1, spiel.team2].find((entry) => entry?.team_id === partei.team_id);
     return seite?.name ?? teams.find((team) => team.id === partei.team_id)?.name ?? "Team";
   }
-  return schiedsrichter.find((eintrag) => eintrag.id === partei.schiedsrichter_id)?.name ?? SCHIEDSRICHTER_PARTEI;
+  return schiedsrichter.find((entry) => entry.id === partei.schiedsrichter_id)?.name ?? SCHIEDSRICHTER_PARTEI;
 };
 
 /**
@@ -209,15 +209,15 @@ function BestaetigungZeile({
         )}
         {geschlossen !== null && (
           <Angabe label="Geschlossen">
-            {SCHLIESSGRUND_LABELS[geschlossen.grund]}, {formatSpielDatum(geschlossen.am)}
+            {SCHLIESSGRUND_LABELS[geschlossen.grund]}, {formatSpielDatum(geschlossen.at)}
           </Angabe>
         )}
         {/* Each seat holding a link, in `LinkStandAngaben`'s words: a delivered message, or one under way, is nothing
             to report, and a seat the row minted no link for has no line. */}
         {KONTAKT_ROLLEN.flatMap(({ value, label }) => {
-          const sitz = zeile.kontakte?.[value] ?? null;
-          if (sitz === null) return [];
-          const chip = zustellungChip(sitz.delivery);
+          const seat = zeile.kontakte?.[value] ?? null;
+          if (seat === null) return [];
+          const chip = zustellungChip(seat.delivery);
           return [
             <Angabe
               key={value}
@@ -260,11 +260,11 @@ function EintragenSection({ row: zeile, name }: { row: FLSpielbestaetigung; name
   // The schema trims before it measures, and the trimmed value is what the write carries.
   const getrimmt = begruendung.trim();
   const istLeer = getrimmt === "";
-  const fehler = istLeer ? null : begruendungFehler(begruendung);
+  const error = istLeer ? null : begruendungFehler(begruendung);
   const zuLang = getrimmt.length > SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH;
   const closedReason = istLeer
     ? "Schreibe zuerst eine Begründung."
-    : fehler === null
+    : error === null
       ? null
       : zuLang
         ? "Kürze die Begründung."
@@ -301,7 +301,7 @@ function EintragenSection({ row: zeile, name }: { row: FLSpielbestaetigung; name
           setBegruendung(next);
           cancel();
         }}
-        onBlur={() => setLaengeFehler(fehler)}
+        onBlur={() => setLaengeFehler(error)}
         isInvalid={(antwortFehler ?? laengeFehler) !== null ? true : undefined}>
         {/* The party heard after the visible words, as `benannt` names the presses: two open rows hold a box each. */}
         <Label className={FIELD_LABEL_CLASSES}>

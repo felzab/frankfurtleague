@@ -143,7 +143,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+STANDING = compose_gesperrt_bis_saison_id(governing_saison_id=SAISON_ID)
 # The season before the running one, so a ban naming it as its last has lapsed.
 LAPSED = f"{int(SAISON_ID) - 1}"
 
@@ -163,39 +163,39 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 *grants_for_the_suite(),
                 {
                     "adresse": "neu.verwalterin@beispielschule.de",
-                    "verwaltung": "administration",
+                    "admin_tier": "administration",
                     "granted_by": BARRED,
                     "granted_at": datetime(2026, 4, 1, tzinfo=UTC),
                 },
             ]
         )
-        # Asked on the real clock: the list serves a request only until its `bis`, and the TTL index removes it then.
+        # Asked on the real clock: the list serves a request only until its `until`, and the TTL index removes it then.
         database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
             compose_antrag(
                 adresse="antrag.verwalterin@beispielschule.de",
-                verwaltung="administration",
+                admin_tier="administration",
                 grant_id=None,
                 started_by=BARRED,
                 now=datetime.now(UTC),
             )
         )
-        database[Collection.SPERRLISTE].insert_many(
+        database[Collection.BAN_LIST].insert_many(
             [
-                ban_document(OTHER, bis=STANDING, created_by=BARRED),
-                *([] if ban_until is None else [ban_document(BARRED, bis=ban_until, created_by=OWNER)]),
+                ban_document(OTHER, until=STANDING, created_by=BARRED),
+                *([] if ban_until is None else [ban_document(BARRED, until=ban_until, created_by=OWNER)]),
             ]
         )
         database[Collection.INVITATIONS].insert_one(
             compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01")
         )
         database[Collection.BEWERBUNGEN].insert_one(
-            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "von": BARRED, "grund": "Kein Platz"}}
+            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "grund": "Kein Platz"}}
         )
         database[Collection.REGISTRIERUNGEN].insert_one(
             {
                 **registrierung_document(REGISTRIERUNG_OID, vorname="Thessaly"),
                 "status": "declined",
-                "decision": {"made_at": "2026-04-03", "von": BARRED, "grund": None},
+                "decision": {"made_at": "2026-04-03", "by": BARRED, "grund": None},
             }
         )
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a
@@ -224,7 +224,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
 
 
 def _flags_set(value: Any) -> list[str]:
-    """Every `…gesperrt` key holding `true`, at any depth: a withheld address is flagged rather than dropped."""
+    """Every `…barred` key holding `true`, at any depth: a withheld address is flagged rather than dropped."""
 
     if isinstance(value, list):
         return [key for item in value for key in _flags_set(item)]

@@ -17,7 +17,7 @@ type Zaehlung = {
 
 /**
  * One pass over every sign-in account, deleting those no record references, for the scheduler
- * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time. A store that lists
+ * (`fl_frontend/src/instrumentationNode.ts :: armScheduler`), which runs one pass at a time. A store that lists
  * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `offen` the accounts it could not judge
  * or delete.
  */

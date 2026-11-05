@@ -98,7 +98,7 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     @model_validator(mode="after")
     def _cites_a_referees_wordings(self) -> Self:
         if self.einwilligung is not None:
-            cite_their_kind(self.einwilligung.nachweis, FLSchiedsrichterTextVersions)
+            cite_their_kind(self.einwilligung.evidence, FLSchiedsrichterTextVersions)
         return self
 
 
@@ -156,7 +156,7 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     minimum_age: int
     # Served for `minimum_age`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.
-    medien_minimum_age: int = Field(gt=0)
+    media_minimum_age: int = Field(gt=0)
     frist: CustomDateString
 
 
@@ -168,13 +168,13 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
     umfang: FLEinwilligungUmfang
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
-    medien: bool
+    media: bool
     # The wordings the page showed beside the two choices.
     text_versions: FLSchiedsrichterTextVersions
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "medien": self.medien})
+        refuse_a_stale_grant(self.text_versions, {"umfang": self.umfang, "media": self.media})
         return self
 
 
@@ -186,7 +186,7 @@ class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):
     """
 
     umfang: FLEinwilligungUmfang
-    medien: bool
+    media: bool
     confirmed_at: CustomDateString
 
 

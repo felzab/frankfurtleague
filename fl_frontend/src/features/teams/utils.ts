@@ -87,10 +87,10 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.
     confirmed_at: null,
-    medien: false,
+    media: false,
     // The save that seats the person stamps who seated them; no payload carries it, so the form never guesses.
     entered_by: null,
-    nachweis: { umfang: null, medien: null },
+    evidence: { umfang: null, media: null },
   },
 });
 
@@ -217,7 +217,7 @@ export function toWebsiteUrl(typed: string): string | null {
  * because the empty offer is a boundary a test can exercise without rendering.
  */
 export function offeredTrikotFarben({
-  taken: vergeben,
+  taken: taken,
   value,
 }: {
   taken: readonly FLTrikotFarbe[];
@@ -226,5 +226,5 @@ export function offeredTrikotFarben({
 }): readonly TrikotFarbeOption[] {
   // The exclusion and nothing else, so the picker never offers a colour the season has given away.
   // A season holding every colour therefore offers nothing, which the required wish has no answer for.
-  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
+  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !taken.includes(option.value));
 }

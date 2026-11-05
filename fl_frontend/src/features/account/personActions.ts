@@ -1,0 +1,221 @@
+"use server";
+
+import { refresh } from "next/cache";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+import { linkInvalid, TO_ACCOUNT } from "@/kit/MailedPage";
+import { z } from "zod";
+
+import { action, PAGE_HOLDER } from "@/core/action";
+import { deleteOwnAccount, DeletionOutcomeUnknown, requestAccountDeletion } from "@/core/auth/accounts";
+import { endOtherSessions } from "@/core/auth/accountSessions";
+import { COPY } from "@/core/copy";
+import { APIBadStatusError } from "@/core/errors";
+import {
+  BewerbungenPatchEinwilligungBody,
+  BewerbungenPatchEinwilligungParams,
+  RegistrierungenPatchEinwilligungBody,
+  RegistrierungenPatchEinwilligungParams,
+  SchiedsrichterPatchEinwilligungBody,
+  SchiedsrichterPatchEinwilligungParams,
+  SpielerPatchEinwilligungBody,
+  TeamsPatchEinwilligungBody,
+  TeamsPatchEinwilligungParams,
+} from "@/core/generated/zod/inputs";
+import { logger } from "@/core/logging";
+import { forgetMailedLink } from "@/core/mailedLink";
+import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "@/features/kontakte/mutations";
+import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutations";
+import { patchSchiedsrichterKontoEinwilligung } from "@/features/schiedsrichter/mutations";
+import { patchSpielerKontoEinwilligung } from "@/features/spieler/mutations";
+
+import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
+import { getErasureView } from "./queries";
+
+import type { ActionAnswer } from "@/core/action";
+import type { EndState } from "@/kit/MailedPage";
+
+/** An act that posts no field but its page's holder: the signed-in session names everything it acts on. */
+const HOLDER_ALONE = z.object(PAGE_HOLDER);
+
+/**
+ * Completes a mailed deletion link: the league's records, then the account, the passkey touch first for a person
+ * holding one. The deletion ends the caller's own session, so a done one leads to a page needing none rather than
+ * answering: Next renders the posting page again after an action writes a cookie, and the library deletes the session's
+ * cookie, but a `redirect` from the body renders the destination alone, the builder having cleared the site's tag on
+ * its way out. A link the library refuses, spent, lapsed or another account's, ends as the link no longer valid, with
+ * nothing erased; so does one the library spent on a press the backend's erasure then refused, which leads to Konto,
+ * where a fresh link is asked for. A press failing past the spent link with its outcome unknown reads the stale-page
+ * line, as the passkey removal's does: a reload shows whether the account stands.
+ */
+export const eraseAccount = action({
+  lane: "person",
+  claim: "account",
+  passkey: true,
+  name: "eraseAccount",
+  // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
+  input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...PAGE_HOLDER }),
+  run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
+    // Refused before the library spends the link, so the same link completes once another owner is made; the
+    // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
+    if (subject.subject.admin_tier === "owner" && (await getErasureView()).last_owner) {
+      return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
+    }
+
+    let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
+    try {
+      outcome = await deleteOwnAccount(token, await headers(), () => eraseOwnRecords());
+    } catch (failed) {
+      if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
+      logger.error("account.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
+      return { ok: false, reason: COPY.shared.failure.stale };
+    }
+    if (outcome !== "deleted") {
+      return { ok: true, value: linkInvalid(TO_ACCOUNT) };
+    }
+
+    await forgetMailedLink(ROUTES.accountErasure.path());
+    redirect(ROUTES.accountErased.path());
+  },
+});
+
+/**
+ * The person's own address change from Konto: the address on file is mailed its link first, and the new address its
+ * own once that confirms, the change taking effect once both have. A passkey holder touches the passkey first, the
+ * one check guarding it, since the backend judges no fresh sign-in. The address typed is judged by the sign-in's own
+ * rule, so every address a sign-in would refuse is refused here before it is mailed. An account standing at the new
+ * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which
+ * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/answers.ts`).
+ */
+export const startAddressChange = action({
+  lane: "person",
+  claim: "account",
+  passkey: true,
+  name: "startAddressChange",
+  input: SignInPayloadSchema.extend(PAGE_HOLDER),
+  examples: { email: COPY.shared.field.exampleAddress },
+  ownWords: ["address_change_unchanged", "address_change_no_approver"],
+  run: async ({ email }) => {
+    await requestAccountAddressChange({ email });
+    return { ok: true, value: undefined };
+  },
+});
+
+/** The pending change withdrawn from Konto, the address on file's stop link's twin: it hands nothing over, so it asks no touch. */
+export const withdrawAddressChange = action({
+  lane: "person",
+  claim: "account",
+  name: "withdrawAddressChange",
+  input: HOLDER_ALONE,
+  run: async () => {
+    await stopAccountAddressChange();
+    return { ok: true, value: undefined };
+  },
+});
+
+/**
+ * Mails the person the link deleting their account, to the session's own address and never a posted one; the deletion
+ * waits on that link's page. The library answers a send that failed as one that went, so the answer is the same
+ * either way.
+ */
+export const requestErasure = action({
+  lane: "person",
+  claim: "account",
+  name: "requestErasure",
+  input: HOLDER_ALONE,
+  run: async () => {
+    await requestAccountDeletion(await headers());
+    return { ok: true, value: undefined };
+  },
+});
+
+/** Ends every session of the person's but the one this request arrived with, however many stand. */
+export const signOutOthers = action({
+  lane: "person",
+  claim: "account",
+  name: "signOutOthers",
+  input: HOLDER_ALONE,
+  run: async (_, { served }) => {
+    await endOtherSessions(served.user.id, served.session.id);
+    // The sign-in store holds what changed, past every cached read: the device count is read again.
+    refresh();
+    return { ok: true, value: undefined };
+  },
+});
+
+// The consents Deine Einträge saves, one record a box: both choices on every press, with the labels the page showed
+// and the evidence it was served, so a press on a page older than either change is refused rather than stamped. Each is
+// an act of the account, which only Konto's page reaches, so an administrator's mailbox changes none of them.
+
+/**
+ * A save whose media choice the backend refused as given below its floor, answered as a stale page: the page offers
+ * the switch from the served age alone, so only a birthdate or a day that moved since it was served reaches this, and
+ * the page read again shows the switch closed under its own phrase, which has no subject on the status line. It is
+ * answered here rather than in the builder's stale set, since a form taking a birthdate meets the code knowingly. Any
+ * other failure goes to the builder.
+ */
+async function savedUnlessAgedOut(save: () => Promise<unknown>): Promise<ActionAnswer> {
+  try {
+    await save();
+  } catch (failed) {
+    if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "media_age") throw failed;
+    return { ok: false, errorCode: "media_age", reason: COPY.shared.failure.stale };
+  }
+  return { ok: true, value: undefined };
+}
+
+/** A pupil's own two choices on their record. */
+export const saveSpielerConsent = action({
+  lane: "person",
+  claim: "account",
+  name: "saveSpielerConsent",
+  input: SpielerPatchEinwilligungBody.extend(PAGE_HOLDER),
+  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSpielerKontoEinwilligung(choices)),
+});
+
+/** A referee's own two choices on one of their rows, of which one address may hold several. */
+export const saveSchiedsrichterConsent = action({
+  lane: "person",
+  claim: "account",
+  name: "saveSchiedsrichterConsent",
+  input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: ({ schiedsrichter_id, holder: _holder, ...choices }) =>
+    savedUnlessAgedOut(() => patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices)),
+});
+
+/** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
+export const saveRegistrierungConsent = action({
+  lane: "person",
+  claim: "account",
+  name: "saveRegistrierungConsent",
+  input: RegistrierungenPatchEinwilligungParams.extend(RegistrierungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: async ({ registrierung_id, holder: _holder, ...choices }) => {
+    await patchRegistrierungEinwilligung(registrierung_id, choices);
+    return { ok: true, value: undefined };
+  },
+});
+
+/** A seat holder's own two choices for every seat they hold on one team's season, a past season's to withdraw. */
+export const saveSeatConsent = action({
+  lane: "person",
+  claim: "account",
+  name: "saveSeatConsent",
+  input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSitzEinwilligung(team_id, saison_id, choices)),
+});
+
+/** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */
+export const saveBewerbungConsent = action({
+  lane: "person",
+  claim: "account",
+  name: "saveBewerbungConsent",
+  input: BewerbungenPatchEinwilligungParams.extend(BewerbungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
+  run: async ({ bewerbung_id, holder: _holder, ...choices }) => {
+    await patchBewerbungEinwilligung(bewerbung_id, choices);
+    return { ok: true, value: undefined };
+  },
+});

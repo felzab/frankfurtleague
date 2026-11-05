@@ -7,8 +7,7 @@ import type { FLSpielberichtState } from "@/core/generated/client/types.ts";
 
 const VORSCHLAG = { team1_tore: 3, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null };
 
-const chip = (zustand: FLSpielberichtState) =>
-  berichtChip({ spiel_id: "68c1f0a2b3c4d5e6f7a8b9e2", state: zustand, ergebnis_vorschlag: VORSCHLAG });
+const chip = (state: FLSpielberichtState) => berichtChip({ spiel_id: "68c1f0a2b3c4d5e6f7a8b9e2", state: state, ergebnis_vorschlag: VORSCHLAG });
 
 describe("what an administrator's card says of its report", () => {
   it("names a proposal still to adopt with its score", () => {

@@ -33,14 +33,14 @@ describe("renderMail", () => {
 
   // A team name or a stated reason is typed outside the league and lands inside markup.
   it("escapes every value in the designed version", () => {
-    const boese = '<img src=x onerror="alert(1)">';
+    const hostile = '<img src=x onerror="alert(1)">';
     const { html } = renderMail({
       ...MAIL,
-      subjectLine: boese,
-      vorname: boese,
-      paragraphs: [[boese, [{ strong: boese }]]],
-      block: { title: boese, facts: [{ label: boese, value: boese }] },
-      button: { label: boese, href: `${ORIGIN}/"><script>` },
+      subjectLine: hostile,
+      vorname: hostile,
+      paragraphs: [[hostile, [{ strong: hostile }]]],
+      block: { title: hostile, facts: [{ label: hostile, value: hostile }] },
+      button: { label: hostile, href: `${ORIGIN}/"><script>` },
     });
 
     assert.notInclude(html, "<img src=x");

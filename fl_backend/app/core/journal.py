@@ -25,7 +25,7 @@ from pymongo.errors import PyMongoError
 from app.core.collections import Collection
 from app.core.logging import journal_logger
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
-from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, is_given
+from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, is_given
 from app.shared.schemas.custom import parse_object_id
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, FLSeatTextVersions, FLSpielerTextVersions
 
@@ -36,45 +36,45 @@ JOURNAL_TOKEN: Final = "erasure-journal"
 # An erasure, which an administrator runs again on its page, and each act the replay writes again. An end that told
 # somebody has an art of its own: the replay tells them again from the art alone.
 JournalArt = Literal[
-    "loeschung",
-    "widerruf",
-    "widerspruch",
-    "adresswechsel_abgelehnt",
-    "adresswechsel_gestoppt",
-    "adresswechsel_verworfen",
-    "adresswechsel_verworfen_mitgeteilt",
-    "adresswechsel_wirksam",
-    "antrag_abgelehnt",
-    "antrag_zurueckgezogen",
-    "antrag_beendet",
+    "erasure",
+    "withdrawal",
+    "objection",
+    "address_change_declined",
+    "address_change_stopped",
+    "address_change_discarded",
+    "address_change_discarded_notified",
+    "address_change_effective",
+    "approval_request_declined",
+    "approval_request_withdrawn",
+    "approval_request_ended",
 ]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
-DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
-    "loeschung": frozenset(),
-    "widerruf": frozenset(
+RECORDS: Final[Mapping[JournalArt, frozenset[Collection]]] = {
+    "erasure": frozenset(),
+    "withdrawal": frozenset(
         {Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}
     ),
-    "widerspruch": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}),
+    "objection": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}),
     # Each on the change's own record, whose id names one change: a start never reuses one.
-    "adresswechsel_abgelehnt": frozenset({Collection.ADDRESS_CHANGES}),
-    "adresswechsel_gestoppt": frozenset({Collection.ADDRESS_CHANGES}),
+    "address_change_declined": frozenset({Collection.ADDRESS_CHANGES}),
+    "address_change_stopped": frozenset({Collection.ADDRESS_CHANGES}),
     # Ended telling nobody: by an administrator, by a start replacing it, or by its own press finding nothing to move.
-    "adresswechsel_verworfen": frozenset({Collection.ADDRESS_CHANGES}),
+    "address_change_discarded": frozenset({Collection.ADDRESS_CHANGES}),
     # Ended at its effect by the hourly pass or an approval, which told its new mailbox it did not take effect.
-    "adresswechsel_verworfen_mitgeteilt": frozenset({Collection.ADDRESS_CHANGES}),
+    "address_change_discarded_notified": frozenset({Collection.ADDRESS_CHANGES}),
     # The replay moves everything the restored address on file holds, as the effect did.
-    "adresswechsel_wirksam": frozenset({Collection.ADDRESS_CHANGES}),
+    "address_change_effective": frozenset({Collection.ADDRESS_CHANGES}),
     # Restored, an ended request would stand to be approved. Refused by a decider and ended by an address change, it told
     # its requester; withdrawn by them, nobody.
-    "antrag_abgelehnt": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
-    "antrag_zurueckgezogen": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
-    "antrag_beendet": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
+    "approval_request_declined": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
+    "approval_request_withdrawn": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
+    "approval_request_ended": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
 }
 
 _HASH: Final = re.compile(r"[0-9a-f]{64}")
 # A label, a seat or a choice's value: one word, so no value can carry a second token or an address.
-_WORT: Final = re.compile(r"[0-9a-z_-]+")
+_WORD: Final = re.compile(r"[0-9a-z_-]+")
 
 
 def lost_its_answer(failure: BaseException | None) -> bool:
@@ -92,7 +92,7 @@ class JournalLine:
     collection: Collection | None = None
     record_id: ObjectId | None = None
     # The instant the act's evidence was stamped with, as `app/core/recording.py :: log_stamp` spells it.
-    am: str | None = None
+    at: str | None = None
     # A withdrawal's values, each withholding, and the label each was set under.
     text_versions: Mapping[FLEinwilligungChoice, str] = field(default_factory=lambda: MappingProxyType({}))
     choices: Mapping[FLEinwilligungChoice, Any] = field(default_factory=lambda: MappingProxyType({}))
@@ -111,18 +111,20 @@ class JournalLine:
     def __post_init__(self) -> None:
         if not _HASH.fullmatch(self.person_hash):
             raise ValueError("a journal line names its person by a journal hash")
-        if self.pseudonym is not None and (self.art != "loeschung" or not _HASH.fullmatch(self.pseudonym)):
+        if self.pseudonym is not None and (self.art != "erasure" or not _HASH.fullmatch(self.pseudonym)):
             raise ValueError("an erasure's line alone names its person's log pseudonym")
-        if self.halter is not None and (self.art != "loeschung" or not _HASH.fullmatch(self.halter)):
+        if self.halter is not None and (self.art != "erasure" or not _HASH.fullmatch(self.halter)):
             raise ValueError("an erasure's line alone names its person's holder digest")
-        if (self.art == "adresswechsel_wirksam") != (self.before is not None) or (self.before is not None and not _HASH.fullmatch(self.before)):
+        if (self.art == "address_change_effective") != (self.before is not None) or (
+            self.before is not None and not _HASH.fullmatch(self.before)
+        ):
             raise ValueError("a change taking effect, and only one, names the address it replaced by a journal hash")
 
-        if self.art == "loeschung":
+        if self.art == "erasure":
             if (
                 self.collection is not None
                 or self.record_id is not None
-                or self.am is not None
+                or self.at is not None
                 or self.text_versions
                 or self.choices
                 or self.seats
@@ -130,23 +132,23 @@ class JournalLine:
                 raise ValueError("an erasure's line names its person alone: the erasure is keyed on the address")
             return
 
-        if self.collection not in DATENSAETZE[self.art] or self.record_id is None:
-            raise ValueError(f"a {self.art} line names a record of {sorted(DATENSAETZE[self.art])}")
-        if self.am is None or datetime.fromisoformat(self.am).tzinfo is None:
+        if self.collection not in RECORDS[self.art] or self.record_id is None:
+            raise ValueError(f"a {self.art} line names a record of {sorted(RECORDS[self.art])}")
+        if self.at is None or datetime.fromisoformat(self.at).tzinfo is None:
             raise ValueError("a choice's line carries the instant it was made, with its offset")
 
         withdrawn = (
             bool(self.choices)
             and self.text_versions.keys() == self.choices.keys()
-            and all(_WORT.fullmatch(label) is not None for label in self.text_versions.values())
+            and all(_WORD.fullmatch(label) is not None for label in self.text_versions.values())
             and all(
-                choice in CHOICES and not is_given(choice, value) and (isinstance(value, bool) or _WORT.fullmatch(str(value)) is not None)
+                choice in CHOICES and not is_given(choice, value) and (isinstance(value, bool) or _WORD.fullmatch(str(value)) is not None)
                 for choice, value in self.choices.items()
             )
         )
-        if (self.art == "widerruf") != withdrawn:
+        if (self.art == "withdrawal") != withdrawn:
             raise ValueError("a withdrawal's line, and only one, carries the withholding values it set and each one's label")
-        if (self.art == "widerspruch") != (bool(self.seats) and all(_WORT.fullmatch(seat) for seat in self.seats)):
+        if (self.art == "objection") != (bool(self.seats) and all(_WORD.fullmatch(seat) for seat in self.seats)):
             raise ValueError("a Widerspruch's line, and only one, names the slots it emptied")
 
     def text(self) -> str:
@@ -154,7 +156,7 @@ class JournalLine:
 
         keyed = [
             f"{name}={value}"
-            for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter), ("zuvor", self.before))
+            for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter), ("before", self.before))
             if value is not None
         ]
 
@@ -166,13 +168,13 @@ class JournalLine:
         tokens: list[str] = [self.art]
         if self.collection is not None:
             tokens.append(f"{self.collection}/{self.record_id}")
-        if self.am is not None:
-            tokens.append(f"am={self.am}")
+        if self.at is not None:
+            tokens.append(f"at={self.at}")
         # In `CHOICES`'s order, so one act is spelled one way.
         tokens.extend(f"{_TEXT_VERSION}{choice}={self.text_versions[choice]}" for choice in CHOICES if choice in self.text_versions)
         tokens.extend(f"{choice}={_spelled(self.choices[choice])}" for choice in CHOICES if choice in self.choices)
         if self.seats:
-            tokens.append(f"sitze={','.join(self.seats)}")
+            tokens.append(f"seats={','.join(self.seats)}")
 
         return " ".join(tokens)
 
@@ -183,11 +185,11 @@ def _spelled(value: Any) -> str:
 
 def _read_value(choice: str, spelled: str) -> Any:
     # The media consent is the one boolean choice: its value is spelled as JSON spells one.
-    return {"true": True, "false": False}.get(spelled, spelled) if choice == "medien" else spelled
+    return {"true": True, "false": False}.get(spelled, spelled) if choice == "media" else spelled
 
 
 # A line's keys as the host's day files spell them, which the export and the replay match, beside the field each fills.
-_LINE_KEYS: Final[Mapping[str, str]] = {"sitze": "seats", "zuvor": "before"}
+_LINE_KEYS: Final[Mapping[str, str]] = {"seats": "seats", "before": "before"}
 
 # The key a choice's label is spelled under, the choice after it.
 _TEXT_VERSION: Final = "text_version."
@@ -242,11 +244,11 @@ def parse_line(message: str) -> JournalLine | None:
             choices[key] = _read_value(key, value)
         elif key.startswith(_TEXT_VERSION) and key.removeprefix(_TEXT_VERSION) in CHOICES:
             text_versions[key.removeprefix(_TEXT_VERSION)] = value
-        elif key == _PRESS_TEXT_VERSION and not press_label and _WORT.fullmatch(value):
+        elif key == _PRESS_TEXT_VERSION and not press_label and _WORD.fullmatch(value):
             press_label = True
-        elif key == "sitze":
+        elif key == "seats":
             fields["seats"] = tuple(value.split(","))
-        elif key in ("am", "pseudonym", "halter", "zuvor"):
+        elif key in ("at", "pseudonym", "halter", "before"):
             fields[_LINE_KEYS.get(key, key)] = value
         else:
             raise ValueError("a journal line names a value no act carries")

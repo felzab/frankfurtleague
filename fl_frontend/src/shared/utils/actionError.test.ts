@@ -381,9 +381,9 @@ describe("a payload the API refused", () => {
   });
 
   it("names a list entry by its index, as the entry's input is named", () => {
-    const result = refused([bodyField(["namen", 1, "vorname"], "string_pattern_mismatch")]);
+    const result = refused([bodyField(["names", 1, "vorname"], "string_pattern_mismatch")]);
 
-    expect(result.fieldErrors).toStrictEqual({ "namen.1.vorname": FELD_ABGELEHNT });
+    expect(result.fieldErrors).toStrictEqual({ "names.1.vorname": FELD_ABGELEHNT });
   });
 
   it("keeps the failure naming no field where nothing it names is inside the body, and answers the reload", () => {
@@ -401,12 +401,12 @@ describe("a payload the API refused", () => {
 });
 
 describe("a public route's own parse refusing the body", () => {
-  const SATZ = "Der Satz der Seite.";
+  const SENTENCE = "Der Satz der Seite.";
   const refusal = (body: unknown) => {
     const parsed = z.object({ vorname: z.string() }).safeParse(body);
     expect(parsed.success, "the probe body parsed").toBe(false);
 
-    return refusedDraftAnswer(parsed.error ?? assert.fail(), SATZ);
+    return refusedDraftAnswer(parsed.error ?? assert.fail(), SENTENCE);
   };
 
   it("carries the page's sentence beside the map, for a path no control on an older page renders", () => {
@@ -414,11 +414,11 @@ describe("a public route's own parse refusing the body", () => {
 
     assert.ok("fieldErrors" in answer, "a refusal naming a path came back with no map");
     expect(Object.keys(answer.fieldErrors)).toStrictEqual(["vorname"]);
-    expect(answer.unplacedError).toBe(SATZ);
+    expect(answer.unplacedError).toBe(SENTENCE);
   });
 
   it("answers the sentence alone where the refusal names no path, which no control could mark", () => {
-    expect(refusal("kein Objekt")).toStrictEqual({ error: SATZ });
+    expect(refusal("kein Objekt")).toStrictEqual({ error: SENTENCE });
   });
 });
 

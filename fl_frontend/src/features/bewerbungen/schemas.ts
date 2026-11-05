@@ -304,7 +304,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
         whatsapp: z.boolean(),
         // Never optional, as `whatsapp` is not: a page that dropped the switch is refused rather than
         // read as a no.
-        medien: z.boolean(),
+        media: z.boolean(),
         // The wordings this page rendered beside the two switches, which the seat's evidence cites.
         text_versions: textVersionsSchema(SEAT_TEXT_VERSIONS, LINK_FASSUNG_FEHLT),
       }),

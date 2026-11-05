@@ -86,7 +86,7 @@ type FLKontaktRow = Literal["open", "saison_past", "ausgetreten"]
 type FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
 
 # Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
-# the contacts editor). Not `verwaltung`, the access tier's word (`docs/glossary.md :: verwaltung`).
+# the contacts editor). Not `admin_tier`, the access tier's word (`docs/glossary.md :: admin_tier`).
 type FLKontaktEnteredBy = Literal["bewerbung", "liga"]
 
 # --- The pupils
@@ -116,7 +116,7 @@ type FLConfirmationState = Literal["valid", "confirmed", "expired", "barred"]
 
 # `owner` holds every power `administration` does and is reached only by an owner's tier change, never by
 # a grant.
-type FLVerwaltung = Literal["owner", "administration"]
+type FLAdminTier = Literal["owner", "administration"]
 
 # Why an administrator may not approve an act on a grant: their own address, their own start, an owner's
 # act without an owner's power, or a grant or tier younger than the request.
@@ -128,8 +128,8 @@ type FLApprovalDenied = Literal["own", "started", "owner", "younger"]
 type FLAddressChangeWay = Literal["account", "waiting_period"]
 
 # Why the address tool refuses this reader an address's change, served beside every id a page links into
-# it: `own` their own address, `verwaltung` a grant holder's without an owner's power.
-type FLAddressChangeViewableDenied = Literal["own", "verwaltung"]
+# it: `own` their own address, `admin_tier` a grant holder's without an owner's power.
+type FLAddressChangeViewableDenied = Literal["own", "admin_tier"]
 
 # What the change waits on: the address on file's confirmation of the person's own change through the link it was
 # mailed, the new mailbox's link, another administrator's approval of a grant's move once the new mailbox confirmed,

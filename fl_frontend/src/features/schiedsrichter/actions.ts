@@ -144,14 +144,14 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       };
     }
 
-    const gelesen = await getSchiedsrichterById(validated.data.id);
-    if (gelesen === null) {
+    const read = await getSchiedsrichterById(validated.data.id);
+    if (read === null) {
       return { success: false, error: EINTRAG_WEG };
     }
 
     // No address, rather than making the round trip to be told so. Whether a link may go to the one
     // stored is the API's to judge.
-    if (!hatAdresse(gelesen.schiedsrichter.kontakt.email)) {
+    if (!hatAdresse(read.schiedsrichter.kontakt.email)) {
       return { success: false, error: KEINE_ADRESSE };
     }
 

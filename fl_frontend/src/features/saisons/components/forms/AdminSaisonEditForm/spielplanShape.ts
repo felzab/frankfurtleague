@@ -69,7 +69,7 @@ export function buildSpielplanControlInput(season: SpielplanPanelSeason): Spielp
     hasSpielplan: season.spielplan !== null,
     hasDrawnSpiele: season.hasDrawnSpiele,
     spieltageCount: season.spieltageCount,
-    erfassteSpieleCount: season.bestand.erfasst,
+    erfassteSpieleCount: season.holdings.erfasst,
     eingereichteBerichteCount: season.eingereichteBerichte,
     hasKoRunden: vorschau.koRunden.length > 0,
     startDate: season.startDate,

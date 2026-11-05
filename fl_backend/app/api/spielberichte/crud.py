@@ -151,9 +151,9 @@ async def write_bericht(
     *,
     spielberichte_collection: AsyncCollection,
     spiel_raw: Mapping[str, Any],
-    gespeichert: Mapping[str, Any] | None,
+    saved: Mapping[str, Any] | None,
     payload: FLSpielberichtBerichtPayload,
-    von: FLSpielberichtVon,
+    by: FLSpielberichtVon,
     now: datetime,
     # REQUIRED with no default: the `version` the form was served, or None for a write naming none, so no caller
     # leaves the check out unasked.
@@ -168,10 +168,10 @@ async def write_bericht(
     # Off the fixture this write judged: a correction landing mid-write leaves the clubs before it stamped, and the
     # report reads `teams_changed`, never adoptable.
     seiten = seiten_of(spiel_raw)
-    if gespeichert is not None and bericht_unveraendert(payload, gespeichert.get("bericht"), seiten):
-        return gespeichert
+    if saved is not None and bericht_unveraendert(payload, saved.get("bericht"), seiten):
+        return saved
 
-    if gespeichert is None:
+    if saved is None:
         # A first write committing while this one runs conflicts with it, and the retry meets that write's version
         # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`); `uniq_spielbericht_spiel_id` stands behind both.
         await post_one_to_db(
@@ -179,21 +179,21 @@ async def write_bericht(
             document={
                 "saison_id": spiel_raw["saison_id"],
                 "spiel_id": spiel_raw["_id"],
-                "bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now),
+                "bericht": compose_neuer_bericht(payload, by=by, seiten=seiten, now=now),
             },
             session=session,
         )
         return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
     update = (
-        {"$set": {"bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now)}}
-        if gespeichert.get("bericht") is None
+        {"$set": {"bericht": compose_neuer_bericht(payload, by=by, seiten=seiten, now=now)}}
+        if saved.get("bericht") is None
         else compose_bericht_update(payload, seiten=seiten, now=now)
     )
     # `AFTER`: inside the transaction the patch reads the document back for its log anyway.
     return await patch_one_in_db(
         collection=spielberichte_collection,
-        db_filter={"_id": gespeichert["_id"]},
+        db_filter={"_id": saved["_id"]},
         update=update,
         expected_version=version,
         session=session,
@@ -218,22 +218,22 @@ async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id
 
     rows = await aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_zustand_pipeline(saison_id=saison_id))
 
-    eintraege = []
+    entries = []
     for row in rows:
         bericht = FLSpielberichtBericht.model_validate(row["bericht"])
-        eintraege.append(
+        entries.append(
             FLSpielberichtStateEntry(
                 spiel_id=row["spiel_id"], state=bericht_zustand_of(bericht, row["spiel"]), ergebnis_vorschlag=bericht.ergebnis_vorschlag
             )
         )
 
-    return eintraege
+    return entries
 
 
 async def strip_the_seasons_reports(
     *,
     spielberichte_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     saison_id: str,
     stamp: str,
     # REQUIRED: the following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
@@ -250,7 +250,7 @@ async def strip_the_seasons_reports(
     )
 
     return await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_season_report_images_filter(saison_id),
         judge=lambda image: season_end_report_image_edits(image, saison_id),
         stamp=stamp,
@@ -261,7 +261,7 @@ async def strip_the_seasons_reports(
 async def repoint_referee_reports_in_session(
     *,
     spielberichte_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[CustomObjectId],
     # The caller's, so every redaction of one erasure carries one instant.
     stamp: str,
@@ -285,7 +285,7 @@ async def repoint_referee_reports_in_session(
     )
 
     await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
+        action_log_collection=action_log_collection,
         db_filter=build_referee_report_images_filter(schiedsrichter_ids),
         judge=lambda image: referee_report_image_edits(image, schiedsrichter_ids),
         stamp=stamp,

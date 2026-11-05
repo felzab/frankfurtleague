@@ -193,7 +193,7 @@ describe("what one refused submission shows", () => {
  * media floor is one no link is served today.
  */
 const floorOf = (jahre: number | null, medienJahre = 21) =>
-  readOf(jahre === null ? null : { zustand: "valid", ansicht: { minimum_age: jahre, medien_minimum_age: medienJahre } });
+  readOf(jahre === null ? null : { zustand: "valid", ansicht: { minimum_age: jahre, media_minimum_age: medienJahre } });
 
 /** A link's own read answering `link`, counting how often it was asked. */
 const readOf = (link: GelesenerLink | null) => {
@@ -276,10 +276,10 @@ describe("what one refused confirmation shows", () => {
   /* The page offers the media switch from the served age on the browser's German day, so a clock
      disagreeing with the backend's sends a yes below it, which a reopened link would offer again. */
   it("answers a media yes below the media age at the floor the link answered, switching it off, and naming none unread", async () => {
-    expect(await mapBestaetigungRefusal(refused("medien_age"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("media_age"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
       error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
     });
-    expect(await mapBestaetigungRefusal(refused("medien_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("media_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
       error: MEDIEN_NOCH_NICHT,
     });
   });
@@ -330,7 +330,7 @@ describe("what one refused confirmation shows", () => {
       "link_expired",
       "confirmation_exists",
       "confirmation_age",
-      "medien_age",
+      "media_age",
       "link_barred",
       "registrierung_choices_unsuitable",
     );
@@ -339,7 +339,7 @@ describe("what one refused confirmation shows", () => {
       "link_expired",
       "confirmation_exists",
       "confirmation_age",
-      "medien_age",
+      "media_age",
       "link_barred",
       "registrierung_choices_unsuitable",
     ];

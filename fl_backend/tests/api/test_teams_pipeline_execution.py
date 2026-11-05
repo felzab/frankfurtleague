@@ -131,10 +131,10 @@ class TestACalledOffFixture:
 
     def test_an_annulled_fixture_is_an_absage_and_never_a_match_played(self, league: SeededLeague):
         """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
-        ohne = table(league)["Ohne"]
+        without = table(league)["Ohne"]
 
-        assert ohne["count_gespielte_spiele"] == 0
-        assert ohne["count_abgesagte_spiele"] == 2
+        assert without["count_gespielte_spiele"] == 0
+        assert without["count_abgesagte_spiele"] == 2
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """An accumulator admitting a cancellation lands it in `unentschieden`, since `$eq: [null, null]` is true."""
@@ -187,10 +187,10 @@ def test_a_defeat_is_worth_nothing(league: SeededLeague):
 
 def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
     """`$group` emits nothing for an empty input, so this is the `$ifNull` fallback; one missing key fails response validation."""
-    ohne = table(league)["Ohne"]
+    without = table(league)["Ohne"]
 
-    assert set(ohne) == set(FLTeamStatistik.model_fields)
-    assert set(value for field, value in ohne.items() if field != "count_abgesagte_spiele") == {0}
+    assert set(without) == set(FLTeamStatistik.model_fields)
+    assert set(value for field, value in without.items() if field != "count_abgesagte_spiele") == {0}
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):

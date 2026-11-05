@@ -339,9 +339,9 @@ function logFailure(name: string, error: unknown): void {
 }
 
 /** A person turned away, logged as a page's turn-away is. */
-function turnedAwayPerson(operation: string, refusal: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
+function turnedAwayPerson(operation: string, refusal: "no_session" | "no_seat"): ActionAnswer<never> {
   logRefused(operation, refusal);
-  return { ok: false, reason: refusal === "keine_sitzung" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
+  return { ok: false, reason: refusal === "no_session" ? COPY.shared.failure.signInExpired : COPY.shared.failure.stale };
 }
 
 /**
@@ -385,13 +385,13 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
     }
     case "person": {
       const subject = await getSubjectSession();
-      if (subject === null) return turnedAwayPerson(lane.name, "keine_sitzung");
+      if (subject === null) return turnedAwayPerson(lane.name, "no_session");
       switch (lane.claim) {
         case "record":
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject })));
         case "account": {
           const served = await getAccountSession();
-          if (served === null) return turnedAwayPerson(lane.name, "keine_sitzung");
+          if (served === null) return turnedAwayPerson(lane.name, "no_session");
           return admitted(lane, raw, (input) => body(lane, () => lane.run(input, { subject, served })));
         }
         case "seat":
@@ -402,7 +402,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
               typeof team === "string" && typeof saison === "string"
                 ? rolesOf(subject).roles.filter((role) => isSeatAt(role, team, saison))
                 : [];
-            if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "kein_sitz"));
+            if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "no_seat"));
             return body(lane, () => lane.run(input, { subject, seats }));
           });
       }

@@ -11,9 +11,9 @@ import type {
   FLBewerbungAbsageData,
   FLBewerbungErasureData,
   FLBewerbungLinkData,
+  FLBewerbungObjectionData,
   FLBewerbungPerson,
   FLBewerbungReceivedData,
-  FLBewerbungWiderspruchData,
   FLBewerbungZusageData,
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
@@ -31,8 +31,8 @@ const websiteSatz = (site: string): Paragraph => [
  * A wish answered as one. The Spielplan is drawn after the decision, so nothing here knows whether it
  * can be met, and „wir versuchen“ would promise a result of a draw that has not run.
  */
-const wunschgegnerAbsatz = (gegner: string): Paragraph => [
-  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert.`,
+const wunschgegnerAbsatz = (opponent: string): Paragraph => [
+  `Als Wunschgegner für den ersten Spieltag haben wir ${opponent} notiert.`,
   "Über die Paarungen entscheidet der Spielplan.",
 ];
 
@@ -99,8 +99,8 @@ export function buildBewerbungZusageEmail(
 ): Mail {
   const site = mailOrigin(origin);
   // Blank counts as unnamed, so the silence rests on no payload's trim.
-  const gegner = (wunschgegner ?? "").trim();
-  const farbe = TRIKOT_FARBEN.find((eintrag) => eintrag.value === trikot_farbe);
+  const opponent = (wunschgegner ?? "").trim();
+  const farbe = TRIKOT_FARBEN.find((entry) => entry.value === trikot_farbe);
   const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
   return {
@@ -129,7 +129,7 @@ export function buildBewerbungZusageEmail(
         { label: "Eingetragen als", value: rollenText(rollen) },
       ],
     },
-    afterBlock: [einteilungAbsatz(gruppe, farbe?.label ?? null), ...(gegner === "" ? [] : [wunschgegnerAbsatz(gegner)]), websiteSatz(site)],
+    afterBlock: [einteilungAbsatz(gruppe, farbe?.label ?? null), ...(opponent === "" ? [] : [wunschgegnerAbsatz(opponent)]), websiteSatz(site)],
     button: ligaAktion(site),
   };
 }
@@ -165,7 +165,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FL
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
 export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const bis = fristText(frist);
+  const until = fristText(frist);
 
   return {
     kind: "firstContact",
@@ -181,7 +181,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
       [
         `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${altersSatz(rollen)}`,
         "Du kannst dem Eintrag auch widersprechen.",
-        ["Der Link ist bis zum ", { strong: bis }, " gültig und funktioniert nur einmal."],
+        ["Der Link ist bis zum ", { strong: until }, " gültig und funktioniert nur einmal."],
       ],
       [
         "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
@@ -199,7 +199,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
         { label: "Schule", value: schule },
         { label: "Saison", value: saison_id },
         { label: "Eingetragen als", value: rollenText(rollen) },
-        { label: "Link gültig bis", value: bis },
+        { label: "Link gültig bis", value: until },
       ],
     },
     button: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
@@ -208,7 +208,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
 
 export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const bis = fristText(frist);
+  const until = fristText(frist);
 
   return {
     kind: "firstContact",
@@ -223,7 +223,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
       ],
       [
         "Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm.",
-        ["Ist die Bewerbung am ", { strong: bis }, " noch unvollständig, löschen wir sie mit allen Angaben."],
+        ["Ist die Bewerbung am ", { strong: until }, " noch unvollständig, löschen wir sie mit allen Angaben."],
       ],
     ],
     block: {
@@ -235,7 +235,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
         // The deadline the first mail gave. The erasure runs the day AFTER it
         // (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), so a label naming a
         // deletion date would name a day the clock does not act on.
-        { label: "Bestätigen bis", value: bis },
+        { label: "Bestätigen bis", value: until },
       ],
     },
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
@@ -253,7 +253,7 @@ export function buildBewerbungEingangEmail(
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
-  const bis = fristText(frist);
+  const until = fristText(frist);
 
   return {
     kind: "notice",
@@ -271,7 +271,7 @@ export function buildBewerbungEingangEmail(
       ],
       [
         "Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben.",
-        ["Ist die Bewerbung am ", { strong: bis }, " noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid."],
+        ["Ist die Bewerbung am ", { strong: until }, " noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid."],
         "Sag den anderen am besten selbst Bescheid, dann geht es schneller.",
       ],
     ],
@@ -284,7 +284,7 @@ export function buildBewerbungEingangEmail(
         { label: "Saison", value: saison_id },
         { label: "Eingetragen als", value: rollenText(rollen) },
         { label: "Noch offen", value: formatList(ausstehend.map(personName)) },
-        { label: "Frist", value: bis },
+        { label: "Frist", value: until },
       ],
     },
     button: { label: "Meinen Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
@@ -330,7 +330,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
 
 /** What the submitter is told when a person refuses their entry; `abgelehnt` was read before the decline emptied it. */
 export function buildBewerbungWiderspruchEmail(
-  { saison_id, rollen, declined: abgelehnt, frist }: FLBewerbungWiderspruchData,
+  { saison_id, rollen, declined: abgelehnt, frist }: FLBewerbungObjectionData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);

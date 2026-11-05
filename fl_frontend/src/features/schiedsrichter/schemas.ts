@@ -104,7 +104,7 @@ export const FLSchiedsrichterBestaetigungPayloadSchema = z.object({
   umfang: FLSchiedsrichterUmfangSchema,
   // Never optional: the record stores the key either way, so an omitted one would store the model's
   // default in place of the person's answer.
-  medien: z.boolean(),
+  media: z.boolean(),
   // The wordings this page rendered, never ones a browser chose: the record has to cite the words the
   // confirming person read.
   text_versions: textVersionsSchema(SCHIEDSRICHTER_TEXT_VERSIONS, LINK_FASSUNG_FEHLT),

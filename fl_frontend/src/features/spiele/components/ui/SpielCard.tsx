@@ -35,7 +35,7 @@ export function SpielCard({
   asListitem = true,
   today,
   isFinishedSaison,
-  confirmations: bestaetigungen,
+  confirmations: confirmations,
   berichtChip,
 }: {
   spielData: FLSpiel;
@@ -173,11 +173,11 @@ export function SpielCard({
       </div>
 
       {/* The admin card's alone, keyed on the edit link: a public caller handed the rows renders none of them. */}
-      {adminEditHref !== undefined && bestaetigungen !== undefined && (
+      {adminEditHref !== undefined && confirmations !== undefined && (
         <AntwortChips
           spielData={spielData}
-          confirmations={bestaetigungen.bySpielId.get(spielData.id) ?? []}
-          austritte={bestaetigungen.austritte}
+          confirmations={confirmations.bySpielId.get(spielData.id) ?? []}
+          austritte={confirmations.austritte}
           today={today}
         />
       )}
@@ -191,7 +191,7 @@ export function SpielCard({
  */
 function AntwortChips({
   spielData,
-  confirmations: bestaetigungen,
+  confirmations: confirmations,
   austritte,
   today,
 }: {
@@ -200,7 +200,7 @@ function AntwortChips({
   austritte: ReadonlyMap<string, string>;
   today: string;
 }) {
-  const zeilen = geltendeBestaetigungen(bestaetigungen, spielData, { austritte, today });
+  const zeilen = geltendeBestaetigungen(confirmations, spielData, { austritte, today });
   const parteien = [
     {
       name: spielData.team1?.name,
@@ -212,7 +212,7 @@ function AntwortChips({
     },
     {
       name: SCHIEDSRICHTER_PARTEI,
-      zeile: zeilen.find((zeile) => zeile.party.art === "schiedsrichter") ?? schiedsrichterAbsage(bestaetigungen, spielData),
+      zeile: zeilen.find((zeile) => zeile.party.art === "schiedsrichter") ?? schiedsrichterAbsage(confirmations, spielData),
     },
   ].flatMap(({ name, zeile }) => (name === undefined || zeile === undefined ? [] : [{ name, zeile }]));
 

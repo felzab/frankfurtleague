@@ -229,7 +229,7 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, isRetired, pageHea
 
           <FormKontaktSection
             kontakt={kontakt}
-            bestaetigt={bestaetigteAdresse}
+            confirmed={bestaetigteAdresse}
             onChange={setKontakt}
             onFieldLeft={validateFields}
           />

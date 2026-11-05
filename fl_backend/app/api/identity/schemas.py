@@ -12,7 +12,7 @@ from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus, FLVerwaltung
+from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLAdminTier, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -62,7 +62,7 @@ class FLSubjectSchiedsrichter(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-class FLSubjekt(BaseModel):
+class FLSubject(BaseModel):
     """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
 
     One person holds seats at two clubs, and nothing enforces one pupil record per address
@@ -77,47 +77,47 @@ class FLSubjekt(BaseModel):
     unconfirmed: bool
 
 
-class FLSubjectResponse(FLSubjekt, BaseAPIResponse):
+class FLSubjectResponse(FLSubject, BaseAPIResponse):
     """Which confirmed, live records one mailbox matches, and whether the address is on the ban list.
 
     The ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide.
     """
 
-    # The endpoint's alone and not `FLSubjekt`'s: a person endpoint judging a Funktion reads the
+    # The endpoint's alone and not `FLSubject`'s: a person endpoint judging a Funktion reads the
     # records, and the ban is keyed under a secret only this operation needs.
     barred: bool
     # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
     # the endpoint's alone for `barred`'s reason too -- no person endpoint authorises against it.
-    verwaltung: FLVerwaltung | None
-    # Null exactly where `verwaltung` is. Named for the grant and not the tier: a tier change leaves it
+    admin_tier: FLAdminTier | None
+    # Null exactly where `admin_tier` is. Named for the grant and not the tier: a tier change leaves it
     # where it stands.
     granted_since: FLUtcInstant | None
-    # Null exactly where `verwaltung` is not `owner`: a session older than it administers and holds no
+    # Null exactly where `admin_tier` is not `owner`: a session older than it administers and holds no
     # owner's power.
-    inhaber_seit: FLUtcInstant | None
+    owner_since: FLUtcInstant | None
 
 
-class FLAnmeldung(BaseModel):
+class FLSignIn(BaseModel):
     """What the records one mailbox holds say about its sign-in."""
 
-    # `FLSubjekt`'s own flag, from the same judgement.
+    # `FLSubject`'s own flag, from the same judgement.
     unconfirmed: bool
     # Whether the account page serves the mailbox anything, a Funktion or not: a person holding only
     # a retired record or a pending application still has a consent there to take back.
     account: bool
 
 
-class FLSignInResponse(FLAnmeldung, BaseAPIResponse):
+class FLSignInResponse(FLSignIn, BaseAPIResponse):
     """The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
 
     The ban narrows neither flag: whether a barred person signs in is the gate's to decide.
     """
 
     barred: bool
-    verwaltung: FLVerwaltung | None
+    admin_tier: FLAdminTier | None
 
 
-class FLLoeschung(BaseModel):
+class FLErasure(BaseModel):
     """How many of each kind of record one erasure removed or emptied, zero for a kind the address held none of.
 
     Records alone: an emptied log row is no record of the person's, and two passes may reach one.
@@ -136,10 +136,10 @@ class FLLoeschung(BaseModel):
     # The person's own grants, a dead spelling of their address among them.
     grants: int = Field(ge=0)
     # Every request about the address or made by it, a lapsed one among them.
-    grants_approval_requests: int = Field(ge=0)
+    grant_approval_requests: int = Field(ge=0)
 
 
-class FLErasureResponse(FLLoeschung, BaseAPIResponse):
+class FLErasureResponse(FLErasure, BaseAPIResponse):
     pass
 
 
@@ -196,7 +196,7 @@ class FLAccountErasureView(BaseModel):
 
 class FLAccountErasureViewResponse(FLAccountErasureView, BaseAPIResponse):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
-    verwaltung: FLVerwaltung | None
+    admin_tier: FLAdminTier | None
     # Advisory: read apart from the erasure's transaction, whose own `last_owner_erasure` alone decides.
     last_owner: bool
 
@@ -326,15 +326,15 @@ class FLErasureViewOwnAddressChange(BaseModel):
     address_change_id: CustomObjectId
 
 
-FLLoeschungAntragRolle = Literal["betroffen", "gestellt"]
+FLErasureRequestParty = Literal["betroffen", "gestellt"]
 
 
 class FLErasureViewApprovalRequest(BaseModel):
     """An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes."""
 
     approval_request_id: CustomObjectId
-    verwaltung: FLVerwaltung
-    rolle: FLLoeschungAntragRolle
+    admin_tier: FLAdminTier
+    rolle: FLErasureRequestParty
 
 
 class FLErasureView(BaseModel):
@@ -355,7 +355,7 @@ class FLErasureView(BaseModel):
 
 class FLErasureViewResponse(FLErasureView, BaseAPIResponse):
     # The tier of the live grant the address holds, which the erasure removes with the rest.
-    verwaltung: FLVerwaltung | None
+    admin_tier: FLAdminTier | None
     # Whether a standing ban holds the address, which the erasure leaves standing: the ban's dialog refuses it before its press.
     barred: bool
 
@@ -364,10 +364,10 @@ class FLSignOutResponse(BaseAPIResponse):
     """The envelope alone: the log row it filed names no address to answer with."""
 
 
-class FLLoeschungSweepParams(BaseModel):
+class FLErasureSweepParams(BaseModel):
     """Where in one pass the call starts: after the pupil the call before it reached, or at the lowest id where none is named."""
 
-    nach: CustomObjectId | None = None
+    after: CustomObjectId | None = None
 
 
 class FLErasureSweepResponse(BaseAPIResponse):
@@ -383,8 +383,8 @@ class FLErasureSweepResponse(BaseAPIResponse):
     failed: int
     # The failed among them: a person whose erasure failed stays due, so a caller looping on this alone never ends.
     remaining: int
-    # The last pupil this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
-    nach: CustomObjectId | None
+    # The last pupil this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
+    after: CustomObjectId | None
 
 
 class FLErasurePreviewResponse(BaseAPIResponse):

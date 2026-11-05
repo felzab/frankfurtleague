@@ -70,7 +70,7 @@ export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBew
  */
 // `cache`, never `"use cache"`: the metadata and the body read this once between them, and a cache
 // would key on the season and go on serving `laeuft` after the window shut.
-export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ window: FLBewerbungWindowResponse | null } | null> =>
+export const getBewerbungWindow = cache(async (saisonId: string): Promise<{ window: FLBewerbungWindowResponse | null } | null> =>
   runWithIncomingTrace(() =>
     bewerbungenGetWindow(saisonId)
       // The answer naming no window carries the one key a window has not got.
@@ -105,18 +105,18 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
     postEinwilligungAnsicht({ token: token }).then(
       // Narrowed here and never at the page, which would carry the school and the season regardless: a
       // dead link's panel names nothing of the seat. An emptied seat arrives as an unknown token.
-      (ansicht): EinwilligungAnsicht => {
-        const { state: zustand } = ansicht;
+      (view): EinwilligungAnsicht => {
+        const { state: state } = view;
         // A closed season row's link still takes a Widerspruch, so it keeps its read as an open one does.
-        if (zustand !== "valid" && zustand !== "saison_past") return { zustand: zustand, quelle: ansicht.quelle };
+        if (state !== "valid" && state !== "saison_past") return { zustand: state, quelle: view.quelle };
 
-        return { zustand: zustand, ansicht: ansicht };
+        return { zustand: state, ansicht: view };
       },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.
-        const zustand = mapEinwilligungAnsichtRefusal(error);
-        if (zustand !== null) return { zustand: zustand };
+        const state = mapEinwilligungAnsichtRefusal(error);
+        if (state !== null) return { zustand: state };
         throw error;
       },
     ),

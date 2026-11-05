@@ -15,7 +15,7 @@ import pytest
 from app.api.account.crud import press_einwilligung
 from app.core.codes import Code
 from app.core.exceptions import APIError
-from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
+from app.shared.einwilligung_evidence import FLEinwilligungChoice, evidence_state_of
 from app.shared.schemas.einwilligung import FLSpielerTextVersions, PressTextVersions
 
 STALE: Final = "2026-10-ersetzt-1"
@@ -30,34 +30,34 @@ async def _may_grant() -> bool:
 
 def _replaced(kind: type[FLSpielerTextVersions], *choices: FLEinwilligungChoice) -> PressTextVersions:
     labels = {**kind.current, **dict.fromkeys(choices, STALE)}
-    return kind.model_construct(umfang=labels["umfang"], medien=labels["medien"])
+    return kind.model_construct(umfang=labels["umfang"], media=labels["media"])
 
 
-def _press(bloecke: list[Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions) -> None:
+def _press(blocks: list[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions) -> None:
     asyncio.run(
         press_einwilligung(
-            bloecke=bloecke,
-            geburtsdaten=[ADULT] * len(bloecke),
-            gewaehlt=gewaehlt,
-            nachweis_stand=nachweis_stand_of(bloecke=bloecke),
+            blocks=blocks,
+            birth_dates=[ADULT] * len(blocks),
+            chosen=chosen,
+            evidence_state=evidence_state_of(blocks=blocks),
             text_versions=text_versions,
-            darf_erteilen=_may_grant,
+            may_give=_may_grant,
             today=TODAY,
         )
     )
 
 
 # A stored block, and the press sending each choice back as stored.
-PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"umfang": "intern", "medien": False}
-PUPIL_GRANTED: Final[Mapping[str, Any]] = {"umfang": "kader_oeffentlich", "medien": True}
+PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"umfang": "intern", "media": False}
+PUPIL_GRANTED: Final[Mapping[str, Any]] = {"umfang": "kader_oeffentlich", "media": True}
 
 
 def _as_stored(block: Mapping[str, Any], **moved: Any) -> dict[FLEinwilligungChoice, Any]:
-    return {"umfang": moved.get("umfang", block["umfang"]), "medien": moved.get("medien", block["medien"])}
+    return {"umfang": moved.get("umfang", block["umfang"]), "media": moved.get("media", block["media"])}
 
 
 class TestAGrantThePressMovesNamesItsCurrentWording:
-    @pytest.mark.parametrize(("choice", "giving"), [("umfang", "kader_oeffentlich"), ("medien", True)])
+    @pytest.mark.parametrize(("choice", "giving"), [("umfang", "kader_oeffentlich"), ("media", True)])
     def test_a_choice_moved_onto_a_grant_under_a_replaced_label_is_refused(self, choice: FLEinwilligungChoice, giving: Any):
         with pytest.raises(APIError) as refused:
             _press([PUPIL_WITHHELD], _as_stored(PUPIL_WITHHELD, **{choice: giving}), _replaced(FLSpielerTextVersions, choice))

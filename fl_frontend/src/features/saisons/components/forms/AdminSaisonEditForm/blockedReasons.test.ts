@@ -115,7 +115,7 @@ describe("spielplanBlockedReason", () => {
      product no bracket has a shape for. It closes the control rather than warning beside a live
      press, which would offer what the write path refuses. */
   it("closes the draw where the rules reach no knockout round, in the rule's one sentence", () => {
-    expect(spielplanBlock({ hasKoRunden: false })).toBe(COPY.verwaltung.saison.bracketImpossible);
+    expect(spielplanBlock({ hasKoRunden: false })).toBe(COPY.admin.saison.bracketImpossible);
   });
 
   it("names a spielplan condition ahead of the rules fault, as the endpoint runs its two passes", () => {
@@ -139,7 +139,7 @@ describe("spielplanBlockedReason", () => {
   });
 
   it("names the rules fault ahead of the span, as the endpoint orders its passes", () => {
-    expect(spielplanBlock({ hasKoRunden: false, endDate: "2026-05-01" })).toBe(COPY.verwaltung.saison.bracketImpossible);
+    expect(spielplanBlock({ hasKoRunden: false, endDate: "2026-05-01" })).toBe(COPY.admin.saison.bracketImpossible);
   });
 
   /* The one place this mirror parts from `find_spielplan_refusal`, which judges `spielplan_replace_outside_its_window`
@@ -230,7 +230,7 @@ describe("spielplanShapeBlockedReason", () => {
       [{ qualifiers_per_gruppe: 3 }, FULL],
       [{ number_of_gruppen: 16, teams_per_gruppe: 2, qualifiers_per_gruppe: 2 }, sixteenGroups],
     ] as const) {
-      expect(shapeBlock(shape, occupancy), `${JSON.stringify(shape)} is offered`).toBe(COPY.verwaltung.saison.bracketImpossible);
+      expect(shapeBlock(shape, occupancy), `${JSON.stringify(shape)} is offered`).toBe(COPY.admin.saison.bracketImpossible);
     }
   });
 
@@ -247,7 +247,7 @@ describe("spielplanShapeBlockedReason", () => {
   /* The endpoint's order: `find_spielplan_refusal`, then `find_rules_refusal`, then the span. */
   it("names the groups ahead of the bracket, and the bracket ahead of the span", () => {
     expect(shapeBlock({ teams_per_gruppe: 5, qualifiers_per_gruppe: 3 }, FULL, "2026-05-01")).toBe(GRUPPEN_OFF_RULES);
-    expect(shapeBlock({ qualifiers_per_gruppe: 3 }, FULL, "2026-05-01")).toBe(COPY.verwaltung.saison.bracketImpossible);
+    expect(shapeBlock({ qualifiers_per_gruppe: 3 }, FULL, "2026-05-01")).toBe(COPY.admin.saison.bracketImpossible);
   });
 });
 

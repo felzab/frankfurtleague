@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
-from app.api.adresswechsel.services import LIVE_KEYED_TERMS
+from app.api.address_change.services import LIVE_KEYED_TERMS
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -239,11 +239,11 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
                 "foreignField": "adresse",
                 # The live change alone: a tombstone's null address would meet every pupil holding none.
                 "pipeline": [{"$match": dict(LIVE_KEYED_TERMS)}, {"$project": {"_id": 1}}],
-                "as": "adresswechsel",
+                "as": "address_changes",
             }
         },
-        {"$set": {"address_change_id": {"$ifNull": [{"$first": "$adresswechsel._id"}, None]}}},
-        {"$unset": "adresswechsel"},
+        {"$set": {"address_change_id": {"$ifNull": [{"$first": "$address_changes._id"}, None]}}},
+        {"$unset": "address_changes"},
         {"$sort": {"vorname": 1, "nachname": 1}},
     ]
 

@@ -85,8 +85,8 @@ class FLSaisonBewerbung(BaseModel):
     """
 
     offen: bool
-    von: CustomDateString
-    bis: CustomDateString
+    start: CustomDateString
+    end: CustomDateString
 
 
 class FLSaisonRegistrierung(BaseModel):
@@ -98,7 +98,7 @@ class FLSaisonRegistrierung(BaseModel):
 
     offen: bool
     von: CustomDateString
-    bis: CustomDateString
+    end: CustomDateString
 
 
 class FLSaisonPhaseSchedule(BaseModel):
@@ -147,7 +147,7 @@ class _SaisonPayload(_SaisonWritable):
         """Judged apart from the season's own span: a window may legitimately open before the season does."""
 
         if self.bewerbung is not None:
-            refuse_reversed_span(start=self.bewerbung.von, end=self.bewerbung.bis, kind="bewerbung_window_ends_before_start")
+            refuse_reversed_span(start=self.bewerbung.start, end=self.bewerbung.end, kind="bewerbung_window_ends_before_start")
 
         return self
 
@@ -156,7 +156,7 @@ class _SaisonPayload(_SaisonWritable):
         """Its own validator rather than a branch inside the one above: two windows are two refusals, and a shared one names neither."""
 
         if self.registrierung is not None:
-            refuse_reversed_span(start=self.registrierung.von, end=self.registrierung.bis, kind="registrierung_window_ends_before_start")
+            refuse_reversed_span(start=self.registrierung.von, end=self.registrierung.end, kind="registrierung_window_ends_before_start")
 
         return self
 
@@ -533,7 +533,7 @@ class FLBewerbungWindow(BaseReadModel):
     """The application window open today, by the one rule the submission refuses on: the season it is for and its last day."""
 
     saison_id: str
-    bis: CustomDateString
+    end: CustomDateString
 
 
 class FLLandingResponse(BaseAPIResponse):

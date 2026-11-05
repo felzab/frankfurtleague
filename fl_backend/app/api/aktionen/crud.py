@@ -26,7 +26,7 @@ from app.core.recording import ERASED_ACTOR_MARKER, ImageEdits, build_image_reda
 from app.shared.folding import sign_in_identifier
 
 
-def _referee_address_carry_edits(image: Mapping[str, Any], *, alt: str, neue: str, held: Set[Any]) -> dict[str, str]:
+def _referee_address_carry_edits(image: Mapping[str, Any], *, old: str, new_address: str, held: Set[Any]) -> dict[str, str]:
     """A referee row's image at the replaced address carried to the new one, but a row either address still holds.
 
     Either address's erasure reaches that row itself; the moved one's images keep the move's history until then.
@@ -34,15 +34,15 @@ def _referee_address_carry_edits(image: Mapping[str, Any], *, alt: str, neue: st
 
     kontakt = image.get("kontakt")
     email = kontakt.get("email") if isinstance(kontakt, Mapping) else None
-    if not isinstance(email, str) or sign_in_identifier(email) != alt or image.get("_id") in held:
+    if not isinstance(email, str) or sign_in_identifier(email) != old or image.get("_id") in held:
         return {}
 
-    return {"kontakt.email": neue}
+    return {"kontakt.email": new_address}
 
 
 async def redact_images_in_session(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     judge: Callable[[Mapping[str, Any]], ImageEdits],
     stamp: str,
@@ -52,19 +52,19 @@ async def redact_images_in_session(
 ) -> int:
     """Overwrite what `judge` finds of the departing person in every image the selected rows hold, and answer how many rows changed."""
 
-    rows = await read_imaged_rows(aktionen_collection=aktionen_collection, db_filter=db_filter, session=session)
+    rows = await read_imaged_rows(action_log_collection=action_log_collection, db_filter=db_filter, session=session)
 
-    return await redact_rows_in_session(aktionen_collection=aktionen_collection, rows=rows, judge=judge, stamp=stamp, session=session)
+    return await redact_rows_in_session(action_log_collection=action_log_collection, rows=rows, judge=judge, stamp=stamp, session=session)
 
 
 async def read_imaged_rows(
-    *, aktionen_collection: AsyncCollection, db_filter: Mapping[str, Any], session: AsyncClientSession
+    *, action_log_collection: AsyncCollection, db_filter: Mapping[str, Any], session: AsyncClientSession
 ) -> list[Mapping[str, Any]]:
     """The selected rows still holding an image, each projected to it."""
 
     # Unbounded: a capped read leaves an image holding them that nothing selects again.
     return await aggregate_many_from_db(
-        collection=aktionen_collection,
+        collection=action_log_collection,
         pipeline=[{"$match": {**db_filter, "before": {"$ne": None}}}, {"$project": {"before": 1}}],
         session=session,
     )
@@ -72,7 +72,7 @@ async def read_imaged_rows(
 
 async def redact_rows_in_session(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     # Read by `read_imaged_rows` in this same session, so the overwrite meets the images it judged.
     rows: Sequence[Mapping[str, Any]],
     judge: Callable[[Mapping[str, Any]], ImageEdits],
@@ -83,7 +83,7 @@ async def redact_rows_in_session(
 
     changed = 0
     for ids, update in build_image_redactions(rows, judge=judge, at=stamp):
-        result = await patch_many_in_db(collection=aktionen_collection, db_filter={"_id": {"$in": ids}}, update=update, session=session)
+        result = await patch_many_in_db(collection=action_log_collection, db_filter={"_id": {"$in": ids}}, update=update, session=session)
         changed += result.modified_count
 
     return changed
@@ -91,7 +91,7 @@ async def redact_rows_in_session(
 
 async def redact_address_in_images(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     # Folded (`app/shared/folding.py :: sign_in_identifier`): every image is judged on the fold.
     identifier: str,
     stamp: str,
@@ -110,7 +110,7 @@ async def redact_address_in_images(
     changed = 0
     for collection, addresses in IMAGE_ADDRESSES.items():
         changed += await redact_images_in_session(
-            aktionen_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             db_filter=build_address_images_filter(collection, identifier),
             judge=partial(address_image_edits, identifier=identifier, addresses=addresses),
             stamp=stamp,
@@ -121,7 +121,7 @@ async def redact_address_in_images(
 
 
 async def reattribute_administrator_in_session(
-    *, aktionen_collection: AsyncCollection, identifier: str, value: str, session: AsyncClientSession
+    *, action_log_collection: AsyncCollection, identifier: str, value: str, session: AsyncClientSession
 ) -> int:
     """Put `value` where this folded address stood as the administrator writing a log row, answering how many rows changed.
 
@@ -131,7 +131,7 @@ async def reattribute_administrator_in_session(
     # Read first and written by id, so the update walks the `_id` index: nothing indexes `actor.email`, which every
     # recorded write would pay for. Folded, as `app/core/security.py :: bind_actor` stores every actor's address.
     candidates = await aggregate_many_from_db(
-        collection=aktionen_collection,
+        collection=action_log_collection,
         pipeline=[{"$match": {"actor.email": sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
         session=session,
     )
@@ -139,7 +139,7 @@ async def reattribute_administrator_in_session(
         return 0
 
     marked = await patch_many_in_db(
-        collection=aktionen_collection,
+        collection=action_log_collection,
         db_filter={"_id": {"$in": [row["_id"] for row in candidates]}},
         update={"$set": {"actor.email": value}},
         session=session,
@@ -150,13 +150,13 @@ async def reattribute_administrator_in_session(
 
 async def carry_the_replaced_address_in_images(
     *,
-    aktionen_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
     # Both folded (`app/shared/folding.py :: sign_in_identifier`).
-    alt: str,
-    neue: str,
-    # Each document and slot still seating `alt` once the effect moved its own seats.
+    old: str,
+    new_address: str,
+    # Each document and slot still seating `old` once the effect moved its own seats.
     staying: Set[tuple[Any, str]],
-    # Each referee row naming `alt` or `neue` once the effect moved its own, which an erasure reaches through the row.
+    # Each referee row naming `old` or `new_address` once the effect moved its own, which an erasure reaches through the row.
     referees_held: Set[Any],
     stamp: str,
     session: AsyncClientSession,
@@ -176,19 +176,21 @@ async def carry_the_replaced_address_in_images(
         )
         if addresses:
             judges.setdefault(str(collection), []).append(
-                partial(address_image_edits, identifier=alt, addresses=carried_by_the_effect(addresses, neue))
+                partial(address_image_edits, identifier=old, addresses=carried_by_the_effect(addresses, new_address))
             )
-            clauses.append(build_address_images_filter(collection, alt))
+            clauses.append(build_address_images_filter(collection, old))
     for collection in SEAT_IMAGE_COLLECTIONS:
-        judges.setdefault(str(collection), []).append(partial(seat_address_carry_edits, alt=alt, neue=neue, staying=staying))
-    clauses.append(build_seat_images_filter(alt))
+        judges.setdefault(str(collection), []).append(partial(seat_address_carry_edits, old=old, new_address=new_address, staying=staying))
+    clauses.append(build_seat_images_filter(old))
     # A referee row the editor re-addressed before the change is in no document an erasure at the new address reads.
-    judges.setdefault(str(Collection.SCHIEDSRICHTER), []).append(partial(_referee_address_carry_edits, alt=alt, neue=neue, held=referees_held))
-    clauses.append(build_address_images_filter(Collection.SCHIEDSRICHTER, alt))
+    judges.setdefault(str(Collection.SCHIEDSRICHTER), []).append(
+        partial(_referee_address_carry_edits, old=old, new_address=new_address, held=referees_held)
+    )
+    clauses.append(build_address_images_filter(Collection.SCHIEDSRICHTER, old))
 
     # Each clause keyed on its `collection`, the half `action_log_target` serves; unbounded, as `read_imaged_rows` reads.
     rows = await aggregate_many_from_db(
-        collection=aktionen_collection,
+        collection=action_log_collection,
         pipeline=[{"$match": {"$or": clauses, "before": {"$ne": None}}}, {"$project": {"before": 1, "collection": 1}}],
         session=session,
     )
@@ -198,7 +200,7 @@ async def carry_the_replaced_address_in_images(
         held = [row for row in rows if row.get("collection") == name]
         if held:
             changed += await redact_rows_in_session(
-                aktionen_collection=aktionen_collection,
+                action_log_collection=action_log_collection,
                 rows=held,
                 judge=lambda image, judged=judged: {path: value for judge in judged for path, value in judge(image).items()},
                 stamp=stamp,

@@ -10,19 +10,19 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
 from app.api.berechtigungen.crud import verwaltung_of
-from app.api.identity.crud import erasure_due_page, find_anmeldung, find_subjekt, loeschen_if_still_due, saison_statuses, unreferenced_of
-from app.api.identity.lookup import SubjektLookup
+from app.api.identity.crud import erase_if_still_due, erasure_due_page, find_sign_in, find_subject, saison_statuses, unreferenced_of
+from app.api.identity.lookup import SubjectLookup
 from app.api.identity.schemas import (
+    FLErasure,
+    FLErasureSweepParams,
     FLErasureSweepResponse,
-    FLLoeschung,
-    FLLoeschungSweepParams,
     FLReferencesPayload,
     FLReferencesResponse,
     FLSignInResponse,
     FLSubjectPayload,
     FLSubjectResponse,
 )
-from app.api.identity.services import abgeschlossene_saison_id
+from app.api.identity.services import completed_saison_id
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -30,6 +30,7 @@ from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
+    BanListCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
@@ -44,7 +45,6 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SnapshotSession,
-    SperrlisteCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
@@ -73,10 +73,10 @@ router = APIRouter(
     openapi_extra=SAFE,
 )
 async def get_subject(
-    subjekt_data: Annotated[FLSubjectPayload, Body()],
-    records: SubjektLookup,
+    subject_data: Annotated[FLSubjectPayload, Body()],
+    records: SubjectLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: GrantsReadCollection,
+    grants_collection: GrantsReadCollection,
     session: SnapshotSession,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
@@ -85,24 +85,22 @@ async def get_subject(
     than a 404.
     """
 
-    identifier = sign_in_identifier(str(subjekt_data.email))
+    identifier = sign_in_identifier(str(subject_data.email))
 
     # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
     # `league_address` runs, so an address the hash would refuse was answered 422 before here.
-    ban_key = sperrliste.hash_of(str(subjekt_data.email))
+    ban_key = sperrliste.hash_of(str(subject_data.email))
 
     # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:
     # the records, the ban and the grant cost the longest of the three rather than their sum.
-    subjekt, gesperrt, grant = await asyncio.gather(
-        find_subjekt(identifier, records),
+    subject, barred, grant = await asyncio.gather(
+        find_subject(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier, session=session),
+        verwaltung_of(grants_collection=grants_collection, adresse=identifier, session=session),
     )
-    verwaltung, berechtigt_seit, inhaber_seit = (None, None, None) if grant is None else grant
+    admin_tier, granted_since, owner_since = (None, None, None) if grant is None else grant
 
-    return FLSubjectResponse(
-        **subjekt.model_dump(), barred=gesperrt, verwaltung=verwaltung, granted_since=berechtigt_seit, inhaber_seit=inhaber_seit
-    )
+    return FLSubjectResponse(**subject.model_dump(), barred=barred, admin_tier=admin_tier, granted_since=granted_since, owner_since=owner_since)
 
 
 @router.post(
@@ -112,10 +110,10 @@ async def get_subject(
     openapi_extra=SAFE,
 )
 async def get_sign_in(
-    anmeldung_data: Annotated[FLSubjectPayload, Body()],
-    records: SubjektLookup,
+    sign_in_data: Annotated[FLSubjectPayload, Body()],
+    records: SubjectLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: GrantsReadCollection,
+    grants_collection: GrantsReadCollection,
     session: SnapshotSession,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
@@ -124,17 +122,17 @@ async def get_sign_in(
     """
 
     # Keyed as `get_subject` keys, for its reason.
-    identifier = sign_in_identifier(str(anmeldung_data.email))
-    ban_key = sperrliste.hash_of(str(anmeldung_data.email))
+    identifier = sign_in_identifier(str(sign_in_data.email))
+    ban_key = sperrliste.hash_of(str(sign_in_data.email))
 
     # Concurrently, for `get_subject`'s reason: a sign-in waits on this answer.
-    anmeldung, gesperrt, grant = await asyncio.gather(
-        find_anmeldung(identifier, records),
+    sign_in, barred, grant = await asyncio.gather(
+        find_sign_in(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
-        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier, session=session),
+        verwaltung_of(grants_collection=grants_collection, adresse=identifier, session=session),
     )
 
-    return FLSignInResponse(**anmeldung.model_dump(), barred=gesperrt, verwaltung=None if grant is None else grant[0])
+    return FLSignInResponse(**sign_in.model_dump(), barred=barred, admin_tier=None if grant is None else grant[0])
 
 
 @router.post(
@@ -144,10 +142,10 @@ async def get_sign_in(
     openapi_extra=SAFE,
 )
 async def get_references(
-    referenzen_data: Annotated[FLReferencesPayload, Body()],
-    records: SubjektLookup,
-    berechtigungen_collection: GrantsReadCollection,
-    adresswechsel_collection: AddressChangeReadCollection,
+    references_data: Annotated[FLReferencesPayload, Body()],
+    records: SubjectLookup,
+    grants_collection: GrantsReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
 ) -> FLReferencesResponse:
     """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 
@@ -156,10 +154,10 @@ async def get_references(
 
     return FLReferencesResponse(
         unreferenced=await unreferenced_of(
-            referenzen_data.identifiers,
+            references_data.identifiers,
             records,
-            berechtigungen_collection=berechtigungen_collection,
-            adresswechsel_collection=adresswechsel_collection,
+            grants_collection=grants_collection,
+            address_changes_collection=address_changes_collection,
         )
     )
 
@@ -169,10 +167,10 @@ async def get_references(
 # Twenty-two commands for a pupil a report names, whose repoint writes a log row, each the round trip plus at
 # most 2.03 ms, timed locally 2026-10-16 and again over 20,000 log rows: this share fits
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
-LOESCHUNGEN_PER_PASS: Final = 10
+ERASURES_PER_PASS: Final = 10
 
 
-async def _loeschen_one(
+async def _erase_one(
     spieler_id: Any,
     *,
     saisons_collection: AsyncCollection,
@@ -185,24 +183,24 @@ async def _loeschen_one(
     spielbestaetigungen_collection: AsyncCollection,
     spielberichte_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
-    berechtigungen_collection: AsyncCollection,
-    berechtigungen_angekuendigt_collection: AsyncCollection,
+    action_log_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    einladungen_collection: AsyncCollection,
-    sperrliste_collection: AsyncCollection,
-    adresswechsel_collection: AsyncCollection,
-    berechtigungen_antraege_collection: AsyncCollection,
+    invitations_collection: AsyncCollection,
+    ban_list_collection: AsyncCollection,
+    address_changes_collection: AsyncCollection,
+    grant_approval_requests_collection: AsyncCollection,
     sperrliste: BanList,
     db: AsyncMongoClient,
     key: SecretStr,
     stamp: str,
     now: datetime,
-) -> FLLoeschung | None:
+) -> FLErasure | None:
     """One pupil in a transaction of their own: a conflict on one takes back nobody already erased."""
 
-    async def loeschen_the_pupil_if_still_due(session: AsyncClientSession) -> FLLoeschung | None:
-        return await loeschen_if_still_due(
+    async def erase_the_pupil_if_still_due(session: AsyncClientSession) -> FLErasure | None:
+        return await erase_if_still_due(
             spieler_id,
             saisons_collection=saisons_collection,
             spieler_collection=spieler_collection,
@@ -214,14 +212,14 @@ async def _loeschen_one(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
-            aktionen_collection=aktionen_collection,
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            action_log_collection=action_log_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
-            einladungen_collection=einladungen_collection,
-            sperrliste_collection=sperrliste_collection,
-            adresswechsel_collection=adresswechsel_collection,
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            invitations_collection=invitations_collection,
+            ban_list_collection=ban_list_collection,
+            address_changes_collection=address_changes_collection,
+            grant_approval_requests_collection=grant_approval_requests_collection,
             sperrliste=sperrliste,
             key=key,
             stamp=stamp,
@@ -230,7 +228,7 @@ async def _loeschen_one(
         )
 
     async with transaction_session(db) as session:
-        return await session.with_transaction(loeschen_the_pupil_if_still_due)
+        return await session.with_transaction(erase_the_pupil_if_still_due)
 
 
 @router.post(
@@ -239,7 +237,7 @@ async def _loeschen_one(
     summary="Delete one share of the pupils the season-after rule makes due",
 )
 async def sweep_erasure(
-    params: Annotated[FLLoeschungSweepParams, Query()],
+    params: Annotated[FLErasureSweepParams, Query()],
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -250,14 +248,14 @@ async def sweep_erasure(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    aktionen_collection: ActionLogCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    action_log_collection: ActionLogCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    einladungen_collection: InvitationsCollection,
-    sperrliste_collection: SperrlisteCollection,
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
+    invitations_collection: InvitationsCollection,
+    ban_list_collection: BanListCollection,
+    address_changes_collection: AddressChangeCollection,
+    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -281,8 +279,8 @@ async def sweep_erasure(
     fixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same
     address stand, and so do the log images naming them.
 
-    **A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call
-    answering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass
+    **A pass is a run of calls, each handing the next the `after` the last answered**, the first naming none; it ends at the call
+    answering `after` null. A call reaches at most a fixed share of the due pupils after `after`, in `_id` order, and the pass
     holds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted
     `failed`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and
     the next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers
@@ -296,28 +294,28 @@ async def sweep_erasure(
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)
     # One past the share, so a call ending exactly at the share's last pupil can tell whether any follow.
-    seite, anzahl = await erasure_due_page(
+    seite, count = await erasure_due_page(
         statuses,
-        nach=params.nach,
-        groesse=LOESCHUNGEN_PER_PASS + 1,
+        after=params.after,
+        size=ERASURES_PER_PASS + 1,
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
     )
-    share = seite[:LOESCHUNGEN_PER_PASS]
+    share = seite[:ERASURES_PER_PASS]
     # One instant for every redaction this call makes, as one erasure's steps share one.
     stamp = log_stamp(germany_now)
 
     spieler, saison_spieler, registrierungen = 0, 0, 0
-    geloescht, uebersprungen, fehlgeschlagen = 0, 0, 0
-    erreicht: Any = None
+    erased_count, skipped, failed = 0, 0, 0
+    reached: Any = None
     abgebrochen = False
     for row in share:
-        erreicht = row["_id"]
+        reached = row["_id"]
 
         # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
         # a team's: a failure the session never saw leaves its transaction open.
         try:
-            geloeschte = await _loeschen_one(
+            erased = await _erase_one(
                 row["_id"],
                 saisons_collection=saisons_collection,
                 spieler_collection=spieler_collection,
@@ -329,14 +327,14 @@ async def sweep_erasure(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
                 spielberichte_collection=spielberichte_collection,
                 registrierungen_collection=registrierungen_collection,
-                aktionen_collection=aktionen_collection,
-                berechtigungen_collection=berechtigungen_collection,
-                berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+                action_log_collection=action_log_collection,
+                grants_collection=grants_collection,
+                grants_announced_collection=grants_announced_collection,
                 outbox_collection=outbox_collection,
-                einladungen_collection=einladungen_collection,
-                sperrliste_collection=sperrliste_collection,
-                adresswechsel_collection=adresswechsel_collection,
-                berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                invitations_collection=invitations_collection,
+                ban_list_collection=ban_list_collection,
+                address_changes_collection=address_changes_collection,
+                grant_approval_requests_collection=grant_approval_requests_collection,
                 sperrliste=sperrliste,
                 db=db,
                 key=config.sperrliste_key,
@@ -349,14 +347,14 @@ async def sweep_erasure(
             # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and
             # raises it as a timeout keeping the label.
             if isinstance(failure, PyMongoError) and failure.timeout:
-                ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+                uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                 # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
                 fl_logger.warning(
                     "identity.erasure_cut",
                     extra={
-                        "error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED,
+                        "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
                         "spieler_id": str(row["_id"]),
-                        "erasure_unanswered": ungewiss,
+                        "erasure_unanswered": uncertain,
                     },
                 )
                 abgebrochen = True
@@ -365,29 +363,29 @@ async def sweep_erasure(
             # The id and what locates the failure, never a value: a line naming the pupil would outlive the erasure it reports.
             code, diagnosis = diagnosis_of(failure)
             fl_logger.error("identity.erasure_failed", extra={"error_code": code, "spieler_id": str(row["_id"]), "diagnosis": diagnosis})
-            fehlgeschlagen += 1
+            failed += 1
             continue
 
         # The one skip: judged again in its own transaction, a pupil another call deleted first reads as gone, since a
         # rival committing after the snapshot sends the attempt round rather than leaving a step a row to miss.
-        if geloeschte is None:
-            uebersprungen += 1
+        if erased is None:
+            skipped += 1
             continue
 
         # No journal line, unlike a request's erasure: the rule deletes these pupils again after a restore,
         # where a replay would erase the whole address.
-        geloescht += 1
-        spieler += geloeschte.spieler
-        saison_spieler += geloeschte.saison_spieler
-        registrierungen += geloeschte.registrierungen
+        erased_count += 1
+        spieler += erased.spieler
+        saison_spieler += erased.saison_spieler
+        registrierungen += erased.registrierungen
 
     return FLErasureSweepResponse(
-        completed_saison_id=abgeschlossene_saison_id(statuses),
+        completed_saison_id=completed_saison_id(statuses),
         spieler=spieler,
         saison_spieler=saison_spieler,
         registrierungen=registrierungen,
-        skipped=uebersprungen,
-        failed=fehlgeschlagen,
-        remaining=anzahl - geloescht - uebersprungen,
-        nach=erreicht if abgebrochen or len(seite) > LOESCHUNGEN_PER_PASS else None,
+        skipped=skipped,
+        failed=failed,
+        remaining=count - erased_count - skipped,
+        after=reached if abgebrochen or len(seite) > ERASURES_PER_PASS else None,
     )

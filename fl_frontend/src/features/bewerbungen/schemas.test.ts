@@ -680,7 +680,7 @@ describe("the consenting answer's birth date", () => {
       antwort: "given",
       geburtsdatum: "",
       whatsapp: false,
-      medien: false,
+      media: false,
       text_versions: SEAT_TEXT_VERSIONS,
     });
 

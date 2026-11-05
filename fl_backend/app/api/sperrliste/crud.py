@@ -36,7 +36,7 @@ def build_sperrliste_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
                 # `_id` decides between two bans entered on one day: `created_at` is a date, so it
                 # orders a day's rows against each other not at all.
                 "rows": [{"$sort": {"created_at": DESCENDING, "_id": DESCENDING}}, {"$limit": limit}, {"$project": dict(SERVED_FIELDS)}],
-                "total": [{"$count": "anzahl"}],
+                "total": [{"$count": "count"}],
             }
         }
     ]
@@ -44,14 +44,14 @@ def build_sperrliste_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
 
 async def read_sperrliste_page(
     *,
-    sperrliste_collection: AsyncCollection,
+    ban_list_collection: AsyncCollection,
     limit: int,
 ) -> tuple[list[Mapping[str, Any]], int]:
     """One page of bans, newest first, and how many the collection holds."""
 
     # `$facet` answers one document holding every row it selected, so the page has to fit BSON's
     # 16MB ceiling. At this limit and this row shape it is four orders of magnitude clear.
-    faceted = await aggregate_many_from_db(collection=sperrliste_collection, pipeline=build_sperrliste_page_pipeline(limit=limit), limit=1)
+    faceted = await aggregate_many_from_db(collection=ban_list_collection, pipeline=build_sperrliste_page_pipeline(limit=limit), limit=1)
 
     if not faceted:
         return [], 0
@@ -60,17 +60,17 @@ async def read_sperrliste_page(
     # `$count` emits NO document for an empty collection rather than a zero.
     counted = faceted[0].get("total") or [{}]
 
-    return rows, int(counted[0].get("anzahl", 0))
+    return rows, int(counted[0].get("count", 0))
 
 
 async def address_is_gesperrt(
     *,
-    sperrliste_collection: ReadCollection,
+    ban_list_collection: ReadCollection,
     adresse_hash: str,
     # May be read before the caller's transaction, every rollover erasing what it lapses in the one
     # moving the season: an older reference matches as a sequential
     # order would. Never for a ban's bound, written from it.
-    massgebliche_saison_id: str | None,
+    governing_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> bool:
     """Whether a ban on this hash still stands, `uniq_sperrliste_adresse_hash` serving the equality half.
@@ -82,8 +82,8 @@ async def address_is_gesperrt(
     # The id alone and capped at one: a registration asks whether, never which row, and the answer
     # must carry no part of a ban past the lane that may read it.
     found = await pull_many_from_db(
-        collection=sperrliste_collection,
-        db_filter={"adresse_hash": adresse_hash, **_standing(massgebliche_saison_id)},
+        collection=ban_list_collection,
+        db_filter={"adresse_hash": adresse_hash, **_standing(governing_saison_id)},
         limit=1,
         projection=["_id"],
         session=session,
@@ -94,9 +94,9 @@ async def address_is_gesperrt(
 
 async def gesperrte_hashes(
     *,
-    sperrliste_collection: ReadCollection,
+    ban_list_collection: ReadCollection,
     adresse_hashes: Iterable[str],
-    massgebliche_saison_id: str | None,
+    governing_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
     """Which of these hashes a standing ban holds, judged as `address_is_gesperrt` judges one.
@@ -110,8 +110,8 @@ async def gesperrte_hashes(
         return set()
 
     found = await pull_many_from_db(
-        collection=sperrliste_collection,
-        db_filter={"adresse_hash": {"$in": asked}, **_standing(massgebliche_saison_id)},
+        collection=ban_list_collection,
+        db_filter={"adresse_hash": {"$in": asked}, **_standing(governing_saison_id)},
         limit=len(asked),
         projection=["adresse_hash"],
         session=session,
@@ -123,9 +123,9 @@ async def gesperrte_hashes(
 async def gesperrte_adressen(
     adressen: Iterable[str],
     *,
-    sperrliste_collection: ReadCollection,
+    ban_list_collection: ReadCollection,
     key: SecretStr,
-    massgebliche_saison_id: str | None,
+    governing_saison_id: str | None,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
     """Which of these stored addresses a standing ban holds, in `gesperrte_hashes`' one read.
@@ -134,19 +134,19 @@ async def gesperrte_adressen(
     (`app/api/sperrliste/services.py :: stored_adresse_hash`).
     """
 
-    hashes = {adresse: gehasht for adresse in set(adressen) if (gehasht := stored_adresse_hash(adresse, key=key)) is not None}
+    hashes = {adresse: hashed for adresse in set(adressen) if (hashed := stored_adresse_hash(adresse, key=key)) is not None}
     barred = await gesperrte_hashes(
-        sperrliste_collection=sperrliste_collection,
+        ban_list_collection=ban_list_collection,
         adresse_hashes=hashes.values(),
-        massgebliche_saison_id=massgebliche_saison_id,
+        governing_saison_id=governing_saison_id,
         session=session,
     )
 
-    return {adresse for adresse, gehasht in hashes.items() if gehasht in barred}
+    return {adresse for adresse, hashed in hashes.items() if hashed in barred}
 
 
-def _standing(massgebliche_saison_id: str | None) -> Mapping[str, Any]:
+def _standing(governing_saison_id: str | None) -> Mapping[str, Any]:
     # The hash alone while no season is running, rather than an answer given without asking:
     # `find_keine_saison_refusal` leaves no row to find, and one that reached the collection another
     # way bars rather than passing unjudged.
-    return {} if massgebliche_saison_id is None else {"barred_until_saison_id": {"$gte": massgebliche_saison_id}}
+    return {} if governing_saison_id is None else {"barred_until_saison_id": {"$gte": governing_saison_id}}

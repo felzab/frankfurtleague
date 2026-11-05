@@ -73,7 +73,7 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   umfang: FLEinwilligungUmfangSchema.nullable(),
   // Separately answered from `umfang`, and the endpoint stores both: one press carries two
   // consents, and a media permission folded into the scope would be one nobody gave on its own.
-  medien: z.boolean().nullable(),
+  media: z.boolean().nullable(),
   // The wordings this page rendered, never ones a later reader would be shown: the record has to
   // cite the words the confirming person read. Null on the returning pupil's page, as the choices are.
   text_versions: textVersionsSchema(SPIELER_TEXT_VERSIONS, LINK_FASSUNG_FEHLT).nullable(),
@@ -96,9 +96,9 @@ export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number
           { error: alterAusserhalb(mindestalter) },
         ),
         umfang: FLEinwilligungUmfangSchema,
-        medien: z.boolean(),
+        media: z.boolean(),
       })
-    : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), umfang: z.null(), medien: z.null() });
+    : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), umfang: z.null(), media: z.null() });
 }
 
 /**

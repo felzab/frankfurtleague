@@ -21,7 +21,7 @@ from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
 from app.api.bewerbungen.system_router import sweep_saison
 from app.api.identity.journal_replay import Read, Window, replay_line
-from app.api.identity.services import build_loeschung_seat_pipeline
+from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
@@ -53,7 +53,7 @@ SAISON_ID = "2026"
 LATER_SAISON_ID = "2027"
 TODAY = "2026-04-01"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-AM = "2026-04-01T10:30:00+00:00"
+AT = "2026-04-01T10:30:00+00:00"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607b60001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b60002")
@@ -216,7 +216,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
         for seat in KONTAKT_ROLLEN:
             try:
                 await get_spielbestaetigung_view(
-                    ansicht_data=FLTokenPayload(token=link(row, seat)),
+                    view_data=FLTokenPayload(token=link(row, seat)),
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spiele_collection=database[Collection.SPIELE],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -275,7 +275,7 @@ async def replace_the_club(database: AsyncDatabase, client: AsyncMongoClient) ->
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         today=TODAY,
@@ -290,18 +290,18 @@ async def loeschen_the_trainer(database: AsyncDatabase, client: AsyncMongoClient
 
     async def in_session(session: Any) -> Any:
         rows = await aggregate_many_from_db(
-            collection=database[Collection.SAISON_TEAMS], pipeline=build_loeschung_seat_pipeline(identifier), session=session
+            collection=database[Collection.SAISON_TEAMS], pipeline=build_erasure_seat_pipeline(identifier), session=session
         )
         return await loeschen_kontaktperson_in_session(
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
-            aktionen_collection=database[Collection.ACTION_LOG],
+            action_log_collection=database[Collection.ACTION_LOG],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             identifier=identifier,
             key=CONFIG.sperrliste_key,
             saison_team_rows=rows,
             bewerbung_rows=[],
-            stamp=AM,
+            stamp=AT,
             session=session,
         )
 
@@ -318,7 +318,7 @@ async def clear_the_blocks(database: AsyncDatabase, client: AsyncMongoClient) ->
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         outbox_collection=database[Collection.OUTBOX],
@@ -336,7 +336,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        aktionen_collection=database[Collection.ACTION_LOG],
+        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
@@ -352,10 +352,10 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
 
     line = JournalLine(
         person_hash=erasure_journal_hash("ida@example.com", key=CONFIG.sperrliste_key),
-        art="widerspruch",
+        art="objection",
         collection=Collection.SAISON_TEAMS,
         record_id=ROW_OID,
-        am=AM,
+        at=AT,
         seats=("trainer",),
     )
     # The snapshot taken the morning the links went, so the row's links are the snapshot's own.
@@ -446,7 +446,7 @@ def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, 
         team_id,
         spiel,
         antwort=documents.kontakt_antwort_document(rolle, adresse, begruendung=begruendung),
-        closed={"am": TODAY, "grund": "ansetzung_changed"},
+        closed={"at": TODAY, "grund": "ansetzung_changed"},
     )
 
 
@@ -540,7 +540,7 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
 
         async def hand_on_then_bar(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await hand_the_trainer_on(database, client)
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document("lea@example.com", bis=SAISON_ID))
+            await database[Collection.BAN_LIST].insert_one(documents.ban_document("lea@example.com", until=SAISON_ID))
 
         links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
 
@@ -566,7 +566,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "at": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )

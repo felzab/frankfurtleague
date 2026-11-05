@@ -36,7 +36,7 @@ const words = SERVER_COPY.landing;
 // silence, and one shown while none is leads a school to a form that refuses it.
 describe("the landing's ways to apply", () => {
   it("lead to the form from the hero, the steps' band, the season card and the school's door while a window is open", async () => {
-    const html = await rendered({ saison_id: "2028", bis: "2028-01-31" });
+    const html = await rendered({ saison_id: "2028", end: "2028-01-31" });
     expect(hrefs(html).filter((href) => href === "/bewerbung/2028")).toHaveLength(4);
     // About stays the organisers' way on alone.
     expect(hrefs(html).filter((href) => href === "/about")).toHaveLength(1);

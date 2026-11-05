@@ -70,11 +70,11 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   /**
    * **From the season-wide counts the headings read, never from the rows**: taken from the rows,
    * `?phase=finale` had this line naming every phase empty while the heading reported the season.
-   * `erwartet > 0` keeps a round the bracket does not reach off it.
+   * `expected > 0` keeps a round the bracket does not reach off it.
    */
   const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => {
     const progress = progressByPhase.get(phase);
-    return progress !== undefined && progress.erwartet > 0 && progress.angelegt === 0;
+    return progress !== undefined && progress.expected > 0 && progress.angelegt === 0;
   });
 
   /**
@@ -89,19 +89,19 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       return <span className="muted-meta">{describeSpieltageCount(shownCount)}</span>;
     }
 
-    // The second number earns attention only where it disagrees: `erwartet` is derived per read from
+    // The second number earns attention only where it disagrees: `expected` is derived per read from
     // the season's rules, so agreement is the ordinary season, and repeating the count on every
     // healthy heading spends what the divergence needs.
-    if (progress.angelegt === progress.erwartet) {
+    if (progress.angelegt === progress.expected) {
       return <span className="muted-meta">{describeSpieltageCount(progress.angelegt)}</span>;
     }
 
     // The noun agrees with the EXPECTED count, the number it belongs to: „2 von 1 Spieltag“.
-    const noun = progress.erwartet === 1 ? "Spieltag" : "Spieltagen";
+    const noun = progress.expected === 1 ? "Spieltag" : "Spieltagen";
 
     return (
       <span className="fluid-xs font-medium text-warning-strong">
-        {progress.angelegt} von {progress.erwartet} {noun}
+        {progress.angelegt} von {progress.expected} {noun}
       </span>
     );
   };

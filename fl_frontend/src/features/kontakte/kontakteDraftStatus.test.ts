@@ -169,15 +169,15 @@ describe("deriveKontakteDraftStatus", () => {
 
   /* The date is the person's to enter when they confirm: until then the line says whose step it is,
      after it the field is held empty, in the words the application panel gives the same seat. */
-  for (const [bestaetigtAm, worte] of [
+  for (const [bestaetigtAm, words] of [
     [null, "Geburtsdatum trägt die Person selbst ein"],
     ["2025-09-02", "Geburtsdatum nicht hinterlegt"],
   ] as const) {
-    it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${worte}“`, () => {
+    it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${words}“`, () => {
       const ohneDatum = person({ geburtsdatum: null, einwilligung: { ...person().einwilligung, confirmed_at: bestaetigtAm } });
       const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: ohneDatum }), fieldErrors: {} });
 
-      expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(`Erika Mustermann, erika@beispiel.de, 069 1234567, ${worte}`);
+      expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(`Erika Mustermann, erika@beispiel.de, 069 1234567, ${words}`);
     });
   }
 

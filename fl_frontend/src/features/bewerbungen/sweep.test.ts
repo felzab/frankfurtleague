@@ -16,7 +16,7 @@ let apiAnswer: (call: { endpoint: string; method: string }) => unknown = () => (
 /** What the address changes' half did, its remainder `verbleibend`. */
 const adressen = (verbleibend = 0) => ({ removed: 0, effective: 0, discarded: 0, remaining: verbleibend });
 
-/** The address changes' half, answered here and held in `fl_frontend/src/features/adresswechsel/sweep.test.ts`. */
+/** The address changes' half, answered here and held in `fl_frontend/src/features/address-change/sweep.test.ts`. */
 let adresswechselAnswer: () => Promise<ReturnType<typeof adressen>> = () => Promise.resolve(adressen());
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
@@ -28,7 +28,7 @@ doubleApiClient(({ endpoint: requested, method }) => {
   return apiAnswer(call);
 });
 
-vi.doMock("@/features/adresswechsel/sweep.ts", () => ({
+vi.doMock("@/features/address-change/sweep.ts", () => ({
   sweepAdresswechsel: () => {
     events.push({ kind: "address_change" });
     return adresswechselAnswer();
@@ -49,7 +49,7 @@ const { runBewerbungSweep } = await import("./sweep.ts");
 const saisonOf = (endpoint: string): string => endpoint.split("/")[3] ?? "";
 
 /** One season half's answer, the rows it passed over counted. */
-const bewerbungPass = (saisonId: string, fehlgeschlagen = 0) => ({
+const bewerbungPass = (saisonId: string, failed = 0) => ({
   saison_id: saisonId,
   reminded: 0,
   erased: 0,
@@ -58,16 +58,16 @@ const bewerbungPass = (saisonId: string, fehlgeschlagen = 0) => ({
   erased_without_decision: 0,
   kontakt_blocks_emptied: 0,
   redacted_action_log: 0,
-  failed: fehlgeschlagen,
+  failed: failed,
 });
-const registrierungPass = (saisonId: string, fehlgeschlagen = 0) => ({
+const registrierungPass = (saisonId: string, failed = 0) => ({
   saison_id: saisonId,
   reminded: 0,
   erased_unconfirmed: 0,
   erased_without_decision: 0,
   erased_declined: 0,
   redacted_action_log: 0,
-  failed: fehlgeschlagen,
+  failed: failed,
 });
 
 /**

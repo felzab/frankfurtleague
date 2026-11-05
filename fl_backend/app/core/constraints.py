@@ -49,7 +49,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     ),
     # It is also the READ path: the sign-up check is one indexed equality against this key, so
     # dropping the index costs a collection scan per submission as well as the rule.
-    UniqueIndex(Collection.SPERRLISTE, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
+    UniqueIndex(Collection.BAN_LIST, "uniq_sperrliste_adresse_hash", ("adresse_hash",), "one entry per banned address"),
     # `$type` rather than the equality `{"widerrufen_am": None}`, which also matches a row missing
     # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
     # supports and names no null form at all
@@ -117,7 +117,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
     # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
-    # ending's null address out; a keyed read carries it too (`app/api/adresswechsel/services.py :: build_address_filter`),
+    # ending's null address out; a keyed read carries it too (`app/api/address_change/services.py :: build_address_filter`),
     # or the planner scans.
     UniqueIndex(
         Collection.ADDRESS_CHANGES,
@@ -183,7 +183,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
     # running for a whole season at once, on both (`app/api/identity/crud.py :: unattribute_in_session`,
-    # `:: loeschen_pupil_actor_in_session`).
+    # `:: erase_pupil_actor_in_session`).
     SupportIndex(
         Collection.ACTION_LOG,
         "action_log_actor_pseudonym",
@@ -407,12 +407,12 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         ACTION_LOG_ENTRY_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
-    # A live change never expires, holding no date at `ended.am`: the hourly pass ends it, taking its address out of the
+    # A live change never expires, holding no date at `ended.at`: the hourly pass ends it, taking its address out of the
     # log images, which a TTL deletion never would.
     TTLIndex(
         Collection.ADDRESS_CHANGES,
         "address_change_ended_at",
-        "ended.am",
+        "ended.at",
         ADDRESS_CHANGE_RETENTION_DAYS * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
     ),
@@ -420,7 +420,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     TTLIndex(
         Collection.GRANT_APPROVAL_REQUESTS,
         "grant_approval_requests_until",
-        "approval.bis",
+        "approval.until",
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),

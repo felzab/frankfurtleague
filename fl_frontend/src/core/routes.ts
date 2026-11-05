@@ -201,91 +201,91 @@ export const ROUTES = {
   },
 
   // Session 5: its page is built.
-  verwaltungOverview: {
+  adminOverview: {
     path: (saison: string) => `/admin/saisons/${saison}` as const,
     title: COPY.shared.overview,
     crawl: "disallow",
   },
   // Session 5: its page is built.
-  verwaltungSaisons: { path: () => "/admin/saisons" as const, title: COPY.page.verwaltungSaisons, crawl: "disallow" },
+  adminSaisons: { path: () => "/admin/saisons" as const, title: COPY.page.adminSaisons, crawl: "disallow" },
   // Session 5: its page is built.
-  verwaltungSpiele: {
+  adminSpiele: {
     path: (saison: string) => `/admin/saisons/${saison}/spiele` as const,
     title: COPY.page.spiele,
     crawl: "disallow",
   },
   /** The match editor, named by the match's two teams as the match's own page is. */
-  verwaltungSpiel: {
+  adminSpiel: {
     path: (saison: string, spiel: string) => `/admin/saisons/${saison}/spiele/${spiel}` as const,
     title: COPY.page.spiel,
     crawl: "disallow",
   },
-  verwaltungSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.verwaltungSpielorte, crawl: "disallow" },
+  adminSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.adminSpielorte, crawl: "disallow" },
   /** A venue's own page, named by the venue. */
   // Session 5: its page is built.
-  verwaltungSpielort: {
+  adminSpielort: {
     path: (spielort: string) => `/admin/spielorte/${spielort}` as const,
     title: null,
     crawl: "disallow",
   },
   // Session 5: its page is built.
-  verwaltungSchiedsrichter: {
+  adminSchiedsrichter: {
     path: () => "/admin/schiedsrichter" as const,
-    title: COPY.page.verwaltungSchiedsrichter,
+    title: COPY.page.adminSchiedsrichter,
     crawl: "disallow",
   },
   // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
   // every season page does; venues and referees are the league's and keep addresses without one.
   // Session 6: its page is built.
-  verwaltungBewerbungen: {
+  adminBewerbungen: {
     path: (saison: string) => `/admin/saisons/${saison}/bewerbungen` as const,
-    title: COPY.page.verwaltungBewerbungen,
+    title: COPY.page.adminBewerbungen,
     crawl: "disallow",
   },
   // Session 6: its page is built.
-  verwaltungTeams: {
+  adminTeams: {
     path: (saison: string) => `/admin/saisons/${saison}/teams` as const,
     title: COPY.page.teams,
     crawl: "disallow",
   },
   // Session 6: its page is built.
-  verwaltungSpieler: {
+  adminSpieler: {
     path: (saison: string) => `/admin/saisons/${saison}/spieler` as const,
-    title: COPY.page.verwaltungSpieler,
+    title: COPY.page.adminSpieler,
     crawl: "disallow",
   },
   // Session 6: its page is built.
-  verwaltungRegistrierungen: {
+  adminRegistrierungen: {
     path: (saison: string) => `/admin/saisons/${saison}/registrierungen` as const,
     title: COPY.page.registrierungen,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungAdministrators: {
+  adminAdministrators: {
     path: () => "/admin/administrators" as const,
-    title: COPY.page.verwaltungAdministrators,
+    title: COPY.page.adminAdministrators,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungSperrliste: {
+  adminBanList: {
     path: () => "/admin/sperrliste" as const,
-    title: COPY.page.verwaltungSperrliste,
+    title: COPY.page.adminBanList,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungErasures: {
+  adminErasures: {
     path: () => "/admin/erasures" as const,
-    title: COPY.page.verwaltungErasures,
+    title: COPY.page.adminErasures,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungAddressChanges: {
+  adminAddressChanges: {
     path: () => "/admin/address-changes" as const,
-    title: COPY.page.verwaltungAddressChanges,
+    title: COPY.page.adminAddressChanges,
     crawl: "disallow",
   },
   // Session 7: its page is built.
-  verwaltungActionLog: { path: () => "/admin/log" as const, title: COPY.page.verwaltungActionLog, crawl: "disallow" },
+  adminActionLog: { path: () => "/admin/log" as const, title: COPY.page.adminActionLog, crawl: "disallow" },
 } as const satisfies Record<string, RouteEntry>;
 
 /**

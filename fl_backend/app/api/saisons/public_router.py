@@ -188,7 +188,7 @@ async def get_landing(
         pull_open_window_saison(saisons_collection=saisons_collection, today=today),
     )
 
-    window = None if open_window is None else FLBewerbungWindow(saison_id=str(open_window["_id"]), bis=open_window["bewerbung"]["bis"])
+    window = None if open_window is None else FLBewerbungWindow(saison_id=str(open_window["_id"]), end=open_window["bewerbung"]["end"])
 
     if saison_raw is None:
         return FLLandingResponse(saison=None, bewerbung_window=window)

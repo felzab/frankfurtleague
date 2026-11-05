@@ -9,8 +9,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
-from app.api.adresswechsel.crud import verwehrte_adressen
-from app.api.adresswechsel.services import build_addresses_filter
+from app.api.address_change.crud import denied_addresses
+from app.api.address_change.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import seat_adressen, seat_named
@@ -189,9 +189,9 @@ async def _rewrite_the_outgoing_clubs_sides(
 @router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
 async def get_team_saisons(
     teams_collection: TeamsCollection,
-    adresswechsel_collection: AddressChangeCollection,
-    berechtigungen_collection: GrantsCollection,
-    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    address_changes_collection: AddressChangeCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
@@ -212,19 +212,19 @@ async def get_team_saisons(
         {
             row["adresse"]: row["_id"]
             for row in await aggregate_many_from_db(
-                collection=adresswechsel_collection,
+                collection=address_changes_collection,
                 pipeline=[{"$match": build_addresses_filter(adressen)}, {"$project": {"adresse": 1}}],
             )
         }
         if adressen
         else {}
     )
-    verwehrt = await verwehrte_adressen(
+    denied = await denied_addresses(
         live,
-        akteur=sign_in_identifier(operator),
+        actor=sign_in_identifier(operator),
         auth_time=auth_time,
-        berechtigungen_collection=berechtigungen_collection,
-        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        grants_collection=grants_collection,
+        grants_announced_collection=grants_announced_collection,
         session=None,
     )
 
@@ -232,7 +232,7 @@ async def get_team_saisons(
 
     return FLTeamsSaisonsResponse(
         teams=FLTeamWithMembershipsListAdapter.validate_python(
-            mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, denied=verwehrt)
+            mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, denied=denied)
         )
     )
 
@@ -666,11 +666,11 @@ async def patch_saison_team_kontakte(
     # Outside the callback, so a retried transaction owes this save's mails once and a second save its own.
     nonce = secrets.token_hex(8)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
         # In session, so the precondition judges what this write will land on. Read outside one, an
-        # erasure (`app/api/identity/crud.py :: loeschen_everything`) committing between the
+        # erasure (`app/api/identity/crud.py :: erase_everything`) committing between the
         # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
@@ -679,7 +679,7 @@ async def patch_saison_team_kontakte(
             session=session,
         )
 
-        refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
+        refuse(find_kontakte_precondition_refusal(expected=payload["kontakte_stand"], stored=stored.get("kontakte")))
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
@@ -691,7 +691,7 @@ async def patch_saison_team_kontakte(
         barred = await adressen_gesperrt(
             sperrliste,
             {adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)},
-            massgebliche_saison_id=massgebliche_saison_id,
+            governing_saison_id=governing_saison_id,
             session=session,
         )
         # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
@@ -723,7 +723,7 @@ async def patch_saison_team_kontakte(
                 for seats in owed
             ]
 
-        bestaetigungen = compose_bestaetigungen_nach(
+        confirmations = compose_bestaetigungen_nach(
             kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("confirmations"), minted=minted
         )
 
@@ -733,7 +733,7 @@ async def patch_saison_team_kontakte(
             stored_kontakte=stored.get("kontakte"),
             kontakte=kontakte,
             stored_bestaetigungen=stored.get("confirmations"),
-            confirmations=bestaetigungen,
+            confirmations=confirmations,
             today=today,
         )
         if links or voids:
@@ -745,7 +745,7 @@ async def patch_saison_team_kontakte(
             # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
             # whatever this caller last read. The version the editor sent is the helper's to check.
-            update={"$set": {"kontakte": kontakte, "confirmations": bestaetigungen}},
+            update={"$set": {"kontakte": kontakte, "confirmations": confirmations}},
             expected_version=kontakte_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -788,7 +788,7 @@ async def replace_saison_team(
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
-    aktionen_collection: ActionLogCollection,
+    action_log_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -904,7 +904,7 @@ async def replace_saison_team(
         # Owed at once, as the exit deletes the contacts. The contacts and their links alone leave the
         # images: the exit record and every earlier state stay.
         await redact_images_in_session(
-            aktionen_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [updated_raw["_id"]])]),
             judge=contact_block_image_edits,
             stamp=log_stamp(germany_now),
@@ -916,7 +916,7 @@ async def replace_saison_team(
         # way. Its other people keep their seats.
         await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
         await redact_seats_in_documents(
-            aktionen_collection=aktionen_collection,
+            action_log_collection=action_log_collection,
             documents=[(Collection.BEWERBUNGEN, [application["_id"] for application in applications])],
             identifiers=outgoing,
             links=True,
@@ -998,7 +998,7 @@ async def invite_kontakt(
     # Outside the callback, so a retried transaction owes this press's mail once and a second press its own.
     nonce = secrets.token_hex(8)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    governing_saison_id = await sperrliste_saison(sperrliste)
 
     async def judge_and_mint(session: AsyncClientSession) -> FLKontaktInviteResponse:
         """Judge the seat, ask the ban, then replace the link and owe its mail, everything judged read in-session for a retry to re-judge."""
@@ -1017,10 +1017,10 @@ async def invite_kontakt(
         assert isinstance(kontakte, Mapping)
 
         seats = seats_one_link_answers(kontakte=kontakte, seat=rolle)
-        gesperrt = await adressen_gesperrt(
-            sperrliste, seat_adressen(kontakte=kontakte, seats=seats), massgebliche_saison_id=massgebliche_saison_id, session=session
+        barred = await adressen_gesperrt(
+            sperrliste, seat_adressen(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
         )
-        refuse(find_kontakt_sitz_gesperrt_refusal(barred=bool(gesperrt)))
+        refuse(find_kontakt_sitz_gesperrt_refusal(barred=bool(barred)))
 
         entry = compose_kontakt_bestaetigung(today=today)
         await patch_one_in_db(
@@ -1064,7 +1064,7 @@ async def invite_kontakt(
 async def post_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: InvitationsCollection,
+    invitations_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
@@ -1111,15 +1111,15 @@ async def post_invitation(
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
         # every team starts in, and the single-document helper answers that with a 404.
-        widerrufen = await patch_many_in_db(
-            collection=einladungen_collection,
+        withdrawn = await patch_many_in_db(
+            collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_widerruf_update(today=today),
             session=session,
         )
         # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
         # holds makes the mint a step-up write.
-        if widerrufen.modified_count:
+        if withdrawn.modified_count:
             verify_step_up(actor)
 
         document = compose_einladung(
@@ -1129,7 +1129,7 @@ async def post_invitation(
             created_by=created_by,
             today=today,
         )
-        post_operation = await post_one_to_db(collection=einladungen_collection, document=document, session=session)
+        post_operation = await post_one_to_db(collection=invitations_collection, document=document, session=session)
 
         return post_operation.inserted_id
 
@@ -1157,7 +1157,7 @@ async def post_invitation(
 async def delete_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: InvitationsCollection,
+    invitations_collection: InvitationsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationWriteResponse:
@@ -1172,7 +1172,7 @@ async def delete_invitation(
         # The filter is the judgement: `patch_one_in_db` answers a miss with the 404, so no read stands
         # between resolving the live row and stamping it.
         return await patch_one_in_db(
-            collection=einladungen_collection,
+            collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_widerruf_update(today=today),
             session=session,
@@ -1195,7 +1195,7 @@ async def post_invitation_dispatch(
     team_id: CustomRouteObjectId,
     saison_id: str,
     mail_data: Annotated[FLInvitationMailPayload, Body()],
-    einladungen_collection: InvitationsCollection,
+    invitations_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -1217,7 +1217,7 @@ async def post_invitation_dispatch(
     async def owe_the_link(session: AsyncClientSession) -> FLInvitationMailResponse:
         # The live row the caller read, never another: the filter is the judgement, and a miss is the 404.
         await pull_one_from_db(
-            collection=einladungen_collection,
+            collection=invitations_collection,
             db_filter={"_id": mail_data.invitation_id, **build_live_team_filter(saison_id=saison_id, team_id=team_id)},
             projection=["_id"],
             session=session,
@@ -1256,7 +1256,7 @@ async def post_invitation_dispatch(
 async def get_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: InvitationsCollection,
+    invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
@@ -1278,7 +1278,7 @@ async def get_invitation(
     # A list read where the answer is one row: a team legitimately holds no live invitation, and
     # `pull_one_from_db` would make that absence a 404.
     live = await pull_many_from_db(
-        collection=einladungen_collection,
+        collection=invitations_collection,
         db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
         limit=1,
         projection=WITHOUT_TOKEN_HASH,

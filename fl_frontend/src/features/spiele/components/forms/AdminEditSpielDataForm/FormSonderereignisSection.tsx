@@ -153,7 +153,7 @@ export function FormSonderereignisSection({
             announced: two alerts for one pick is a scolding. */}
         <InlineBanners
           banners={banners}
-          spot="sonderereignis-turnierbaum"
+          spot="sonderereignis-bracket"
         />
 
         {/* Where the event and the result meet — a refusal, an awarded forfeit or a genuinely
@@ -161,7 +161,7 @@ export function FormSonderereignisSection({
             than the pick. */}
         <InlineBanners
           banners={banners}
-          spot="sonderereignis-wertung"
+          spot="sonderereignis-scoring"
         />
       </div>
     </section>

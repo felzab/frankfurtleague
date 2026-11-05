@@ -5,7 +5,7 @@ from pydantic_core import PydanticCustomError
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
-from app.shared.schemas.actor import FLVonAdmin
+from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
@@ -119,7 +119,7 @@ class FLSpielbestaetigungVonSchiedsrichter(BaseModel):
 
 # A `type` statement, so the document publishes who answered as one component the three answers reference.
 type FLSpielbestaetigungVon = Annotated[
-    FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
+    FLSpielbestaetigungVonKontakt | FLByAdmin | FLSpielbestaetigungVonSchiedsrichter,
     Field(discriminator="art"),
 ]
 
@@ -137,7 +137,7 @@ class FLSpielbestaetigungAntwort(BaseModel):
 
 
 class FLSpielbestaetigungClosed(BaseModel):
-    am: CustomDateString
+    at: CustomDateString
     grund: FLSpielbestaetigungGrund
 
 
@@ -190,7 +190,7 @@ class FLSpielbestaetigungVonKontaktRecord(FLSpielbestaetigungVonKontakt):
 
 class FLSpielbestaetigungAntwortRecord(FLSpielbestaetigungAntwort):
     von: Annotated[
-        FLSpielbestaetigungVonKontaktRecord | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
+        FLSpielbestaetigungVonKontaktRecord | FLByAdmin | FLSpielbestaetigungVonSchiedsrichter,
         Field(discriminator="art"),
     ]
 

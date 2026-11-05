@@ -57,7 +57,7 @@ export default function TeamPage({ params }: Props) {
 /** A pupil of the squad as the public read names them: a name the consent publishes, else „anonym“. */
 const personOf = (spieler: FLSpielerPublic): Words =>
   spieler.vorname === null
-    ? SERVER_COPY.season.spiel.anonym
+    ? SERVER_COPY.season.spiel.anonymous
     : { record: [spieler.vorname, spieler.nachname].filter((name) => name !== null).join(" ") };
 
 /** A pupil's number and position, each left out while the record holds none. */
@@ -98,7 +98,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
   const { team, spiele, kader } = page;
   const { column } = SERVER_COPY.season;
-  const { spielort } = COPY.verwaltung;
+  const { spielort } = COPY.admin;
   const address = spielort.addressLine(
     spielort.strasseWithHausnummer(team.address.strasse, team.address.hausnummer),
     team.address.plz,
@@ -123,7 +123,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         team.austritt === null
           ? null
           : {
-              title: COPY.shared.austrittSeit(austrittZustand(team.austritt.type), dayOf(team.austritt.datum)),
+              title: COPY.shared.austrittSince(austrittZustand(team.austritt.type), dayOf(team.austritt.datum)),
               text: { record: team.austritt.grund },
             },
     },

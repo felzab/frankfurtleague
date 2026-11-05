@@ -58,7 +58,7 @@ const SCHEDULE_2026: FLSaisonPhaseSchedule[] = [
 
 const makeSpieltag = (phase: FLSaisonPhase) => ({ saison_phase: phase });
 
-const held = (progress: readonly { phase: FLSaisonPhase; angelegt: number; erwartet: number }[], phase: FLSaisonPhase) =>
+const held = (progress: readonly { phase: FLSaisonPhase; angelegt: number; expected: number }[], phase: FLSaisonPhase) =>
   progress.find((entry) => entry.phase === phase);
 
 describe("buildSpieltagPhaseProgress", () => {
@@ -69,21 +69,21 @@ describe("buildSpieltagPhaseProgress", () => {
       makeSpieltag("finale"),
     ]);
 
-    expect(held(progress, "gruppenphase")).toStrictEqual({ phase: "gruppenphase", angelegt: 2, erwartet: 3 });
-    expect(held(progress, "finale")).toStrictEqual({ phase: "finale", angelegt: 1, erwartet: 1 });
+    expect(held(progress, "gruppenphase")).toStrictEqual({ phase: "gruppenphase", angelegt: 2, expected: 3 });
+    expect(held(progress, "finale")).toStrictEqual({ phase: "finale", angelegt: 1, expected: 1 });
   });
 
   it("reports a phase with no matchday as zero rather than omitting it", () => {
     const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [makeSpieltag("gruppenphase")]);
 
-    expect(held(progress, "halbfinale")).toStrictEqual({ phase: "halbfinale", angelegt: 0, erwartet: 1 });
+    expect(held(progress, "halbfinale")).toStrictEqual({ phase: "halbfinale", angelegt: 0, expected: 1 });
   });
 
   // The endpoint accepts a matchday in a round this bracket does not reach, so the count describes one.
   it("expects none for a phase the season does not play", () => {
     const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [makeSpieltag("achtelfinale")]);
 
-    expect(held(progress, "achtelfinale")).toStrictEqual({ phase: "achtelfinale", angelegt: 1, erwartet: 0 });
+    expect(held(progress, "achtelfinale")).toStrictEqual({ phase: "achtelfinale", angelegt: 1, expected: 0 });
   });
 
   // Answering with zeroes would tell the page every phase is short.

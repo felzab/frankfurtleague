@@ -220,10 +220,10 @@ async def get_spiele_action_required(
     # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
     # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.
     berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
-    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.state in BERICHT_ZUSTAENDE_OFFEN and eintrag.spiel_id not in by_id]
-    if offen:
+    open = [entry.spiel_id for entry in berichte if entry.state in BERICHT_ZUSTAENDE_OFFEN and entry.spiel_id not in by_id]
+    if open:
         berichtet_raw = await aggregate_many_from_db(
-            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": offen}})
+            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": open}})
         )
         for spiel in FLSpielJoinedAdminListAdapter.validate_python(berichtet_raw):
             by_id.setdefault(spiel.id, spiel)
@@ -480,7 +480,7 @@ async def patch_spiel(
                 )
 
         # After the resolution, which can re-field this fixture's sides and raise its version again.
-        gespeichert = await pull_one_from_db(
+        saved = await pull_one_from_db(
             collection=spiele_collection,
             db_filter={"_id": spiel_id},
             projection={"team1.team_id": 1, "team2.team_id": 1, VERSION_FIELD: 1},
@@ -495,7 +495,7 @@ async def patch_spiel(
                 spielberichte_collection=spielberichte_collection,
                 spiel_id=spiel_id,
                 version=adopts_bericht,
-                seiten=seiten_of(gespeichert),
+                seiten=seiten_of(saved),
                 now=now,
                 session=session,
             )
@@ -505,7 +505,7 @@ async def patch_spiel(
             advanced_to=advanced_to,
             released_sides=released_sides,
             bracket_faults=bracket_faults,
-            version=gespeichert[VERSION_FIELD],
+            version=saved[VERSION_FIELD],
             bericht_adopted=uebernommen,
         )
 

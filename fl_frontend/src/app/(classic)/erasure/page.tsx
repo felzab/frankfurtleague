@@ -13,8 +13,8 @@ import { mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
-import { eraseAccount } from "@/features/konto/personActions";
-import { getErasureView } from "@/features/konto/queries";
+import { eraseAccount } from "@/features/account/personActions";
+import { getErasureView } from "@/features/account/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy, Words } from "@/core/copy";
@@ -71,7 +71,7 @@ async function readState(): Promise<MailedState> {
   if (account === null && passkeys === 0) redirect(withReturnAddress(ROUTES.signInLanding.path(), link));
 
   return {
-    state: "frage",
+    state: "question",
     title: COPY.page.accountErasure,
     facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
@@ -85,7 +85,7 @@ async function readState(): Promise<MailedState> {
 
 /** What goes, one row per label, the records the erasure view reads under it: the list a deletion erases. */
 function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResponse): Fact[] {
-  const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, verwaltung } = view;
+  const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, admin_tier: admin_tier } = view;
   // One row per label, so the list reads each kind of record once: two seats held as one role name both under it.
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
@@ -111,6 +111,6 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
       value: held.length === 1 && held[0] !== undefined ? held[0] : ENTRIES.several(held),
     })),
     ...count(WORDS.addressChanges, address_change),
-    ...(verwaltung === null ? [] : [{ label: WORDS.grant, value: COPY.verwaltung.role }]),
+    ...(admin_tier === null ? [] : [{ label: WORDS.grant, value: COPY.admin.role }]),
   ];
 }

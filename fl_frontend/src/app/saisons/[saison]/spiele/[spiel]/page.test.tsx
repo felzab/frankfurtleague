@@ -73,8 +73,8 @@ async function rendered(served: FLSpielPageResponse) {
 }
 
 const { spiel: words } = SERVER_COPY.season;
-const NOT_OFFICIAL = COPY.shared.empty.none(words.officialToreUndKarten);
-const NOBODY_SCORED = COPY.shared.empty.none(words.toreUndKarten);
+const NOT_OFFICIAL = COPY.shared.empty.none(words.officialToreAndKarten);
+const NOBODY_SCORED = COPY.shared.empty.none(words.toreAndKarten);
 const NO_LINEUPS = { team1: null, team2: null };
 
 describe("the match page's server render", () => {
