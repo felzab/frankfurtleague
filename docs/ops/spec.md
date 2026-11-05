@@ -229,7 +229,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | ----------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/api/auth`                         | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin             |
 | `= /api/auth/sign-in/email-otp`     | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                   |
-| `= /api/client-error`               | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/overview.md`](../logging/overview.md))                                             |
+| `= /api/client-error`               | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30`, and `client_max_body_size 32k` ([`docs/logging/overview.md`](../logging/overview.md))             |
 | `= /api/bewerbung`                  | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
 | `= /api/bewerbung/kuerzel`          | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
 | `= /api/bestaetigung/kontakt`       | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                             |
@@ -386,12 +386,16 @@ letter, `HEAD` or JSON post that is not refused with the edge's own `429`, any r
 link page not answered with the edge's page, and any link block whose action pair lets a server
 action past the action burst or answers it otherwise than with the sentence.
 
-**A body cap below the server block's `20M` is set at the location it bounds.** The application
-form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
-while a 4,049-byte POST reaches the handler. **A server action's body is bounded by Next and never
-at a location**: posted to any page path, it meets the server block's `20M` there, so a cap at the
-page it answers on bounds nothing a script cannot step around. Next refuses one past its
-`serverActions.bodySizeLimit`, 1 MB by default, which `fl_frontend/next.config.ts` leaves standing.
+**The server block's `client_max_body_size 1m` is Next's own bound on a server action's body**,
+`serverActions.bodySizeLimit` at its 1 MB default, which `fl_frontend/next.config.ts` leaves
+standing. A server action is posted at any page path, so the bound holds at every location, and
+nginx refuses at the edge a body the application would refuse rather than buffering it first; a cap
+at the page an action answers on bounds nothing a script cannot step around. **A route handler
+bounding its body tighter takes its own cap at its location**, its reason at the line: `8k` for the
+confirmation links, the code check, the registration and the delivery webhook, `32k` for the crash
+report and `64k` for the application form, while `/api/auth` keeps `1m`, the sign-in library
+bounding no ceremony's body. The application form's `64k` cap alone is measured, 2026-08-30: a
+100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
