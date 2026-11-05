@@ -2647,7 +2647,6 @@ export const FLInvitationSkipReason = {
 export interface FLInvitationDispatchRow {
   had_link: boolean | null;
   recipient: FLInvitationRecipient[];
-  replaced_link: boolean;
   skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
@@ -2672,7 +2671,6 @@ export interface FLInvitationDispatchResponse {
 export interface FLInvitationLinkRow {
   has_link: boolean;
   recipient: FLInvitationRecipient[];
-  replaced_link: boolean;
   sent_at: string | null;
   skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */

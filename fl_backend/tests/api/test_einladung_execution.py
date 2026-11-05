@@ -266,10 +266,10 @@ def as_collection(stub: _InsertFailsForOneTeam) -> AsyncCollection:
     return cast(AsyncCollection, stub)
 
 
-def decided(rows: Any) -> list[tuple[str, tuple[str, ...], Any, bool]]:
-    """One row per team as both readers describe it: the team, the mailboxes, the skip, and the link it kills."""
+def decided(rows: Any) -> list[tuple[str, tuple[str, ...], Any]]:
+    """One row per team as both readers describe it: the team, the mailboxes and the skip."""
 
-    return [(str(zeile.team_id), tuple(entry.email for entry in zeile.recipient), zeile.skipped, zeile.replaced_link) for zeile in rows]
+    return [(str(zeile.team_id), tuple(entry.email for entry in zeile.recipient), zeile.skipped) for zeile in rows]
 
 
 class TestWhatAMintStores:
@@ -812,11 +812,7 @@ class TestTheSeasonWidePress:
     """One press over a season whose four teams sit in the four states it can meet."""
 
     def test_the_editor_and_the_press_decide_the_same_rows(self, mongo_replica_set_url: str):
-        """Two readers of one rule is how the editor starts telling an administrator something the press then contradicts.
-
-        The team holding a link nobody was sent loses it to the press, so the question before it counts a link that dies:
-        an editor answering no link replaced would ask about none.
-        """
+        """Two readers of one rule is how the editor starts telling an administrator something the press then contradicts."""
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
@@ -831,8 +827,6 @@ class TestTheSeasonWidePress:
         # is what an editor missing a team passes.
         assert shown == done
         assert len(shown) == len(TEAM_NAMES)
-        # The premise: one row kills a link, so the comparison holds `replaced_link` at true as well as at false.
-        assert [team for team, _, _, replaced in shown if replaced] == [str(TWO_SEATS)]
 
     def test_each_team_is_skipped_for_its_own_reason(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -902,7 +896,7 @@ class TestTheSeasonWidePress:
 
         shown, presses, live = on_a_league(mongo_replica_set_url, body)
 
-        row = (str(TWO_SEATS), (), "kontakte_barred", False)
+        row = (str(TWO_SEATS), (), "kontakte_barred")
         assert row in shown
         assert all(row in done for done in presses)
         assert live == 1
@@ -949,26 +943,6 @@ class TestTheSeasonWidePress:
             return await database[Collection.INVITATIONS].count_documents({"team_id": WITHDRAWN})
 
         assert on_a_league(mongo_replica_set_url, body) == 0
-
-    def test_the_answer_names_every_team_whose_link_this_press_kills(self, mongo_replica_set_url: str):
-        """What a page warns about before the press: the message already in somebody's inbox stops opening anything."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            done = await press(database, resend=True)
-
-            return {str(zeile.team_id): zeile.replaced_link for zeile in done.rows}
-
-        performed = on_a_league(mongo_replica_set_url, body)
-
-        # The team holding a mailed link loses it; the one holding none loses nothing, and neither
-        # does a team the press skips.
-        assert performed == {
-            str(TWO_SEATS): False,
-            str(UNCONFIRMED): False,
-            str(NO_BLOCK): False,
-            str(ALREADY_MAILED): True,
-            str(WITHDRAWN): False,
-        }
 
     def test_a_team_already_mailed_keeps_the_link_its_message_carried(self, mongo_replica_set_url: str):
         """A skip leaves the team exactly as it was, or the link in somebody's inbox stops opening anything."""
@@ -1079,20 +1053,20 @@ class TestTheSeasonWidePress:
 
             assert seeded is not None
             return (
-                {str(zeile.team_id): (zeile.skipped, bool(zeile.recipient), zeile.replaced_link) for zeile in done.rows},
+                {str(zeile.team_id): (zeile.skipped, bool(zeile.recipient)) for zeile in done.rows},
                 seeded["revoked_at"],
                 await live_count(database, TWO_SEATS),
             )
 
         rows, revoked_at, live = on_a_league(mongo_replica_set_url, body)
 
-        # The failed team: a row of its own, nobody owed, and no claim that a link of its died.
-        assert rows[str(ALREADY_MAILED)] == ("mint_failed", False, False)
+        # The failed team: a row of its own, and nobody owed.
+        assert rows[str(ALREADY_MAILED)] == ("mint_failed", False)
         # Its transaction aborted, so the link somebody already holds is untouched and still opens.
         assert revoked_at is None
         # Every other team is answered as though nothing had gone wrong, its seats owed.
-        assert rows[str(TWO_SEATS)] == (None, True, False)
-        assert rows[str(WITHDRAWN)] == ("austritt_entered", False, False)
+        assert rows[str(TWO_SEATS)] == (None, True)
+        assert rows[str(WITHDRAWN)] == ("austritt_entered", False)
         assert live == 1
 
     def test_it_files_a_revocation_only_for_a_team_that_holds_a_link(self, mongo_replica_set_url: str):

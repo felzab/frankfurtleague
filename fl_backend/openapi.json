@@ -6497,10 +6497,6 @@
             "title": "Recipient",
             "type": "array"
           },
-          "replaced_link": {
-            "title": "Replaced Link",
-            "type": "boolean"
-          },
           "skipped": {
             "anyOf": [
               {
@@ -6527,7 +6523,6 @@
           "team_name",
           "recipient",
           "skipped",
-          "replaced_link",
           "had_link"
         ],
         "title": "FLInvitationDispatchRow",
@@ -6546,10 +6541,6 @@
             },
             "title": "Recipient",
             "type": "array"
-          },
-          "replaced_link": {
-            "title": "Replaced Link",
-            "type": "boolean"
           },
           "sent_at": {
             "anyOf": [
@@ -6589,7 +6580,6 @@
           "team_name",
           "recipient",
           "skipped",
-          "replaced_link",
           "has_link",
           "sent_at"
         ],
@@ -25402,7 +25392,7 @@
     },
     "/api/v0/saisons/{saison_id}/invitations/dispatch": {
       "post": {
-        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. `replaced_link` says of each row whether a link died for it, and the season editor's rows answer it\nbefore the press. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and\n`resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,\nnever off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club\nholds is replaced only by a deliberate resend. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an\nempty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
+        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and\n`resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,\nnever off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club\nholds is replaced only by a deliberate resend. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an\nempty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
         "operationId": "saisons_post_invitations_dispatch",
         "parameters": [
           {

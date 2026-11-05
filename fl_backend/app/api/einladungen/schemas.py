@@ -110,9 +110,6 @@ class _EinladungVersandZeile(BaseModel):
     team_name: CustomNonEmptyString
     recipient: list[FLInvitationRecipient]
     skipped: FLInvitationSkipReason | None
-    # Served rather than derived: a row carries no trace of the invitation the team holds, so a
-    # caller cannot tell a team whose link this press kills from one that never had a link.
-    replaced_link: bool
 
 
 class FLInvitationLinkRow(_EinladungVersandZeile):
@@ -121,7 +118,7 @@ class FLInvitationLinkRow(_EinladungVersandZeile):
     The preview is the press's own plan with `resend` left false, as the editor's press sends it.
     """
 
-    # Whether the team holds a live link, which `replaced_link` alone cannot say of a team the press skips.
+    # Whether the team holds a live link: the plan the row shares with the press carries no trace of the invitation itself.
     has_link: bool
     # The live link's `sent_at`: the day its mails were last owed, null where it never was mailed or the team holds none.
     sent_at: CustomOptionalDateString
