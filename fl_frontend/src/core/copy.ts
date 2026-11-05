@@ -724,7 +724,7 @@ export const COPY = catalogue({
       umstellung: "Umstellung",
       /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
       dangerBox: (draw: boolean, activation: boolean) =>
-        draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan verwerfen" : "Umstellung",
+        draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung",
 
       winPoints: "Punkte pro Sieg",
       drawPoints: "Punkte pro Unentschieden",
