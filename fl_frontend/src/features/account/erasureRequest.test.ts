@@ -54,7 +54,7 @@ function arriveAs(cookie: string): void {
   requestHeaders = new Headers({ ...ORIGIN, cookie });
 }
 
-// The deletion the link completes is `fl_frontend/src/features/konto/personActions.test.ts`'s.
+// The deletion the link completes is `fl_frontend/src/features/account/personActions.test.ts`'s.
 describe("the account page's request for a deletion link", () => {
   /* Every press mints a token row and mails a link, so the press counts on the address's own mail bound: past
      its fifth, it answers as sent and mints and mails nothing. */

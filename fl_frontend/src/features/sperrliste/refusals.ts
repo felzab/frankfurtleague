@@ -45,7 +45,7 @@ export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?
 
 /**
  * The list read's two refusals, `null` for the rest. Each refuses a grant holder's address, the administrator's own
- * (`own_adresse`) or, to one holding no owner's power, any other (`verwaltung_adresse`), which the ban would refuse too:
+ * (`own_adresse`) or, to one holding no owner's power, any other (`admin_address`), which the ban would refuse too:
  * answered in the ban's words.
  */
 export function mapAnsichtRefusal(error: unknown): { fieldErrors: FieldErrors } | null {

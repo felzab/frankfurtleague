@@ -11,7 +11,7 @@ type SaisonBannerId =
   | "saison.stufen-changed"
   | "saison.rollover-blocked";
 
-type SaisonBannerSpot = "zeitraum" | "regeln-qualifikanten" | "regeln-status" | "umstellung";
+type SaisonBannerSpot = "zeitraum" | "regeln-qualifiers" | "regeln-status" | "umstellung";
 
 export type SaisonBanner = RailBanner<SaisonBannerId> & { inline: SaisonBannerSpot | null };
 
@@ -90,7 +90,7 @@ export function buildSaisonBanners({
       raisedBy: "state",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
       body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten pro Gruppe oder erhöhe die Teams pro Gruppe.",
-      inline: "regeln-qualifikanten",
+      inline: "regeln-qualifiers",
     });
   }
 

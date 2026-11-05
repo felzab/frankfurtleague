@@ -297,7 +297,7 @@ export function madeByPasskey(store: { passkey: unknown[] }, row: { userId: stri
 
   if (store.passkey.some((held) => typeof held === "object" && held !== null && Reflect.get(held, "credentialID") === credentialID)) return;
   store.passkey.push({
-    id: `ein-passkey-of-${row.userId}`,
+    id: `a-passkey-of-${row.userId}`,
     userId: row.userId,
     credentialID: credentialID,
     publicKey: "fabricated-public-key",

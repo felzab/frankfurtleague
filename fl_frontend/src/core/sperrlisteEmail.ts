@@ -10,7 +10,7 @@ import type { MailOrigin } from "./mailKinds";
 /**
  * What is kept, named because the reader cannot be shown it, the account only while a record holds the
  * address (`docs/datenschutz.md :: 6`). It names no grant: a barred address holds none
- * (`sperrliste_verwaltung`, `grant_barred`).
+ * (`ban_list_admin`, `grant_barred`).
  */
 const GESPEICHERT_SAETZE = [
   "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",

@@ -1194,8 +1194,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
   it("refuses the enrolment that would take a person past the cap", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    for (let index = 0; index < PASSKEY_LIMIT; index += 1)
-      store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
+    for (let index = 0; index < PASSKEY_LIMIT; index += 1) store.passkey.push({ ...aPasskeyFor(row.userId), id: `a-passkey-${String(index)}` });
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     expect(store.passkey.length).toBe(PASSKEY_LIMIT);
@@ -1206,8 +1205,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
   it("refuses the enrolment that would take an administrator past the cap", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
-    for (let index = 0; index < PASSKEY_LIMIT; index += 1)
-      store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
+    for (let index = 0; index < PASSKEY_LIMIT; index += 1) store.passkey.push({ ...aPasskeyFor(row.userId), id: `a-passkey-${String(index)}` });
 
     expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     expect(store.passkey.length).toBe(PASSKEY_LIMIT);

@@ -67,7 +67,7 @@ export function mapAddressChangePressRefusal(error: unknown): AddressChangePress
 /** An administrator's own address, whose change is their account page's (`own_adresse`). */
 const EIGENE_ADRESSE = "Deine eigene Adresse änderst Du nicht hier, sondern auf Deiner Kontoseite.";
 
-/** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant (`verwaltung_adresse`). */
+/** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant (`admin_address`). */
 const ADMIN_ADDRESS = `Diese Adresse hat Zugang zur Verwaltung. Ändern kann sie hier nur, wer Inhaberin oder Inhaber der Verwaltung ist. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 const ZUGANG: Readonly<Record<string, string>> = { own_adresse: EIGENE_ADRESSE, admin_address: ADMIN_ADDRESS } satisfies Partial<

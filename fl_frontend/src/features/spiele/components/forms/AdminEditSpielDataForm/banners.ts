@@ -30,11 +30,11 @@ type SpielBannerSpot =
   | "team2-herkunft"
   | "team1-manuell"
   | "team2-manuell"
-  | "team1-qualifikation"
-  | "team2-qualifikation"
+  | "team1-qualification"
+  | "team2-qualification"
   | "sonderereignis-bedeutung"
-  | "sonderereignis-turnierbaum"
-  | "sonderereignis-wertung";
+  | "sonderereignis-bracket"
+  | "sonderereignis-scoring";
 
 export type SpielBanner = RailBanner<SpielBannerId> & { inline: SpielBannerSpot | null };
 
@@ -278,7 +278,7 @@ export function buildSpielBanners({
         raisedBy: side.storedTeam?.team_id === side.team.team_id ? "state" : "change",
         title: `${side.team.name} ist nicht für diese Runde qualifiziert`,
         body: "Prüfe, ob die Auswahl beabsichtigt ist.",
-        inline: side.fieldName === "team1" ? "team1-qualifikation" : "team2-qualifikation",
+        inline: side.fieldName === "team1" ? "team1-qualification" : "team2-qualification",
       });
     }
   }
@@ -316,7 +316,7 @@ export function buildSpielBanners({
       // `listDependentSpiele` matches a source naming this fixture and never walks on, so the title
       // reaches one round. The rest is a class rather than numbers an admin would not act on.
       body: "Die Runden danach bleiben ebenfalls offen.",
-      inline: "sonderereignis-turnierbaum",
+      inline: "sonderereignis-bracket",
     });
   }
 
@@ -329,7 +329,7 @@ export function buildSpielBanners({
       raisedBy: "change",
       title: "Ein nicht gewertetes Spiel kann kein Ergebnis tragen",
       body: "Entferne zuerst die Tore, oder wähle ein anderes Sonderereignis.",
-      inline: "sonderereignis-wertung",
+      inline: "sonderereignis-scoring",
       supersedes: ["spiel.sonderereignis-standing"],
     });
   }
@@ -346,7 +346,7 @@ export function buildSpielBanners({
       title: dropsShootOut
         ? "Die Wertung ersetzt das Ergebnis und verwirft das Elfmeterschießen"
         : "Die eingetragenen Tore werden durch die Wertung ersetzt",
-      inline: "sonderereignis-wertung",
+      inline: "sonderereignis-scoring",
       supersedes: ["spiel.sonderereignis-standing"],
     });
   }
@@ -362,7 +362,7 @@ export function buildSpielBanners({
       raisedBy: isNewlyChosen ? "change" : "state",
       title: "Das Ergebnis zählt trotz Abbruch für die Tabelle",
       body: "Prüfe, ob das Ergebnis hier stehen bleiben soll.",
-      inline: "sonderereignis-wertung",
+      inline: "sonderereignis-scoring",
     });
   }
 

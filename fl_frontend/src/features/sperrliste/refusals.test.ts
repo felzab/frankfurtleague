@@ -67,7 +67,7 @@ describe("the address a unique index already holds", () => {
 });
 
 describe("the list read ahead of the ban", () => {
-  /* Both refuse an administrator's address, which the ban then refuses as `sperrliste_verwaltung`: one sentence on one
+  /* Both refuse an administrator's address, which the ban then refuses as `ban_list_admin`: one sentence on one
      box, whether the read foresees the refusal or the ban answers it. */
   it("lands the reader's own address and an owner's on the address box in the ban's words", () => {
     for (const code of ["own_adresse", "admin_address"] as const) {
