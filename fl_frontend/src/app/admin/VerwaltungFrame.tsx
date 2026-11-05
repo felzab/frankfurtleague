@@ -143,7 +143,7 @@ type Session = Promise<{ user: { email: string } } | null>;
  */
 async function readSeasons(session: Session): Promise<Saisons | null> {
   if ((await session) === null) return null;
-  // Served oldest first, by id: the list's default order.
+  // Read oldest first, by id, the order `getAdminSaisons` asks for.
   const { saisons } = await getAdminSaisons();
   const standard = selectSaison(saisons, undefined);
   if (standard === undefined) return null;
