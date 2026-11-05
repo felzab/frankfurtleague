@@ -3,7 +3,7 @@ import type { SubjectSession } from "./subject";
 
 /** One contact seat on a season that grants a panel, carrying the name the club PLAYED that season under. */
 type KontaktRole = {
-  art: "kontakt";
+  kind: "kontakt";
   // The contact-seat sense of the word, never the captaincy's.
   rolle: FLKontaktRolle;
   team_id: string;
@@ -12,12 +12,12 @@ type KontaktRole = {
   saison_status: FLSaisonStatus;
 };
 
-type SpielerRole = { art: "spieler"; spieler_id: string };
+type SpielerRole = { kind: "spieler"; spieler_id: string };
 
-type SchiedsrichterRole = { art: "schiedsrichter"; schiedsrichter_id: string };
+type SchiedsrichterRole = { kind: "schiedsrichter"; schiedsrichter_id: string };
 
 /** Derived from the session's own verdict rather than the stored grant alone, which a code-borne session also holds. */
-type AdministrationRole = { art: "administration" };
+type AdministrationRole = { kind: "administration" };
 
 /** What a person IS on screen: one record the lookup matched, narrowed to what grants a panel. */
 export type Role = KontaktRole | SpielerRole | SchiedsrichterRole | AdministrationRole;
@@ -41,7 +41,7 @@ export function grantsAPanel(status: FLSaisonStatus): boolean {
  * person's write both judge by: a seat on last season's team opens nothing in this one's.
  */
 export function isSeatAt(role: Role, teamId: string, saisonId: string): role is KontaktRole {
-  return role.art === "kontakt" && role.team_id === teamId && role.saison_id === saisonId;
+  return role.kind === "kontakt" && role.team_id === teamId && role.saison_id === saisonId;
 }
 
 /**
@@ -58,7 +58,7 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
     ...seats
       .filter((seat) => grantsAPanel(seat.saison_status))
       .map((seat): KontaktRole => ({
-        art: "kontakt",
+        kind: "kontakt",
         rolle: seat.rolle,
         team_id: seat.team_id,
         saison_id: seat.saison_id,
@@ -66,9 +66,9 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
         saison_status: seat.saison_status,
       })),
     // Neither row is season-scoped, so neither is narrowed.
-    ...spieler.map((row): SpielerRole => ({ art: "spieler", spieler_id: row.spieler_id })),
-    ...schiedsrichter.map((row): SchiedsrichterRole => ({ art: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id })),
-    ...(subject.isAdmin ? [{ art: "administration" } satisfies AdministrationRole] : []),
+    ...spieler.map((row): SpielerRole => ({ kind: "spieler", spieler_id: row.spieler_id })),
+    ...schiedsrichter.map((row): SchiedsrichterRole => ({ kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id })),
+    ...(subject.isAdmin ? [{ kind: "administration" } satisfies AdministrationRole] : []),
   ];
 
   return { roles: roles, unconfirmed: unconfirmed };

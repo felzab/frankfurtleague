@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy.ts";
 
+import type { Copy } from "@/core/copy.ts";
 import type { ComponentType } from "react";
 import type { MockInstance } from "vitest";
 
@@ -26,13 +27,17 @@ const BOUNDARIES = filesUnder(APP_DIR, (name) => name === "error.tsx" || name ==
   shown: path.relative(APP_DIR, file).split(path.sep).join("/"),
 }));
 
-/* A boundary built on the kit's status card ends in one link, the way to the start page, and offers no
+/* A boundary built on the kit's status card ends in one link, the way home its frame names, and offers no
    retry; the old pages' boundaries still offer one. Read off the source, so a boundary rebuilt on the card
    moves from the one set to the other with no edit here. */
 const LINKING = BOUNDARIES.filter(({ file }) => /from "@\/kit\/StatusPage"/.test(readFileSync(file, "utf8")));
 const RETRYING = BOUNDARIES.filter((boundary) => !LINKING.includes(boundary));
 
 type Boundary = ComponentType<{ error: unknown; retry: () => void }>;
+
+/* Each boundary rendered at an address with no dynamic segment, whose params the App Router answers as an empty
+   object, so a boundary drawing a frame's menu reads them as it does in the browser. */
+const ROUTED = { params: {} };
 
 const boundaryOf = async (file: string): Promise<Boundary> => ((await import(pathToFileURL(file).href)) as { default: Boundary }).default;
 
@@ -65,7 +70,7 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
   it("sends its crash report to a route this app serves", async () => {
     const Boundary = await boundaryOf(file);
 
-    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined })));
+    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), ROUTED));
     // `render` has already flushed the effect sending the report; the turn after its answer charges a
     // second report sent meanwhile to this boundary's count, never to the next one's.
     await act(() => Promise.resolve());
@@ -86,22 +91,27 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
   it("renders a thrown non-Error and reports it once across a re-render", async () => {
     const Boundary = await boundaryOf(file);
 
-    const { rerender } = render(underNext(h(Boundary, { error: null, retry: () => undefined })));
-    rerender(underNext(h(Boundary, { error: null, retry: () => undefined })));
+    const { rerender } = render(underNext(h(Boundary, { error: null, retry: () => undefined }), ROUTED));
+    rerender(underNext(h(Boundary, { error: null, retry: () => undefined }), ROUTED));
     await act(() => Promise.resolve());
 
     expect(sent.mock.calls.length, `${shown}: reports one thrown null ${String(sent.mock.calls.length)} times`).toBe(1);
   });
 });
 
-/* A boundary on the status card: its one act is the way to the start page, never a retry. */
+/* The labels a status card's one way on takes, each leading home in its frame: the start page, an area's root. */
+const WAYS_ON: readonly string[] = Object.values(COPY.shared.end).filter((entry): entry is Copy => typeof entry === "string");
+
+/* A boundary on the status card: its one act is the way on its frame names, never a retry. */
 describe.each(LINKING)("the error boundary $shown", ({ file, shown }) => {
-  it("leads to the start page as its one act", async () => {
+  it("leads on by one link as its one act", async () => {
     const Boundary = await boundaryOf(file);
 
-    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined })));
+    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), ROUTED));
 
-    expect(screen.getByRole("link", { name: COPY.shared.end.toHome }).getAttribute("href"), `${shown}: the way home`).toBe("/");
+    // Among the frame's own links, such as the logo's, the card's is the one a way on names.
+    const waysOn = screen.getAllByRole("link").filter((link) => WAYS_ON.includes(link.textContent ?? ""));
+    expect(waysOn, `${shown}: its ways on`).toHaveLength(1);
     expect(screen.queryByRole("button"), `${shown}: offers a retry beside its link`).toBeNull();
   });
 });
@@ -113,7 +123,7 @@ describe.each(RETRYING)("the error boundary $shown", ({ shown, file }) => {
     const Boundary = await boundaryOf(file);
     const retry = vi.fn();
 
-    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry })));
+    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry }), ROUTED));
     await userEvent.setup().click(screen.getByRole("button"));
 
     expect(retry, `${shown}: a press calls the retry Next handed it`).toHaveBeenCalledTimes(1);
@@ -143,7 +153,7 @@ describe.each(RETRYING)("the error boundary $shown", ({ shown, file }) => {
       );
     }
 
-    render(underNext(h(Refreshing)));
+    render(underNext(h(Refreshing), ROUTED));
     const press = screen.getByRole("button");
     await userEvent.setup().click(press);
 
