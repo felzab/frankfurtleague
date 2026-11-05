@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import LiteralString
 
-from pydantic_core import PydanticCustomError
+from pydantic_core import PydanticCustomError  # noqa: TID251 -- the one place a rule is raised
 
 from app.core.codes import Code, Rule
 
