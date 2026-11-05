@@ -106,8 +106,8 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
     confirmation: FLSchiedsrichterConfirmationRecord | None = None
-    # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which
-    # expires (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
+    # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which the
+    # hourly pass erases (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
     erase_at: datetime | None = None
 
     @model_validator(mode="after")
@@ -153,6 +153,13 @@ class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
 
     # Null unless the row came back unanswered and holding an address a link can go to.
     confirmation: FLSchiedsrichterMint | None = None
+
+
+class FLSchiedsrichterSweepResponse(BaseAPIResponse):
+    """One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due."""
+
+    erased: int
+    failed: int
 
 
 class FLSchiedsrichterMintResponse(BaseAPIResponse):

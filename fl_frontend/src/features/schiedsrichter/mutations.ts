@@ -1,9 +1,14 @@
-import { schiedsrichterPatchEinwilligung, schiedsrichterPostSchiedsrichter } from "@/core/generated/client/sdk";
+import {
+  schiedsrichterPatchEinwilligung,
+  schiedsrichterPostSchiedsrichter,
+  schiedsrichterSweepSchiedsrichter,
+} from "@/core/generated/client/sdk";
 
 import type {
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
+  FLSchiedsrichterSweepResponse,
 } from "@/core/generated/client/types";
 
 export async function postSchiedsrichter(postSchiedsrichterPayload: FLPostSchiedsrichterPayload): Promise<FLPostSchiedsrichterResponse> {
@@ -17,4 +22,9 @@ export async function patchSchiedsrichterKontoEinwilligung(
   payload: FLSchiedsrichterAccountEinwilligungPayload,
 ): Promise<void> {
   return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
+}
+
+/** The hourly pass's: a timer holds no session, and an entry whose link lapsed unanswered or declined is the clock's. */
+export async function postSchiedsrichterSweep(): Promise<FLSchiedsrichterSweepResponse> {
+  return schiedsrichterSweepSchiedsrichter();
 }

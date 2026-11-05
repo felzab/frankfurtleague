@@ -213,7 +213,7 @@ async def post_decline(
     Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
 
     The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
-    unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+    unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
     re-send or reactivation asks the person again.
 
     Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,

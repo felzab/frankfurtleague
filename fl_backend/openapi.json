@@ -12969,6 +12969,25 @@
         "title": "FLSchiedsrichterSingleResponse",
         "type": "object"
       },
+      "FLSchiedsrichterSweepResponse": {
+        "description": "One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due.",
+        "properties": {
+          "erased": {
+            "title": "Erased",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "erased",
+          "failed"
+        ],
+        "title": "FLSchiedsrichterSweepResponse",
+        "type": "object"
+      },
       "FLSchiedsrichterTextVersions": {
         "additionalProperties": false,
         "description": "A referee's two wordings: the name on the fixtures and the media switch.",
@@ -26021,7 +26040,7 @@
     },
     "/api/v0/schiedsrichter/confirmation/decline": {
       "post": {
-        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no\nre-send or reactivation asks the person again.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
+        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no\nre-send or reactivation asks the person again.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
         "operationId": "schiedsrichter_post_decline",
         "requestBody": {
           "content": {
@@ -26217,6 +26236,69 @@
           }
         ],
         "summary": "A signed-in referee's own records",
+        "tags": [
+          "schiedsrichter"
+        ]
+      }
+    },
+    "/api/v0/schiedsrichter/sweep": {
+      "post": {
+        "description": "Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.\n\nErased as an administrator's erasure erases: the entry goes, every fixture naming it names the ghost, and every log\nimage of it is redacted, so the person's name and address leave the log with the entry, as the privacy notice says\nof an unconfirmed or declined one. A confirmed entry and the ghost hold no deletion date and are never due.\n\nA page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an\nentry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next\npass. No body: the clock takes no season.",
+        "operationId": "schiedsrichter_sweep_schiedsrichter",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterSweepResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Erase the referee entries whose link lapsed unanswered or declined",
         "tags": [
           "schiedsrichter"
         ]

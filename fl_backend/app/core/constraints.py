@@ -419,15 +419,6 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     ),
     # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
     TTLIndex(Collection.OUTBOX, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
-    # Zero, for the outbox's reason: `erase_at` is the midnight closing the link's last day. A confirmed entry holds no
-    # date there, so it never expires.
-    TTLIndex(
-        Collection.SCHIEDSRICHTER,
-        "schiedsrichter_erase_at",
-        "erase_at",
-        0,
-        "an unconfirmed or declined referee entry is removed once its link has lapsed",
-    ),
 )
 
 

@@ -159,6 +159,7 @@ import type {
   FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
+  FLSchiedsrichterSweepResponse,
   FLSeatEinwilligungPayload,
   FLSignInResponse,
   FLSignOutResponse,
@@ -3174,7 +3175,7 @@ export const getSchiedsrichterPostDeclineUrl = () => {
  * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
  *
  * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
- * unconfirmed or declined one (`app/core/constraints.py :: TTL_INDEXES`). Until then no booking takes it and no
+ * unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
  * re-send or reactivation asks the person again.
  *
  * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
@@ -3266,6 +3267,31 @@ export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKey
   return adminKeyTransport<FLSchiedsrichterSelfResponse>(getSchiedsrichterGetSelfUrl(), {
     ...options,
     method: "GET",
+  });
+};
+
+export const getSchiedsrichterSweepSchiedsrichterUrl = () => {
+  return `/api/v0/schiedsrichter/sweep`;
+};
+
+/**
+ * Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
+ *
+ * Erased as an administrator's erasure erases: the entry goes, every fixture naming it names the ghost, and every log
+ * image of it is redacted, so the person's name and address leave the log with the entry, as the privacy notice says
+ * of an unconfirmed or declined one. A confirmed entry and the ghost hold no deletion date and are never due.
+ *
+ * A page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an
+ * entry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next
+ * pass. No body: the clock takes no season.
+ * @summary Erase the referee entries whose link lapsed unanswered or declined
+ */
+export const schiedsrichterSweepSchiedsrichter = async (
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSchiedsrichterSweepResponse> => {
+  return systemKeyTransport<FLSchiedsrichterSweepResponse>(getSchiedsrichterSweepSchiedsrichterUrl(), {
+    ...options,
+    method: "POST",
   });
 };
 

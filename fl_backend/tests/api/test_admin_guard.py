@@ -122,10 +122,11 @@ SYSTEM_WRITES = [
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.
     ("/api/v0/grants/reconciliation", "post"),
-    # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
-    # no session, and an activation's press deletes nobody in the administrator's name.
+    # The season-after rule, the lapsed address's clock and the unconfirmed referee's, whichever caller runs them: a
+    # timer holds no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identity/erasure/sweep", "post"),
     ("/api/v0/address_change/sweep", "post"),
+    ("/api/v0/schiedsrichter/sweep", "post"),
     # The sign-in accounts the address changes still owe to carry, reported carried by the frontend, which holds the store.
     ("/api/v0/address_change/sweep/moves/done", "post"),
     # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.

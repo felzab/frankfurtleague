@@ -4967,6 +4967,14 @@ export interface FLSchiedsrichterSingleResponse {
 }
 
 /**
+ * One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due.
+ */
+export interface FLSchiedsrichterSweepResponse {
+  erased: number;
+  failed: number;
+}
+
+/**
  * A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
  *
  * Both choices on every press: a page that sent one alone would leave the other judged by nothing.
