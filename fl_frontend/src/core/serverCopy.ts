@@ -20,7 +20,7 @@ const PLATZ = "Platz";
 const TEAM = "Team";
 const DIFFERENZ = "Diff.";
 const SPIELBETRIEB = "Spielbetrieb";
-const gruppeName = (gruppe: string) => `Gruppe ${gruppe}`;
+const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
@@ -93,6 +93,12 @@ export const SERVER_COPY = catalogue({
     address_change_unchanged: COPY.account.address.unchanged,
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
+    // A season's rules and its activation, each a fact the person reads off the season editor itself.
+    rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
+    rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
+    activate_target_undrawn: COPY.admin.saison.noDraw,
+    activate_saison_unfinished: COPY.admin.saison.unfinished,
+    activate_spieltage_undated: COPY.admin.saison.undated,
     eligibility_disqualified: {
       team1: `${team1} ist aus der Saison ausgeschieden.`,
       team2: `${team2} ist aus der Saison ausgeschieden.`,

@@ -217,10 +217,8 @@ export const ROUTES = {
     title: COPY.shared.overview,
     crawl: "disallow",
   },
-  // Session 5: its page is built.
   adminSaisons: { path: () => "/admin/saisons" as const, title: COPY.page.adminSaisons, crawl: "disallow" },
   /** A season's editor, named by the season. Its address lies under the season's Übersicht, and it belongs to the list. */
-  // Session 5: its page is built.
   adminSaison: {
     path: (saison: string) => `/admin/saisons/${saison}/settings` as const,
     title: COPY.shared.saisonName,

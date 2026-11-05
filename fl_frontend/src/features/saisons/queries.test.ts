@@ -16,12 +16,12 @@ vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"),
 // real client reaches a backend no test process runs, at a base URL no test run holds.
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(({ endpoint }) =>
-  endpoint.endsWith("/erasure/preview") ? { completed_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
+  endpoint === "/saisons/list/admin" ? { saisons: [{ id: "2526" }] } : { saison: { id: "2627" } },
 );
 
 serveServerReact();
 
-const { getAdminSaisons, getLoeschungVorschau } = await import("./queries.ts");
+const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
 const { resolveSaisonId } = await import("./resolvers.ts");
 
 const adminReads = (): number => reads.filter(({ endpoint }) => endpoint === "/saisons/list/admin").length;
@@ -61,22 +61,22 @@ describe("the admin season list across a render pass", () => {
   });
 });
 
-describe("the deletion count the season page reads", () => {
-  /* Cached, the count keys on the season id alone: every administrator shares one slot, and a count from before
-     another season's activation names people already gone. */
+describe("the season editor's read", () => {
+  /* Cached, the read would key on the season id alone: every administrator would share one slot, and a version from
+     before another administrator's save would refuse every save as stale. */
   it("is read on the admin tier in every pass, declaring no cache", async () => {
     const before = reads.length;
 
     beginRenderPass();
-    await getLoeschungVorschau("2627");
+    await getAdminSaison("2627");
     beginRenderPass();
-    await getLoeschungVorschau("2627");
+    await getAdminSaison("2627");
 
     expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
-      ["/saisons/2627/erasure/preview", "admin"],
-      ["/saisons/2627/erasure/preview", "admin"],
+      ["/saisons/2627/admin", "admin"],
+      ["/saisons/2627/admin", "admin"],
     ]);
-    expect(declared, "the administrator's count is declared into a cache every caller shares").toStrictEqual([]);
+    expect(declared, "the administrator's read is declared into a cache every caller shares").toStrictEqual([]);
   });
 
   /* The admin tier's guard, which the page's layout does not give a page's own read. */
@@ -85,8 +85,8 @@ describe("the deletion count the season page reads", () => {
     const before = reads.length;
 
     beginRenderPass();
-    await expect(getLoeschungVorschau("2627")).rejects.toThrow();
+    await expect(getAdminSaison("2627")).rejects.toThrow();
 
-    expect(reads.length, "the count was read for a session the guard turns away").toBe(before);
+    expect(reads.length, "the season was read for a session the guard turns away").toBe(before);
   });
 });
