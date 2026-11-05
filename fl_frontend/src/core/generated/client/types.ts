@@ -3666,7 +3666,7 @@ export interface FLSchiedsrichterMint {
 
 export interface FLPatchSchiedsrichterResponse {
   confirmation: FLSchiedsrichterMint | null;
-  fanned_out_to_spiele: number;
+  version: number;
 }
 
 /**
@@ -3794,7 +3794,7 @@ export interface FLPatchSpielortPayload {
 }
 
 export interface FLPatchSpielortResponse {
-  fanned_out_to_spiele: number;
+  version: number;
 }
 
 export interface FLPatchSpieltagPayload {

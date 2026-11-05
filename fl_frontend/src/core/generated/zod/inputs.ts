@@ -2222,7 +2222,7 @@ export const SchiedsrichterGetConfirmationViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.
+ * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2251,9 +2251,10 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
 });
 
 /**
- * Update a referee, then update the embedded name on every Spiel that uses them.
+ * Update a referee on the `version` the editor was served, answering the version stored.
  *
- * Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
+ * The editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so
+ * nothing else is written; each fixture keeps the `payment` agreed for it.
  *
  * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
  * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
@@ -2270,7 +2271,7 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
  * fixtures of every referee already erased.
- * @summary Update a Schiedsrichter and fan the change out
+ * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
@@ -3489,7 +3490,7 @@ export const SpielortePostSpielortBody = zod.object({
 /**
  * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
  *
- * Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
+ * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
  * while an unplayed fixture is still booked here (`spielort_still_booked`).
  * @summary Deactivate a Spielort (soft delete)
  */
@@ -3513,11 +3514,12 @@ export const SpielorteGetSpielortParams = zod.object({
 });
 
 /**
- * Update a venue, then update every Spiel that embeds it.
+ * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
  *
- * The fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is
- * NOT fanned out -- the rent on a match is what was agreed for that match.
- * @summary Update a Spielort and fan the change out
+ * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
+ * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`), by the
+ * unique index.
+ * @summary Update a Spielort
  */
 export const spielortePatchSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 

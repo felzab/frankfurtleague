@@ -141,8 +141,8 @@ class FLPostSchiedsrichterResponse(BaseAPIResponse):
 
 
 class FLPatchSchiedsrichterResponse(BaseAPIResponse):
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
-    fanned_out_to_spiele: int
+    # The referee's version after the save, which the editor's next save sends.
+    version: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
     # the mailbox nobody reads.
     confirmation: FLSchiedsrichterMint | None = None

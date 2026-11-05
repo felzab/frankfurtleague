@@ -185,7 +185,6 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spiele_collection=database[Collection.SPIELE],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,

@@ -125,7 +125,6 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
             }
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spiele_collection=database[Collection.SPIELE],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,

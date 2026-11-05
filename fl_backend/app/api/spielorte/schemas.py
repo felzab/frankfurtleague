@@ -71,8 +71,8 @@ class FLSpielorteListResponse(BaseAPIResponse):
 
 
 class FLPatchSpielortResponse(BaseAPIResponse):
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
-    fanned_out_to_spiele: int
+    # The venue's version after the save, which the editor's next save sends.
+    version: int
 
 
 class FLSpielorteSingleResponse(BaseAPIResponse):

@@ -31,7 +31,6 @@ from app.api.schiedsrichter.services import (
     EINLADEN_FIELDS,
     EINWILLIGUNG_FELD,
     bestaetigung_frist_from,
-    build_assignment_filter,
     build_real_referees_filter,
     build_referee_filter,
     build_unplayed_assignment_filter,
@@ -56,7 +55,6 @@ from app.core.crud import (
     build_query,
     build_sort,
     insert_live,
-    patch_many_in_db,
     patch_one_in_db,
     pull_many_from_db,
     pull_one_from_db,
@@ -254,13 +252,12 @@ async def post_schiedsrichter(
 @router.patch(
     by_id("schiedsrichter_id"),
     response_model=FLPatchSchiedsrichterResponse,
-    summary="Update a Schiedsrichter and fan the change out",
+    summary="Update a Schiedsrichter",
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
-    spiele_collection: SpieleCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     db: DBClient,
@@ -268,9 +265,10 @@ async def patch_schiedsrichter(
     now: datetime = Depends(get_germany_now),
 ) -> FLPatchSchiedsrichterResponse:
     """
-    Update a referee, then update the embedded name on every Spiel that uses them.
+    Update a referee on the `version` the editor was served, answering the version stored.
 
-    Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
+    The editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so
+    nothing else is written; each fixture keeps the `payment` agreed for it.
 
     **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
     new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
@@ -296,7 +294,7 @@ async def patch_schiedsrichter(
     # save: whether a mint is owed is decided in-session below.
     governing_saison_id = await ban_list_saison(ban_list)
 
-    async def rename_and_fan_out(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
+    async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
         # In-session, so the judgement below reads the address and the record this save replaces
         # rather than a snapshot a rival write has already moved.
         stored = await pull_one_from_db(
@@ -336,22 +334,13 @@ async def patch_schiedsrichter(
                 session=session,
             )
 
-        fan_out = await patch_many_in_db(
-            collection=spiele_collection,
-            db_filter=build_assignment_filter(updated_document.id),
-            update={"$set": {"schiedsrichter.name": updated_document.name}},
-            session=session,
-        )
+        return FLPatchSchiedsrichterResponse(version=updated_document.version), minted
 
-        answer = FLPatchSchiedsrichterResponse(fanned_out_to_spiele=fan_out.modified_count)
-
-        return answer, minted
-
-    # One transaction: a rename landing on the referee and not on their fixtures is the stale copy
-    # the fan-out exists to prevent. Every write derives from the payload and an in-session read,
-    # so a `with_transaction` retry is safe.
+    # One transaction: a save storing a corrected address without the link it owes, or owing one the save rolled
+    # back, mails the wrong mailbox. Every write derives from the payload and an in-session read, so a
+    # `with_transaction` retry is safe.
     async with transaction_session(db) as session:
-        answer, re_minted = await session.with_transaction(rename_and_fan_out)
+        answer, re_minted = await session.with_transaction(correct_and_ask)
 
     if re_minted:
         answer.confirmation = FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=email)
@@ -371,7 +360,7 @@ async def delete_schiedsrichter(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> None:
-    """Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy."""
+    """Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id."""
 
     async def retire_the_referee(session: AsyncClientSession) -> Mapping[str, Any]:
         """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""
