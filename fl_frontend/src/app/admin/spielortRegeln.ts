@@ -18,7 +18,7 @@ const { shape } = SpielortePostSpielortBody;
 const adresse = shape.address.shape;
 
 /** A field is required where the write refuses it empty: an untouched text box posts "", an untouched figure nothing. */
-const pflicht = (feld: { safeParse: (wert: unknown) => { success: boolean } }, leer: "" | null) => !feld.safeParse(leer).success;
+const pflicht = (feld: { safeParse: (value: unknown) => { success: boolean } }, empty: "" | null) => !feld.safeParse(empty).success;
 
 export const SPIELORT_REGELN: SpielortRegeln = {
   pflicht: {

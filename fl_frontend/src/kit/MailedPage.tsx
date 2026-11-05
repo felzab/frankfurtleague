@@ -43,18 +43,18 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
 /**
  * What a mailed page shows once its link is read, in one of four states, or an end of its own:
  *
- * - `frage`: the question, opening on its act: a title, the facts the answer rests on, one sentence, the
+ * - `question`: the question, opening on its act: a title, the facts the answer rests on, one sentence, the
  *   fields where the answer needs any, and the acts, sent once with the token the page carries, the main one
  *   behind the passkey touch where the act takes it; the answer replaces the page by the status template (the
  *   done state, worded by the server);
- * - `schonErledigt`: the link opened again, saying what the person did and when, with the one place to
+ * - `alreadyDone`: the link opened again, saying what the person did and when, with the one place to
  *   change it where there is one, on the danger tint where what they did was to decline;
  * - `ungueltig`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
  * - `ende`: an end the page names itself before any answer, as a deletion link opened signed out.
  */
 export type MailedState =
   | {
-      state: "frage";
+      state: "question";
       title: Copy;
       facts?: ReadonlyArray<Fact>;
       sentence: Copy;
@@ -67,7 +67,7 @@ export type MailedState =
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
-  | { state: "schonErledigt"; title: Copy; sentence: Copy; next: StatusCardProps["next"]; declined?: boolean }
+  | { state: "alreadyDone"; title: Copy; sentence: Copy; next: StatusCardProps["next"]; declined?: boolean }
   | { state: "ungueltig"; next: StatusCardProps["next"] }
   | ({ state: "ende" } & EndState)
   // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
@@ -86,7 +86,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           {...linkInvalid(props.next)}
         />
       );
-    case "schonErledigt":
+    case "alreadyDone":
       return (
         <StatusPage
           frame="classic"
@@ -106,7 +106,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           next={props.next}
         />
       );
-    case "frage":
+    case "question":
       return (
         <OneShotForm
           action={props.action}

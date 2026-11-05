@@ -13,7 +13,7 @@ import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
    among the keys, a stored ban holding none; the author is read as its card prints it. */
 const SEARCH_KEYS: readonly SearchKey<FLSperrlisteRow>[] = [
   "grund",
-  { name: "erstellt_von", getFn: (eintrag) => vonOderGesperrt(eintrag.created_by, eintrag.created_by_barred) },
+  { name: "erstellt_von", getFn: (entry) => vonOderGesperrt(entry.created_by, entry.created_by_barred) },
 ];
 
 /**

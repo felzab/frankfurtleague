@@ -5,7 +5,7 @@ import { mapAddressChangePressRefusal } from "./refusals.ts";
 
 describe("what one refused press asks the link page to show", () => {
   /* One panel for every refusal that would tell the link's holder who holds an address. */
-  for (const [code, zustand] of [
+  for (const [code, state] of [
     ["link_invalid", "invalid"],
     ["link_expired", "expired"],
     ["link_barred", "barred"],
@@ -15,8 +15,8 @@ describe("what one refused press asks the link page to show", () => {
     ["address_change_new_granted", "not_confirmable"],
     ["duplicate_key", "not_confirmable"],
   ] as const) {
-    it(`answers ${code} as the ${zustand} panel`, () => {
-      expect(mapAddressChangePressRefusal(refused(code))).toStrictEqual({ zustand: zustand });
+    it(`answers ${code} as the ${state} panel`, () => {
+      expect(mapAddressChangePressRefusal(refused(code))).toStrictEqual({ state: state });
     });
   }
 });

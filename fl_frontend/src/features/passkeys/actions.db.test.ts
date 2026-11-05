@@ -283,7 +283,7 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
 
 const { COPY } = await import("@/core/copy.ts");
 
-const LETZTER_PASSKEY = COPY.account.passkeys.lastKept;
+const LAST_PASSKEY = COPY.account.passkeys.lastKept;
 
 /** A removal the store failed under, whatever became of it. */
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected };
@@ -299,7 +299,7 @@ describe("two removals by one administrator at once, against a real database", (
     const { cookie, userId } = await steppedUpAdmin();
     const ids = await seedPasskeys(userId, 2);
 
-    expect(await removeAtOnce(cookie, ids)).toStrictEqual({ ...ONE_WINS, refusals: [LETZTER_PASSKEY], rows: 1 });
+    expect(await removeAtOnce(cookie, ids)).toStrictEqual({ ...ONE_WINS, refusals: [LAST_PASSKEY], rows: 1 });
   });
 
   /* The other order: the second removal's snapshot is taken only once the first has committed whole,
@@ -321,7 +321,7 @@ describe("two removals by one administrator at once, against a real database", (
 
       expect({ first: first.ok, second: await second, rows: (await passkeyRows()).length }).toStrictEqual({
         first: true,
-        second: { ok: false, reason: LETZTER_PASSKEY },
+        second: { ok: false, reason: LAST_PASSKEY },
         rows: 1,
       });
     } finally {

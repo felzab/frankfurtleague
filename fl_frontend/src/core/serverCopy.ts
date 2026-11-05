@@ -1,6 +1,6 @@
 import "server-only";
 
-import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VEREINSREGISTER, VORSTAND_GEMEINSAM } from "./brand";
+import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
 import { formatDatum, formatDatumLong, formatNumber, formatOrdinal, formatSigned } from "./format";
 
@@ -12,7 +12,7 @@ import type { ROUTES } from "./routes";
 /** The route keys of the pages a search engine may list. */
 type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
-const { team1, team2 } = COPY.verwaltung.spiel;
+const { team1, team2 } = COPY.admin.spiel;
 
 // Words two entries of this one object say alike, each written once: a club's place, a group, the goals' difference
 // and match operations, the season line's eyebrow and an organiser's role.
@@ -113,7 +113,7 @@ export const SERVER_COPY = catalogue({
   },
 
   /** The administration's lines its old pages answer through their server actions, until each page's rebuild. */
-  verwaltung: {
+  admin: {
     /**
      * A fixture of either club the group swap would trade has taken place, as
      * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
@@ -242,7 +242,7 @@ export const SERVER_COPY = catalogue({
         text: "11 gegen 11 über 90 Minuten, bei jedem Wetter. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
       },
       purpose: { title: "Wofür", text: "Beide Teams verdienen an Tickets und am Verkauf vor Ort und teilen den Erlös." },
-      spielorte: { title: COPY.page.verwaltungSpielorte, text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
+      spielorte: { title: COPY.page.adminSpielorte, text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
       admission: { title: "Eintritt", text: "2 bis 5 €, je nach Spiel. Im Vorverkauf meist günstiger." },
       safety: { title: "Sicherheit", text: "Bei den meisten Spielen sind Sanitäter vor Ort." },
     },
@@ -301,7 +301,7 @@ export const SERVER_COPY = catalogue({
       eyebrow: "Organisation",
       title: "Wer dahintersteht",
       /** What each organiser does, under their first name. */
-      role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", kommunikation: "Kommunikation" },
+      role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", communication: "Kommunikation" },
     },
 
     /** The ways in: the school's while a window is open, and the question's; the heading counts them. */
@@ -396,17 +396,17 @@ export const SERVER_COPY = catalogue({
     /** A match's page: its line-ups, and its goals and cards by minute. */
     spiel: {
       aufstellung: "Aufstellung",
-      toreUndKarten: "Tore und Karten",
+      toreAndKarten: "Tore und Karten",
       /**
        * The plural the match's empty timeline names until its report is adopted, whose goals and cards are not
        * official before: „Noch keine offiziellen Tore und Karten.“, where an adopted report naming none reads
        * „Noch keine Tore und Karten.“
        */
-      officialToreUndKarten: "offiziellen Tore und Karten",
+      officialToreAndKarten: "offiziellen Tore und Karten",
       /** A pupil whose consent publishes no name, or one erased since. */
-      anonym: "anonym",
+      anonymous: "anonym",
       /** A goal nobody was named for. */
-      unbekannt: "unbekannt",
+      unknown: "unbekannt",
       tor: "Tor",
       eigentor: "Eigentor",
       karte: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
@@ -426,7 +426,7 @@ export const SERVER_COPY = catalogue({
       firstLayer: {
         heading: "Das Wichtigste",
         items: [
-          `Verantwortlich ist der ${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}.`,
+          `Verantwortlich ist der ${VEREIN_NAME}, ${VEREIN_ADDRESS}.`,
           "Wir verarbeiten, was du uns für eine Bewerbung, einen Kader, ein Spiel oder deine Anmeldung angibst, und die technischen Daten jedes Aufrufs.",
           "Wir brauchen diese Daten, um den Spielbetrieb der Liga durchzuführen, dich zu erreichen und die Website sicher zu betreiben.",
           "Öffentlich sind Teams, Spielpläne, Ergebnisse und Aufstellungen; deinen Namen zeigen wir dort nur mit deiner Einwilligung.",
@@ -624,10 +624,10 @@ export const SERVER_COPY = catalogue({
     },
 
     legalNotice: {
-      provider: { heading: "Anbieter", name: VEREIN_NAME, address: VEREIN_ANSCHRIFT },
+      provider: { heading: "Anbieter", name: VEREIN_NAME, address: VEREIN_ADDRESS },
       representation: {
         heading: "Vertretung",
-        rule: `Je ${formatNumber(VORSTAND_GEMEINSAM)} Mitglieder des Vorstands vertreten den Verein gemeinsam:`,
+        rule: `Je ${formatNumber(VORSTAND_JOINTLY)} Mitglieder des Vorstands vertreten den Verein gemeinsam:`,
         member: (name: string, amt: string) => `${name}, ${amt}`,
       },
       /** Before the league's address, which the page sets as a link after it. */

@@ -57,7 +57,7 @@ const store = memoryStore("__flKontoLoeschenStore");
 const HELD = new Map<string, LookupFixture>();
 
 /** The counts the erasure answers a person holding one squad row. */
-const GELOESCHT = {
+const ERASED = {
   spieler: 1,
   saison_spieler: 1,
   schiedsrichter: 0,
@@ -70,14 +70,14 @@ const GELOESCHT = {
 };
 
 /** Every erasure the backend was asked for, with the actor header each carried. */
-const loeschungen: { method: string; actor: string | null }[] = [];
+const erasures: { method: string; actor: string | null }[] = [];
 
-const LOESCHUNG_PATH = "/api/v0/identity/account/erasure";
+const ERASURE_PATH = "/api/v0/identity/account/erasure";
 
-const ANSICHT_PATH = "/api/v0/identity/account/erasure/view";
+const VIEW_PATH = "/api/v0/identity/account/erasure/view";
 
 /** Whether the preview reads the press as the last owner's. */
-let letzterInhaber = false;
+let lastOwner = false;
 
 /** The person's own address change, and the method of every request sent to it. */
 const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";
@@ -92,13 +92,13 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     consentWrites.push(path);
     return Promise.resolve(Response.json({}));
   }
-  if (path === ANSICHT_PATH) {
-    const leer = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
-    return Promise.resolve(Response.json({ ...leer, verwaltung: "owner", last_owner: letzterInhaber }));
+  if (path === VIEW_PATH) {
+    const empty = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
+    return Promise.resolve(Response.json({ ...empty, verwaltung: "owner", last_owner: lastOwner }));
   }
-  if (path === LOESCHUNG_PATH) {
-    loeschungen.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
-    return Promise.resolve(Response.json(GELOESCHT));
+  if (path === ERASURE_PATH) {
+    erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
+    return Promise.resolve(Response.json(ERASED));
   }
   if (path === ADDRESS_CHANGE_PATH) {
     addressChanges.push(init?.method ?? "GET");
@@ -133,11 +133,11 @@ beforeEach(() => {
   store.verification.length = 0;
   cacheCalls.length = 0;
   deletedCookies.length = 0;
-  loeschungen.length = 0;
+  erasures.length = 0;
   addressChanges.length = 0;
   consentWrites.length = 0;
   HELD.clear();
-  letzterInhaber = false;
+  lastOwner = false;
 });
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */
@@ -146,7 +146,7 @@ function arriveAs(cookie: string): void {
 }
 
 /** A signed-in person, the request arriving as them, and a deletion link mailed to them; `passkey` adds one they hold. */
-async function mitLink(
+async function withLink(
   email: string,
   { passkey = false }: { passkey?: boolean } = {},
 ): Promise<{ row: SessionRow; token: string; holder: string }> {
@@ -162,8 +162,8 @@ async function mitLink(
   }
   arriveAs(cookie);
 
-  const angefordert = await requestErasure({ holder: email });
-  expect(angefordert.ok, `the account page's press answered ${JSON.stringify(angefordert)}`).toBe(true);
+  const requested = await requestErasure({ holder: email });
+  expect(requested.ok, `the account page's press answered ${JSON.stringify(requested)}`).toBe(true);
   const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
@@ -193,7 +193,7 @@ async function ledToTheDonePage(pressed: Promise<unknown>): Promise<void> {
 }
 
 /** A signed-in owner, the request arriving as their passkey session of this moment, and a link mailed to them. */
-async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token: string; holder: string }> {
+async function ownerWithLink(email: string): Promise<{ row: SessionRow; token: string; holder: string }> {
   HELD.set(email, {
     ...NO_RECORDS,
     verwaltung: "owner",
@@ -201,14 +201,14 @@ async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token
     inhaber_seit: "2026-01-01T00:00:00Z",
     account: false,
   });
-  const durchPasskey = await sessionByCode(auth, store, email);
-  madeByPasskey(store, durchPasskey.row);
-  arriveAs(durchPasskey.cookie);
+  const byPasskey = await sessionByCode(auth, store, email);
+  madeByPasskey(store, byPasskey.row);
+  arriveAs(byPasskey.cookie);
   expect((await requestErasure({ holder: email })).ok, "the owner's passkey session mailed no link").toBe(true);
   const found = /\/erasure\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the page");
 
-  return { row: durchPasskey.row, token: found[1], holder: email };
+  return { row: byPasskey.row, token: found[1], holder: email };
 }
 
 // Each a loss nobody would see: an account deleted with its records left, a deletion the cache keeps serving, the last
@@ -216,14 +216,14 @@ async function inhaberinMitLink(email: string): Promise<{ row: SessionRow; token
 // used link left in a shared browser.
 describe("a person's own account deletion through the mailed link's page", () => {
   it("erases the records under the person's actor, deletes the account, clears the site's tag and leads to the done page", async () => {
-    const { row, token, holder } = await mitLink("ganz-weg@example.org");
+    const { row, token, holder } = await withLink("ganz-weg@example.org");
     // The link's own request cleared it too, mailing being a write.
     cacheCalls.length = 0;
 
     await ledToTheDonePage(eraseAccount({ token, holder }));
 
     expect(
-      loeschungen.map(({ method, actor }) => [method, actor !== null]),
+      erasures.map(({ method, actor }) => [method, actor !== null]),
       "the erasure was not sent once, as a write naming its person",
     ).toStrictEqual([["POST", true]]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
@@ -232,35 +232,35 @@ describe("a person's own account deletion through the mailed link's page", () =>
   });
 
   it("asks a passkey holder signed in by code for the touch, erasing nothing and leaving the link standing", async () => {
-    const { row, token, holder } = await mitLink("mit-passkey@example.org", { passkey: true });
+    const { row, token, holder } = await withLink("mit-passkey@example.org", { passkey: true });
 
     expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
-    expect(loeschungen).toStrictEqual([]);
+    expect(erasures).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(linkStands(token), "the refused press spent the link");
   });
 
   it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
-    const { row, token, holder } = await inhaberinMitLink("letzte-inhaberin@example.org");
-    letzterInhaber = true;
+    const { row, token, holder } = await ownerWithLink("letzte-inhaberin@example.org");
+    lastOwner = true;
 
     expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
-    expect(loeschungen, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
+    expect(erasures, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
     assert.ok(linkStands(token), "the refused press spent the link, which the owner can no longer open");
 
-    letzterInhaber = false;
+    lastOwner = false;
     await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(deletedCookies, "the refused press forgot the link, or the completed one kept it").toStrictEqual([ERASURE_LINK_COOKIE]);
   });
 
   it("ends a link the library refuses as the link no longer valid, erasing nothing", async () => {
-    const { row, holder } = await mitLink("falscher-link@example.org");
+    const { row, holder } = await withLink("falscher-link@example.org");
 
     const answer = await eraseAccount({ token: "kein-gemailter-link", holder });
 
     expect(answer).toMatchObject({ ok: true, value: { title: COPY.template.linkInvalid, sentence: COPY.shared.end.linkInvalid } });
-    expect(loeschungen).toStrictEqual([]);
+    expect(erasures).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
   });
 
@@ -283,11 +283,11 @@ describe("a person's own account deletion through the mailed link's page", () =>
     ],
   ] as const) {
     it(`deletes and erases nothing from a session ${label}`, async () => {
-      const { row, token, holder } = await mitLink(email);
+      const { row, token, holder } = await withLink(email);
       judged();
 
       expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-      expect(loeschungen).toStrictEqual([]);
+      expect(erasures).toStrictEqual([]);
       expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
     });
   }

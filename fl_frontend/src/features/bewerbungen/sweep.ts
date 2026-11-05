@@ -18,13 +18,13 @@ type Uebergangen = { bewerbung: number; registrierung: number };
  * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
- * and what the address changes did, `offen` the erasures passed over and the lapsed changes left, and the seasons'
+ * and what the address changes did, `open` the erasures passed over and the lapsed changes left, and the seasons'
  * failure, once both halves have run, as `error`; a lapsed address the half could not end rejects, for the heartbeat
  * to name.
  */
 export async function runBewerbungSweep() {
   // A listing that failed is the seasons' failure too, and the address changes still run.
-  const saisons = await sweepAlleSaisons().catch((fehler: unknown) => ({ uebergangen: { bewerbung: 0, registrierung: 0 }, fehler: fehler }));
+  const saisons = await sweepAlleSaisons().catch((error: unknown) => ({ uebergangen: { bewerbung: 0, registrierung: 0 }, error: error }));
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
   const adressen = await sweepAdresswechsel();
 
@@ -38,7 +38,7 @@ export async function runBewerbungSweep() {
       address_change_remaining: adressen.remaining,
     },
     open: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.remaining,
-    error: saisons.fehler,
+    error: saisons.error,
   };
 }
 
@@ -46,35 +46,35 @@ export async function runBewerbungSweep() {
  * Every season, each half of each apart: a throw in one leaves the others' clocks running. Answers the rows the calls
  * passed over and, where any call failed, every failure as one; a listing that fails rejects.
  */
-async function sweepAlleSaisons(): Promise<{ uebergangen: Uebergangen; fehler?: unknown }> {
+async function sweepAlleSaisons(): Promise<{ uebergangen: Uebergangen; error?: unknown }> {
   const { saison_ids: saisonIds } = await getBewerbungSweepSaisons();
 
   const uebergangen: Uebergangen = { bewerbung: 0, registrierung: 0 };
-  const fehler: unknown[] = [];
+  const error: unknown[] = [];
   // Season by season and never in parallel: the sweep is on the clock of a day, and one slow pass costs nothing.
   for (const saisonId of saisonIds) {
     // Its own event per half: one line for both cannot say which stopped, and that is the question
     // `docs/ops/runbooks.md` section 9 sends an operator to the logs with.
-    await halbe("bewerbung.sweep_failed", saisonId, fehler, async () => {
+    await halbe("bewerbung.sweep_failed", saisonId, error, async () => {
       uebergangen.bewerbung += (await postBewerbungSweep(saisonId)).failed;
     });
-    await halbe("registrierung.sweep_failed", saisonId, fehler, async () => {
+    await halbe("registrierung.sweep_failed", saisonId, error, async () => {
       uebergangen.registrierung += (await postRegistrierungSweep(saisonId)).failed;
     });
   }
 
-  if (fehler.length === 0) return { uebergangen: uebergangen };
+  if (error.length === 0) return { uebergangen: uebergangen };
 
-  return { uebergangen: uebergangen, fehler: new AggregateError(fehler, `${String(fehler.length)} of the seasons' sweep calls failed.`) };
+  return { uebergangen: uebergangen, error: new AggregateError(error, `${String(error.length)} of the seasons' sweep calls failed.`) };
 }
 
 /** One season's half, its failure filed under its own line and kept for the pass's answer. */
-async function halbe(event: SweepFailure, saisonId: string, fehler: unknown[], lauf: () => Promise<void>): Promise<void> {
+async function halbe(event: SweepFailure, saisonId: string, errors: unknown[], lauf: () => Promise<void>): Promise<void> {
   try {
     await lauf();
   } catch (error) {
     logSweepFailure(event, error, saisonId);
-    fehler.push(error);
+    errors.push(error);
   }
 }
 

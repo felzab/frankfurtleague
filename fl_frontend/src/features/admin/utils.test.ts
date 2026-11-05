@@ -168,11 +168,17 @@ describe("categorizeActionRequired", () => {
      adopted one asks nothing, its result standing as the report proposes. */
   it("files a fixture under its report's proposal while the report reads proposed, diverging or about other teams, never once adopted or called off", () => {
     const spiel = makeSpiel({ datum: TODAY, ergebnis: "3:1" });
-    const nach = (zustand: FLSpielberichtState) =>
-      categorizeActionRequired([spiel], TODAY, [], saisonBestaetigungen([], []), [{ spiel_id: spiel.id, state: zustand }]).ergebnis_vorschlag
+    const filedFor = (state: FLSpielberichtState) =>
+      categorizeActionRequired([spiel], TODAY, [], saisonBestaetigungen([], []), [{ spiel_id: spiel.id, state: state }]).ergebnis_vorschlag
         .length;
 
-    expect([nach("vorgeschlagen"), nach("differing"), nach("teams_changed"), nach("adopted"), nach("abgesagt")]).toStrictEqual([1, 1, 1, 0, 0]);
+    expect([
+      filedFor("vorgeschlagen"),
+      filedFor("differing"),
+      filedFor("teams_changed"),
+      filedFor("adopted"),
+      filedFor("abgesagt"),
+    ]).toStrictEqual([1, 1, 1, 0, 0]);
   });
 
   /* The section's description is what tells a reader why a card stands here, so it names every state the section files:
@@ -251,9 +257,9 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
   // The next hourly pass closes these, so until then they speak for nothing the fixture holds.
   it("counts no closed row and no row about an Ansetzung the fixture has left", () => {
     const geschlossen = zeile({ antwort: VORSCHLAG, closed: { am: "2026-07-29", grund: "discarded" } });
-    const verlegt = zeile({ antwort: VORSCHLAG, ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" } });
+    const moved = zeile({ antwort: VORSCHLAG, ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" } });
 
-    expect(kategorien([geschlossen, verlegt, zeile({ ansetzung: { ...ANSETZUNG, datum: "2026-08-04" } })])).toStrictEqual([]);
+    expect(kategorien([geschlossen, moved, zeile({ ansetzung: { ...ANSETZUNG, datum: "2026-08-04" } })])).toStrictEqual([]);
   });
 
   // Each a reason `grund_to_end` shuts the row on at the next pass, which `spielbestaetigungen/utils.test.ts` holds row by row.
@@ -376,7 +382,7 @@ describe("buildActionRequiredSections", () => {
       spiele,
       today: TODAY,
       bracketFaults: bracketFaults ?? [],
-      bestaetigungen: saisonBestaetigungen([], []),
+      confirmations: saisonBestaetigungen([], []),
       spielberichte: [],
     });
 

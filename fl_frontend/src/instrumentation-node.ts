@@ -41,7 +41,7 @@ export async function registerOnNode() {
 }
 
 /**
- * What one job did in a pass, by count and never by person: `offen` the owed deletions or erasures it left, and
+ * What one job did in a pass, by count and never by person: `open` the owed deletions or erasures it left, and
  * `error` what ended a job part-way, after the work its counts record.
  */
 type JobRun = { readonly count: Readonly<Record<string, number | string | null>>; readonly open: number; readonly error?: unknown };
@@ -74,7 +74,7 @@ async function loadJobs(): Promise<{
     jobs: [
       { name: "bewerbungen", run: bewerbungen.runBewerbungSweep },
       { name: "account", run: account.runKontoSweep },
-      { name: "erasure", run: erasure.runLoeschungSweep },
+      { name: "erasure", run: erasure.runErasureSweep },
       { name: "spielbestaetigungen", run: spiele.runSpielSweep },
       { name: "grants", run: grants.runBerechtigungenAbgleich },
     ],

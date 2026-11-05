@@ -54,10 +54,10 @@ type Zugangsaenderung = {
 };
 
 /**
- * Who made the change and when, or `null` where it was made in the database directly. `von` is null for an
+ * Who made the change and when, or `null` where it was made in the database directly. `by` is null for an
  * administrator since barred, and `ERASED_ACTOR_MARKER` for one erased since, neither of whom the notice names.
  */
-type Urheber = { readonly von: string | null; readonly am: string | null } | null;
+type Urheber = { readonly by: string | null; readonly at: string | null } | null;
 
 /** A withheld grant address, in the subject's place. An erased person's is named by nothing, not even that state. */
 const OHNE_ADRESSE: Readonly<Record<Vorenthalten["withheld"], string>> = {
@@ -75,27 +75,27 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
 /** The change's sentence, a named address set in the emphasis grade. */
-function aenderungsSatz({ art, adresse, owner: inhaber }: Zugangsaenderung): readonly Run[] {
-  const subjekt: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.withheld];
+function aenderungsSatz({ art, adresse, owner: owner }: Zugangsaenderung): readonly Run[] {
+  const subject: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.withheld];
 
   switch (art) {
     case "granted":
       // An `owner` grant says so: the application writes one only as an owner's address change moves it, the
       // rest coming from the database, and an owner's grant is the one a holder most needs told.
-      return [subjekt, inhaber ? ` hat jetzt Zugang zur Verwaltung als ${INHABER}.` : " hat jetzt Zugang zur Verwaltung."];
+      return [subject, owner ? ` hat jetzt Zugang zur Verwaltung als ${INHABER}.` : " hat jetzt Zugang zur Verwaltung."];
     case "revoked":
       // An `owner` grant's end says so: an erasure ends one with no demotion before it, and the last owner's
       // end is the one a holder most needs told.
       return [
-        subjekt,
-        inhaber ? ` ist nicht mehr ${INHABER} der Verwaltung und hat keinen Zugang mehr.` : " hat keinen Zugang zur Verwaltung mehr.",
+        subject,
+        owner ? ` ist nicht mehr ${INHABER} der Verwaltung und hat keinen Zugang mehr.` : " hat keinen Zugang zur Verwaltung mehr.",
       ];
     case "changed":
-      return [subjekt, inhaber ? ` ist jetzt ${INHABER} der Verwaltung.` : ` ist nicht mehr ${INHABER} der Verwaltung und behält den Zugang.`];
+      return [subject, owner ? ` ist jetzt ${INHABER} der Verwaltung.` : ` ist nicht mehr ${INHABER} der Verwaltung und behält den Zugang.`];
     case "requested":
-      return inhaber
-        ? ["Für ", subjekt, ` ist beantragt, ${INHABER} der Verwaltung zu werden.`]
-        : ["Für ", subjekt, " ist ein Zugang zur Verwaltung beantragt."];
+      return owner
+        ? ["Für ", subject, ` ist beantragt, ${INHABER} der Verwaltung zu werden.`]
+        : ["Für ", subject, " ist ein Zugang zur Verwaltung beantragt."];
   }
 }
 
@@ -103,58 +103,58 @@ function aenderungsSatz({ art, adresse, owner: inhaber }: Zugangsaenderung): rea
  * The acting administrator in the notice's words, never a barred address or the erasure's marker: a named address in
  * the emphasis grade, as the change's own subject is, a withheld one plain.
  */
-function urheberName(von: string | null): Run {
-  if (von === null) return GESPERRTER_URHEBER;
+function urheberName(by: string | null): Run {
+  if (by === null) return GESPERRTER_URHEBER;
 
-  return von === ERASED_ACTOR_MARKER ? UNGENANNTER_URHEBER : { strong: von };
+  return by === ERASED_ACTOR_MARKER ? UNGENANNTER_URHEBER : { strong: by };
 }
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */
 function urheberSatz(urheber: Urheber, verb: string): readonly Run[] {
   if (urheber === null) return [OHNE_VERWALTUNG];
 
-  return [`${verb} von `, urheberName(urheber.von), urheber.am === null ? "." : ` am ${formatInstant(urheber.am)}.`];
+  return [`${verb} von `, urheberName(urheber.by), urheber.at === null ? "." : ` am ${formatInstant(urheber.at)}.`];
 }
 
 /** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */
-function adresseOf(daten: FLGrantData, stand: FLGrantSnapshot | null): string | Vorenthalten {
-  return stand?.adresse ?? { withheld: daten.withheld ?? "barred" };
+function adresseOf(data: FLGrantData, stand: FLGrantSnapshot | null): string | Vorenthalten {
+  return stand?.adresse ?? { withheld: data.withheld ?? "barred" };
 }
 
 /**
  * A change as the notice words it. An address repointed under one id reaches here as two changes, its
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
-function zugangsaenderungOf(daten: FLGrantData): Zugangsaenderung {
-  const stand = daten.change === "revoked" ? daten.before : daten.now;
+function zugangsaenderungOf(data: FLGrantData): Zugangsaenderung {
+  const stand = data.change === "revoked" ? data.before : data.now;
 
-  return { art: daten.change, adresse: adresseOf(daten, stand), owner: stand?.verwaltung === "owner" };
+  return { art: data.change, adresse: adresseOf(data, stand), owner: stand?.verwaltung === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: an application's change whose actor is withheld is a barred one's. */
-function urheberOf(daten: FLGrantData): Urheber {
-  if (daten.author === "datenbank") return null;
+function urheberOf(data: FLGrantData): Urheber {
+  if (data.author === "datenbank") return null;
 
-  return { von: daten.changed_by, am: daten.changed_at };
+  return { by: data.changed_by, at: data.changed_at };
 }
 
 /** **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice. */
-export function buildBerechtigungEmail(daten: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
-  const aenderung = zugangsaenderungOf(daten);
-  const urheber = urheberOf(daten);
+export function buildBerechtigungEmail(data: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
+  const aenderung = zugangsaenderungOf(data);
+  const urheber = urheberOf(data);
   const origin = mailOrigin(rawOrigin);
   // A request is asked of its reader rather than told to them, so it is headed, signed and closed as one.
-  const antrag = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
+  const approval_request = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
 
   return {
     kind: "notice",
-    subjectLine: antrag?.betreff ?? BETREFF,
+    subjectLine: approval_request?.betreff ?? BETREFF,
     origin: origin,
     vorname: "",
     paragraphs: [
       [aenderungsSatz(aenderung)],
-      [urheberSatz(urheber, antrag === null ? "Geändert" : "Beantragt")],
-      antrag?.aufgabe ?? [WARNSATZ],
+      [urheberSatz(urheber, approval_request === null ? "Geändert" : "Beantragt")],
+      approval_request?.aufgabe ?? [WARNSATZ],
     ],
     button: { label: ZIEL_LABEL, href: `${origin}${ZIEL_PFAD}` },
   };

@@ -26,7 +26,7 @@ function erasureLink(origin: string, token: string): string {
 
 // The link opens on any browser: a signed-out one is led through the sign-in and back to it
 // (`fl_frontend/src/core/auth/returnAddress.ts`).
-export function buildLoeschungEmail({ origin, token }: { origin: string; token: string }): Mail {
+export function buildErasureEmail({ origin, token }: { origin: string; token: string }): Mail {
   // Normalised before the link is spelled, so a configured trailing slash reaches neither version.
   const site = mailOrigin(origin);
 

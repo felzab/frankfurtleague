@@ -203,7 +203,7 @@ export function BewerbungAngabenPanel({
                     <Angabe label="Bestätigung">
                       {/* A step not taken stands where the confirmation's day would, so it takes the empty
                           grade; a confirmation or a Widerspruch is the fact itself. */}
-                      {stand.stand.art === "confirmed" || stand.stand.art === "declined" ? stand.satz : <Leer>{stand.satz}</Leer>}
+                      {stand.stand.art === "confirmed" || stand.stand.art === "declined" ? stand.sentence : <Leer>{stand.sentence}</Leer>}
                     </Angabe>
                     {/* While pending alone: the person withdraws either choice on the account page then, and a
                         decided application's copy is frozen, the seats' choices living on the team's row. */}
@@ -217,7 +217,7 @@ export function BewerbungAngabenPanel({
                           />
                         </Angabe>
                         <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
-                          {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+                          {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
                           <Beleg
                             nachweis={person.einwilligung.nachweis.medien}
                             bestaetigung={bestaetigungOf(person.einwilligung)}

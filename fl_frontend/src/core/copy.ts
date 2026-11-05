@@ -82,9 +82,9 @@ const K_O_RUNDE = "K.-o.-Runde";
 // its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
 const SPIEL_FACT = { datum: "Datum", uhrzeit: "Uhrzeit" } as const;
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
-const ANMELDUNG = "Anmeldung";
-const MIT_PASSKEY_ANMELDEN = "Mit Passkey anmelden";
-const PASSKEY_EINRICHTEN = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
+const SIGN_IN = "Anmeldung";
+const SIGN_IN_WITH_PASSKEY = "Mit Passkey anmelden";
+const SET_UP_PASSKEY = { title: "Passkey einrichten", button: "Jetzt einrichten" } as const;
 // The glossary's nouns, each one entry of `shared` and read under the page keys and the match facts naming them.
 const SPIELER = "Spieler";
 const SCHIEDSRICHTER = "Schiedsrichter";
@@ -220,16 +220,16 @@ export const COPY = catalogue({
     /** The mark a result decided in a shoot-out carries, under the score in a match row and a match's head. */
     afterElfmeterschiessen: "n. E.",
     /**
-     * The two routes out of a season, each in its three wordings: `label` names the record, `zustand` the club's
+     * The two routes out of a season, each in its three wordings: `label` names the record, `state` the club's
      * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
      * one record differently.
      */
     austritt: {
-      disqualifikation: { label: "Disqualifikation", zustand: "Disqualifiziert", kuerzel: "DQ" },
-      rueckzug: { label: "Rückzug", zustand: "Zurückgezogen", kuerzel: "RZ" },
+      disqualifikation: { label: "Disqualifikation", state: "Disqualifiziert", kuerzel: "DQ" },
+      rueckzug: { label: "Rückzug", state: "Zurückgezogen", kuerzel: "RZ" },
     },
-    /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `zustand` and the day it took effect. */
-    austrittSeit: (zustand: Copy, day: CalendarDay) => `${zustand} seit ${formatDatum(day)}`,
+    /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `state` and the day it took effect. */
+    austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDatum(day)}`,
     startelf: "Startelf",
     bank: "Bank",
     /** A club's goals, a match's and a season's: a column head, a tile, a field's message. */
@@ -287,23 +287,23 @@ export const COPY = catalogue({
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
     privacyNotice: PRIVACY_NOTICE,
-    accountSignIn: ANMELDUNG,
+    accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",
     accountEntries: "Deine Einträge",
-    verwaltungSaisons: "Saisons",
+    adminSaisons: "Saisons",
     spiele: "Spiele",
-    verwaltungSpielorte: "Spielorte",
-    verwaltungSchiedsrichter: SCHIEDSRICHTER,
-    verwaltungBewerbungen: "Bewerbungen",
-    verwaltungSpieler: SPIELER,
+    adminSpielorte: "Spielorte",
+    adminSchiedsrichter: SCHIEDSRICHTER,
+    adminBewerbungen: "Bewerbungen",
+    adminSpieler: SPIELER,
     registrierungen: "Registrierungen",
     teamKader: KADER,
-    verwaltungAdministrators: "Administratoren",
-    verwaltungSperrliste: "Sperrliste",
-    verwaltungErasures: "Löschungen",
-    verwaltungAddressChanges: "Adressänderungen",
-    verwaltungActionLog: "Protokoll",
+    adminAdministrators: "Administratoren",
+    adminBanList: "Sperrliste",
+    adminErasures: "Löschungen",
+    adminAddressChanges: "Adressänderungen",
+    adminActionLog: "Protokoll",
     addressChangeConfirmation: "Änderung der E-Mail-Adresse",
     /** A contact person's and a referee's confirmation of their own entry. */
     entryConfirmation: "Eintrag bestätigen",
@@ -354,7 +354,7 @@ export const COPY = catalogue({
        */
       consequence: {
         ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
-        nichtAngetreten: (gegner: Words) => `Das Spiel wird für ${textOf(gegner)} gewertet.`,
+        nichtAngetreten: (opponent: Words) => `Das Spiel wird für ${textOf(opponent)} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
         annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
@@ -419,7 +419,7 @@ export const COPY = catalogue({
     address: "E-Mail-Adresse",
     sendCode: "Code senden",
     or: "oder",
-    withPasskey: MIT_PASSKEY_ANMELDEN,
+    withPasskey: SIGN_IN_WITH_PASSKEY,
 
     /**
      * The code view: one sentence for every address, so it says nothing about who holds an account, in the two
@@ -435,9 +435,9 @@ export const COPY = catalogue({
     signedInAs: { before: "Du bist als", after: "angemeldet." },
 
     passkey: {
-      setUp: { ...PASSKEY_EINRICHTEN, sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar." },
-      signIn: { title: MIT_PASSKEY_ANMELDEN, sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
-      offer: { ...PASSKEY_EINRICHTEN, sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an." },
+      setUp: { ...SET_UP_PASSKEY, sentence: "Die Verwaltung ist erst mit einem Passkey erreichbar." },
+      signIn: { title: SIGN_IN_WITH_PASSKEY, sentence: "Melde dich mit dem Passkey an, den du eingerichtet hast.", button: "Jetzt anmelden" },
+      offer: { ...SET_UP_PASSKEY, sentence: "Mit einem Passkey meldest du dich künftig sicher ohne Code an." },
       later: "Später",
     },
 
@@ -577,7 +577,7 @@ export const COPY = catalogue({
   },
 
   /** The administration's own words: its frame, the Spielorte list, the match editor and the season editor. */
-  verwaltung: {
+  admin: {
     /** The role an administrator acts in, the account row's second line. */
     role: "Verwaltung",
     /** The rail's headings over its groups; the Übersicht stands above them with none. */

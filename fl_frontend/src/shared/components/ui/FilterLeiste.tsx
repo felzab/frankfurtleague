@@ -18,7 +18,7 @@ import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { benannt } from "@/shared/utils/benannt";
 import { offeredOptions } from "@/shared/utils/facets";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
-import { leserichtungHref } from "@/shared/utils/leserichtung";
+import { readingDirectionHref } from "@/shared/utils/leserichtung";
 
 import { countBadge } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
@@ -190,7 +190,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
 
     // Off the LIVE query string, as `useUrlFilters.write` reads it: a facet that narrows no read is written
     // with `replaceState`, so since this render it sits in the address bar and in no prop.
-    const href = leserichtungHref(new URLSearchParams(window.location.search), ziel);
+    const href = readingDirectionHref(new URLSearchParams(window.location.search), ziel);
 
     // `replace`, never `push`, for the bar's own rule: back should leave the list. `scroll: false` as every
     // narrowing here, the reader looking at the rows this reorders.

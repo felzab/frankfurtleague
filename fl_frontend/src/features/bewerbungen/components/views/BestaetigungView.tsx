@@ -61,15 +61,15 @@ const linkRollen = ({ rolle, also_rolle: zugleich_rolle }: FLBewerbungEinwilligu
   rollenLangform([rolle, zugleich_rolle]);
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
-function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: FLBewerbungEinwilligungViewResponse, token: string): Stand {
-  if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
-  if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
+function nachAntwort(abschluss: BestaetigungAbschluss, view: FLBewerbungEinwilligungViewResponse, token: string): Stand {
+  if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: view };
+  if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: view };
   // The season closed since the page opened, and the token still takes a Widerspruch. Named off the read after the
   // press where there is one, as a reload names it: the opening read cannot know the team left since.
-  if (abschluss.zustand === "saison_vorbei") return { zustand: "saison_past", ansicht: abschluss.ansicht ?? ansicht, token: token };
+  if (abschluss.zustand === "saison_vorbei") return { zustand: "saison_past", ansicht: abschluss.ansicht ?? view, token: token };
 
   // The read that opened the page knew the record, which the spent link's panel words itself by.
-  return { zustand: abschluss.zustand, quelle: ansicht.quelle };
+  return { zustand: abschluss.zustand, quelle: view.quelle };
 }
 
 /** Whether the page is about a seat an administrator typed onto a team's season row, which no application stands behind. */
@@ -108,9 +108,9 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           <FaktenBanner
             zeilen={[
               // A season row's seat is entered for a team, which its stamped words and its mail call it.
-              { label: saisonRow ? "Team" : "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
-              { label: "Saison", wert: stand.ansicht.saison_id },
-              { label: "Deine Rolle", wert: linkRollen(stand.ansicht) },
+              { label: saisonRow ? "Team" : "Schule", value: stand.ansicht.schule, unbegrenzt: true },
+              { label: "Saison", value: stand.ansicht.saison_id },
+              { label: "Deine Rolle", value: linkRollen(stand.ansicht) },
             ]}
           />
         )}
@@ -168,8 +168,8 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
               the seat are what they just confirmed, and the heading above says they did. */}
           <GespeicherteAngaben
             zeilen={[
-              { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
-              { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
+              { label: "Geburtsdatum", value: formatSpielDatum(stand.geburtsdatum) },
+              { label: "WhatsApp", value: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
               medienZeile(stand.medien),
             ]}
           />

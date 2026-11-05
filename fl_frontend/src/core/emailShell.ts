@@ -1,6 +1,6 @@
 import "server-only";
 
-import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
+import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
 import { COPY } from "./copy";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -276,7 +276,7 @@ function legalLinks(origin: string): readonly { readonly label: string; readonly
   ];
 }
 
-const VEREIN_ROW = `${VEREIN_NAME} · ${VEREIN_ANSCHRIFT}`;
+const VEREIN_ROW = `${VEREIN_NAME} · ${VEREIN_ADDRESS}`;
 
 function renderHtml(mail: Mail, subjectLine: string): string {
   const content: Block[] = [

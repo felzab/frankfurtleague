@@ -36,7 +36,7 @@ const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nich
  * Ends the address's live sessions, which the refusal of every next sign-in does not reach.
  * A failure leaves the ban standing, as a failed notice does.
  */
-async function abmelden(email: string): Promise<string | null> {
+async function signOut(email: string): Promise<string | null> {
   try {
     await endSessionsOfAddress(email);
     return null;
@@ -66,7 +66,7 @@ async function kontoBesteht(email: string): Promise<boolean | null> {
  * What the address holds, read for the ban's dialog ahead of the ban: the erasure's
  * own reveal, every record it names being one the ban leaves standing.
  */
-export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "email">): Promise<QueryResult<{ ansicht: SperreAnsicht }>> {
+export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "email">): Promise<QueryResult<{ view: SperreAnsicht }>> {
   return runAdminMutation("readSperreAnsichtAction", async () => {
     const validated = AnsichtPayloadSchema.safeParse(rawPayload);
 
@@ -78,9 +78,9 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
       };
     }
 
-    let gelesen: FLErasureViewResponse;
+    let read: FLErasureViewResponse;
     try {
-      gelesen = await readLoeschungAnsicht(validated.data);
+      read = await readLoeschungAnsicht(validated.data);
     } catch (error) {
       const refusal = mapAnsichtRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
@@ -89,11 +89,11 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
 
     // Refused rather than listed, in the ban's own order: the ban refuses an address holding a grant or barred already,
     // so its list would be work for nothing.
-    const { verwaltung, barred: gesperrt, ...ansicht } = gelesen;
+    const { verwaltung, barred: barred, ...view } = read;
     if (verwaltung !== null) return refusalResult(verwaltungAmFeld());
-    if (gesperrt) return refusalResult(schonGesperrtAmFeld());
+    if (barred) return refusalResult(schonGesperrtAmFeld());
 
-    return { success: true, ansicht: ansicht };
+    return { success: true, view: view };
   });
 }
 
@@ -110,11 +110,11 @@ export async function postSperreAction(rawPayload: SperreEntwurf): Promise<Actio
     }
 
     // Read before the write, so the ban owes its own notice in its own transaction where an account stands.
-    const konto = await kontoBesteht(validated.data.email);
+    const account = await kontoBesteht(validated.data.email);
 
     // The refusal belongs on the box holding the value it refuses, not on the error page.
     try {
-      await postSperre({ ...validated.data, notify: konto === true });
+      await postSperre({ ...validated.data, notify: account === true });
     } catch (error) {
       const refusal = mapSperreRefusal(error);
       if (refusal) return refusalResult(refusal);
@@ -122,10 +122,10 @@ export async function postSperreAction(rawPayload: SperreEntwurf): Promise<Actio
     }
 
     // AFTER the write is acknowledged, so nobody is signed out by a request that then failed.
-    const abgemeldet = await abmelden(validated.data.email);
+    const abgemeldet = await signOut(validated.data.email);
 
     // Each is told, and none undoes the ban: the write is acknowledged and no address survives to retry a failure with.
-    const told = [abgemeldet, konto === null ? NICHT_BENACHRICHTIGT : konto ? null : KEIN_KONTO].filter((sentence) => sentence !== null);
+    const told = [abgemeldet, account === null ? NICHT_BENACHRICHTIGT : account ? null : KEIN_KONTO].filter((sentence) => sentence !== null);
 
     return {
       success: true,

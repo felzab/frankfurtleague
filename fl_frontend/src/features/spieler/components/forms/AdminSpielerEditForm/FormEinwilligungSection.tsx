@@ -54,7 +54,7 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
           {/* A word and never a switch: this panel reads a record back, and a control here would
                 offer an administrator the answer that is the person's alone. */}
           <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
-            {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+            {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
             <Beleg
               nachweis={einwilligung.nachweis.medien}
               bestaetigung={bestaetigungOf(einwilligung)}

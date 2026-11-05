@@ -50,7 +50,7 @@ export function AdminSpielberichtPanel({
   today: string;
 }) {
   const panel = formPanel();
-  const zustand = stand?.lesen.state ?? null;
+  const state = stand?.lesen.state ?? null;
 
   return (
     <section className={panel.root()}>
@@ -58,7 +58,7 @@ export function AdminSpielberichtPanel({
         <PanelHeading
           className={panel.heading()}
           title="Spielbericht">
-          {zustand !== null && <span className={labelBadge(SPIELBERICHT_ZUSTAND_TONE[zustand])}>{SPIELBERICHT_ZUSTAND_LABELS[zustand]}</span>}
+          {state !== null && <span className={labelBadge(SPIELBERICHT_ZUSTAND_TONE[state])}>{SPIELBERICHT_ZUSTAND_LABELS[state]}</span>}
         </PanelHeading>
       </div>
 
@@ -97,12 +97,12 @@ function BerichtInhalt({
 }) {
   const saisonHref = useSaisonHref();
   const { lesen } = stand;
-  const { bericht, state: zustand, spiel } = lesen;
+  const { bericht, state: state, spiel } = lesen;
   // Both writes refuse a called-off fixture (`bericht_abgesagt`), and its result is no proposal's to set.
-  const istAbgesagt = zustand === "abgesagt";
+  const istAbgesagt = state === "abgesagt";
   // A proposal by side about clubs that left: its score beside this fixture's clubs would read as theirs, as the card's
   // chip withholds it (`fl_frontend/src/features/spielberichte/utils.ts :: berichtChip`).
-  const zeigtVorschlag = !istAbgesagt && zustand !== "teams_changed";
+  const zeigtVorschlag = !istAbgesagt && state !== "teams_changed";
 
   return (
     <>
@@ -119,12 +119,12 @@ function BerichtInhalt({
             ].join(" · ")}
           </p>
 
-          {zustand === "differing" && (
+          {state === "differing" && (
             <p className="muted-hint">
               Das gespeicherte Ergebnis ist nicht aus diesem Bericht übernommen, oder der Bericht wurde seitdem geändert.
             </p>
           )}
-          {zustand === "teams_changed" && (
+          {state === "teams_changed" && (
             <p className="muted-hint">
               Der Bericht wurde für andere Teams geschrieben, als jetzt im Spiel stehen. Übernehmen lässt er sich erst, wenn er für diese Teams
               neu gespeichert ist.

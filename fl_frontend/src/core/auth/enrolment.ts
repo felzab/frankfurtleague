@@ -5,7 +5,7 @@ import { APIError } from "better-auth/api";
 import { isPasskeyTouch } from "./sessionStamps";
 
 import type { DBTransactionAdapter } from "better-auth";
-import type { AnmeldungRecords } from "../signInGate";
+import type { SignInRecords } from "../signInGate";
 import type { SessionStamps } from "./sessionStamps";
 
 // A ceiling nothing else supplies: one session that passed the assertion can enrol without limit. Five, because an
@@ -16,7 +16,7 @@ export const PASSKEY_LIMIT = 5;
  * A barred address enrols nothing, whatever it holds: its session is one a ban's ending missed or a
  * mint raced, and a passkey would outlive both.
  */
-export function refuseBarred(signIn: AnmeldungRecords): void {
+export function refuseBarred(signIn: SignInRecords): void {
   if (signIn.barred) throw APIError.fromStatus("NOT_FOUND");
 }
 
@@ -28,7 +28,7 @@ export function refuseBarred(signIn: AnmeldungRecords): void {
  */
 export type EnrolmentRead = {
   readonly userId: string;
-  readonly signIn: AnmeldungRecords;
+  readonly signIn: SignInRecords;
   readonly sentAt: Date;
   readonly challengeIssuedAt: Date | null;
 };
@@ -45,7 +45,7 @@ export function carriedEnrolmentRead(ctx: object | undefined, userId: string): E
 }
 
 /** The carried read, or the default-deny net's refusal where the hook carried none for this caller. */
-export function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
+export function carriedOrRefuse(ctx: object, userId: string): SignInRecords {
   const read = carriedEnrolmentRead(ctx, userId);
   if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
   return read.signIn;

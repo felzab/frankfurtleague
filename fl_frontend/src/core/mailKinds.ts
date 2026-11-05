@@ -20,8 +20,8 @@ import {
 import { buildEinladungEmail } from "./einladungEmail";
 import { ContractBreakError } from "./errors";
 import { buildKontaktBestaetigungEmail } from "./kontaktEmail";
-import { buildLoeschungEmail } from "./loeschungEmail";
-import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
+import { buildErasureEmail } from "./loeschungEmail";
+import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
 import { buildSperreEmail } from "./sperrlisteEmail";
@@ -90,10 +90,10 @@ function minted({ token, origin }: Handout): MailLink {
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
   passkey_hinzugefuegt: ({ instant, account }, { origin }) =>
-    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
+    buildPasskeyAddedEmail({ instant: new Date(instant), origin: origin, account: account }),
   passkey_erased: ({ instant, account }, { origin }) =>
-    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
-  account_erasure: (_data, { secret, origin }) => buildLoeschungEmail({ origin: origin, token: secretOf(secret) }),
+    buildPasskeyErasedEmail({ instant: new Date(instant), origin: origin, account: account }),
+  account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin: origin, token: secretOf(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterBestaetigungEmail(data, minted(handout)),
   spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_reminder: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),

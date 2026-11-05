@@ -18,10 +18,10 @@ const PAYLOAD_REFUSED = "payload_refused";
 // and the switcher of one render share one read, and outside a render nothing is kept.
 /**
  * One folded mailbox's records, ban and grant, every reader but the sign-in gate taking them through this
- * one call: the gate, a passkey enrolment's included, reads `lookUpAnmeldung`. Throws on every backend
+ * one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`. Throws on every backend
  * failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
  */
-export const lookUpSubjekt = cache((email: string): Promise<SubjectSession["subject"]> =>
+export const lookUpSubject = cache((email: string): Promise<SubjectSession["subject"]> =>
   // Under the edge's trace: a render's first guard and the sign-in landing's handler reach here before anything
   // has opened the request's scope, and a call outside one is filed under a trace no edge line carries. Inside a
   // scope already open, an action's or the render's, the read joins it rather than opening another; but the wrapper
@@ -48,16 +48,16 @@ export const lookUpSubjekt = cache((email: string): Promise<SubjectSession["subj
 );
 
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
-export type AnmeldungRecords = FLSignInResponse;
+export type SignInRecords = FLSignInResponse;
 
-// React's `cache` for `lookUpSubjekt`'s reason. Its own read rather than the subject's: only a sign-in
-// pays for the two collections `konto` reads beyond the subject's three.
+// React's `cache` for `lookUpSubject`'s reason. Its own read rather than the subject's: only a sign-in
+// pays for the two collections `account` reads beyond the subject's three.
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
-export const lookUpAnmeldung = cache(async (email: string): Promise<AnmeldungRecords> => {
-  // In the body, for `lookUpSubjekt`'s reason.
+export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> => {
+  // In the body, for `lookUpSubject`'s reason.
   const answer = await identityGetSignIn({ email: email });
 
-  // Field by field, for `lookUpSubjekt`'s reason.
+  // Field by field, for `lookUpSubject`'s reason.
   return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, verwaltung: answer.verwaltung };
 });
 
@@ -73,12 +73,12 @@ export type SignInVerdict = "admitted" | "barred" | "holds-nothing" | "failed";
  */
 export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdict> {
   const email = asSignInIdentifier(identifier);
-  let anmeldung: AnmeldungRecords;
+  let signIn: SignInRecords;
 
   // Behind the sign-in action's response the request scope still bounds the read, so a spent
   // deadline refuses it unsent and lands below.
   try {
-    anmeldung = await lookUpAnmeldung(email);
+    signIn = await lookUpSignIn(email);
   } catch (failed) {
     // Closed, for an administrator too: a sign-in past a failed read would defeat the ban. The person
     // cannot tell this from an unknown address, so the line is the only signal, carrying the name alone.
@@ -89,22 +89,22 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
     return "failed";
   }
 
-  return signInVerdictOf(anmeldung);
+  return signInVerdictOf(signIn);
 }
 
 /**
  * The gate over an answer already read, for a caller that read it where no round trip may run: the
  * registration's transaction (`fl_frontend/src/core/auth/minting.ts :: refuseUnadmitted`).
  */
-export function signInVerdictOf(anmeldung: AnmeldungRecords): Exclude<SignInVerdict, "failed"> {
+export function signInVerdictOf(signIn: SignInRecords): Exclude<SignInVerdict, "failed"> {
   // Ahead of every record and the grant: a barred address still holding a seat, awaiting a
   // confirmation or holding a grant written in the database directly is offered nothing.
-  if (anmeldung.barred) return "barred";
+  if (signIn.barred) return "barred";
 
-  if (anmeldung.verwaltung !== null) return "admitted";
+  if (signIn.verwaltung !== null) return "admitted";
 
-  // `konto` and never a Funktion: a person whose only record grants no panel still has a consent to
+  // `account` and never a Funktion: a person whose only record grants no panel still has a consent to
   // take back on the account page. A pending mailbox signs in too, to be told its confirmation is
   // outstanding.
-  return anmeldung.account || anmeldung.unconfirmed ? "admitted" : "holds-nothing";
+  return signIn.account || signIn.unconfirmed ? "admitted" : "holds-nothing";
 }

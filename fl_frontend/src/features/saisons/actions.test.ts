@@ -430,9 +430,9 @@ describe("the German each widened refusal renders", () => {
   // The draw, the rules write and the create form's own check word the bracket rule in its one sentence.
   it("words a bracket no number pair plays in the rule's one sentence", () => {
     for (const carriedShape of [false, true]) {
-      expect(drawAnswer("rules_bracket_impossible", carriedShape)).toBe(COPY.verwaltung.saison.bracketImpossible);
+      expect(drawAnswer("rules_bracket_impossible", carriedShape)).toBe(COPY.admin.saison.bracketImpossible);
     }
-    expect(mapRulesRefusal(refused("rules_bracket_impossible"))).toStrictEqual({ error: COPY.verwaltung.saison.bracketImpossible });
+    expect(mapRulesRefusal(refused("rules_bracket_impossible"))).toStrictEqual({ error: COPY.admin.saison.bracketImpossible });
   });
 
   /* A draw never carries the forfeit, so its twin of the editor's fault states the editor's own rule and
@@ -500,8 +500,8 @@ const ORT = `${"d".repeat(23)}4`;
 const VORNE = `${"e".repeat(23)}5`;
 
 /** One call of the deletion: whom it erased, who is still due after it, and where the pass goes on. */
-const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null, seit: string | null = "2025") => ({
-  completed_saison_id: seit,
+const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null, since: string | null = "2025") => ({
+  completed_saison_id: since,
   spieler: spieler,
   saison_spieler: spieler * 2,
   registrierungen: 0,
@@ -539,10 +539,10 @@ describe("the deletion the activation runs", () => {
      names deleted pupils until the lifetime passes. One list reads the order rather than assuming it. */
   it("runs the pass to its end after the activation, the tag cleared after the last call's answer", async () => {
     const order: string[] = [];
-    let gelesen = 0;
+    let read = 0;
     const nachtragen = (): void => {
-      for (const { name, args } of cacheCalls.slice(gelesen)) order.push(`${name}(${args.join(", ")})`);
-      gelesen = cacheCalls.length;
+      for (const { name, args } of cacheCalls.slice(read)) order.push(`${name}(${args.join(", ")})`);
+      read = cacheCalls.length;
     };
     const laeufeAntworten = [gelaufen(2, 1, ORT), gelaufen(1, 0)];
     answerWith(async (call) => {
@@ -581,7 +581,7 @@ describe("the deletion the activation runs", () => {
   /* The activation is saved and stays so: answered as failed, the administrator presses again and a stale page
      refuses, or answers a rollover nobody repeated. The line carries what the call says of its request, as the
      hourly pass's does. */
-  for (const [fall, fehler, anfrage] of [
+  for (const [fall, error, request] of [
     [
       "a run the backend answers 500",
       () =>
@@ -629,7 +629,7 @@ describe("the deletion the activation runs", () => {
     it(`answers the activation saved after ${fall}, and says what the hourly pass finishes`, async () => {
       aktivierungUndLaeufe(
         () => Promise.resolve(gelaufen(1, 4, ORT)),
-        () => Promise.reject(fehler()),
+        () => Promise.reject(error()),
       );
 
       const message = await umgestellt();
@@ -639,7 +639,7 @@ describe("the deletion the activation runs", () => {
           "Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.",
       );
       expect(loggedLines.filter(({ message: line }) => line === "erasure.activation_failed")).toStrictEqual([
-        { level: "error", message: "erasure.activation_failed", meta: { name: fehler().name, ...anfrage } },
+        { level: "error", message: "erasure.activation_failed", meta: { name: error().name, ...request } },
       ]);
     });
   }

@@ -10,7 +10,7 @@ type LoeschungSumme = Omit<FLErasureSweepResponse, "nach">;
 
 /** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
 export type LoeschungSweep =
-  (LoeschungSumme & { abgebrochen: false }) | (Omit<LoeschungSumme, "remaining"> & { abgebrochen: true; fehler: unknown });
+  (LoeschungSumme & { abgebrochen: false }) | (Omit<LoeschungSumme, "remaining"> & { abgebrochen: true; error: unknown });
 
 // A loop and no request, so outside `mutations.ts`, whose every export the step-up reader takes for one.
 /**
@@ -52,9 +52,9 @@ export async function sweepLoeschung(lauf: (nach: string | null) => Promise<FLEr
       // in front of a due person the next call reaches.
       nach = antwort.nach;
     } while (nach !== null);
-  } catch (fehler) {
+  } catch (error) {
     const { remaining: _unbekannt, ...bisher } = summe;
-    return { ...bisher, abgebrochen: true, fehler: fehler };
+    return { ...bisher, abgebrochen: true, error: error };
   }
 
   return { ...summe, abgebrochen: false };

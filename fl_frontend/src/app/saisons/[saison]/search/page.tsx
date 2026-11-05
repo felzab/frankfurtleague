@@ -102,7 +102,7 @@ function wordsOf(spiel: FLSpielJoined): string {
  * The Spielsuche: the season's matches as the Spielplan's cards, narrowed by phase, club and matchday, the
  * values in the address, and by the text typed into its search field, which stays on the page.
  */
-export default function SpielsuchePage({ params, searchParams }: Props) {
+export default function SpielSearchPage({ params, searchParams }: Props) {
   const season = readSeason(params, searchParams);
   return (
     <ListPage

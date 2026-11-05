@@ -56,7 +56,7 @@ registerAuthDoubles({
 
 const store = memoryStore(STORE);
 
-/** One record set the league holds, and the gate's `konto` for it, as the backend answers both reads. */
+/** One record set the league holds, and the gate's `account` for it, as the backend answers both reads. */
 type Subject = Required<LookupFixture>;
 
 const SPIELER = { spieler_id: "b".repeat(24) };
@@ -125,8 +125,8 @@ const { auth } = await import("./auth/library.ts");
 const { getAdminSession } = await import("./auth/guards.ts");
 const { getSignInLanding } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
-const { lookUpSubjekt } = await import("./signInGate.ts");
-const { verwaltungOf } = await import("./verwaltung.ts");
+const { lookUpSubject } = await import("./signInGate.ts");
+const { grantOf } = await import("./verwaltung.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
 const { APINetworkError } = await import("./errors.ts");
 const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
@@ -292,7 +292,7 @@ describe("who the seam answers for", () => {
     arriveAs(cookie);
     const { account: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
     // A key no contract names, as a later backend could answer one beside the records.
-    nextAnswer = new Response(JSON.stringify({ ...records, beigefuegt: "kein Feld des Vertrags" }), {
+    nextAnswer = new Response(JSON.stringify({ ...records, attached: "kein Feld des Vertrags" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -715,7 +715,7 @@ describe("the guard across one render pass", () => {
     arriveAs(cookie);
     const sentBefore = sent.length;
 
-    const [served] = await Promise.all([getAdminSession(), lookUpSubjekt(ADMIN_EMAIL), verwaltungOf(ADMIN_EMAIL)]);
+    const [served] = await Promise.all([getAdminSession(), lookUpSubject(ADMIN_EMAIL), grantOf(ADMIN_EMAIL)]);
 
     expect(served?.user.email, "the guard refused, so the count below counts a refusal").toBe(ADMIN_EMAIL);
     expect(sent.length - sentBefore, "the reads of one admin render pass each asked the backend").toBe(1);

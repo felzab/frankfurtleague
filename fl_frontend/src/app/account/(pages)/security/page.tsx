@@ -44,7 +44,7 @@ async function SecurityContent() {
       passkeys={stand.rows}
       setUpClosed={setUpClosedOf(served, stand)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
-      lastKept={served.verwaltung && stand.rows.length === 1 ? COPY.account.passkeys.lastKept : undefined}
+      lastKept={served.admin && stand.rows.length === 1 ? COPY.account.passkeys.lastKept : undefined}
       devices={COPY.account.devices.description(devices)}
       name={{ required: !PasskeyNameSchema.safeParse("").success, max: PASSKEY_NAME_MAX }}
     />

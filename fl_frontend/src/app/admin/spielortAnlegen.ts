@@ -11,7 +11,7 @@ const { shape } = SpielortePostSpielortBody;
 const adresse = shape.address.shape;
 
 // Digits alone make a price; anything else stays text, which the price's own schema refuses.
-const preis = z.preprocess((wert) => (typeof wert === "string" && /^\d+$/.test(wert) ? Number(wert) : wert), shape.default_mietpreis);
+const preis = z.preprocess((value) => (typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value), shape.default_mietpreis);
 
 /** The create dialog's boxes, by the names they post under, each held to the create's own published rule. */
 const SpielortFormular = z.object({
@@ -36,9 +36,9 @@ export const spielortAnlegen = action({
   ownWords: ["duplicate_key"],
   paths: { name: "name" },
   examples: {
-    plz: COPY.verwaltung.spielort.plzExample,
-    hausnummer: COPY.verwaltung.spielort.hausnummerExample,
-    mietpreis: COPY.verwaltung.spielort.mietpreisExample,
+    plz: COPY.admin.spielort.plzExample,
+    hausnummer: COPY.admin.spielort.hausnummerExample,
+    mietpreis: COPY.admin.spielort.mietpreisExample,
   },
   run: async ({ mietpreis, name, ...address }) => {
     await spielortePostSpielort({ name, default_mietpreis: mietpreis, address });

@@ -29,16 +29,16 @@ export function FormKontakteLinkSection({
 
   // Seats HELD, never the three the block always carries: an erasure leaves them empty. And entries
   // rather than „Personen“, `trainer_is_also` seating one person twice.
-  const belegt = KONTAKT_ROLLEN.filter(({ value }) => kontakte?.[value] != null).length;
+  const occupied = KONTAKT_ROLLEN.filter(({ value }) => kontakte?.[value] != null).length;
 
   // Each count is spelled rather than interpolated into one sentence: `0` and `1` need their own
   // German, and the link's text is also its accessible name.
   const label =
-    belegt === 0
+    occupied === 0
       ? `Kontakte für Saison ${saisonId} hinterlegen`
-      : belegt === 1
+      : occupied === 1
         ? `1 Kontakteintrag für Saison ${saisonId} bearbeiten`
-        : `${String(belegt)} Kontakteinträge für Saison ${saisonId} bearbeiten`;
+        : `${String(occupied)} Kontakteinträge für Saison ${saisonId} bearbeiten`;
 
   return (
     <section className={panel.root()}>

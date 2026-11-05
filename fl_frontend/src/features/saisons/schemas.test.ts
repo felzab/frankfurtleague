@@ -61,7 +61,7 @@ describe("FLPostSaisonPayloadSchema", () => {
       expect(pathsRefused(FLPostSaisonPayloadSchema, draft), `${String(number_of_gruppen)} x ${String(qualifiers_per_gruppe)}`).toStrictEqual([
         "rules",
       ]);
-      expect(messagesRefused(FLPostSaisonPayloadSchema, draft)).toStrictEqual([COPY.verwaltung.saison.bracketImpossible]);
+      expect(messagesRefused(FLPostSaisonPayloadSchema, draft)).toStrictEqual([COPY.admin.saison.bracketImpossible]);
     }
   });
 

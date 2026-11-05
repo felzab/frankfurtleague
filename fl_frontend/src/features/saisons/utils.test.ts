@@ -274,9 +274,9 @@ describe("buildSpielplanBestand", () => {
   /* The two figures answer different questions, and only `erfasst` closes the replace. A merely dated
      season is replaceable, which is precisely why the other figure is carried at all. */
   it("keeps the scheduled count out of the recorded one", () => {
-    const bestand = bestandOf(spiel({ datum: "2026-05-09", uhrzeit: "14:30:00" }), spiel({ ergebnis: "1:1" }));
+    const holdings = bestandOf(spiel({ datum: "2026-05-09", uhrzeit: "14:30:00" }), spiel({ ergebnis: "1:1" }));
 
-    expect(bestand).toStrictEqual({ spiele: 2, erfasst: 1, angesetzt: 1 });
+    expect(holdings).toStrictEqual({ spiele: 2, erfasst: 1, angesetzt: 1 });
   });
 
   it("counts nothing for a season holding no fixtures", () => {

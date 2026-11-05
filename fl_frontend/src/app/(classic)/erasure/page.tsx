@@ -71,7 +71,7 @@ async function readState(): Promise<MailedState> {
   if (account === null && passkeys === 0) redirect(withReturnAddress(ROUTES.signInLanding.path(), link));
 
   return {
-    state: "frage",
+    state: "question",
     title: COPY.page.accountErasure,
     facts: factsOf(subject.email, passkeys, view),
     sentence: WORDS.question,
@@ -111,6 +111,6 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
       value: held.length === 1 && held[0] !== undefined ? held[0] : ENTRIES.several(held),
     })),
     ...count(WORDS.addressChanges, address_change),
-    ...(verwaltung === null ? [] : [{ label: WORDS.grant, value: COPY.verwaltung.role }]),
+    ...(verwaltung === null ? [] : [{ label: WORDS.grant, value: COPY.admin.role }]),
   ];
 }

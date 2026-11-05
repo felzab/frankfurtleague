@@ -13,20 +13,20 @@ function endpointFor(id: string): { endpoint: string; pathname: string } {
 }
 
 describe("isPathAsSpelled", () => {
-  const ECHT = "68f0a1b2c3d4e5f6a7b8c9d0";
-  const RENAVIGIEREND = ["../teams", "../../admin", "a/../../teams", ".", "..", "x/./y"];
+  const GENUINE = "68f0a1b2c3d4e5f6a7b8c9d0";
+  const RENAVIGATING = ["../teams", "../../admin", "a/../../teams", ".", "..", "x/./y"];
 
   it("lets an ordinary id through", () => {
-    const { endpoint, pathname } = endpointFor(ECHT);
+    const { endpoint, pathname } = endpointFor(GENUINE);
 
     expect(isPathAsSpelled(endpoint, pathname, BASE_PATH)).toBe(true);
-    expect(pathname).toBe(`${BASE_PATH}/bewerbungen/${ECHT}`);
+    expect(pathname).toBe(`${BASE_PATH}/bewerbungen/${GENUINE}`);
   });
 
   it("accepts no id the URL parser rewrote", () => {
     // The property rather than the six spellings: whatever renavigation a segment is spelled as, the
     // parser resolves it before any check runs, and what it produced is what would be requested.
-    for (const id of RENAVIGIEREND) {
+    for (const id of RENAVIGATING) {
       const { endpoint, pathname } = endpointFor(id);
 
       expect(isPathAsSpelled(endpoint, pathname, BASE_PATH), `"${id}" was judged against the wrong path`).toBe(

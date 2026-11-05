@@ -29,7 +29,7 @@ describe("the field patterns over the backend's rules", () => {
     expect(rule("kontakt_email_twice")).toStrictEqual({ field: field.taken });
     expect(rule("kontakt_telefon_twice")).toStrictEqual({ field: field.taken });
     expect(rule("nichtantreten_with_tore")).toStrictEqual({ field: field.without(COPY.shared.tore) });
-    expect(rule("nichtantreten_with_torschuetzen")).toStrictEqual({ field: field.without(COPY.verwaltung.spiel.torschuetzen) });
+    expect(rule("nichtantreten_with_torschuetzen")).toStrictEqual({ field: field.without(COPY.admin.spiel.torschuetzen) });
   });
 
   it("prints a season's year bounds with no thousands separator", () => {

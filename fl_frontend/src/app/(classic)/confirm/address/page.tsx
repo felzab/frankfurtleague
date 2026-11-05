@@ -100,7 +100,7 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
 /** A link's question: the change's new address as the one fact, confirmed by the main act and declined by the other. */
 function question(side: Side, token: string, title: Copy, label: Copy, email: string, sentence: Copy): MailedState {
   return {
-    state: "frage",
+    state: "question",
     title: title,
     facts: [{ label: label, value: { record: email } }],
     sentence: sentence,
@@ -112,21 +112,21 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
 
 /** Session 7: the administrator's way, which keeps the old view. */
 async function administratorsWay(read: FLAddressChangeViewResponse, token: string): Promise<MailedState> {
-  const gelesen = viewOf(read);
+  const view = viewOf(read);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (gelesen.zustand === "valid" && (await accountAtNewAddress({ token: token }))) {
-    return oldView({ zustand: "not_confirmable", way: gelesen.way }, token);
+  if (view.state === "valid" && (await accountAtNewAddress({ token: token }))) {
+    return oldView({ state: "not_confirmable", way: view.way }, token);
   }
-  return oldView(gelesen, token);
+  return oldView(view, token);
 }
 
-function oldView(gelesen: ReturnType<typeof viewOf>, token: string): MailedState {
+function oldView(read: ReturnType<typeof viewOf>, token: string): MailedState {
   return {
     state: "alt",
     view: (
       <ClassicPage width="form">
         <AdresswechselLinkView
-          start={startOf(gelesen, token)}
+          start={startOf(read, token)}
           beantworten={verwaltungswegBeantworten}
         />
       </ClassicPage>

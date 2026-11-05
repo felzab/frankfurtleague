@@ -51,10 +51,10 @@ export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({
   emptiness: CrudEmptiness;
 }) {
   /** The eyebrow names the fact at the fact, so no heading over the list can disagree with the block under it. */
-  const renderFact = (label: string, wert: ReactNode) => (
+  const renderFact = (label: string, value: ReactNode) => (
     <div className="flex min-w-0 flex-col gap-1">
       <span className={FACT_LABEL_CLASSES}>{label}</span>
-      {wert}
+      {value}
     </div>
   );
 

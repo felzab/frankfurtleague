@@ -387,7 +387,7 @@ function KontaktpersonFields({
           <AdresswechselOffen
             adresswechselId={adresswechsel.id}
             adresse={adresswechsel.adresse}
-            verwehrt={adresswechsel.denied}
+            denied={adresswechsel.denied}
           />
         )}
 
@@ -548,7 +548,7 @@ function KontaktpersonInputs({
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+              value={person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.given : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
               onChange={() => undefined}>
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />

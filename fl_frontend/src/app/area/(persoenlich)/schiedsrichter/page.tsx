@@ -19,7 +19,7 @@ export default async function PersoenlichSchiedsrichterPage() {
   // To the landing rather than a 404: the address exists, and the landing sends a person on to
   // whatever they do hold.
   if (!rolesOf(subject).roles.some((funktion) => funktion.art === "schiedsrichter")) {
-    logPageVerweigert("/area/schiedsrichter", "keine_funktion");
+    logPageVerweigert("/area/schiedsrichter", "no_role");
     redirect("/area");
   }
 

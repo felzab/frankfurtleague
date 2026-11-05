@@ -18,7 +18,7 @@ import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
 
 /** Under the closed start, why it is closed: the panel offers no repair, a result being the record of play. */
-const START_FIXED = COPY.verwaltung.saison.startFixed;
+const START_FIXED = COPY.admin.saison.startFixed;
 
 /**
  * **The season contains its matchdays, both directions enforced**: `spieltag_outside_saison` outward and

@@ -84,22 +84,22 @@ export type GelesenerSchiedsrichterLink =
 // first spends a second backend read on each of them.
 /**
  * `null` where the code is none of these. The floors come from the token's own read: a number of
- * this mapper's own would be a second copy of one the endpoint alone decides. `gelesen` answers `null`
+ * this mapper's own would be a second copy of one the endpoint alone decides. `read` answers `null`
  * where the read failed.
  */
 export async function mapSchiedsrichterBestaetigungRefusal(
   error: unknown,
-  gelesen: () => Promise<GelesenerSchiedsrichterLink | null>,
+  read: () => Promise<GelesenerSchiedsrichterLink | null>,
 ): Promise<SchiedsrichterBestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
 
-  const ansicht = async () => {
-    const link = await gelesen();
+  const view = async () => {
+    const link = await read();
     return link?.zustand === "valid" ? link.ansicht : null;
   };
   // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
   const stand = async (sonst: SchiedsrichterLinkZustand): Promise<SchiedsrichterLinkZustand> => {
-    const link = await gelesen();
+    const link = await read();
     return link === null || link.zustand === "valid" ? sonst : link.zustand;
   };
 
@@ -112,7 +112,7 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "medien_age":
-      return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
+      return { error: medienNochNicht((await view())?.medien_minimum_age ?? null) };
     case "link_invalid":
       return { zustand: "invalid" };
     // Judged ahead of the ban, which the view ranks first: an address barred since reads as a reload shows it.
@@ -126,7 +126,7 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // The one refusal that spends nothing, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "confirmation_age": {
-      const floor = (await ansicht())?.minimum_age ?? null;
+      const floor = (await view())?.minimum_age ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
       return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
@@ -147,8 +147,8 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.
-        const zustand = mapSchiedsrichterAnsichtRefusal(error);
-        if (zustand !== null) return { zustand: zustand };
+        const state = mapSchiedsrichterAnsichtRefusal(error);
+        if (state !== null) return { zustand: state };
         throw error;
       },
     ),

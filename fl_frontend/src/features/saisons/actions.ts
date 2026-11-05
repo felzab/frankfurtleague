@@ -132,9 +132,9 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
 
     // Called here rather than handed on bare: the step-up reader attributes a request only where an action's own body
     // calls it.
-    const geloescht = await loeschenNachUmstellung((nach) => postLoeschungSweep(nach));
+    const erased_count = await loeschenNachUmstellung((nach) => postLoeschungSweep(nach));
 
-    return { success: true, saison: activateOperation, message: [message, ...geloescht].join(" ") };
+    return { success: true, saison: activateOperation, message: [message, ...erased_count].join(" ") };
   });
 }
 
@@ -142,14 +142,14 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
  * AWAITED inside the action's body, so the spine clears the site's cache tag after the last deletion: a run behind the
  * answer lands after that clear, and a squad page names deleted pupils until the `minutes` lifetime has passed.
  */
-async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLErasureSweepResponse>): Promise<string[]> {
+async function loeschenNachUmstellung(send: (nach: string | null) => Promise<FLErasureSweepResponse>): Promise<string[]> {
   let vonDerFristBeendet = false;
   // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
   // outcome, sending the administrator to check an activation that stands.
   const lauf = await sweepLoeschung((nach) =>
     runAnsweringOwnCut(async () => {
       try {
-        return await senden(nach);
+        return await send(nach);
       } finally {
         // Read inside the call's own scope, which the request's deadline alone marks: the call's own bound does not.
         vonDerFristBeendet = requestOutcomeUnknown();
@@ -159,7 +159,7 @@ async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<F
 
   if (lauf.abgebrochen) {
     // The name and the request's facts, as the hourly pass logs its own: no person reaches this line.
-    const felder = { name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined, ...requestOf(lauf.fehler) };
+    const felder = { name: lauf.error instanceof Error ? lauf.error.name : undefined, ...requestOf(lauf.error) };
     // Below error: wherever more pupils are due than the deadline reaches, its end of the run, a call it left unsent
     // or one it cut, is the expected one, and the hourly pass finishes them with nothing to repair.
     if (vonDerFristBeendet) logger.warn("erasure.activation_cut_short", felder);
@@ -172,12 +172,12 @@ async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<F
 /** Singular and plural spelled out, and nothing said where nobody was due. */
 function loeschungsSaetze(lauf: LoeschungSweep): string[] {
   const saetze: string[] = [];
-  const seit = lauf.completed_saison_id;
+  const since = lauf.completed_saison_id;
 
-  if (seit !== null && lauf.spieler === 1) {
-    saetze.push(`Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison ${seit} wurde gelöscht.`);
-  } else if (seit !== null && lauf.spieler > 1) {
-    saetze.push(`${String(lauf.spieler)} Spielerinnen und Spieler ohne Kadereintrag seit Saison ${seit} wurden gelöscht.`);
+  if (since !== null && lauf.spieler === 1) {
+    saetze.push(`Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison ${since} wurde gelöscht.`);
+  } else if (since !== null && lauf.spieler > 1) {
+    saetze.push(`${String(lauf.spieler)} Spielerinnen und Spieler ohne Kadereintrag seit Saison ${since} wurden gelöscht.`);
   }
 
   // A run cut short cannot say what remains, only who finishes it.
@@ -265,7 +265,7 @@ export async function generateSpielplanAction(
 
     // Said first where a replace removed rows, and off the response's counts rather than the
     // request's flag: the flag restates what was asked for, the counts say what is actually gone.
-    const geloescht =
+    const erased_count =
       generateOperation.removed_spieltage > 0 || generateOperation.removed_spiele > 0
         ? `Gelöscht wurden zuerst ${describeSpielplanUmfang(generateOperation.removed_spieltage, generateOperation.removed_spiele)} des bisherigen Spielplans. `
         : "";
@@ -273,7 +273,7 @@ export async function generateSpielplanAction(
     return {
       success: true,
       spielplan: generateOperation,
-      message: `${geloescht}In Saison ${validated.data.id} stehen jetzt ${umfang}, noch ohne Zeitraum und ohne Termin. Seinen Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite, die Termine der Spiele danach.`,
+      message: `${erased_count}In Saison ${validated.data.id} stehen jetzt ${umfang}, noch ohne Zeitraum und ohne Termin. Seinen Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite, die Termine der Spiele danach.`,
     };
   });
 }

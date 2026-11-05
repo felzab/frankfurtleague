@@ -86,7 +86,7 @@ export function FormSpielplanSection({
   spielplan,
   spieltageCount,
   schedule,
-  bestand,
+  holdings,
   eingereichteBerichte,
   hasDrawnSpiele,
   onBeforeWrite,
@@ -137,7 +137,7 @@ export function FormSpielplanSection({
     spielplan,
     spieltageCount,
     schedule,
-    bestand,
+    holdings,
     eingereichteBerichte,
   });
 
@@ -438,13 +438,13 @@ export function FormSpielplanSection({
                   <dl className="flex w-full flex-col gap-y-1">
                     <ConfirmReadoutRow
                       label="Bisher angelegt"
-                      value={describeSpielplanUmfang(spieltageCount, bestand.spiele)}
+                      value={describeSpielplanUmfang(spieltageCount, holdings.spiele)}
                     />
                     {/* No refusal reads this figure, which is why it is stated: a fully dated season is
                         replaced as readily as an undated one. */}
                     <ConfirmReadoutRow
                       label="Mit Termin oder Uhrzeit"
-                      value={describeAngesetzteSpiele(bestand.angesetzt)}
+                      value={describeAngesetzteSpiele(holdings.angesetzt)}
                     />
                   </dl>
                 </div>

@@ -22,7 +22,7 @@ const [versionShape] = shape.version.unwrap().options;
 
 /** A price box's text: empty is no price, digits alone a figure, anything else stays text the price refuses. */
 const preis = z.preprocess(
-  (wert) => (wert === "" ? null : typeof wert === "string" && /^\d+$/.test(wert) ? Number(wert) : wert),
+  (value) => (value === "" ? null : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value),
   z.union([ortShape.shape.mietpreis, z.null()]),
 );
 
@@ -37,7 +37,7 @@ const SpielSpeichern = z.object({
       uhrzeit: shape.uhrzeit,
       spielort: z.union([ortShape.shape.spielort_id, z.null()]),
       mietpreis: preis,
-      sonderereignis: z.preprocess((wert) => (wert === KEIN_SONDEREREIGNIS ? null : wert), shape.sonderereignis),
+      sonderereignis: z.preprocess((value) => (value === KEIN_SONDEREREIGNIS ? null : value), shape.sonderereignis),
       notiz: shape.notiz,
     })
     .partial(),
@@ -55,24 +55,24 @@ const gespeicherterPreis = (spiel: FLSpielJoinedAdmin) => spiel.ort?.mietpreis ?
  * The fixture as it stands with the editor's changes over it. Today's write replaces the whole fixture, so
  * every field the editor does not show is sent as it is stored: the sides, their sources and the referee.
  */
-function payloadOf(gespeichert: FLSpielJoinedAdmin, changes: Aenderungen): FLPatchSpielDataPayload | ActionAnswer<never> {
-  const werte = werteOf(gespeichert);
+function payloadOf(saved: FLSpielJoinedAdmin, changes: Aenderungen): FLPatchSpielDataPayload | ActionAnswer<never> {
+  const werte = werteOf(saved);
   const spielort = changes.spielort === undefined ? werte.spielort : changes.spielort;
-  const mietpreis = changes.mietpreis === undefined ? gespeicherterPreis(gespeichert) : changes.mietpreis;
+  const mietpreis = changes.mietpreis === undefined ? gespeicherterPreis(saved) : changes.mietpreis;
   // The price is required while a venue is chosen.
   if (spielort !== null && mietpreis === null) return { ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.field.required } };
 
-  const sonderereignis = changes.sonderereignis === undefined ? gespeichert.sonderereignis : changes.sonderereignis;
+  const sonderereignis = changes.sonderereignis === undefined ? saved.sonderereignis : changes.sonderereignis;
   // A no-show's goals are the award the write composed, never a score anyone played: taken back, the award
   // goes with it, else the write keeps the goals as a played result. Cleared, they also meet the rule that an
   // event leaving the match unscored carries no goals.
-  const awardTakenBack = isNichtantreten(gespeichert.sonderereignis) && !isNichtantreten(sonderereignis);
+  const awardTakenBack = isNichtantreten(saved.sonderereignis) && !isNichtantreten(sonderereignis);
   const sideOf = (stored: FLSpielJoinedAdmin["team1"]) => {
     const side = toStoredSide(stored);
     return side === null ? null : { ...side, tore: awardTakenBack ? null : side.tore };
   };
-  const team1 = sideOf(gespeichert.team1);
-  const team2 = sideOf(gespeichert.team2);
+  const team1 = sideOf(saved.team1);
+  const team2 = sideOf(saved.team2);
 
   return {
     datum: changes.datum === undefined ? werte.datum : changes.datum,
@@ -80,19 +80,19 @@ function payloadOf(gespeichert: FLSpielJoinedAdmin, changes: Aenderungen): FLPat
     ort: spielort === null || mietpreis === null ? null : { spielort_id: spielort, mietpreis },
     // The booking alone: the write takes no display copy of the referee's name.
     schiedsrichter:
-      gespeichert.schiedsrichter === null
+      saved.schiedsrichter === null
         ? null
-        : { schiedsrichter_id: gespeichert.schiedsrichter.schiedsrichter_id, payment: gespeichert.schiedsrichter.payment },
+        : { schiedsrichter_id: saved.schiedsrichter.schiedsrichter_id, payment: saved.schiedsrichter.payment },
     team1: team1 === null ? null : { team_id: team1.team_id, tore: team1.tore },
     team2: team2 === null ? null : { team_id: team2.team_id, tore: team2.tore },
-    team1_quelle: gespeichert.team1_quelle,
-    team2_quelle: gespeichert.team2_quelle,
+    team1_quelle: saved.team1_quelle,
+    team2_quelle: saved.team2_quelle,
     // A shoot-out stands only where the fixture still admits one; every route out of one drops it, as today's editor does.
-    elfmeterschiessen: admitsShootOut(gespeichert.saison_phase, team1, team2, sonderereignis) ? gespeichert.elfmeterschiessen : null,
+    elfmeterschiessen: admitsShootOut(saved.saison_phase, team1, team2, sonderereignis) ? saved.elfmeterschiessen : null,
     sonderereignis,
     notiz: changes.notiz === undefined ? werte.notiz : changes.notiz,
     // The referee the editor was served: the write refuses the save where the fixture books another or none since.
-    schiedsrichter_stand: gespeichert.schiedsrichter?.schiedsrichter_id ?? null,
+    schiedsrichter_stand: saved.schiedsrichter?.schiedsrichter_id ?? null,
   };
 }
 
@@ -118,13 +118,13 @@ export const spielSpeichern = action({
   ],
   // The boxes a field pattern's phrase lands on; every other refusal here is a sentence naming its field itself.
   paths: { sonderereignis: "changes.sonderereignis" },
-  examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisExample },
+  examples: { "changes.mietpreis": COPY.admin.spielort.mietpreisExample },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     // Read for the fields the editor does not show, which the wholesale write sends as stored.
-    const gelesen = await getAdminSpiel(id);
-    if (gelesen === null) return { ok: false, reason: COPY.shared.failure.stale };
+    const read = await getAdminSpiel(id);
+    if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const payload = payloadOf(gelesen.spiel, changes);
+    const payload = payloadOf(read.spiel, changes);
     if ("ok" in payload) return payload;
 
     const geschrieben = await spielePatchSpiel(id, { ...payload, version });
@@ -135,6 +135,6 @@ export const spielSpeichern = action({
     const geaendert = [...new Set([...geschrieben.advanced_to, ...geschrieben.released_sides].map(({ spiel_nr }) => spiel_nr))];
     return geaendert.length === 0
       ? { ok: true, value }
-      : { ok: true, value, note: COPY.verwaltung.spiel.alsoChanged(geaendert.toSorted((first, second) => first - second)) };
+      : { ok: true, value, note: COPY.admin.spiel.alsoChanged(geaendert.toSorted((first, second) => first - second)) };
   },
 });

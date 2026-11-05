@@ -52,7 +52,7 @@ export function SpielsucheView({
   teams,
   spielorte,
   schiedsrichter,
-  bestaetigungen,
+  confirmations,
   bestaetigungenVollstaendig = true,
   austritte = KEINE_AUSTRITTE,
 }: {
@@ -73,7 +73,7 @@ export function SpielsucheView({
    * The season's confirmation rows, an administrator's read: absent on the public route, `null` where the read failed,
    * which the page says rather than showing cards that read as asked nothing.
    */
-  bestaetigungen?: readonly FLSpielbestaetigung[] | null;
+  confirmations?: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig?: boolean;
   /** The day each club left this season, by `team_id`, where it has: the pass ends a row of a club gone by its day. */
   austritte?: Readonly<Record<string, string>>;
@@ -115,10 +115,10 @@ export function SpielsucheView({
 
   const saisonBestaetigungen = useMemo(
     (): SaisonBestaetigungen | undefined =>
-      bestaetigungen === undefined || bestaetigungen === null
+      confirmations === undefined || confirmations === null
         ? undefined
-        : { bySpielId: groupBestaetigungenBySpielId(bestaetigungen), austritte: new Map(Object.entries(austritte)) },
-    [bestaetigungen, austritte],
+        : { bySpielId: groupBestaetigungenBySpielId(confirmations), austritte: new Map(Object.entries(austritte)) },
+    [confirmations, austritte],
   );
 
   const hasAsked = spielQuery !== "" || countActiveFacets(selection) > 0;
@@ -158,14 +158,14 @@ export function SpielsucheView({
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
         {/* Standing, never dismissible: a card short of its chips reads as a fixture nobody asked. A cut reaches the
             closed rows alone, and of those a card chips a referee's decline. */}
-        {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
+        {(confirmations === null || !bestaetigungenVollstaendig) && (
           <div className="flex w-full max-w-toolbar flex-col">
             <Callout
               severity="warning"
               title={
-                bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
+                confirmations === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
               }>
-              {bestaetigungen === null
+              {confirmations === null
                 ? "Die Karten zeigen deshalb keine Antworten, weder der Teams noch ihrer Schiedsrichterin oder ihres Schiedsrichters. Lade die Seite neu."
                 : "Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. Einer Karte kann deshalb die Absage ihrer Schiedsrichterin oder ihres Schiedsrichters fehlen."}
             </Callout>
@@ -185,7 +185,7 @@ export function SpielsucheView({
             today={today}
             isAdmin={isAdmin}
             isFinishedSaison={isFinishedSaison}
-            bestaetigungen={saisonBestaetigungen}
+            confirmations={saisonBestaetigungen}
           />
         </SpielCardGrid>
       </div>

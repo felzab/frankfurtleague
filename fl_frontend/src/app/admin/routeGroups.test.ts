@@ -8,7 +8,7 @@ import { ROUTES } from "@/core/routes";
 import { RAIL_GROUPS } from "./VerwaltungFrame";
 
 const APP = path.resolve(import.meta.dirname, "..");
-const VERWALTUNG = import.meta.dirname;
+const ADMIN = import.meta.dirname;
 
 const shown = (root: string, file: string) => path.relative(root, file).split(path.sep).join("/");
 
@@ -17,7 +17,7 @@ const shown = (root: string, file: string) => path.relative(root, file).split(pa
 // else, so the tree is held here.
 describe("the administration's route groups", () => {
   it("hold every page, an editor's in `(editor)` and every other in `(liste)`", () => {
-    const pages = filesUnder(VERWALTUNG, (name) => name === "page.tsx", 2).map((file) => shown(VERWALTUNG, file));
+    const pages = filesUnder(ADMIN, (name) => name === "page.tsx", 2).map((file) => shown(ADMIN, file));
     expect(pages.filter((page) => !page.startsWith("(editor)/") && !page.startsWith("(liste)/"))).toStrictEqual([]);
   });
 
@@ -33,9 +33,7 @@ describe("the administration's route groups", () => {
     const entries = RAIL_GROUPS.flatMap((group) => group.entries).map((entry) =>
       segments(entry.saison === undefined ? entry.href : ROUTES[entry.saison].path("[saison]")),
     );
-    const editors = filesUnder(path.join(VERWALTUNG, "(editor)"), (name) => name === "page.tsx", 1).map((file) =>
-      shown(APP, path.dirname(file)),
-    );
+    const editors = filesUnder(path.join(ADMIN, "(editor)"), (name) => name === "page.tsx", 1).map((file) => shown(APP, path.dirname(file)));
     const lost = editors.filter((editor) => !entries.some((entry) => entry.every((segment, at) => segments(editor)[at] === segment)));
     expect(lost).toStrictEqual([]);
   });

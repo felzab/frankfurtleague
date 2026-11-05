@@ -28,13 +28,13 @@ export type BestaetigteAdresse = { email: string; adresswechselId: string | null
  */
 export function FormKontaktSection({
   kontakt,
-  bestaetigt,
+  confirmed,
   onChange,
   onFieldLeft,
 }: {
   kontakt: FLKontakt;
   /** Set for a confirmed referee, whose address the save does not carry. */
-  bestaetigt: BestaetigteAdresse | null;
+  confirmed: BestaetigteAdresse | null;
   onChange: (next: FLKontakt) => void;
   onFieldLeft: (paths: readonly string[]) => void;
 }) {
@@ -80,7 +80,7 @@ export function FormKontaktSection({
       </div>
 
       <div className={panel.body()}>
-        {bestaetigt === null ? (
+        {confirmed === null ? (
           <div className={FIELD_PAIR_CLASSES}>
             <TextField
               type="email"
@@ -101,11 +101,11 @@ export function FormKontaktSection({
           // The pupil editor's readout row and full-width hint (`FormAdresseSection.tsx`), the telephone on a row of its own.
           <>
             <dl className={FIELD_PAIR_CLASSES}>
-              <Angabe label="Hinterlegte Adresse">{bestaetigt.email}</Angabe>
+              <Angabe label="Hinterlegte Adresse">{confirmed.email}</Angabe>
             </dl>
             <AdresswechselHinweis
-              adresswechselId={bestaetigt.adresswechselId}
-              verwehrt={bestaetigt.adresswechselVerwehrt}
+              adresswechselId={confirmed.adresswechselId}
+              denied={confirmed.adresswechselVerwehrt}
             />
             <div className={FIELD_PAIR_CLASSES}>{telefon}</div>
           </>

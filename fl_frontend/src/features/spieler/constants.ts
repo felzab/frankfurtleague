@@ -58,7 +58,7 @@ export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligungUmfang, string> = 
  * entered until its person answers, and a word naming a decision would put one in that person's mouth.
  */
 export const EINWILLIGUNG_MEDIEN_LABELS = {
-  erteilt: "Fotos, Videos und Interviews zugesagt",
+  given: "Fotos, Videos und Interviews zugesagt",
   nicht_erteilt: "Nicht zugesagt",
 } as const;
 

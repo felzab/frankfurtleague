@@ -63,9 +63,9 @@ export function buildReplacementContext({
 
   // A club standing on a fixture that no club read lists holds a junction row nothing else here can
   // reach. It is offered from its fixtures alone, which is the state this operation repairs.
-  const belegt = new Set(teams.map((team) => team.id));
+  const occupied = new Set(teams.map((team) => team.id));
   for (const [teamId, counted] of perTeam) {
-    if (belegt.has(teamId)) continue;
+    if (occupied.has(teamId)) continue;
     rows.push({
       teamId,
       name: counted.name,

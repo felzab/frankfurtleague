@@ -48,14 +48,14 @@ export type AdresswechselGesendet = ActionResult<{ link: boolean }>;
 /** What the address holds and the change pending at it, read when the administrator asks: a person's records are never browsed. */
 export async function readAdresswechselAnsichtAction(
   rawPayload: FLAddressChangeVerwaltungViewPayload,
-): Promise<QueryResult<{ ansicht: FLAddressChangeVerwaltungViewResponse }>> {
+): Promise<QueryResult<{ view: FLAddressChangeVerwaltungViewResponse }>> {
   return runAdminMutation("readAdresswechselAnsichtAction", async () => {
     const validated = FLAdresswechselVerwaltungAnsichtPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
     try {
-      return { success: true, ansicht: await postAdresswechselVerwaltungAnsicht(validated.data) };
+      return { success: true, view: await postAdresswechselVerwaltungAnsicht(validated.data) };
     } catch (error) {
       const refusal = mapVerwaltungAnsichtRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
@@ -161,22 +161,22 @@ export async function genehmigeAdresswechselAction(
   // The enrolment's window, the grant write's own: the approval hands a grant to another address.
   return runAdminMutation("genehmigeAdresswechselAction", { stepUp: "enrolment" }, async () => {
     const validated = FLAdresswechselGenehmigungPayloadSchema.safeParse(rawPayload);
-    const verwehrt = EinsehbarVerwehrtSchema.nullable().safeParse(einsehbarVerwehrt);
+    const denied = EinsehbarVerwehrtSchema.nullable().safeParse(einsehbarVerwehrt);
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    if (!verwehrt.success) return { success: false, error: VALIDATION_FAILED };
+    if (!denied.success) return { success: false, error: VALIDATION_FAILED };
 
     // By the change's id, the approver perhaps being refused the tool's read of it; the effect would leave the account
     // at the new address standing beside the person's records.
     if (await accountAtNewAddress({ address_change_id: validated.data.id })) {
-      return { success: false, error: kontoBelegtGenehmigung(verwehrt.data) };
+      return { success: false, error: kontoBelegtGenehmigung(denied.data) };
     }
 
     let antwort;
     try {
       antwort = await genehmigeAdresswechsel(validated.data);
     } catch (error) {
-      const refusal = mapGenehmigungRefusal(error, verwehrt.data);
+      const refusal = mapGenehmigungRefusal(error, denied.data);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }

@@ -40,7 +40,7 @@ const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const TELEFON: Record<string, string> = { Anna: "069 501", Bernd: "069 502", Clara: "069 503" };
 
 /** One seat as an administrator types it into the editor, under the running label. */
-const sitz = (vorname: string, email: string) => ({
+const seat = (vorname: string, email: string) => ({
   vorname,
   nachname: "Meier",
   email,
@@ -49,32 +49,32 @@ const sitz = (vorname: string, email: string) => ({
 });
 
 /** The same seat as the read model stores it, unconfirmed. */
-const gespeichert = (vorname: string, email: string) => ({
-  ...sitz(vorname, email),
+const storedSeat = (vorname: string, email: string) => ({
+  ...seat(vorname, email),
   geburtsdatum: null,
-  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, confirmed_at: null }),
+  einwilligung: kenntnisnahme({ ...seat(vorname, email).einwilligung, confirmed_at: null }),
 });
 
 const BLOCK = {
-  trainer: sitz("Clara", "clara@schule.example"),
-  ansprechperson: sitz("Anna", "anna@schule.example"),
-  stellvertretung: sitz("Bernd", "bernd@schule.example"),
+  trainer: seat("Clara", "clara@schule.example"),
+  ansprechperson: seat("Anna", "anna@schule.example"),
+  stellvertretung: seat("Bernd", "bernd@schule.example"),
   trainer_is_also: null,
 };
 const GESPEICHERT = {
-  trainer: gespeichert("Clara", "clara@schule.example"),
-  ansprechperson: gespeichert("Anna", "anna@schule.example"),
-  stellvertretung: gespeichert("Bernd", "bernd@schule.example"),
+  trainer: storedSeat("Clara", "clara@schule.example"),
+  ansprechperson: storedSeat("Anna", "anna@schule.example"),
+  stellvertretung: storedSeat("Bernd", "bernd@schule.example"),
   trainer_is_also: null,
 };
 const PAYLOAD = { team_id: TEAM_ID, saison_id: "2627", kontakte: BLOCK, kontakte_stand: "9f2c" };
 
 /** The save's answer: the block as stored and each person it owed a link. */
-const saved = (bestaetigungen: unknown[]) => ({
+const saved = (confirmations: unknown[]) => ({
   saison_id: "2627",
   team_id: TEAM_ID,
   kontakte: GESPEICHERT,
-  confirmations: bestaetigungen,
+  confirmations: confirmations,
 });
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */

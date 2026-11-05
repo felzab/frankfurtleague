@@ -334,7 +334,7 @@ export function BestaetigungFormPanel({
     startTransition(() => {
       if (!antwort.success) {
         reportRefusedConfirmation(antwort, {
-          onZustand: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
+          onState: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
           // The hook owns the press's one toast: none where a field shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(

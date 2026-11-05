@@ -99,7 +99,7 @@ export const verwaltungswegBeantworten = action({
     } catch (error) {
       const refusal = mapAddressChangePressRefusal(error);
       if (refusal === null) throw error;
-      if ("zustand" in refusal) return { ok: true, value: { zustand: refusal.zustand } };
+      if ("state" in refusal) return { ok: true, value: { zustand: refusal.state } };
       if (!("neuLesen" in refusal)) return { ok: false, reason: COPY.shared.failure.stale };
 
       // The change ended or this link was answered since the page opened: the link's own read says how, so the view

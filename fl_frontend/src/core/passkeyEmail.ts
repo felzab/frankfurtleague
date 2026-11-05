@@ -10,44 +10,44 @@ import type { Mail, Paragraph } from "./emailShell";
 const { passkeyAdded, passkeyRemoved } = SERVER_COPY.mail;
 
 /** The subject and the sentences of one event; nothing here names a row or a device. */
-interface Ereignis {
+interface PasskeyEvent {
   readonly subject: string;
-  readonly paragraph: (zeit: string) => Paragraph;
+  readonly paragraph: (time: string) => Paragraph;
 }
 
-const HINZUGEFUEGT: Ereignis = {
+const ADDED: PasskeyEvent = {
   subject: passkeyAdded.subject,
-  paragraph: (zeit) => [[`${passkeyAdded.lead.before} `, { strong: zeit }, ` ${passkeyAdded.lead.after}`]],
+  paragraph: (time) => [[`${passkeyAdded.lead.before} `, { strong: time }, ` ${passkeyAdded.lead.after}`]],
 };
 
-const GELOESCHT: Ereignis = {
+const ERASED: PasskeyEvent = {
   subject: passkeyRemoved.subject,
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
   // leaves every other standing (`fl_frontend/src/core/auth/passkeys.ts :: removePasskey`).
-  paragraph: (zeit) => [[`${passkeyRemoved.lead.before} `, { strong: zeit }, ` ${passkeyRemoved.lead.after}`], passkeyRemoved.devices],
+  paragraph: (time) => [[`${passkeyRemoved.lead.before} `, { strong: time }, ` ${passkeyRemoved.lead.after}`], passkeyRemoved.devices],
 };
 
-/** What a builder is handed; `konto` is a path on `origin`, the account's Sicherheit page, which the row carries. */
-type Anlass = { zeitpunkt: Date; origin: string; konto: string };
+/** What a builder is handed; `account` is a path on `origin`, the account's Sicherheit page, which the row carries. */
+type Anlass = { instant: Date; origin: string; account: string };
 
-function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Mail {
+function build(event: PasskeyEvent, { instant, origin, account }: Anlass): Mail {
   const site = mailOrigin(origin);
 
   return {
     kind: "security",
-    subjectLine: ereignis.subject,
+    subjectLine: event.subject,
     origin: site,
     vorname: "",
-    paragraphs: [ereignis.paragraph(formatInstant(zeitpunkt))],
+    paragraphs: [event.paragraph(formatInstant(instant))],
     // The one place either event can be acted on.
-    button: { label: COPY.shared.end.toAccount, href: `${site}${konto}` },
+    button: { label: COPY.shared.end.toAccount, href: `${site}${account}` },
   };
 }
 
-export function buildPasskeyHinzugefuegtEmail(anlass: Anlass): Mail {
-  return build(HINZUGEFUEGT, anlass);
+export function buildPasskeyAddedEmail(anlass: Anlass): Mail {
+  return build(ADDED, anlass);
 }
 
-export function buildPasskeyGeloeschtEmail(anlass: Anlass): Mail {
-  return build(GELOESCHT, anlass);
+export function buildPasskeyErasedEmail(anlass: Anlass): Mail {
+  return build(ERASED, anlass);
 }

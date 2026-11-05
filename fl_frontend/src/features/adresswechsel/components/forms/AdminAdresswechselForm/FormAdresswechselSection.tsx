@@ -56,9 +56,9 @@ const ZAEHLER: readonly (readonly [keyof Omit<FLAddressChangeVerwaltungHoldings,
   ["registrierungen", "Eine Registrierung", "Registrierungen"],
 ];
 
-function bestandZeilen({ grant: berechtigung, ...anzahl }: FLAddressChangeVerwaltungHoldings): string[] {
-  const zeilen = ZAEHLER.filter(([feld]) => anzahl[feld] > 0).map(([feld, eins, viele]) =>
-    anzahl[feld] === 1 ? eins : `${String(anzahl[feld])} ${viele}`,
+function bestandZeilen({ grant: berechtigung, ...count }: FLAddressChangeVerwaltungHoldings): string[] {
+  const zeilen = ZAEHLER.filter(([feld]) => count[feld] > 0).map(([feld, eins, viele]) =>
+    count[feld] === 1 ? eins : `${String(count[feld])} ${viele}`,
   );
   if (berechtigung !== null) {
     zeilen.push(berechtigung === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung");
@@ -71,9 +71,9 @@ function bestandZeilen({ grant: berechtigung, ...anzahl }: FLAddressChangeVerwal
  * or the id a link names, never browsed. In no `<form>`: Enter in either box would submit it.
  */
 export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsichtGelesen | null }) {
-  const [adresse, setAdresse] = useState(anfang?.status === "read" ? anfang.ansicht.adresse : "");
-  const [fehler, setFehler] = useState<string | null>(null);
-  const [gelesen, setGelesen] = useState<Gelesen | null>(anfang);
+  const [adresse, setAdresse] = useState(anfang?.status === "read" ? anfang.view.adresse : "");
+  const [error, setError] = useState<string | null>(null);
+  const [read, setGelesen] = useState<Gelesen | null>(anfang);
   // Above every read, so a read answering after a write keeps the way and the reason the start box holds.
   const [entwurf, setEntwurf] = useState<AdresswechselEntwurf | null>(null);
   const [perDruck, setPerDruck] = useState(false);
@@ -93,29 +93,29 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
 
     if (res.success) {
       // The box shows the address the read was made for, so a change opened by its id names its address too.
-      setAdresse(res.ansicht.adresse);
-      setGelesen({ status: "read", ansicht: res.ansicht });
+      setAdresse(res.view.adresse);
+      setGelesen({ status: "read", view: res.view });
       return;
     }
 
-    const satz = res.unplacedError ?? res.error;
+    const sentence = res.unplacedError ?? res.error;
     setGelesen({
       status: "refused",
-      reason: isVerwaltungAnsichtRefusal(satz) ? satz : `Die Übersicht konnte nicht geladen werden. ${satz}`,
+      reason: isVerwaltungAnsichtRefusal(sentence) ? sentence : `Die Übersicht konnte nicht geladen werden. ${sentence}`,
     });
   };
 
   const zeige = () => {
     const geprueft = KontaktEmailSchema.safeParse(adresse);
-    setFehler(geprueft.success ? null : (geprueft.error.issues[0]?.message ?? null));
+    setError(geprueft.success ? null : (geprueft.error.issues[0]?.message ?? null));
     if (!geprueft.success) return;
     void lies({ adresse: adresse.trim() });
   };
 
-  const ansicht = gelesen?.status === "read" ? gelesen.ansicht : null;
+  const view = read?.status === "read" ? read.view : null;
   // After a write the address's present is read again, the box's typing kept.
   const nachSchreiben = () => {
-    if (ansicht !== null) void lies({ adresse: ansicht.adresse });
+    if (view !== null) void lies({ adresse: view.adresse });
   };
 
   return (
@@ -138,7 +138,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
             value={adresse}
             onChange={(next) => {
               setAdresse(next);
-              setFehler(null);
+              setError(null);
               // What was read speaks of the address the box held before.
               letzteLesung.current += 1;
               setGelesen(null);
@@ -149,7 +149,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
               event.preventDefault();
               zeige();
             }}
-            isInvalid={fehler !== null ? true : undefined}
+            isInvalid={error !== null ? true : undefined}
             className="w-full sm:max-w-md">
             <Label className={FIELD_LABEL_CLASSES}>Bisherige E-Mail-Adresse</Label>
             {/* Off, so a person's address is never kept in the browser's autofill store. */}
@@ -158,7 +158,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
               placeholder="z.B. name@beispiel.de"
               className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR_CLASSES}>{fehler}</FieldError>
+            <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
             <Hint
               mode="field"
               text="Die Adresse, unter der die Person bei uns steht und mit der sie sich nach eigener Angabe nicht mehr anmelden kann."
@@ -166,7 +166,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
           </TextField>
           <Button
             type="button"
-            isPending={gelesen?.status === "reading"}
+            isPending={read?.status === "reading"}
             onPress={zeige}
             className={`${formButton({ intent: "nav" })} gap-x-2 sm:mt-6`}>
             <Magnifier
@@ -177,7 +177,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
           </Button>
         </div>
 
-        {gelesen?.status === "reading" && (
+        {read?.status === "reading" && (
           // The app's one „not yet here“ treatment: what arrives is a list, so what stands in for it is shaped like one.
           <div
             aria-hidden="true"
@@ -187,16 +187,16 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
           </div>
         )}
 
-        {gelesen?.status === "refused" && <p className={ZEILE_CLASSES}>{gelesen.reason}</p>}
+        {read?.status === "refused" && <p className={ZEILE_CLASSES}>{read.reason}</p>}
 
-        {ansicht !== null && (
+        {view !== null && (
           <div className="flex w-full flex-col gap-y-1">
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Was unter der Adresse steht</h3>
-            {bestandZeilen(ansicht.holdings).length === 0 ? (
+            {bestandZeilen(view.holdings).length === 0 ? (
               <p className={ZEILE_CLASSES}>Unter dieser Adresse steht nichts, dessen Adresse sich hier ändern lässt.</p>
             ) : (
               <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-1 pl-5`}>
-                {bestandZeilen(ansicht.holdings).map((zeile) => (
+                {bestandZeilen(view.holdings).map((zeile) => (
                   <li key={zeile}>{zeile}</li>
                 ))}
               </ul>
@@ -204,20 +204,20 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
           </div>
         )}
 
-        {ansicht !== null && ansicht.open !== null && (
+        {view !== null && view.open !== null && (
           <AdresswechselWartet
-            offen={ansicht.open}
+            offen={view.open}
             onGeschrieben={nachSchreiben}
           />
         )}
 
-        {ansicht?.possible === true && (
+        {view?.possible === true && (
           <FocusSlot name="adresse-aendern">
             {entwurf !== null ? (
               <AdresswechselBeantragen
-                adresse={ansicht.adresse}
+                adresse={view.adresse}
                 entwurf={entwurf}
-                ersetztOffen={ansicht.open !== null}
+                ersetztOffen={view.open !== null}
                 fokussieren={perDruck}
                 onEntwurfChange={setEntwurf}
                 onGeschrieben={() => {

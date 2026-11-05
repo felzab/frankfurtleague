@@ -243,8 +243,8 @@ export function BewerbungForm({
 
     startSending(async () => {
       const anfrage = await humanCheck.takeToken();
-      if ("satz" in anfrage) {
-        appToast.danger("Bewerbung nicht abgeschickt", { description: anfrage.satz });
+      if ("sentence" in anfrage) {
+        appToast.danger("Bewerbung nicht abgeschickt", { description: anfrage.sentence });
         return;
       }
 
@@ -389,7 +389,7 @@ export function BewerbungForm({
         ))}
 
         <FormEinwilligungSection
-          erteilt={draft.kontakte.ansprechperson.einwilligung.given}
+          given={draft.kontakte.ansprechperson.einwilligung.given}
           onErteiltPicked={pickEinwilligung}
         />
 

@@ -90,11 +90,11 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         ),
       },
       {
-        title: words.toreUndKarten,
+        title: words.toreAndKarten,
         kind: "timeline",
-        label: words.toreUndKarten,
+        label: words.toreAndKarten,
         items: official === null ? [] : eventsOf(spiel, official.tore, official.karten),
-        empty: { kind: "none", plural: official === null ? words.officialToreUndKarten : words.toreUndKarten },
+        empty: { kind: "none", plural: official === null ? words.officialToreAndKarten : words.toreAndKarten },
       },
     ],
   };
@@ -130,8 +130,8 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
 /** A pupil as the public read names them: a name the consent publishes, else „anonym“; a goal nobody was named for, „unbekannt“. */
 function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "vorname" | "nachname">): Words {
   const words = SERVER_COPY.season.spiel;
-  if (spieler.type === "unknown") return words.unbekannt;
-  if (spieler.type === "anonymous" || spieler.vorname === null) return words.anonym;
+  if (spieler.type === "unknown") return words.unknown;
+  if (spieler.type === "anonymous" || spieler.vorname === null) return words.anonymous;
   return { record: spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}` };
 }
 

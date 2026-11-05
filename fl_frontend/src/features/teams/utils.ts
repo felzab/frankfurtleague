@@ -217,7 +217,7 @@ export function toWebsiteUrl(typed: string): string | null {
  * because the empty offer is a boundary a test can exercise without rendering.
  */
 export function offeredTrikotFarben({
-  taken: vergeben,
+  taken: taken,
   value,
 }: {
   taken: readonly FLTrikotFarbe[];
@@ -226,5 +226,5 @@ export function offeredTrikotFarben({
 }): readonly TrikotFarbeOption[] {
   // The exclusion and nothing else, so the picker never offers a colour the season has given away.
   // A season holding every colour therefore offers nothing, which the required wish has no answer for.
-  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
+  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !taken.includes(option.value));
 }

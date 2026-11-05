@@ -50,17 +50,17 @@ export function buildKontaktBestaetigungEmail(
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
-  const sitze = rollenText(rollen);
+  const seats = rollenText(rollen);
 
   return {
     kind: "firstContact",
-    subjectLine: `Du bist als ${sitze} für ${schule} eingetragen`,
+    subjectLine: `Du bist als ${seats} für ${schule} eingetragen`,
     origin: site,
     vorname: "",
     paragraphs: [
       [
         // „für {Team} in der Saison …“, as the registration messages name a team and its season.
-        ["Die Verwaltung der ", BRAND_NAME, ` hat Dich in der Saison ${saisonId} als ${sitze} für `, { strong: schule }, " eingetragen."],
+        ["Die Verwaltung der ", BRAND_NAME, ` hat Dich in der Saison ${saisonId} als ${seats} für `, { strong: schule }, " eingetragen."],
         zeile === "open"
           ? [
               { strong: "Bitte bestätige, dass das stimmt" },

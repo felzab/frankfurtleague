@@ -23,7 +23,7 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
 
   // To the landing rather than a 404, as the referee panel sends a person who holds no referee record.
   if (!rolesOf(subject).roles.some((funktion) => funktion.art === "schiedsrichter")) {
-    logPageVerweigert("/area/schiedsrichter/spielbericht", "keine_funktion");
+    logPageVerweigert("/area/schiedsrichter/spielbericht", "no_role");
     redirect("/area");
   }
 

@@ -59,7 +59,7 @@ describe("a match's own page", () => {
 
 describe("a club's own page", () => {
   it("heads its groups with the club's head and, where the club left the season, its route, its day and its reason", async () => {
-    const title = COPY.shared.austrittSeit(COPY.shared.austritt.disqualifikation.zustand, "2026-03-14");
+    const title = COPY.shared.austrittSince(COPY.shared.austritt.disqualifikation.state, "2026-03-14");
     const page = await streamed(
       <ReadPage
         scope="saison"

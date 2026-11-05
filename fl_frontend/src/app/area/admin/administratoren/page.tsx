@@ -2,7 +2,7 @@ import { Suspense } from "react";
 
 import { getAdminSession } from "@/core/auth/guards";
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { holdsOwnersTier, verwaltungOf } from "@/core/verwaltung";
+import { grantOf, holdsOwnersTier } from "@/core/verwaltung";
 import { AdminCreateBerechtigungModal } from "@/features/berechtigungen/components/modals/AdminCreateBerechtigungModal";
 import { AdminBerechtigungenView } from "@/features/berechtigungen/components/views/AdminBerechtigungenView";
 import { BERECHTIGUNGEN_CRUD_COPY } from "@/features/berechtigungen/constants";
@@ -56,7 +56,7 @@ async function inhaberAdresseOf(): Promise<string | null> {
   const served = await getAdminSession();
   // The session and not the grant alone: one made before its holder's promotion is refused an owner's write, so it is
   // offered none.
-  if (served === null || !holdsOwnersTier(served.session.createdAt, await verwaltungOf(served.user.email))) return null;
+  if (served === null || !holdsOwnersTier(served.session.createdAt, await grantOf(served.user.email))) return null;
 
   // Folded, as every grant is stored: the session keeps the spelling it signed in with, and the own row is found by it.
   return asSignInIdentifier(served.user.email);

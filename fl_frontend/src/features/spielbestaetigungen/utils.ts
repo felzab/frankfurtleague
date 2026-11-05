@@ -23,7 +23,7 @@ import type { AntwortStand } from "./constants";
 export function beantwortetVon(von: FLSpielbestaetigungVon): string {
   if (von.art === "admin") return "Verwaltung der Liga";
   if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
-  return KONTAKT_ROLLEN.find((eintrag) => eintrag.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
+  return KONTAKT_ROLLEN.find((entry) => entry.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
 }
 
 export const terminText = (termin: FLSpielbestaetigungAppointment): string =>
@@ -55,10 +55,10 @@ const zeilenAnsetzung = ({ ansetzung }: FLSpielbestaetigung): SpielBannerAnsetzu
 });
 
 export function groupBestaetigungenBySpielId(
-  bestaetigungen: readonly FLSpielbestaetigung[],
+  confirmations: readonly FLSpielbestaetigung[],
 ): ReadonlyMap<string, readonly FLSpielbestaetigung[]> {
   const grouped = new Map<string, FLSpielbestaetigung[]>();
-  for (const zeile of bestaetigungen) grouped.set(zeile.spiel_id, [...(grouped.get(zeile.spiel_id) ?? []), zeile]);
+  for (const zeile of confirmations) grouped.set(zeile.spiel_id, [...(grouped.get(zeile.spiel_id) ?? []), zeile]);
 
   return grouped;
 }
@@ -127,17 +127,17 @@ export function grundZumEnde(
  * and about the Ansetzung it holds, as the public card reads a discard. Any other chips an answer the pass drops.
  */
 export function geltendeBestaetigungen(
-  bestaetigungen: readonly FLSpielbestaetigung[],
+  confirmations: readonly FLSpielbestaetigung[],
   spiel: BestaetigungsSpiel,
   umstand: { austritte: ReadonlyMap<string, string>; today: string },
 ): FLSpielbestaetigung[] {
-  const jetzt = spielAnsetzung(spiel);
+  const current = spielAnsetzung(spiel);
 
-  return bestaetigungen.filter(
+  return confirmations.filter(
     (zeile) =>
       zeile.spiel_id === spiel.id &&
       (zeile.closed === null || zeile.closed.grund === "discarded") &&
-      !ansetzungGeaendert(zeilenAnsetzung(zeile), jetzt) &&
+      !ansetzungGeaendert(zeilenAnsetzung(zeile), current) &&
       grundZumEnde(zeile, spiel, umstand) === null,
   );
 }
@@ -164,11 +164,11 @@ export const istSofortFaellig = (zeile: FLSpielbestaetigung, today: string): boo
  * ends it.
  */
 export function schiedsrichterAbsage(
-  bestaetigungen: readonly FLSpielbestaetigung[],
+  confirmations: readonly FLSpielbestaetigung[],
   spiel: { id: string; schiedsrichter: object | null },
 ): FLSpielbestaetigung | undefined {
   if (spiel.schiedsrichter !== null) return undefined;
-  const zeile = bestaetigungen.find((kandidat) => kandidat.spiel_id === spiel.id && kandidat.party.art === "schiedsrichter");
+  const zeile = confirmations.find((kandidat) => kandidat.spiel_id === spiel.id && kandidat.party.art === "schiedsrichter");
 
   return zeile?.closed?.grund === "schiedsrichter_declined" ? zeile : undefined;
 }

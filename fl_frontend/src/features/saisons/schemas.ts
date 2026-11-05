@@ -109,7 +109,7 @@ const groupCannotOverQualify = {
 // On the rules as a whole, which no control is named: the two counts together are at fault, so the form's one
 // failure line says it, as the write's refusal of the same rule does.
 const bracketMustHaveAShape = {
-  error: COPY.verwaltung.saison.bracketImpossible,
+  error: COPY.admin.saison.bracketImpossible,
   path: ["rules"],
 };
 

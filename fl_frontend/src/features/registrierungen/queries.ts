@@ -38,13 +38,12 @@ export async function getAdminRegistrierungen(order: Leserichtung): Promise<FLRe
 export async function getEinladungAnsicht(token: string): Promise<RegistrierungStart> {
   return runWithIncomingTrace(() =>
     postEinladungAnsicht({ token: token }).then(
-      (ansicht) =>
-        einladungZustand(ansicht) === "valid" ? { zustand: "valid", ansicht: ansicht, token: token } : { zustand: "closed", ansicht: ansicht },
+      (view) => (einladungZustand(view) === "valid" ? { zustand: "valid", ansicht: view, token: token } : { zustand: "closed", ansicht: view }),
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live invite void.
-        const zustand = mapRegistrierungAnsichtRefusal(error);
-        if (zustand !== null) return { zustand: zustand };
+        const state = mapRegistrierungAnsichtRefusal(error);
+        if (state !== null) return { zustand: state };
         throw error;
       },
     ),
@@ -62,8 +61,8 @@ export async function getSpielerBestaetigungAnsicht(token: string): Promise<Spie
     postBestaetigungAnsicht({ token: token }).then(
       (ansicht) => (ansicht.state === "valid" ? { zustand: "valid" as const, ansicht: ansicht } : { zustand: ansicht.state }),
       (error: unknown) => {
-        const zustand = mapRegistrierungAnsichtRefusal(error);
-        if (zustand !== null) return { zustand: zustand };
+        const state = mapRegistrierungAnsichtRefusal(error);
+        if (state !== null) return { zustand: state };
         throw error;
       },
     ),

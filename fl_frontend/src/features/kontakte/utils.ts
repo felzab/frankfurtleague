@@ -86,7 +86,7 @@ export function emptiedSeatLabels(stored: SaisonTeamKontakteDraft | null, draft:
 function seatIdentity(seat: KontaktpersonDraft): readonly string[] {
   // The server's two folds, so the banner warns over exactly the stamps the save drops: the address as
   // sign-in folds it, and a name composed and lower-cased, „Weiß“ staying apart from „Weiss“.
-  const name = (wert: string): string => wert.normalize("NFC").trim().split(/\s+/).join(" ").toLowerCase();
+  const name = (value: string): string => value.normalize("NFC").trim().split(/\s+/).join(" ").toLowerCase();
 
   return [asSignInIdentifier(seat.email), name(seat.vorname), name(seat.nachname)];
 }
@@ -102,10 +102,10 @@ export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | nul
 
     // Field by field, never one joined run: „Anna Maria“ moved from the forename into the surname folds
     // to the same words, and the server compares the three apart.
-    const gehalten = seatIdentity(held);
-    const getippt = seatIdentity(sent);
+    const heldIdentity = seatIdentity(held);
+    const sentIdentity = seatIdentity(sent);
 
-    return gehalten.some((wert, index) => wert !== getippt[index]);
+    return heldIdentity.some((part, index) => part !== sentIdentity[index]);
   }).map(({ label }) => label);
 }
 
@@ -125,7 +125,7 @@ export function addressOnlyConfirmedSeatLabels(
     const [heldAddress, ...heldName] = seatIdentity(held);
     const [sentAddress, ...sentName] = seatIdentity(sent);
 
-    return heldAddress !== sentAddress && heldName.every((wert, index) => wert === sentName[index]);
+    return heldAddress !== sentAddress && heldName.every((part, index) => part === sentName[index]);
   }).map(({ label }) => label);
 }
 
@@ -186,7 +186,7 @@ export function kontakteEditorKey(
 ): string {
   const team = { id, name, shorthand, inactive_since };
   if (membership === null) return JSON.stringify({ team, saison, membership });
-  const { confirmations: _bestaetigungen, address_change: _adresswechsel, ...gesaet } = membership;
+  const { confirmations: _bestaetigungen, address_change: _address_change, ...gesaet } = membership;
 
   return JSON.stringify({ team, saison, membership: gesaet });
 }

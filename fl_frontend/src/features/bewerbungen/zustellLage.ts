@@ -54,7 +54,7 @@ export const ZUSTELLUNG_QUEUE_TINT = "danger";
  * Whether any seat of this application holds an address no mail reaches. The queue reads it so an administrator meets
  * the fact where their eye already is, rather than on a page they never open.
  */
-export function hatUnerreichbarenSitz({ confirmations: bestaetigungen }: Pick<FLBewerbung, "confirmations">): boolean {
+export function hatUnerreichbarenSitz({ confirmations: confirmations }: Pick<FLBewerbung, "confirmations">): boolean {
   // By the seats' own names: `Object.values` reads an interface's values as `any`, which no field check reaches.
-  return Object.values(FLKontaktRolle).some((rolle) => bestaetigungen[rolle]?.delivery?.undeliverable === true);
+  return Object.values(FLKontaktRolle).some((rolle) => confirmations[rolle]?.delivery?.undeliverable === true);
 }

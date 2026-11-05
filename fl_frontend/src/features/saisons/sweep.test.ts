@@ -51,7 +51,7 @@ const LOGGING_DOUBLE = {
 
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 
-const { runLoeschungSweep } = await import("./sweep.ts");
+const { runErasureSweep } = await import("./sweep.ts");
 
 /** Places in the `_id` order, as the mirror demands them. */
 const ORT = `${"e".repeat(23)}5`;
@@ -78,7 +78,7 @@ describe("one pass of the pupils' deletion", () => {
     // The list closes on an answer naming no place, so a loop that ignores the end fails on its count rather than hanging.
     laufAnswer = inTurn([gelaufen(3, 2, ORT), gelaufen(2, 1), gelaufen(4, 4)]);
 
-    await runLoeschungSweep();
+    await runErasureSweep();
 
     // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
     expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
@@ -96,7 +96,7 @@ describe("one pass of the pupils' deletion", () => {
   it("goes on past a call that deleted nobody to the due pupils behind it, answering the pupils it failed as left", async () => {
     laufAnswer = vorneDann({ ...gelaufen(0, 11, ORT), failed: 10 }, gelaufen(1, 10), gelaufen(0, 11));
 
-    expect(await runLoeschungSweep()).toStrictEqual({
+    expect(await runErasureSweep()).toStrictEqual({
       count: {
         completed_saison_id: "2526",
         spieler: 1,
@@ -118,7 +118,7 @@ describe("one pass of the pupils' deletion", () => {
       throw new Error("the deletion was refused");
     };
 
-    expect(await runLoeschungSweep()).toStrictEqual({
+    expect(await runErasureSweep()).toStrictEqual({
       count: { completed_saison_id: "2526", spieler: 3, saison_spieler: 3, registrierungen: 0, skipped: 0, failed: 2 },
       open: 2,
       error: new Error("the deletion was refused"),
@@ -134,7 +134,7 @@ describe("one pass of the pupils' deletion", () => {
     it(`stops where a call answers ${wie}, the deletions counted and the pass failing`, async () => {
       laufAnswer = inTurn([gelaufen(3, 5, ORT), gelaufen(1, 4, ort), gelaufen(0, 0)]);
 
-      const lauf = await runLoeschungSweep();
+      const lauf = await runErasureSweep();
 
       expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
       expect(lauf.count).toStrictEqual({
@@ -154,7 +154,7 @@ describe("one pass of the pupils' deletion", () => {
   it("answers its counts and nothing else, writing no line", async () => {
     laufAnswer = inTurn([gelaufen(3, 1, ORT), gelaufen(1, 0)]);
 
-    expect(await runLoeschungSweep()).toStrictEqual({
+    expect(await runErasureSweep()).toStrictEqual({
       count: {
         completed_saison_id: "2526",
         spieler: 4,

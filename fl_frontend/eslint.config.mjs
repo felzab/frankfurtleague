@@ -503,13 +503,15 @@ const handedOnError = (object) =>
 
 /**
  * `appToast.failure` titles a write of unknown outcome neutrally, where a danger titled at the site says
- * it did not happen. `gesendet` is a public form's transport answer, whose `error` is no action's, in a
+ * it did not happen. `sent` is a public form's transport answer, whose `error` is no action's, in a
  * module posting one.
  */
+// Redesign: `gesendet` goes with the confirmation pages sessions 6 to 8 delete, the last spelling it.
+const SENT = "/^(?:sent|gesendet)$/";
 const FAILURE_BY_HAND = syntax(
   [
-    ...handedOnError(':not([object.name="gesendet"])'),
-    ...handedOnError('[object.name="gesendet"]').map((site) => `Program:not(:has(ImportSpecifier[imported.name="postPublicForm"])) ${site}`),
+    ...handedOnError(`:not([object.name=${SENT}])`),
+    ...handedOnError(`[object.name=${SENT}]`).map((site) => `Program:not(:has(ImportSpecifier[imported.name="postPublicForm"])) ${site}`),
   ].join(", "),
   "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there.",
 );

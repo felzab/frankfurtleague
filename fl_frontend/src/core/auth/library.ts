@@ -689,7 +689,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
           // Awaited: the one caller a stranger reaches, `fl_frontend/src/features/auth/actions.ts :: handleSignIn`,
           // runs this whole send behind its response, and the library's own send route is closed (`DISABLED_PATHS`).
           try {
-            await oweSignInMail(email, { art: "sign_in_code" }, { wert: otp, gueltigMs: CODE_VALIDITY_SECONDS * 1000 });
+            await oweSignInMail(email, { art: "sign_in_code" }, { value: otp, validMs: CODE_VALIDITY_SECONDS * 1000 });
           } catch (failed) {
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.

@@ -10,9 +10,9 @@ import { TextField } from "./TextField";
 describe("a field group", () => {
   it("names its fields as a group for a screen reader, its name a heading", () => {
     render(
-      <FieldGroup name={COPY.verwaltung.spielort.address}>
+      <FieldGroup name={COPY.admin.spielort.address}>
         <TextField
-          label={COPY.verwaltung.spielort.strasse}
+          label={COPY.admin.spielort.strasse}
           name="strasse"
           width="W3"
           kind="text"
@@ -20,9 +20,9 @@ describe("a field group", () => {
       </FieldGroup>,
     );
 
-    const group = screen.getByRole("group", { name: COPY.verwaltung.spielort.address });
-    expect(within(group).getByRole("textbox", { name: COPY.verwaltung.spielort.strasse })).toBeTruthy();
+    const group = screen.getByRole("group", { name: COPY.admin.spielort.address });
+    expect(within(group).getByRole("textbox", { name: COPY.admin.spielort.strasse })).toBeTruthy();
     // A heading a step under the dialog's title, so the dialog's groups are among the headings a reader skims by.
-    expect(within(group).getByRole("heading", { level: 3, name: COPY.verwaltung.spielort.address })).toBeTruthy();
+    expect(within(group).getByRole("heading", { level: 3, name: COPY.admin.spielort.address })).toBeTruthy();
   });
 });

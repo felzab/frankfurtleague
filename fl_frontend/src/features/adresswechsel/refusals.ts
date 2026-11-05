@@ -27,7 +27,7 @@ export function mapAddressChangeViewRefusal(error: unknown): "invalid" | null {
 }
 
 /** What a refused press leaves the page showing: a panel, a re-read of the link, or the sentence of a drifted body. */
-export type AddressChangePressRefusal = { zustand: AddressChangeLinkState } | { neuLesen: true } | ReturnType<typeof refusedPayloadAnswer>;
+export type AddressChangePressRefusal = { state: AddressChangeLinkState } | { neuLesen: true } | ReturnType<typeof refusedPayloadAnswer>;
 
 /** A refused answer or stop, or `null` where the code is none of these. */
 export function mapAddressChangePressRefusal(error: unknown): AddressChangePressRefusal | null {
@@ -39,15 +39,15 @@ export function mapAddressChangePressRefusal(error: unknown): AddressChangePress
     case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     case "link_invalid":
-      return { zustand: "invalid" };
+      return { state: "invalid" };
     // The change ended, or this link was answered, since the page opened: the link's own read says which,
     // so the page states how it ended rather than calling a live or a finished change void.
     case "address_change_ended":
       return { neuLesen: true };
     case "link_expired":
-      return { zustand: "expired" };
+      return { state: "expired" };
     case "link_barred":
-      return { zustand: "barred" };
+      return { state: "barred" };
     // The replaced address barred, the new one another pupil's, the administration's or holding entries of its own, or a
     // grant the approval does not cover: one panel, so the link's holder learns nothing about who holds an address.
     case "address_change_replaced_barred":
@@ -56,7 +56,7 @@ export function mapAddressChangePressRefusal(error: unknown): AddressChangePress
     case "address_change_new_granted":
     case "address_change_occupied":
     case "duplicate_key":
-      return { zustand: "not_confirmable" };
+      return { state: "not_confirmable" };
     default:
       return null;
   }
@@ -68,9 +68,9 @@ export function mapAddressChangePressRefusal(error: unknown): AddressChangePress
 const EIGENE_ADRESSE = "Deine eigene Adresse änderst Du nicht hier, sondern auf Deiner Kontoseite.";
 
 /** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant (`verwaltung_adresse`). */
-const VERWALTUNG_ADRESSE = `Diese Adresse hat Zugang zur Verwaltung. Ändern kann sie hier nur, wer Inhaberin oder Inhaber der Verwaltung ist. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
+const ADMIN_ADDRESS = `Diese Adresse hat Zugang zur Verwaltung. Ändern kann sie hier nur, wer Inhaberin oder Inhaber der Verwaltung ist. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
-const ZUGANG: Readonly<Record<string, string>> = { own_adresse: EIGENE_ADRESSE, verwaltung_adresse: VERWALTUNG_ADRESSE } satisfies Partial<
+const ZUGANG: Readonly<Record<string, string>> = { own_adresse: EIGENE_ADRESSE, verwaltung_adresse: ADMIN_ADDRESS } satisfies Partial<
   Record<Code, string>
 >;
 
@@ -89,7 +89,7 @@ export function mapVerwaltungAnsichtRefusal(error: unknown): string | null {
 }
 
 /** Whether a reveal's sentence is one of its own refusals, which the panel says alone rather than inviting a retry. */
-export const isVerwaltungAnsichtRefusal = (satz: string): boolean => [UNBEKANNT, BEENDET, ...Object.values(ZUGANG)].includes(satz);
+export const isVerwaltungAnsichtRefusal = (sentence: string): boolean => [UNBEKANNT, BEENDET, ...Object.values(ZUGANG)].includes(sentence);
 
 const NICHTS_ZU_AENDERN = buildRefusal({
   reason: "Unter dieser Adresse steht nichts, dessen Adresse sich hier ändern lässt",
@@ -182,8 +182,8 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
 }
 
 /** Who discards a change the approval left open, by why the tool refuses this approver, the tool's discard being the only one. */
-function verwerfen(verwehrt: FLAddressChangeViewableDenied | null): Omit<RefusalParts, "reason"> {
-  switch (verwehrt) {
+function verwerfen(denied: FLAddressChangeViewableDenied | null): Omit<RefusalParts, "reason"> {
+  switch (denied) {
     case null:
       return { repair: { before: "Verwirf sie", after: "" }, where: ADRESSWECHSEL_EINTRAG.label };
     case "verwaltung":
@@ -197,15 +197,15 @@ function verwerfen(verwehrt: FLAddressChangeViewableDenied | null): Omit<Refusal
   }
 }
 
-const ohneGenehmigung = (grund: string, verwehrt: FLAddressChangeViewableDenied | null): string =>
+const ohneGenehmigung = (grund: string, denied: FLAddressChangeViewableDenied | null): string =>
   buildRefusal({
     reason: `${grund}, deshalb ist nichts genehmigt. Die Änderung bleibt offen, bis sie verworfen wird oder abläuft`,
-    ...verwerfen(verwehrt),
+    ...verwerfen(denied),
   });
 
 /** The approval of a change whose new address an account signs in at, worded as the backend's `address_change_occupied` at the effect is. */
-export const kontoBelegtGenehmigung = (verwehrt: FLAddressChangeViewableDenied | null): string =>
-  ohneGenehmigung("Mit der neuen Adresse meldet sich inzwischen jemand an", verwehrt);
+export const kontoBelegtGenehmigung = (denied: FLAddressChangeViewableDenied | null): string =>
+  ohneGenehmigung("Mit der neuen Adresse meldet sich inzwischen jemand an", denied);
 
 /**
  * Who approves an owner's change, closing every sentence that names who approves one: another administrator approves
@@ -228,7 +228,7 @@ export const GENEHMIGUNG_VERWEHRT: Readonly<Record<FLApprovalDenied, string>> = 
 };
 
 /** Said beside the press it refuses, the administrators page holding the change's row. */
-const genehmigungWorte = (verwehrt: FLAddressChangeViewableDenied | null): Readonly<Record<string, string>> =>
+const genehmigungWorte = (denied: FLAddressChangeViewableDenied | null): Readonly<Record<string, string>> =>
   ({
     address_change_approval_younger: GENEHMIGUNG_VERWEHRT.younger,
     address_change_ended: BEENDET,
@@ -245,24 +245,21 @@ const genehmigungWorte = (verwehrt: FLAddressChangeViewableDenied | null): Reado
     link_expired: buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
     // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
     // stands unapproved until it is discarded or lapses.
-    link_barred: ohneGenehmigung("Die neue Adresse steht auf der Sperrliste", verwehrt),
-    address_change_replaced_barred: ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste", verwehrt),
-    address_change_taken: ohneGenehmigung(
-      "Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an",
-      verwehrt,
-    ),
-    address_change_not_covered: ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt", verwehrt),
-    address_change_new_granted: ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung", verwehrt),
-    address_change_occupied: ohneGenehmigung("Unter der neuen Adresse stehen inzwischen eigene Einträge", verwehrt),
+    link_barred: ohneGenehmigung("Die neue Adresse steht auf der Sperrliste", denied),
+    address_change_replaced_barred: ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste", denied),
+    address_change_taken: ohneGenehmigung("Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an", denied),
+    address_change_not_covered: ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt", denied),
+    address_change_new_granted: ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung", denied),
+    address_change_occupied: ohneGenehmigung("Unter der neuen Adresse stehen inzwischen eigene Einträge", denied),
   }) satisfies Partial<Record<Code, string>>;
 
 /**
- * The approval's refusal, or `null`, `document_not_found` and `duplicate_key` among them, which the shared reader words. `verwehrt` is the
+ * The approval's refusal, or `null`, `document_not_found` and `duplicate_key` among them, which the shared reader words. `denied` is the
  * row's served reason the tool refuses this approver, which picks the discard's wording and nothing else.
  */
-export function mapGenehmigungRefusal(error: unknown, verwehrt: FLAddressChangeViewableDenied | null): string | null {
+export function mapGenehmigungRefusal(error: unknown, denied: FLAddressChangeViewableDenied | null): string | null {
   if (isRecordMissing(error)) return KEIN_ADRESSWECHSEL;
   if (!isRefusal(error)) return null;
 
-  return genehmigungWorte(verwehrt)[error.serverErrorCode ?? ""] ?? null;
+  return genehmigungWorte(denied)[error.serverErrorCode ?? ""] ?? null;
 }

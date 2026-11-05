@@ -6,7 +6,7 @@ import { turnstileSecretKey } from "./config";
 import { COPY } from "./copy";
 import { logger } from "./logging";
 import { boundCall } from "./requestScope";
-import { MENSCH_BESTAETIGEN } from "./turnstileToken";
+import { CONFIRM_HUMAN } from "./turnstileToken";
 
 import type { Copy } from "./copy";
 import type { LogMeta } from "./logging";
@@ -34,7 +34,7 @@ const THEIRS = "internal-error";
 const SiteverifyAnswerSchema = z.object({ success: z.boolean(), "error-codes": z.array(z.string()).default([]) });
 
 /** The refusal a check of ours Cloudflare would not take answers: nothing the visitor does repairs it. */
-export const PRUEFUNG_GESTOERT = COPY.shared.botCheck.disrupted;
+export const CHECK_DISRUPTED = COPY.shared.botCheck.disrupted;
 
 /**
  * One answer of Cloudflare's: its status and error codes, an empty list where it passed the token; the status
@@ -86,7 +86,7 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
  */
 export async function turnstileRefusal(token: string | null): Promise<Copy | null> {
   // Refused without asking: Cloudflare would answer either with a judgement against the token.
-  if (token === null || token === "" || token.length > TOKEN_MAX_LENGTH) return MENSCH_BESTAETIGEN;
+  if (token === null || token === "" || token.length > TOKEN_MAX_LENGTH) return CONFIRM_HUMAN;
 
   // Outside every `try`, which lets an unanswered check through: a fault of this module's own must throw.
   // One key over both attempts, so Cloudflare answers a retry of one judgement rather than spending the token twice.
@@ -100,7 +100,7 @@ export async function turnstileRefusal(token: string | null): Promise<Copy | nul
   if (answer === null) return null;
   if ("refusedStatus" in answer) {
     logger.error("turnstile.request_refused", undefined, { status: answer.refusedStatus });
-    return PRUEFUNG_GESTOERT;
+    return CHECK_DISRUPTED;
   }
   if (answer.passed) return null;
   if (answer.codes.some((code) => OURS.has(code))) {
@@ -108,10 +108,10 @@ export async function turnstileRefusal(token: string | null): Promise<Copy | nul
       codes: answer.codes.join(", "),
       status: answer.status,
     });
-    return PRUEFUNG_GESTOERT;
+    return CHECK_DISRUPTED;
   }
   if (theirsAlone(answer)) return unjudged({ codes: answer.codes.join(", ") });
 
   // Every other answer judged the token, an empty list included, which explains nothing.
-  return MENSCH_BESTAETIGEN;
+  return CONFIRM_HUMAN;
 }

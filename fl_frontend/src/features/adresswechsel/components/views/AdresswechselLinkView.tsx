@@ -7,7 +7,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { Button } from "@heroui/react/button";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "@/core/adresswechsel";
-import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
+import { ADDRESS_CHANGE_STOP } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { formatInstant } from "@/core/format";
 import { startOf } from "@/features/adresswechsel/link";
@@ -42,7 +42,7 @@ import type {
 
 type Antwort = AddressChangePressed["answer"];
 
-type Beendet = Extract<AddressChangeView, { zustand: "ended" }>;
+type Beendet = Extract<AddressChangeView, { state: "ended" }>;
 
 /**
  * What a press of this view comes to, as `app/(classic)/confirm/address/answers.ts :: verwaltungswegBeantworten`
@@ -66,7 +66,7 @@ const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 const STOPP_TITEL = "Änderung Deiner E-Mail-Adresse";
 
 /** One heading per live state. A barred link's page has none; an ended change's heading is its side's and its end's. */
-const TITEL: Record<Exclude<AddressChangeStart["zustand"], "barred" | "ended">, string> = {
+const TITEL: Record<Exclude<AddressChangeStart["state"], "barred" | "ended">, string> = {
   valid: "Neue E-Mail-Adresse bestätigen",
   confirmed: "Adresse bestätigt",
   open: STOPP_TITEL,
@@ -142,11 +142,11 @@ const DANACH: Readonly<Record<FLAddressChangeWay, string>> = {
 
 /** The state a press's answer leaves the page in, the side being the press's own. */
 function nachDruck(antwort: AddressChangePressed, way: FLAddressChangeWay): AddressChangeStart {
-  if (antwort.answer === "declined") return { zustand: "ended", side: "new", art: "declined" };
-  if (antwort.answer === "stopped") return { zustand: "ended", side: "previous", art: "stopped" };
-  if (antwort.effective) return { zustand: "ended", side: "new", art: "effective" };
+  if (antwort.answer === "declined") return { state: "ended", side: "new", art: "declined" };
+  if (antwort.answer === "stopped") return { state: "ended", side: "previous", art: "stopped" };
+  if (antwort.effective) return { state: "ended", side: "new", art: "effective" };
 
-  return { zustand: "confirmed", wirksamAb: antwort.effective_from, genehmigungOffen: antwort.approval_open, way: way };
+  return { state: "confirmed", wirksamAb: antwort.effective_from, genehmigungOffen: antwort.approval_open, way: way };
 }
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
@@ -181,12 +181,12 @@ function useAntwort(start: AddressChangeStart, beantworten: Beantworten, onAbsch
         }
         // The change moved between the open and the press: the answer is the panel, never a toast.
         if ("ansicht" in presse) {
-          onAbschluss(presse.ansicht === null ? { zustand: "unlesbar" } : startOf(presse.ansicht, token));
+          onAbschluss(presse.ansicht === null ? { state: "unlesbar" } : startOf(presse.ansicht, token));
           return;
         }
         const { zustand } = presse;
         // The decline stays open on these two, so their panel keeps the token.
-        onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { zustand, way: way, token } : { zustand });
+        onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { state: zustand, way: way, token } : { state: zustand });
       });
     });
   };
@@ -312,7 +312,7 @@ function StoppPanel({
           isPending={isPending}
           onPress={() => sende("stopped")}
           className={formButton({ intent: "destructive", stacks: true })}>
-          {ADRESSWECHSEL_STOPPEN}
+          {ADDRESS_CHANGE_STOP}
         </Button>
       </div>
     </BestaetigungAbschnitt>
@@ -338,7 +338,7 @@ function bestaetigtSatz({ wirksamAb, genehmigungOffen }: { wirksamAb: string | n
  */
 export function AdresswechselLinkView({ start, beantworten }: { start: AddressChangeStart; beantworten: Beantworten }) {
   const [stand, setStand] = useState<AddressChangeStart>(start);
-  const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
+  const { ergebnisRef, beantwortet } = useLinkSeite(stand.state);
   const onAbschluss = (naechster: AddressChangeStart) => {
     beantwortet();
     setStand(naechster);
@@ -346,9 +346,9 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
   // Every state holding a token sends through it; a state without one renders no press.
   const antwort = useAntwort(stand, beantworten, onAbschluss);
 
-  if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
+  if (stand.state === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
-  const titel = stand.zustand === "ended" ? ENDE[stand.art][stand.side].titel : TITEL[stand.zustand];
+  const titel = stand.state === "ended" ? ENDE[stand.art][stand.side].titel : TITEL[stand.state];
 
   return (
     <section className={SEITE_CLASSES}>
@@ -356,7 +356,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
         <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{titel}</h1>
       </header>
 
-      {stand.zustand === "valid" && (
+      {stand.state === "valid" && (
         <AntwortPanel
           gueltigBis={stand.gueltigBis}
           way={stand.way}
@@ -364,16 +364,16 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
         />
       )}
 
-      {(stand.zustand === "open" || stand.zustand === "approval" || stand.zustand === "waiting_period") && (
+      {(stand.state === "open" || stand.state === "approval" || stand.state === "waiting_period") && (
         <StoppPanel
-          zustand={stand.zustand}
+          zustand={stand.state}
           way={stand.way}
           wirksamAb={stand.wirksamAb}
           antwort={antwort}
         />
       )}
 
-      {stand.zustand === "confirmed" && (
+      {stand.state === "confirmed" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
@@ -384,7 +384,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "ended" && (
+      {stand.state === "ended" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone={stand.art === "effective" && stand.side === "previous" ? "hinweis" : "erfolg"}>
@@ -395,7 +395,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
       )}
 
       {/* Told apart from the dead link: the backend serves a lapsed change as lapsed, and only a link it still holds can be. */}
-      {stand.zustand === "expired" && (
+      {stand.state === "expired" && (
         <>
           <BestaetigungErgebnis
             panelRef={ergebnisRef}
@@ -414,7 +414,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
       )}
 
       {/* Pressed, so no decline is offered: the backend refuses every press on a confirmed change. */}
-      {stand.zustand === "approval_expired" && (
+      {stand.state === "approval_expired" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
@@ -430,7 +430,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
 
       {/* Naming no cause, the holder of this mailbox being a stranger to each, and no end: an account's move still owed,
           or entries the league removes, pass, and the confirmation opens again. */}
-      {stand.zustand === "not_confirmable" && (
+      {stand.state === "not_confirmable" && (
         <>
           <BestaetigungErgebnis
             panelRef={ergebnisRef}
@@ -445,7 +445,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
       )}
 
       {/* A token matching no change, live or ended: never minted, or ended past the time its record is kept. */}
-      {stand.zustand === "invalid" && (
+      {stand.state === "invalid" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
@@ -454,7 +454,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
+      {stand.state === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }

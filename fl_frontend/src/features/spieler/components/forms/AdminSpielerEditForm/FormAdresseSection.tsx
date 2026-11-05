@@ -40,7 +40,7 @@ export function FormAdresseSection({
 
         <AdresswechselHinweis
           adresswechselId={adresswechselId}
-          verwehrt={adresswechselVerwehrt}
+          denied={adresswechselVerwehrt}
         />
       </div>
     </section>

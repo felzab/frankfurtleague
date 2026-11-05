@@ -26,16 +26,16 @@ describe("the fixture confirmation's link", () => {
   /* The token exists only in the hand-out's answer, so a request rendered from its row's facts alone would ask a club to
      confirm through a button leading nowhere, with nothing failing. */
   it("is the button of the request the hand-out renders, its own token on the serving origin", () => {
-    const daten = {
+    const data = {
       art: "spiel_request",
       team: "Goethe-Gymnasium",
       ansetzung: { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", ort: null },
       frist: "2026-11-10",
     } as const;
 
-    const mail = mailFor("spiel_request", daten, { token: "beispiel-eins", secret: null, origin: ORIGIN });
+    const mail = mailFor("spiel_request", data, { token: "beispiel-eins", secret: null, origin: ORIGIN });
 
     expect(mail?.button).toStrictEqual({ label: "Spieltermin bestätigen", href: spielBestaetigungsLink(ORIGIN, "beispiel-eins") });
-    expect(() => mailFor("spiel_request", daten, { token: null, secret: null, origin: ORIGIN })).toThrow(/handed out without one/);
+    expect(() => mailFor("spiel_request", data, { token: null, secret: null, origin: ORIGIN })).toThrow(/handed out without one/);
   });
 });

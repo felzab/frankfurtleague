@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import SpielsuchePage from "./page";
+import SpielSearchPage from "./page";
 
 import type { FLSpielJoined, FLSpielplanResponse } from "@/core/generated/client/types";
 import type { ListPage } from "@/kit/ListPage";
@@ -63,7 +63,7 @@ vi.mock("@/features/saisons/queries", () => ({
 
 /** The numbers of the matches the page lists for the address's query, and the empty state it would show. */
 async function found(query: Record<string, string>) {
-  const page = SpielsuchePage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve(query) }) as ReactElement<
+  const page = SpielSearchPage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve(query) }) as ReactElement<
     ComponentProps<typeof ListPage>
   >;
   const { list } = page.props;

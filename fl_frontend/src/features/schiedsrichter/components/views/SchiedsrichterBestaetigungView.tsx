@@ -182,7 +182,7 @@ function SchiedsrichterFormPanel({
     startSending(() => {
       if (!antwort.success) {
         reportRefusedConfirmation(antwort, {
-          onZustand: (zustand) => onAbschluss({ zustand }),
+          onState: (zustand) => onAbschluss({ zustand }),
           // The hook owns the press's one toast: none where a field shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(
@@ -367,12 +367,12 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
               gave, in the words the panels above asked them in. */}
           <GespeicherteAngaben
             zeilen={[
-              { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
+              { label: "Geburtsdatum", value: formatSpielDatum(stand.geburtsdatum) },
               // What the schedule shows, which the fixture read decides by this answer: a permission
               // word would leave the reader to guess what stands there instead.
               {
                 label: "Name im Spielplan",
-                wert:
+                value:
                   stand.umfang === "kader_oeffentlich"
                     ? "Dein erster Namensteil und der Anfangsbuchstabe des nächsten"
                     : SCHIEDSRICHTER_ANONYM_LABEL,

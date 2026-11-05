@@ -15,7 +15,7 @@ const ZUR_AENDERUNG = "Zur Änderung";
 export function AdresswechselOffen({
   adresswechselId,
   adresse,
-  verwehrt,
+  denied,
 }: {
   adresswechselId: string;
   /**
@@ -24,7 +24,7 @@ export function AdresswechselOffen({
    */
   adresse: string | null;
   /** Why the tool refuses this reader the change, as the read serves it: a link would land on that refusal. */
-  verwehrt: FLAddressChangeViewableDenied | null;
+  denied: FLAddressChangeViewableDenied | null;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -38,7 +38,7 @@ export function AdresswechselOffen({
         </>
       )}{" "}
       läuft eine Änderung.{" "}
-      {verwehrt === null ? (
+      {denied === null ? (
         <Link
           href={saisonHref(`/area/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
           prefetch={false}
@@ -46,7 +46,7 @@ export function AdresswechselOffen({
           {ZUR_AENDERUNG}
         </Link>
       ) : (
-        EINSEHBAR_VERWEHRT[verwehrt]
+        EINSEHBAR_VERWEHRT[denied]
       )}
     </p>
   );
@@ -58,10 +58,10 @@ export function AdresswechselOffen({
  */
 export function AdresswechselHinweis({
   adresswechselId,
-  verwehrt,
+  denied,
 }: {
   adresswechselId: string | null;
-  verwehrt: FLAddressChangeViewableDenied | null;
+  denied: FLAddressChangeViewableDenied | null;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -71,7 +71,7 @@ export function AdresswechselHinweis({
         <AdresswechselOffen
           adresswechselId={adresswechselId}
           adresse={null}
-          verwehrt={verwehrt}
+          denied={denied}
         />
       )}
       <p className="muted-hint text-pretty">

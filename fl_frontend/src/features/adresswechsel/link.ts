@@ -25,59 +25,59 @@ type DeclineOnly = Extract<AddressChangeLinkState, "expired" | "not_confirmable"
  * A pressed link and an ended change keep answering, so the page says how the change stands or ended.
  */
 export type AddressChangeView =
-  | { zustand: "valid"; gueltigBis: string; way: FLAddressChangeWay }
-  | { zustand: "confirmed"; wirksamAb: string | null; genehmigungOffen: boolean; way: FLAddressChangeWay }
-  | { zustand: OldViewPreviousState; gueltigBis: string | null; wirksamAb: string | null; way: FLAddressChangeWay }
-  | { zustand: DeclineOnly; way: FLAddressChangeWay }
+  | { state: "valid"; gueltigBis: string; way: FLAddressChangeWay }
+  | { state: "confirmed"; wirksamAb: string | null; genehmigungOffen: boolean; way: FLAddressChangeWay }
+  | { state: OldViewPreviousState; gueltigBis: string | null; wirksamAb: string | null; way: FLAddressChangeWay }
+  | { state: DeclineOnly; way: FLAddressChangeWay }
   // Pressed, so the backend refuses the decline too: told apart from `abgelaufen`, whose link was never pressed.
-  | { zustand: "approval_expired"; way: FLAddressChangeWay }
-  | { zustand: "ended"; side: FLAddressChangeViewEndedSide; art: FLAddressChangeEndArt }
-  | { zustand: Exclude<AddressChangeLinkState, DeclineOnly> };
+  | { state: "approval_expired"; way: FLAddressChangeWay }
+  | { state: "ended"; side: FLAddressChangeViewEndedSide; art: FLAddressChangeEndArt }
+  | { state: Exclude<AddressChangeLinkState, DeclineOnly> };
 
-type WithoutPress = { zustand: "ended" | "confirmed" | "approval_expired" | "barred" | "invalid" };
+type WithoutPress = { state: "ended" | "confirmed" | "approval_expired" | "barred" | "invalid" };
 
 /** What the page opens on. The token rides only with a link a press can still spend. */
 export type AddressChangeStart =
-  (Exclude<AddressChangeView, WithoutPress> & { token: string }) | Extract<AddressChangeView, WithoutPress> | { zustand: "unlesbar" };
+  (Exclude<AddressChangeView, WithoutPress> & { token: string }) | Extract<AddressChangeView, WithoutPress> | { state: "unlesbar" };
 
 /** The read's answer as the page holds it: the side is implied by the state. */
-export function viewOf({ view: ansicht }: Pick<FLAddressChangeViewResponse, "view">): AddressChangeView {
-  if (ansicht.state === "ended") return { zustand: "ended", side: ansicht.side, art: ansicht.art };
-  if (ansicht.side === "previous") {
-    if (ansicht.state === "release_open" || ansicht.state === "release_expired") return { zustand: "invalid" };
-    return { zustand: ansicht.state, gueltigBis: ansicht.valid_until, wirksamAb: ansicht.effective_from, way: ansicht.way };
+export function viewOf({ view: view }: Pick<FLAddressChangeViewResponse, "view">): AddressChangeView {
+  if (view.state === "ended") return { state: "ended", side: view.side, art: view.art };
+  if (view.side === "previous") {
+    if (view.state === "release_open" || view.state === "release_expired") return { state: "invalid" };
+    return { state: view.state, gueltigBis: view.valid_until, wirksamAb: view.effective_from, way: view.way };
   }
 
-  switch (ansicht.state) {
-    // Null only on `bestaetigt`, by the read's contract; read as the dead link rather than a deadline of nothing.
+  switch (view.state) {
+    // Null only on `confirmed`, by the read's contract; read as the dead link rather than a deadline of nothing.
     case "valid":
-      return ansicht.valid_until === null ? { zustand: "invalid" } : { zustand: "valid", gueltigBis: ansicht.valid_until, way: ansicht.way };
+      return view.valid_until === null ? { state: "invalid" } : { state: "valid", gueltigBis: view.valid_until, way: view.way };
     case "confirmed":
-      // Null only outside `bestaetigt`, by the read's contract.
-      return { zustand: "confirmed", wirksamAb: ansicht.effective_from, genehmigungOffen: ansicht.approval_open === true, way: ansicht.way };
+      // Null only outside `confirmed`, by the read's contract.
+      return { state: "confirmed", wirksamAb: view.effective_from, genehmigungOffen: view.approval_open === true, way: view.way };
     case "barred":
-      return { zustand: "barred" };
+      return { state: "barred" };
     default:
-      return { zustand: ansicht.state, way: ansicht.way };
+      return { state: view.state, way: view.way };
   }
 }
 
 /** What the page opens on for what the read answered: every state a press can still spend keeps its token. */
-export function startOf(gelesen: AddressChangeView, token: string): AddressChangeStart {
-  switch (gelesen.zustand) {
+export function startOf(read: AddressChangeView, token: string): AddressChangeStart {
+  switch (read.state) {
     // A pressed link answers a second press with the change's end, so it holds no press either.
     case "ended":
     case "confirmed":
     case "approval_expired":
     case "barred":
     case "invalid":
-      return gelesen;
+      return read;
     default:
-      return { ...gelesen, token: token };
+      return { ...read, token: token };
   }
 }
 
-/** A press that landed: the confirmation's outcome, `wirksam` where it took effect in this press. */
+/** A press that landed: the confirmation's outcome, `effective` where it took effect in this press. */
 export type AddressChangePressed = {
   success: true;
   answer: "confirmed" | "declined" | "stopped";

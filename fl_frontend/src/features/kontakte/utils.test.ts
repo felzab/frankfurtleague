@@ -236,8 +236,8 @@ describe("addressOnlyConfirmedSeatLabels", () => {
     expect(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
     expect(addressOnlyConfirmedSeatLabels(block(), block())).toStrictEqual([]);
 
-    const offen = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
-    expect(addressOnlyConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ email: "erika@anders.de" }) }))).toStrictEqual(
+    const open = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
+    expect(addressOnlyConfirmedSeatLabels(block({ trainer: open }), block({ trainer: person({ email: "erika@anders.de" }) }))).toStrictEqual(
       [],
     );
   });
@@ -259,9 +259,9 @@ describe("renamedConfirmedSeatLabels", () => {
   /* A seat nobody confirmed has no stamp for the save to take, so a warning over one would name a seat
      the save leaves exactly as it found it. */
   it("stays silent where the stored seat carries no confirmation", () => {
-    const offen = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
+    const open = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
 
-    expect(renamedConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
+    expect(renamedConfirmedSeatLabels(block({ trainer: open }), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
   });
 
   /* The server reads these as one person and keeps the stamp, so each is a save the banner must let

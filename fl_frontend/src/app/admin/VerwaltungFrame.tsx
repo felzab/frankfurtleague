@@ -21,49 +21,49 @@ import type { ReactNode } from "react";
  */
 export const RAIL_GROUPS: RailGroup[] = [
   {
-    entries: [{ id: "uebersicht", label: ROUTES.verwaltungOverview.title, saison: "verwaltungOverview", icon: "overview" }],
+    entries: [{ id: "uebersicht", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }],
   },
   {
-    heading: COPY.verwaltung.group.saisonsAndSpiele,
+    heading: COPY.admin.group.saisonsAndSpiele,
     entries: [
-      { id: "saisons", label: ROUTES.verwaltungSaisons.title, href: ROUTES.verwaltungSaisons.path(), icon: "saisons" },
-      { id: "spiele", label: ROUTES.verwaltungSpiele.title, saison: "verwaltungSpiele", icon: "spielplan" },
-      { id: "spielorte", label: ROUTES.verwaltungSpielorte.title, href: ROUTES.verwaltungSpielorte.path(), icon: "spielorte" },
+      { id: "saisons", label: ROUTES.adminSaisons.title, href: ROUTES.adminSaisons.path(), icon: "saisons" },
+      { id: "spiele", label: ROUTES.adminSpiele.title, saison: "adminSpiele", icon: "spielplan" },
+      { id: "spielorte", label: ROUTES.adminSpielorte.title, href: ROUTES.adminSpielorte.path(), icon: "spielorte" },
       {
         id: "schiedsrichter",
-        label: ROUTES.verwaltungSchiedsrichter.title,
-        href: ROUTES.verwaltungSchiedsrichter.path(),
+        label: ROUTES.adminSchiedsrichter.title,
+        href: ROUTES.adminSchiedsrichter.path(),
         icon: "schiedsrichter",
       },
     ],
   },
   {
-    heading: COPY.verwaltung.group.schulenAndSpieler,
+    heading: COPY.admin.group.schulenAndSpieler,
     entries: [
-      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.title, saison: "verwaltungBewerbungen", icon: "bewerbungen" },
-      { id: "teams", label: ROUTES.verwaltungTeams.title, saison: "verwaltungTeams", icon: "teams" },
-      { id: "spieler", label: ROUTES.verwaltungSpieler.title, saison: "verwaltungSpieler", icon: "spieler" },
-      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.title, saison: "verwaltungRegistrierungen", icon: "registrierungen" },
+      { id: "bewerbungen", label: ROUTES.adminBewerbungen.title, saison: "adminBewerbungen", icon: "bewerbungen" },
+      { id: "teams", label: ROUTES.adminTeams.title, saison: "adminTeams", icon: "teams" },
+      { id: "spieler", label: ROUTES.adminSpieler.title, saison: "adminSpieler", icon: "spieler" },
+      { id: "registrierungen", label: ROUTES.adminRegistrierungen.title, saison: "adminRegistrierungen", icon: "registrierungen" },
     ],
   },
   {
-    heading: COPY.verwaltung.group.accessAndPrivacy,
+    heading: COPY.admin.group.accessAndPrivacy,
     entries: [
       {
         id: "administratoren",
-        label: ROUTES.verwaltungAdministrators.title,
-        href: ROUTES.verwaltungAdministrators.path(),
+        label: ROUTES.adminAdministrators.title,
+        href: ROUTES.adminAdministrators.path(),
         icon: "administrators",
       },
-      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.title, href: ROUTES.verwaltungSperrliste.path(), icon: "sperrliste" },
-      { id: "loeschungen", label: ROUTES.verwaltungErasures.title, href: ROUTES.verwaltungErasures.path(), icon: "erasures" },
+      { id: "sperrliste", label: ROUTES.adminBanList.title, href: ROUTES.adminBanList.path(), icon: "sperrliste" },
+      { id: "loeschungen", label: ROUTES.adminErasures.title, href: ROUTES.adminErasures.path(), icon: "erasures" },
       {
         id: "adressaenderungen",
-        label: ROUTES.verwaltungAddressChanges.title,
-        href: ROUTES.verwaltungAddressChanges.path(),
+        label: ROUTES.adminAddressChanges.title,
+        href: ROUTES.adminAddressChanges.path(),
         icon: "email",
       },
-      { id: "action_log", label: ROUTES.verwaltungActionLog.title, href: ROUTES.verwaltungActionLog.path(), icon: "log" },
+      { id: "action_log", label: ROUTES.adminActionLog.title, href: ROUTES.adminActionLog.path(), icon: "log" },
     ],
   },
 ];
@@ -87,10 +87,10 @@ export function VerwaltungFrame({ children }: { children: ReactNode }) {
       groups={RAIL_GROUPS}
       bar={["uebersicht", "spiele", "teams"]}
       // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
-      saison={{ saisons: readSeasons(session), home: "verwaltungOverview", withoutSaison: ROUTES.verwaltungSaisons.path() }}
+      saison={{ saisons: readSeasons(session), home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path() }}
       foot={{
         kind: "account",
-        account: session.then((served) => (served === null ? null : readAccount(COPY.verwaltung.role, "administration"))),
+        account: session.then((served) => (served === null ? null : readAccount(COPY.admin.role, "administration"))),
       }}
       columnInLayouts>
       {children}

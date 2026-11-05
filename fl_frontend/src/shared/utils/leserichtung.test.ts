@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { leserichtungHref, leserichtungHrefFromRoute, parseLeserichtung, umgekehrt } from "./leserichtung.ts";
+import { opposite, parseReadingDirection, readingDirectionHref, readingDirectionHrefFromRoute } from "./leserichtung.ts";
 
 /** The URL shapes the two capped lists write, each carrying something a reversal must not drop. */
 const LIST_URLS: Record<string, string | string[]>[] = [
@@ -28,43 +28,43 @@ function asRoute(href: string): Record<string, string> {
 describe("parseLeserichtung", () => {
   it("keeps the newest end unless the URL asks for the other one", () => {
     for (const params of [{}, { order: "" }, { order: "ASC" }, { order: ["asc"] }, { order: "unsinn" }]) {
-      expect(parseLeserichtung(params)).toBe("desc");
+      expect(parseReadingDirection(params)).toBe("desc");
     }
-    expect(parseLeserichtung({ order: "asc" })).toBe("asc");
+    expect(parseReadingDirection({ order: "asc" })).toBe("asc");
   });
 });
 
 describe("umgekehrt", () => {
   it("answers the other end from either one", () => {
-    expect(umgekehrt("desc")).toBe("asc");
-    expect(umgekehrt("asc")).toBe("desc");
+    expect(opposite("desc")).toBe("asc");
+    expect(opposite("asc")).toBe("desc");
   });
 });
 
 describe("leserichtungHref", () => {
   it("writes the oldest end as a parameter of its own", () => {
-    expect(leserichtungHref(new URLSearchParams(), "asc")).toBe("?order=asc");
+    expect(readingDirectionHref(new URLSearchParams(), "asc")).toBe("?order=asc");
   });
 
   /* The default end is the ABSENCE of the parameter, so a pasted link carries only what somebody
      chose; a builder writing `order=desc` for it would pass every other case in this file. */
   it("leaves no order behind at all on the way back to the newest end", () => {
-    expect(leserichtungHref(new URLSearchParams("order=asc"), "desc")).toBe("?");
-    expect(leserichtungHref(new URLSearchParams("order=asc&saison_id=2026"), "desc")).toBe("?saison_id=2026");
+    expect(readingDirectionHref(new URLSearchParams("order=asc"), "desc")).toBe("?");
+    expect(readingDirectionHref(new URLSearchParams("order=asc&saison_id=2026"), "desc")).toBe("?saison_id=2026");
   });
 
   it("rebuilds the parameter rather than appending beside the one already there", () => {
-    expect(leserichtungHref(new URLSearchParams("order=asc&saison_id=2026"), "asc")).toBe("?saison_id=2026&order=asc");
+    expect(readingDirectionHref(new URLSearchParams("order=asc&saison_id=2026"), "asc")).toBe("?saison_id=2026&order=asc");
   });
 
   /* A bookmark can still hold a search query, and a reversal built from it would write the typed name
      into a fresh history entry. */
   it("leaves an old search query behind", () => {
-    expect(leserichtungHref(new URLSearchParams("q=Lena&status=a"), "asc")).toBe("?status=a&order=asc");
+    expect(readingDirectionHref(new URLSearchParams("q=Lena&status=a"), "asc")).toBe("?status=a&order=asc");
   });
 
   it("carries every other parameter across, repeated keys included", () => {
-    expect(leserichtungHref(new URLSearchParams("saison_id=2025&status=a&status=b"), "asc")).toBe(
+    expect(readingDirectionHref(new URLSearchParams("saison_id=2025&status=a&status=b"), "asc")).toBe(
       "?saison_id=2025&status=a&status=b&order=asc",
     );
   });
@@ -73,14 +73,14 @@ describe("leserichtungHref", () => {
      the reader had just narrowed, with the pills still saying otherwise. */
   it("keeps every narrowing either list wrote", () => {
     for (const params of LIST_URLS) {
-      const richtung = parseLeserichtung(params);
-      const reversed = new URLSearchParams(leserichtungHref(asSearch(params), umgekehrt(richtung)).slice(1));
+      const direction = parseReadingDirection(params);
+      const reversed = new URLSearchParams(readingDirectionHref(asSearch(params), opposite(direction)).slice(1));
 
       for (const [key, value] of Object.entries(params)) {
         if (key === "order") continue;
         expect(reversed.getAll(key), `\`${key}\` was dropped by the reversal`).toStrictEqual(Array.isArray(value) ? value : [value]);
       }
-      expect(reversed.get("order")).toBe(richtung === "desc" ? "asc" : null);
+      expect(reversed.get("order")).toBe(direction === "desc" ? "asc" : null);
     }
   });
 
@@ -88,11 +88,11 @@ describe("leserichtungHref", () => {
      state and its alternative rather than two one-way trips. */
   it("reads back the end it started at after two reversals", () => {
     for (const params of LIST_URLS) {
-      const start = parseLeserichtung(params);
-      const einmal = leserichtungHref(asSearch(params), umgekehrt(start));
+      const start = parseReadingDirection(params);
+      const once = readingDirectionHref(asSearch(params), opposite(start));
 
-      expect(parseLeserichtung(asRoute(einmal))).toBe(umgekehrt(start));
-      expect(parseLeserichtung(asRoute(leserichtungHref(new URLSearchParams(einmal.slice(1)), start)))).toBe(start);
+      expect(parseReadingDirection(asRoute(once))).toBe(opposite(start));
+      expect(parseReadingDirection(asRoute(readingDirectionHref(new URLSearchParams(once.slice(1)), start)))).toBe(start);
     }
   });
 });
@@ -106,12 +106,12 @@ describe("leserichtungHrefFromRoute", () => {
   it("agrees with the query-string form on a string, an array and an absent key", () => {
     const live = asSearch({ saisonbezug: "andere_saison", status: ["eingereicht", "abgelehnt"], order: "asc" });
 
-    for (const ziel of ["asc", "desc"] as const) {
-      expect(leserichtungHrefFromRoute(ROUTE, ziel)).toBe(leserichtungHref(live, ziel));
+    for (const target of ["asc", "desc"] as const) {
+      expect(readingDirectionHrefFromRoute(ROUTE, target)).toBe(readingDirectionHref(live, target));
     }
   });
 
   it("drops an absent key rather than writing it out as a value", () => {
-    expect(leserichtungHrefFromRoute({ trace_id: undefined }, "asc")).toBe("?order=asc");
+    expect(readingDirectionHrefFromRoute({ trace_id: undefined }, "asc")).toBe("?order=asc");
   });
 });

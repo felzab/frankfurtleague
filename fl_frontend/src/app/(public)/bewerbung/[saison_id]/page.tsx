@@ -5,7 +5,7 @@ import { frontend_config } from "@/core/config";
 import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
-import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
+import { getBewerbungSchulen, getBewerbungTrikotfarben, getBewerbungWindow } from "@/features/bewerbungen/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -23,7 +23,7 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
   // failed read answering not-found would take the season down with the backend.
 
   // Unlogged: the body's handler logs this same memoised read's failure.
-  const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
+  const antwort = await getBewerbungWindow(saison_id).catch(() => undefined);
   if (antwort === null) notFound();
 
   return {
@@ -60,7 +60,7 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // read never learnt. A broken contract is no failed read: it reaches the error boundary, which logs it.
 
   const antwort = await runWithIncomingTrace(() =>
-    getBewerbungFenster(saison_id).catch((error: unknown) => nullUnlessContractBreak(error) ?? undefined),
+    getBewerbungWindow(saison_id).catch((error: unknown) => nullUnlessContractBreak(error) ?? undefined),
   );
   if (antwort === null) notFound();
   const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.window };

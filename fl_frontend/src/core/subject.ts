@@ -7,7 +7,7 @@ import { readRequestSession } from "./auth/session";
 import { isWithinPersonLifetime } from "./auth/sessionStamps";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
-import { lookUpSubjekt } from "./signInGate";
+import { lookUpSubject } from "./signInGate";
 
 import type { FLSubjectResponse, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler } from "./generated/client/types";
 import type { RequestActor } from "./requestScope";
@@ -54,8 +54,8 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   // empty one is refused here rather than at the endpoint, which answers 422.
   if (email === "") return null;
 
-  // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubjekt`).
-  const subject = await lookUpSubjekt(email);
+  // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubject`).
+  const subject = await lookUpSubject(email);
 
   // On every request rather than only at the ban: a session minted racing the ban, or one its ending
   // missed, is no session here.

@@ -116,7 +116,7 @@ function toCalendarDate(stored: string): CalendarDate | null {
 /** The two choices the new pupil's page took, in the words of the wording it showed: its answer panel's readout. */
 function wahlZeilen(umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
   return [
-    ...(umfang === null ? [] : [{ label: "Auf der Website", wert: SPIELER_WORDINGS.umfang.options[umfang] }]),
+    ...(umfang === null ? [] : [{ label: "Auf der Website", value: SPIELER_WORDINGS.umfang.options[umfang] }]),
     ...(medien === null ? [] : [medienZeile(medien)]),
   ];
 }
@@ -156,9 +156,9 @@ export function SpielerBestaetigungView({
         {stand.zustand === "valid" && (
           <FaktenBanner
             zeilen={[
-              { label: "Team", wert: stand.ansicht.team },
-              { label: "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
-              { label: "Saison", wert: stand.ansicht.saison_id },
+              { label: "Team", value: stand.ansicht.team },
+              { label: "Schule", value: stand.ansicht.schule, unbegrenzt: true },
+              { label: "Saison", value: stand.ansicht.saison_id },
             ]}
           />
         )}
@@ -192,7 +192,7 @@ export function SpielerBestaetigungView({
               zeilen={[
                 ...(stand.gespeichert.geburtsdatum === null
                   ? []
-                  : [{ label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) }]),
+                  : [{ label: "Geburtsdatum", value: formatSpielDatum(stand.gespeichert.geburtsdatum) }]),
                 ...wahlZeilen(stand.gespeichert.umfang, stand.gespeichert.medien),
               ]}
             />
@@ -327,7 +327,7 @@ function SpielerBestaetigungForm({
       startSending(() => {
         if (!antwort.success) {
           reportRefusedConfirmation(antwort, {
-            onZustand: (zustand) => onAbschluss({ zustand }),
+            onState: (zustand) => onAbschluss({ zustand }),
             // The hook owns the press's one toast: none where a field shows the refusal.
             onRefusal: () =>
               reportSubmitFailure(

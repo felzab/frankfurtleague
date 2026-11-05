@@ -10,7 +10,7 @@ import { COPY } from "@/core/copy";
 import { ComboBox } from "./ComboBox";
 import { Select } from "./Select";
 
-const SPIELORT = COPY.verwaltung.spielort;
+const SPIELORT = COPY.admin.spielort;
 
 /** A venue field as the match editor holds it: its value held by the page, its text by the field. */
 function SpielortField({ onCreate, onChange }: { onCreate: (typed: string) => void; onChange?: (id: string | null) => void }) {

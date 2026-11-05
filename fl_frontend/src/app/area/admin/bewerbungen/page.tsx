@@ -9,7 +9,7 @@ import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
-import { leserichtungHrefFromRoute, parseLeserichtung, umgekehrt } from "@/shared/utils/leserichtung";
+import { opposite, parseReadingDirection, readingDirectionHrefFromRoute } from "@/shared/utils/leserichtung";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -40,7 +40,7 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
  */
 async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   const params = (await searchParams) ?? {};
-  const richtung = parseLeserichtung(params);
+  const richtung = parseReadingDirection(params);
 
   const [teamsRes, selectedSaison] = await Promise.all([
     // The clubs, because a picked one is stored as an id.
@@ -61,7 +61,7 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
       dublettenSchluessel={bewerbungenRes.duplicates_key}
       richtung={richtung}
       unvollstaendig={
-        bewerbungenRes.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
+        bewerbungenRes.complete ? null : { richtung: richtung, umkehrHref: readingDirectionHrefFromRoute(params, opposite(richtung)) }
       }
     />
   );

@@ -49,7 +49,7 @@ const { runBewerbungSweep } = await import("./sweep.ts");
 const saisonOf = (endpoint: string): string => endpoint.split("/")[3] ?? "";
 
 /** One season half's answer, the rows it passed over counted. */
-const bewerbungPass = (saisonId: string, fehlgeschlagen = 0) => ({
+const bewerbungPass = (saisonId: string, failed = 0) => ({
   saison_id: saisonId,
   reminded: 0,
   erased: 0,
@@ -58,16 +58,16 @@ const bewerbungPass = (saisonId: string, fehlgeschlagen = 0) => ({
   erased_without_decision: 0,
   kontakt_blocks_emptied: 0,
   redacted_action_log: 0,
-  failed: fehlgeschlagen,
+  failed: failed,
 });
-const registrierungPass = (saisonId: string, fehlgeschlagen = 0) => ({
+const registrierungPass = (saisonId: string, failed = 0) => ({
   saison_id: saisonId,
   reminded: 0,
   erased_unconfirmed: 0,
   erased_without_decision: 0,
   erased_declined: 0,
   redacted_action_log: 0,
-  failed: fehlgeschlagen,
+  failed: failed,
 });
 
 /**

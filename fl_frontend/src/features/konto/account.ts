@@ -20,15 +20,15 @@ import type { MenuLink } from "@/kit/Menu";
 import type { Route } from "next";
 
 /** One place a person's Funktionen open on, as „Funktion wechseln“ lists it: a team by its name, the rest by their area. */
-function entryOf(ziel: FunktionZiel, current: Role["art"] | undefined): MenuLink {
-  const [first] = ziel.funktionen;
+function entryOf(target: FunktionZiel, current: Role["art"] | undefined): MenuLink {
+  const [first] = target.funktionen;
   // An address built from the person's own records, which no literal can spell.
-  const href = ziel.href as Route;
+  const href = target.href as Route;
   const isCurrent = first.art === current;
   switch (first.art) {
     case "kontakt": {
       // Every seat at one address shares its team and season, so the first names both.
-      const rollen = ziel.funktionen.flatMap((funktion) => (funktion.art === "kontakt" ? [funktion.rolle] : []));
+      const rollen = target.funktionen.flatMap((role) => (role.art === "kontakt" ? [role.rolle] : []));
       return {
         href,
         isCurrent,
@@ -41,7 +41,7 @@ function entryOf(ziel: FunktionZiel, current: Role["art"] | undefined): MenuLink
     case "schiedsrichter":
       return { href, isCurrent, label: COPY.shared.schiedsrichter };
     case "administration":
-      return { href, isCurrent, label: COPY.verwaltung.role };
+      return { href, isCurrent, label: COPY.admin.role };
   }
 }
 
@@ -56,7 +56,7 @@ export async function readAccount(role: Copy, current?: Role["art"]): Promise<Ac
   return {
     role,
     address: { record: subject.email },
-    roles: zieleOf(rolesOf(subject).roles).map((ziel) => entryOf(ziel, current)),
+    roles: zieleOf(rolesOf(subject).roles).map((target) => entryOf(target, current)),
   };
 }
 

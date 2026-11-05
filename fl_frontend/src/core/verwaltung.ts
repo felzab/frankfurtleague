@@ -1,24 +1,24 @@
 import "server-only";
 
 import { asSignInIdentifier } from "./emailAddress";
-import { lookUpSubjekt } from "./signInGate";
+import { lookUpSubject } from "./signInGate";
 
 import type { FLSubjectResponse } from "./generated/client/types";
 
 /** The grant an address holds, its tier and when the grant and its `owner` tier took effect, as the subject lookup serves them: null together for none. */
-export type Verwaltung = Pick<FLSubjectResponse, "verwaltung" | "granted_since" | "inhaber_seit">;
+export type Grant = Pick<FLSubjectResponse, "verwaltung" | "granted_since" | "inhaber_seit">;
 
-const NO: Verwaltung = { verwaltung: null, granted_since: null, inhaber_seit: null };
+const NO: Grant = { verwaltung: null, granted_since: null, inhaber_seit: null };
 
 /**
  * The grant an address holds, read per request and never stamped on a session, which a revoke made
  * in the database would outlive. Throws on every backend failure:
  * each reader decides what an unread grant means.
  */
-export async function verwaltungOf(email: string): Promise<Verwaltung> {
+export async function grantOf(email: string): Promise<Grant> {
   // Folded here because the library folds only CASE and only on the row it stores, while a grant is
   // stored folded (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
-  const subject = await lookUpSubjekt(asSignInIdentifier(email));
+  const subject = await lookUpSubject(asSignInIdentifier(email));
 
   // A barred holder is no administrator, as the backend's actor check refuses them: a grant written in
   // the database directly is the one way onto a barred address, and it admits nothing.
@@ -26,13 +26,13 @@ export async function verwaltungOf(email: string): Promise<Verwaltung> {
 }
 
 /**
- * Whether a session made at `made` is no older than `seit`: a privilege holds for sessions made since it
+ * Whether a session made at `made` is no older than `since`: a privilege holds for sessions made since it
  * alone, judged here because ending older sessions at the change misses
  * one written in the database.
  */
-export function madeSince(made: Date | string, seit: string | null): boolean {
+export function madeSince(made: Date | string, since: string | null): boolean {
   const created = new Date(made).getTime();
-  const at = seit === null ? Number.NaN : new Date(seit).getTime();
+  const at = since === null ? Number.NaN : new Date(since).getTime();
 
   // An unreadable instant on either side admits nobody, as `withinLifetime` reads an unreadable stamp.
   return Number.isFinite(created) && Number.isFinite(at) && created >= at;
@@ -42,6 +42,6 @@ export function madeSince(made: Date | string, seit: string | null): boolean {
  * Whether a session the administrator's guard admitted holds an owner's power: the grant `owner`, and
  * the session made since that tier took effect, where the backend judges an owner's write.
  */
-export function holdsOwnersTier(made: Date | string, { verwaltung, inhaber_seit }: Verwaltung): boolean {
+export function holdsOwnersTier(made: Date | string, { verwaltung, inhaber_seit }: Grant): boolean {
   return verwaltung === "owner" && madeSince(made, inhaber_seit);
 }

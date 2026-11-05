@@ -1,6 +1,6 @@
 import { actionLogGetActionLog } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
-import { parseLeserichtung } from "@/shared/utils/leserichtung";
+import { parseReadingDirection } from "@/shared/utils/leserichtung";
 
 import { aktionenLogFacetTerms } from "./facets";
 
@@ -12,7 +12,7 @@ export type AktionenLogSubjekt = { dokumentId: string | null; vorgangId: string 
 
 // Anything but one plain value reads as no narrowing, so a hand-edited URL falls back to the whole
 // log rather than 404ing — the rule the read order keeps too
-// (`fl_frontend/src/shared/utils/leserichtung.ts :: parseLeserichtung`).
+// (`fl_frontend/src/shared/utils/leserichtung.ts :: parseReadingDirection`).
 const einzeln = (value: string | string[] | undefined): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 /**
@@ -53,6 +53,6 @@ export async function getAktionenLog(params: Readonly<Record<string, string | st
     // search over the rows it left would miss one row's older history.
     trace_id: vorgangId ?? undefined,
     document_id: dokumentId ?? undefined,
-    order: parseLeserichtung(params),
+    order: parseReadingDirection(params),
   });
 }

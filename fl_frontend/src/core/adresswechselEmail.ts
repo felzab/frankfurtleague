@@ -1,7 +1,7 @@
 import "server-only";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_SPAN } from "./adresswechsel";
-import { ADRESSWECHSEL_STOPPEN } from "./adresswechselAntworten";
+import { ADDRESS_CHANGE_STOP } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
 import { COPY } from "./copy";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
@@ -106,7 +106,7 @@ export function buildAddressChangeNoticeEmail({ way, vorname }: FLAddressChangeN
       [["Fragen jederzeit an ", { address: KONTAKT_EMAIL }, "."]],
     ],
     // The stop: no link approves anything.
-    button: { label: ADRESSWECHSEL_STOPPEN, href: addressChangeLink(site, stopToken) },
+    button: { label: ADDRESS_CHANGE_STOP, href: addressChangeLink(site, stopToken) },
   };
 }
 

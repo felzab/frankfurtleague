@@ -49,14 +49,14 @@ describe("a record's subject line", () => {
     const name = "Sportanlage an der Bertha-von-Suttner-Schule Mitte";
     render(
       <Facts
-        subject={{ name: { record: name }, chip: { tone: "neutral", label: COPY.verwaltung.spielort.retired } }}
+        subject={{ name: { record: name }, chip: { tone: "neutral", label: COPY.admin.spielort.retired } }}
         facts={[]}
       />,
     );
 
     const subject = screen.getByTitle(name);
     expect(subject.classList).toContain("truncate");
-    const chip = screen.getByText(COPY.verwaltung.spielort.retired);
+    const chip = screen.getByText(COPY.admin.spielort.retired);
     expect(chip.parentElement).toBe(subject.parentElement);
     expect(chip.classList).toContain("shrink-0");
   });

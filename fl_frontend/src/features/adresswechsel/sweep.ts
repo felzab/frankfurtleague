@@ -13,16 +13,16 @@ import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types
  * rejects, for the heartbeat to name; the pass resolves to what it did, `verbleibend` the lapsed changes it could not end.
  */
 export async function sweepAdresswechsel(): Promise<Omit<FLAddressChangeSweepResponse, "nach">> {
-  let entfernt = 0;
-  let wirksam = 0;
-  let verworfen = 0;
+  let removed = 0;
+  let effective = 0;
+  let discarded = 0;
   let antwort: FLAddressChangeSweepResponse;
   let nach: string | null = null;
   do {
     antwort = await postAdresswechselSweep(nach);
-    entfernt += antwort.removed;
-    verworfen += antwort.discarded;
-    wirksam += antwort.effective;
+    removed += antwort.removed;
+    discarded += antwort.discarded;
+    effective += antwort.effective;
     // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
     // (`fl_frontend/src/features/saisons/loeschung.ts :: sweepLoeschung`).
     if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
@@ -35,5 +35,5 @@ export async function sweepAdresswechsel(): Promise<Omit<FLAddressChangeSweepRes
   await runAddressChangeMoves();
 
   // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
-  return { removed: entfernt, effective: wirksam, discarded: verworfen, remaining: antwort.remaining };
+  return { removed: removed, effective: effective, discarded: discarded, remaining: antwort.remaining };
 }
