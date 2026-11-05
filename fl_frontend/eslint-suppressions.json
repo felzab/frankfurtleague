@@ -14,11 +14,6 @@
       "count": 2
     }
   },
-  "src/app/(public)/confirm/schiedsrichter/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/(public)/confirm/spiel/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -40,11 +35,6 @@
     }
   },
   "src/app/api/bestaetigung/kontakt/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/api/bestaetigung/schiedsrichter/route.ts": {
     "fl/server-action": {
       "count": 1
     }
@@ -1779,20 +1769,6 @@
     },
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 18
-    },
-    "no-restricted-syntax": {
-      "count": 23
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 16
     }
   },
   "src/features/schiedsrichter/components/views/SchiedsrichterSelfView.tsx": {

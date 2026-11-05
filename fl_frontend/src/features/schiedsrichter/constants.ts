@@ -1,5 +1,3 @@
-import { FLEinwilligungScope } from "@/core/generated/client/types";
-import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSchiedsrichterConfirmationFristDays } from "@/core/generated/client/types";
@@ -33,17 +31,6 @@ export const SCHIEDSRICHTER_OHNE_NAMEN_LABEL = "Eintrag ohne Namen";
  * route in.
  */
 export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLSchiedsrichterConfirmationFristDays;
-
-// Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
-// 190-year-old date with „mindestens 16“, which is a different fault.
-
-// The pupil's sentence word for word, and NOT the contact seat's: the two public consent pages ask
-// one person one question, and `fl_backend/app/shared/age.py` judges both by the same span.
-export const alterAusserhalb = (mindestalter: number): string =>
-  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
-
-/** The publication question's answers in the order the chips stand; their words are the stamped label's. */
-export const SCHIEDSRICHTER_UMFANG_WERTE: readonly FLEinwilligungScope[] = Object.values(FLEinwilligungScope);
 
 /** A booked referee as a fixture serves one: the public tier serves whether the name may stand, the admin tier the id. */
 type GebuchterSchiedsrichter = { schiedsrichter_id?: string; name: string | null; name_is_public?: boolean };

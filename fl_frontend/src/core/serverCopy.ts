@@ -777,9 +777,14 @@ export const SERVER_COPY = catalogue({
     /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
     deadline: ENTRY_DEADLINE,
     question: (until: CalendarDay) => [REFEREE_OPENING, REFEREE_STORED, entryDeadline(until), OBJECTION_DELETES_ENTRY].join(" "),
-    /** The two ends of an answer, and of a link opened again after it. */
+    /**
+     * The two ends of an answer, each its title and its one sentence; a link opened again after it says the title with
+     * the day (`COPY.shared.end.doneOn`).
+     */
     confirmed: "Eintrag bestätigt",
+    confirmedSentence: "Mit der Adresse, an die dieser Link ging, meldest du dich an.",
     objected: "Widersprochen",
+    objectedSentence: "Wir löschen deinen Eintrag.",
   },
 
   // Session 8: its page reads these.

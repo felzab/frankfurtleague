@@ -1,15 +1,7 @@
 import z from "zod";
 
-import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
-import { FLEinwilligungScope } from "@/core/generated/client/types";
-import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
-import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
-import { LINK_FASSUNG_FEHLT, textVersionsSchema } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import { CustomDateStringSchema, FLKontaktPayloadSchema, PersonNameSchema } from "@/shared/schemas";
-import { getGermanTodayStr } from "@/shared/utils/date";
-
-import { alterAusserhalb } from "./constants";
+import { FLKontaktPayloadSchema, PersonNameSchema } from "@/shared/schemas";
 
 import type { FLKontakt } from "@/core/generated/client/types";
 
@@ -38,62 +30,3 @@ export type FLSchiedsrichterPayloadDraft<T extends { default_payment: number; ko
   default_payment: number | null;
   kontakt: FLKontakt;
 };
-
-/** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
-
-/**
- * Both public payloads read their token from here. One sentence for the missing token and the
- * over-long one: a visitor typed neither, so the repair is the same link opened again.
- */
-const bestaetigungToken = z
-  .string()
-  .trim()
-  .nonempty({ error: LINK_UNVOLLSTAENDIG })
-  .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
-
-// Redesign: goes with its last importer.
-/**
- * The publication answer. A slug rather than a boolean, because it is stored as one: a switch here
- * and a scope in the record would leave the page and the row disagreeing about what „intern“ means.
- */
-// The message an UNANSWERED control raises as well as a drifted one: nothing preselects this choice.
-const FLSchiedsrichterScopeSchema = z.enum(FLEinwilligungScope, {
-  error: "Bitte wähle aus, was im Spielplan stehen darf.",
-});
-
-// Redesign: goes with its last importer.
-/**
- * **It bounds no age**: the floor arrives with the link's own read, and a number retyped here would
- * be a second copy nothing compares. The endpoint refuses the age; the handler lands that refusal on
- * the date field.
- */
-export const FLSchiedsrichterBestaetigungPayloadSchema = z.object({
-  token: bestaetigungToken,
-  geburtsdatum: CustomDateStringSchema,
-  scope: FLSchiedsrichterScopeSchema,
-  // Never optional: the record stores the key either way, so an omitted one would store the model's
-  // default in place of the person's answer.
-  media: z.boolean(),
-  // The wordings this page rendered, never ones a browser chose: the record has to cite the words the
-  // confirming person read.
-  text_versions: textVersionsSchema(SCHIEDSRICHTER_TEXT_VERSIONS, LINK_FASSUNG_FEHLT),
-});
-export type FLSchiedsrichterConfirmationPayload = z.infer<typeof FLSchiedsrichterBestaetigungPayloadSchema>;
-
-// Redesign: goes with its last importer.
-/**
- * The page's own, built at the floor the link answered: the date is judged against the German day
- * here as the endpoint judges it, so both tiers refuse the same two numbers on the same day.
- */
-export const buildSchiedsrichterBestaetigungPayloadSchema = (mindestalter: number) =>
-  FLSchiedsrichterBestaetigungPayloadSchema.extend({
-    geburtsdatum: CustomDateStringSchema.refine(
-      (datum) => {
-        const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
-
-        return datum >= frueheste && datum <= spaeteste;
-      },
-      { error: alterAusserhalb(mindestalter) },
-    ),
-  });
