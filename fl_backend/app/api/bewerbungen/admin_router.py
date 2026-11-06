@@ -3,7 +3,7 @@ import secrets
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any, get_args
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
@@ -18,16 +18,13 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungResendResponse,
     FLBewerbungenAdminFilterParams,
     FLBewerbungenAdminListResponse,
-    FLBewerbungenFilterParams,
-    FLBewerbungenListResponse,
+    FLBewerbungEntry,
     FLBewerbungEntryOffer,
     FLBewerbungGruppeOffer,
     FLBewerbungKontaktSeatPayload,
     FLBewerbungKontaktSeatResponse,
-    FLBewerbungListAdapter,
     FLBewerbungListRow,
     FLBewerbungSingleResponse,
-    FLBewerbungStatus,
     FLDeclineBewerbungPayload,
     FLDeclineBewerbungResponse,
 )
@@ -35,11 +32,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_LIST_FIELDS,
     WITHOUT_TOKEN_HASHES,
     bewerbung_list_row,
-    build_bewerbung_list_filter,
-    build_bewerbungen_saison_term,
-    build_bewerbungen_saisonbezug_terms,
     build_bewerbungen_sort,
-    build_bewerbungen_status_term,
     build_dubletten_pipeline,
     build_entry_offer_pipeline,
     build_erneut_filter,
@@ -96,6 +89,7 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     TeamsCollection,
     TeamsReadCollection,
     get_german_date_str,
@@ -117,9 +111,6 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-# `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so
-# it publishes no query parameter at all and answers `None` whatever the query string holds.
-FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
 FLBewerbungenAdminFilters = Annotated[FLBewerbungenAdminFilterParams, Query()]
 
 
@@ -144,6 +135,19 @@ async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollect
     )
 
 
+async def _entry_of(bewerbung_raw: Mapping[str, Any], *, saison_teams_collection: SaisonTeamsReadCollection) -> FLBewerbungEntry | None:
+    """Where the accepted application's club stands in its season, `None` for an application no acceptance entered."""
+
+    if bewerbung_raw["status"] != "accepted":
+        return None
+
+    row = await saison_teams_collection.find_one(
+        {"saison_id": bewerbung_raw["saison_id"], "team_id": bewerbung_raw.get("team_id")}, {"gruppe": 1, "trikot_farbe": 1}
+    )
+
+    return None if row is None else FLBewerbungEntry.model_validate(row)
+
+
 async def _as_served(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -160,70 +164,6 @@ async def _as_served(
     return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen, today=today) for row in rows]
 
 
-@router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
-async def get_bewerbungen(
-    bewerbungen_collection: BewerbungenCollection,
-    outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
-    filters: FLBewerbungenFilters,
-    today: str = Depends(get_german_date_str),
-) -> FLBewerbungenListResponse:
-    """Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
-
-    `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
-    `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
-    A barred administrator is served as `null` beside `decision.by_barred`.
-    """
-
-    # The season term alone, because each count answers for the status it names: counted with the
-    # request's own status term applied, every status the caller did not ask for would read zero.
-    beyond_status = build_bewerbungen_saison_term(saison_id=filters.saison_id, saison_reference=filters.saison_reference)
-    # And the mirror: a relation counted with the season term applied would read zero for the side
-    # the read left out, leaving the other season's queue reachable from nothing on this page.
-    beyond_saison = build_bewerbungen_status_term(filters.status)
-    saisonbezug_terms = build_bewerbungen_saisonbezug_terms(saison_id=filters.saison_id)
-
-    # Concurrently, so five counts and the collision pass cost one round trip's latency rather than six.
-    counted, bezogen, cells = await asyncio.gather(
-        asyncio.gather(
-            # `bewerbungen_saison_id_status_queue` carries both terms, so a count walks keys and
-            # fetches nothing; measured, the complement loses the COUNT_SCAN and stays an IXSCAN.
-            *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus.__value__))
-        ),
-        asyncio.gather(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
-        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(beyond_status)),
-    )
-
-    # One row over what is served, and the extra never is: it answers whether the list is whole
-    # without a count, and counting the filtered set is the unbounded work this read must not do.
-
-    # The projection keeps the token hashes from crossing the wire at all, where the read model
-    # would drop them only after they had (`app/api/bewerbungen/public_router.py :: get_schulen`).
-    read = await pull_many_from_db(
-        collection=bewerbungen_collection,
-        db_filter={**beyond_status, **beyond_saison},
-        limit=filters.limit + 1,
-        sort_by=build_bewerbungen_sort(sort_by=filters.sort_by, order=filters.order),
-        projection=WITHOUT_TOKEN_HASHES,
-    )
-
-    # Sliced before validation, so the probe row is never parsed and never reaches the wire.
-    served = read[: filters.limit]
-
-    # Degrades rather than refusing: the rows are written by an anonymous public form, so a tripwire
-    # would hand whoever writes them the power to 500 this page. Answering short leaves the
-    # administrator a usable list, and `complete` reports the cut.
-    return FLBewerbungenListResponse(
-        bewerbungen=FLBewerbungListAdapter.validate_python(
-            await _as_served(served, ban_list=ban_list, outbox_collection=outbox_collection, today=today)
-        ),
-        complete=len(read) <= filters.limit,
-        count_per_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
-        count_per_saison_reference=dict(zip(saisonbezug_terms, bezogen, strict=True)),
-        duplicates_key=dubletten_schluessel_of(cells),
-    )
-
-
 # Two static segments, matching `GET /saisons/list/admin`.
 @router.get("/list/admin", response_model=FLBewerbungenAdminListResponse, summary="One Saison's Bewerbungen for its list")
 async def get_bewerbungen_admin(
@@ -233,10 +173,11 @@ async def get_bewerbungen_admin(
     filters: FLBewerbungenAdminFilters,
 ) -> FLBewerbungenAdminListResponse:
     """
-    One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+    One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
 
-    A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
-    `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+    A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
+    taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
+    public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
     """
 
     offer, doubled, read = await asyncio.gather(
@@ -244,12 +185,13 @@ async def get_bewerbungen_admin(
         aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline({"saison_id": filters.saison_id})),
         pull_many_from_db(
             collection=bewerbungen_collection,
-            db_filter=build_bewerbung_list_filter(saison_id=filters.saison_id, status=filters.status, origin=filters.origin),
+            db_filter={"saison_id": filters.saison_id},
             limit=filters.limit + 1,
             sort_by=build_bewerbungen_sort(sort_by="submitted_at", order="desc"),
             projection=BEWERBUNG_LIST_FIELDS,
         ),
     )
+    # Sliced before validation, so the probe row is never parsed and never reaches the wire.
     served = read[: filters.limit]
     team_ids = [row.get("team_id") for row in served]
     club_names, club_codes = await asyncio.gather(
@@ -274,6 +216,7 @@ async def get_bewerbung(
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
@@ -287,14 +230,16 @@ async def get_bewerbung(
     [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection, today=today)
 
     team_id = bewerbung_raw.get("team_id")
-    offer, club_names, club_codes = await asyncio.gather(
+    offer, club_names, club_codes, entry = await asyncio.gather(
         _entry_offer(saison_id=str(bewerbung_raw["saison_id"]), saisons_collection=saisons_collection),
         pull_team_names(teams_collection=teams_collection, team_ids=[team_id]),
         pull_team_codes(teams_collection=teams_collection, team_ids=[team_id]),
+        _entry_of(bewerbung_raw, saison_teams_collection=saison_teams_collection),
     )
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),
+        entry=entry,
         name=schule_name(bewerbung_raw=bewerbung_raw, club_names=club_names),
         shorthand=club_codes.get(team_id),
         seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),

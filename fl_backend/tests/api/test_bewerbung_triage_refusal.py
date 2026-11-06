@@ -119,4 +119,5 @@ class TestCorrectingOneContactAddress:
 
         refusal = find_kontakt_email_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com")
 
-        assert refusal is not None and refusal.error_code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        # Naming the field, or the dialog has no box to say it on.
+        assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, (("email",),))

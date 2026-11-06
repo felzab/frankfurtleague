@@ -95,7 +95,6 @@ NAMES_AN_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/action_log": "/api/v0/action_log",
     "/api/v0/action_log/{action_log_entry_id:objectid}": f"/api/v0/action_log/{AKTION_OID}",
     "/api/v0/grants": "/api/v0/grants",
-    "/api/v0/bewerbungen": "/api/v0/bewerbungen",
     "/api/v0/bewerbungen/{bewerbung_id:objectid}": f"/api/v0/bewerbungen/{BEWERBUNG_OID}",
     "/api/v0/registrierungen": "/api/v0/registrierungen",
     "/api/v0/sperrliste": "/api/v0/sperrliste",

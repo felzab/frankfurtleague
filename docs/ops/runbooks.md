@@ -393,49 +393,24 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
 
 ## 4. When the application queue has been flooded
 
-**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
-`LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
-filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`). Where more do exist it answers
-`complete: false` and the triage page raises a standing warning that cannot be dismissed
-(`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
-BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
-threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
+**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen/list/admin` serves at
+most `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
+filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`). Where more do exist it answers
+`complete: false` and the Bewerbungen list stands under a warning, „Nicht alle Bewerbungen sind geladen.“, that cannot
+be dismissed, its search and filters then reading the newest rows alone. Answering short and saying so is the
+deliberate choice over refusing past a threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
 them the power to decide when the page stops working.
 
-**What truncation costs first is the partner of a marked pair, which is why the notice leads on it.** The
-collision is decided on the server over every open application the request's season term leaves, never over the
-rows served (`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), so a served row is
-marked whatever the cut took; a search or a facet cannot take the mark off it either
-(`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungenView.tsx`). What the cut can take is
-the other half: the notice says plainly that a marked row's partner is not always on the page, and reversing
-the read is how it is reached.
-
-**The Herkunft counts are the second thing to distrust.** That facet counts the loaded rows alone, so a zero
-means zero among what came back rather than zero in the queue; the status and season counts come from the
-server and hold whatever the read was cut to.
-
-**Reversing the read is the recovery the page offers, and the only one; the page offers it by two
-routes.** The default order is newest first, so what a cut-short answer keeps is the newest rows and
-what it drops is the oldest — which is exactly where applications submitted before a flood sit. The
-filter bar's read-order control paints the loaded end and lists the other on every view, cut short or
-not (`fl_frontend/src/shared/components/ui/FilterLeiste.tsx :: LeserichtungSelect`); the notice above
-it names that end in a sentence and links the act, reading `Lade die ältesten zuerst` on a default
-view. Either route lands on the identical page.
-
-**The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
-Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
-reduce how many are.
-
-**Narrowing by status is offered and buys nothing here.** The server sets `status` on write, so every
-flooded row is `submitted` and the queue's own default already selects them; season narrowing is not
-offered and would not separate a flood either, a submission being admitted only while one season's window
-is open (`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`). Reaching `saison_id` anyway
-would mean a backend call, and the edge carries exactly one backend path
-(`= /api/v0/system/is_live`), so it would have to be made on the server against
-the backend container. Nothing in this repository wraps that.
+**What truncation costs is the oldest rows, which is where applications submitted before a flood sit.** The list is
+newest first, so what a cut-short answer keeps is the newest rows, and the page offers no way to the others: its
+search and its filters narrow the rows it holds. A marked Dublette keeps its mark, the collision being decided on the
+server over every open application of the season, never over the rows served
+(`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), but its partner is not always among the
+rows. Unconfirmed rows clear by themselves: the sweep deletes an application a day after its earliest outstanding
+seat's deadline, which is what shortens a flood of addresses nobody answers.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
-decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
+decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`), so an operator who declines down the queue and sees the
 notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
 surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: accept_bewerbung` and
 `:: decline_bewerbung`) plus the public submission, so a flooded row stays.
@@ -474,7 +449,7 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Pupil          | `/area/admin/spieler/{spieler_id}`, and the squad rows under each season; `/area/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                                                   |
 | Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                                  |
-| Contact person | `/area/admin/kontakte/{team_id}` for the season's block, and `/area/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.by`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Contact person | `/area/admin/kontakte/{team_id}` for the season's block, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.by`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/area/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.created_by`, `einladungen.created_by`, `bewerbungen.decision.by`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.current.address`, `data.before.address`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.address`), listed under „Offene Anträge“ on `/area/admin/administratoren`, and every address change of a grant holder they started or approved (`address_changes.approval.started_by`, `address_changes.approval.approved_by`), which a read-only Playground query on those fields finds |
 | Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.address`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 

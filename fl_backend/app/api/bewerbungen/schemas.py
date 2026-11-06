@@ -46,7 +46,6 @@ from app.shared.schemas.literals import (
     FLKontaktRow,
     FLSaisonStatus,
     FLSchulform,
-    FLSortOrder,
     FLTrikotFarbe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -54,20 +53,6 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # `submitted` is the only state a submission arrives in; the other two are the triage's, and
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
 type FLBewerbungStatus = Literal["submitted", "accepted", "declined"]
-
-# Which seasons a read covers, RELATIVE to the `saison_id` beside it and never a season of its own:
-# the triage bar asks about the season an administrator came here about, and no stored field carries
-# that answer.
-type FLBewerbungSaisonReference = Literal["diese_saison", "other_saison"]
-
-# Where a listed application came from: a school the league does not hold yet, or a club it does. Stated by `schule`,
-# which an acceptance leaves in place.
-type FLBewerbungOrigin = Literal["new_school", "existing_team"]
-
-# One key, and it is the one every `bewerbungen` index sorts on: the collection grows with each
-# submission and no path removes a row, so a second order would plan a blocking sort over an archive
-# nothing bounds.
-FLBewerbungenSortOptions = Literal["submitted_at"]
 
 
 class _FLBewerbungSitzStand(BaseReadModel):
@@ -203,36 +188,13 @@ class FLBewerbungRecord(FLBewerbung):
     idempotency_fingerprint: str | None = None
 
 
-FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
+class FLBewerbungenAdminFilterParams(BaseModel):
+    """Which season's applications the list reads, whole: its page narrows them, its chips and the bulk's rows counting over all."""
 
-
-class FLBewerbungenFilterParams(BaseModel):
-    """What the triage list may narrow on."""
-
-    saison_id: str | None = None
-    # A list for `status`'s reason below, the facet offering these being multi-select. What each
-    # value narrows to is published at `app/api/bewerbungen/admin_router.py :: get_bewerbungen`.
-    saison_reference: list[FLBewerbungSaisonReference] | None = None
-    # A LIST, because the facet offering these is multi-select: one key per value, FastAPI's repeated
-    # query parameter. Absent is the facet turned off, `$in` of no value answering nothing.
-    status: list[FLBewerbungStatus] | None = None
-
+    saison_id: str
     # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
     # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the
     # ceiling rather than "everything".
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    # Newest first by default: the triage is a queue, and the oldest open application is the one an
-    # administrator has already seen.
-    sort_by: FLBewerbungenSortOptions = Field(default="submitted_at")
-    order: FLSortOrder = Field(default="desc")
-
-
-class FLBewerbungenAdminFilterParams(BaseModel):
-    """What the season's application list may narrow on; `FLBewerbungenFilterParams`'s reasons hold for each."""
-
-    saison_id: str
-    status: list[FLBewerbungStatus] | None = None
-    origin: list[FLBewerbungOrigin] | None = None
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
 
 
@@ -267,29 +229,6 @@ class FLDeclineBewerbungPayload(BaseModel):
     version: CustomVersion
 
 
-class FLBewerbungenListResponse(BaseAPIResponse):
-    """The queue, newest first, and whether that is the whole of it.
-
-    `duplicates_key` is taken over every open application, so a pair the cap parted is named at both ends.
-    """
-
-    bewerbungen: list[FLBewerbung]
-    # German, unlike the envelope fields around it, because `complete` reads as "the read finished"
-    # as readily as "the list is whole" -- and this flag decides whether an admin may trust the list.
-    complete: bool
-    # Counted on the SERVER: the answer holds only the statuses the request asked for, so a caller
-    # counting the rows it was served reads zero for each one the server hid and would offer no way
-    # back to them.
-    count_per_status: dict[FLBewerbungStatus, int]
-    # The same, for the season relation the read narrows on: the side it left out has no rows here,
-    # and a caller counting what it holds would strand an administrator in one season.
-    count_per_saison_reference: dict[FLBewerbungSaisonReference, int]
-    # KEYS and never the colliding applications' ids: one school submitting for hours is ONE group,
-    # and `$push` over it answers past the 16MB a document may hold -- a 500 an anonymous form could
-    # time.
-    duplicates_key: list[str]
-
-
 class FLBewerbungGruppeOffer(BaseModel):
     """One group an acceptance may name, and whether it has room."""
 
@@ -315,10 +254,9 @@ class FLBewerbungListRow(BaseReadModel):
     version: int
     status: FLBewerbungStatus
     submitted_at: CustomDateString
-    # The club it names, null for a new school until an acceptance writes the created club's id.
-    team_id: CustomObjectId | None
     # The school as submitted, or the picked club's own name.
     name: str
+    # Stated by `schule`, which an acceptance leaves in place.
     new_school: bool
     # The code of the club it names; a new school takes one from the acceptance.
     shorthand: str | None
@@ -328,7 +266,6 @@ class FLBewerbungListRow(BaseReadModel):
     expected_kader: int
     wunschgegner: str | None
     seats_confirmed: int
-    seats_objected: int
     # The people its seats name, one person holding two counting once: whom a decision mails.
     people: int
     # Whether this open application and another one for the season name the same club (`Dublette`).
@@ -336,17 +273,28 @@ class FLBewerbungListRow(BaseReadModel):
 
 
 class FLBewerbungenAdminListResponse(BaseAPIResponse):
-    """The season's applications, what an acceptance would meet there, and whether the list is whole."""
+    """The season's applications and what an acceptance would meet there."""
 
     saison: FLBewerbungEntryOffer
     bewerbungen: list[FLBewerbungListRow]
+    # Whether every row was served, which an administrator must be able to trust: this is the one list an anonymous
+    # party writes rows into.
     complete: bool
+
+
+class FLBewerbungEntry(BaseModel):
+    """Where an accepted application's club stands in the season, which the decision itself does not record."""
+
+    gruppe: FLGruppenNames
+    trikot_farbe: FLTrikotFarbe | None
 
 
 class FLBewerbungSingleResponse(BaseAPIResponse):
     """One application as its review page shows it."""
 
     bewerbung: FLBewerbung
+    # Null until an acceptance enters the club.
+    entry: FLBewerbungEntry | None
     # The school as submitted, or the picked club's own name.
     name: str
     # The code of the club it names, which the acceptance shows closed; null for a new school until it is accepted.

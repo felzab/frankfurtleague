@@ -16,7 +16,7 @@ from pymongo.errors import OperationFailure
 from app.api.bewerbungen.admin_router import (
     accept_bewerbung,
     decline_bewerbung,
-    get_bewerbungen,
+    get_bewerbungen_admin,
     post_kontakt_seat,
     resend_einwilligung,
 )
@@ -24,7 +24,7 @@ from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbungEinwilligungAnswerPayload,
-    FLBewerbungenFilterParams,
+    FLBewerbungenAdminFilterParams,
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
@@ -1112,18 +1112,17 @@ SEEDED_IN_ORDER = (PICKED_BEWERBUNG, NEW_SCHOOL_BEWERBUNG, RETIRED_BEWERBUNG, CL
 
 @pytest.mark.db
 class TestTheQueueTheTriageIsWorkedDown:
-    """`GET /bewerbungen` is what an administrator works down, so what it does with a tie is a decision."""
+    """`GET /bewerbungen/list/admin` is what an administrator works down, so what it does with a tie is a decision."""
 
     def test_applications_from_one_day_come_back_newest_first(self, mongo_replica_set_url: str):
         """Catches an ascending tie-break, which reads a day's applications backwards inside a newest-first list."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await get_bewerbungen(
+            response = await get_bewerbungen_admin(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                outbox_collection=database[Collection.OUTBOX],
-                ban_list=ban_list(database),
-                filters=FLBewerbungenFilterParams(),
-                today=TODAY,
+                teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                filters=FLBewerbungenAdminFilterParams(saison_id=SAISON_ID),
             )
 
             return [bewerbung.id for bewerbung in response.bewerbungen], {bewerbung.submitted_at for bewerbung in response.bewerbungen}

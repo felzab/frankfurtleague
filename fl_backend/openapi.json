@@ -3627,6 +3627,30 @@
         "title": "FLBewerbungEinwilligungViewResponse",
         "type": "object"
       },
+      "FLBewerbungEntry": {
+        "description": "Where an accepted application's club stands in the season, which the decision itself does not record.",
+        "properties": {
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTrikotFarbe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "gruppe",
+          "trikot_farbe"
+        ],
+        "title": "FLBewerbungEntry",
+        "type": "object"
+      },
       "FLBewerbungEntryOffer": {
         "description": "What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.",
         "properties": {
@@ -4044,10 +4068,6 @@
             "title": "Seats Confirmed",
             "type": "integer"
           },
-          "seats_objected": {
-            "title": "Seats Objected",
-            "type": "integer"
-          },
           "shorthand": {
             "anyOf": [
               {
@@ -4070,18 +4090,6 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Submitted At",
             "type": "string"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id"
           },
           "version": {
             "title": "Version",
@@ -4107,7 +4115,6 @@
           "version",
           "status",
           "submitted_at",
-          "team_id",
           "name",
           "new_school",
           "shorthand",
@@ -4116,7 +4123,6 @@
           "expected_kader",
           "wunschgegner",
           "seats_confirmed",
-          "seats_objected",
           "people",
           "duplicate"
         ],
@@ -4180,13 +4186,6 @@
         ],
         "title": "FLBewerbungObjectionData",
         "type": "object"
-      },
-      "FLBewerbungOrigin": {
-        "enum": [
-          "new_school",
-          "existing_team"
-        ],
-        "type": "string"
       },
       "FLBewerbungPerson": {
         "description": "Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.",
@@ -4260,13 +4259,6 @@
         ],
         "title": "FLBewerbungReceivedData",
         "type": "object"
-      },
-      "FLBewerbungSaisonReference": {
-        "enum": [
-          "diese_saison",
-          "other_saison"
-        ],
-        "type": "string"
       },
       "FLBewerbungSchule": {
         "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `submitted`, exactly one of this and `team_id` carries a value.",
@@ -4406,6 +4398,16 @@
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
           },
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -4431,6 +4433,7 @@
         },
         "required": [
           "bewerbung",
+          "entry",
           "name",
           "shorthand",
           "seats_confirmed",
@@ -4683,7 +4686,7 @@
         "type": "object"
       },
       "FLBewerbungenAdminListResponse": {
-        "description": "The season's applications, what an acceptance would meet there, and whether the list is whole.",
+        "description": "The season's applications and what an acceptance would meet there.",
         "properties": {
           "bewerbungen": {
             "items": {
@@ -4706,58 +4709,6 @@
           "complete"
         ],
         "title": "FLBewerbungenAdminListResponse",
-        "type": "object"
-      },
-      "FLBewerbungenListResponse": {
-        "description": "The queue, newest first, and whether that is the whole of it.\n\n`duplicates_key` is taken over every open application, so a pair the cap parted is named at both ends.",
-        "properties": {
-          "bewerbungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLBewerbung"
-            },
-            "title": "Bewerbungen",
-            "type": "array"
-          },
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "count_per_saison_reference": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "propertyNames": {
-              "$ref": "#/components/schemas/FLBewerbungSaisonReference"
-            },
-            "title": "Count Per Saison Reference",
-            "type": "object"
-          },
-          "count_per_status": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "propertyNames": {
-              "$ref": "#/components/schemas/FLBewerbungStatus"
-            },
-            "title": "Count Per Status",
-            "type": "object"
-          },
-          "duplicates_key": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Duplicates Key",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbungen",
-          "complete",
-          "count_per_status",
-          "count_per_saison_reference",
-          "duplicates_key"
-        ],
-        "title": "FLBewerbungenListResponse",
         "type": "object"
       },
       "FLBookingResource": {
@@ -21313,159 +21264,6 @@
       }
     },
     "/api/v0/bewerbungen": {
-      "get": {
-        "description": "Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.\n\n`complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.\n`duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.\nA barred administrator is served as `null` beside `decision.by_barred`.",
-        "operationId": "bewerbungen_get_bewerbungen",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "saison_reference",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/FLBewerbungSaisonReference"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Reference"
-            }
-          },
-          {
-            "in": "query",
-            "name": "status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/FLBewerbungStatus"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "const": "submitted_at",
-              "default": "submitted_at",
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/FLSortOrder",
-              "default": "desc"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungenListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "List Bewerbungen",
-        "tags": [
-          "bewerbungen"
-        ]
-      },
       "post": {
         "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.",
         "operationId": "bewerbungen_post_bewerbung",
@@ -21826,7 +21624,7 @@
     },
     "/api/v0/bewerbungen/list/admin": {
       "get": {
-        "description": "One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as\n`get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.",
+        "description": "One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`\ntaken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous\npublic form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.",
         "operationId": "bewerbungen_get_bewerbungen_admin",
         "parameters": [
           {
@@ -21836,44 +21634,6 @@
             "schema": {
               "title": "Saison Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/FLBewerbungStatus"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
-            }
-          },
-          {
-            "in": "query",
-            "name": "origin",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/FLBewerbungOrigin"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
             }
           },
           {
