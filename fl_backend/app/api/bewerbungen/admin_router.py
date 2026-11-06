@@ -694,7 +694,7 @@ async def resend_einwilligung(
         # a miss, so the refusal names what moved.
         reread = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
         seats = seats_judged_on(reread)
-        # A re-read that passes is a row that moved back between the two, a decline and then a reseat:
+        # A re-read that passes is a row that moved back between the two, a decline and then a seat write:
         # one more write, whose own miss is the only one answering 404.
         matched = await mint_on(seats)
 

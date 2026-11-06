@@ -763,6 +763,27 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
 
 
 @pytest.mark.db
+class TestTheCodeAnAcceptanceIsSent:
+    """Refused on the box before anything is written: the wrong side of the rule creates no club under a code nobody chose."""
+
+    @pytest.mark.parametrize(
+        ("bewerbung_id", "shorthand"),
+        [
+            pytest.param(NEW_SCHOOL_BEWERBUNG, None, id="a new school with none"),
+            pytest.param(PICKED_BEWERBUNG, "ABX", id="a picked club with one"),
+        ],
+    )
+    def test_the_wrong_side_of_the_rule_writes_nothing(self, mongo_replica_set_url: str, bewerbung_id: ObjectId, shorthand: str | None):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as refused:
+                await accept(database, client, bewerbung_id, shorthand=shorthand)
+
+            return refused.value.error_code, await junction_rows(database), (await stored_bewerbung(database, bewerbung_id))["status"]
+
+        assert on_a_league(mongo_replica_set_url, body) == (Code.PAYLOAD_REFUSED, [], "submitted")
+
+
+@pytest.mark.db
 class TestWhoTheDecisionNames:
     """`decision.by` is the request's bound actor, so it and the `aktionen` row cannot disagree.
 

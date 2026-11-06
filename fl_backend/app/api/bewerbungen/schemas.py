@@ -715,7 +715,7 @@ class FLBewerbungEinwilligungResendResponse(BaseAPIResponse):
     """The seat whose link was replaced and where its fresh one is owed; the old one opens nothing."""
 
     rolle: FLKontaktRolle
-    # Off the image the write replaced, never the caller's earlier read: a correction landing between
+    # Off the image the write replaced, never the caller's earlier read: a seat write landing between
     # the two moved the address this link has to go to.
     email: str
     rollen: list[FLKontaktRolle]

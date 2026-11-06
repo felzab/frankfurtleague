@@ -161,7 +161,7 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
             kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OPEN), ansprechperson=_seat(BEWERBUNG_UNCONFIRMED, confirmed_at=None)),
             submitted_at="2026-01-01",
             confirmation_deadline="2026-01-15",
-            schule=new_schule_document("Bewerberschule", "BWX"),
+            schule=new_schule_document("Bewerberschule"),
         )
     )
     await database[Collection.SPIELER].insert_many(

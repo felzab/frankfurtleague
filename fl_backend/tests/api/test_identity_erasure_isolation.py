@@ -115,7 +115,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=new_schule_document("Neue", "NEX"),
+            schule=new_schule_document("Neue"),
         )
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -130,7 +130,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=new_schule_document("Ander", "ANX"),
+            schule=new_schule_document("Ander"),
         )
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.

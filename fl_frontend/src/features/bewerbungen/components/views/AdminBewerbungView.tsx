@@ -46,7 +46,8 @@ export function AdminBewerbungView({
   const [boxGetippt, setBoxGetippt] = useState(false);
 
   const staende = bestaetigungsStand(bewerbung);
-  const sitze = Object.values(bewerbung.confirmations).filter((sitz) => sitz !== null);
+  const { trainer, ansprechperson, stellvertretung } = bewerbung.confirmations;
+  const sitze = [trainer, ansprechperson, stellvertretung].filter((sitz) => sitz !== null);
   const hindernis = zusageHindernis(staende, teamName);
 
   return (

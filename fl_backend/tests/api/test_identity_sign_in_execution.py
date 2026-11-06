@@ -120,7 +120,7 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
         kontakte=_kontakte(trainer=dict(trainer)),
         submitted_at="2026-01-01",
         confirmation_deadline="2026-01-15",
-        schule=new_schule_document(f"Bewerberschule {oid}", str(oid)[-4:]),
+        schule=new_schule_document(f"Bewerberschule {oid}"),
     )
 
 

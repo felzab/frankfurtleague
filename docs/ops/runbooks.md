@@ -624,11 +624,11 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
   corrected address.
 - **A contact seat.** Correct it through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`, which rewrites the
-  address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
-  confirmation deadline, and where one person holds two seats it corrects both. It refuses a seat its
-  person confirmed or answered, and a decided application, and never reaches a season row. A seat
-  whose person has stepped out takes a different route, below.
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_seat`, which writes the person the
+  seat holds. It mints the fresh link, voids the old one and restarts that seat's deadline, and where
+  one person holds two seats it writes both. A confirmed seat's answer goes with the old entry, and the
+  person is asked again. It refuses a seat an erasure emptied and a decided application, and never
+  reaches a season row.
 
 **A person asking to change their own address is pointed to their account page.** Every account's
 address changes there, confirmed by the address on file's link and then by the new mailbox's; an
@@ -671,13 +671,13 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/area/admin/loeschung`), which erases everything the
   address holds rather than this seat alone. Once the school has named a replacement, seat them
   from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
-  new person their own link and restarts the confirmation deadline for the whole application; it is
-  acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
-  and neither does one half of a claimed pair whose other half has not stepped out: that application
-  takes only the Absage.
+  new person their own link and restarts that seat's 14 days alone: the application goes once any other
+  unconfirmed seat's own day passes, so re-send those too where they need longer. It is acceptable again
+  once every seat has confirmed. An ERASED seat offers no such control: that application takes only the
+  Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
   contradicted takes no second answer (`bewerbung_seat_already_answered`), and a link whose deadline has passed
-  (`bewerbung_token_past_deadline`) or whose application has been decided (`link_expired`) takes none either —
+  or whose application has been decided (`link_expired`) takes none either —
   each is a refusal the person meets on the page, not something to talk them through. The route is „Löschung auf Anfrage“
   like any other.
 - **The application has been decided.** „Löschung auf Anfrage“, as above.
@@ -772,8 +772,8 @@ page says so too, every person page refuses the sessions as no session at all, a
 page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
 administration.** A pupil's registration asks it and is refused (`registrierung_adresse_barred`), and so do
-an application naming the address on any seat (`bewerbung_adresse_barred`), an administrator's correction,
-reseat or re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
+an application naming the address on any seat (`bewerbung_adresse_barred`), an administrator's seat write or
+re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging per season how many they held
 back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
@@ -1513,7 +1513,7 @@ review`, the restored database holding no change to move: ask the person to star
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`. No line records an
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_seat`. No line records an
   administrator's correction, so the tool cannot list these either: the restored record holds the
   replaced address again, and the link the correction voided, which the mailbox it went to can
   answer again until its deadline. The mail thread that asked for each correction is its record:
