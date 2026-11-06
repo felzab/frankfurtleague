@@ -140,7 +140,7 @@ export const ROUTES = {
    */
   // Session 6: its page is built.
   bewerbung: { path: (saison: string) => `/bewerbung/${saison}` as const, title: COPY.page.bewerbung, crawl: "noindex" },
-  /** Signing in, which every page signed out offers as „Anmelden“. */
+  /** Signing in, which every page signed out offers as „Konto“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
   signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.signIn.passkeyTitle, crawl: "noindex" },
