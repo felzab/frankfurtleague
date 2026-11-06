@@ -57,6 +57,7 @@ from app.api.bewerbungen.services import (
     find_window_refusal,
     form_window_state,
     leaving_moves_the_deletion_day,
+    mailbox_anchor_ids,
     mailbox_of,
     minimum_age_for,
     objection_is_announced,
@@ -90,6 +91,7 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
+    anchor_mailboxes_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_many_from_db,
@@ -101,6 +103,7 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    MailboxAnchorsCollection,
     OutboxCollection,
     SaisonsCollection,
     SaisonsReadCollection,
@@ -234,6 +237,7 @@ async def post_bewerbung(
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
+    mailbox_anchors_collection: MailboxAnchorsCollection,
     ban_list: BanListLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
@@ -325,6 +329,14 @@ async def post_bewerbung(
             bewerbungen_collection=bewerbungen_collection, saison_id=bewerbung_data.saison_id, addresses=addresses, session=session
         )
         unmailed = seats_past_the_bound(kontakte=stored_kontakte, open_links=open_links)
+        # A mailbox this press may still mail: a rival's commit since this snapshot, the count's own, is then a write conflict and
+        # the retry reads its row. One found full is mailed nothing and left alone, so a flood contends only until the bound.
+        await anchor_mailboxes_in_db(
+            collection=mailbox_anchors_collection,
+            ids=mailbox_anchor_ids(addresses=[a for a in addresses if open_links[mailbox_of(a)] < OPEN_LINKS_PER_MAILBOX], key=ban_list.key),
+            at=germany_now,
+            session=session,
+        )
 
         # Every refusal is behind us, so the write follows with nothing left to judge.
         created = await post_one_to_db(
@@ -371,7 +383,7 @@ async def post_bewerbung(
         return FLCreatedResponse(created_id=created.inserted_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
-    # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
+    # found, and one committed after it makes the anchors or the insert a write conflict `with_transaction` retries.
     async with transaction_session(db) as session:
         return await session.with_transaction(store_or_replay)
 

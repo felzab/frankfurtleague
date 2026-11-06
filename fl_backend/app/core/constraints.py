@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 from app.core.crud import GERMAN_COLLATION
-from app.shared.schemas.bounds import ACTION_LOG_ENTRY_RETENTION_SECONDS, ADDRESS_CHANGE_RETENTION_DAYS
+from app.shared.schemas.bounds import ACTION_LOG_ENTRY_RETENTION_SECONDS, ADDRESS_CHANGE_RETENTION_DAYS, MAILBOX_ANCHOR_RETENTION_SECONDS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
@@ -419,6 +419,13 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     ),
     # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
     TTLIndex(Collection.OUTBOX, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
+    TTLIndex(
+        Collection.MAILBOX_ANCHORS,
+        "mailbox_anchors_anchored_at",
+        "anchored_at",
+        MAILBOX_ANCHOR_RETENTION_SECONDS,
+        "a mailbox's document is removed once no press has named it for that long",
+    ),
 )
 
 

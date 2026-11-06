@@ -1,9 +1,11 @@
+from datetime import datetime
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLTrainerAlso, _KontaktpersonWritablePayload
+from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -190,6 +192,14 @@ class FLBewerbungRecord(FLBewerbung):
     erasure_announced_at: str | None = None
     idempotency_key: str | None = None
     idempotency_fingerprint: str | None = None
+
+
+class FLMailboxAnchorRecord(Anchored):
+    """One mailbox a public form named, as `mailbox_anchors` stores it; no read serves it."""
+
+    # `app/api/bewerbungen/services.py :: mailbox_anchor_ids`, never the address.
+    id: str = Field(validation_alias="_id")
+    anchored_at: datetime
 
 
 class FLAcceptBewerbungPayload(BaseModel):
