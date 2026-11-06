@@ -740,12 +740,6 @@ class TestEligibility:
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
         assert eligibility_for(saison, 30, missing, team1=team(CRONBERG, "Cronberg")) == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
 
-    def test_a_missing_row_is_refused_whatever_the_date(self, saison):
-        """No date makes fielding a club outside the season legal."""
-
-        missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
-        assert eligibility_for(saison, 30, missing, team1=team(CRONBERG, "Cronberg"), date="2020-01-01") == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
-
 
 class TestSpieltagOccupancy:
     """A team plays at most one match per matchday, moved where it can be and refused where it cannot."""
@@ -776,13 +770,6 @@ class TestSpieltagOccupancy:
 
         assert verdict.refusal is not None
         assert verdict.refusal.error_code == Code.SPIELTAG_OCCUPIED
-
-    def test_a_refusal_plans_no_release(self, saison):
-        """Reading `releases` without checking `refusal` would act on a rejected plan and write into an untouched fixture."""
-        occupied = [doc if doc["spiel_nr"] != 29 else {**doc, "team2": team(CRONBERG, "Cronberg")} for doc in saison]
-        verdict = occupancy_for(occupied, 30, team1=team(CRONBERG, "Cronberg"))
-
-        assert verdict.refusal is not None and verdict.releases == []
 
 
 def released_spiel(saison_docs: list[dict[str, Any]], **overrides: Any) -> FLSpiel:

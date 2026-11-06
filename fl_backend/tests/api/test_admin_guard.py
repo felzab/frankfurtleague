@@ -16,7 +16,6 @@ from app.core.routing import SAFE
 from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
-
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = application()
 

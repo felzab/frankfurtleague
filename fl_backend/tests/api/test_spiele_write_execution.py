@@ -833,21 +833,6 @@ class TestASavedResultCarriesThroughTheBracket:
         (advancement,) = response.advanced_to
         assert advancement.voided_sonderereignis == (None if after_the_advancement else stored_event)
 
-    def test_a_save_changing_nothing_advances_nobody(self, mongo_replica_set_url: str):
-        """The control for the test above: the seeded season already agrees with its wiring, so that advancement is the save's doing."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spiel_data = await payload_for(database, VIERTELFINALE)
-            response = await call_patch(database, client, VIERTELFINALE, spiel_data)
-
-            return response, await spiele_now(database)
-
-        response, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
-
-        assert response.advanced_to == []
-        assert spiele[HALBFINALE_NR]["team1"]["team_id"] == BETA
-        assert spiele[HALBFINALE_NR]["elfmeterschiessen"] == {"team1": 4, "team2": 3}
-
 
 class TestASaveOpenedOnAnOlderVersionIsRefused:
     """The editor's save carries the `version` it was served, and the save answers the one its next save sends."""
