@@ -21,7 +21,7 @@ DATABASE_NAME = worker_database("fl_saisons_spiel_view_test")
 
 EARLIER, SAISON, LATER = "2025", "2026", "2027"
 HOME, AWAY = ObjectId("6890a1b2c3d4e5f607430001"), ObjectId("6890a1b2c3d4e5f607430002")
-NAMED, INTERN = ObjectId("6890a1b2c3d4e5f607430011"), ObjectId("6890a1b2c3d4e5f607430012")
+NAMED, INTERNAL = ObjectId("6890a1b2c3d4e5f607430011"), ObjectId("6890a1b2c3d4e5f607430012")
 
 
 def adopted_match() -> dict[str, Any]:
@@ -39,7 +39,7 @@ def adopted_match() -> dict[str, Any]:
 
 
 def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
-    """Two goals for the home side, one by a named pupil and one by nobody named; a card to an intern pupil and one to the erased."""
+    """Two goals for the home side, one by a named pupil and one by nobody named; a card to an internal pupil and one to the erased."""
 
     return documents.spielbericht_document(
         spiel,
@@ -50,7 +50,7 @@ def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
                 {"side": "team1", "spieler_id": NAMED, "minute": "45+2", "eigentor": False},
             ],
             cards=[
-                {"side": "team2", "spieler_id": INTERN, "minute": "60", "colour": "gelb", "reason": "foulspiel"},
+                {"side": "team2", "spieler_id": INTERNAL, "minute": "60", "colour": "gelb", "reason": "foulspiel"},
                 {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot", "reason": None},
             ],
             sides=documents.spielbericht_sides(spiel),
@@ -77,7 +77,7 @@ def test_only_an_adopted_unchanged_report_publishes_its_scorers_and_cards(adopti
 @pytest.fixture(scope="module")
 def seeded_url(mongo_url: str) -> Iterator[str]:
     spiel = adopted_match()
-    intern = {**documents.EINWILLIGUNG, "scope": "intern"}
+    internal = {**documents.EINWILLIGUNG, "scope": "internal"}
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
@@ -93,14 +93,14 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             await database[Collection.SPIELER].insert_many(
                 [
                     documents.spieler_document(NAMED, "Maxim", "Müller"),
-                    documents.spieler_document(INTERN, "Nadja", "Gerber", einwilligung=intern),
+                    documents.spieler_document(INTERNAL, "Nadja", "Gerber", einwilligung=internal),
                     build_ghost_spieler(),
                 ]
             )
             await database[Collection.SAISON_SPIELER].insert_many(
                 [
                     documents.saison_spieler_document(NAMED, SAISON, HOME, nummer="7", position="Angriff"),
-                    documents.saison_spieler_document(INTERN, SAISON, AWAY, nummer="4", position="Abwehr"),
+                    documents.saison_spieler_document(INTERNAL, SAISON, AWAY, nummer="4", position="Abwehr"),
                     # The same pupil for the same club the seasons either side, under other numbers, so whichever row a join
                     # without the season term kept last, it would not be this season's.
                     documents.saison_spieler_document(NAMED, EARLIER, HOME, nummer="98", position="Abwehr"),
@@ -130,8 +130,8 @@ def the_page(url: str) -> Any:
 
 
 @pytest.mark.db
-def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
-    """By minute; the intern pupil keeps their number and position, the erased one keeps nothing, and no card says why.
+def test_each_entry_reads_as_a_name_as_anonymous_or_as_unknown(seeded_url: str):
+    """By minute; the internal pupil keeps their number and position, the erased one keeps nothing, and no card says why.
 
     The named pupil's number is this season's, never one their club gave them in another.
     """

@@ -5,19 +5,19 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
+from app.api.spielbestaetigungen.crud import VIEW_SPIEL_FIELDS, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerPayload,
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
-    AnsetzungLage,
-    ansicht_ansetzung_of,
+    AnsetzungState,
     compose_ansetzung,
     find_spent_link_refusal,
     proposal_payload,
     seat_address,
+    view_ansetzung_of,
     zustand_of,
 )
 from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpiel
@@ -79,11 +79,11 @@ def verein(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
     }
 
 
-def lage(*, spiel_overrides: dict[str, Any] | None = None, austritt: str | None = None) -> AnsetzungLage:
-    return AnsetzungLage(spiel=spiel(**(spiel_overrides or {})), vereine=[verein(TEAM1, austritt=austritt), verein(TEAM2)])
+def ansetzung_state(*, spiel_overrides: dict[str, Any] | None = None, austritt: str | None = None) -> AnsetzungState:
+    return AnsetzungState(spiel=spiel(**(spiel_overrides or {})), vereine=[verein(TEAM1, austritt=austritt), verein(TEAM2)])
 
 
-def zeile(**overrides: Any) -> dict[str, Any]:
+def row(**overrides: Any) -> dict[str, Any]:
     """An open row of TEAM1's about `spiel()`'s Ansetzung."""
 
     return {
@@ -113,7 +113,7 @@ class TestADecidedSpielTakesNoAnswer:
     def test_the_answer_is_refused(self, situation: dict[str, Any]):
         """Let through, a link tells its holder the answer counted on a fixture already settled, and stores it, with nothing failing."""
 
-        refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=TODAY)
+        refusal = find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), today=TODAY)
 
         assert refusal is not None and refusal.error_code == Code.ANSETZUNG_DECIDED
 
@@ -153,18 +153,18 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         spiel_seen: set[str] = set()
         vereine_seen: set[str] = set()
         # Undecided, unmoved and open, so every judge reads to its end; the exit after the fixture's day, so its date is read.
-        situation = AnsetzungLage(
+        situation = AnsetzungState(
             spiel=Recorded(spiel(), spiel_seen),
             vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
         )
 
-        assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, barred=False, vorschlag_offen=None) == "valid"
-        ansicht_ansetzung_of(situation.spiel)
-        seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+        assert zustand_of(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY, barred=False, vorschlag_open=None) == "valid"
+        view_ansetzung_of(situation.spiel)
+        seat_address(ansetzung_state=situation, spielbestaetigung_raw=row(), seat="trainer")
 
-        # The premise: `entscheidung_of` read the fixture to its last test.
+        # The premise: `decision_of` read the fixture to its last test.
         assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
-        assert [path for path in sorted(spiel_seen) if not loaded_by(ANSICHT_SPIEL_FIELDS, path)] == []
+        assert [path for path in sorted(spiel_seen) if not loaded_by(VIEW_SPIEL_FIELDS, path)] == []
         projection = verein_fields(team_id=TEAM1, seat="trainer")
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
 
@@ -172,12 +172,12 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
 
         vereine_seen: set[str] = set()
-        situation = AnsetzungLage(
+        situation = AnsetzungState(
             spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
         )
 
-        assert find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY) is None
-        seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+        assert find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY) is None
+        seat_address(ansetzung_state=situation, spielbestaetigung_raw=row(), seat="trainer")
 
         assert {"austritt.date", "kontakte.trainer.email"} <= vereine_seen
         projection = verein_fields(team_id=TEAM1, seat="trainer")

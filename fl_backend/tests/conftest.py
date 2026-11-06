@@ -74,11 +74,11 @@ def assert_rejects() -> RejectsAssertion:
 def address() -> PayloadFactory:
     return _factory(
         {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
+            "street": "Hanauer Landstraße",
+            "house_number": "12a",
+            "postcode": "60314",
+            "district": "Ostend",
+            "city": "Frankfurt am Main",
         }
     )
 
@@ -92,12 +92,12 @@ def kontakt() -> PayloadFactory:
 def statistik() -> PayloadFactory:
     return _factory(
         {
-            "count_gespielte_spiele": 3,
+            "count_played_spiele": 3,
             "siege": 2,
             "niederlagen": 1,
             "unentschieden": 0,
-            "tore_geschossen": 7,
-            "tore_kassiert": 4,
+            "tore_scored": 7,
+            "tore_conceded": 4,
             "punkte": 6,
             "count_cancelled_spiele": 1,
         }

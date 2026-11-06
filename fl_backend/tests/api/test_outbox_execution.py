@@ -97,7 +97,7 @@ async def owe(
         await enqueue_mails(
             outbox_collection=database[Collection.OUTBOX],
             session=session,
-            mails=[OwedMail(key=key, an=NORA, data=data, reference=reference if link else None, link=spec if link else None)],
+            mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None)],
             now=NOW,
         )
 
@@ -167,7 +167,7 @@ class TestTheEnqueue:
                     await enqueue_mails(
                         outbox_collection=database[Collection.OUTBOX],
                         session=session,
-                        mails=[OwedMail(key=key, an=NORA, data=BAN) for key in keys],
+                        mails=[OwedMail(key=key, to=NORA, data=BAN) for key in keys],
                         now=NOW,
                     )
 
@@ -351,7 +351,7 @@ class TestTheSignInCode:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await post_sign_in(
                 sign_in_data=FLOutboxSignInPayload(
-                    an=NORA, data=FLSignInCodeData(kind="sign_in_code"), secret="chiffrat", valid_until=valid_until
+                    to=NORA, data=FLSignInCodeData(kind="sign_in_code"), secret="chiffrat", valid_until=valid_until
                 ),
                 outbox_collection=database[Collection.OUTBOX],
                 now=NOW,

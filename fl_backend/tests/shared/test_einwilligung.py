@@ -125,7 +125,7 @@ def _seat_answer(*, scope: str, media: bool, text_versions: Any) -> Any:
             "answer": "given",
             "token": "raw-trainer",
             "birth_date": "1984-05-09",
-            "whatsapp": scope == "kontaktdaten_whatsapp",
+            "whatsapp": scope == "kontakt_data_whatsapp",
             "media": media,
             "text_versions": text_versions,
         }
@@ -143,9 +143,9 @@ def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
 
 # Each payload carrying `text_versions`, beside its kind and the value granting each choice in its vocabulary.
 CONFIRMATIONS: Final[list[Any]] = [
-    pytest.param(_seat_answer, FLSeatTextVersions, "kontaktdaten_whatsapp", id="a seat's answer"),
-    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_oeffentlich", id="a registration"),
-    pytest.param(_confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_oeffentlich", id="a referee"),
+    pytest.param(_seat_answer, FLSeatTextVersions, "kontakt_data_whatsapp", id="a seat's answer"),
+    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_public", id="a registration"),
+    pytest.param(_confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_public", id="a referee"),
 ]
 
 

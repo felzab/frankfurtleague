@@ -12,7 +12,7 @@ from tests.outbox import MAIL_NOW
 
 
 async def a_mail_that_bounced(
-    database: AsyncDatabase, client: AsyncMongoClient, *, bewerbung_id: Any, seat: FLKontaktRolle, an: str, now: datetime = MAIL_NOW
+    database: AsyncDatabase, client: AsyncMongoClient, *, bewerbung_id: Any, seat: FLKontaktRolle, to: str, now: datetime = MAIL_NOW
 ) -> None:
     """One mail about an application's seat, owed, sent and then reported undeliverable, as the drain and the provider leave it."""
 
@@ -24,7 +24,7 @@ async def a_mail_that_bounced(
             mails=[
                 OwedMail(
                     key=key,
-                    an=an,
+                    to=to,
                     data=FLBewerbungReceivedData(
                         kind="bewerbung_received", saison_id="2026", rollen=["ansprechperson"], pending=[], deadline="2026-04-15"
                     ),

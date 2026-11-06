@@ -129,7 +129,7 @@ async def told(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, F
     """Every notice owed since the last drain, by its address: drained, so each has passed the hand-out's own model."""
 
     mails = await drained(database, client)
-    notices = {mail.an: mail.data for mail in mails if isinstance(mail.data, FLAustrittNoticeData)}
+    notices = {mail.to: mail.data for mail in mails if isinstance(mail.data, FLAustrittNoticeData)}
     assert len(notices) == len(mails)
 
     return notices
@@ -144,7 +144,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
     def test_each_opponent_is_owed_one_notice_over_its_open_spiele_and_the_departed_club_nothing(self, mongo_replica_set_url: str):
         spiele = [
             spiel(1, DEPARTED, OPPONENT, LATER),
-            # On the exit's own day, and the departed club on the other side: `entscheidung_of` counts the day as out.
+            # On the exit's own day, and the departed club on the other side: `decision_of` counts the day as out.
             spiel(2, OPPONENT, DEPARTED, EXIT_DAY),
             spiel(3, DEPARTED, OPPONENT, None),
             # A day the club still played, a result, a call-off, and a side the draw has yet to settle: none is open between two clubs.

@@ -221,9 +221,9 @@ async def owed(database: AsyncDatabase) -> list[tuple[Mapping[str, Any], list[st
 
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
     async for row in database[Collection.OUTBOX].find({"state": "open", "kind": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
-        notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["an"]))
+        notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["to"]))
 
-    return [(data, sorted(an)) for data, an in notices.values()]
+    return [(data, sorted(to)) for data, to in notices.values()]
 
 
 async def asked_for(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> ObjectId:
@@ -375,8 +375,8 @@ async def asked(database: AsyncDatabase) -> list[tuple[str | None, str | None, l
     """Each request still owed: its subject, its requester and the approvers it is owed to."""
 
     return [
-        (None if data["current"] is None else data["current"]["address"], data["changed_by"], an)
-        for data, an in await owed(database)
+        (None if data["current"] is None else data["current"]["address"], data["changed_by"], to)
+        for data, to in await owed(database)
         if data["change"] == "requested"
     ]
 
@@ -388,7 +388,7 @@ class TestTheRequestAsksItsApprovers:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await asked_for(database, client)
             await compared(database, client)
-            changes = [(data["change"], an) for data, an in await owed(database) if data["change"] != "requested"]
+            changes = [(data["change"], to) for data, to in await owed(database) if data["change"] != "requested"]
             return await asked(database), changes
 
         # The paste's three grants go to every holder; the request to neither its requester nor its subject.
@@ -881,13 +881,13 @@ class TestAMovedAdministratorKeepsTheirStanding:
             await compared(database, client, now=since(2 * ASKED_AN_HOUR_AGO))
             approval_request_id = await asked_for(database, client, als=SECOND_ADMIN, now=since(ASKED_AN_HOUR_AGO))
             await move(database, client, at=since(MOVED_AGO))
-            ((_, _, an),) = await asked(database)
+            ((_, _, to),) = await asked(database)
             approved = await outcome(approve(database, client, approval_request_id, als=NEW_EMAIL, now=since(60)))
-            return an, approved, NEU in await tiers(database)
+            return to, approved, NEU in await tiers(database)
 
-        an, approved, granted_now = on_a_person(mongo_replica_set_url, DATABASE_NAME, body)
+        to, approved, granted_now = on_a_person(mongo_replica_set_url, DATABASE_NAME, body)
 
-        assert (NEW_EMAIL in an, EMAIL in an, approved, granted_now) == (True, False, COMMITTED, True)
+        assert (NEW_EMAIL in to, EMAIL in to, approved, granted_now) == (True, False, COMMITTED, True)
 
     def test_their_own_request_made_before_their_move_stays_approvable(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

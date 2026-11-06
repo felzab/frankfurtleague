@@ -70,11 +70,11 @@ ALREADY_CLOSED_SAISON = "2029"
 # Spelled here rather than taken from `tests/documents.py :: ADDRESS`: the picker's suite searches its
 # body for this street and postcode (`tests/api/test_bewerbung_public_picker.py`).
 ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
+    "street": "Hanauer Landstraße",
+    "house_number": "12a",
+    "postcode": "60314",
+    "district": "Ostend",
+    "city": "Frankfurt am Main",
 }
 
 # The colours `OPEN_SAISON` has assigned, in the palette's order rather than the junction's, and the

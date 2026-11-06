@@ -300,7 +300,7 @@ class Notice:
     erased: bool
     changed_by_barred: bool
     # Every address it is owed to.
-    an: list[str]
+    to: list[str]
 
 
 async def _open_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -350,7 +350,7 @@ async def owed(database: AsyncDatabase) -> list[Notice]:
                 barred=data["withheld"] == "barred",
                 erased=data["withheld"] == "erased",
                 changed_by_barred=data["author"] == "anwendung" and data["changed_by"] is None,
-                an=sorted(str(row["an"]) for row in rows),
+                to=sorted(str(row["to"]) for row in rows),
             )
         )
 
@@ -488,7 +488,7 @@ class TestAReplayOwesNothingTwice:
                 async with client.start_session() as session:
                     await session.with_transaction(owe)
 
-            return await database[Collection.OUTBOX].count_documents({}), len({str(row["an"]) for row in await _open_rows(database)})
+            return await database[Collection.OUTBOX].count_documents({}), len({str(row["to"]) for row in await _open_rows(database)})
 
         rows, recipients = on_a_league(mongo_replica_set_url, body)
 
@@ -988,7 +988,7 @@ class TestTheComparison:
         answer = on_a_league(mongo_replica_set_url, compared)
 
         assert summary(answer) == [("granted", OWNER, None), ("granted", ANNA, None), ("granted", BERND, None)]
-        assert [change.an for change in answer] == [sorted([OWNER, ANNA, BERND])] * 3
+        assert [change.to for change in answer] == [sorted([OWNER, ANNA, BERND])] * 3
         assert [change.changed_at for change in answer] == [None, None, None]
 
     def test_once_compared_a_second_pass_owes_nothing(self, mongo_replica_set_url: str):
@@ -1055,7 +1055,7 @@ class TestTheComparison:
             await database[Collection.GRANTS].insert_one(grant_document(DEAD_ID, NEU, "administration"))
             answer = await compared(database, client)
 
-            return [(change.current.address if change.current else None, change.barred) for change in answer], [change.an for change in answer]
+            return [(change.current.address if change.current else None, change.barred) for change in answer], [change.to for change in answer]
 
         # Owed to the barred holder as to every other, whom the hand-out then stops.
         assert on_a_league(mongo_replica_set_url, body) == ([(None, True)], [sorted([OWNER, ANNA, BERND, NEU])])

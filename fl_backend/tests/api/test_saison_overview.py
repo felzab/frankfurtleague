@@ -232,7 +232,7 @@ class TestEachKindLandsOnItsCard:
             "dates": [
                 ("vorschlag_open", PROPOSED),
                 # Lacking its slot, its ground and its referee, the fixture stands once, for the first of them.
-                ("termin_missing", UNDATED),
+                ("appointment_missing", UNDATED),
                 # The referee's own decline is a referee missing, one row.
                 ("schiedsrichter_missing", DECLINED),
                 ("team_missing", OPEN_SIDE),
@@ -301,7 +301,7 @@ class TestWhatASpielStillLacks:
     """The gaps the Übersicht's dates card lists, judged without the database: a gap missed leaves a fixture unprepared unseen."""
 
     def test_a_dated_spiel_with_no_time_still_lacks_its_date(self):
-        assert _gaps(joined(time=None), today=TODAY) == ["termin_missing"]
+        assert _gaps(joined(time=None), today=TODAY) == ["appointment_missing"]
 
     def test_a_knockout_side_awaiting_its_source_is_no_missing_club(self):
         """Its club arrives with the bracket's resolution: listed, it asks the administrator to pick a club the draw will place."""
