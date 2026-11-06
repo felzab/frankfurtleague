@@ -78,7 +78,7 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it.each([
-    ["the season create dialog", "@/features/saisons/createSaison", "createSaison", ["app/admin/(liste)/saisons/page.tsx"]],
+    ["the season create dialog", "@/features/saisons/createSaison", "createSaison", ["app/admin/(liste)/saisons/CreateFields.tsx"]],
     [
       "a Zusage's dialog",
       "@/app/admin/(liste)/saisons/[saison]/enterZusage",
