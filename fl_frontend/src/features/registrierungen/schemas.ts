@@ -85,7 +85,7 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
  */
 export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungConfirmationViewResponsePage) {
   // The new pupil's three tightened past the payload's null: an unanswered scope is a field error before any press.
-  return seite === "bestaetigung_spieler"
+  return seite === "confirmation_spieler"
     ? FLRegistrierungBestaetigungPayloadSchema.extend({
         birth_date: CustomDateStringSchema.refine(
           (datum) => {

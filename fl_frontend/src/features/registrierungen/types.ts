@@ -61,4 +61,4 @@ export type SpielerBestaetigungGespeichert = {
  * Which of the two pages a link opens, handed in by the page: the new pupil's asks the two consents of
  * `fl_frontend/src/core/consentWordings.ts :: SPIELER_WORDINGS`, the returning pupil's none.
  */
-export type SpielerSeitenFassung = { readonly page: "bestaetigung_spieler" } | { readonly page: "bestaetigung_spieler_wiederkehrend" };
+export type SpielerSeitenFassung = { readonly page: "confirmation_spieler" } | { readonly page: "confirmation_spieler_returning" };

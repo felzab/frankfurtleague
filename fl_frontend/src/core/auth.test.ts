@@ -2542,7 +2542,7 @@ describe("a person's own account deletion", () => {
     assert.ok(stored[0]?.identifier === `delete-account-${mailedToken(email)}`, "the mail carries a token the store does not hold");
     expect(store.user.filter((user) => user.id === row.userId).length, "the request deleted the account").toBe(1);
     // The token completes the deletion, so the row the backend stores carries it sealed, as it does the code.
-    assert.ok(!JSON.stringify(owed.findLast((entry) => entry.an === email)).includes(mailedToken(email)), "the row holds the token readable");
+    assert.ok(!JSON.stringify(owed.findLast((entry) => entry.to === email)).includes(mailedToken(email)), "the row holds the token readable");
   });
 
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {

@@ -13,7 +13,7 @@ const STORED = {
     schulform: "gymnasium",
     website_url: "https://goethe.example",
     description: "Im Westend",
-    address: { strasse: "Friedrichstraße", hausnummer: "1", plz: "60323", stadtteil: "Westend", stadt: "Frankfurt" },
+    address: { street: "Friedrichstraße", house_number: "1", postcode: "60323", district: "Westend", city: "Frankfurt" },
   },
   membership: { gruppe: "A", trikot_farbe: "rot" },
 };
@@ -56,7 +56,7 @@ describe("a club's save", () => {
         description: "Im Westend",
         schulform: "gymnasium",
         website_url: "https://goethe.example",
-        address: { strasse: "Friedrichstraße", hausnummer: "1", plz: "60323", stadtteil: "Westend", stadt: "Frankfurt" },
+        address: { street: "Friedrichstraße", house_number: "1", postcode: "60323", district: "Westend", city: "Frankfurt" },
         gruppe: "A",
         trikot_farbe: "rot",
         version: EDITOR_VERSION,

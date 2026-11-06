@@ -145,8 +145,8 @@ describe("a form's action through the one wrapper", () => {
 
 describe("a form's status line for a refusal", () => {
   it("points at the fields rather than repeat a reason they already carry", () => {
-    const plz = COPY.shared.field.required;
-    expect(statusOf({ ok: false, fieldErrors: { plz }, reason: plz }, false, false)).toStrictEqual({
+    const postcode = COPY.shared.field.required;
+    expect(statusOf({ ok: false, fieldErrors: { postcode }, reason: postcode }, false, false)).toStrictEqual({
       tone: "error",
       text: COPY.template.checkFields,
     });
@@ -154,9 +154,9 @@ describe("a form's status line for a refusal", () => {
 
   // A boxed refusal and a sentence in one answer: the sentence is said nowhere else, so the line says it.
   it("says a reason no box says, beside the boxes that say theirs", () => {
-    const plz = COPY.shared.field.required;
+    const postcode = COPY.shared.field.required;
     const reason = SERVER_COPY.ruleLine.elfmeterschiessen_without_draw;
-    expect(statusOf({ ok: false, fieldErrors: { plz }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
+    expect(statusOf({ ok: false, fieldErrors: { postcode }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
   });
 
   it("says nothing while the next send is on its way, so the same refusal again is announced again", () => {

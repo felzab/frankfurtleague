@@ -137,8 +137,8 @@ export function SchiedsrichterEditor({
           ),
         },
         {
-          id: "kontaktdaten",
-          title: WORDS.kontaktdaten,
+          id: "kontaktData",
+          title: WORDS.kontaktData,
           fields: (
             <>
               {address.kind === "fixed" ? (

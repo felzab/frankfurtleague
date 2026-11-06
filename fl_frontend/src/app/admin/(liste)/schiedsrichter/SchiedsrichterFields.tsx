@@ -41,7 +41,7 @@ export function SchiedsrichterFields() {
         unit={COPY.shared.unit.euro}
         isRequired={required.default_payment}
       />
-      <FieldGroup name={COPY.admin.schiedsrichter.kontaktdaten}>
+      <FieldGroup name={COPY.admin.schiedsrichter.kontaktData}>
         <TextField
           label={COPY.signIn.address}
           name="email"

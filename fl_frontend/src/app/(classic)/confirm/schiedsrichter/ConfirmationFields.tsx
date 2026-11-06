@@ -56,7 +56,7 @@ export function ConfirmationFields({
         aria-describedby={scopeLine}
         name="scope"
         isRequired={required.scope}
-        choices={(["kader_oeffentlich", "intern"] as const).map((value) => ({ id: value, label: { record: scope.options[value] } }))}
+        choices={(["kader_public", "internal"] as const).map((value) => ({ id: value, label: { record: scope.options[value] } }))}
       />
       <ConsentLine
         id={scopeLine}

@@ -45,7 +45,7 @@ export function doubleOutbox(): {
     const secret = payload.secret === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.secret });
     const message = mailFor(payload.data.kind, payload.data, { token: null, secret, origin: frontend_config.AUTH_URL });
     assert(message !== undefined, `no builder renders the sign-in kind ${payload.data.kind}`);
-    const mail = { to: payload.an, ...renderMail(message) };
+    const mail = { to: payload.to, ...renderMail(message) };
 
     if ((await answering(mail)) === "lost") {
       throw new APINetworkError({ message: "Request failed.", url: BACKEND, method: "POST", readOnly: false, traceId: "0", isTimeout: false });

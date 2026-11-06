@@ -187,7 +187,7 @@ export function SpielerBestaetigungView({
           <p className={ABSATZ_CLASSES}>
             Danke. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
           </p>
-          {stand.wording.page === "bestaetigung_spieler" ? (
+          {stand.wording.page === "confirmation_spieler" ? (
             <GespeicherteAngaben
               zeilen={[
                 ...(stand.gespeichert.birth_date === null
@@ -278,7 +278,7 @@ function SpielerBestaetigungForm({
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.minimum_age);
 
-  const fragtWahlen = fassung.page === "bestaetigung_spieler";
+  const fragtWahlen = fassung.page === "confirmation_spieler";
 
   // Off the date the age check reads, at the served media age: with no date yet the age is unknown,
   // and a switch offered then would be one the write refuses for anybody under it.
@@ -386,7 +386,7 @@ function SpielerBestaetigungForm({
           )}
         </section>
 
-        {fassung.page === "bestaetigung_spieler" ? (
+        {fassung.page === "confirmation_spieler" ? (
           <WahlenAbschnitte
             umfang={entwurf.umfang}
             media={entwurf.media}

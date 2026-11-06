@@ -39,11 +39,11 @@ const EnterTeam = z.preprocess(
       full_name: team.full_name,
       schulform: blankIsNull(team.schulform),
       website_url: blankIsNull(team.website_url),
-      strasse: address.strasse,
-      hausnummer: address.hausnummer,
-      plz: address.plz,
-      stadtteil: address.stadtteil,
-      stadt: address.stadt,
+      street: address.street,
+      house_number: address.house_number,
+      postcode: address.postcode,
+      district: address.district,
+      city: address.city,
     }),
   ]),
 );
@@ -53,7 +53,7 @@ type Entered = z.output<typeof EnterTeam>;
 /** The write's club: the one picked, or the one the entry founds, its description left for its editor. */
 function clubOf(entered: Entered): FLPostTeamEntryPayload["club"] {
   if (entered.kind === "known") return { kind: "known", team_id: entered.club };
-  const { name, shorthand, full_name, schulform, website_url, strasse, hausnummer, plz, stadtteil, stadt } = entered;
+  const { name, shorthand, full_name, schulform, website_url, street, house_number, postcode, district, city } = entered;
   return {
     kind: "new",
     team: {
@@ -63,7 +63,7 @@ function clubOf(entered: Entered): FLPostTeamEntryPayload["club"] {
       schulform,
       website_url,
       description: "",
-      address: { strasse, hausnummer, plz, stadtteil, stadt },
+      address: { street, house_number, postcode, district, city },
     },
   };
 }
@@ -81,8 +81,8 @@ export const enterTeam = action({
   paths: { shorthand: "shorthand", trikot_farbe: "trikot_farbe" },
   examples: {
     shorthand: COPY.team.shorthandExample,
-    plz: COPY.admin.spielort.plzExample,
-    hausnummer: COPY.admin.spielort.hausnummerExample,
+    postcode: COPY.admin.spielort.postcodeExample,
+    house_number: COPY.admin.spielort.houseNumberExample,
   },
   run: async (entered) => {
     const { saison_id, gruppe, trikot_farbe } = entered;

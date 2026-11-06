@@ -238,7 +238,7 @@ export function BewerbungFields({
 
       <Section title={COPY.shared.facts.team}>
         <TextField
-          {...box("trikot.existing_satz")}
+          {...box("trikot.existing_set")}
           label={team.trikotSatz}
           description={bewerbung.trikotSatzDescription}
           width="W3"

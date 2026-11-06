@@ -44,11 +44,7 @@ export function buildKontaktBestaetigungEmail(
   return {
     ...shell,
     paragraphs: [
-      [
-        opening,
-        row === "ausgetreten" ? PAGE.teamDeparted({ record: schule }) : SERVER_COPY.refusalLine.saison_past,
-        PAGE.objectionEffect.seasonRow,
-      ],
+      [opening, row === "exited" ? PAGE.teamDeparted({ record: schule }) : SERVER_COPY.refusalLine.saison_past, PAGE.objectionEffect.seasonRow],
     ],
     // Named for what the page offers: a closed row's page has nothing to confirm.
     button: { label: SERVER_COPY.mail.kontakt.toEntry, href },

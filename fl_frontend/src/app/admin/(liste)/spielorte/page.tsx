@@ -27,7 +27,7 @@ const rowOf = (spielort: FLSpielort): TableRow => ({
   href: ROUTES.adminSpielort.path(spielort.id),
   ...(spielort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
   cells: {
-    adresse: WORDS.strasseWithHausnummer(spielort.address.strasse, spielort.address.hausnummer),
+    adresse: WORDS.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
     mietpreis: { record: formatEuro(spielort.default_mietpreis) },
   },
 });

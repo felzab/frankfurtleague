@@ -727,27 +727,27 @@ export const COPY = catalogue({
       search: "Spielorte suchen",
       /** The create dialog's group of the address's lines, and the editor's box holding them. */
       address: "Adresse",
-      strasse: "Straße",
-      hausnummer: "Nr.",
-      plz: "PLZ",
-      stadtteil: "Stadtteil",
-      stadt: "Stadt",
+      street: "Straße",
+      houseNumber: "Nr.",
+      postcode: "PLZ",
+      district: "Stadtteil",
+      city: "Stadt",
       /** What a new venue's city starts as: the league plays in one city. */
-      stadtDefault: "Frankfurt am Main",
+      cityDefault: "Frankfurt am Main",
       mietpreis: "Mietpreis",
       /** The examples each box's message line shows where its value is off its pattern. */
       mietpreisExample: "60",
-      plzExample: "60438",
-      hausnummerExample: "12a",
+      postcodeExample: "60438",
+      houseNumberExample: "12a",
       /** The danger box's two consequences, under the act's name and in its question alike. */
       retireConsequence: "Der Spielort steht für neue Spiele nicht mehr zur Auswahl.",
       reactivateConsequence: "Der Spielort steht wieder zur Auswahl.",
       /** The venue list's last entry, which opens the create dialog with the name typed so far. */
       createEntry: "Spielort anlegen",
       /** One line of a venue's address: its street and number. */
-      strasseWithHausnummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+      streetWithHouseNumber: (street: string, houseNumber: string) => `${street} ${houseNumber}`,
       /** A whole address on one line, „Schulweg 8, 60317 Frankfurt am Main“, after its street line. */
-      addressLine: (street: Copy, plz: string, stadt: string) => `${street}, ${plz} ${stadt}`,
+      addressLine: (street: Copy, postcode: string, city: string) => `${street}, ${postcode} ${city}`,
     },
 
     /** A referee's fee for a match: the referee's own default, and a match's booking. */
@@ -784,7 +784,7 @@ export const COPY = catalogue({
       /** A referee who has not confirmed their entry: the chip after the name, and the note on the match editor's closed choice. */
       unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
-      kontaktdaten: "Kontaktdaten",
+      kontaktData: "Kontaktdaten",
       bestaetigung: "Bestätigung",
       /** The fact saying where the referee's confirmation stands, one of the four lines below. */
       state: "Stand",

@@ -98,7 +98,7 @@ function faultLine(fault: FLBracketFault): Copy {
     case "departed_occupant":
       return words.departed_occupant(
         { record: fault.team_name },
-        COPY.shared.austrittSince(COPY.shared.austritt[fault.austritt_type].state, dayOf(fault.ausgeschieden_seit)),
+        COPY.shared.austrittSince(COPY.shared.austritt[fault.austritt_type].state, dayOf(fault.exited_since)),
       );
     case "fielded_twice":
       return words.fielded_twice({ record: fault.team_name });
@@ -182,7 +182,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
       return { line: WORDS.report[row.state] };
     case "bracket_fault":
       return { line: faultLine(row.fault) };
-    case "termin_missing":
+    case "appointment_missing":
       return {
         line: WORDS.missing(COPY.admin.overview.termin),
         acts: (

@@ -66,11 +66,11 @@ const read = (formData: FormData) => ({
 
 /** A name's scope as its choice posts it, the record's own where the choice closed and posted none. */
 const nameScope = (posted: FormDataEntryValue | null, held: Entry["scope"]): FLEinwilligungScope =>
-  posted === "kader_oeffentlich" || posted === "intern" ? posted : held === "kader_oeffentlich" ? "kader_oeffentlich" : "intern";
+  posted === "kader_public" || posted === "internal" ? posted : held === "kader_public" ? "kader_public" : "internal";
 
 /** A contact's scope as its WhatsApp box posts it. */
 const contactScope = (posted: FormDataEntryValue | null): FLKontaktKenntnisnahmeScope =>
-  posted === "on" ? "kontaktdaten_whatsapp" : "kontaktdaten";
+  posted === "on" ? "kontakt_data_whatsapp" : "kontakt_data";
 
 /**
  * The write saving an entry's choices, by the record's kind, with the labels its kind's words were shown under, read
@@ -142,7 +142,7 @@ function ScopeChoice({ entry }: { entry: Entry }) {
   const lineId = useId();
   const { kind } = entry.save;
   if (kind === "seat" || kind === "bewerbung") {
-    const held = entry.scope === "kontaktdaten_whatsapp";
+    const held = entry.scope === "kontakt_data_whatsapp";
     return (
       <>
         <Checkbox
@@ -167,10 +167,10 @@ function ScopeChoice({ entry }: { entry: Entry }) {
         aria-describedby={lineId}
         name="scope"
         defaultValue={entry.scope}
-        choices={(["kader_oeffentlich", "intern"] as const).map((value) => ({
+        choices={(["kader_public", "internal"] as const).map((value) => ({
           id: value,
           label: { record: wording.options[value] },
-          isDisabled: !entry.givable && value === "kader_oeffentlich" && entry.scope !== value,
+          isDisabled: !entry.givable && value === "kader_public" && entry.scope !== value,
         }))}
       />
       <ConsentLine

@@ -13,8 +13,8 @@ describe("the birth date the page's own schema accepts", () => {
   it("takes the latest date the floor allows and refuses the day after it", () => {
     const mindestalter = 16;
     const spaeteste = parseDate(getGermanTodayStr()).subtract({ years: mindestalter });
-    const schema = buildRegistrierungBestaetigungPayloadSchema(mindestalter, "bestaetigung_spieler");
-    const answer = { token: "kein-echtes-token", scope: "intern", media: false, text_versions: SPIELER_TEXT_VERSIONS };
+    const schema = buildRegistrierungBestaetigungPayloadSchema(mindestalter, "confirmation_spieler");
+    const answer = { token: "kein-echtes-token", scope: "internal", media: false, text_versions: SPIELER_TEXT_VERSIONS };
 
     expect(schema.safeParse({ ...answer, birth_date: spaeteste.toString() }).success, "the latest date the floor allows is refused").toBe(true);
     expect(

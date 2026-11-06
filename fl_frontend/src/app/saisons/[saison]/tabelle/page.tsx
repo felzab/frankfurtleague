@@ -68,7 +68,7 @@ const HEAD: TableHead = {
  */
 function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: readonly FLTabelleRow[]): TableRow {
   const { statistik } = row;
-  const played = { record: formatNumber(statistik.count_gespielte_spiele) };
+  const played = { record: formatNumber(statistik.count_played_spiele) };
   const qualifying = row.platz !== null && row.platz <= qualifiers;
   // Level clubs share their place, and the bracket seeds none of them until the tie resolves.
   const level = rows.some((other) => other.id !== row.id && other.platz === row.platz);
@@ -88,8 +88,8 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: read
       unentschieden: { record: formatNumber(statistik.unentschieden) },
       niederlagen: { record: formatNumber(statistik.niederlagen) },
       record: { counts: [statistik.siege, statistik.unentschieden, statistik.niederlagen] },
-      tore: { record: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }) },
-      differenz: { record: formatSigned(statistik.tore_geschossen - statistik.tore_kassiert) },
+      tore: { record: formatErgebnis({ team1: statistik.tore_scored, team2: statistik.tore_conceded }) },
+      differenz: { record: formatSigned(statistik.tore_scored - statistik.tore_conceded) },
       punkte: { record: formatNumber(statistik.punkte) },
     },
   };

@@ -99,13 +99,13 @@ function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, St
     { label: words.punkte, value: { record: formatNumber(statistik.punkte) } },
     {
       label: words.spiele,
-      value: { record: formatNumber(statistik.count_gespielte_spiele) },
+      value: { record: formatNumber(statistik.count_played_spiele) },
       line: { counts: [statistik.siege, statistik.unentschieden, statistik.niederlagen] },
     },
     {
       label: words.tore,
-      value: { record: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }) },
-      line: words.differenz(statistik.tore_geschossen - statistik.tore_kassiert),
+      value: { record: formatErgebnis({ team1: statistik.tore_scored, team2: statistik.tore_conceded }) },
+      line: words.differenz(statistik.tore_scored - statistik.tore_conceded),
     },
   ];
 }
@@ -116,9 +116,9 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const { column } = SERVER_COPY.season;
   const { spielort } = COPY.admin;
   const address = spielort.addressLine(
-    spielort.strasseWithHausnummer(team.address.strasse, team.address.hausnummer),
-    team.address.plz,
-    team.address.stadt,
+    spielort.streetWithHouseNumber(team.address.street, team.address.house_number),
+    team.address.postcode,
+    team.address.city,
   );
   return {
     title: { record: team.name },

@@ -83,7 +83,7 @@ function applicationFacts(read: FLBewerbungSingleResponse): readonly Fact[] {
     figure(COPY.team.expectedKader, bewerbung.kader.expected_size),
     figure(COPY.team.goodSpieler, bewerbung.kader.good_spieler),
     { label: COPY.team.wunschfarbe, value: { record: trikotFarbeLabel(bewerbung.trikot.wunschfarbe) } },
-    { label: COPY.team.trikotSatz, value: orDash(bewerbung.trikot.existing_satz) },
+    { label: COPY.team.trikotSatz, value: orDash(bewerbung.trikot.existing_set) },
     { label: COPY.team.wunschgegner, value: orDash(bewerbung.wunschgegner) },
     ...decisionFacts(read),
   ];
@@ -91,14 +91,14 @@ function applicationFacts(read: FLBewerbungSingleResponse): readonly Fact[] {
 
 /** A new school's third box: what its acceptance makes a club of. */
 function schoolFacts({ team_name, full_name, schulform, address, website_url }: FLBewerbungSchule): readonly Fact[] {
-  const { strasseWithHausnummer, addressLine } = COPY.admin.spielort;
+  const { streetWithHouseNumber, addressLine } = COPY.admin.spielort;
   return [
     { label: COPY.bewerbung.teamName, value: { record: team_name } },
     { label: COPY.team.fullName, value: { record: full_name } },
     { label: COPY.team.schulform, value: schulform === null ? COPY.shared.noValue : COPY.team.schulformOption[schulform] },
     {
       label: COPY.admin.spielort.address,
-      value: { record: addressLine(strasseWithHausnummer(address.strasse, address.hausnummer), address.plz, address.stadt) },
+      value: { record: addressLine(streetWithHouseNumber(address.street, address.house_number), address.postcode, address.city) },
     },
     { label: COPY.team.website, value: orDash(website_url) },
   ];

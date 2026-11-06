@@ -31,7 +31,7 @@ describe("a season row's contact link", () => {
   });
 
   /* A closed row's link takes the Widerspruch alone, so its mail asks no confirmation the page would then refuse. */
-  it.each(["saison_past", "ausgetreten"] as const)("asks a person seated on a row that is %s for the Widerspruch alone", (row) => {
+  it.each(["saison_past", "exited"] as const)("asks a person seated on a row that is %s for the Widerspruch alone", (row) => {
     const { mail, text } = rendered(data(row));
 
     expect(text).not.toContain(SERVER_COPY.mail.bewerbung.confirmOrOppose);
