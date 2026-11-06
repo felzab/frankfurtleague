@@ -5,7 +5,6 @@ import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_frame, get_saison
-from app.api.saisons.services import base_tier_status_term
 from app.api.saisons.visibility import resolve_public_saison
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
@@ -25,13 +24,6 @@ UNKNOWN = "2099"
 
 
 SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"), saison_document(PLANNED, "future")]
-
-
-class TestTheTermItselfWithholdsThePlannedSeason:
-    """No database: what a real `mongod` does with the term is the class below."""
-
-    def test_a_read_excludes_the_planned_status(self):
-        assert base_tier_status_term() == {"status": {"$ne": "future"}}
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]

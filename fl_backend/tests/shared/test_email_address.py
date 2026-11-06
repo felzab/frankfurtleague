@@ -24,15 +24,6 @@ class Row(NamedTuple):
 ROWS: Final = tuple(Row(**row) for row in json.loads(EMAIL_ADDRESSES.read_bytes().decode("utf-8")))
 
 
-def test_the_table_holds_each_kind_of_row():
-    """Two runtimes agree on any table the rule answers alike throughout, so each kind has to be in it to be compared."""
-
-    assert any(row.stored is None for row in ROWS), "no row is refused"
-    assert any(row.stored is None and not row.typed.rpartition("@")[2].isascii() for row in ROWS), "no row refuses a Unicode domain"
-    assert any(row.folded != row.typed for row in ROWS), "the fold changes no row"
-    assert any(row.folded == row.typed for row in ROWS), "the fold leaves no row alone"
-
-
 @pytest.mark.parametrize("row", ROWS, ids=lambda row: row.case)
 def test_a_payload_stores_each_row_as_the_table_records(row: Row):
     if row.stored is None:

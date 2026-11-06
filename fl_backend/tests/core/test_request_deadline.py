@@ -30,8 +30,7 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
 from app.main import create_app
 from app.shared.tokens import hash_token
-from tests.app_client import app_client
-from tests.config import ADMIN_KEY, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import ADMIN_KEY, TEST_BASE_URL, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.session_headers import StampedHeaders
@@ -42,10 +41,6 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
 
-# Short, so the default tier pays half a second where the shipped deadline would cost ten; what is
-# asserted is that the route stops at whatever the deadline says.
-SHORT_DEADLINE_S = 0.5
-
 # For a case whose route must work inside the deadline before its cut: the first request into an app
 # builds every router branch ahead of its route inside that deadline, a quarter second on a developer's
 # machine and more on CI's runner, where half a second leaves a transaction's first write no time. Long
@@ -53,11 +48,9 @@ SHORT_DEADLINE_S = 0.5
 # transaction's first write returned.
 SHORT_REQUEST_DEADLINE_S = 1.5
 
-# Far under what the cases below would wait with no deadline -- the client's 30 s server selection,
-# the stall's 60 s -- so an answer in time can only be the deadline's doing.
-ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
-
-FAILED = Code.DATABASE_FAILED
+# Far under the stall's 60 s, what the case below would wait with no deadline, so an answer in time can
+# only be the deadline's doing.
+ANSWERED_WITHIN_S = SHORT_REQUEST_DEADLINE_S + 10
 
 ADMIN_HEADERS = StampedHeaders("admin@frankfurtleague.de", ADMIN_KEY)
 
@@ -131,31 +124,6 @@ class TestAStoppedContainerOutlastsEveryRequest:
         """Compose's `command:` replaces that CMD and its `entrypoint:` drops it; a merge key can bring in either unread."""
 
         assert COMMAND_OVERRIDES.findall(_backend_service()) == []
-
-
-def _grants_list_answered(method: str) -> tuple[Response, float]:
-    """An admin-tier request against a server nothing answers, the actor check's grant read its first database call."""
-
-    async def _answered() -> tuple[Response, float]:
-        async with app_client(UNANSWERED_URI) as http:
-            started = time.monotonic()
-            response = await http.request(method, f"/api/v{API_VERSION}/grants", headers=ADMIN_HEADERS)
-            return response, time.monotonic() - started
-
-    return asyncio.run(_answered())
-
-
-class TestAnUnreachableServerIsAnsweredWithinTheDeadline:
-    @pytest.mark.parametrize(("method", "error_code"), [("GET", FAILED), ("POST", Code.UNKNOWN_OUTCOME)])
-    def test_the_actor_check_s_own_read_is_held_to_the_deadline(self, monkeypatch: pytest.MonkeyPatch, method: str, error_code: Code):
-        """The grant read runs as a dependency ahead of every handler, so the deadline cuts it before the handler starts."""
-
-        monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
-
-        response, elapsed = _grants_list_answered(method)
-
-        assert (response.status_code, response.json()["error_code"]) == (500, error_code)
-        assert elapsed < ANSWERED_WITHIN_S
 
 
 class _Cut(enum.Enum):

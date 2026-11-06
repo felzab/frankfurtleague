@@ -89,8 +89,8 @@ router = APIRouter(
 )
 
 # Each close costs three commands, logging the pre-image a restore needs, which a fan-out's count-only row
-# loses; the budget in `fl_backend/tests/api/test_spielbestaetigung_sweep_refusal.py` holds the three shares below
-# inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` together, each step's mails owed in two commands of its own.
+# loses; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S` together, each step's mails owed
+# in two commands of its own.
 CLOSES_PER_PASS: Final = 19
 
 # Counted in rows written, a fixture taken whole.

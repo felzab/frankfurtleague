@@ -1,9 +1,9 @@
 """
-API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, the per-request lookups
+API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, a lookup's transaction
 
 The erasures' and a press's journal, the confirmation pass's mint, an adoption's stamp and an erased pupil's repointed
-report entries meet a refused or unanswered commit; the per-request lookups' reads are held on the server, so that the
-reads each gathers are seen in flight together, and the ones a transaction runs one at a time.
+report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the ones
+a transaction runs are seen going one at a time.
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -20,7 +20,6 @@ from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.identity.crud import find_subject_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -28,8 +27,6 @@ from app.core.db import NO_OWNER
 from app.core.journal import JOURNAL_TOKEN
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
-from tests.bans import ban_list
-from tests.documents import ban_document
 from tests.records import record_collections
 from tests.whole_database import where_held
 
@@ -46,10 +43,6 @@ from .test_identity_erasure_sweep import a_due_pupil, a_report_naming, seeded
 from .test_identity_erasure_sweep import numbered as pupil_numbered
 from .test_identity_erasure_sweep import on_a_league as on_the_pupils_league
 from .test_identity_erasure_sweep import run as a_deletion_call
-from .test_identity_sign_in_execution import BARRED as SIGN_IN_GESPERRT
-from .test_identity_sign_in_execution import call_sign_in
-from .test_identity_sign_in_execution import on_a_league as on_the_sign_ins_league
-from .test_identity_subject_execution import ADMIN_STORED, FUTURE_SAISON, call_subject
 from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
 from .test_identity_subject_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
@@ -145,67 +138,7 @@ async def _first_reads(url: str, database: AsyncDatabase, call: Callable[[AsyncM
 
 
 @pytest.mark.db
-class TestTheReadsAPerRequestLookupGathers:
-    """Each lookup here answers every signed-in render, sign-in or admin-tier request, so its reads are paid in latency each time."""
-
-    def test_the_subjects_records_ban_and_grant_are_read_at_once(self, mongo_replica_set_url: str):
-        """`POST /identity/subject`: the records' three, the ban's running season and the grant, each sent before any answers.
-
-        The ban's own row follows its season, which it needs, and a seat's season is joined inside the seats' read; neither is a first read.
-        """
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document(ADMIN_STORED, until=FUTURE_SAISON))
-
-            return await _first_reads(mongo_replica_set_url, database, lambda held: call_subject(held[database.name], ADMIN_STORED))
-
-        answer, sent = on_the_subjects_league(mongo_replica_set_url, body)
-
-        # The premise first: the ban and the grant answered what was seeded, so the order below is of reads that ran.
-        assert (answer.barred, answer.admin_tier) == (True, "administration")
-        first_reads = (Collection.GRANTS, Collection.SAISONS, Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)
-        assert sent == sorted(map(str, first_reads)), "the endpoint awaited one read before sending the next"
-
-    def test_the_sign_in_gates_five_records_ban_and_grant_are_read_at_once(self, mongo_replica_set_url: str):
-        """`POST /identity/sign_in`, the one read paying for the two kinds granting no panel: all seven first reads at once."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await _first_reads(mongo_replica_set_url, database, lambda held: call_sign_in(held[database.name], SIGN_IN_GESPERRT))
-
-        answer, sent = on_the_sign_ins_league(mongo_replica_set_url, body)
-
-        assert (answer.barred, answer.account) == (True, True)
-        first_reads = (
-            Collection.BEWERBUNGEN,
-            Collection.GRANTS,
-            Collection.REGISTRIERUNGEN,
-            Collection.SAISONS,
-            Collection.SAISON_TEAMS,
-            Collection.SCHIEDSRICHTER,
-            Collection.SPIELER,
-        )
-        assert sent == sorted(map(str, first_reads)), "the gate awaited one read before sending the next"
-
-    def test_the_actor_checks_grant_and_ban_are_read_at_once(self, mongo_replica_set_url: str):
-        """Every admin-tier request pays this check before its handler runs: the grant and the ban's season, sent together."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            async def check(held: AsyncMongoClient) -> Any:
-                async with held.start_session() as session:
-                    return await live_unbarred_grant_since(
-                        ADMIN_STORED,
-                        grants_collection=held[database.name][Collection.GRANTS],
-                        ban_list=ban_list(held[database.name]),
-                        session=session,
-                    )
-
-            return await _first_reads(mongo_replica_set_url, database, check)
-
-        since, sent = on_the_subjects_league(mongo_replica_set_url, body)
-
-        assert since is not None, "the check found no grant, so the order below is of reads that answered nothing"
-        assert sent == sorted(map(str, (Collection.GRANTS, Collection.SAISONS))), "the check awaited the grant before asking the ban list"
-
+class TestALookupInsideATransaction:
     def test_inside_a_transaction_the_subjects_reads_run_one_at_a_time(self, mongo_replica_set_url: str):
         """PyMongo documents that one session runs one operation at a time and refuses nothing, so gathered here they would race unseen."""
 

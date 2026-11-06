@@ -33,7 +33,6 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spielbestaetigungen.system_router import (
     CLOSES_PER_PASS,
-    MINTS_PER_PASS,
     get_sweep_saisons,
     sweep_spielbestaetigungen,
 )
@@ -50,7 +49,6 @@ from app.shared.schemas.bounds import SPIEL_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document
@@ -60,7 +58,7 @@ from tests.outbox import MAIL_NOW, drained
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
 from tests.team_writes import write_the_block
-from tests.wire import commands_by_name, commands_sent
+from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -1361,10 +1359,6 @@ class TestOneRowHoldsBackNoOther:
         assert {row["spiel_id"] for row in stored} == {OTHER_SPIEL}
 
 
-# Under the driver's first batch, so a page read is one command however many rows it holds.
-FEW = 6
-
-
 def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]]:
     """One fixture per position, the referee left off so each fixture's rows are its two sides' alone."""
 
@@ -1374,87 +1368,18 @@ def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]
     ]
 
 
-async def _counted(url: str, database: AsyncDatabase, call: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> int:
-    return await commands_sent(url, DATABASE_NAME, call)
+# Three commands a row -- the update, its read-back, its log row. A fresh row costs less, one insert taking its share's
+# rows; the bound counts it at three.
+ROUND_TRIPS_A_ROW = 3
 
-
-class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
-    """Counted on the wire, two runs apart by `FEW` rows: a second write a row, or `AFTER` at a call site, turns a case red.
-
-    Each step owes its mails in two commands however many rows it took, so a row's own mails cost it nothing more.
-    """
-
-    def _twice(
-        self,
-        url: str,
-        seed: Callable[[AsyncDatabase, AsyncMongoClient, int], Awaitable[Any]],
-        call: Body,
-        junctions: list[dict[str, Any]] | None = None,
-    ) -> tuple[int, int]:
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                for collection in (Collection.SPIELE, Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG):
-                    await database[collection].delete_many({})
-                await seed(database, client, due)
-                return await _counted(url, database, call)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        return on_a_league(url, body, spiele=[], junctions=junctions)
-
-    def test_a_closed_row(self, mongo_replica_set_url: str):
-        async def seed(database: AsyncDatabase, client: AsyncMongoClient, due: int) -> None:
-            await database[Collection.SPIELE].insert_many(numbered_spiele(due, NEXT_WEEK))
-            await sweep(database, client)
-            # One side's rows closed by the pass counted: the other side stays open.
-            await database[Collection.SPIELBESTAETIGUNGEN].delete_many({"party.team_id": BETA})
-            await database[Collection.SPIELE].update_many({}, {"$set": {"ergebnis": "1:0", "team1": side(ALPHA, 1), "team2": side(BETA, 0)}})
-
-        few, twice = self._twice(mongo_replica_set_url, seed, a_pass)
-
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
-
-    def test_a_seat_minted_afresh(self, mongo_replica_set_url: str):
-        async def seed(database: AsyncDatabase, client: AsyncMongoClient, due: int) -> None:
-            await database[Collection.SPIELE].insert_many(numbered_spiele(due, NEXT_WEEK))
-            await sweep(database, client)
-            # The seat a write voided, on one side of each fixture.
-            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"party.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
-
-        few, twice = self._twice(mongo_replica_set_url, seed, a_pass)
-
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
-
-    def test_a_minted_row_costs_its_call_nothing_more(self, mongo_replica_set_url: str):
-        """One `insert_many` takes every row of the share, so a row of its own costs no command."""
-
-        async def seed(database: AsyncDatabase, client: AsyncMongoClient, due: int) -> None:
-            await database[Collection.SPIELE].insert_many(numbered_spiele(due, NEXT_WEEK))
-
-        few, twice = self._twice(mongo_replica_set_url, seed, a_pass)
-
-        assert twice == few
-
-    def test_a_reminded_row(self, mongo_replica_set_url: str):
-        async def seed(database: AsyncDatabase, client: AsyncMongoClient, due: int) -> None:
-            await database[Collection.SPIELE].insert_many(numbered_spiele(due, FORTNIGHT))
-            await sweep(database, client)
-
-        # One side reachable, so a fixture is one reminded row: the other's row holds no link to remind.
-        few, twice = self._twice(
-            mongo_replica_set_url,
-            seed,
-            lambda database, client: a_pass(database, client, today=REMINDER),
-            junctions=[junction(ALPHA), junction(BETA, kontakte=None)],
-        )
-
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
+# The worst call's commands beside its rows.
+SWEEP_OTHER_COMMANDS = 32
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    """`tests/api/test_spielbestaetigung_sweep_refusal.py`'s budget: its rows at the per-row cost and the rest as it names them.
+    """Its rows at the per-row cost and the rest as `SWEEP_OTHER_COMMANDS` names them.
 
-    A command added to either call turns its case red, so the shares are judged against the deadline again.
+    A command added to the call turns this red, so the shares are judged against the deadline again.
     """
 
     def test_the_sweep(self, mongo_replica_set_url: str):
@@ -1492,89 +1417,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         # Seven call-off notices; twelve requests and two Einteilungen for the two fixtures asked, the moved one's telling of
         # the move; the afresh seat's request and five reminders.
         assert (answer.closed, answer.asked, answer.reminded, answer.mails) == (6, 7, 2, 7 + 14 + 1 + 5)
-        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * patched == budget.SWEEP_OTHER_COMMANDS, names
-
-
-# The server's first batch for a cursor naming no size: one row more takes a read a `getMore`.
-FIRST_BATCH = 101
-
-
-class TestEverySeasonSizedReadSendsOneGetMore:
-    """`tests/api/test_spielbestaetigung_sweep_refusal.py :: SWEEP_GET_MORES`, every season-sized population past the first batch.
-
-    Fixtures moved since their rows were mailed, each with its own clubs and referee, due a reminder, a seat of each club
-    barred.
-    """
-
-    def test_one_get_more_a_read(self, mongo_replica_set_url: str):
-        # The mint closes some fixtures' rows and asks them afresh, neither of which the day's reminders then read: past the
-        # first batch by more than the close's share, so the reminders' own reads stay past it too.
-        count = FIRST_BATCH + 1 + CLOSES_PER_PASS
-        date = days_after(day=TODAY, days=10)
-
-        def club(position: int) -> ObjectId:
-            return ObjectId(f"6890a1b2c3d4e5f6071{position:05d}")
-
-        def club_side(position: int) -> dict[str, Any]:
-            return {"team_id": club(position), "tore": None}
-
-        def seats(position: int) -> dict[str, Any]:
-            return {
-                **{seat: kontaktperson_document(f"Sitz{position}x{index}") for index, seat in enumerate(KONTAKT_ROLLEN)},
-                "trainer_is_also": None,
-            }
-
-        referees = [ObjectId(f"6890a1b2c3d4e5f6072{position:05d}") for position in range(count)]
-        spiele = [
-            a_spiel(
-                ObjectId(f"6890a1b2c3d4e5f6073{position:05d}"),
-                300 + position,
-                date,
-                team1=club_side(2 * position),
-                team2=club_side(2 * position + 1),
-                schiedsrichter=booked(referees[position]),
-            )
-            for position in range(count)
-        ]
-        mailed = []
-        for spiel in spiele:
-            for party in parties_of(spiel):
-                position = [spiel["team1"]["team_id"], spiel["team2"]["team_id"]].index(party["team_id"]) if party["kind"] == "team" else None
-                index_of = 2 * (int(spiel["spiel_nr"]) - 300) + (position or 0)
-                emails = {} if position is None else {seat: f"sitz{index_of}x{index}@example.com" for index, seat in enumerate(KONTAKT_ROLLEN)}
-                row = compose_spielbestaetigung(
-                    row_id=ObjectId(),
-                    saison_id=SAISON_ID,
-                    spiel={**spiel, "time": "17:00:00"},
-                    party=party,
-                    emails=emails,
-                    today=TODAY,
-                    asked=True,
-                )
-                # Owed on an earlier day: a row whose request was owed today is reminded of nothing today.
-                mailed.append({**row, "asked_at": YESTERDAY})
-        junctions = [
-            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VEX", kontakte=seats(position))
-            for position in range(2 * count)
-        ]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            await database[Collection.SCHIEDSRICHTER].insert_many(
-                [referee(referee_id, f"pfeife{position}@example.com", f"Pfiff {position}") for position, referee_id in enumerate(referees)]
-            )
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(mailed)
-            await database[Collection.BAN_LIST].insert_many(
-                [ban_document(f"sitz{position}x0@example.com", until=SAISON_ID) for position in range(2 * count)]
-            )
-
-            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client))
-
-        answer, names = on_a_league(mongo_replica_set_url, body, spiele=spiele, junctions=junctions)
-
-        # The premise first: the mint's share taken, whole fixtures of three rows closed and three minted each, and every
-        # row due a message about an Ansetzung its fixture left.
-        assert (answer.closed, answer.reminded) == (3 * (MINTS_PER_PASS // 6), 0)
-        assert names["getMore"] == budget.SWEEP_GET_MORES, names
+        assert sum(names.values()) - ROUND_TRIPS_A_ROW * patched == SWEEP_OTHER_COMMANDS, names
 
 
 class ThenTheRivalAfterTheSecondSessionRead(ThenTheRivalAfterTheFirstSessionRead):

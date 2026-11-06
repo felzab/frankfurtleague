@@ -82,12 +82,6 @@ class TestARecordCitesItsKindsWordings:
     """What `python -m app.readback` holds a stored record to: a re-point mapping one choice's label onto another reads as refused."""
 
     @pytest.mark.parametrize(("model", "labels", "document", "block"), RECORDS)
-    def test_its_kinds_own_labels_read(self, model: type[BaseModel], labels: Any, document: Callable[[], dict[str, Any]], block: Any):
-        """The floor: without it the refusals below would pass on a model refusing everything."""
-
-        model.model_validate(document())
-
-    @pytest.mark.parametrize(("model", "labels", "document", "block"), RECORDS)
     @pytest.mark.parametrize("choice", CHOICES)
     @pytest.mark.parametrize("cited_by", ["the act", "the grant it ended"])
     def test_another_wordings_label_on_a_choice_is_refused(

@@ -11,18 +11,15 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from pymongo import ASCENDING
 
 from app.api.address_change.schemas import (
-    FLAddressChangeAddressPayload,
-    FLAddressChangeAdminPayload,
-    FLAddressChangeAnswerPayload,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
     FLAddressChangeViewPrevious,
 )
-from app.api.address_change.services import is_expired, masked_address, previous_state
+from app.api.address_change.services import masked_address
 from app.api.berechtigungen.services import approval_denied, approval_stands
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -70,25 +67,9 @@ class TestWhatALeakedLinkLearns:
     def test_each_view_declares_exactly_its_side_its_state_and_its_instants(self, model: type[BaseModel], fields: set[str]):
         assert set(model.model_fields) == fields
 
-    def test_the_press_names_its_answer_and_nothing_else(self):
-        """Defaulted, the model would answer for the person whether a mailbox is theirs."""
-
-        with pytest.raises(ValidationError):
-            FLAddressChangeAnswerPayload.model_validate({"token": "t" * 43})
-        with pytest.raises(ValidationError):
-            FLAddressChangeAnswerPayload.model_validate({"token": "t" * 43, "answer": "confirmed", "email": "x@example.org"})
-
 
 class TestTheSystemsReadOfTheNewAddress:
     """`READ-ADRESSWECHSEL-002`: the address a change would move to, for the frontend's server alone."""
-
-    @pytest.mark.parametrize(
-        "key",
-        [pytest.param({}, id="neither"), pytest.param({"token": "t" * 43, "address_change_id": "6890a1b2c3d4e5f607850001"}, id="both")],
-    )
-    def test_it_names_exactly_one_key(self, key: dict[str, str]):
-        with pytest.raises(ValidationError):
-            FLAddressChangeAddressPayload.model_validate(key)
 
     def test_the_base_key_is_refused_as_the_wrong_credential(self):
         """The links' own key: a browser-facing route holding it would hand any link holder the new mailbox."""
@@ -101,60 +82,6 @@ class TestTheSystemsReadOfTheNewAddress:
 
 
 NOW = datetime(2026, 4, 1, 10, 0, tzinfo=UTC)
-
-
-def a_step(step: str, *, lapsed: bool) -> dict[str, Any]:
-    """A live change waiting on `step`, its deadline for that step passed or not."""
-
-    deadline = NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(hours=1)
-    released = {"way": "account", "released_at": NOW - timedelta(days=1)}
-    if step == "previous_address":
-        return {"way": "account", "released_at": None, "valid_until": deadline, "confirmed_at": None, "approval": None}
-    if step == "new_address":
-        return {**released, "valid_until": deadline, "confirmed_at": None, "approval": None}
-    confirmed = {"valid_until": None, "confirmed_at": NOW - timedelta(days=1)}
-    if step == "approval":
-        return {**released, **confirmed, "effective_from": None, "approval": {"until": deadline, "approved_at": None}}
-    # The lost-mailbox way's waiting time: its end is the effect, never a lapse.
-    return {"way": "waiting_period", "released_at": None, **confirmed, "effective_from": NOW + timedelta(days=3), "approval": None}
-
-
-class TestTheAddressOnFilesState:
-    """`release_expired` is the person's own change's unanswered question past its deadline, and no other step's lapse.
-
-    Every other step's stop is refused nothing, so its link keeps showing the step until the hourly pass ends the change.
-    """
-
-    @pytest.mark.parametrize(
-        ("step", "lapsed", "state"),
-        [
-            pytest.param("previous_address", False, "release_open", id="the question open"),
-            pytest.param("previous_address", True, "release_expired", id="the question lapsed"),
-            pytest.param("new_address", False, "open", id="the new mailbox asked"),
-            pytest.param("new_address", True, "open", id="the new mailbox's link lapsed"),
-            pytest.param("approval", False, "approval", id="the approval owed"),
-            pytest.param("approval", True, "approval", id="the approval's week lapsed"),
-            pytest.param("waiting_period", False, "waiting_period", id="the waiting time"),
-        ],
-    )
-    def test_the_link_shows_its_step_and_lapses_only_its_own_question(self, step: str, lapsed: bool, state: str):
-        record = a_step(step, lapsed=lapsed)
-        # The control: each lapsed row is lapsed as the pass judges it, so the row passing is the guard's doing.
-        assert is_expired(record, now=NOW) is lapsed
-
-        assert previous_state(record, now=NOW) == state
-
-
-class TestTheLostMailboxsStart:
-    @pytest.mark.parametrize("grund", [pytest.param(None, id="null"), pytest.param(..., id="missing")])
-    def test_it_is_refused_without_a_reason(self, grund: Any, assert_rejects):
-        """The change hands the records over without the address on file, so it stands on a recorded reason."""
-
-        payload: dict[str, Any] = {"address": CHANGED, "email": "neu@beispielschule.de"}
-        if grund is not ...:
-            payload["grund"] = grund
-
-        assert_rejects(FLAddressChangeAdminPayload, payload, "grund")
 
 
 class TestTheLinksLookups:

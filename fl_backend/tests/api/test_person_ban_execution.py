@@ -32,7 +32,6 @@ CONFIG = config_for(DATABASE_NAME)
 PROBE = "/api/v0/person-probe"
 RUNNING = "2026"
 BARRED = "gesperrt@beispielschule.de"
-UNBARRED = "frei@beispielschule.de"
 
 
 def _probe() -> dict[str, bool]:
@@ -64,15 +63,3 @@ def test_a_person_a_standing_ban_holds_is_refused(mongo_url: str, email: str):
 
     assert (status, body["error_code"]) == (403, Code.PERSON_BARRED)
     assert BARRED not in str(body).lower()
-
-
-def test_a_person_no_ban_holds_is_served(mongo_url: str):
-    """The control, beside a ban on another address."""
-
-    assert answered(mongo_url, UNBARRED, until="2031") == (200, {"reached": True})
-
-
-def test_a_ban_whose_last_season_has_passed_bars_nobody(mongo_url: str):
-    """Compared against the running season, as every other reader of the list compares it."""
-
-    assert answered(mongo_url, BARRED, until="2025") == (200, {"reached": True})

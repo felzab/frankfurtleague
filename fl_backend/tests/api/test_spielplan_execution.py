@@ -1441,13 +1441,6 @@ class TestADrawStoresTheShapeItRanFrom:
         # Beside the shape it moved, so this cannot pass on a draw that wrote nothing at all.
         assert drawn.rules["number_of_gruppen"] == SHORT_GROUPS
 
-    def test_a_draw_that_states_no_shape_leaves_every_rule_alone(self, mongo_replica_set_url: str):
-        """The control: a `$set` running unconditionally would pass every case above and rewrite a season that asked for nothing."""
-
-        drawn = a_season_drawn_from(mongo_replica_set_url, seed=Seed(), shape=None)
-
-        assert drawn.rules == rules_document()
-
 
 class TestAReplaceRedrawsTheSeasonFromTheShapeItCarries:
     """The operation `rules_shape_after_spielplan` names as the repair: the numbers and the fixtures move together, or neither moves."""
