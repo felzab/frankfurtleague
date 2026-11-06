@@ -4,22 +4,35 @@ import { ClassicFrame } from "@/kit/ClassicFrame";
 
 import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
-import { ROUTES, SAISON_PAGES } from "@/core/routes";
+import { JOIN_SECTION, LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes";
 import { SPONSORS } from "@/features/meta/constants";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
 import type { HeaderLink } from "@/kit/HeaderLinks";
 import type { ReactNode } from "react";
 
-/** The league's own pages: the header's two and the footer's „Liga“ group, and the footer's legal pages. */
+/** The header's two pages of the league's own. */
 const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 const CONTACT = { label: COPY.page.contact, href: ROUTES.contact.path() };
-const LEGAL_NOTICE = { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() };
-const PRIVACY_NOTICE = { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() };
+
+/** The footer's „Saison“ group, at the addresses that read the season on arrival. */
+const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route }) => ({
+  label: ROUTES[route].title,
+  href: ROUTES[route].path(),
+}));
+
+/** The footer's „Liga“ group, and the way to applying, which the landing's section words for every state of the window. */
+const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
+  ...LIGA_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
+  { label: COPY.template.bewerbung, href: `${ROUTES.home.path()}#${JOIN_SECTION}` },
+  { label: COPY.template.account, href: ROUTES.signIn.path() },
+];
+
+const LEGAL_LINKS: ReadonlyArray<HeaderLink> = LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() }));
 
 /**
- * The season the site is on, read from the frame, the season pages' one source for it, on a request, so the
- * frame's prerendered shell holds none: the image's build reaches no backend.
+ * The season the site is on, the header's first entry, read from the frame, the season pages' one source for it, on
+ * a request, so the frame's prerendered shell holds none: the image's build reaches no backend.
  */
 async function readActiveSaison(): Promise<string | null> {
   await connection();
@@ -29,23 +42,19 @@ async function readActiveSaison(): Promise<string | null> {
 
 /**
  * The classic public frame around a page, as its layout places it and as the root's not-found page, which
- * renders under the root layout alone, places it again. The season the site is on is read once, for the
- * header's first entry, its name leading to its Spielplan, and for the footer's „Saison“ group of its pages.
+ * renders under the root layout alone, places it again.
  */
 export function Classic({ children }: { children: ReactNode }) {
-  const active = readActiveSaison();
   return (
     <ClassicFrame
-      season={active.then((saison): HeaderLink | null =>
+      season={readActiveSaison().then((saison): HeaderLink | null =>
         saison === null ? null : { label: COPY.shared.saisonName(saison), href: ROUTES.spielplan.path(saison) },
       )}
       links={[ABOUT, CONTACT]}
       signIn={ROUTES.signIn.path()}
-      seasonPages={active.then((saison) =>
-        saison === null ? null : SAISON_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path(saison) })),
-      )}
-      liga={[ABOUT, CONTACT]}
-      legal={[LEGAL_NOTICE, PRIVACY_NOTICE]}
+      saison={SAISON_LINKS}
+      liga={LIGA_LINKS}
+      legal={LEGAL_LINKS}
       social={{ instagram: INSTAGRAM_URL, threads: THREADS_URL }}
       sponsors={SPONSORS}>
       {children}

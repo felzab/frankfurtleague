@@ -12,7 +12,8 @@ import type { ReactNode } from "react";
 
 const section = tv({
   slots: {
-    root: "grid min-w-0 gap-6",
+    // A section a link reaches stops under the sticky band rather than behind it.
+    root: "grid min-w-0 scroll-mt-(--classic-header) gap-6",
     head: "grid max-w-measure justify-items-start gap-2",
     // The eyebrow over a section's title, in the kit's small capitals.
     eyebrow: smallCaps(),
@@ -74,18 +75,22 @@ export function LandingSection({
   eyebrow,
   title,
   more,
+  anchor,
   children,
 }: {
   eyebrow?: Copy;
   title: Copy;
   /** The page that tells more, such as „Über die Liga“ under the organisers. */
   more?: { label: Copy; href: Route };
+  /** The address's fragment that reaches the section from another page. */
+  anchor?: string;
   children: ReactNode;
 }) {
   const id = useId();
   const slots = section();
   return (
     <section
+      id={anchor}
       aria-labelledby={id}
       className={slots.root()}>
       <div className={slots.head()}>

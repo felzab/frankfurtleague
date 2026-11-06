@@ -83,6 +83,11 @@ export const ROUTES = {
   home: { path: () => "/" as const, title: COPY.template.oberstufenliga, crawl: "index" },
   /** The season the site is on, for a link that cannot know which: its page sends the reader on to that season's Spielplan. */
   saisons: { path: () => "/saisons" as const, title: COPY.page.spielplan, crawl: "noindex" },
+  // The same for the season's other pages, a fixed segment taking the address before `[saison]`.
+  saisonsKORunde: { path: () => "/saisons/ko-runde" as const, title: COPY.shared.kORunde, crawl: "noindex" },
+  saisonsTabelle: { path: () => "/saisons/tabelle" as const, title: COPY.page.tabelle, crawl: "noindex" },
+  saisonsTeams: { path: () => "/saisons/teams" as const, title: COPY.page.teams, crawl: "noindex" },
+  saisonsSpielSearch: { path: () => "/saisons/search" as const, title: COPY.page.spielSearch, crawl: "noindex" },
   spielplan: {
     path: (saison: string) => `/saisons/${saison}` as const,
     title: COPY.page.spielplan,
@@ -329,7 +334,26 @@ export const ROUTES = {
 } as const satisfies Record<string, RouteEntry>;
 
 /**
- * A season's public pages in the one order every frame lists them: the rail and the phone bar on a season page,
- * and the classic footer's „Saison“ group. Each is named by its route's title.
+ * A season's public pages in the one order every frame lists them, the rail and the phone bar on a season page.
+ * Each is named by its route's title.
  */
 export const SAISON_PAGES = ["spielplan", "kORunde", "tabelle", "teams"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
+
+/**
+ * Each address naming no season, with the page of the season the site is on it leads to: the classic footer's „Saison“
+ * group, which reads nothing, so it never waits and never goes stale.
+ */
+export const SAISONLESS_PAGES = [
+  { route: "saisons", page: "spielplan" },
+  { route: "saisonsKORunde", page: "kORunde" },
+  { route: "saisonsTabelle", page: "tabelle" },
+  { route: "saisonsTeams", page: "teams" },
+  { route: "saisonsSpielSearch", page: "spielSearch" },
+] as const satisfies ReadonlyArray<{ route: keyof typeof ROUTES; page: keyof typeof ROUTES }>;
+
+/** The league's own pages and its legal pages, in the order the classic footer lists them. */
+export const LIGA_PAGES = ["about", "contact", "sponsors"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
+export const LEGAL_PAGES = ["legalNotice", "privacyNotice"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
+
+/** The landing's section on how a school joins the league, which a link reaches as the fragment of `ROUTES.home`. */
+export const JOIN_SECTION = "bewerbung";

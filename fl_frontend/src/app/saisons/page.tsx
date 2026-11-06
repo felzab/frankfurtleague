@@ -1,44 +1,13 @@
-import { redirect } from "next/navigation";
-import { connection } from "next/server";
+import { metadataOf, SaisonlessPage } from "./SaisonlessPage";
 
-import { StatusPage } from "@/kit/StatusPage";
+export const generateMetadata = metadataOf("saisons");
 
-import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
-import { getSaisonFrame } from "@/features/saisons/queries";
-import { pageMetadata } from "@/shared/utils/metadata";
-
-import type { StatusCardProps } from "@/kit/StatusPage";
-import type { Metadata, ResolvingMetadata } from "next";
-
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  return pageMetadata(parent, ROUTES.saisons, ROUTES.saisons.path());
-}
-
-/**
- * The season the site is on, read at request time: a redirect to its Spielplan, or, while the league has no
- * season yet, the card saying so. The frame's shell streams first, so the redirect reaches the browser inside the
- * stream rather than as a status line.
- */
-async function readSaison(): Promise<StatusCardProps> {
-  await connection();
-  const { active_saison_id: active } = await getSaisonFrame();
-  if (active !== null) redirect(ROUTES.spielplan.path(active));
-  return {
-    tone: "info",
-    title: COPY.shared.end.noSaison,
-    next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() },
-  };
-}
-
-/** `/saisons`: the address a link uses where it cannot know the season, which leads on to the season the site is on. */
+/** `/saisons`: the season's Spielplan. */
 export default function SaisonsPage() {
   return (
-    <StatusPage
-      frame="rail"
-      scope="saison"
-      title={{ route: "saisons" }}
-      card={readSaison()}
+    <SaisonlessPage
+      route="saisons"
+      page="spielplan"
     />
   );
 }
