@@ -72,7 +72,6 @@ def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str
         "last_name": f"{first_name}-Mustermann",
         "email": email or f"{first_name.lower()}@example.com",
         "phone": phone,
-        "einwilligung": {"given": True},
     }
 
 

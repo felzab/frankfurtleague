@@ -27,7 +27,7 @@ export type AdminBewerbungRow = FLBewerbung & {
  * One contact person mid-entry. Every field is typed, so an unanswered one is the empty string and
  * the schema is what turns it into a field error rather than a type error.
  */
-export type BewerbungKontaktpersonDraft = Omit<FLBewerbungKontaktpersonPayload, "einwilligung"> & {
+export type BewerbungKontaktpersonDraft = FLBewerbungKontaktpersonPayload & {
   // `given` starts `false`, which `z.literal(true)` refuses: an untouched box is an acknowledgement
   // nobody made, and the payload type admits no other value.
   einwilligung: { given: boolean };

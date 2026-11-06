@@ -450,11 +450,6 @@ export const BewerbungenPostBewerbungBody = zod
       .object({
         ansprechperson: zod
           .object({
-            einwilligung: zod
-              .object({
-                given: zod.literal(true).meta({ title: "Given" }),
-              })
-              .describe("What the applicant acknowledged; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteAnsprechpersonEmailMax),
             first_name: zod
               .string()
@@ -471,11 +466,6 @@ export const BewerbungenPostBewerbungBody = zod
           .describe("One of the three people, as a member of the public submits them, without a birthdate."),
         stellvertretung: zod
           .object({
-            einwilligung: zod
-              .object({
-                given: zod.literal(true).meta({ title: "Given" }),
-              })
-              .describe("What the applicant acknowledged; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteStellvertretungEmailMax),
             first_name: zod
               .string()
@@ -492,11 +482,6 @@ export const BewerbungenPostBewerbungBody = zod
           .describe("One of the three people, as a member of the public submits them, without a birthdate."),
         trainer: zod
           .object({
-            einwilligung: zod
-              .object({
-                given: zod.literal(true).meta({ title: "Given" }),
-              })
-              .describe("What the applicant acknowledged; the scope and the date are the server's."),
             email: zod.string().max(bewerbungenPostBewerbungBodyKontakteTrainerEmailMax),
             first_name: zod
               .string()
@@ -645,6 +630,35 @@ export const BewerbungenGetEinwilligungViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
+ * One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+ *
+ * 404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
+ * page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
+ * nothing more (`READ-BEWERBUNG-001`).
+ * @summary What one Saison's application form shows
+ */
+export const BewerbungenGetFormParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+ *
+ * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
+ * `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+ * @summary One Saison's Bewerbungen for its list
+ */
+export const bewerbungenGetBewerbungenAdminQueryLimitDefault = 1024;
+export const bewerbungenGetBewerbungenAdminQueryLimitMax = 1024;
+
+export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
+  saison_id: zod.string(),
+  status: zod.union([zod.array(zod.enum(["submitted", "accepted", "declined"])), zod.null()]).optional(),
+  origin: zod.union([zod.array(zod.enum(["new_school", "existing_team"])), zod.null()]).optional(),
+  limit: zod.int().min(1).max(bewerbungenGetBewerbungenAdminQueryLimitMax).default(bewerbungenGetBewerbungenAdminQueryLimitDefault),
+});
+
+/**
  * Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
  * The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
@@ -682,7 +696,7 @@ export const BewerbungenGetWindowParams = zod.object({
  * One application, its decision's administrator withheld as the list withholds it.
  *
  * Each seat's `expired` says whether its own deadline has passed today.
- * @summary One Bewerbung
+ * @summary One Bewerbung for its review page
  */
 export const bewerbungenGetBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 

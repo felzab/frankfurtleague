@@ -1,5 +1,6 @@
 import asyncio
 import secrets
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, get_args
@@ -15,23 +16,33 @@ from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungResponse,
     FLBewerbung,
     FLBewerbungEinwilligungResendResponse,
+    FLBewerbungenAdminFilterParams,
+    FLBewerbungenAdminListResponse,
     FLBewerbungenFilterParams,
     FLBewerbungenListResponse,
+    FLBewerbungEntryOffer,
+    FLBewerbungGruppeOffer,
     FLBewerbungKontaktSeatPayload,
     FLBewerbungKontaktSeatResponse,
     FLBewerbungListAdapter,
+    FLBewerbungListRow,
     FLBewerbungSingleResponse,
     FLBewerbungStatus,
     FLDeclineBewerbungPayload,
     FLDeclineBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
+    BEWERBUNG_LIST_FIELDS,
     WITHOUT_TOKEN_HASHES,
+    assigned_trikot_farben,
+    bewerbung_list_row,
+    build_bewerbung_list_filter,
     build_bewerbungen_saison_term,
     build_bewerbungen_saisonbezug_terms,
     build_bewerbungen_sort,
     build_bewerbungen_status_term,
     build_dubletten_pipeline,
+    build_entry_offer_pipeline,
     build_erneut_filter,
     claimed_pair_seat,
     compose_erneut_update,
@@ -55,15 +66,17 @@ from app.api.bewerbungen.services import (
     paired_seat,
     parse_new_club,
     people_with_address,
+    schule_name,
     seat_named,
+    seats_confirmed_of,
 )
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
-from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
-from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal
+from app.api.teams.crud import pull_a_club_to_enter, pull_team_names, refuse_a_full_gruppe
+from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -81,8 +94,10 @@ from app.core.dependencies import (
     DBClient,
     OutboxCollection,
     SaisonsCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
     TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -105,6 +120,30 @@ router = APIRouter(
 # `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so
 # it publishes no query parameter at all and answers `None` whatever the query string holds.
 FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
+FLBewerbungenAdminFilters = Annotated[FLBewerbungenAdminFilterParams, Query()]
+
+
+async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollection) -> FLBewerbungEntryOffer:
+    """What an acceptance into this season would meet, by the bounds `app/api/teams/services.py :: find_entry_refusal` judges."""
+
+    [saison_raw, *_] = await aggregate_many_from_db(
+        collection=saisons_collection, pipeline=build_entry_offer_pipeline(saison_id=saison_id)
+    ) or [None]
+    if saison_raw is None:
+        raise DocumentNotFoundError()
+
+    rules = FLSaisonRules.model_validate(saison_raw["rules"])
+    occupied = Counter(row["gruppe"] for row in saison_raw["rows"])
+
+    return FLBewerbungEntryOffer(
+        saison_id=saison_id,
+        status=saison_raw["status"],
+        gruppen=[
+            FLBewerbungGruppeOffer(gruppe=gruppe, full=occupied[gruppe] >= rules.teams_per_gruppe)
+            for gruppe in offered_gruppen(rules.number_of_gruppen)
+        ],
+        taken=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in saison_raw["rows"]]),
+    )
 
 
 async def _as_served(
@@ -187,10 +226,49 @@ async def get_bewerbungen(
     )
 
 
-@router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung")
+# Two static segments, matching `GET /saisons/list/admin`.
+@router.get("/list/admin", response_model=FLBewerbungenAdminListResponse, summary="One Saison's Bewerbungen for its list")
+async def get_bewerbungen_admin(
+    bewerbungen_collection: BewerbungenCollection,
+    teams_collection: TeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    filters: FLBewerbungenAdminFilters,
+) -> FLBewerbungenAdminListResponse:
+    """
+    One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+
+    A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
+    `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+    """
+
+    offer, doubled, read = await asyncio.gather(
+        _entry_offer(saison_id=filters.saison_id, saisons_collection=saisons_collection),
+        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline({"saison_id": filters.saison_id})),
+        pull_many_from_db(
+            collection=bewerbungen_collection,
+            db_filter=build_bewerbung_list_filter(saison_id=filters.saison_id, status=filters.status, origin=filters.origin),
+            limit=filters.limit + 1,
+            sort_by=build_bewerbungen_sort(sort_by="submitted_at", order="desc"),
+            projection=BEWERBUNG_LIST_FIELDS,
+        ),
+    )
+    served = read[: filters.limit]
+    club_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
+    keys = set(dubletten_schluessel_of(doubled))
+
+    return FLBewerbungenAdminListResponse(
+        saison=offer,
+        bewerbungen=[FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, club_names=club_names, doubled=keys)) for row in served],
+        complete=len(read) <= filters.limit,
+    )
+
+
+@router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung for its review page")
 async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
+    teams_collection: TeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
@@ -203,7 +281,17 @@ async def get_bewerbung(
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
     [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection, today=today)
 
-    return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**served))
+    offer, club_names = await asyncio.gather(
+        _entry_offer(saison_id=str(bewerbung_raw["saison_id"]), saisons_collection=saisons_collection),
+        pull_team_names(teams_collection=teams_collection, team_ids=[bewerbung_raw.get("team_id")]),
+    )
+
+    return FLBewerbungSingleResponse(
+        bewerbung=FLBewerbung(**served),
+        name=schule_name(bewerbung_raw=bewerbung_raw, club_names=club_names),
+        seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),
+        saison=offer,
+    )
 
 
 def _entscheidung(*, today: str, by: str, decision_reason: str | None) -> dict[str, Any]:

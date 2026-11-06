@@ -323,7 +323,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
     composed: dict[str, Any] = {
         seat: {
-            **{field: value for field, value in kontakte[seat].items() if field != "einwilligung"},
+            **kontakte[seat],
             # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
             # entered, and the confirmation fills it.
             "birth_date": None,
@@ -748,6 +748,16 @@ def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRol
     # An emptied seat is nobody's: a dotted `$set` under its null slot or its null entry is
     # `PathNotViable`, and the abort takes the answer for the seat that IS this person's with it.
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
+
+
+def seat_answered_on(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
+    """The day this seat's person answered, a stamp on the slot or a decline beside it, or `None`."""
+
+    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
+    confirmed_at = einwilligung.get("confirmed_at") if isinstance(einwilligung, Mapping) else None
+
+    return confirmed_at or _declined_on(confirmations, seat)
 
 
 def seat_addresses(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
@@ -1486,6 +1496,99 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     # has colours. `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben` then hands the whole
     # palette back once every colour is assigned.
     return [colour for colour in get_args(FLTrikotFarbe.__value__) if colour in held]
+
+
+# --- The VIEW READS: one a page, each serving what its page shows.
+
+
+def build_form_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """What the form's page needs from one aggregation over the season's row, the window's carve-out at this tier.
+
+    A club retired out of the league is no club to apply as, and a row a club left the season on keeps its colour, as
+    `app/api/bewerbungen/public_router.py :: get_trikotfarben` serves it.
+    """
+
+    return [
+        {"$match": {"_id": saison_id}},
+        {"$project": {"bewerbung": 1, "status": 1}},
+        {
+            "$lookup": {
+                "from": Sammlung.SAISON_TEAMS,
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$group": {"_id": "$trikot_farbe"}}],
+                "as": "colours",
+            }
+        },
+        {
+            "$lookup": {
+                "from": Sammlung.TEAMS,
+                "pipeline": [{"$match": {"inactive_since": None}}, {"$sort": {"name": 1}}, {"$project": {"name": 1}}],
+                "as": "schulen",
+            }
+        },
+    ]
+
+
+def build_entry_offer_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """The season's rules and status beside its rows, every row taking a place, a club that left included (`find_entry_refusal`)."""
+
+    return [
+        {"$match": {"_id": saison_id}},
+        {"$project": {"status": 1, "rules": 1}},
+        {
+            "$lookup": {
+                "from": Sammlung.SAISON_TEAMS,
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"gruppe": 1, "trikot_farbe": 1}}],
+                "as": "rows",
+            }
+        },
+    ]
+
+
+# What the season's list shows of an application: an INCLUSION, so nobody's details cross the wire for a page that
+# shows none.
+BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
+    **_per_seat("kontakte", "einwilligung.confirmed_at"),
+    **_per_seat("confirmations", "declined_at"),
+    "version": 1,
+    "saison_id": 1,
+    "status": 1,
+    "submitted_at": 1,
+    "team_id": 1,
+    "schule.team_name": 1,
+    "trikot.wunschfarbe": 1,
+}
+
+
+def build_bewerbung_list_filter(*, saison_id: str, status: Sequence[str] | None, origin: Sequence[str] | None) -> dict[str, Any]:
+    """The season's rows the list's filters leave. Both origins, or neither, is every row."""
+
+    terms = {"saison_id": saison_id, **build_bewerbungen_status_term(status)}
+    if origin is None or len(set(origin)) != 1:
+        return terms
+
+    return {**terms, "schule": None if origin[0] == "existing_team" else {"$ne": None}}
+
+
+def seats_confirmed_of(*, kontakte: Any) -> int:
+    return len(KONTAKT_ROLLEN) - len(ausstehende_seats(kontakte=kontakte))
+
+
+def bewerbung_list_row(*, row: Mapping[str, Any], club_names: Mapping[Any, str], doubled: Collection[str]) -> dict[str, Any]:
+    """One stored application as `FLBewerbungListRow` serves it, `doubled` being `dubletten_schluessel_of`'s keys."""
+
+    return {
+        "id": row["_id"],
+        "version": row["version"],
+        "status": row["status"],
+        "submitted_at": row["submitted_at"],
+        "team_id": row.get("team_id"),
+        "name": schule_name(bewerbung_raw=row, club_names=club_names),
+        "new_school": isinstance(row.get("schule"), Mapping),
+        "wunschfarbe": row["trikot"]["wunschfarbe"],
+        "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
+        "seats_objected": sum(_declined_on(row.get("confirmations"), seat) is not None for seat in KONTAKT_ROLLEN),
+        "duplicate": row["status"] == "submitted" and f"{row.get('saison_id')} team {row.get('team_id')}" in doubled,
+    }
 
 
 def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewerbungSaisonReference, dict[str, Any]]:

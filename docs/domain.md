@@ -96,7 +96,7 @@ brought up to date.
   code path in the system that writes it.
 - **Applications** — a school applies while the day falls between the two dates of the season's own window,
   both included, and the season has not ended (`bewerbung_window_closed`); closing the window early is moving its
-  end to today. Accepting one creates the club where it is new and writes its junction row, held to the same entry
+  end to today or pausing it (`open`), its dates untouched. Accepting one creates the club where it is new and writes its junction row, held to the same entry
   rules a direct entry meets.
 - **Registration** — the season records a second window of its own, `registrierung`, which holds an end alone: it
   opens when the season is activated and runs to that end, which falls before the season's start

@@ -73,7 +73,6 @@ def person(**overrides: Any) -> dict[str, Any]:
         "last_name": "Brackenmoor",
         "email": "quillhilde@example.com",
         "phone": "+49 170 1234567",
-        "einwilligung": {"given": True},
         **overrides,
     }
 
@@ -337,7 +336,7 @@ class TestWhatTheServerComposes:
         }
 
     def test_the_composed_block_stores_no_field_the_payload_carried_beside_the_wording(self):
-        """`given` is the form's tickbox, not a stored field: the record IS the consent, and `False` is a body this endpoint refuses."""
+        """The block is the server's whole composition: nothing of it arrives on a body."""
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
@@ -368,18 +367,11 @@ class TestWhatTheServerComposes:
         assert composed["trainer_is_also"] == "ansprechperson"
         assert composed["stellvertretung"]["first_name"] == "Stellan"
 
-    def test_a_consent_the_applicant_did_not_give_is_refused_rather_than_stored(self):
-        """`given: Literal[True]`: an unticked box is a 422, never a stored record saying somebody declined."""
+    def test_a_client_may_not_name_a_consent(self):
+        """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": False}))
-
-    @pytest.mark.parametrize("field", ["scope", "entered_by", "date", "confirmed_at"])
-    def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
-        """`extra="forbid"`: a body naming one of these could claim a person's own consent or its seating, or backdate or pre-confirm one."""
-
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": True, field: "x"}))
+            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"scope": "kontaktdaten"}))
 
 
 class TestWhatTheSubmissionPayloadRefuses:
@@ -687,7 +679,7 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
         "confirmations": {
-            seat: {**entry, "delivery": None}
+            seat: {**entry, "delivery": None, "expired": False}
             for seat, entry in minted_confirmations(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
         },
         **overrides,

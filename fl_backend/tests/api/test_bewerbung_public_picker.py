@@ -81,6 +81,7 @@ class TestTheClubList:
 # Every public route, bound once: a route added to one list alone would keep its reachability test
 # and silently lose its unauthorised-answer test.
 PUBLIC_PATHS = [
+    f"{PREFIX}/form/{OPEN_SAISON}",
     f"{PREFIX}/window/{OPEN_SAISON}",
     f"{PREFIX}/schulen",
     f"{PREFIX}/trikotfarben/{OPEN_SAISON}",

@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbungen
-from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
+from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbung, get_bewerbungen, get_bewerbungen_admin
+from app.api.bewerbungen.schemas import FLBewerbungenAdminFilterParams, FLBewerbungenFilterParams
 from app.api.bewerbungen.services import mit_zustellung
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
@@ -531,6 +531,108 @@ class TestTheCollisionSurvivesTheReadsCap:
         assert ObjectId(BEWERBUNG_ID.format(AELTESTE)) not in served
 
         assert answered.duplicates_key == [PAAR]
+
+
+VIEW_DATABASE = worker_database("fl_bewerbungen_view_test")
+
+VIEW_SAISON = "2027"
+PICKED_CLUB = ObjectId("6890a1b2c3d4e5f600009998")
+PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED = 9101, 9102, 9103, 9104
+
+
+async def on_the_view_corpus(mongo_url: str, read: Any) -> Any:
+    """A `future` season with one full group and one with room, a pair naming one club, a new school and a declined row."""
+
+    async with a_clean_database(mongo_url, VIEW_DATABASE, constraints=True) as (_, database):
+        rules = documents.rules_document(teams_per_gruppe=2, number_of_gruppen=2)
+        await database[Collection.SAISONS].insert_one(documents.saison_document(VIEW_SAISON, "future", rules=rules))
+        await database[Collection.TEAMS].insert_one(documents.team_document(PICKED_CLUB, "Adlerhorst", "ADX"))
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(VIEW_SAISON, ObjectId(), "Fremd", "FRX", gruppe="A", trikot_farbe="blau"),
+                documents.saison_team_document(VIEW_SAISON, ObjectId(), "Anders", "ANX", gruppe="A", trikot_farbe=None),
+            ]
+        )
+        await database[Collection.BEWERBUNGEN].insert_many(
+            [
+                bewerbung_document(PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(ALSO_PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(NEW_SCHOOL, saison_id=VIEW_SAISON),
+                bewerbung_document(DECLINED, "declined", VIEW_SAISON, team_id=PICKED_CLUB),
+            ]
+        )
+
+        return await read(database)
+
+
+async def view_list(database: Any, **filters: Any) -> Any:
+    return await get_bewerbungen_admin(
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        filters=FLBewerbungenAdminFilterParams.model_validate({"saison_id": VIEW_SAISON, **filters}),
+    )
+
+
+class TestTheSeasonsListRead:
+    """The list page's one read: what its rows and its dialogs need, off one request, and no person's details."""
+
+    pytestmark = pytest.mark.db
+
+    def test_a_row_holds_the_list_and_nobody_s_details(self, mongo_url: str):
+        """The list shows counts, so an address here is personal data served to a page that never shows it."""
+
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
+
+        assert KONTAKTPERSON["email"] not in answered.model_dump_json()
+        assert {row.name for row in answered.bewerbungen} == {"Adlerhorst", f"Schule {NEW_SCHOOL}"}
+        assert [row.new_school for row in answered.bewerbungen if row.id == ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] == [True]
+
+    def test_two_open_rows_naming_one_club_are_marked_and_a_decided_one_is_not(self, mongo_url: str):
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
+
+        marked = {row.id for row in answered.bewerbungen if row.duplicate}
+
+        assert marked == {ObjectId(BEWERBUNG_ID.format(PICKED)), ObjectId(BEWERBUNG_ID.format(ALSO_PICKED))}
+
+    def test_the_offer_marks_the_group_an_acceptance_would_be_refused_on(self, mongo_url: str):
+        """The dialog's greyed entry and `entry_gruppe_full` read one bound, so a page offers nothing the write refuses."""
+
+        offer = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list)).saison
+
+        assert (offer.status, [(row.gruppe, row.full) for row in offer.gruppen], offer.taken) == (
+            "future",
+            [("A", True), ("B", False)],
+            ["blau"],
+        )
+
+    @pytest.mark.parametrize(
+        ("origin", "expected"),
+        [pytest.param("new_school", {NEW_SCHOOL}, id="new"), pytest.param("existing_team", {PICKED, ALSO_PICKED, DECLINED}, id="existing")],
+    )
+    def test_the_origin_filter_parts_the_rows(self, mongo_url: str, origin: str, expected: set[int]):
+        async def read(database: Any) -> Any:
+            return await view_list(database, origin=[origin])
+
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
+
+        assert {row.id for row in answered.bewerbungen} == {ObjectId(BEWERBUNG_ID.format(index)) for index in expected}
+
+    def test_the_review_page_reads_its_name_and_its_offer_off_one_request(self, mongo_url: str):
+        async def read(database: Any) -> Any:
+            return await get_bewerbung(
+                bewerbung_id=ObjectId(BEWERBUNG_ID.format(PICKED)),
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                outbox_collection=database[Collection.OUTBOX],
+                ban_list=ban_list(database),
+                today="2026-03-01",
+            )
+
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
+
+        assert (answered.name, answered.saison.saison_id, answered.bewerbung.version) == ("Adlerhorst", VIEW_SAISON, 0)
 
 
 # The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so

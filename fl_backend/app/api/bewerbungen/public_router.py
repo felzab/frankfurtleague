@@ -12,6 +12,8 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungEinwilligungAnswerResponse,
     FLBewerbungEinwilligungViewResponse,
+    FLBewerbungFormResponse,
+    FLBewerbungFormWindow,
     FLBewerbungNoWindowResponse,
     FLBewerbungSchulenResponse,
     FLBewerbungSchuleOptionListAdapter,
@@ -30,6 +32,7 @@ from app.api.bewerbungen.services import (
     assigned_trikot_farben,
     bewerbung_bezug,
     bewerbung_schule,
+    build_form_pipeline,
     build_saison_token_filter,
     build_schluessel_filter,
     build_token_filter,
@@ -64,6 +67,7 @@ from app.api.bewerbungen.services import (
     saison_zustand_of,
     season_has_ended,
     seat_addresses,
+    seat_answered_on,
     seat_deadline_of,
     seat_first_name,
     seat_holding,
@@ -81,7 +85,7 @@ from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
@@ -104,7 +108,7 @@ from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
+from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
@@ -145,6 +149,37 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     # The status travels beside the window and is served only as whether it is `past`: that season
     # takes no application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
     return window, saison_raw["status"]
+
+
+@router.get("/form/{saison_id}", response_model=FLBewerbungFormResponse, summary="What one Saison's application form shows")
+async def get_form(
+    saison_id: str, saisons_collection: SaisonsReadCollection, today: str = Depends(get_german_date_str)
+) -> FLBewerbungFormResponse:
+    """
+    One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+
+    404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
+    page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
+    nothing more (`READ-BEWERBUNG-001`).
+    """
+
+    [saison_raw, *_] = await aggregate_many_from_db(collection=saisons_collection, pipeline=build_form_pipeline(saison_id=saison_id)) or [None]
+    if saison_raw is None:
+        raise DocumentNotFoundError()
+
+    window, saison_status = saison_raw.get("bewerbung"), saison_raw["status"]
+    running = saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=window, today=today)
+
+    return FLBewerbungFormResponse(
+        saison_id=saison_id,
+        window=None
+        if window is None
+        else FLBewerbungFormWindow(
+            start=str(window["start"]), end=str(window["end"]), running=running, saison_ended=season_has_ended(saison_status=saison_status)
+        ),
+        schulen=FLBewerbungSchuleOptionListAdapter.validate_python(saison_raw["schulen"]) if running else [],
+        taken=assigned_trikot_farben(stored=[row["_id"] for row in saison_raw["colours"]]) if running else [],
+    )
 
 
 @router.get(
@@ -441,6 +476,9 @@ async def _saison_ansicht(
         rolle=seat,
         also_rolle=zugleich,
         minimum_age=mindestalter_for(seats),
+        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
+        answered_on=seat_answered_on(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
@@ -505,6 +543,9 @@ async def get_einwilligung_view(
         rolle=seat,
         also_rolle=zugleich,
         minimum_age=mindestalter_for(seats),
+        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
+        answered_on=seat_answered_on(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 

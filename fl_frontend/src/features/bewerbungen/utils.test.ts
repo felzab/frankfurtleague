@@ -540,6 +540,9 @@ const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht
     rolle: "ansprechperson",
     also_rolle: null,
     minimum_age: mindestalter,
+    maximum_age: 99,
+    deadline: "2026-05-15",
+    answered_on: null,
     media_minimum_age: 18,
   },
 });

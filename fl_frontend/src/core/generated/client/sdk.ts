@@ -13,6 +13,7 @@ import {
 import type {
   ActionLogGetActionLogParams,
   AddressChangeSweepAddressChangeParams,
+  BewerbungenGetBewerbungenAdminParams,
   BewerbungenGetBewerbungenParams,
   CheckIsLiveResponse,
   FLAcceptBewerbungPayload,
@@ -47,7 +48,9 @@ import type {
   FLBewerbungEinwilligungGiven,
   FLBewerbungEinwilligungResendResponse,
   FLBewerbungEinwilligungViewResponse,
+  FLBewerbungenAdminListResponse,
   FLBewerbungenListResponse,
+  FLBewerbungFormResponse,
   FLBewerbungKontaktSeatPayload,
   FLBewerbungKontaktSeatResponse,
   FLBewerbungNoWindowResponse,
@@ -962,6 +965,51 @@ export const bewerbungenGetEinwilligungView = async (
   });
 };
 
+export const getBewerbungenGetFormUrl = (saisonId: string) => {
+  return `/api/v0/bewerbungen/form/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+ *
+ * 404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
+ * page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
+ * nothing more (`READ-BEWERBUNG-001`).
+ * @summary What one Saison's application form shows
+ */
+export const bewerbungenGetForm = async (
+  saisonId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLBewerbungFormResponse> => {
+  return baseKeyTransport<FLBewerbungFormResponse>(getBewerbungenGetFormUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewerbungenAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/v0/bewerbungen/list/admin?${stringifiedParams}` : `/api/v0/bewerbungen/list/admin`;
+};
+
+/**
+ * One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+ *
+ * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
+ * `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+ * @summary One Saison's Bewerbungen for its list
+ */
+export const bewerbungenGetBewerbungenAdmin = async (
+  params: BewerbungenGetBewerbungenAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungenAdminListResponse> => {
+  return adminKeyTransport<FLBewerbungenAdminListResponse>(getBewerbungenGetBewerbungenAdminUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getBewerbungenGetSchulenUrl = () => {
   return `/api/v0/bewerbungen/schulen`;
 };
@@ -1067,7 +1115,7 @@ export const getBewerbungenGetBewerbungUrl = (bewerbungId: string) => {
  * One application, its decision's administrator withheld as the list withholds it.
  *
  * Each seat's `expired` says whether its own deadline has passed today.
- * @summary One Bewerbung
+ * @summary One Bewerbung for its review page
  */
 export const bewerbungenGetBewerbung = async (
   bewerbungId: string,
