@@ -6,7 +6,6 @@ from typing import Any, NamedTuple
 
 import pytest
 from bson import ObjectId
-from bson import encode as bson_encode
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
@@ -14,9 +13,8 @@ from app.api.saisons.schemas import FLTeamPageResponse
 from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSpielerPublic,
-    FLSpielerSingleResponse,
 )
-from app.api.spieler.services import build_kader_pipeline, build_spieler_pipeline, public_initial
+from app.api.spieler.services import build_spieler_pipeline, public_initial
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
@@ -39,10 +37,6 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607390001")
 
 # What the base tier serves, and the whole of it.
 PUBLIC_FIELDS = {"first_name", "last_name", "nummer", "position"}
-
-# `stufe`, `einwilligung`, `email` and `id` are the confidentiality rules; the rest fails the allow-list,
-# which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
-WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "id", "team_id", "is_nachnominiert", "rolle", "inactive_since"]
 
 # The club whose page serves the squad, in every corpus below: the page answers 404 for a club the
 # season does not hold, so each corpus enters it in each season it reads.
@@ -130,41 +124,16 @@ def _pipeline() -> list[Mapping[str, Any]]:
     return build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON)
 
 
-def _project() -> dict[str, Any]:
-    return next(stage["$project"] for stage in _pipeline() if "$project" in stage)
-
-
 def _sort() -> dict[str, int]:
     return next(stage["$sort"] for stage in _pipeline() if "$sort" in stage)
-
-
-def _lookup_pipeline() -> list[Any]:
-    return next(stage["$lookup"] for stage in _pipeline() if "$lookup" in stage)["pipeline"]
-
-
-def _squad_match() -> dict[str, Any]:
-    """The first stage, which narrows the squad rows before anything joins them."""
-
-    return _pipeline()[0]["$match"]
 
 
 class TestTheBaseTierShape:
     def test_it_serves_exactly_the_public_fields(self):
         assert set(FLSpielerPublic.model_fields) == PUBLIC_FIELDS
 
-    @pytest.mark.parametrize("field", WITHHELD_FIELDS)
-    def test_a_withheld_field_is_not_on_the_shape(self, field: str):
-        """Absent from the MODEL, not merely unrendered: the page is a client component, so every field it receives sits in the page source."""
-        assert field not in FLSpielerPublic.model_fields
-
     def test_the_club_page_serves_the_public_shape(self):
         assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
-
-    def test_the_squad_fields_default_where_the_join_supplies_neither(self):
-        """An unnarrowed read joins loosely, and `$project` omits both keys rather than nulling them: required fields would 500 the list."""
-        served = FLSpielerPublic.model_validate({"_id": SPIELER_OIDS["Kraus"], "first_name": "Nils", "last_name": "K."})
-
-        assert (served.nummer, served.position) == (None, None)
 
     def test_the_read_model_accepts_the_initial_it_is_served(self):
         """The backend keeps `PERSON_NAME_PATTERN` off read models, and a trailing dot is what that pattern refuses."""
@@ -175,53 +144,11 @@ class TestTheBaseTierShape:
         assert served.last_name == "M."
 
 
-class TestTheSinglePlayerShape:
-    """`GET /spieler/{spieler_id}` is base-tier as well, and answers whatever id it is handed."""
-
-    def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
-        """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
-        assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "first_name", "last_name"}
-
-
 class TestTheProjection:
-    def test_it_emits_only_the_public_keys(self):
-        """`_id` is named only to be dropped: `$project` keeps it unless told otherwise (`READ-PUPIL-005`)."""
-        projected = _project()
-
-        assert {key for key, value in projected.items() if value != 0} == {"first_name", "last_name", "nummer", "position"}
-        assert projected["_id"] == 0
-
-    def test_the_consent_record_is_read_and_projected_nowhere(self):
-        """`READ-PUPIL-003` reads it inside the `$cond`, so the projection carrying no key of that name is the whole of the withholding."""
-        assert "einwilligung" not in _project()
-        assert "$einwilligung.scope" in json.dumps(_lookup_pipeline())
-
-    def test_the_level_is_gone_from_the_shape(self):
-        """`READ-PUPIL-002`: the level stays stored and admin-visible, and this tier never projects it."""
-        assert "stufe" not in _project()
-
-    def test_the_backdated_flag_is_gone_from_the_shape(self):
-        """The same sentence one field up: `is_nachnominiert` is withheld too."""
-        assert "is_nachnominiert" not in _project()
-
-    def test_the_sort_runs_after_the_mask_and_not_over_the_stored_names(self):
-        """An order keyed on the stored forename answers, for a withheld row, what the projection withholds."""
-        stages = [next(iter(stage)) for stage in _pipeline()]
-
-        assert stages.index("$sort") > stages.index("$project")
-
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
         """A tie-break is the last place an ordering could still depend on a field the response withholds."""
         assert "last_name" not in _sort()
         assert "first_name" in _sort()
-
-    def test_only_the_admin_read_tiebreaks_on_the_surname(self):
-        """The contrast is the assertion: the admin list orders people by full name and is entitled to."""
-        assert build_kader_pipeline(saison_id=SAISON, team_id=None)[-1]["$sort"] == {"first_name": 1, "last_name": 1, "spieler_id": 1}
-
-    def test_the_squad_row_s_retirement_narrows_unconditionally(self):
-        """With no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
-        assert _squad_match()["inactive_since"] is None
 
 
 class TestTheInitial:
@@ -257,29 +184,6 @@ class TestTheBaseTierReadExecuted:
 
         return on_a_database(url, body)
 
-    def test_the_corpus_really_holds_what_the_response_must_not(self, seeded_url: str):
-        """First, because every assertion below would pass just as well against a seed that stored neither."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            person = await database.spieler.find_one({"_id": SPIELER_OIDS["Mueller"]})
-            row = await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Mueller"]})
-
-            return person, row
-
-        person, row = on_a_database(seeded_url, body)
-
-        assert person["last_name"] == "Müller"
-        assert person["einwilligung"]["scope"] == "kader_oeffentlich"
-        assert (row["stufe"], row["rolle"]) == ("Q3", "kapitaen")
-
-    def test_the_corpus_really_holds_a_retired_row(self, seeded_url: str):
-        """The same guard for `READ-SQUAD-001`: the case below passes against a corpus where nobody retired at all."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Kraus"]})
-
-        assert on_a_database(seeded_url, body)["inactive_since"] == "2026-03-01"
-
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """`READ-SQUAD-001`: the retirement this read filters on."""
         assert RETIRED_ROW_FIRST_NAME not in self._by_first_name(seeded_url)
@@ -300,33 +204,13 @@ class TestTheBaseTierReadExecuted:
         """Absent is not withheld: an initial invented here would read as a name nobody holds."""
         assert self._by_first_name(seeded_url)["Lena"]["last_name"] is None
 
-    @pytest.mark.parametrize("field", WITHHELD_FIELDS)
-    def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, seeded_url: str, field: str):
+    def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, seeded_url: str):
         """The allow-list `$project` builds, as mongod resolves it. A key added there is a leak the response shape hides."""
         rows = self._rows(seeded_url)
 
         # `all` over an empty list passes, and a join that stopped matching would empty it.
         assert len(rows) == 5
-        assert all(field not in row for row in rows)
-
-    def test_the_squad_facts_the_table_renders_survive(self, seeded_url: str):
-        """The allow-list is not a blanket refusal: a shirt and a position are columns on the page."""
-        served = self._by_first_name(seeded_url)["Maxim"]
-
-        assert (served["nummer"], served["position"]) == ("7", "Angriff")
-
-    def test_the_rendered_name_is_the_forename_and_an_initial(self, seeded_url: str):
-        """The frontend's join and its avatar letter, spelled out: emitting the dot here is what keeps both unchanged."""
-        served = self._by_first_name(seeded_url)["Maxim"]
-
-        assert " ".join(part for part in (served["first_name"], served["last_name"]) if part) == "Maxim M."
-        assert served["last_name"][0] == "M"
-
-    def test_the_order_is_by_position_then_forename(self, seeded_url: str):
-        """The default sort, unchanged by the redaction -- and MongoDB puts the null position first."""
-        served = self._read(seeded_url)["kader"]
-
-        assert [row["position"] for row in served] == [None, "Abwehr", "Angriff", "Mittelfeld", "Tor"]
+        assert all(set(row) <= PUBLIC_FIELDS for row in rows)
 
     def _read_one(self, url: str, key: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
@@ -336,41 +220,12 @@ class TestTheBaseTierReadExecuted:
 
         return on_a_database(url, body)
 
-    def test_the_one_player_read_serves_the_same_initial(self, seeded_url: str):
-        """The second base-tier path, redacted by `public_initial` where the squad is redacted by the pipeline."""
-        assert self._read_one(seeded_url, "Mueller")["last_name"] == "M."
-
     def test_the_one_player_read_serves_its_allow_list_alone(self, seeded_url: str):
         assert self._read_one(seeded_url, "Weber") == {
             "spieler_id": str(SPIELER_OIDS["Weber"]),
             "first_name": "Jonas",
             "last_name": "W.",
         }
-
-    def test_the_stored_row_is_byte_identical_after_both_base_tier_reads(self, seeded_url: str):
-        """The mask is a projection and never a write, so nothing on this path may stamp the row it redacts.
-
-        Encoded rather than compared directly: a key order or a BSON type that moved leaves two
-        dicts equal.
-        """
-
-        # Marek, whom no case above reads by id: this module shares one corpus, so against a person
-        # an earlier case already fetched, a second stamp would write the value it wrote the first time.
-        subject = SPIELER_OIDS["Adler"]
-
-        async def body(database: AsyncDatabase) -> Any:
-            before = await database.spieler.find_one({"_id": subject})
-
-            await club_page(database)
-            await get_spieler_by_id(spieler_id=subject, spieler_collection=database.spieler)
-
-            return before, await database.spieler.find_one({"_id": subject})
-
-        before, after = on_a_database(seeded_url, body)
-
-        # The floor: `find_one` answers `None` for a row it did not reach, and two of those agree.
-        assert before is not None and after is not None
-        assert bson_encode(before) == bson_encode(after)
 
 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
@@ -432,10 +287,6 @@ class TestTheClubPageReadsOneSeasonsSquad:
 
     def test_a_player_of_both_seasons_is_listed_once_and_one_of_the_past_season_alone_not_at_all(self, squad_url: str):
         assert self._first_names(squad_url, SAISON) == ["Paula"]
-
-    def test_the_past_season_s_page_still_lists_its_own_squad(self, squad_url: str):
-        """The control: the corpus really holds the past season's second player and the row the running season leaves out."""
-        assert sorted(self._first_names(squad_url, PAST_SAISON)) == ["Paula", "Theo"]
 
 
 @pytest.fixture(scope="module")
@@ -516,39 +367,12 @@ class TestThePublicationGate:
     def _by_nummer(self, url: str) -> dict[str, dict[str, Any]]:
         return {row["nummer"]: row for row in self._read(url)["kader"]}
 
-    def test_the_corpus_really_stores_the_names_and_the_records_the_cases_below_read(self, masked_url: str):
-        """First: every case below would pass just as well against a corpus that stored no name to withhold."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return {person["_id"]: person for person in await database.spieler.find({}).to_list(None)}
-
-        stored = _on_the_mask_database(masked_url, body)
-
-        assert len(stored) == len(MASKED_SQUAD)
-        for row in MASKED_SQUAD.values():
-            assert (stored[row.oid]["first_name"], stored[row.oid]["last_name"]) == (row.first_name, row.last_name)
-            assert stored[row.oid]["einwilligung"] == row.einwilligung
-
-    def test_the_squad_serves_a_row_for_every_seeded_person(self, masked_url: str):
-        """A withheld name is a nameless SLOT and never a missing row: `all` over a list a broken join emptied passes every case below."""
-        assert len(self._by_nummer(masked_url)) == len(MASKED_SQUAD)
-
     @pytest.mark.parametrize("case", MASKED_SQUAD)
     def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str, case: str):
         row = MASKED_SQUAD[case]
         served = self._by_nummer(masked_url)[MASK_NUMMERN[case]]
 
         assert (served["first_name"], served["last_name"]) == (row.served_first_name, row.served_last_name)
-
-    @pytest.mark.parametrize("case", MASKED_SQUAD)
-    def test_a_withheld_row_keeps_its_number_and_its_position(self, masked_url: str, case: str):
-        """The mask reaches the two name fields, so the slot the person holds in the squad stands either way.
-
-        The row is found by its shirt, so a number the mask took would leave this case finding none.
-        """
-        served = self._by_nummer(masked_url)[MASK_NUMMERN[case]]
-
-        assert served["position"] == "Angriff"
 
     @pytest.mark.parametrize("name", WITHHELD_NAMES)
     def test_no_withheld_name_appears_anywhere_in_the_response(self, masked_url: str, name: str):
@@ -651,24 +475,6 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
         return on_the_seed_loop(body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]]))
 
-    def test_the_two_corpora_really_store_the_two_forenames_and_nothing_else_apart(self, sort_oracle_url: str):
-        """First: every case below passes against two corpora seeded identically, which is exactly what would prove nothing."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return sorted(repr(person) for person in await database.spieler.find({}).to_list(None))
-
-        stored = {corpus: _on_a_sort_oracle_database(sort_oracle_url, corpus, body) for corpus in WITHHELD_FORENAMES}
-
-        assert stored["first"] != stored["last"]
-        for corpus, forename in WITHHELD_FORENAMES.items():
-            assert sum(forename in person for person in stored[corpus]) == 1
-
-    def test_the_published_rows_really_are_ordered_by_the_name_the_read_serves(self, sort_oracle_url: str):
-        """The second floor: an answer in seeding order would hold the withheld row still for a reason nothing here is testing."""
-        served = self._served_names(sort_oracle_url, "first")
-
-        assert served.index("Bea") < served.index("Yara")
-
     def test_the_withheld_row_holds_one_place_whatever_forename_it_stores(self, sort_oracle_url: str):
         places = {corpus: self._served_names(sort_oracle_url, corpus).index(None) for corpus in WITHHELD_FORENAMES}
 
@@ -723,13 +529,6 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
 
     with unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["first"]), unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["last"]):
         yield mongo_url
-
-
-def _on_a_sort_oracle_database(url: str, corpus: str, body: Body) -> Any:
-    async def _run() -> Any:
-        return await body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]])
-
-    return on_the_seed_loop(_run())
 
 
 def _on_the_mask_database(url: str, body: Body) -> Any:

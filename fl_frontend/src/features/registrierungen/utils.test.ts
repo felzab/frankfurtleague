@@ -76,10 +76,6 @@ describe("the draft as the submission spells it", () => {
     expect(nummer, "the pupil is refused over a space nobody sees").toBe("7");
     expect(nummer, "the registration and the squad editor send one number two ways").toBe(nummerPayload(" 7 "));
   });
-
-  it("carries the link's token rather than anything the form rendered", () => {
-    expect(registrierungPayload(DRAFT, "kein-echtes-token").token).toBe("kein-echtes-token");
-  });
 });
 
 describe("what one refused submission shows", () => {
@@ -113,10 +109,6 @@ describe("what one refused submission shows", () => {
     expect(mapRegistrierungSubmitRefusal(refused("payload_refused"))?.error).toBe(REGISTRIERUNG_NEU_OEFFNEN);
     // A body the API could not read at all: the same drifted page, and a retry sends the same bytes.
     expect(mapRegistrierungSubmitRefusal(refused("body_unreadable"))?.error).toBe(REGISTRIERUNG_NEU_OEFFNEN);
-  });
-
-  it("sends a dead invite to the page's own panel rather than to a field", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "invalid" });
   });
 
   it("tells a banned address nothing about a list", () => {

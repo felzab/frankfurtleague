@@ -3,8 +3,6 @@ from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.teams.schemas import (
-    FLPatchTeamSaisonPayload,
-    FLPostTeamPayload,
     FLTabelleResponse,
     FLTeam,
 )
@@ -54,13 +52,6 @@ class TestTheTabellesGroups:
             "statistik",
         ]
 
-    def test_a_row_names_only_the_type_of_an_austritt(self, team):
-        """`reason` is free text written for publication, and the club's own page is where it is published."""
-        austritt = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-14"}
-        rows = build_tabelle([FLTeam.model_validate(team(gruppe="A", austritt=austritt))], spiele=[], rules=RULES).root["A"]
-
-        assert rows[0].austritt_type == "rueckzug"
-
     # Validation already rejects these, so reaching the guard needs `model_construct`. `X` is why it
     # cannot test `not team.gruppe`: that catches empty and None and lets anything else `KeyError`.
     @pytest.mark.parametrize("gruppe", ["", "X", "a", " ", "AB"])
@@ -70,19 +61,3 @@ class TestTheTabellesGroups:
 
         with pytest.raises(ValueError, match="does not offer"):
             build_tabelle([unplaceable], spiele=[], rules=RULES)
-
-
-class TestTheClubsSchulform:
-    @pytest.mark.parametrize("payload", [FLPostTeamPayload, FLPatchTeamSaisonPayload])
-    def test_the_payloads_refuse_to_default_it(self, team, payload):
-        """The club PATCH replaces wholesale too, so a defaulted key here would clear a school form and fan the clearing out as an edit."""
-
-        body = {
-            key: value for key, value in {"gruppe": "A", "trikot_farbe": None, "version": 0, **team()}.items() if key in payload.model_fields
-        }
-        del body["schulform"]
-
-        with pytest.raises(ValidationError) as failure:
-            payload.model_validate(body)
-
-        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["schulform"]

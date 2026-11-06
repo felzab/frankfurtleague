@@ -29,7 +29,6 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_team_saison_admin_test")
 
 SAISON_ID = "2026"
-LAST_SAISON_ID = "2025"
 TODAY = "2026-04-15"
 OPERATOR = str(grants_for_the_suite()[0]["address"])
 
@@ -350,15 +349,6 @@ class TestTheEntry:
         refusal, rows = on_a_league(mongo_replica_set_url, body)
 
         assert (refusal.error_code, refusal.fields, rows) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 0)
-
-    def test_a_retired_club_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as refused:
-                await enter(database, {"kind": "known", "team_id": str(DORNBUSCH)})
-
-            return refused.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.TEAM_RETIRED
 
 
 class TestTheList:

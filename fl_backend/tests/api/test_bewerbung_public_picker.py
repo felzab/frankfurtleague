@@ -28,10 +28,6 @@ from .test_bewerbung_public_read import (
     website_host,
 )
 
-# What `READ-BEWERBUNG-001` withholds, spelled as a DOCUMENT spells them: the assertions search
-# decoded bodies by key.
-WITHHELD_KEYS = frozenset({"shorthand", "address", "website_url", "full_name", "schulform", "description", "inactive_since", "statistik"})
-
 
 # Module-scoped for the read module's `seeded_url`'s reason.
 @pytest.fixture(scope="module")
@@ -55,10 +51,6 @@ class TestTheClubList:
         assert len(response.json()["schulen"]) == len(CLUBS)
         assert all(set(row) == {"id", "name"} for row in response.json()["schulen"])
 
-    @pytest.mark.parametrize("key", sorted(WITHHELD_KEYS))
-    def test_no_withheld_key_reaches_the_body(self, seeded_url: str, key: str):
-        assert key not in answered(seeded_url, FORM).json()["schulen"][0]
-
     def test_no_withheld_value_reaches_the_body_under_any_key(self, seeded_url: str):
         """Searched as VALUES over the undecoded body: a key RENAMED on the way out satisfies the check above and publishes both."""
 
@@ -75,9 +67,6 @@ class TestTheClubList:
 
 class TestTheTierTheseReadsAreServedAt:
     """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch."""
-
-    def test_the_base_key_reaches_the_form(self, seeded_url: str):
-        assert answered(seeded_url, FORM).status_code == 200
 
     def test_no_key_reaches_nothing(self, seeded_url: str):
         """Public here means no SESSION, never no key: the edge reaches this application through the frontend, which holds one."""

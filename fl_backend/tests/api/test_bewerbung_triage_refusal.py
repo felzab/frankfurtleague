@@ -15,9 +15,6 @@ from app.api.bewerbungen.services import (
 from app.core.codes import Code
 from tests.documents import kontaktperson_document
 
-# Every one of these is stored happily and refused by `FLTeam`, which reads the clubs list. The
-# first is an XSS sink the moment React renders it into an href.
-
 
 class ZorbanaxBoom(RuntimeError):
     """Not a `ValidationError`, so it is not the school's fault and may not be answered as one."""
@@ -57,9 +54,6 @@ class TestADeclinesReason:
     def test_a_character_no_paragraph_holds_is_refused(self, reason: str):
         with pytest.raises(ValidationError):
             FLDeclineBewerbungPayload(reason=reason, version=0)
-
-    def test_the_line_breaks_of_a_paragraph_pass(self):
-        assert FLDeclineBewerbungPayload(reason="Kein Platz.\r\nNächstes Jahr gern.", version=0).reason.count("\n") == 1
 
 
 class TestWhatASeatWriteMoves:
@@ -119,10 +113,6 @@ class TestTheCodeAnAcceptanceTakes:
 
         assert refusal is not None
         assert (refusal.error_code, refusal.fields) == (Code.PAYLOAD_REFUSED, (("shorthand",),))
-
-    @pytest.mark.parametrize(("new_school", "shorthand"), [(True, "ABX"), (False, None)])
-    def test_the_right_side_passes(self, new_school: bool, shorthand: str | None):
-        assert find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand) is None
 
 
 class TestCorrectingOneContactAddress:

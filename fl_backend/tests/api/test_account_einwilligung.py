@@ -418,9 +418,6 @@ class TestARecordNotHeld:
         assert (after[RETIRED_OID]["einwilligung"]["scope"], after[RETIRED_OID]["einwilligung"]["media"]) == ("intern", False)
 
 
-SPIELER_PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
-
-
 async def _withdrawn_then_granted(
     http: AsyncClient, path: str, payload: Callable[[bool, Any], dict[str, Any]], email: str, arm: str, **key: str
 ) -> Any:

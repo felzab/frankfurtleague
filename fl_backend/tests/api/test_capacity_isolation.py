@@ -354,7 +354,7 @@ ACCEPTED_BY = "triage.quillhilde@example.com"
 
 
 class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
-    """The rule reached from the OTHER package: a triage acceptance enters a school where `POST /teams/{id}/saisons` enters a club."""
+    """The rule reached from the OTHER package: a triage acceptance enters a school where the entry route enters a club."""
 
     def test_the_acceptance_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

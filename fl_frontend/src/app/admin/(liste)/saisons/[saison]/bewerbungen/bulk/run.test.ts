@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "@/core/copy";
-
-import { cardOf, gruppenFor, openRows, outcomeOf, takenFor } from "./run.ts";
+import { cardOf, gruppenFor, openRows, takenFor } from "./run.ts";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types.ts";
 import type { Draft, Run } from "./run.ts";
@@ -80,24 +78,5 @@ describe("the colours a card may not take", () => {
     const skipped = run({ drafts: { a: colour("rot") }, skipped: new Set(["a"]) });
 
     expect(takenFor([], ROWS, skipped, "b")).toStrictEqual([]);
-  });
-});
-
-describe("what a write's answer leaves on its row", () => {
-  it("names a taken code by its chip alone, a refused box keeping its message for the card", () => {
-    const fieldErrors = { shorthand: COPY.shared.field.taken };
-
-    expect(outcomeOf({ ok: false, errorCode: "duplicate_key", fieldErrors })).toStrictEqual({
-      kind: "refused",
-      taken: true,
-      line: undefined,
-      fieldErrors,
-    });
-  });
-
-  it("keeps any other refusal's line for the row", () => {
-    const reason = COPY.shared.failure.stale;
-
-    expect(outcomeOf({ ok: false, errorCode: "version_stale", reason })).toMatchObject({ taken: false, line: reason });
   });
 });

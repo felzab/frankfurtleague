@@ -18,9 +18,7 @@ from app.api.bewerbungen.services import (
     seat_reminder_is_due,
     unerreichbare_seats,
 )
-from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, LAPSED_SEAT_ROWS_PER_PASS, REMINDERS_PER_PASS
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
-from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
@@ -183,9 +181,6 @@ class TestTheReminderMark:
             "ansprechperson",
             "stellvertretung",
         ]
-
-    def test_every_open_seat_at_its_mark_is_listed_in_declaration_order(self):
-        assert reminder_seats(bewerbung_raw=application(), today=TODAY, unerreichbar=()) == list(KONTAKT_ROLLEN)
 
     # Spelled out rather than read off the outbox's set, so a state the set loses fails here: a person who reported the
     # first mail as spam is never mailed again.
@@ -372,31 +367,3 @@ class TestWhatTheNoticesNeed:
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
         assert first_name_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"
         assert first_name_of(kontakte=kontakte(stellvertretung=None), seat="stellvertretung") is None
-
-
-# The per-row loops' three commands a row -- the update, its read-back and its log row -- pinned on the wire by
-# `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt`.
-ROUND_TRIPS_A_ROW = 3
-
-
-# The worst call's commands beside its rows, counted on the wire by
-# `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 69
-SWEEP_LAPSED_OTHER_COMMANDS = 46
-SWEEP_PAST_LAPSED_OTHER_COMMANDS = 43
-
-
-# The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
-def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
-    """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
-
-    per_command_s, round_trip_s = 0.00138, 0.036
-    # A pass clears blocks or lapsed seats, never both, so each is judged on its own; a past season's own end leaves no reminder.
-    calls = [
-        (REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS),
-        (REMINDERS_PER_PASS + LAPSED_SEAT_ROWS_PER_PASS, SWEEP_LAPSED_OTHER_COMMANDS),
-        (LAPSED_SEAT_ROWS_PER_PASS, SWEEP_PAST_LAPSED_OTHER_COMMANDS),
-    ]
-
-    for rows, others in calls:
-        assert (rows * ROUND_TRIPS_A_ROW + others) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S

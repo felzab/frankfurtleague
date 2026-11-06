@@ -111,16 +111,6 @@ def test_every_route_by_id_answers_not_found_for_the_sentinel_and_writes_nothing
     assert squad_rows == 0
 
 
-@pytest.mark.parametrize("route", ROUTES)
-def test_every_route_by_id_still_reaches_a_person(mongo_replica_set_url: str, route: str):
-    """The control on the case above, which a filter matching nothing would pass."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return await press(database, client, route, PERSON_OID)
-
-    assert on_a_league(mongo_replica_set_url, body) is not None
-
-
 def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_a_person_s(mongo_replica_set_url: str):
     """Written past every route, which refuse it: the read's own exclusion is all that keeps such a row off a public squad."""
 

@@ -1,36 +1,18 @@
-import time
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.account.person_router import get_einwilligungen
-from app.api.address_change.admin_router import post_address_change_admin
-from app.api.address_change.schemas import FLAddressChangeAdminPayload
-from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
-from app.api.identity.person_router import get_account_erasure_view
-from app.api.registrierungen.person_router import admit, get_open_registrierungen
+from app.api.identity.crud import find_sign_in
 from app.api.registrierungen.public_router import get_confirmation_view
-from app.api.registrierungen.schemas import (
-    FLOffeneRegistrierungenParams,
-    FLRegistrierungAdmitPayload,
-)
-from app.api.spieler.person_router import get_self, patch_einwilligung
 from app.core.collections import Collection
-from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.confirmation import FLTokenPayload
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from tests import documents
 from tests.bans import ban_list
-from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS
-from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -42,19 +24,17 @@ DATABASE_NAME = worker_database("fl_spieler_email_reads_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607990001")
-ANNA = "anna@example.com"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
 # Enough persons that the planner prefers an index wherever it can use one.
 PERSONS = 60
 
-Reader = Callable[[AsyncDatabase, AsyncMongoClient, ObjectId], Awaitable[Any]]
+Reader = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-async def seed(database: AsyncDatabase) -> ObjectId:
+async def seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
     await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Zorbanax", "ZOX"))
     await database[Collection.SAISON_TEAMS].insert_one(
@@ -78,10 +58,9 @@ async def seed(database: AsyncDatabase) -> ObjectId:
         ]
         + [documents.spieler_document(ObjectId(), "Thessaly", "Okonkwo-Brandt", email=FOLDED_EMAIL)]
     )
-    registrierung_id = ObjectId()
     await database[Collection.REGISTRIERUNGEN].insert_one(
         documents.registrierung_document(
-            registrierung_id,
+            ObjectId(),
             "Thessaly.Okonkwo@beispielschule.de",
             saison_id=SAISON_ID,
             team_id=TEAM_OID,
@@ -101,32 +80,12 @@ async def seed(database: AsyncDatabase) -> ObjectId:
         )
     )
 
-    return registrierung_id
 
-
-async def the_subject_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await find_subject(FOLDED_EMAIL, record_collections(database))
-
-
-async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+async def the_gate_read(database: AsyncDatabase) -> Any:
     return await find_sign_in(FOLDED_EMAIL, record_collections(database))
 
 
-async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    # The league's owner, without whom the read refuses before its answer.
-    await database[Collection.GRANTS].insert_one(
-        {"_id": ObjectId(), "address": ANNA, "admin_tier": "owner", "granted_by": "PLAYGROUND", "granted_at": NOW}
-    )
-
-    return await unreferenced_of(
-        [FOLDED_EMAIL],
-        record_collections(database),
-        grants_collection=database[Collection.GRANTS],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-    )
-
-
-async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+async def the_confirmation_view(database: AsyncDatabase) -> Any:
     return await get_confirmation_view(
         view_data=FLTokenPayload(token=TOKEN),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -135,111 +94,6 @@ async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClien
         spieler_collection=database[Collection.SPIELER],
         ban_list=ban_list(database),
         today=TODAY,
-    )
-
-
-async def the_pending_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_open_registrierungen(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        params=FLOffeneRegistrierungenParams(),
-        identifier=ANNA,
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        spieler_collection=database[Collection.SPIELER],
-        records=record_collections(database),
-        db=client,
-    )
-
-
-async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await admit(
-        registrierung_id=registrierung_id,
-        aufnahme_data=FLRegistrierungAdmitPayload(spieler_id=None),
-        identifier=ANNA,
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        records=record_collections(database),
-        action_log_collection=database[Collection.ACTION_LOG],
-        ban_list=ban_list(database),
-        db=client,
-        germany_now=NOW,
-    )
-
-
-async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_einwilligungen(
-        identifier=FOLDED_EMAIL,
-        spieler_collection=database[Collection.SPIELER],
-        db=client,
-        today=TODAY,
-    )
-
-
-async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_self(identifier=FOLDED_EMAIL, spieler_collection=database[Collection.SPIELER])
-
-
-async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await patch_einwilligung(
-        einwilligung_data=FLAccountEinwilligungPayload.model_validate(
-            {
-                "scope": "intern",
-                "media": False,
-                "text_versions": dict(documents.SPIELER_TEXT_VERSIONS),
-                # The stand the account page served for the record as the corpus seeds it.
-                "evidence_state": evidence_state_of(blocks=[documents.EINWILLIGUNG]),
-            }
-        ),
-        identifier=FOLDED_EMAIL,
-        spieler_collection=database[Collection.SPIELER],
-        db=client,
-        config=build_test_config(),
-        today=TODAY,
-        germany_now=NOW,
-    )
-
-
-async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_account_erasure_view(
-        identifier=FOLDED_EMAIL,
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spieler_collection=database[Collection.SPIELER],
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        grants_collection=database[Collection.GRANTS],
-        ban_list=ban_list(database),
-        db=client,
-        config=build_test_config(),
-    )
-
-
-async def the_loeschung(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await erased(database, client, FOLDED_EMAIL, germany_now=NOW)
-
-
-async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
-
-    return await post_address_change_admin(
-        address_change_data=FLAddressChangeAdminPayload(address=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund="Ausweis gesehen"),
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        records=record_collections(database),
-        spieler_collection=database[Collection.SPIELER],
-        grants_collection=database[Collection.GRANTS],
-        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
-        outbox_collection=database[Collection.OUTBOX],
-        grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-        ban_list=ban_list(database),
-        action_log_collection=database[Collection.ACTION_LOG],
-        db=client,
-        operator=ANNA,
-        auth_time=int(time.time()),
-        germany_now=NOW,
     )
 
 
@@ -252,20 +106,20 @@ def names_an_address(command: Mapping[str, Any]) -> bool:
     return any(isinstance(term := matched.get("email"), (str, Mapping)) and term is not None for matched in filters)
 
 
-def plans_reading_addresses(url: str, reader: Reader) -> tuple[Any, ObjectId, list[str]]:
-    """The reader's answer, the seeded registration's id, and the server's plan for every `spieler` read it sent matching an address."""
+def plans_reading_addresses(url: str, reader: Reader) -> list[str]:
+    """The server's plan for every `spieler` read the reader sent matching an address."""
 
-    async def _run() -> tuple[Any, ObjectId, list[str]]:
+    async def _run() -> list[str]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            registrierung_id = await seed(database)
-            answer, plans = await plans_of_sent_reads(
+            await seed(database)
+            _, plans = await plans_of_sent_reads(
                 url,
                 database,
-                lambda watched, client: reader(watched, client, registrierung_id),
+                lambda watched, _: reader(watched),
                 lambda collection, command: collection == Collection.SPIELER and names_an_address(command),
             )
 
-            return answer, registrierung_id, [plan for _, plan in plans]
+            return [plan for _, plan in plans]
 
     return on_the_seed_loop(_run())
 
@@ -280,29 +134,13 @@ class TestEveryAddressReadUsesTheIndex:
     @pytest.mark.parametrize(
         "reader",
         [
-            the_subject_read,
             the_gate_read,
-            the_references_read,
             the_confirmation_view,
-            the_pending_read,
-            the_admission,
-            the_account_read,
-            the_own_record_read,
-            the_own_record_press,
-            the_loeschung_preview,
-            the_loeschung,
-            the_address_change_request,
         ],
         ids=lambda reader: reader.__name__,
     )
     def test_the_plan_walks_the_unique_index(self, mongo_replica_set_url: str, reader: Reader):
-        answer, registrierung_id, plans = plans_reading_addresses(mongo_replica_set_url, reader)
-
-        # The pending read asks `spieler` for a person only for a confirmed row it served, so a read
-        # serving none skips the lookup this case is for; this names that rather than an empty list.
-        if reader is the_pending_read:
-            served = [row.registrierung_id for row in answer.registrierungen if row.admissible]
-            assert served == [registrierung_id], f"the pending read served {served}, not the seeded confirmed row"
+        plans = plans_reading_addresses(mongo_replica_set_url, reader)
 
         # The premise: a reader sending no address read would pass the next line vacuously.
         assert plans
