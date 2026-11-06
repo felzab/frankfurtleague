@@ -13,6 +13,7 @@ import { expect } from "@playwright/test";
 import { test as journey } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { expectAccountPageOf, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
+import { standInForTurnstile } from "./support/turnstileStandIn";
 
 import type { Page } from "@playwright/test";
 
@@ -35,6 +36,7 @@ async function signIn(page: Page, address: string): Promise<void> {
 const test = journey.extend<{ secondDevice: Page }>({
   secondDevice: async ({ browser, proxy }, provide) => {
     const device = await browser.newContext({ proxy });
+    await standInForTurnstile(device);
     await provide(await device.newPage());
     await device.close();
   },
