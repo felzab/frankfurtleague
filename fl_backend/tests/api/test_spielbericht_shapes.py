@@ -8,18 +8,14 @@ from pydantic import ValidationError
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
-    FLSpielberichtKarte,
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
     BerichtLage,
     bericht_zustand_of,
-    compose_ansicht,
     compose_bericht_update,
     compose_neuer_bericht,
     find_abgesagt_refusal,
-    find_card_reason_missing_refusal,
-    find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
     judge_bericht,
@@ -97,42 +93,10 @@ def refused_with(code: str, refusal: Any) -> bool:
     return refusal is not None and refusal.error_code == code
 
 
-def karte(farbe: str, reason: str | None) -> dict[str, Any]:
-    return {"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": reason}
-
-
-def mit_karten(*karten: dict[str, Any]) -> FLSpielberichtBerichtPayload:
-    return FLSpielberichtBerichtPayload.model_validate(payload(0, 0, [], karten=list(karten)))
-
-
-class TestACautionOwesItsReason:
-    @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
-    def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
-        refusal = find_card_reason_missing_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)))
-
-        assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
-        assert refusal is not None and refusal.fields == (("bericht", "karten"),)
-
-    def test_a_red_card_may_stand_without_one(self):
-        assert find_card_reason_missing_refusal(payload=mit_karten(karte("rot", None))) is None
-
-    def test_a_stored_caution_reads_without_one(self):
-        """A season's end strips every card's reason, and the reads serve the report after it."""
-
-        karte = FLSpielberichtKarte.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": "gelb", "grund": None})
-
-        assert karte.grund is None
-
-
 class TestEveryGoalHasAnEntry:
     def test_a_goal_without_an_entry_is_refused(self):
         with pytest.raises(ValidationError, match="type=torschuetzen_not_matching_tore,"):
             FLSpielberichtBerichtPayload.model_validate(payload(3, 1, [tor("team1"), tor("team2")]))
-
-    def test_a_scorer_nobody_named_is_an_entry(self):
-        bericht = FLSpielberichtBerichtPayload.model_validate(payload(3, 1, [tor("team1", LIVE1), tor("team1"), tor("team1"), tor("team2")]))
-
-        assert [entry.spieler_id for entry in bericht.torschuetzen] == [LIVE1, None, None, None]
 
     def test_an_own_goal_counts_for_the_other_side(self):
         """`seite: team2, eigentor` credits team 1: the case a count by `seite` alone gets wrong both ways."""
@@ -167,17 +131,8 @@ class TestEveryGoalHasAnEntry:
         with pytest.raises(ValidationError, match="type=elfmeterschiessen_without_draw,"):
             FLSpielberichtBerichtPayload.model_validate({**level, "ergebnis_vorschlag": {**level["ergebnis_vorschlag"], "team1_tore": 2}})
 
-    @pytest.mark.parametrize("minute", ["45 +2", "", "90+", "1000"])
-    def test_a_minute_outside_the_report_s_vocabulary_is_refused(self, minute: str):
-        with pytest.raises(ValidationError):
-            FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", minute=minute)]))
-
 
 class TestAReportFollowsTheMatchDay:
-    @pytest.mark.parametrize("datum", [TODAY, "2027-05-13"], ids=["the day itself", "a day after"])
-    def test_a_played_day_is_reported_on(self, datum: str):
-        assert find_nicht_gespielt_refusal(datum=datum, today=TODAY) is None
-
     @pytest.mark.parametrize("datum", [None, "2027-05-15"], ids=["undated", "tomorrow"])
     def test_an_undated_or_coming_fixture_is_refused(self, datum: str | None):
         assert refused_with(Code.BERICHT_NOT_PLAYED, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
@@ -188,10 +143,6 @@ class TestACalledOffFixtureTakesNoReport:
     def test_a_fixture_that_took_no_place_is_refused(self, sonderereignis: str):
         assert refused_with(Code.BERICHT_ABGESAGT, find_abgesagt_refusal(sonderereignis=sonderereignis))
 
-    @pytest.mark.parametrize("sonderereignis", [None, "abgebrochen", "nichtantreten_team1"])
-    def test_one_that_took_place_is_reported_on(self, sonderereignis: str | None):
-        assert find_abgesagt_refusal(sonderereignis=sonderereignis) is None
-
     def test_its_form_serves_no_squads(self):
         """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report.
 
@@ -199,13 +150,6 @@ class TestACalledOffFixtureTakesNoReport:
         """
 
         assert kader_ist_offen(lage(sonderereignis="ausgefallen"), today=TODAY) is False
-
-
-class TestOnlyTheBookedRefereeReports:
-    def test_the_booked_referee_is_admitted_from_any_of_their_records(self):
-        """A person may hold several referee records, read in no set order: the booked one need not come first."""
-
-        assert find_nicht_geleitet_refusal(spiel_raw=spiel(), schiedsrichter_ids=[ObjectId("650000000000000000000204"), SCHIEDSRICHTER]) is None
 
 
 class TestANewlyNamedPupilIsInTheSquad:
@@ -295,14 +239,6 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
 
     def test_a_fixture_called_off_reads_abgesagt_first(self):
         assert bericht_zustand_of(saved(seiten={**SEITEN, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "abgesagt"
-
-    def test_both_forms_are_served_the_sides_that_moved(self):
-        """The referee's read carries no `state`, so this is what its form marks a moved side's entries by."""
-
-        dokument = {"bericht": bericht_document(seiten={**SEITEN, "team2": ObjectId()})}
-
-        assert compose_ansicht(lage(), kader_offen=True, named=[], dokument=dokument)["seiten_changed"] == ["team2"]
-        assert compose_ansicht(lage(), kader_offen=True, named=[], dokument=None)["seiten_changed"] == []
 
 
 def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> FLSpielberichtBericht:

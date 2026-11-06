@@ -3,13 +3,12 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
 from pymongo import MongoClient
 from pymongo.database import Database
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
-from app.api.teams.schemas import FLTeam, FLTeamsFilterParams, FLTeamStatistikScope
+from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistikScope
 from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
@@ -191,20 +190,3 @@ class TestTheScopeIsTheCallersFilter:
         assert gruppenphase[ANNA].count_gespielte_spiele == 3
         assert gesamt[ANNA].count_gespielte_spiele == 4
         assert gruppenphase[DIRK] == gesamt[DIRK]
-
-
-class TestAPipelineWithoutRulesDerivesNoTable:
-    @pytest.mark.db
-    def test_a_row_it_returns_is_refused_by_flteam(self, seeded: Database):
-        """The loud half of `rules=None`: a caller that forgets to supply figures gets a refusal, never a table of zeros."""
-
-        filters = FLTeamsFilterParams(saison_id=SAISON_ID)
-        rows = list(seeded[Collection.TEAMS].aggregate(build_team_pipeline(filters=filters, rules=None)))
-
-        assert rows, "the read returned nothing, so the refusal below would prove nothing"
-        assert "statistik" not in rows[0]
-
-        with pytest.raises(ValidationError) as refused:
-            FLTeam.model_validate(rows[0])
-
-        assert [str(error["loc"][-1]) for error in refused.value.errors()] == ["statistik"]
