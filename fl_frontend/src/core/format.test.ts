@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate, formatDateWithWeekdayAndYear, formatErgebnis, formatInstant, formatTime } from "./format.ts";
+import { formatDate, formatDateWithWeekdayAndYear, formatDayAndTime, formatErgebnis, formatInstant, formatTime } from "./format.ts";
 
 describe("formatDate", () => {
   // Late evening UTC is already the next day in Berlin; the runtime's own zone would print the 24th.
@@ -19,6 +19,14 @@ describe("formatDateWithWeekdayAndYear", () => {
 describe("formatTime", () => {
   it("reads an instant in summer time on the league's clock", () => {
     expect(formatTime(new Date("2026-07-01T17:30:00Z"))).toBe("19:30");
+  });
+});
+
+describe("a stored day and time", () => {
+  // The league's wall clock names no instant, so its two formatters read it in UTC: a dropped `timeZone` moves the time.
+  it("prints as stored, whatever the runtime's zone", () => {
+    expect(formatTime("15:30")).toBe("15:30");
+    expect(formatDayAndTime("2027-03-14", "15:30")).toBe("14. März 2027 um 15:30");
   });
 });
 
