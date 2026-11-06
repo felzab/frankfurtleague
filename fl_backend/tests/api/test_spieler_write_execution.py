@@ -89,7 +89,7 @@ async def save(
     version: int | None = None,
     **row_fields: Any,
 ) -> Any:
-    """The editor's one save on the version the stored documents stand at, unless a case names another, the row's fields as stored unless named."""
+    """The editor's one save on the version the documents stand at unless named, and the row's fields as stored unless named."""
 
     person = await database.spieler.find_one({"_id": spieler_id})
     row = await database.saison_spieler.find_one({"spieler_id": spieler_id, "saison_id": SAISON_ID})
@@ -384,7 +384,11 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_ROLLE_TAKEN
+        refusal = on_a_database(mongo_replica_set_url, body)
+
+        assert refusal.error_code == Code.KADER_ROLLE_TAKEN
+        # Named, or the editor's phrase has no box to land on and falls to the shared failure line.
+        assert refusal.fields == (("rolle",),)
 
     def test_an_edit_taking_the_other_role_goes_through(self, mongo_replica_set_url: str):
         """The floor under the case above: the rule is per role, so a squad with a Kapitaen still has its Co-Kapitaen to give."""
