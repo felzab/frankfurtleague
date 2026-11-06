@@ -193,8 +193,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "version": 0,
         }
         team_payload = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
-        # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
-        # values the payload refuses on purpose.
+        # A WRITE-side person: a stored one may hold values the payload refuses.
         kontaktperson = {
             "first_name": "Anke",
             "last_name": "Koerner",

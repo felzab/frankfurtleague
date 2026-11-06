@@ -22,7 +22,6 @@ def _join_present(parts: tuple[str, ...], separator: str) -> str:
     return separator.join(part for part in parts if part.strip())
 
 
-# The SOURCE OF TRUTH; `fl_frontend/src/shared/schemas.ts :: FLAddressPayloadSchema` mirrors the payload by hand.
 class FLAddress(BaseModel):
     street: CustomNonEmptyString
     # Not every venue has one, so the pattern allows the empty string rather than being optional.
@@ -33,8 +32,7 @@ class FLAddress(BaseModel):
 
     @property
     def to_string(self) -> str:
-        # Joined, so a blank part leaves no „Feldweg , 60437“ in the stored `maps_link`; the venue create form
-        # rebuilds that line with `fl_frontend/src/shared/utils/format.ts :: formatAddressFull`, which has to join alike.
+        # Joined, so a blank part leaves no „Feldweg , 60437“ in the stored `maps_link`.
         street = _join_present((self.street, self.house_number), " ")
         locality = _join_present((self.postcode, self.district, self.city), " ")
 

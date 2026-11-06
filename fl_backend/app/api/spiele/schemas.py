@@ -246,7 +246,7 @@ class _SpielSchiedsrichterBooking(BaseModel):
 class _SpielSchiedsrichterNamed(BaseModel):
     # Joined from the referee's row, and nullable, unlike the venue's: a referee is a person, so an
     # erasure repoints the booking at the nameless ghost. The word a reader is shown instead is the
-    # frontend's (`fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`).
+    # frontend's.
     name: CustomNonEmptyString | None
 
 
