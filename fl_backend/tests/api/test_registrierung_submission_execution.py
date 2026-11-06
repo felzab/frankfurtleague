@@ -196,6 +196,15 @@ def on_a_league(
     return on_the_seed_loop(_run())
 
 
+async def leave(database: AsyncDatabase) -> None:
+    """The Austritt of the first club, whose link every case here presses."""
+
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"saison_id": SAISON_ID, "team_id": TEAM_OID},
+        {"$set": {"austritt": {"type": "rueckzug", "exit_reason": "Mannschaft zurückgezogen", "date": TODAY}}},
+    )
+
+
 # A version-4 key, as `crypto.randomUUID()` mints one, fixed so a failure names the same press.
 SCHLUESSEL = UUID("9c5b94b1-35ad-49bb-b118-8e8fc24abf80")
 
@@ -685,6 +694,28 @@ class TestWhatASubmissionIsRefused:
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_STUFE_NOT_ALLOWED, 0)
 
+    def test_a_departed_team_s_link_stores_nothing(self, mongo_replica_set_url: str):
+        """Refused as a dead link, ahead of the window: a squad grows no further once its club has left the season."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            await leave(database)
+            with pytest.raises(APIError) as refused:
+                await register(database, client)
+
+            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False}) == (Code.DOCUMENT_NOT_FOUND, 0)
+
+    def test_a_nominee_is_taken_by_a_full_squad(self, mongo_replica_set_url: str):
+        """Past the window's `end` the cap holds nobody, and the row counts neither way until a team admits it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
+            await register(database, client)
+
+            return await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body, registrierung=PAST_WINDOW, squad=RULES["max_kader_size"]) == 1
+
     def test_a_full_squad_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             with pytest.raises(APIError) as refused:
@@ -827,8 +858,30 @@ class TestWhatTheInvitesOwnReadAnswers:
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             return (await view(database)).nachnominierung
 
-        assert on_a_league(mongo_replica_set_url, run, start_date="2026-04-02") is False
-        assert on_a_league(mongo_replica_set_url, run, start_date=TODAY) is True
+        assert on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "end": TODAY}) is False
+        assert on_a_league(mongo_replica_set_url, run, registrierung=PAST_WINDOW) is True
+
+    def test_a_link_past_the_windows_end_stays_open_to_a_full_squad(self, mongo_replica_set_url: str):
+        """A nominee stands outside the cap, so a page reading the cap would shut the one way a late pupil has in."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:
+            answer = await view(database)
+
+            return answer.running, answer.kader_free
+
+        assert on_a_league(mongo_replica_set_url, run, registrierung=PAST_WINDOW, squad=RULES["max_kader_size"]) == (True, True)
+
+    def test_a_departed_team_s_link_is_refused(self, mongo_replica_set_url: str):
+        """A squad grows no further once its club has left, so the page opens as a dead link rather than as a form."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await leave(database)
+            with pytest.raises(APIError) as refused:
+                await view(database)
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
 
     def test_a_team_the_season_does_not_hold_is_a_state_the_page_can_word(self, mongo_replica_set_url: str):
         """The second club's link opens: the read answers rather than refusing, and says the team is not entered.

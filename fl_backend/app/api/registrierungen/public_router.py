@@ -39,6 +39,7 @@ from app.api.registrierungen.services import (
     find_medien_refusal,
     find_schon_aufgenommen_refusal,
     find_stufe_refusal,
+    find_team_departed_refusal,
     find_team_junction_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
@@ -92,10 +93,13 @@ router = APIRouter(
 )
 
 
-# What a season read serves this tier: the two rules a form is bounded by, the window, the
-# status the page words a closed link with, and the start the Nachnominierung verdict is judged on,
-# which reaches the holder as that verdict alone. No other field of a season reaches an invite's holder.
-SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_size", "status", "start_date"]
+# What a season read serves this tier: the two rules a form is bounded by, the window, whose `end`
+# reaches the holder as the Nachnominierung verdict alone, and the status the page words a closed link
+# with. No other field of a season reaches an invite's holder.
+SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_size", "status"]
+
+# What a season row serves this tier: the name the club plays the season under, and the Austritt that kills its link.
+JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
 
 # What a replay reads of the registration its key found: the digest it is compared by.
 WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
@@ -136,9 +140,9 @@ async def post_invitation_view(
     """
     Answer what this registration link is for: the team, its school, the season, and what the form may offer.
 
-    A POST because the link value travels in the body and never in a path the edge would log. A shut
-    window is a STATE here rather than a refusal, so a link opened after the deadline reads as closed
-    rather than as invalid; only a link that opens no live invite is refused.
+    A POST because the link value travels in the body and never in a path the edge would log. A paused
+    or ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as
+    invalid; only a link that opens no live invite, or whose team has left the season, is refused.
     """
 
     einladung_raw = await _open_einladung(invitations_collection=invitations_collection, token=view_data.token)
@@ -151,7 +155,8 @@ async def post_invitation_view(
 
     # The junction row's own copy of the name, as every season-scoped read serves it: a club renamed
     # after this season finished still reads here under the name it plays the season under.
-    junction_raw = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, {"name": 1})
+    junction_raw = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, JUNCTION_PROJECTION)
+    refuse(find_team_departed_refusal(austritt=(junction_raw or {}).get("austritt")))
     # The club itself for `full_name`, which the consent copy renders and the junction does not hold.
     team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["name", "full_name"])
 
@@ -261,6 +266,14 @@ async def post_registrierung(
         einladung_raw = await _open_einladung(invitations_collection=invitations_collection, token=registrierung_data.token, session=session)
         saison_id = str(einladung_raw["saison_id"])
         team_id = einladung_raw["team_id"]
+
+        # The ROW rather than a count: the answer's `team` is the junction's own copy of the name,
+        # which the confirmation mail addresses the pupil by, and one read serves both.
+        junction_raw = await saison_teams_collection.find_one(
+            {"saison_id": saison_id, "team_id": team_id}, JUNCTION_PROJECTION, session=session
+        )
+        # Ahead of the window, as the view asks it: a dead link reads dead whatever the window says.
+        refuse(find_team_departed_refusal(austritt=(junction_raw or {}).get("austritt")))
 
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION, session=session

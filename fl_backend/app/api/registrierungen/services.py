@@ -69,6 +69,21 @@ def find_fenster_refusal(*, saison_status: Any, registrierung: Any) -> WriteRefu
     )
 
 
+def find_team_departed_refusal(*, austritt: Any) -> WriteRefusal | None:
+    """`document_not_found`: the invite's team has left the season, so its link opens nothing, as a revoked invite's does.
+
+    The record's presence and never its `date`, as a seat's grant reads it.
+    """
+
+    if austritt is None:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.DOCUMENT_NOT_FOUND,
+        status=HTTPStatus.NOT_FOUND,
+    )
+
+
 def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
     """`registrierung_closed`: the season holds no junction row for the invite's team.
 
