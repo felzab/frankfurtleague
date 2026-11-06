@@ -33,8 +33,12 @@ export type JourneyOptions = {
   applicants: { accepted: string; declined: string; objected: string };
   /** The club the Austritt takes out of the running season, and the fixture its one opponent with a contact is told of. */
   departing: { club: string; fixture: string };
-  /** The club the administration enters into the planned season. */
-  entered: string;
+  /**
+   * The club the administration enters into the planned season, and the kit colour its editor saves. A season's colour
+   * is one team's and both projects enter the one season, so each has its own, and neither is one `PLANNED_ROWS` of
+   * `scripts/ops/seed/seed.js` holds nor the wish `application.ts :: apply` picks, which a colour given away would close.
+   */
+  entered: { club: string; colour: string };
   /** The pupil the administration edits in the running season's squads. */
   squadded: string;
 };
@@ -192,7 +196,7 @@ export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures
   leaver: ["", { option: true }],
   applicants: [{ accepted: "", declined: "", objected: "" }, { option: true }],
   departing: [{ club: "", fixture: "" }, { option: true }],
-  entered: ["", { option: true }],
+  entered: [{ club: "", colour: "" }, { option: true }],
   squadded: ["", { option: true }],
 
   // `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it as.
