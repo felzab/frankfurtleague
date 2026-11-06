@@ -4,7 +4,7 @@ import { FLTrikotFarbe } from "./generated/client/types";
 import type { FLKontaktRolle } from "./generated/client/types";
 
 /**
- * Each seat's name in a sentence to the public, in the seats' order. Here, in `core`, because the mail builders name a
+ * Each seat's name in a sentence to the public, in the order `rollenText` joins them. Here, in `core`, because the mail builders name a
  * reader's seats and may reach no feature; `fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN` builds its
  * long form from this table.
  */
