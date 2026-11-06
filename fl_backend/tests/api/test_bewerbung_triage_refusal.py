@@ -61,7 +61,7 @@ class TestWhatASeatWriteMoves:
 
     SEAT = {"token_hashes": [], "sent_at": "2026-03-01", "deadline": "2026-03-15", "reminded_at": None, "declined_at": None}
 
-    def written(self, *, seats: tuple[str, ...] = ("trainer",), **confirmations: Any) -> Mapping[str, Any]:
+    def written(self, seats: tuple[str, ...] = ("trainer",), /, **confirmations: Any) -> Mapping[str, Any]:
         person = {"first_name": "Berta", "last_name": "Beispiel", "email": "berta@example.de", "phone": "069 1234567"}
 
         return compose_kontakt_seat_update(seats=seats, person=person, today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
@@ -91,7 +91,7 @@ class TestWhatASeatWriteMoves:
 
         confirmations = {"trainer": self.SEAT, "ansprechperson": self.SEAT, "stellvertretung": {**self.SEAT, "declined_at": "2026-03-20"}}
 
-        assert self.written(seats=seats, **confirmations)["erasure_announced_at"] is None
+        assert self.written(seats, **confirmations)["erasure_announced_at"] is None
 
     def test_a_fresh_link_moving_the_day_the_notice_named_takes_the_announcement_back(self):
         """The notice named the earliest day, not always the declining seat's: the application now goes on a later one nobody was told."""
