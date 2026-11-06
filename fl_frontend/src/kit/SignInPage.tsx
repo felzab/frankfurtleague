@@ -4,8 +4,10 @@ import { useEffect, useRef } from "react";
 
 import { Form } from "react-aria-components/Form";
 
+import { COPY } from "@/core/copy";
+
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
+import { buttonLook, buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
 import { FieldPlaceholder } from "./FieldPair";
@@ -130,10 +132,11 @@ export function SignInPage(props: SignInView) {
 }
 
 /**
- * The sign-in while its session is read, drawn with the view's own column and blocks as placeholders. Where the page
- * names the title before the read, the view is the address view, which shares that title with the signed-in view:
- * the title, the address field, „Code senden“, the „oder“ divider and the passkey's button. Where the title waits on
- * the read too, the passkey's step: the title's, the sentence's and the address's lines, centred, over its button.
+ * The sign-in while its session is read, drawn with the step's own column and blocks as placeholders. Where the page
+ * names the title before the read, the step is the address view, which shares that title with the signed-in view: the
+ * title, the address field, „Code senden“, the „oder“ divider and the passkey's button. Where the title waits on the
+ * read too, the passkey's step, in the offer's shape, which everyone but an administrator meets: the title's line, the
+ * sentence's two lines, the address's line, its button and „Später“ under it, each in its place in the step's blocks.
  * Under either the status line keeps its place.
  */
 export function SignInPlaceholder({ title }: { title: Copy | null }) {
@@ -146,19 +149,31 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
             <div className={slots.head()}>
               <PlaceholderLine
                 text={classicTitle()}
+                words={COPY.signIn.passkey.offer.title}
+              />
+              <span className="grid w-full justify-items-center">
+                <PlaceholderLine
+                  text={slots.sentence()}
+                  width="w-72"
+                />
+                <PlaceholderLine
+                  text={slots.sentence()}
+                  width="w-40"
+                />
+              </span>
+              <PlaceholderLine
+                text={slots.sentence()}
                 width="w-48"
-              />
-              <PlaceholderLine
-                text={slots.sentence()}
-                width="w-full"
-              />
-              <PlaceholderLine
-                text={slots.sentence()}
-                width="w-2/3"
               />
             </div>
             <div className={slots.acts()}>
               <span className={buttonPlaceholder("w-full")} />
+              <span className={buttonLook({ look: "quiet" })}>
+                <PlaceholderLine
+                  text=""
+                  words={COPY.signIn.passkey.later}
+                />
+              </span>
             </div>
           </Waiting>
         ) : (
