@@ -16,7 +16,7 @@ import type { RegistrierungFormDraft, SpielerLinkZustand } from "./types";
  * Which state the invite puts the registration page in.
  *
  * A link pasted after the window closed has to read „geschlossen“, or its holder goes away
- * believing an administrator revoked it. `laeuft` is the server's whole judgement.
+ * believing an administrator revoked it. `running` is the server's whole judgement.
  */
 export function einladungZustand(ansicht: FLInvitationViewResponse): "valid" | "closed" {
   return ansicht.running ? "valid" : "closed";

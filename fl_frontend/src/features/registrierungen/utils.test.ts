@@ -55,7 +55,7 @@ const DRAFT: RegistrierungFormDraft = {
 describe("which state the invite puts the registration page in", () => {
   it("reads the window off the server's own verdict rather than the season's status", () => {
     expect(einladungZustand(ANSICHT)).toBe("valid");
-    // A `past` season with `laeuft` still true would be the two disagreeing, and the server's answer
+    // A `past` season with `running` still true would be the two disagreeing, and the server's answer
     // is the one the write is judged by.
     expect(einladungZustand({ ...ANSICHT, saison_status: "past" })).toBe("valid");
     expect(einladungZustand({ ...ANSICHT, running: false })).toBe("closed");
