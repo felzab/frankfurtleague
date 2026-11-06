@@ -279,6 +279,16 @@ const columnLook = (column: TableColumn) =>
   ({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), width: column.width }) as const;
 
 /**
+ * A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
+ * keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add themselves. A grid
+ * placement, which a stacked phone row alone reads: a table cell ignores it.
+ */
+function phoneEndStyle(rankLabel: Copy | undefined, columns: ReadonlyArray<TableColumn>) {
+  const cells = (rankLabel === undefined ? 0 : 1) + 1 + columns.filter((column) => column.hideOnPhone !== true).length;
+  return { gridRow: `1 / span ${String(cells)}` };
+}
+
+/**
  * A cell's value. In a column where some row's figure is short of fixtures called off, every row keeps the
  * mark's slot at the figure's end, so the digits stand under each other whether a row carries the mark or
  * not, and as much room at its start, so the figure stays centred under its head; the mark, a small red „+N“,
@@ -413,9 +423,7 @@ export function Table({
   const isLinked = rows.some((row) => row.href !== undefined);
   // Every row keeps the chevron's room on a phone where some row draws one there.
   const phoneEnd = { prose, stack, chevronOnPhone: isLinked && chevronOnPhone };
-  // A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
-  // keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add themselves.
-  const phoneCells = (rankLabel === undefined ? 0 : 1) + 1 + columns.filter((column) => column.hideOnPhone !== true).length;
+  const endStyle = prose || stack ? phoneEndStyle(rankLabel, columns) : undefined;
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(
     columns
@@ -530,8 +538,7 @@ export function Table({
                     <td
                       role="cell"
                       className={table(phoneEnd).end()}
-                      // A grid placement, which a stacked phone row alone reads: a table cell ignores it.
-                      style={prose || stack ? { gridRow: `1 / span ${String(phoneCells)}` } : undefined}>
+                      style={endStyle}>
                       {row.href !== undefined && <RowEnd />}
                     </td>
                   )}
@@ -550,49 +557,55 @@ export function Table({
  * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
  * centred, a name from the start after a club's plaque where the rows hold clubs, the chevron where rows lead on.
  * Drawn with the table's own recipe and the columns' stated widths, so it stands as the table will at every width, a
- * phone's left-out columns left out.
+ * phone's left-out columns left out, and a `stack` table's rows stacked as `Table`'s.
  */
 export function TablePlaceholder({
   head,
   rows,
   plaques = false,
   bare = false,
+  linked = true,
+  stack = false,
 }: {
   head: TableHead;
   rows: number;
   /** Whether each row names a club, its plaque before its name, which alone stands for the club on a phone. */
   plaques?: boolean;
   bare?: boolean;
+  /** Whether the rows lead on, each ending in its chevron. */
+  linked?: boolean;
+  stack?: boolean;
 }) {
   const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true } = head;
+  const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
   return (
     <div className={bare ? "w-full overflow-hidden" : cardSurface({ class: "w-full overflow-hidden" })}>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className={columnHead().rule()}>
             {rankLabel !== undefined && <th className={table({ align: "centre", compact }).head()}>{rankLabel}</th>}
-            <th className={table({ align: "start", compact }).head()}>{nameLabel}</th>
+            <th className={table({ align: "start", compact, stack }).head()}>{nameLabel}</th>
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={table({ ...columnLook(column), compact }).head()}>
+                className={table({ ...columnLook(column), compact, stack }).head()}>
                 {column.label}
               </th>
             ))}
-            <td className={table({ phone: chevronOnPhone ? "shown" : "hidden" }).head()} />
+            {linked && <td className={table({ phone: chevronOnPhone ? "shown" : "hidden", stack }).head()} />}
           </tr>
         </thead>
         <tbody>
           {Array.from({ length: rows }, (_, index) => (
             <tr
               key={index}
-              className={table({ chevronOnPhone }).row()}>
+              className={table(phoneEnd).row()}>
               {rankLabel !== undefined && (
                 <td className={table({ align: "centre", compact }).cell()}>
                   <span className={placeholderBar("mx-auto h-3 w-3")} />
                 </td>
               )}
-              <td className={table({ compact }).name()}>
+              <td className={table({ compact, stack }).name()}>
                 <span className="flex min-w-0 items-center gap-2">
                   {plaques && <span className={placeholderBar("h-6 w-10")} />}
                   <PlaceholderLine
@@ -601,16 +614,24 @@ export function TablePlaceholder({
                   />
                 </span>
               </td>
-              {columns.map((column) => (
+              {columns.map((column) => {
+                const s = table({ ...columnLook(column), compact, stack });
+                return (
+                  <td
+                    key={column.key}
+                    className={s.cell()}>
+                    {stack && <span className={s.label()}>{column.label}</span>}
+                    <span className={placeholderBar(column.figures === true ? "mx-auto h-3 w-4" : "h-3 w-20")} />
+                  </td>
+                );
+              })}
+              {linked && (
                 <td
-                  key={column.key}
-                  className={table({ ...columnLook(column), compact }).cell()}>
-                  <span className={placeholderBar(column.figures === true ? "mx-auto h-3 w-4" : "h-3 w-20")} />
+                  className={table(phoneEnd).end()}
+                  style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
+                  <RowEnd />
                 </td>
-              ))}
-              <td className={table({ chevronOnPhone }).end()}>
-                <RowEnd />
-              </td>
+              )}
             </tr>
           ))}
         </tbody>
