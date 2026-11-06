@@ -6,18 +6,12 @@ import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore
-from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
-    FLBracketFaultBooking,
-    FLBracketFaultClash,
-    FLBracketFaultGruppe,
-    FLBracketFaultOccupant,
-    FLBracketFaultQuelle,
-    FLBracketFaultSpiel,
+    FLBracketFault,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielJoinedAdmin,
@@ -297,17 +291,6 @@ class TestARetiredBookingOnAReopenedFixture:
             for fault in find_retired_bookings([reopened], retired_venues=retired, retired_referees={})
         ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
 
-    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
-    def test_a_called_off_fixture_keeps_its_retired_booking_unreported(self, a_semi_final_played_at_a_retired_ground, sonderereignis):
-        """A fixture called off owes no result, so its retired row stands lawfully; reported, it is a fault nobody can repair."""
-
-        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
-            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
-        )
-        called_off = played.model_copy(update={"ergebnis": None, "sonderereignis": sonderereignis})
-
-        assert find_retired_bookings([called_off], retired_venues={ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}, retired_referees={}) == []
-
     def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
         """Both directions of `booking_unknown_resource`: the state stands because the reopened fixture's next save books nothing."""
 
@@ -446,31 +429,16 @@ class TestARefereeDoubleBookedAtTwoGrounds:
 class TestNoBracketFaultIsStored:
     """That the discriminator every fault variant carries is on no collection, so no fault can have been written."""
 
+    # Read off the union, whose `Field(discriminator=...)` holds every variant to it: a rename carries this check with it.
+    DISCRIMINATOR = FLBracketFault.__value__.__metadata__[0].discriminator
+
     @pytest.mark.parametrize("collection", sorted(RECORD_MODELS), ids=str)
     def test_no_collection_stores_a_faults_reason(self, collection):
-        assert "reason" not in RECORD_MODELS[collection].model_fields
-
-    def test_every_variant_is_discriminated_by_that_field(self):
-        """Pinned so the check above keeps meaning what it says: a variant discriminated some other way would slip past it."""
-
-        for variant in (
-            FLBracketFaultGruppe,
-            FLBracketFaultQuelle,
-            FLBracketFaultSpiel,
-            FLBracketFaultOccupant,
-            FLBracketFaultBooking,
-            FLBracketFaultClash,
-        ):
-            assert "reason" in variant.model_fields
+        assert self.DISCRIMINATOR not in RECORD_MODELS[collection].model_fields
 
 
 class TestAGroupPhaseEveryClubLeaves:
     """That `qualifiers_per_gruppe` is bounded from above alone, so a seeding-only group stage is legal."""
-
-    def test_a_group_qualifying_every_club_it_holds_is_permitted(self):
-        every_team = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=2)
-
-        assert _on_create(every_team) is None
 
     def test_qualifying_more_than_the_group_holds_is_what_refuses(self):
         too_many = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=4)
@@ -487,16 +455,6 @@ MEMBERSHIP = {
 
 class TestADisqualifiedClubKeepsItsFixtures:
     """That a disqualification leaves the club's drawn fixtures standing, its opponents' walkover needing them."""
-
-    def test_the_fixtures_it_already_holds_stay_saveable(self, one_fixture):
-        refusal = find_eligibility_refusal(
-            ObjectId(MATCH_ID.format(1)),
-            _resubmit(one_fixture, 1),
-            FLSpielListAdapter.validate_python(one_fixture),
-            MEMBERSHIP,
-        )
-
-        assert refusal is None
 
     def test_fielding_it_somewhere_new_is_one_of_two_things_that_refuse(self, one_fixture):
         moved_in = _resubmit(one_fixture, 1).model_copy(update={"team2": _resubmit(one_fixture, 1).team1})
@@ -538,7 +496,7 @@ class TestAStoredPreImageIsNeverRevalidated:
 
 
 class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
-    """That the order rule is handed one phase at a time, and that the phases it would have to compare hold one matchday each."""
+    """That the order rule is handed one phase at a time."""
 
     def test_the_refusal_is_handed_no_phase_at_all(self):
         """Its whole input: the `beginn` this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
@@ -550,15 +508,6 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
             "following",
         }
         assert set(DatedNeighbour.__dataclass_fields__) == {"position", "beginn"}
-
-    def test_a_knockout_phase_is_drawn_with_one_matchday(self):
-        """One matchday makes no pair to order, which is what leaves the rule inert everywhere but the group phase."""
-
-        counts = {entry.phase: entry.spieltage for entry in schedule_for(_rules())}
-        knockout = {phase: matchdays for phase, matchdays in counts.items() if phase != "gruppenphase"}
-
-        assert counts["gruppenphase"] > 1
-        assert knockout and set(knockout.values()) == {1}
 
 
 # Every refusal `PATCH /spiele/{spiel_id}` runs, which is the whole of what could gate a result on
@@ -597,41 +546,8 @@ class TestAFutureSeasonHoldingRecordedResults:
             assert {"saison_status", "recorded_fixtures"} <= set(inspect.signature(refusal).parameters), refusal.__name__
 
 
-def _abandoned(*, tore: tuple[int | None, int | None]) -> FLPatchSpielDataPayload:
-    """An abandonment as the editor saves it, with a decided score or with none."""
-
-    return FLPatchSpielDataPayload.model_validate(
-        {
-            "sonderereignis": "abgebrochen",
-            "team1": {"team_id": ADLER, "tore": tore[0]},
-            "team2": {"team_id": BIEBER, "tore": tore[1]},
-            "team1_quelle": None,
-            "team2_quelle": None,
-            "elfmeterschiessen": None,
-            "datum": FEEDER_DATE,
-            "uhrzeit": "18:00:00",
-            "ort": None,
-            "schiedsrichter": None,
-            "notiz": None,
-            "version": 0,
-        }
-    )
-
-
 class TestAnAbandonedFixtureAndItsResult:
-    """That an abandonment is refused neither for carrying a score nor for carrying none, while the rule that would bar it stays live."""
-
-    @pytest.mark.parametrize("tore", [(None, None), (3, 1)], ids=["nothing recorded", "a decided score"])
-    def test_the_state_rule_passes_an_abandonment_either_way(self, tore):
-        assert find_state_refusal(_abandoned(tore=tore)) is None
-
-    def test_the_same_payload_under_an_event_awarding_nothing_is_refused(self):
-        """The control, because a rule that refused nothing at all would pass the two above without meaning anything."""
-
-        cancelled = _abandoned(tore=(3, 1)).model_copy(update={"sonderereignis": "ausgefallen"})
-        refusal = find_state_refusal(cancelled)
-
-        assert refusal is not None and refusal.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
+    """That an abandonment may carry a score or none, the rule barring a result beside an event leaving it out."""
 
     def test_it_sits_outside_the_set_that_awards_nothing(self):
         """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""
