@@ -763,9 +763,9 @@ page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
 administration.** A pupil's registration asks it and is refused (`registrierung_address_barred`), and so do
 an application naming the address on any seat (`bewerbung_address_barred`), an administrator's seat write or
-re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
-and both sweeps withhold the reminder they would send it, logging per season how many they held
-back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
+re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link.
+Both sweeps owe its reminder as they owe any other and stamp the row, and the Postausgang's drain stops the mail as `barred`
+at its hand-out, so no link reaches the address. A grant of the address is refused (`grant_barred`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
 grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead. **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
