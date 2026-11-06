@@ -394,7 +394,7 @@ class _TeamWritable(BaseModel):
     website_url: CustomOptionalExternalUrl
     # Public on every read: decided 2026-08, Datenschutzexperte consulted. A school's street stays on
     # the base tier, and the form asking for it says so
-    # (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`).
+    # (`fl_frontend/src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx`).
     address: FLAddress
 
 

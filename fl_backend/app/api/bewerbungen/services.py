@@ -1532,9 +1532,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     # holds the boundary rather than a case any test can reach.
     held = {value for value in stored if isinstance(value, str)}
 
-    # The form closes what this returns, and a season may field at least as many teams as the palette
-    # has colours. `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben` then hands the whole
-    # palette back once every colour is assigned.
+    # The form disables what this returns (`fl_frontend/src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx`).
     return [colour for colour in get_args(FLTrikotFarbe.__value__) if colour in held]
 
 
