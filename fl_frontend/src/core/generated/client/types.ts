@@ -2643,6 +2643,20 @@ export interface FLInvitationDispatchPayload {
 }
 
 /**
+ * How the press's teams came out: the season editor's rows then read what each team holds.
+ */
+export interface FLInvitationDispatchResponse {
+  /** @minimum 0 */
+  failed: number;
+  /** @minimum 0 */
+  mailed: number;
+  /** @minLength 1 */
+  saison_id: string;
+  /** @minimum 0 */
+  skipped: number;
+}
+
+/**
  * One mailbox a link goes to, and the seat it is addressed as.
  */
 export interface FLInvitationRecipient {
@@ -2657,35 +2671,11 @@ export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeo
 
 export const FLInvitationSkipReason = {
   austritt_entered: "austritt_entered",
-  mint_failed: "mint_failed",
-  mint_uncertain: "mint_uncertain",
   no_kontaktblock: "no_kontaktblock",
   no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
   kontakte_barred: "kontakte_barred",
   already_sent: "already_sent",
 } as const;
-
-/**
- * One team as the press left it: `recipient` are owed the team's link, which each mail's hand-out mints.
- */
-export interface FLInvitationDispatchRow {
-  had_link: boolean | null;
-  recipient: FLInvitationRecipient[];
-  skipped: FLInvitationSkipReason | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
-/**
- * What the press did, per admitted team of the season.
- */
-export interface FLInvitationDispatchResponse {
-  rows: FLInvitationDispatchRow[];
-  /** @minLength 1 */
-  saison_id: string;
-}
 
 /**
  * One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.

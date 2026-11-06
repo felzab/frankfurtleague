@@ -2,6 +2,7 @@ import asyncio
 import enum
 import functools
 import json
+import logging
 import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
@@ -24,6 +25,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import post_one_to_db
 from app.core.db import collection_dependency
+from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
 from app.main import create_app
@@ -300,9 +302,6 @@ SAISON_ID = "2026"
 # Server-side, so the database itself stops answering and only the deadline's `maxTimeMS` stops it.
 STALL = "sleep(60000) || true"
 
-MINT_FAILED = "mint_failed"
-MINT_OUTCOME_UNKNOWN = "mint_uncertain"
-
 
 def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
     """Live and never mailed, which the send replaces, revoking this one."""
@@ -367,7 +366,7 @@ class _CommitOfUnknownOutcomeForOneTeam:
         return await self._collection.insert_one(document, **rest)
 
 
-Pressed = tuple[int, float, dict[str, str | None], dict[ObjectId, list[ObjectId]], dict[ObjectId, ObjectId], dict[str, bool | None]]
+Pressed = tuple[int, float, tuple[int, int, int], dict[ObjectId, list[ObjectId]], dict[ObjectId, ObjectId]]
 
 
 DISPATCH_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch"
@@ -387,8 +386,7 @@ def pressing_app() -> FastAPI:
 def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any]) -> Pressed:
     """One press over ASGI, the route handed `stand_in` for its `einladungen` collection.
 
-    Answers the status, the time, each team's skip, its live links, its seeded link and whether its
-    row says the team held a link.
+    Answers the status, the time, the press's three counts, each team's live links and its seeded link.
     """
 
     seeded = {team_id: _seeded_link(team_id) for team_id in TEAM_NAMES}
@@ -422,6 +420,7 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
                 # The app outlives the case, so the stand-in goes with it.
                 del served.dependency_overrides[invitations]
 
+            answer = response.json()
             live = {
                 team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "revoked_at": None})]
                 for team_id in TEAM_NAMES
@@ -430,10 +429,9 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
             return (
                 response.status_code,
                 elapsed,
-                {row["team_id"]: row["skipped"] for row in response.json()["rows"]},
+                (answer["mailed"], answer["skipped"], answer["failed"]),
                 live,
                 {team_id: row["_id"] for team_id, row in seeded.items()},
-                {row["team_id"]: row["had_link"] for row in response.json()["rows"]},
             )
 
     return on_the_seed_loop(body())
@@ -448,25 +446,29 @@ class TestTheSendPastItsDeadline:
 
         monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_REQUEST_DEADLINE_S)
 
-        status, elapsed, skipped, live, seeded, held = _pressed(pressing_app, mongo_replica_set_url, _StallsOneTeam)
+        status, elapsed, counts, live, seeded = _pressed(pressing_app, mongo_replica_set_url, _StallsOneTeam)
 
         assert status == 200
         assert elapsed < ANSWERED_WITHIN_S
-        assert skipped == {str(BEFORE_THE_STALL): None, str(STALLED): MINT_FAILED, str(AFTER_THE_DEADLINE): MINT_FAILED}
-        # The stalled read never answered, so nothing says whether that team held a link.
-        assert held[str(STALLED)] is None
+        assert counts == (1, 0, 2)
         # The control: the team before the stall WAS reached, so the two below are the deadline's doing.
         assert len(live[BEFORE_THE_STALL]) == 1 and live[BEFORE_THE_STALL] != [seeded[BEFORE_THE_STALL]]
         assert live[STALLED] == [seeded[STALLED]]
         assert live[AFTER_THE_DEADLINE] == [seeded[AFTER_THE_DEADLINE]]
 
-    def test_a_commit_of_unknown_outcome_is_answered_as_unknown(self, pressing_app: FastAPI, mongo_replica_set_url: str):
-        """Never as failed: that row tells the admin the earlier link still opens, where the commit may have revoked it."""
+    def test_a_commit_of_unknown_outcome_is_logged_as_unknown(
+        self, pressing_app: FastAPI, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """Never as failed: that line tells the operator the earlier link still opens, where the commit may have revoked it."""
 
-        status, _, skipped, _, _, _ = _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            status, _, counts, _, _ = _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
 
         assert status == 200
-        assert skipped == {str(BEFORE_THE_STALL): None, str(STALLED): MINT_OUTCOME_UNKNOWN, str(AFTER_THE_DEADLINE): None}
+        assert counts == (2, 0, 1)
+        assert [getattr(record, "error_code", None) for record in caplog.records if record.message == "saisons.invitation_unminted"] == [
+            Code.UNKNOWN_OUTCOME
+        ]
 
 
 def _raised_through_the_app(error: Exception) -> Response:

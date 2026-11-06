@@ -5267,8 +5267,9 @@ export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: str
  *
  * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
  * its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
- * an erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
+ * an erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is
+ * refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`. A `past` season's
+ * contacts stay correctable. Each seat's `entered_by` and
  * `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.
  *

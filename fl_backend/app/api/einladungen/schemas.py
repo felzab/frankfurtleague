@@ -87,13 +87,8 @@ class FLInvitationRecipient(BaseModel):
     email: CustomNonEmptyString
 
 
-# Five ordinary states, a failure and an unknown: `mint_failed` says the league failed
-# that team and `mint_uncertain` that it cannot tell, and a surface words both apart from the
-# rest.
 type FLInvitationSkipReason = Literal[
     "austritt_entered",
-    "mint_failed",
-    "mint_uncertain",
     "no_kontaktblock",
     "no_confirmed_kontaktperson",
     "kontakte_barred",
@@ -101,8 +96,11 @@ type FLInvitationSkipReason = Literal[
 ]
 
 
-class _EinladungDispatchRow(BaseModel):
-    """What the season editor's rows and the press both say about one team."""
+class FLInvitationLinkRow(BaseModel):
+    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
+
+    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
+    """
 
     team_id: CustomObjectId
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
@@ -110,27 +108,10 @@ class _EinladungDispatchRow(BaseModel):
     team_name: CustomNonEmptyString
     recipient: list[FLInvitationRecipient]
     skipped: FLInvitationSkipReason | None
-
-
-class FLInvitationLinkRow(_EinladungDispatchRow):
-    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
-
-    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
-    """
-
     # Whether the team holds a live link: the plan the row shares with the press carries no trace of the invitation itself.
     has_link: bool
     # The live link's `sent_at`: the day its mails were last owed, null where it never was mailed or the team holds none.
     sent_at: CustomOptionalDateString
-
-
-class FLInvitationDispatchRow(_EinladungDispatchRow):
-    """One team as the press left it: `recipient` are owed the team's link, which each mail's hand-out mints."""
-
-    # Whether the team held a live link when the press read it, which a failed row's page needs to
-    # say that link still opens. Null where the press failed before reading it: false would say none
-    # existed.
-    had_link: bool | None
 
 
 class FLInvitationDispatchPayload(BaseModel):
@@ -158,7 +139,10 @@ class FLInvitationMailResponse(BaseAPIResponse):
 
 
 class FLInvitationDispatchResponse(BaseAPIResponse):
-    """What the press did, per admitted team of the season."""
+    """How the press's teams came out: the season editor's rows then read what each team holds."""
 
     saison_id: CustomNonEmptyString
-    rows: list[FLInvitationDispatchRow]
+    mailed: int = Field(ge=0)
+    skipped: int = Field(ge=0)
+    # Each one logged with what became of its commit; a team whose commit went unanswered is counted here too.
+    failed: int = Field(ge=0)

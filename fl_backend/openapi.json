@@ -6478,78 +6478,36 @@
         "type": "object"
       },
       "FLInvitationDispatchResponse": {
-        "description": "What the press did, per admitted team of the season.",
+        "description": "How the press's teams came out: the season editor's rows then read what each team holds.",
         "properties": {
-          "rows": {
-            "items": {
-              "$ref": "#/components/schemas/FLInvitationDispatchRow"
-            },
-            "title": "Rows",
-            "type": "array"
+          "failed": {
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "mailed": {
+            "minimum": 0.0,
+            "title": "Mailed",
+            "type": "integer"
           },
           "saison_id": {
             "minLength": 1,
             "title": "Saison Id",
             "type": "string"
+          },
+          "skipped": {
+            "minimum": 0.0,
+            "title": "Skipped",
+            "type": "integer"
           }
         },
         "required": [
           "saison_id",
-          "rows"
+          "mailed",
+          "skipped",
+          "failed"
         ],
         "title": "FLInvitationDispatchResponse",
-        "type": "object"
-      },
-      "FLInvitationDispatchRow": {
-        "description": "One team as the press left it: `recipient` are owed the team's link, which each mail's hand-out mints.",
-        "properties": {
-          "had_link": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Had Link"
-          },
-          "recipient": {
-            "items": {
-              "$ref": "#/components/schemas/FLInvitationRecipient"
-            },
-            "title": "Recipient",
-            "type": "array"
-          },
-          "skipped": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLInvitationSkipReason"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "minLength": 1,
-            "title": "Team Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "team_id",
-          "team_name",
-          "recipient",
-          "skipped",
-          "had_link"
-        ],
-        "title": "FLInvitationDispatchRow",
         "type": "object"
       },
       "FLInvitationLinkRow": {
@@ -6847,8 +6805,6 @@
       "FLInvitationSkipReason": {
         "enum": [
           "austritt_entered",
-          "mint_failed",
-          "mint_uncertain",
           "no_kontaktblock",
           "no_confirmed_kontaktperson",
           "kontakte_barred",
@@ -32634,7 +32590,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`\nits caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,\nan erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and\n`confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own\ntransaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering\nboth seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or\nhanded on loses the one it held and its links on the team's open match confirmations, so the person who left it\nholds nothing live. A save newly seating an address the ban list holds is\nrefused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`\nits caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,\nan erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is\nrefused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`. A `past` season's\ncontacts stay correctable. Each seat's `entered_by` and\n`confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own\ntransaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering\nboth seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or\nhanded on loses the one it held and its links on the team's open match confirmations, so the person who left it\nholds nothing live. A save newly seating an address the ban list holds is\nrefused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one.",
         "operationId": "teams_patch_saison_team_kontakte",
         "parameters": [
           {
