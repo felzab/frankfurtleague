@@ -87,7 +87,7 @@ export function AdminFrame({ children }: { children: ReactNode }) {
     <RailFrameBoundary
       groups={RAIL_GROUPS}
       bar={BAR}
-      home={ROUTES.admin.path()}>
+      next={{ label: COPY.shared.end.toOverview, href: ROUTES.admin.path() }}>
       <RailFrame
         groups={RAIL_GROUPS}
         bar={BAR}
