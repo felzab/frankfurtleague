@@ -17,7 +17,7 @@ import { Heading } from "react-aria-components/Heading";
 
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine } from "./FieldParts";
-import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover } from "./fieldStyles";
+import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover, monthArrow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 
@@ -42,7 +42,7 @@ function MonthCalendar() {
         <AriaButton
           data-kit-focus="ring"
           slot="previous"
-          className={fieldButton()}>
+          className={monthArrow()}>
           <Icon
             glyph="back"
             size={16}
@@ -52,7 +52,7 @@ function MonthCalendar() {
         <AriaButton
           data-kit-focus="ring"
           slot="next"
-          className={fieldButton()}>
+          className={monthArrow()}>
           <Icon
             glyph="forward"
             size={16}

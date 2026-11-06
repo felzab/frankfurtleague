@@ -7,6 +7,7 @@ import { usePress } from "react-aria/usePress";
 
 import { COPY } from "@/core/copy";
 
+import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
 import type { RecordText } from "@/core/copy";
@@ -16,7 +17,7 @@ const text = tv({
     root: "relative text-sm",
     // Three lines and no more while folded, cut without „…“: „Mehr“ stands over the third line's end.
     body: "whitespace-pre-line",
-    more: "cursor-pointer text-brand underline",
+    more: `cursor-pointer text-brand underline ${hoverLook({ host: "aria", answer: "line" })}`,
   },
   variants: {
     open: {

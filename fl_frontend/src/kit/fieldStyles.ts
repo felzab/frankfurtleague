@@ -1,3 +1,4 @@
+import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
 /*
@@ -155,7 +156,14 @@ export const fieldUnit = tv({
 });
 
 /** The button at a field's end, a date's calendar or a combo box's arrow: as tall and as wide as the field. */
-export const fieldButton = tv({ base: "flex h-full w-8 shrink-0 items-center justify-center text-fg-muted pointer-coarse:w-10" });
+export const fieldButton = tv({
+  base: `flex h-full w-8 shrink-0 items-center justify-center text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:w-10 ${hoverLook({ host: "aria", answer: "full" })}`,
+});
+
+/** A calendar's way to the month before or after: a control of its own size, since the calendar's head has no height to fill. */
+export const monthArrow = tv({
+  base: `flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:size-10 ${hoverLook({ host: "aria", answer: "full" })}`,
+});
 
 /** The text a combo box or a search field is typed into, filling its frame between the frame's other parts. */
 export const groupInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent" });
@@ -167,9 +175,7 @@ export const searchGlyph = tv({ base: "flex shrink-0 items-center ps-3 pe-2 text
 export const searchInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent [&::-webkit-search-cancel-button]:hidden" });
 
 /** A search field's clearing button, there only once something is typed. */
-export const searchClear = tv({
-  base: "flex h-full w-8 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-10",
-});
+export const searchClear = tv({ extend: fieldButton, base: "group-data-empty:invisible" });
 
 /** The six code boxes, centred in the column as every code entry sets them, with the code's one input laid over them. */
 export const codeRow = tv({ base: "relative flex justify-center gap-2" });
@@ -237,7 +243,7 @@ export const toggleRow = tv({
  * theme and near-black in the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
  */
 export const toggleBox = tv({
-  base: "mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state)",
+  base: `mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state) ${hoverLook({ host: "toggle" })}`,
   variants: {
     shape: {
       square: "rounded-sm",
@@ -254,7 +260,7 @@ export const toggleBox = tv({
     },
   },
   compoundVariants: [
-    { selected: false, invalid: false, class: "border-border-control group-data-hovered/toggle:border-fg-muted" },
+    { selected: false, invalid: false, class: "border-border-control" },
     { selected: false, invalid: true, class: "border-danger" },
   ],
 });
@@ -284,7 +290,7 @@ export const radioList = tv({
  */
 export const choiceCard = tv({
   slots: {
-    card: "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:not-data-selected:border-fg-muted data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
+    card: `grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand ${hoverLook({ host: "aria" })}`,
     words: "grid gap-1",
     title: "font-semibold",
     line: "text-xs text-fg-muted",
@@ -301,12 +307,13 @@ export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
  * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
  */
 export const switchTrack = tv({
-  base: "mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state)",
+  base: `mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state) ${hoverLook({ host: "toggle" })}`,
   variants: {
     selected: {
-      true: "bg-brand",
+      // In the ground's colour as its thumb is, so the layer steps the fill as it does a chosen box's.
+      true: "bg-brand text-bg",
       // Drawn inside the track, so the edge moves neither the track nor its thumb.
-      false: "bg-bg-muted inset-ring inset-ring-border-control group-data-hovered/toggle:inset-ring-fg-muted",
+      false: "bg-bg-muted inset-ring inset-ring-border-control",
     },
   },
 });

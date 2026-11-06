@@ -4,11 +4,13 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { FLLogo } from "@/shared/components/ui/FLLogo";
 
+import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
 const brand = tv({
   slots: {
-    root: "flex min-w-0 items-center gap-3 rounded-lg",
+    // It sets no colour of its own, so the layer is 12 % of the words of the ground it stands on, the band's or the page's.
+    root: `flex min-w-0 items-center gap-3 rounded-lg ${hoverLook({ host: "link" })}`,
     mark: "h-8 w-auto shrink-0",
     wordmark: "font-heading text-xl tracking-caps whitespace-nowrap uppercase",
   },

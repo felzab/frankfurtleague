@@ -7,6 +7,7 @@ import { textOf } from "@/core/copy";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
+import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 
@@ -62,7 +63,7 @@ export function Select({
       />
       <Button
         data-kit-focus="field"
-        className={fieldFrame({ width, inset: "start", layout: "trigger" })}>
+        className={fieldFrame({ width, inset: "start", layout: "trigger", class: hoverLook({ host: "aria" }) })}>
         {width === "fit" ? (
           // Sized to the longest choice, not the chosen one, so choosing never moves the field: every label
           // lies in the value's cell, unseen, and the widest sets the cell's width. The cell's one column may
