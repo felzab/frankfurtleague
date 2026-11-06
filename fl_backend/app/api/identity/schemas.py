@@ -143,8 +143,8 @@ class FLErasureResponse(FLErasure, BaseAPIResponse):
 
 
 class FLAccountErasureSpieler(BaseModel):
-    vorname: str
-    nachname: str | None
+    first_name: str
+    last_name: str | None
 
 
 class FLAccountErasureSchiedsrichter(BaseModel):
@@ -158,8 +158,8 @@ class FLAccountErasureSeat(BaseModel):
     # The row's own name, the one the club played that season under.
     team_name: str
     rolle: FLKontaktRolle
-    vorname: str
-    nachname: str
+    first_name: str
+    last_name: str
 
 
 class FLAccountErasureBewerbung(BaseModel):
@@ -167,8 +167,8 @@ class FLAccountErasureBewerbung(BaseModel):
 
     saison_id: str
     rolle: FLKontaktRolle
-    vorname: str
-    nachname: str
+    first_name: str
+    last_name: str
 
 
 class FLAccountErasureRegistrierung(BaseModel):
@@ -177,8 +177,8 @@ class FLAccountErasureRegistrierung(BaseModel):
     saison_id: str
     # Null where no season row of that season names the registration's team, a replacement having repointed it.
     team_name: str | None
-    vorname: str
-    nachname: str
+    first_name: str
+    last_name: str
 
 
 class FLAccountErasureView(BaseModel):

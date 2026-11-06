@@ -730,7 +730,7 @@ async def patch_saison_team_kontakte(
                     saison_id=saison_id,
                     kontakte=kontakte,
                     seats=seats,
-                    frist=entry["frist"],
+                    deadline=entry["deadline"],
                     zeile=zeile,
                     key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/kontakt/{seats[0]}/{nonce}",
                 )
@@ -1058,7 +1058,7 @@ async def invite_kontakt(
             saison_id=saison_id,
             kontakte=kontakte,
             seats=seats,
-            frist=entry["frist"],
+            deadline=entry["deadline"],
             zeile=kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")),
             key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/resend/{seats[0]}/{nonce}",
         )

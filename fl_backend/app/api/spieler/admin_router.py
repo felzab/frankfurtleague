@@ -67,8 +67,8 @@ def _as_single(document: Mapping[str, Any]) -> FLSpielerAdminSingleResponse:
 
     return FLSpielerAdminSingleResponse(
         spieler_id=document["_id"],
-        vorname=document["vorname"],
-        nachname=document.get("nachname"),
+        first_name=document["first_name"],
+        last_name=document.get("last_name"),
         inactive_since=document.get("inactive_since"),
         version=document.get(VERSION_FIELD, 0),
     )

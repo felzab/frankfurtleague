@@ -28,8 +28,6 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     WITHOUT_TOKEN_HASHES,
-    bestaetigungsfrist_from,
-    bestaetigungsfrist_passed,
     build_bewerbungen_saison_term,
     build_bewerbungen_saisonbezug_terms,
     build_bewerbungen_sort,
@@ -41,6 +39,8 @@ from app.api.bewerbungen.services import (
     compose_kontakt_email_update,
     compose_kontakt_seat_update,
     compose_new_club,
+    confirmation_deadline_from,
+    confirmation_deadline_passed,
     decider_addresses,
     dubletten_schluessel_of,
     find_acceptance_subject_refusal,
@@ -195,14 +195,16 @@ async def get_bewerbung(
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),
-        confirmation_deadline_expired=bestaetigungsfrist_passed(confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), today=today),
+        confirmation_deadline_expired=confirmation_deadline_passed(
+            confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), today=today
+        ),
     )
 
 
-def _entscheidung(*, today: str, by: str, grund: str | None) -> dict[str, Any]:
+def _entscheidung(*, today: str, by: str, decision_reason: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
-    return {"made_at": today, "by": by, "grund": grund}
+    return {"made_at": today, "by": by, "decision_reason": decision_reason}
 
 
 async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
@@ -354,7 +356,7 @@ async def accept_bewerbung(
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
-            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, by=by, grund=None)}},
+            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, by=by, decision_reason=None)}},
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -436,7 +438,9 @@ async def decline_bewerbung(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={"$set": {"status": "declined", "decision": _entscheidung(today=today, by=by, grund=ablehnung_data.grund)}},
+            update={
+                "$set": {"status": "declined", "decision": _entscheidung(today=today, by=by, decision_reason=ablehnung_data.decision_reason)}
+            },
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -450,7 +454,11 @@ async def decline_bewerbung(
                     key=_key(bewerbung_id, "absage", seats[0]),
                     an=email,
                     data=FLBewerbungAbsageData(
-                        kind="bewerbung_absage", team=team, saison_id=str(stored_raw["saison_id"]), rollen=seats, grund=ablehnung_data.grund
+                        kind="bewerbung_absage",
+                        team=team,
+                        saison_id=str(stored_raw["saison_id"]),
+                        rollen=seats,
+                        decision_reason=ablehnung_data.decision_reason,
                     ),
                 )
                 for email, seats in people_with_address(kontakte=stored_raw.get("kontakte"))
@@ -533,7 +541,7 @@ async def resend_einwilligung(
         return (rolle, other)
 
     seats = seats_judged_on(bewerbung_raw)
-    bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+    confirmation_deadline = confirmation_deadline_from(today=today)
     # Outside the callback, so a retried transaction owes the press's one mail and a second press its own.
     nonce = secrets.token_hex(8)
 
@@ -547,7 +555,7 @@ async def resend_einwilligung(
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-                update=compose_erneut_update(seats=seats, today=today, confirmation_deadline=bestaetigungsfrist),
+                update=compose_erneut_update(seats=seats, today=today, confirmation_deadline=confirmation_deadline),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
@@ -565,7 +573,7 @@ async def resend_einwilligung(
                         seats=seats,
                         saison_id=str(matched["saison_id"]),
                         schule=await _schule_text(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
-                        frist=bestaetigungsfrist,
+                        deadline=confirmation_deadline,
                         key=_key(bewerbung_id, "resend", seats[0], nonce),
                     )
                 ],
@@ -590,7 +598,7 @@ async def resend_einwilligung(
         matched = await mint_on(seats)
 
     return FLBewerbungEinwilligungResendResponse(
-        rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), confirmation_deadline=bestaetigungsfrist
+        rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), confirmation_deadline=confirmation_deadline
     )
 
 
@@ -673,12 +681,12 @@ async def post_kontakt_email(
         barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
         refuse(find_kontakt_barred_refusal(barred=barred))
 
-        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+        confirmation_deadline = confirmation_deadline_from(today=today)
 
         after = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            update=compose_kontakt_email_update(seats=seats, email=email_data.email, today=today, confirmation_deadline=bestaetigungsfrist),
+            update=compose_kontakt_email_update(seats=seats, email=email_data.email, today=today, confirmation_deadline=confirmation_deadline),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.AFTER,
@@ -693,14 +701,14 @@ async def post_kontakt_email(
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
                     schule=await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
-                    frist=bestaetigungsfrist,
+                    deadline=confirmation_deadline,
                     key=_key(bewerbung_id, "korrektur", seats[0], nonce),
                 )
             ],
             now=germany_now,
         )
 
-        return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), confirmation_deadline=bestaetigungsfrist)
+        return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), confirmation_deadline=confirmation_deadline)
 
     # A transaction where the re-send beside it takes none: this write moves an address as well as a
     # credential, so a decision landing mid-request must leave neither half standing.
@@ -783,7 +791,7 @@ async def post_kontakt_seat(
         barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
         refuse(find_kontakt_barred_refusal(barred=barred))
 
-        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+        confirmation_deadline = confirmation_deadline_from(today=today)
 
         after = await patch_one_in_db(
             collection=bewerbungen_collection,
@@ -793,7 +801,7 @@ async def post_kontakt_seat(
                 # The person as the slot stores them, so a sixth field added here reaches storage.
                 person=sitz_data.model_dump(mode="json"),
                 today=today,
-                confirmation_deadline=bestaetigungsfrist,
+                confirmation_deadline=confirmation_deadline,
             ),
             session=session,
             expected_version=None,
@@ -809,14 +817,14 @@ async def post_kontakt_seat(
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
                     schule=await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
-                    frist=bestaetigungsfrist,
+                    deadline=confirmation_deadline,
                     key=_key(bewerbung_id, "besetzung", seats[0], nonce),
                 )
             ],
             now=germany_now,
         )
 
-        return FLBewerbungKontaktEmailResponse(email=sitz_data.email, rollen=list(seats), confirmation_deadline=bestaetigungsfrist)
+        return FLBewerbungKontaktEmailResponse(email=sitz_data.email, rollen=list(seats), confirmation_deadline=confirmation_deadline)
 
     # A transaction for the correction's reason: this write seats a person as well as a credential,
     # so a decision landing mid-request must leave neither half standing.

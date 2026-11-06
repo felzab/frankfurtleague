@@ -18,31 +18,31 @@ AS_NAME = "person"
 # `READ-PUPIL-001`: the surname must not reach the base tier at all, so the initial is composed here
 # rather than by a serialiser a later reader could go around. The dot belongs to the value, so the
 # one page rendering it joins the two names unchanged.
-PUBLIC_NACHNAME: Mapping[str, Any] = {
+PUBLIC_LAST_NAME: Mapping[str, Any] = {
     "$cond": {
         # By type, not by `$eq: null`: an absent key and a stored null both mean no surname, and an
         # initial invented for one nobody holds would read as a name.
-        "if": {"$eq": [{"$type": "$nachname"}, "string"]},
+        "if": {"$eq": [{"$type": "$last_name"}, "string"]},
         # `$substrCP`, never `$substr`: the byte form halves a multi-byte letter, so `Öztürk` breaks.
-        "then": {"$concat": [{"$substrCP": ["$nachname", 0, 1]}, "."]},
+        "then": {"$concat": [{"$substrCP": ["$last_name", 0, 1]}, "."]},
         "else": None,
     }
 }
 
 
-def public_initial(nachname: str | None) -> str | None:
+def public_initial(last_name: str | None) -> str | None:
     """`READ-PUPIL-001` where a `find` serves the read and no aggregation runs.
 
-    `PUBLIC_NACHNAME` above is the same rule as a Mongo expression. Slicing is by code point, as
+    `PUBLIC_LAST_NAME` above is the same rule as a Mongo expression. Slicing is by code point, as
     `$substrCP` is.
     """
 
-    # By TYPE, as `PUBLIC_NACHNAME`'s `$type` test is, and not by `is None`: the two are stated as one
+    # By TYPE, as `PUBLIC_LAST_NAME`'s `$type` test is, and not by `is None`: the two are stated as one
     # rule, so anything the aggregation answers `None` for has to answer `None` here rather than raise.
-    if not isinstance(nachname, str):
+    if not isinstance(last_name, str):
         return None
 
-    return f"{nachname[:1]}."
+    return f"{last_name[:1]}."
 
 
 def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
@@ -63,19 +63,19 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
 # further would withhold the squad slot rather than the name. The record is read here and projected
 # nowhere.
 PUBLIC_PERSON: Mapping[str, Any] = {
-    "vorname": {"$cond": {"if": NAME_IS_PUBLIC, "then": "$vorname", "else": None}},
-    "nachname": {"$cond": {"if": NAME_IS_PUBLIC, "then": PUBLIC_NACHNAME, "else": None}},
+    "first_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": "$first_name", "else": None}},
+    "last_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": PUBLIC_LAST_NAME, "else": None}},
 }
 
 
 class PublicPerson(NamedTuple):
     """The two name fields as the base tier serves them."""
 
-    vorname: str | None
-    nachname: str | None
+    first_name: str | None
+    last_name: str | None
 
 
-def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Mapping[str, Any] | None) -> PublicPerson:
+def public_person(*, first_name: str | None, last_name: str | None, einwilligung: Mapping[str, Any] | None) -> PublicPerson:
     """`PUBLIC_PERSON` above where a `find` serves the read and no aggregation runs.
 
     A name handed over as null is served as null: the predicate decides publication and never
@@ -83,9 +83,9 @@ def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Ma
     """
 
     if not name_is_public(einwilligung):
-        return PublicPerson(vorname=None, nachname=None)
+        return PublicPerson(first_name=None, last_name=None)
 
-    return PublicPerson(vorname=vorname, nachname=public_initial(nachname))
+    return PublicPerson(first_name=first_name, last_name=public_initial(last_name))
 
 
 def build_ghost_spieler() -> dict[str, Any]:
@@ -97,10 +97,10 @@ def build_ghost_spieler() -> dict[str, Any]:
 
     return {
         "_id": GHOST_SPIELER_ID,
-        "vorname": None,
-        "nachname": None,
+        "first_name": None,
+        "last_name": None,
         "einwilligung": None,
-        "geburtsdatum": None,
+        "birth_date": None,
         "inactive_since": GHOST_INACTIVE_SINCE,
     }
 
@@ -138,7 +138,7 @@ def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
 # The squad table's own order, by position and then the forename served. Fixed rather than asked for: ordering by a key
 # reads it out whether or not the response carries it (`READ-PUPIL-001`, `READ-PUPIL-002`), so no caller names one, and
 # the chain stops at the forename, a surname this tier will not serve ordering nothing.
-SQUAD_ORDER: Mapping[str, int] = {"position": 1, "vorname": 1}
+SQUAD_ORDER: Mapping[str, int] = {"position": 1, "first_name": 1}
 
 
 def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[Mapping[str, Any]]:
@@ -186,13 +186,13 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
                 # goes unnamed: the person's id would tie every row of a pupil whose name is withheld
                 # together (`READ-PUPIL-005`).
                 "_id": 0,
-                "vorname": f"${AS_NAME}.vorname",
-                "nachname": f"${AS_NAME}.nachname",
+                "first_name": f"${AS_NAME}.first_name",
+                "last_name": f"${AS_NAME}.last_name",
                 "position": 1,
                 "nummer": 1,
             }
         },
-        # After the projection, so `vorname` orders by the name served, which the join masked.
+        # After the projection, so `first_name` orders by the name served, which the join masked.
         {"$sort": dict(SQUAD_ORDER)},
         # One page, as every season-scoped read takes.
         {"$limit": LIST_LIMIT_DEFAULT},
@@ -203,7 +203,7 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
     """Every player with every squad row they hold.
 
     UNLIKE `build_spieler_pipeline`: no caller's filters, no `$unwind`, no strict join. Sorted by FORENAME
-    then surname, and MongoDB sorts a null `nachname` first.
+    then surname, and MongoDB sorts a null `last_name` first.
     """
 
     return [
@@ -244,12 +244,12 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
         },
         {"$set": {"address_change_id": {"$ifNull": [{"$first": "$address_changes._id"}, None]}}},
         {"$unset": "address_changes"},
-        {"$sort": {"vorname": 1, "nachname": 1}},
+        {"$sort": {"first_name": 1, "last_name": 1}},
     ]
 
 
 def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
-    """Which rows count towards `max_kadergroesse`.
+    """Which rows count towards `max_kader_size`.
 
     Retired rows are out: a player who left gave their place back. The writing player is out so a
     no-op -- an edit keeping the team, a reactivate of a live row -- is not refused by its own place.
@@ -279,14 +279,14 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     return None
 
 
-def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusal | None:
+def find_squad_capacity_refusal(*, squad_size: int, max_kader_size: int) -> WriteRefusal | None:
     """Why this squad has no room for another player, or `None`.
 
     Its own function rather than a clause in `find_squad_refusal`, which answers the club question
     alone.
     """
 
-    if squad_size >= max_kadergroesse:
+    if squad_size >= max_kader_size:
         return WriteRefusal(
             error_code=Code.KADER_FULL,
             status=HTTPStatus.CONFLICT,
@@ -347,7 +347,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
                 "foreignField": "_id",
                 # An allow-list inside the join as well as after it: what the join carries is one
                 # `$project` edit from the wire, and the person row holds an address.
-                "pipeline": [{"$project": {"_id": 0, "vorname": 1, "nachname": 1}}],
+                "pipeline": [{"$project": {"_id": 0, "first_name": 1, "last_name": 1}}],
                 "as": "person",
             }
         },
@@ -358,8 +358,8 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
             "$project": {
                 "_id": 0,
                 "spieler_id": 1,
-                "vorname": "$person.vorname",
-                "nachname": "$person.nachname",
+                "first_name": "$person.first_name",
+                "last_name": "$person.last_name",
                 "nummer": 1,
                 "position": 1,
                 "stufe": 1,
@@ -370,7 +370,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
             }
         },
         # The id last, so two pupils of one name keep one order between two reads.
-        {"$sort": {"vorname": 1, "nachname": 1, "spieler_id": 1}},
+        {"$sort": {"first_name": 1, "last_name": 1, "spieler_id": 1}},
     ]
 
 
@@ -435,7 +435,7 @@ def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
+        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "inactive_since": 1, "einwilligung": 1}},
         {
             "$lookup": {
                 "from": Collection.SAISON_SPIELER,

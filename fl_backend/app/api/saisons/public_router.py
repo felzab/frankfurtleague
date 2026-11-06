@@ -28,7 +28,7 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import base_tier_status_term, decided_podium, has_started, with_schedule
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
-from app.api.spielberichte.services import SEITEN, build_public_bericht_pipeline, compose_public_bericht, team_id_of
+from app.api.spielberichte.services import SIDES, build_public_bericht_pipeline, compose_public_bericht, team_id_of
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, FLSpielTeamFieldJoinedInternal, unplayed_filter
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerListAdapter
@@ -128,18 +128,18 @@ def _opening_spiel_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
     """The season's earliest dated group match, a timed one ahead of an untimed one on the same day, with its matchday's `position`."""
 
     return [
-        {"$match": {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string"}}},
+        {"$match": {"saison_id": saison_id, "saison_phase": "gruppenphase", "date": {"$type": "string"}}},
         # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's Anpfiff.
-        {"$set": {"untimed": {"$ne": [{"$type": "$uhrzeit"}, "string"]}}},
-        {"$sort": {"datum": 1, "untimed": 1, "uhrzeit": 1}},
+        {"$set": {"untimed": {"$ne": [{"$type": "$time"}, "string"]}}},
+        {"$sort": {"date": 1, "untimed": 1, "time": 1}},
         # Ahead of the lookup, so it joins the one match served rather than every dated one.
         {"$limit": 1},
         _SPIELTAG_POSITION_LOOKUP,
         {
             "$project": {
                 "_id": 0,
-                "datum": 1,
-                "uhrzeit": 1,
+                "date": 1,
+                "time": 1,
                 "spieltag_position": {"$first": f"${_SPIELTAG_ROWS_AS}.position"},
                 "team1": 1,
                 "team2": 1,
@@ -266,7 +266,7 @@ async def _landing_saison(
             collection=spiele_collection,
             pipeline=build_spiele_pipeline(
                 db_filter={**in_saison, "ergebnis": {"$ne": None}},
-                sort_by=[("datum", -1), ("uhrzeit", -1), ("spiel_nr", -1)],
+                sort_by=[("date", -1), ("time", -1), ("spiel_nr", -1)],
                 limit=LANDING_SPIELE,
             ),
         )
@@ -275,8 +275,8 @@ async def _landing_saison(
         aggregate_many_from_db(
             collection=spiele_collection,
             pipeline=build_spiele_pipeline(
-                db_filter={**in_saison, "datum": {"$gte": today}, **unplayed_filter()},
-                sort_by=[("datum", 1), ("uhrzeit", 1), ("spiel_nr", 1)],
+                db_filter={**in_saison, "date": {"$gte": today}, **unplayed_filter()},
+                sort_by=[("date", 1), ("time", 1), ("spiel_nr", 1)],
                 limit=LANDING_SPIELE,
             ),
         )
@@ -593,7 +593,7 @@ async def get_spiel(
         placed: dict[Any, FLSpielSideStanding] = {
             row.id: FLSpielSideStanding(gruppe=gruppe, platz=row.platz) for gruppe, rows in tabelle.root.items() for row in rows
         }
-        standings = FLSpielSideStandings(**{seite: placed.get(team_id_of(spiel_raw, seite)) for seite in SEITEN})
+        standings = FLSpielSideStandings(**{side: placed.get(team_id_of(spiel_raw, side)) for side in SIDES})
 
     matchday = _matchday_of(spiel_raw)
 

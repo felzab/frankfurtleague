@@ -75,7 +75,7 @@ class Code(StrEnum):
     ADDRESS_CHANGE_APPROVAL_YOUNGER = auto()
     ADDRESS_CHANGE_OCCUPIED = auto()
     ANSETZUNG_ANSWERED = auto()
-    ANSETZUNG_FRIST_PAST = auto()
+    ANSETZUNG_DEADLINE_PAST = auto()
     ANSETZUNG_CHANGED = auto()
     ANSETZUNG_DECIDED = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
@@ -115,10 +115,10 @@ class Code(StrEnum):
     BERICHT_NOT_PLAYED = auto()
     BERICHT_NOT_OFFICIATED = auto()
     BERICHT_NOT_IN_KADER = auto()
-    BERICHT_ABGESAGT = auto()
+    BERICHT_CANCELLED = auto()
     # Both writes replace the whole block, so a form opened before another write would put back what that write changed.
     BERICHT_MEANWHILE_CHANGED = auto()
-    BERICHT_GRUND_MISSING = auto()
+    CARD_REASON_MISSING = auto()
     BERICHT_ELFMETER_IN_THE_GRUPPE = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
     BEWERBUNG_SUBJECT_UNRESOLVED = auto()
@@ -155,10 +155,10 @@ class Code(StrEnum):
     SAISON_SPAN_BELOW_SPIELTAGE = auto()
     # DERIVED, never an arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal.
     SAISON_SPAN_BELOW_SPIELPLAN = auto()
-    # `position` and `beginn` order a phase independently, so nothing else stops a season from showing
-    # its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
+    # `position` and `start` order a phase independently, so nothing else stops a season from showing
+    # its matchdays in one order and dating them in another. `end` is left free: it is the escape a
     # postponement takes.
-    SPIELTAG_BEGINN_OUT_OF_ORDER = auto()
+    SPIELTAG_START_OUT_OF_ORDER = auto()
     SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED = auto()
     # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
     # reopen the rules, the swap and the replacement on a season somebody already played.
@@ -346,7 +346,7 @@ type Rule = Literal[
     "good_spieler_exceed_kader",
     "grant_wording_stale",
     "kontakt_email_twice",
-    "kontakt_telefon_twice",
+    "kontakt_phone_twice",
     "nichtantreten_with_tore",
     "nichtantreten_with_torschuetzen",
     "registrierung_window_reaches_saison_start",

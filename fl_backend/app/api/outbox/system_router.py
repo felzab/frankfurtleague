@@ -101,7 +101,7 @@ async def post_handout(
     async def claim(session: AsyncClientSession) -> tuple[list[FLOutboxHandout], str | None, int]:
         overdue = await patch_many_in_db(
             collection=outbox_collection,
-            db_filter={**_free(now), "frist": {"$lte": now}},
+            db_filter={**_free(now), "deadline": {"$lte": now}},
             update=final_update("abandoned", now=now),
             session=session,
         )
@@ -114,7 +114,7 @@ async def post_handout(
                 break
             due += await pull_many_from_db(
                 collection=outbox_collection,
-                db_filter={**_free(now), "frist": {"$gt": now}, "kind": kind_filter},
+                db_filter={**_free(now), "deadline": {"$gt": now}, "kind": kind_filter},
                 sort_by=[("recorded_at", ASCENDING), ("_id", ASCENDING)],
                 limit=PAGE - len(due),
                 session=session,
@@ -209,7 +209,7 @@ async def post_result(
     Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
 
     `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
-    refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+    refusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,
     is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
     provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
     mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
@@ -222,14 +222,14 @@ async def post_result(
 
     async def settled(update: Mapping[str, Any], narrowed: Mapping[str, Any]) -> bool:
         # Every report writes its refusal or none, so a mail sent after a failed send keeps no reason it no longer has.
-        with_grund = {**update, "$set": {**update["$set"], "grund": result_data.grund}}
-        result = await patch_many_in_db(collection=outbox_collection, db_filter={**held, **narrowed}, update=with_grund)
+        with_delivery_reason = {**update, "$set": {**update["$set"], "delivery_reason": result_data.delivery_reason}}
+        result = await patch_many_in_db(collection=outbox_collection, db_filter={**held, **narrowed}, update=with_delivery_reason)
         return result.modified_count > 0
 
     result = result_data.result
     state = FINAL_STATE[result]
     # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
-    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"frist": {"$lte": now}}]} if result == "retry" else {}
+    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"deadline": {"$lte": now}}]} if result == "retry" else {}
     counted: str
     if await settled(final_update(state, now=now, message_id=result_data.message_id), ends):
         counted = state
@@ -285,7 +285,7 @@ async def post_event(
             "_id": event_data.id,
             "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
         },
-        update={"$set": {"delivery": {"state": event_data.state, "grund": event_data.grund, "at": event_data.at}}},
+        update={"$set": {"delivery": {"state": event_data.state, "delivery_reason": event_data.delivery_reason, "at": event_data.at}}},
     )
 
     return FLOutboxEventResponse(applied=result.modified_count > 0)

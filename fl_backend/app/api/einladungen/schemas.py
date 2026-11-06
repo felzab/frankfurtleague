@@ -83,7 +83,7 @@ class FLInvitationRecipient(BaseModel):
     """One mailbox a link goes to, and the seat it is addressed as."""
 
     rolle: FLKontaktRolle
-    vorname: CustomNonEmptyString
+    first_name: CustomNonEmptyString
     email: CustomNonEmptyString
 
 
@@ -101,7 +101,7 @@ type FLInvitationSkipReason = Literal[
 ]
 
 
-class _EinladungVersandZeile(BaseModel):
+class _EinladungDispatchRow(BaseModel):
     """What the season editor's rows and the press both say about one team."""
 
     team_id: CustomObjectId
@@ -112,7 +112,7 @@ class _EinladungVersandZeile(BaseModel):
     skipped: FLInvitationSkipReason | None
 
 
-class FLInvitationLinkRow(_EinladungVersandZeile):
+class FLInvitationLinkRow(_EinladungDispatchRow):
     """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
 
     The preview is the press's own plan with `resend` left false, as the editor's press sends it.
@@ -124,7 +124,7 @@ class FLInvitationLinkRow(_EinladungVersandZeile):
     sent_at: CustomOptionalDateString
 
 
-class FLInvitationDispatchRow(_EinladungVersandZeile):
+class FLInvitationDispatchRow(_EinladungDispatchRow):
     """One team as the press left it: `recipient` are owed the team's link, which each mail's hand-out mints."""
 
     # Whether the team held a live link when the press read it, which a failed row's page needs to

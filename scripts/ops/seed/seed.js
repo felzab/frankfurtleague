@@ -111,7 +111,7 @@ const VENUES = [
 ];
 
 function referee(name, schule, payment, email, inactiveSince) {
-  return { _id: ObjectId(), name, schule, default_payment: payment, kontakt: { telefon: null, email }, inactive_since: inactiveSince };
+  return { _id: ObjectId(), name, schule, default_payment: payment, kontakt: { phone: null, email }, inactive_since: inactiveSince };
 }
 
 /**
@@ -135,7 +135,7 @@ const LINK_DAYS = 14;
  * the day `sentOn` days from today. No hash: the seed owes no mail, and the hand-out writes one only as it mints a link.
  */
 function confirmationBlock(sentOn) {
-  return { token_hashes: [], sent_at: day(sentOn), reminded_at: null, frist: day(sentOn + LINK_DAYS) };
+  return { token_hashes: [], sent_at: day(sentOn), reminded_at: null, deadline: day(sentOn + LINK_DAYS) };
 }
 
 // Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its wording's
@@ -156,7 +156,7 @@ function confirmed(row) {
   return {
     ...row,
     confirmation: confirmationBlock(-62),
-    geburtsdatum: day(-20 * 365),
+    birth_date: day(-20 * 365),
     einwilligung: {
       scope: "intern",
       date: CONSENTED,
@@ -240,7 +240,7 @@ const RULES = {
   number_of_gruppen: 2,
   teams_per_gruppe: 4,
   tiebreak_order: "tordifferenz",
-  max_kadergroesse: 18,
+  max_kader_size: 18,
   forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
   allowed_stufen: ["E1", "Q1", "Q2", "Q3", "Q4"],
 };
@@ -288,8 +288,8 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
   const spiele = [];
   let spielNr = 1;
 
-  const spieltag = (phase, position, [beginn, ende]) => {
-    const row = { _id: ObjectId(), beginn, ende, saison_phase: phase, saison_id: id, position };
+  const spieltag = (phase, position, [start, end]) => {
+    const row = { _id: ObjectId(), start, end, saison_phase: phase, saison_id: id, position };
     spieltage.push(row);
     return row;
   };
@@ -308,13 +308,13 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
       team2: team2Name === null ? null : side(team2Name, tore2),
       team1_quelle: quellen[0],
       team2_quelle: quellen[1],
-      datum: happened.datum ?? null,
-      uhrzeit: happened.uhrzeit ?? null,
+      date: happened.date ?? null,
+      time: happened.time ?? null,
       ...(happened.booking ?? UNBOOKED),
       ergebnis: happened.tore ? `${tore1}:${tore2}` : null,
       elfmeterschiessen: happened.elfmeterschiessen ?? null,
       sonderereignis: happened.sonderereignis ?? null,
-      notiz: null,
+      note: null,
     });
     return nr;
   };
@@ -405,8 +405,8 @@ const finished = season({
     // fixtures it served.
     // The match for third place, 15, kicks off ahead of the final.
     const played = {
-      datum: day(FINISHED_MATCHDAYS[matchday - 1]),
-      uhrzeit: nr === 15 ? "13:00:00" : "15:00:00",
+      date: day(FINISHED_MATCHDAYS[matchday - 1]),
+      time: nr === 15 ? "13:00:00" : "15:00:00",
       booking: booked(nr % 4, nr % 4),
     };
     // Within a group matchday group A's two pairs come first, then group B's in the same order.
@@ -436,33 +436,33 @@ const running = season({
     switch (nr) {
       // Matchday 1, two weeks ago.
       case 1:
-        return { datum: day(-14), uhrzeit: "15:00:00", booking, tore: [2, 1] };
+        return { date: day(-14), time: "15:00:00", booking, tore: [2, 1] };
       case 2:
-        return { datum: day(-14), uhrzeit: "15:00:00", booking, tore: [0, 0] };
+        return { date: day(-14), time: "15:00:00", booking, tore: [0, 0] };
       case 3:
         // The away side never turned up: the season's award, as the editor composes it.
-        return { datum: day(-13), uhrzeit: "16:30:00", booking, tore: [3, 0], sonderereignis: "nichtantreten_team2" };
+        return { date: day(-13), time: "16:30:00", booking, tore: [3, 0], sonderereignis: "nichtantreten_team2" };
       case 4:
-        return { datum: day(-13), uhrzeit: "16:30:00", booking, tore: [1, 3] };
+        return { date: day(-13), time: "16:30:00", booking, tore: [1, 3] };
       // Matchday 2, today: played this morning, still to come, and called off.
       case 5:
-        return { datum: day(0), uhrzeit: "09:30:00", booking, tore: [1, 2] };
+        return { date: day(0), time: "09:30:00", booking, tore: [1, 2] };
       case 6:
-        return { datum: day(0), uhrzeit: "16:00:00", booking };
+        return { date: day(0), time: "16:00:00", booking };
       case 7:
-        return { datum: day(0), uhrzeit: "17:30:00", booking };
+        return { date: day(0), time: "17:30:00", booking };
       case 8:
-        return { datum: day(0), uhrzeit: "11:00:00", booking, sonderereignis: "ausgefallen" };
+        return { date: day(0), time: "11:00:00", booking, sonderereignis: "ausgefallen" };
       // Matchday 3, next week, one fixture not yet dated or booked.
       case 10:
         return {};
       case 9:
       case 11:
-        return { datum: day(7), uhrzeit: "17:00:00", booking };
+        return { date: day(7), time: "17:00:00", booking };
       case 12:
         // Not match 9's ground and referee, which its index would give: 90 minutes after it, inside the four
         // hours the write keeps between two fixtures (`spiel_double_booked`). No other fixture that day holds these.
-        return { datum: day(7), uhrzeit: "18:30:00", booking: booked(1, 1) };
+        return { date: day(7), time: "18:30:00", booking: booked(1, 1) };
       // The knockout: drawn, undated, nobody in it.
       default:
         return {};
@@ -476,8 +476,8 @@ const running = season({
 // departed club does (`docs/domain.md`, "A departed club holding drawn fixtures").
 running.saisonTeams.find((row) => row.name === "Weide").austritt = {
   type: "disqualifikation",
-  grund: "Nicht zum Spiel angetreten",
-  datum: day(-12),
+  exit_reason: "Nicht zum Spiel angetreten",
+  date: day(-12),
 };
 
 // --- A club's Kontakt, and the date it proposes ---------------------------------------------------
@@ -486,11 +486,11 @@ running.saisonTeams.find((row) => row.name === "Weide").austritt = {
 // confirmed through her own link (`:: compose_confirmation_update`): no WhatsApp and no media, each choice evidenced
 // under a seat's wordings (`fl_backend/app/shared/schemas/einwilligung.py :: FLSeatTextVersions`).
 const TRAINERIN = {
-  vorname: "Berta",
-  nachname: "Birkner",
+  first_name: "Berta",
+  last_name: "Birkner",
   email: "berta.birkner@example.com",
-  telefon: "+49 170 1234567",
-  geburtsdatum: day(-40 * 365),
+  phone: "+49 170 1234567",
+  birth_date: day(-40 * 365),
   einwilligung: {
     scope: "kontaktdaten",
     date: day(-62),
@@ -515,8 +515,8 @@ running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
 const { createHash } = require("crypto");
 function ansetzungOf(spiel) {
   const values = {
-    datum: spiel.datum,
-    uhrzeit: spiel.uhrzeit,
+    date: spiel.date,
+    time: spiel.time,
     spielort_id: spiel.ort.spielort_id,
     team1_id: spiel.team1.team_id,
     team2_id: spiel.team2.team_id,
@@ -528,7 +528,7 @@ function ansetzungOf(spiel) {
 }
 
 // Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
-// (`:: letzter_anfrage_tag`) and dates its deadline a week ahead of it (`:: frist_of`), and declined by Birke's
+// (`:: letzter_anfrage_tag`) and dates its deadline a week ahead of it (`:: deadline_of`), and declined by Birke's
 // Trainer three days ago for the next day at the same hour, which clashes with no other fixture's ground or referee.
 // The link she pressed is the seed's fiction, so her seat holds no hash: the seed owes no mail.
 const PROPOSED = running.spiele.find((row) => row.spiel_nr === 11);
@@ -537,18 +537,18 @@ const PROPOSALS = [
     _id: ObjectId(),
     saison_id: "2027",
     spiel_id: PROPOSED._id,
-    party: { art: "team", team_id: club.Birke._id },
+    party: { kind: "team", team_id: club.Birke._id },
     ansetzung: ansetzungOf(PROPOSED),
-    frist: day(0),
+    deadline: day(0),
     asked_at: day(-14),
     reminded_at: null,
     kontakte: { trainer: { token_hashes: [], email: TRAINERIN.email }, ansprechperson: null, stellvertretung: null },
-    antwort: {
-      art: "declined",
-      am: day(-3),
-      von: { art: "kontakt", rolle: "trainer" },
-      vorschlag: { datum: day(8), uhrzeit: PROPOSED.uhrzeit },
-      begruendung: "Am Spieltag ist unsere Halle belegt.",
+    answer: {
+      kind: "declined",
+      at: day(-3),
+      by: { kind: "kontakt", rolle: "trainer" },
+      vorschlag: { date: day(8), time: PROPOSED.time },
+      reason: "Am Spieltag ist unsere Halle belegt.",
     },
     closed: null,
   },
@@ -557,22 +557,22 @@ const PROPOSALS = [
 // The erased pupils' sentinel, as `fl_backend/app/api/spieler/services.py :: build_ghost_spieler` writes it.
 const GHOST_SPIELER = {
   _id: ObjectId("000000000000000000000001"),
-  vorname: null,
-  nachname: null,
+  first_name: null,
+  last_name: null,
   einwilligung: null,
-  geburtsdatum: null,
+  birth_date: null,
   inactive_since: "2000-01-01",
 };
 
 // Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
-function pupil(vorname, nachname) {
+function pupil(firstName, lastName) {
   const evidence = (choice) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
     _id: ObjectId(),
-    vorname,
-    nachname,
-    email: `${vorname}.${nachname}@schule.example`.toLowerCase(),
-    geburtsdatum: day(-16 * 365),
+    first_name: firstName,
+    last_name: lastName,
+    email: `${firstName}.${lastName}@schule.example`.toLowerCase(),
+    birth_date: day(-16 * 365),
     einwilligung: {
       scope: "kader_oeffentlich",
       date: CONSENTED,
@@ -615,22 +615,22 @@ const REPORTS = [
     bericht: {
       ergebnis_vorschlag: { team1_tore: 2, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
       torschuetzen: [
-        { seite: "team1", spieler_id: PUPILS.mia._id, minute: "12", eigentor: false },
-        { seite: "team2", spieler_id: GHOST_SPIELER._id, minute: "40", eigentor: false },
-        { seite: "team1", spieler_id: null, minute: "45+2", eigentor: false },
+        { side: "team1", spieler_id: PUPILS.mia._id, minute: "12", eigentor: false },
+        { side: "team2", spieler_id: GHOST_SPIELER._id, minute: "40", eigentor: false },
+        { side: "team1", spieler_id: null, minute: "45+2", eigentor: false },
       ],
       karten: [
-        { seite: "team2", spieler_id: PUPILS.lena._id, minute: "33", farbe: "gelb", grund: "foulspiel" },
-        { seite: "team1", spieler_id: PUPILS.jonas._id, minute: "78", farbe: "rot", grund: null },
+        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", card_reason: "foulspiel" },
+        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", card_reason: null },
       ],
-      bemerkungen: null,
-      seiten: { team1: REPORTED.team1.team_id, team2: REPORTED.team2.team_id },
+      remarks: null,
+      sides: { team1: REPORTED.team1.team_id, team2: REPORTED.team2.team_id },
       submitted_at: SENT,
-      submitted_by: { art: "schiedsrichter", schiedsrichter_id: REPORTED.schiedsrichter.schiedsrichter_id },
+      submitted_by: { kind: "schiedsrichter", schiedsrichter_id: REPORTED.schiedsrichter.schiedsrichter_id },
       changed_at: SENT,
       version: 1,
       adopted_at: new Date(`${day(-13)}T09:00:00Z`),
-      adopted_by: { art: "admin" },
+      adopted_by: { kind: "admin" },
       adopted_version: 1,
     },
   },

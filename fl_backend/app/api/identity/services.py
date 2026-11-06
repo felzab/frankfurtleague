@@ -101,7 +101,7 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 # preview and the erasure name one set and the narrowing above takes nothing out of either.
 
 # What a seat is named by in the preview, beside the address the fold judges it on.
-ERASURE_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+ERASURE_SEAT_FIELDS: tuple[str, ...] = ("email", "first_name", "last_name")
 
 
 def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -136,13 +136,13 @@ def build_erasure_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    return [{"$match": build_self_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
+    return [{"$match": build_self_pupil_filter(identifier)}, {"$project": {"first_name": 1, "last_name": 1}}, {"$sort": {"_id": 1}}]
 
 
 def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
         {"$match": build_erasure_registrierung_filter(identifier)},
-        {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "vorname": 1, "nachname": 1}},
+        {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "first_name": 1, "last_name": 1}},
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
 
@@ -195,7 +195,7 @@ def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str
 
 
 def _pupil_entry(row: Mapping[str, Any]) -> dict[str, Any]:
-    return {"vorname": row.get("vorname"), "nachname": row.get("nachname")}
+    return {"first_name": row.get("first_name"), "last_name": row.get("last_name")}
 
 
 def _referee_entry(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -205,15 +205,15 @@ def _referee_entry(row: Mapping[str, Any]) -> dict[str, Any]:
 def _seat_entry(row: Mapping[str, Any], slot: str) -> dict[str, Any]:
     person = (row.get("kontakte") or {}).get(slot) or {}
 
-    return {"saison_id": row.get("saison_id"), "rolle": slot, "vorname": person.get("vorname"), "nachname": person.get("nachname")}
+    return {"saison_id": row.get("saison_id"), "rolle": slot, "first_name": person.get("first_name"), "last_name": person.get("last_name")}
 
 
 def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
     return {
         "saison_id": row["saison_id"],
         "team_name": team_names.get((row["saison_id"], row["team_id"])),
-        "vorname": row.get("vorname"),
-        "nachname": row.get("nachname"),
+        "first_name": row.get("first_name"),
+        "last_name": row.get("last_name"),
     }
 
 
@@ -455,7 +455,7 @@ def is_live(row: Mapping[str, Any]) -> bool:
 def not_exited(row: Mapping[str, Any]) -> bool:
     """A season row its team has not withdrawn from: only such a row's seats grant.
 
-    The record's presence is the test and never its `datum`: a seat grants nothing from the day its team's exit is recorded.
+    The record's presence is the test and never its `date`: a seat grants nothing from the day its team's exit is recorded.
     """
 
     return row.get("austritt") is None

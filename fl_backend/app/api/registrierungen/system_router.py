@@ -39,7 +39,7 @@ from app.core.dependencies import (
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
 # session, so `bind_actor` would refuse it.
@@ -178,7 +178,7 @@ async def sweep_registrierungen(
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
                 # first; `_id` makes the page the same page whichever plan the server picks.
-                sort_by=[("confirmation.frist", ASCENDING), ("_id", ASCENDING)],
+                sort_by=[("confirmation.deadline", ASCENDING), ("_id", ASCENDING)],
                 session=session,
             )
         )
@@ -211,7 +211,7 @@ async def sweep_registrierungen(
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
                         team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                         saison_id=saison_id,
-                        frist_days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
+                        deadline_days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
                     ),
                     reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=row["_id"], seat=None),
                     link=REGISTRIERUNG_LINK,

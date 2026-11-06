@@ -10,7 +10,7 @@ from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.saisons.crud import pull_governing_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
 from app.api.sperrliste.lookup import BanListLookup, barred_addresses, hash_barred
 from app.api.sperrliste.schemas import (
@@ -66,7 +66,7 @@ async def _pull_the_season_a_ban_counts_from(
     # Through the session: the rollover moves the season and sweeps the lapsed bans in one
     # transaction, and a season read outside this snapshot counts a ban one season short against
     # a list already swept.
-    governing_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session)
+    governing_saison_id = await pull_governing_saison_id(saisons_collection=saisons_collection, session=session)
     refuse(find_keine_saison_refusal(governing_saison_id=governing_saison_id))
 
     # The rollover demotes this season, and its sweep cannot see a row inserted after its snapshot:

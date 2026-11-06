@@ -34,4 +34,4 @@ class FLConfirmation(BaseReadModel):
     reminded_at: CustomOptionalDateString
     # Stored beside the send rather than derived from it: raising the bound would otherwise move the
     # deadline of every link already in somebody's inbox.
-    frist: CustomDateString
+    deadline: CustomDateString

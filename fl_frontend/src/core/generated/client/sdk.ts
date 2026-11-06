@@ -42,7 +42,7 @@ import type {
   FLAddressChangeStopResponse,
   FLAddressChangeSweepResponse,
   FLAddressChangeViewResponse,
-  FLBewerbungEinwilligungAntwortResponse,
+  FLBewerbungEinwilligungAnswerResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
   FLBewerbungEinwilligungResendResponse,
@@ -146,7 +146,7 @@ import type {
   FLSaisonsAdminListResponse,
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
-  FLSaisonTeamEinwilligungAntwortResponse,
+  FLSaisonTeamEinwilligungAnswerResponse,
   FLSaisonTeamResponse,
   FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
@@ -168,13 +168,13 @@ import type {
   FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
-  FLSpielbestaetigungAntwortPayload,
-  FLSpielbestaetigungAntwortResponse,
+  FLSpielbestaetigungAnswerPayload,
+  FLSpielbestaetigungAnswerResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelfResponse,
   FLSpielbestaetigungEnterPayload,
-  FLSpielbestaetigungSchiedsrichterAntwortPayload,
-  FLSpielbestaetigungSchiedsrichterAntwortResponse,
+  FLSpielbestaetigungSchiedsrichterAnswerPayload,
+  FLSpielbestaetigungSchiedsrichterAnswerResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungViewResponse,
   FLSpieleAdminListResponse,
@@ -214,11 +214,11 @@ import type {
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
+  SpieleGetSpieleAdminParams,
   SpieleGetSpieleSpielplanParams,
-  SpieleGetSpieleVerwaltungParams,
   SpielePatchSpielParams,
   SpielorteGetSpielorteParams,
-  SpieltageGetSpieltageVerwaltungParams,
+  SpieltageGetSpieltageAdminParams,
   TeamsGetTeamParams,
   TeamsGetTeamsAdminParams,
 } from "./types.ts";
@@ -908,7 +908,7 @@ export const getBewerbungenPostEinwilligungUrl = () => {
 export const bewerbungenPostEinwilligung = async (
   fLBewerbungEinwilligungGivenFLBewerbungEinwilligungDeclined: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> => {
+): Promise<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -921,15 +921,12 @@ export const bewerbungenPostEinwilligung = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse>(
-    getBewerbungenPostEinwilligungUrl(),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-      body: JSON.stringify(fLBewerbungEinwilligungGivenFLBewerbungEinwilligungDeclined),
-    },
-  );
+  return baseKeyTransport<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse>(getBewerbungenPostEinwilligungUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungEinwilligungGivenFLBewerbungEinwilligungDeclined),
+  });
 };
 
 export const getBewerbungenGetEinwilligungViewUrl = () => {
@@ -2012,7 +2009,7 @@ export const getOutboxPostResultUrl = () => {
  * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
  *
  * `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
- * refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+ * refusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,
  * is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
  * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
  * mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
@@ -2645,7 +2642,7 @@ export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
  *
  * Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
  * `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
- * both before either is pressed. `incoming_clubs` is every club still in the league holding no row of the season,
+ * both before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,
  * which is what the replacement admits.
  *
  * `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
@@ -3196,7 +3193,7 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
  * Refuses only a token no referee holds (`link_invalid`): a confirmed or an expired link
  * is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,
  * ahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),
- * so the page offers a barred referee nothing to press. `answered_on` is the day the state's answer was given, the
+ * so the page offers a barred referee nothing to press. `answered_at` is the day the state's answer was given, the
  * consent's or the objection's, and null on every state showing none.
  * @summary What one Schiedsrichter confirmation link opens
  */
@@ -3231,7 +3228,7 @@ export const getSchiedsrichterGetSelfUrl = () => {
 /**
  * Answer every confirmed referee record the signed-in address holds, with its stored contact details.
  *
- * PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
+ * PERSON TIER: the fee set for them per fixture as `payment`, never the confirmation link's bookkeeping. A retired
  * record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
  *
  * Refuses an address holding no confirmed referee record (`role_not_held`).
@@ -3554,7 +3551,7 @@ export const getSpielberichteGetSelfUrl = () => {
  * `active`.
  *
  * `earlier` holds every fixture of an ended season booked to those records now on which a report stands, newest
- * first, one whose date was cleared after its report last with a null `datum`: its page shows the report read-only.
+ * first, one whose date was cleared after its report last with a null `date`: its page shows the report read-only.
  * Refused `role_not_held` where the address holds no confirmed, live referee record.
  * @summary The fixtures a signed-in referee reports on
  */
@@ -3613,10 +3610,10 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
  * (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
  * (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
  * `bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated
- * or whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out
+ * or whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out
  * proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's
  * live squad of the season, a pupil the report already named on that side staying while the side fields the club it
- * did (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`bericht_grund_missing`). Every refusal but
+ * did (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`card_reason_missing`). Every refusal but
  * `bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a
  * write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
  * landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
@@ -3688,7 +3685,7 @@ export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
  * now, whenever it was minted (`link_barred`); a row already answered, closed since or not
  * (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
  * (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
- * as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_frist_past`); a
+ * as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_deadline_past`); a
  * proposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds
  * (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
  * refused, judged on what it newly claims and in that save's order: on or after a club's exit
@@ -3699,9 +3696,9 @@ export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
  * @summary Confirm a fixture's Ansetzung, or decline it proposing another date
  */
 export const spielbestaetigungenPostSpielbestaetigung = async (
-  fLSpielbestaetigungAntwortPayload: FLSpielbestaetigungAntwortPayload,
+  fLSpielbestaetigungAnswerPayload: FLSpielbestaetigungAnswerPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpielbestaetigungAntwortResponse> => {
+): Promise<FLSpielbestaetigungAnswerResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -3714,11 +3711,11 @@ export const spielbestaetigungenPostSpielbestaetigung = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLSpielbestaetigungAntwortResponse>(getSpielbestaetigungenPostSpielbestaetigungUrl(), {
+  return baseKeyTransport<FLSpielbestaetigungAnswerResponse>(getSpielbestaetigungenPostSpielbestaetigungUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungAntwortPayload),
+    body: JSON.stringify(fLSpielbestaetigungAnswerPayload),
   });
 };
 
@@ -3733,7 +3730,7 @@ export const getSpielbestaetigungenGetSelfUrl = () => {
  * request alone.
  *
  * Open, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the
- * Ansetzung the row asked about -- its state, `abgesagt` once the fixture is called off, the referee's own decline
+ * Ansetzung the row asked about -- its state, `cancelled` once the fixture is called off, the referee's own decline
  * reason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is
  * served: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open
  * ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
@@ -3800,7 +3797,7 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
  * decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
  * referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
- * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.
+ * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
  * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
  * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
  * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
@@ -3911,8 +3908,8 @@ export const spielbestaetigungenAdoptSpielbestaetigung = async (
   });
 };
 
-export const getSpielbestaetigungenPostSchiedsrichterAntwortUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/antwort`;
+export const getSpielbestaetigungenPostSchiedsrichterAnswerUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/answer`;
 };
 
 /**
@@ -3929,18 +3926,18 @@ export const getSpielbestaetigungenPostSchiedsrichterAntwortUrl = (spielbestaeti
  * already answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered
  * (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,
  * time, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a
- * fixture whose day has gone by (`ansetzung_frist_past`). An acceptance is judged again outside the transaction just
+ * fixture whose day has gone by (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
  * before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
  *
  * **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
  * on the public fixture, and a decline takes it off.
  * @summary Accept or decline one of the signed-in referee's own fixture assignments
  */
-export const spielbestaetigungenPostSchiedsrichterAntwort = async (
+export const spielbestaetigungenPostSchiedsrichterAnswer = async (
   spielbestaetigungId: string,
-  fLSpielbestaetigungSchiedsrichterAntwortPayload: FLSpielbestaetigungSchiedsrichterAntwortPayload,
+  fLSpielbestaetigungSchiedsrichterAnswerPayload: FLSpielbestaetigungSchiedsrichterAnswerPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungSchiedsrichterAntwortResponse> => {
+): Promise<FLSpielbestaetigungSchiedsrichterAnswerResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -3953,13 +3950,13 @@ export const spielbestaetigungenPostSchiedsrichterAntwort = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielbestaetigungSchiedsrichterAntwortResponse>(
-    getSpielbestaetigungenPostSchiedsrichterAntwortUrl(spielbestaetigungId),
+  return adminKeyTransport<FLSpielbestaetigungSchiedsrichterAnswerResponse>(
+    getSpielbestaetigungenPostSchiedsrichterAnswerUrl(spielbestaetigungId),
     {
       ...options,
       method: "POST",
       headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-      body: JSON.stringify(fLSpielbestaetigungSchiedsrichterAntwortPayload),
+      body: JSON.stringify(fLSpielbestaetigungSchiedsrichterAnswerPayload),
     },
   );
 };
@@ -4031,10 +4028,10 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
   });
 };
 
-export const getSpieleGetSpieleVerwaltungUrl = (params?: SpieleGetSpieleVerwaltungParams) => {
+export const getSpieleGetSpieleAdminUrl = (params?: SpieleGetSpieleAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/list/verwaltung?${stringifiedParams}` : `/api/v0/spiele/list/verwaltung`;
+  return stringifiedParams.length > 0 ? `/api/v0/spiele/list/admin?${stringifiedParams}` : `/api/v0/spiele/list/admin`;
 };
 
 /**
@@ -4043,11 +4040,11 @@ export const getSpieleGetSpieleVerwaltungUrl = (params?: SpieleGetSpieleVerwaltu
  * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces
  */
-export const spieleGetSpieleVerwaltung = async (
-  params?: SpieleGetSpieleVerwaltungParams,
+export const spieleGetSpieleAdmin = async (
+  params?: SpieleGetSpieleAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieleAdminListResponse> => {
-  return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleVerwaltungUrl(params), {
+  return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4139,8 +4136,8 @@ export const spielePatchSpiel = async (
   });
 };
 
-export const getSpieleGetSpielVerwaltungUrl = (spielId: string) => {
-  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}/verwaltung`;
+export const getSpieleGetSpielAdminUrl = (spielId: string) => {
+  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}/admin`;
 };
 
 /**
@@ -4154,11 +4151,11 @@ export const getSpieleGetSpielVerwaltungUrl = (spielId: string) => {
  * `document_not_found` for an id no fixture holds.
  * @summary One Spiel and all the match editor offers and shows beside it
  */
-export const spieleGetSpielVerwaltung = async (
+export const spieleGetSpielAdmin = async (
   spielId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieleAdminSingleResponse> => {
-  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielVerwaltungUrl(spielId), {
+  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielAdminUrl(spielId), {
     ...options,
     method: "GET",
   });
@@ -4718,10 +4715,10 @@ export const spielorteReactivateSpielort = async (spielortId: string, options?: 
   });
 };
 
-export const getSpieltageGetSpieltageVerwaltungUrl = (params?: SpieltageGetSpieltageVerwaltungParams) => {
+export const getSpieltageGetSpieltageAdminUrl = (params?: SpieltageGetSpieltageAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spieltage/list/verwaltung?${stringifiedParams}` : `/api/v0/spieltage/list/verwaltung`;
+  return stringifiedParams.length > 0 ? `/api/v0/spieltage/list/admin?${stringifiedParams}` : `/api/v0/spieltage/list/admin`;
 };
 
 /**
@@ -4731,11 +4728,11 @@ export const getSpieltageGetSpieltageVerwaltungUrl = (params?: SpieltageGetSpiel
  * list is for.
  * @summary Spieltage for the admin surfaces
  */
-export const spieltageGetSpieltageVerwaltung = async (
-  params?: SpieltageGetSpieltageVerwaltungParams,
+export const spieltageGetSpieltageAdmin = async (
+  params?: SpieltageGetSpieltageAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieltageListResponse> => {
-  return adminKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageVerwaltungUrl(params), {
+  return adminKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4769,7 +4766,7 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
  * Move a matchday's span, answering the matchday's `version` after the save.
  *
  * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in. A
+ * to its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A
  * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
  * closed.
  * @summary Re-date a Spieltag
@@ -4799,8 +4796,8 @@ export const spieltagePatchSpieltag = async (
   });
 };
 
-export const getSpieltageGetSpieltagVerwaltungUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}/verwaltung`;
+export const getSpieltageGetSpieltagAdminUrl = (spieltagId: string) => {
+  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}/admin`;
 };
 
 /**
@@ -4812,11 +4809,11 @@ export const getSpieltageGetSpieltagVerwaltungUrl = (spieltagId: string) => {
  * exactly the season the write refuses (`saison_past`).
  * @summary One Spieltag for the admin editor
  */
-export const spieltageGetSpieltagVerwaltung = async (
+export const spieltageGetSpieltagAdmin = async (
   spieltagId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieltagAdminResponse> => {
-  return adminKeyTransport<FLSpieltagAdminResponse>(getSpieltageGetSpieltagVerwaltungUrl(spieltagId), {
+  return adminKeyTransport<FLSpieltagAdminResponse>(getSpieltageGetSpieltagAdminUrl(spieltagId), {
     ...options,
     method: "GET",
   });

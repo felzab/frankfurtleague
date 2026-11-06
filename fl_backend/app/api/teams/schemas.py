@@ -23,7 +23,7 @@ from app.core.exceptions import rule_refusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
-    AUSTRITT_GRUND_MAX_LENGTH,
+    AUSTRITT_EXIT_REASON_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -79,10 +79,10 @@ type FLTrainerAlso = Literal["ansprechperson", "stellvertretung"]
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 # start with `49` -- so the order carries nothing.
-_TELEFON_COUNTRY_CODES = ("0049", "49")
+_PHONE_COUNTRY_CODES = ("0049", "49")
 
 
-def normalise_telefon(value: str) -> str:
+def normalise_phone(value: str) -> str:
     """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
 
     Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
@@ -91,7 +91,7 @@ def normalise_telefon(value: str) -> str:
 
     digits = re.sub(r"[^0-9]", "", value)
 
-    for country_code in _TELEFON_COUNTRY_CODES:
+    for country_code in _PHONE_COUNTRY_CODES:
         if digits.startswith(country_code):
             # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
             # German notation and the commonest spelling of all. An international-format number
@@ -104,15 +104,15 @@ def normalise_telefon(value: str) -> str:
 class FLAustritt(BaseModel):
     """How a team came to be out of one season, why, and from when.
 
-    `grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
+    `exit_reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
     disciplinary code an enum could cite.
     """
 
     type: FLAustrittType
     # A name written here outlives an erasure, which rewrites structured fields (`READ-FREETEXT-002`).
-    grund: CustomNonEmptyString
+    exit_reason: CustomNonEmptyString
     # The day the exit took effect, not the day somebody typed it in.
-    datum: CustomDateString
+    date: CustomDateString
 
 
 class FLAustrittPayload(FLAustritt):
@@ -121,7 +121,9 @@ class FLAustrittPayload(FLAustritt):
     On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
     """
 
-    grund: Annotated[str, StringConstraints(max_length=AUSTRITT_GRUND_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
+    exit_reason: Annotated[
+        str, StringConstraints(max_length=AUSTRITT_EXIT_REASON_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+    ]
 
 
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
@@ -158,16 +160,16 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
 class FLKontaktperson(BaseModel):
     """One person the league reaches this team through, for one season."""
 
-    vorname: CustomNonEmptyString
-    nachname: CustomNonEmptyString
+    first_name: CustomNonEmptyString
+    last_name: CustomNonEmptyString
     email: str
     # The league's whole channel to a team is this number. Whether it may be reached on WhatsApp
     # rests on the optional consent the person gives on their own confirmation page, never on the
     # form's wording.
-    telefon: str
+    phone: str
     # Null until the person types it on their own confirmation page, so the public form never asks
     # for it.
-    geburtsdatum: CustomOptionalDateString
+    birth_date: CustomOptionalDateString
     einwilligung: FLKontaktKenntnisnahme
 
 
@@ -195,7 +197,7 @@ class FLSaisonTeamBestaetigung(BaseModel):
     sent_at: CustomDateString
     # STORED rather than derived from `sent_at` and the bound: raising the bound would otherwise
     # move the deadline of every link already in somebody's inbox.
-    frist: CustomDateString
+    deadline: CustomDateString
     # Beside the slot rather than inside it: a Widerspruch EMPTIES the slot, and a marker in there would go with it.
     declined_at: CustomOptionalDateString
 
@@ -244,7 +246,7 @@ class FLSaisonTeamConfirmationView(FLSaisonTeamBestaetigung, BaseReadModel):
     """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
 
     # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
-    # compares `frist` to a clock of its own; a read model, since nothing stores it.
+    # compares `deadline` to a clock of its own; a read model, since nothing stores it.
     expired: bool
     # What became of the last mail carrying this seat's link, off the Postausgang; null where none was ever owed.
     # Required, so a read that forgot to compose it fails rather than answering every link as one nobody was sent.
@@ -334,12 +336,12 @@ class _KontaktpersonWritablePayload(BaseModel):
 
     # Tightened on the WRITE side alone, in the type the public
     # application and a referee's name take too, so the editor and the form refuse a name alike.
-    vorname: CustomKontaktName
-    nachname: CustomKontaktName
+    first_name: CustomKontaktName
+    last_name: CustomKontaktName
     email: CustomEmail
     # Here rather than beside the format: the pattern caps the length inside itself, which makes it
     # a ceiling.
-    telefon: str = Field(pattern=PHONE_REGEX)
+    phone: str = Field(pattern=PHONE_REGEX)
 
 
 class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
@@ -398,9 +400,9 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         if len(set(emails)) != len(emails):
             raise rule_refusal("kontakt_email_twice", "two contact persons share one email address")
 
-        telefone = [normalise_telefon(person.telefon) for person in people]
-        if len(set(telefone)) != len(telefone):
-            raise rule_refusal("kontakt_telefon_twice", "two contact persons share one telephone number")
+        phones = [normalise_phone(person.phone) for person in people]
+        if len(set(phones)) != len(phones):
+            raise rule_refusal("kontakt_phone_twice", "two contact persons share one telephone number")
 
         return self
 
@@ -417,7 +419,7 @@ class FLTeamStatistik(BaseReadModel):
     punkte: int = Field(default=0, ge=0)
     # Beside the scoring, never inside it: a forfeit is in this figure and in
     # `count_gespielte_spiele` both.
-    count_abgesagte_spiele: int = Field(default=0, ge=0)
+    count_cancelled_spiele: int = Field(default=0, ge=0)
 
 
 # Private, so the payloads, the stored record and the read model state these fields once, and the

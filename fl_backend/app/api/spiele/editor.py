@@ -12,16 +12,16 @@ from pydantic import Field
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
-from app.api.spielberichte.crud import pull_bericht_lage, pull_genannt
+from app.api.spielberichte.crud import pull_bericht_context, pull_named
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
-    FLSpielberichtSeiten,
+    FLSpielberichtSides,
     FLSpielberichtSpieler,
     FLSpielberichtState,
     FLSpielberichtTorschuetze,
     FLSpielberichtVorschlag,
 )
-from app.api.spielberichte.services import bericht_zustand_of
+from app.api.spielberichte.services import bericht_state_of
 from app.api.spielbestaetigungen.admin_router import get_spielbestaetigungen
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungenFilterParams
 from app.api.spiele.crud import pull_saison_membership
@@ -85,14 +85,14 @@ class FLSpielEditorTeam(BaseReadModel):
 class FLSpielEditorBericht(BaseReadModel):
     """The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
 
-    `version` is the one an adoption names (`adopts_bericht`), `seiten` the clubs the report is about, and `named`
+    `version` is the one an adoption names (`adopts_bericht`), `sides` the clubs the report is about, and `named`
     each pupil a goal names, by the names their record holds.
     """
 
     state: FLSpielberichtState
     version: int
     ergebnis_vorschlag: FLSpielberichtVorschlag
-    seiten: FLSpielberichtSeiten
+    sides: FLSpielberichtSides
     torschuetzen: list[FLSpielberichtTorschuetze]
     named: list[FLSpielberichtSpieler]
 
@@ -193,13 +193,13 @@ async def _spielbericht_of(
 ) -> FLSpielEditorBericht | None:
     """The report as the administrator's panel composes it, its goals alone: the cards and the remarks are not the editor's."""
 
-    dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, {"bericht": 1})
-    block = None if dokument is None else dokument.get("bericht")
+    document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, {"bericht": 1})
+    block = None if document is None else document.get("bericht")
     if block is None:
         return None
 
     bericht = FLSpielberichtBericht.model_validate(block)
-    lage = await pull_bericht_lage(
+    context = await pull_bericht_context(
         spiele_collection=spiele_collection,
         saisons_collection=saisons_collection,
         saison_spieler_collection=saison_spieler_collection,
@@ -207,13 +207,13 @@ async def _spielbericht_of(
         session=None,
     )
     scorers = {tor.spieler_id for tor in bericht.torschuetzen if tor.spieler_id is not None}
-    named = await pull_genannt(spieler_collection=spieler_collection, lage=lage, kader_offen=False, bericht=block, session=None)
+    named = await pull_named(spieler_collection=spieler_collection, context=context, kader_open=False, bericht=block, session=None)
 
     return FLSpielEditorBericht(
-        state=bericht_zustand_of(bericht, lage.spiel),
+        state=bericht_state_of(bericht, context.spiel),
         version=bericht.version,
         ergebnis_vorschlag=bericht.ergebnis_vorschlag,
-        seiten=bericht.seiten,
+        sides=bericht.sides,
         torschuetzen=bericht.torschuetzen,
         named=[spieler for spieler in named if spieler.spieler_id in scorers],
     )
