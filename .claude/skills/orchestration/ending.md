@@ -1,6 +1,8 @@
 # Ending the session
 
-Run once, in this order, when what remains is the last wave plus this list.
+Run once, in this order, when what remains is the last wave plus this list. The list's order is the
+order its steps conclude in: start the handoff, the starter and the pull request body as drafts when
+the last wave begins, leaving only the facts a later step settles to fill.
 
 1. Land the last wave. The lens round over the whole change and the fix round the cycle ends on are
    rounds the ending still holds.
