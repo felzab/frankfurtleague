@@ -56,7 +56,6 @@ WITHOUT_STAMP = "ohne.stempel@schule.de"
 ALSO = "zugleich.sitz@schule.de"
 ONLY_OPEN = "nur.offen@schule.de"
 MIXED = "gemischt@schule.de"
-FORMER = "ehemalig@schule.de"
 RETIREMENT_SCHIEDSRICHTER = "ruhestand.pfeife@schule.de"
 RETIREMENT_OPEN = "ruhestand.offen@schule.de"
 SCHIEDSRICHTER_WITHOUT_RECORD = "pfeife.ohne@schule.de"
@@ -74,8 +73,7 @@ AUSGETRETEN_OPEN = "ausgetreten.offen@schule.de"
 ANSPRECHPERSON = "post@strasse.de"
 
 # Retired, and brought back inside the transaction case.
-SPIELER_ONLY_OPEN_OID = ObjectId("6890a1b2c3d4e5f607830021")
-SPIELER_FORMER_OID = ObjectId("6890a1b2c3d4e5f607830023")
+SPIELER_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830021")
 SCHIEDSRICHTER_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830031")
 SCHIEDSRICHTER_MIXED_OID = ObjectId("6890a1b2c3d4e5f607830032")
 SCHIEDSRICHTER_RETIREMENT_OID = ObjectId("6890a1b2c3d4e5f607830033")
@@ -119,16 +117,10 @@ def _saison(saison_id: str, status: str) -> dict[str, Any]:
     )
 
 
-def _spieler(spieler_id: ObjectId, email: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return spieler_document(
-        spieler_id,
-        "Anna",
-        "Müller",
-        email=email,
-        # Born confirmed: a pupil's record is written once its consent is given.
-        einwilligung={**EINWILLIGUNG, "confirmed_at": STAMP},
-        inactive_since=inactive_since,
-    )
+def _unconfirmed_spieler(spieler_id: ObjectId, email: str) -> dict[str, Any]:
+    """A hand-edited state, a pupil's record being born confirmed: the read still has to answer it as nobody's."""
+
+    return spieler_document(spieler_id, "Anna", "Müller", email=email, einwilligung={**EINWILLIGUNG, "confirmed_at": None})
 
 
 def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str | None, **fields: Any) -> dict[str, Any]:
@@ -211,12 +203,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _junction(ROW_FUTURE_E_OID, FUTURE_SAISON, TEAM_E_OID, ROW_NAME_E, trainer=_seat(AUSGETRETEN)),
         ]
     )
-    await database[Collection.SPIELER].insert_many(
-        [
-            _spieler(SPIELER_ONLY_OPEN_OID, ONLY_OPEN, inactive_since="2026-03-01"),
-            _spieler(SPIELER_FORMER_OID, FORMER, inactive_since="2026-03-01"),
-        ]
-    )
+    await database[Collection.SPIELER].insert_one(_unconfirmed_spieler(SPIELER_UNCONFIRMED_OID, ONLY_OPEN))
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             _schiedsrichter(SCHIEDSRICHTER_UNCONFIRMED_OID, ONLY_OPEN, "A. Offen", einwilligung=None),
@@ -318,7 +305,7 @@ class TestTheConfirmationNarrowing:
         assert (answer.schiedsrichter, answer.unconfirmed) == ([], True)
 
     def test_a_mailbox_holding_only_unconfirmed_records_is_answered_nothing_and_flagged(self, seeded_league: str):
-        """A seat and a referee awaiting confirmation beside a retired pupil: an empty answer that is NOT the answer for holding nothing."""
+        """A seat, a pupil and a referee awaiting confirmation: an empty answer that is NOT the answer for holding nothing."""
 
         answer = answered(seeded_league, ONLY_OPEN)
 
@@ -345,7 +332,7 @@ class TestTheConfirmationNarrowing:
     def test_every_read_sees_what_the_caller_s_transaction_wrote(self, seeded_league: str):
         """Kills any of the four reads made outside the caller's session: each has its own change to miss.
 
-        The seat and the referee are stamped, the pupil brought back and the past season made `future`, in a transaction aborted after.
+        The seat, the pupil and the referee are stamped and the past season made `future`, in a transaction aborted after.
         """
 
         async def _run() -> tuple[FLSubject, FLSubject, FLSubject, FLSubject]:
@@ -359,7 +346,7 @@ class TestTheConfirmationNarrowing:
                         {"_id": ROW_ACTIVE_C_OID}, {"$set": {"kontakte.stellvertretung.einwilligung.confirmed_at": STAMP}}, session=writer
                     )
                     await database[Collection.SPIELER].update_one(
-                        {"_id": SPIELER_ONLY_OPEN_OID}, {"$set": {"inactive_since": None}}, session=writer
+                        {"_id": SPIELER_UNCONFIRMED_OID}, {"$set": {"einwilligung.confirmed_at": STAMP}}, session=writer
                     )
                     await database[Collection.SCHIEDSRICHTER].update_one(
                         {"_id": SCHIEDSRICHTER_UNCONFIRMED_OID}, {"$set": {"einwilligung": CONFIRMED}}, session=writer
@@ -378,7 +365,7 @@ class TestTheConfirmationNarrowing:
         open_inside, times_inside, open_outside, times_outside = on_the_seed_loop(_run())
 
         assert seats(open_inside) == [(ACTIVE_SAISON, TEAM_C_OID, "stellvertretung", ROW_NAME_C, "active")]
-        assert [row.spieler_id for row in open_inside.spieler] == [SPIELER_ONLY_OPEN_OID]
+        assert [row.spieler_id for row in open_inside.spieler] == [SPIELER_UNCONFIRMED_OID]
         assert [row.schiedsrichter_id for row in open_inside.schiedsrichter] == [SCHIEDSRICHTER_UNCONFIRMED_OID]
         assert [(seat.saison_id, seat.saison_status) for seat in times_inside.seats] == [(PAST_SAISON, "future"), (FUTURE_SAISON, "future")]
         assert is_empty(open_outside)
@@ -402,11 +389,6 @@ class TestTheRetirementNarrowing:
 
         assert is_empty(answer)
         assert answer.unconfirmed is False
-
-    def test_a_retired_pupil_grants_nothing(self, seeded_league: str):
-        """Confirmed, so only the retirement keeps it out."""
-
-        assert answered(seeded_league, FORMER).spieler == []
 
     def test_the_ghost_grants_nothing_whatever_its_row_holds(self, seeded_league: str):
         """Its null address and its retirement keep it out as written; the seed gives it neither, so its id is what this pins."""

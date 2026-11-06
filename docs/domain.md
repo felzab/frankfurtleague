@@ -154,7 +154,7 @@ takes a club back out of a season and an `austritt` leaves its row occupying the
 occupancy never falls: an undraw reopens the group count and the group size upward alone, and either of them
 below what the groups already hold is refused whatever is undrawn (`rules_gruppen_in_use`, `rules_capacity_below_use`). **Not
 every bound over stored rows behaves that way**: `max_kader_size` is held above the largest squad, counted
-over rows no retirement has taken out (`rules_kader_below_use`), so retiring players lowers that cap where nothing
+over rows no retirement has taken out and no nominee holds (`rules_kader_below_use`), so retiring players lowers that cap where nothing
 lowers a group's occupancy. Only the qualifier count can skip the whole route, moving on a confirmed
 replace's own payload (`spielplan_replace_outside_its_window`) because it leaves every group as it stands. Both operations are
 held to a `future` season with nothing recorded against a fixture (`spielplan_undraw_outside_its_window`), so what they destroy
@@ -163,8 +163,8 @@ is a schedule nobody has played.
 One freeze sits outside that one:
 
 - **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from its stored
-  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock, the
-  Nachnominierung and the landing read), the points, the qualifiers per group and the tie-break order hold:
+  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock and the
+  landing read), the points, the qualifiers per group and the tie-break order hold:
   the table is derived from them on every read, and the bracket was seeded from the placings the order
   decides. A `past` season stays frozen whatever its start date.
 
@@ -325,11 +325,9 @@ no later feature can come to depend on a flag.
   awarded or the match replayed, and this competition names no rule between them; the editor warns that a
   decided score counts for the table.
 - **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
-  (`confirmation_age`); entering, moving or bringing back a squad row judges none.
-- **A person holding no squad row, and a person retired while holding a live one.** The first is reachable only
-  by a database edit, and `GET /spieler/saisons` serves such a person with an empty list, which is the
-  surface that repairs it. The two retirements are independent, so retiring a person never asks for every squad
-  they played in to be emptied, and the list badges both.
+  (`confirmation_age`); entering or bringing back a squad row judges none.
+- **A person holding no squad row.** Reachable only by a database edit: `GET /spieler/saisons` serves such a
+  person with an empty list, and a registration through a team's link gives them a row.
 - **A retired row kept indefinitely.** No sweep selects on `inactive_since`, which records when a row retired
   and never when it may go; every admin list badges the day it retired.
 - **A stored action-log image no current model accepts.** An image is what a document looked like when it was

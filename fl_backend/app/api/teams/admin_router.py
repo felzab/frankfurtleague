@@ -431,7 +431,7 @@ async def get_team_saison_admin(
         registrierung = saison_raw.get("registrierung")
         link = FLTeamLinkState(
             invitation=await _served_invitation(live[0], ban_list=ban_list, outbox_collection=outbox_collection) if live else None,
-            running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=registrierung, today=today),
+            running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=registrierung),
             paused=registrierung is not None and not registrierung["open"],
             skipped=plan_einladung_dispatch(
                 austritt=row_raw.get("austritt"),
@@ -1573,7 +1573,6 @@ async def get_invitation(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
-    today: str = Depends(get_german_date_str),
 ) -> FLInvitationResponse:
     """
     What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
@@ -1603,5 +1602,5 @@ async def get_invitation(
         saison_id=saison_id,
         team_id=team_id,
         invitation=einladung,
-        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
+        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
     )

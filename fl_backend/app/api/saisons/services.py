@@ -42,12 +42,22 @@ def base_tier_status_term() -> dict[str, Any]:
 def has_started(*, start_date: str, today: str) -> bool:
     """Whether a season has started: from its `start_date`, the German day `today` is, onwards.
 
-    The one start every start lock, the Nachnominierung and the landing read, so the countdown reaching 00:00 in
-    Berlin and the locks closing are one instant. A date and never a fixture: the season's own field is what an
-    administrator sets, and a start read off the earliest match moved whenever a match was re-dated.
+    The one start every start lock and the landing read, so the countdown reaching 00:00 in Berlin and the locks closing
+    are one instant. A date and never a fixture: the season's own field is what an administrator sets, and a start read
+    off the earliest match moved whenever a match was re-dated.
     """
 
     return start_date <= today
+
+
+def entry_is_a_nominee(*, registrierung: Mapping[str, Any] | None, day: str) -> bool:
+    """Whether a squad entry dated `day` is a Nachnominierung: one past the end of the season's registration window.
+
+    The one verdict the marker, the cap and the link's page read. A season storing no window has no end to pass, so
+    nobody in it is a nominee. The window is null or the whole object the season form writes, `end` included.
+    """
+
+    return registrierung is not None and str(registrierung["end"]) < day
 
 
 type DecidedPodium = tuple[

@@ -89,7 +89,6 @@ BYSTANDER_ROW_OID = ObjectId("6890a1b2c3d4e5f607820013")
 IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
 IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
-RETIRED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820024")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
 REFEREE_ONE_OID = ObjectId("6890a1b2c3d4e5f607820031")
 REFEREE_TWO_OID = ObjectId("6890a1b2c3d4e5f607820032")
@@ -209,7 +208,6 @@ async def _seed(database: AsyncDatabase) -> None:
             _pupil(PUPIL_ONE_OID, IDENTIFIER),
             _pupil(IDN_PUPIL_OID, IDN_STORED),
             _pupil(BYSTANDER_PUPIL_OID, BYSTANDER),
-            {**_pupil(RETIRED_PUPIL_OID, RETIRED), "inactive_since": "2026-03-01"},
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -333,7 +331,7 @@ def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
 
 @pytest.mark.db
 def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_replica_set_url: str):
-    """A confirmed pupil row and a confirmed referee row, both retired: empty lists and the flag down, as for a mailbox holding nothing."""
+    """A confirmed referee row, retired: empty lists and the flag down, as for a mailbox holding nothing."""
 
     response = served_over_http(mongo_replica_set_url, RETIRED)
 

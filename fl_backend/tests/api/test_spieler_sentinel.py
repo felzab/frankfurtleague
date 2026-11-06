@@ -9,13 +9,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
-from app.api.spieler.admin_router import delete_spieler, get_spieler_saisons, patch_spieler, post_saison_spieler, reactivate_spieler
+from app.api.spieler.admin_router import get_spieler_saisons, patch_spieler
 from app.api.spieler.public_router import get_spieler_by_id
-from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload
+from app.api.spieler.schemas import FLPatchSpielerPayload
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
-from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from tests import documents
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
@@ -26,13 +26,11 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_spieler_sentinel_test")
 
 SAISON_ID = "2026"
-TODAY = "2026-04-01"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f608310001")
 
-# Retired and holding no squad row: the person every exclusion below must still serve, so a filter
-# matching nothing fails the controls rather than passing every case.
+# Holding no squad row: the person every exclusion below must still serve, so a filter matching
+# nothing fails the controls rather than passing every case.
 PERSON_OID = ObjectId("6890a1b2c3d4e5f608310002")
-RETIRED_ON = "2026-02-01"
 
 # Seeded by the cases needing a row the `$in` below does not name.
 OTHER_PERSON_OID = ObjectId("6890a1b2c3d4e5f608310003")
@@ -49,7 +47,7 @@ def on_a_league(url: str, body: Body) -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=documents.rules_document()))
             await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZOX"))
             await database[Collection.SPIELER].insert_many(
-                [build_ghost_spieler(), documents.spieler_document(PERSON_OID, "Quillhilde", "Brackenmoor", inactive_since=RETIRED_ON)]
+                [build_ghost_spieler(), documents.spieler_document(PERSON_OID, "Quillhilde", "Brackenmoor")]
             )
 
             return await body(database, client)
@@ -70,7 +68,6 @@ def test_the_sentinel_is_stored_nameless_and_without_a_consent_record(mongo_repl
     sentinel = on_a_league(mongo_replica_set_url, body)
 
     assert (sentinel["first_name"], sentinel["last_name"], sentinel["einwilligung"]) == (None, None, None)
-    assert sentinel["inactive_since"] == GHOST_INACTIVE_SINCE
 
 
 async def press(database: AsyncDatabase, client: AsyncMongoClient, route: str, spieler_id: ObjectId) -> Any:
@@ -80,33 +77,16 @@ async def press(database: AsyncDatabase, client: AsyncMongoClient, route: str, s
 
     if route == "read":
         return await get_spieler_by_id(spieler_id=spieler_id, spieler_collection=collection)
-    if route == "patch":
-        return await patch_spieler(
-            spieler_id=spieler_id,
-            spieler_data=FLPatchSpielerPayload(first_name="Lysander", last_name="Quell", birth_date="2009-05-04"),
-            spieler_collection=collection,
-            db=client,
-        )
-    if route == "delete":
-        return await delete_spieler(spieler_id=spieler_id, spieler_collection=collection, db=client, today=TODAY)
-    if route == "reactivate":
-        return await reactivate_spieler(spieler_id=spieler_id, spieler_collection=collection, db=client)
 
-    return await post_saison_spieler(
+    return await patch_spieler(
         spieler_id=spieler_id,
-        saison_spieler_data=FLPostSaisonSpielerPayload(
-            saison_id=SAISON_ID, team_id=TEAM_OID, nummer=None, position=None, stufe=None, rolle=None
-        ),
+        spieler_data=FLPatchSpielerPayload(first_name="Lysander", last_name="Quell", birth_date="2009-05-04"),
         spieler_collection=collection,
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
         db=client,
-        today=TODAY,
     )
 
 
-ROUTES = ["read", "patch", "delete", "reactivate", "squad entry"]
+ROUTES = ["read", "patch"]
 
 
 @pytest.mark.parametrize("route", ROUTES)
@@ -135,18 +115,6 @@ def test_every_route_by_id_still_reaches_a_person(mongo_replica_set_url: str, ro
     assert on_a_league(mongo_replica_set_url, body) is not None
 
 
-def test_an_id_nobody_holds_gets_no_squad_row(mongo_replica_set_url: str):
-    """A squad row naming nobody resolves to no person on any read of the squad, and nothing would ever remove it."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        with pytest.raises(DocumentNotFoundError):
-            await press(database, client, "squad entry", ObjectId())
-
-        return await database[Collection.SAISON_SPIELER].count_documents({})
-
-    assert on_a_league(mongo_replica_set_url, body) == 0
-
-
 def test_the_memberships_read_never_serves_the_sentinel_and_a_person_holding_no_squad_row_is_still_served(mongo_replica_set_url: str):
     """It keeps a person holding no squad row, which is exactly the shape the sentinel has."""
 
@@ -164,7 +132,7 @@ def test_the_memberships_read_never_serves_the_sentinel_and_a_person_holding_no_
     assert on_a_league(mongo_replica_set_url, body) == [PERSON_OID]
 
 
-def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_a_retired_person_s(mongo_replica_set_url: str):
+def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_a_person_s(mongo_replica_set_url: str):
     """Written past every route, which refuse it: the read's own exclusion is all that keeps such a row off a public squad."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

@@ -1,14 +1,11 @@
 import {
   spielerDeleteKaderRow,
   spielerDeleteSaisonSpieler,
-  spielerDeleteSpieler,
   spielerPatchEinwilligung,
   spielerPatchKaderRow,
   spielerPatchSaisonSpieler,
   spielerPatchSpieler,
-  spielerPostSaisonSpieler,
   spielerReactivateSaisonSpieler,
-  spielerReactivateSpieler,
 } from "@/core/generated/client/sdk";
 
 import type {
@@ -18,13 +15,10 @@ import type {
   FLSpielerAdminSingleResponse,
 } from "@/core/generated/client/types";
 import type {
-  FLDeleteSpielerPayload,
   FLKaderZeileKeyPayload,
   FLPatchKaderRowPayload,
   FLPatchSaisonSpielerPayload,
   FLPatchSpielerPayload,
-  FLPostSaisonSpielerPayload,
-  FLReactivateSpielerPayload,
   FLSaisonSpielerKeyPayload,
 } from "./schemas";
 
@@ -32,19 +26,6 @@ import type {
 // body. No fan-out: squad lists read the name through a `$lookup`.
 export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
   return spielerPatchSpieler(id, fields);
-}
-
-// Soft — the backend stamps `inactive_since`; the squad rows are left alone.
-export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
-  return spielerDeleteSpieler(id);
-}
-
-export async function reactivateSpieler({ id }: FLReactivateSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
-  return spielerReactivateSpieler(id);
-}
-
-export async function postSaisonSpieler({ spieler_id, ...body }: FLPostSaisonSpielerPayload): Promise<FLSaisonSpielerResponse> {
-  return spielerPostSaisonSpieler(spieler_id, body);
 }
 
 export async function patchSaisonSpieler({ spieler_id, saison_id, ...body }: FLPatchSaisonSpielerPayload): Promise<FLSaisonSpielerResponse> {
@@ -56,8 +37,7 @@ export async function deleteSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpi
   return spielerDeleteSaisonSpieler(spieler_id, saison_id);
 }
 
-// The one way back in: a second create 409s against the index the retired row still holds, and
-// reviving inside create would overwrite that row's number, position and stufe.
+// The one way back in for an administrator: the row keeps its number, position and stufe.
 export async function reactivateSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpielerKeyPayload): Promise<FLSaisonSpielerResponse> {
   return spielerReactivateSaisonSpieler(spieler_id, saison_id);
 }

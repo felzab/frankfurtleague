@@ -60,9 +60,8 @@ export function countLiveSquadRows({
     if (person.id === exceptSpielerId) continue;
 
     for (const membership of person.memberships) {
-      // The PERSON's own retirement is deliberately not read: the write path's filter spans the
-      // junction alone, so a person the league retired still holds the place their live row names.
-      if (membership.saison_id !== saisonId || membership.inactive_since !== null) continue;
+      // A nominee stands outside the cap, as the write path's filter has it.
+      if (membership.saison_id !== saisonId || membership.inactive_since !== null || membership.is_nachnominiert) continue;
 
       byTeam[membership.team_id] = (byTeam[membership.team_id] ?? 0) + 1;
     }

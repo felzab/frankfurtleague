@@ -22,7 +22,6 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { fieldStatus } from "@/shared/utils/draftStatus";
 
 import { buildSpielerBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
@@ -32,7 +31,7 @@ import { FormKaderSection } from "./FormKaderSection";
 import { FormPersonSection } from "./FormPersonSection";
 
 import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
-import type { FLSpielerDraftFields, SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
+import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus";
 import type { AdminSpielerStored, SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -44,7 +43,7 @@ type AdminSpielerEditFormProps = {
   einwilligung: FLEinwilligung;
   /** The sidemenu selector's season and its squad row, resolved by the page. */
   saison: SpielerSaisonMembership;
-  /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
+  /** The selected season's teams, for the roles they hold and whether a retired row can return. */
   teams: readonly SpielerTeamOption[];
   pageHeader: EditPageHeaderContent;
 };
@@ -72,7 +71,6 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
     birth_date: spieler.birth_date,
   });
 
-  const [teamId, setTeamId] = useState<string | null>(storedMembership?.team_id ?? null);
   const [nummer, setNummer] = useState(storedMembership?.nummer ?? "");
   const [position, setPosition] = useState<FLSpielerPosition | null>(storedMembership?.position ?? null);
   const [stufe, setStufe] = useState<FLSpielerStufe | null>(storedMembership?.stufe ?? null);
@@ -91,7 +89,6 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
   const buildSaisonPayload = () => ({
     spieler_id: spieler.id,
     saison_id: saison.saisonId,
-    team_id: teamId,
     // Emptied means absent — the boundary where `""` becomes null, as on the person half.
     nummer: nummerPayload(nummer),
     position,
@@ -103,7 +100,7 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
     first_name: personDraft.first_name,
     last_name: personDraft.last_name ?? "",
     birth_date: personDraft.birth_date,
-    membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, rolle },
+    membership: storedMembership === null ? null : { nummer, position, stufe, rolle },
   };
   const storedFields: FLSpielerDraftFields = {
     first_name: spieler.first_name,
@@ -113,7 +110,6 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
       storedMembership === null
         ? null
         : {
-            team_id: storedMembership.team_id,
             // `?? ""` so both sides of the comparison are the shape the input holds.
             nummer: storedMembership.nummer ?? "",
             position: storedMembership.position,
@@ -122,7 +118,7 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
           },
   };
 
-  const status = deriveSpielerDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors, teams });
+  const status = deriveSpielerDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the revalidated player arrives and the two agree — left latched, every
@@ -136,16 +132,8 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
 
   const validatePersonFields = (paths: readonly string[]) => validatePaths("spieler", buildPersonPayload(), paths);
   const validateSaisonFields = (paths: readonly string[]) => validatePaths("saisonSpieler", buildSaisonPayload(), paths);
-  // Judged with the value that arrived in the event, because state has not committed yet.
-  const validateTeamSelection = (paths: readonly string[], selected: { team_id: string }) =>
-    validatePaths("saisonSpieler", { ...buildSaisonPayload(), ...selected }, paths);
 
-  const isChanged = (path: SpielerFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
-
-  // Read off the DRAFT's team: moving the picker moves who already leads, and moves which squad the
-  // save would be admitted to.
-  const heldRollen = teams.find((team) => team.teamId === teamId)?.heldRollen ?? {};
-  const isSquadFull = teams.find((team) => team.teamId === teamId)?.isSquadFull === true;
+  const heldRollen = teams.find((team) => team.teamId === storedMembership?.team_id)?.heldRollen ?? {};
   const heldBy = rolle === null ? undefined : heldRollen[rolle];
   // Only where SOMEBODY ELSE holds it. The current holder keeps the control so they can give it up.
   const blockedRolle = rolle !== null && heldBy !== undefined ? { label: rolleLabel(rolle), heldBy } : null;
@@ -153,26 +141,18 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
   const personDirty = status.changed.some((field) => field.group === "Person");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === KADER_ABSCHNITT);
 
-  // The STORED club and not the picker's, unlike `isSquadFull` above: the reactivate returns the row to
-  // the club it already names, which a transfer in the draft can have moved away from without it.
   const rowReturn = storedMembership === null ? "open" : judgeRowReturn(storedMembership.team_id, teams);
 
   const banners = buildSpielerBanners({
-    isRetired: spieler.inactive_since !== null,
     saisonId: saison.saisonId,
-    nachnominierungLaeuft: saison.nachnominierungLaeuft,
-    isMember: storedMembership !== null,
     rowInactiveSince: storedMembership?.inactive_since ?? null,
     isRowTeamInSaison: rowReturn !== "clubLeft",
     istNachnominiert: storedMembership?.ist_nachnominiert ?? false,
-    isTeamChanged: isChanged("team_id"),
-    isSquadFull,
     blockedRolle,
   });
 
   const resetDraftToStored = () => {
     setPersonDraft({ first_name: spieler.first_name, last_name: spieler.last_name, birth_date: spieler.birth_date });
-    setTeamId(storedMembership?.team_id ?? null);
     setNummer(storedMembership?.nummer ?? "");
     setPosition(storedMembership?.position ?? null);
     setStufe(storedMembership?.stufe ?? null);
@@ -208,10 +188,6 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
       // Built once, so what goes to each action is also what a later blur is graded against.
       const personPayload = buildPersonPayload();
       const saisonPayload = buildSaisonPayload();
-      // Only what the admin cannot see from the form earns a sentence: a transfer moves the player
-      // out of one public squad list and into another.
-      const transferTouched = isChanged("team_id");
-      const consequenceNotes: string[] = [];
       const savedParts: string[] = [];
       const failures: ActionFailure[] = [];
 
@@ -232,7 +208,6 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
         const res = await patchSaisonSpielerAction(saisonPayload).catch(unansweredAction);
         if (res.success) {
           savedParts.push("Kadereintrag gespeichert.");
-          if (transferTouched) consequenceNotes.push("Der Spieler steht ab sofort im neuen Team.");
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failures.push(res);
@@ -267,7 +242,7 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
         setHasSaved(true);
 
         // A success rather than a warning: this save destroys nothing without another copy.
-        appToast.success("Änderung gespeichert", { description: consequenceNotes.join(" ") || "Die Spielerdaten wurden aktualisiert." });
+        appToast.success("Änderung gespeichert");
 
         resetDraftToStored();
         leavePage();
@@ -308,34 +283,24 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
               change when the sidemenu's season does. */}
           <FormEinwilligungSection einwilligung={einwilligung} />
 
-          <FormKaderSection
-            saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}
-            teams={teams}
-            isMember={storedMembership !== null}
-            teamId={teamId}
-            onTeamIdChange={(next) => {
-              setTeamId(next);
-              const takenInNext = teams.find((team) => team.teamId === next)?.heldRollen ?? {};
-              if (rolle !== null && takenInNext[rolle] !== undefined) setRolle(null);
-            }}
-            nummer={nummer}
-            onNummerChange={setNummer}
-            position={position}
-            onPositionChange={setPosition}
-            stufe={stufe}
-            onStufeChange={setStufe}
-            rolle={rolle}
-            onRolleChange={setRolle}
-            heldRollen={heldRollen}
-            onValidateFields={validateSaisonFields}
-            onValidateSelection={validateTeamSelection}
-            spielerId={spieler.id}
-            banners={banners}
-            isDirty={isDirty}
-          />
+          {storedMembership !== null && (
+            <FormKaderSection
+              saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}
+              nummer={nummer}
+              onNummerChange={setNummer}
+              position={position}
+              onPositionChange={setPosition}
+              stufe={stufe}
+              onStufeChange={setStufe}
+              rolle={rolle}
+              onRolleChange={setRolle}
+              heldRollen={heldRollen}
+              onValidateFields={validateSaisonFields}
+              banners={banners}
+            />
+          )}
 
-          {/* Only where a row exists: there is nothing to take out of a squad the player is not in,
-              and the Kader panel above offers the entry instead. */}
+          {/* Only where a row exists: there is nothing to take out of a squad the player is not in. */}
           {storedMembership !== null && (
             <FormAustragenSection
               isDirty={isDirty}

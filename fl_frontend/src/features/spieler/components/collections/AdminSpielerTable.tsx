@@ -8,7 +8,7 @@ import Pencil from "@gravity-ui/icons/Pencil";
 
 import { Table } from "@heroui/react/table";
 
-import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
+import { reactivateSaisonSpielerAction } from "@/features/spieler/actions";
 import {
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   NUMMER_NICHT_HINTERLEGT,
@@ -33,8 +33,7 @@ import {
 import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
-import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
@@ -67,7 +66,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   emptiness,
   saisonTeams,
   selectedSaisonId,
-  setDeletingSpieler,
 }: {
   filteredSpieler: AdminSpielerRow[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
@@ -76,11 +74,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;
-  setDeletingSpieler: (spieler: AdminSpielerRow, pressed: Element) => void;
 }) {
-  // Two of them: each control pends on its own write, so reactivating a person leaves the squad row's
-  // control pressable and neither announcement can arrive under the other's title.
-  const person = useReactivation({ action: reactivateSpielerAction, noun: "Spieler" });
   const squadRow = useReactivation({ action: reactivateSaisonSpielerAction, noun: "Kadereintrag" });
 
   // The selector's season rides along on every row link, so the editor opens on the season shown.
@@ -90,7 +84,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   // One source for both layouts, so the table and the phone cards cannot disagree about a row's state.
   const renderStatusBadges = (spieler: AdminSpielerRow) => (
     <div className="flex flex-wrap items-center gap-2">
-      {spieler.inactive_since !== null && <RetiredBadge since={spieler.inactive_since} />}
       {/* An absence and not an exit: a person with no squad row this season takes the label tone,
           where „ausgetragen“ beside it grades a row that was in the Kader and came out. */}
       {spieler.selected === null && <span className={labelBadge("info")}>Nicht im Kader</span>}
@@ -101,10 +94,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           Ausgetragen&nbsp;<span className="font-numeric">{formatSpielDatum(spieler.selected.inactive_since)}</span>
         </span>
       )}
-      {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
-        /* The ROW's standing, never the season's status: it holds only while the person, the squad
-           row and the season entry are all live, so it is narrower than
-           `fl_frontend/src/features/spieler/facets.ts`'s „Person“ bucket. */
+      {spieler.selected !== null && spieler.selected.inactive_since === null && (
+        /* The ROW's standing, never the season's status. */
         <span className={labelBadge("success")}>Aktiv</span>
       )}
       {spieler.selected?.ist_nachnominiert === true && spieler.selected.inactive_since === null && (
@@ -113,8 +104,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     </div>
   );
 
-  // Two independent retirements meet here: the trash retires the PERSON, the restore above it the
-  // SQUAD ROW. A row can be in either state, both, or neither.
   const renderActions = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
 
@@ -141,23 +130,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             isPending={squadRow.isReactivating}
             place="kadereintrag"
             onPress={(pressed) => squadRow.reactivate({ spieler_id: spieler.id, saison_id: selectedSaisonId }, { pressed })}
-          />
-        )}
-
-        {/* The PERSON's own reactivate takes no gate: `POST /spieler/{id}/reactivate` clears the date
-            and refuses nothing. */}
-        {spieler.inactive_since !== null ? (
-          <RowActionRestore
-            label="Spieler reaktivieren"
-            subject={spieler.fullName}
-            isPending={person.isReactivating}
-            onPress={(pressed) => person.reactivate({ id: spieler.id }, { pressed })}
-          />
-        ) : (
-          <RowActionDelete
-            label="Stilllegen"
-            subject={`Spieler ${spieler.fullName}`}
-            onPress={(pressed) => setDeletingSpieler(spieler, pressed)}
           />
         )}
       </RowActions>
@@ -213,7 +185,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       {renderNummer(spieler)}
       <div className={IDENTITY_STACK_CLASSES}>
         <div className={IDENTITY_HEAD_CLASSES}>
-          <span className={identityName(spieler.inactive_since !== null)}>{spieler.fullName}</span>
+          <span className={identityName(false)}>{spieler.fullName}</span>
           {renderRolle(spieler)}
           {renderStatusBadges(spieler)}
         </div>

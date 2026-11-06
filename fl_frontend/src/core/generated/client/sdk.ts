@@ -99,7 +99,6 @@ import type {
   FLPatchKaderRowPayload,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
-  FLPatchSaisonSpielerPayload,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
   FLPatchSaisonTeamPayload,
@@ -122,7 +121,6 @@ import type {
   FLPostRegistrierungResponse,
   FLPostSaisonPayload,
   FLPostSaisonResponse,
-  FLPostSaisonSpielerPayload,
   FLPostSaisonTeamPayload,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
@@ -185,7 +183,6 @@ import type {
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerNachnominierungResponse,
   FLSpielerSaisonsResponse,
   FLSpielerSelfResponse,
   FLSpielerSingleResponse,
@@ -2263,9 +2260,9 @@ export const getRegistrierungenPostInvitationViewUrl = () => {
 /**
  * Answer what this registration link is for: the team, its school, the season, and what the form may offer.
  *
- * A POST because the link value travels in the body and never in a path the edge would log. A shut
- * window is a STATE here rather than a refusal, so a link opened after the deadline reads as closed
- * rather than as invalid; only a link that opens no live invite is refused.
+ * A POST because the link value travels in the body and never in a path the edge would log. A paused
+ * or ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as
+ * invalid; only a link that opens no live invite, or whose team has left the season, is refused.
  * @summary What a registration link opens
  */
 export const registrierungenPostInvitationView = async (
@@ -2371,13 +2368,14 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  * asked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page
  * leaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's
  * name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
- * person, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs
- * stands, asked over the address this admission proves again.
+ * person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
+ * this admission proves again.
  *
- * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived
- * today; this person's retired row of this season is rewritten rather than a second one written, whichever team
- * it was on. The registration is deleted and its values redacted from the log in the same transaction, so a second
- * press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
+ * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
+ * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
+ * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
+ * deleted and its values redacted from the log in the same transaction, so a second press meets no row. Its
+ * submission key moves onto the squad row, so the submission replayed later stores nothing.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
@@ -4306,33 +4304,12 @@ export const spielerPatchKaderRow = async (
   });
 };
 
-export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string) => {
-  return `/api/v0/spieler/nachnominierung/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Whether a player entered into this season's squads today would be marked a Nachnominierung.
- *
- * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's
- * `start_date` on. 404 where no season has this id.
- * @summary Whether a squad entry into a season today is a Nachnominierung
- */
-export const spielerGetSpielerNachnominierung = async (
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerNachnominierungResponse> => {
-  return adminKeyTransport<FLSpielerNachnominierungResponse>(getSpielerGetSpielerNachnominierungUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpielerGetSpielerSaisonsUrl = () => {
   return `/api/v0/spieler/saisons`;
 };
 
 /**
- * Every player, retired ones included, each with every squad row they hold.
+ * Every player, each with every squad row they hold.
  *
  * A club page's squad cannot answer it: it serves one team's squad in one season, and so never a
  * player outside that squad or their other rows.
@@ -4355,8 +4332,8 @@ export const getSpielerGetSelfUrl = () => {
 /**
  * Answer the signed-in address's own pupil record's stored data with every squad row it holds.
  *
- * PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired
- * record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
+ * PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself.
+ * Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
  *
  * Refuses an address holding no confirmed pupil record (`role_not_held`).
  * @summary A signed-in pupil's own record
@@ -4365,24 +4342,6 @@ export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTranspo
   return adminKeyTransport<FLSpielerSelfResponse>(getSpielerGetSelfUrl(), {
     ...options,
     method: "GET",
-  });
-};
-
-export const getSpielerDeleteSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}`;
-};
-
-/**
- * Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE.
- * @summary Retire a Spieler (soft delete)
- */
-export const spielerDeleteSpieler = async (
-  spielerId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerAdminSingleResponse> => {
-  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerDeleteSpielerUrl(spielerId), {
-    ...options,
-    method: "DELETE",
   });
 };
 
@@ -4437,62 +4396,6 @@ export const spielerPatchSpieler = async (
   });
 };
 
-export const getSpielerReactivateSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/reactivate`;
-};
-
-/**
- * Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate.
- * @summary Bring a retired Spieler back
- */
-export const spielerReactivateSpieler = async (
-  spielerId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerAdminSingleResponse> => {
-  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerReactivateSpielerUrl(spielerId), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getSpielerPostSaisonSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons`;
-};
-
-/**
- * Put a player in a team's squad for a season.
- *
- * 404 where no player has this id. One row per player per season: moving a player is a PATCH of
- * `team_id`, and a repeat is a 409 even where the row is retired. A
- * squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
- * taken from the body: it is true from the season's `start_date` on.
- * @summary Add a Spieler to a squad
- */
-export const spielerPostSaisonSpieler = async (
-  spielerId: string,
-  fLPostSaisonSpielerPayload: FLPostSaisonSpielerPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonSpielerResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerPostSaisonSpielerUrl(spielerId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSaisonSpielerPayload),
-  });
-};
-
 export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
   return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
@@ -4520,17 +4423,16 @@ export const getSpielerPatchSaisonSpielerUrl = (spielerId: string, saisonId: str
 };
 
 /**
- * Update a player's squad entry for that season.
+ * Update a player's squad entry for that season. The team stays the stored row's: no player moves between teams.
  *
- * Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
- * (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
- * (`kader_rolle_taken`).
+ * A DUPLICATE `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose); a `rolle`
+ * another live row holds is not (`kader_rolle_taken`).
  * @summary Update a squad entry
  */
 export const spielerPatchSaisonSpieler = async (
   spielerId: string,
   saisonId: string,
-  fLPatchSaisonSpielerPayload: FLPatchSaisonSpielerPayload,
+  fLPatchKaderRowPayload: FLPatchKaderRowPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSaisonSpielerResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -4549,7 +4451,7 @@ export const spielerPatchSaisonSpieler = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSaisonSpielerPayload),
+    body: JSON.stringify(fLPatchKaderRowPayload),
   });
 };
 
@@ -4560,9 +4462,8 @@ export const getSpielerReactivateSaisonSpielerUrl = (spielerId: string, saisonId
 /**
  * Clear a squad row's `inactive_since`, with the number and position it had.
  *
- * Where a repeat create is redirected: a create reviving the row
- * would overwrite both. Refused where the squad has filled up, where its club left, or where the
- * `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
+ * Refused where the squad has filled up, a nominee's row standing outside that cap, where its club
+ * left, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
  * @summary Put a Spieler back in a squad they left
  */
 export const spielerReactivateSaisonSpieler = async (

@@ -10,7 +10,6 @@ from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload
 from app.api.spieler.schemas import (
     FLEinwilligung,
     FLPatchSpielerPayload,
-    FLPostSaisonSpielerPayload,
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerRecord,
@@ -212,7 +211,6 @@ STRIPPED_WRITE_FIELDS = [
     "team.name",
     "team.shorthand",
     "saison_team.saison_id",
-    "saison_spieler.saison_id",
     "kontaktperson.last_name",
     "kontaktperson.first_name",
     "saison_team.austritt.exit_reason",
@@ -241,7 +239,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
     """
 
     @pytest.fixture
-    def cases(self, address, kontakt, saison, saison_spieler, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
+    def cases(self, address, kontakt, saison, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
         spieler = {"first_name": "Max", "last_name": "Mustermann", "birth_date": "2009-05-04"}
@@ -261,7 +259,6 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "trikot_farbe": None,
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
-        new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
         new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
 
         return {
@@ -278,7 +275,6 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             # Two independent declarations of the season id, so a strip dropped from one is
             # invisible to the other's clauses.
             "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
-            "saison_spieler.saison_id": (FLPostSaisonSpielerPayload, new_saison_spieler, ("saison_id",)),
             "kontaktperson.last_name": (FLKontaktpersonPayload, kontaktperson, ("last_name",)),
             "kontaktperson.first_name": (FLKontaktpersonPayload, kontaktperson, ("first_name",)),
             "saison_team.austritt.exit_reason": (FLPatchSaisonTeamPayload, saison_team, ("austritt", "exit_reason")),

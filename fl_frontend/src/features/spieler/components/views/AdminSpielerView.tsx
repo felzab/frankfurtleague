@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 
 import { AdminSpielerTable } from "@/features/spieler/components/collections/AdminSpielerTable";
-import { AdminDeleteSpielerModal } from "@/features/spieler/components/modals/AdminDeleteSpielerModal";
 import { buildSpielerFacets } from "@/features/spieler/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
@@ -31,21 +30,12 @@ export function AdminSpielerView({
       items={spieler}
       searchKeys={SEARCH_KEYS}
       facets={facets}
-      renderTable={({ filteredItems, emptiness, onDelete }) => (
+      renderTable={({ filteredItems, emptiness }) => (
         <AdminSpielerTable
           filteredSpieler={filteredItems}
           emptiness={emptiness}
           saisonTeams={teams}
           selectedSaisonId={selectedSaisonId}
-          setDeletingSpieler={onDelete}
-        />
-      )}
-      renderDeleteModal={({ item, isOpen, onClose, onRetired }) => (
-        <AdminDeleteSpielerModal
-          spielerData={item}
-          isOpen={isOpen}
-          onClose={onClose}
-          onRetired={onRetired}
         />
       )}
     />

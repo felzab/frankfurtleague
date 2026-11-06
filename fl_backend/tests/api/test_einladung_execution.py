@@ -178,7 +178,6 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
-        today=TODAY,
     )
 
 

@@ -1,19 +1,9 @@
 import type { FLAddressChangeViewableDenied, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
-import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload } from "./schemas";
+import type { FLPatchSpielerPayload } from "./schemas";
 
 /** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
 export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "birth_date"> & {
   birth_date: string | null;
-};
-
-/** The squad editor's enter-a-season draft: `team_id` widened to `null` so an untouched picker is a field error rather than a type error. */
-export type SaisonSpielerEnterDraft = Omit<FLPostSaisonSpielerPayload, "team_id"> & {
-  team_id: string | null;
-};
-
-/** The squad editor's membership draft, widened the same way. */
-export type SaisonSpielerMembershipDraft = Omit<FLPatchSaisonSpielerPayload, "team_id"> & {
-  team_id: string | null;
 };
 
 // No sign-in address: it moves only once its new mailbox confirms a link, which the address panel
@@ -29,8 +19,7 @@ export type SpielerPersonFields = {
 };
 
 /**
- * One STORED squad row. `team_id` is plain here and nullable only in the drafts above: a row that
- * exists always names a team, and the null is only an untouched picker's state.
+ * One STORED squad row.
  */
 type SpielerSquadFields = {
   team_id: string;
@@ -46,7 +35,7 @@ type SpielerSquadFields = {
 
 /**
  * The selected season's squad state for one player: the junction row, or `null` when they are in no
- * squad that season — which is what the editor's "Aufnehmen" affordance keys off.
+ * squad that season.
  */
 export type SpielerSaisonMembership = {
   saisonId: string;
@@ -54,11 +43,6 @@ export type SpielerSaisonMembership = {
   membership: SpielerSquadFields | null;
   /** `rules.allowed_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
   erlaubteStufen: FLSpielerStufe[];
-  /**
-   * The backend's verdict, never the season's status: an active season whose start date is ahead enters players
-   * as ordinary ones. `null` where the player already holds a row, so no entry is offered.
-   */
-  nachnominierungLaeuft: boolean | null;
 };
 
 /** The season the editor addresses — the sidemenu selector's, resolved by the page. */
@@ -72,7 +56,6 @@ export type AdminSpielerStored = {
   id: string;
   first_name: string;
   last_name: string | null;
-  inactive_since: string | null;
   birth_date: string;
   email: string;
   adresswechsel_id: string | null;
@@ -113,7 +96,5 @@ export type AdminSpielerRow = {
   last_name: string | null;
   /** `vorname nachname`, or the forename alone — what the list searches and sorts on. */
   fullName: string;
-  /** The day the PERSON left the league. */
-  inactive_since: string | null;
   selected: (SpielerSquadFields & { teamName: string | null; teamShorthand: string | null }) | null;
 };

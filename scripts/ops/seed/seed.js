@@ -561,7 +561,6 @@ const GHOST_SPIELER = {
   last_name: null,
   einwilligung: null,
   birth_date: null,
-  inactive_since: "2000-01-01",
 };
 
 // Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
@@ -580,7 +579,6 @@ function pupil(firstName, lastName) {
       media: false,
       evidence: { scope: evidence("scope"), media: evidence("media") },
     },
-    inactive_since: null,
   };
 }
 

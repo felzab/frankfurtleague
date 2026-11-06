@@ -63,9 +63,8 @@ SPIELER_OIDS = {
     "Ohne": ObjectId("6890a1b2c3d4e5f607390013"),
     # A surname whose first letter is two bytes.
     "Oeztuerk": ObjectId("6890a1b2c3d4e5f607390014"),
-    # The PERSON is retired and the squad row is live -- `READ-SQUAD-001`'s case.
     "Weber": ObjectId("6890a1b2c3d4e5f607390015"),
-    # The other way round, so the one match that stays is pinned by a row it really removes.
+    # A retired squad row, the one match pinned by a row it really removes.
     "Kraus": ObjectId("6890a1b2c3d4e5f607390016"),
 }
 
@@ -80,13 +79,13 @@ def _consent(scope: str, **fields: Any) -> dict[str, Any]:
     return {**own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", scope=scope), **fields}
 
 
-def _spieler(key: str, first_name: str, last_name: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
-    """A person as `POST /spieler` writes them -- consent record included, which is the point of the corpus.
+def _spieler(key: str, first_name: str, last_name: str | None) -> dict[str, Any]:
+    """A person as their admission writes them -- consent record included, which is the point of the corpus.
 
     A confirmed, published record passed rather than defaulted: the initials this corpus serves are the mask's published arm.
     """
 
-    return spieler_document(SPIELER_OIDS[key], first_name, last_name, einwilligung=_consent("kader_oeffentlich"), inactive_since=inactive_since)
+    return spieler_document(SPIELER_OIDS[key], first_name, last_name, einwilligung=_consent("kader_oeffentlich"))
 
 
 def _squad_row(
@@ -198,60 +197,39 @@ class TestTheSinglePlayerShape:
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
         assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "first_name", "last_name"}
 
-    def test_the_leaving_date_is_not_on_it(self):
-        """Nothing public renders a pupil's leaving date, and a field no surface needs is a field no surface is given."""
-        assert "inactive_since" not in FLSpielerSingleResponse.model_fields
-
-    def test_the_admin_echo_keeps_the_leaving_date(self):
-        """It IS the answer `DELETE` and `reactivate` give, so the echo would say nothing without it."""
-        assert "inactive_since" in FLSpielerAdminSingleResponse.model_fields
-
-    def test_the_admin_echo_is_the_public_shape_plus_the_editors_two_fields(self):
+    def test_the_admin_echo_is_the_public_shape_plus_the_editors_version(self):
         """Extension rather than a second declaration: the two would otherwise drift on the three fields they share."""
         extra = set(FLSpielerAdminSingleResponse.model_fields) - set(FLSpielerSingleResponse.model_fields)
 
-        assert extra == {"inactive_since", "version"}
+        assert extra == {"version"}
 
 
-# A body per echo rather than one shared: the two answer different writes and share no field but this one.
-RETIREMENT_ECHOES = {
-    "the person": (FLSpielerAdminSingleResponse, {"spieler_id": SPIELER_OIDS["Mueller"], "first_name": "Max", "last_name": "Mueller"}),
-    "the squad row": (
-        FLSaisonSpielerResponse,
-        {
-            "spieler_id": SPIELER_OIDS["Mueller"],
-            "saison_id": SAISON,
-            "team_id": TEAM_OID,
-            "nummer": "7",
-            "position": "Angriff",
-            "stufe": "Q2",
-            "is_nachnominiert": False,
-            "rolle": None,
-        },
-    ),
+SQUAD_ROW_ECHO = {
+    "spieler_id": SPIELER_OIDS["Mueller"],
+    "saison_id": SAISON,
+    "team_id": TEAM_OID,
+    "nummer": "7",
+    "position": "Angriff",
+    "stufe": "Q2",
+    "is_nachnominiert": False,
+    "rolle": None,
 }
 
 
-class TestTheRetirementDateTheAdminEchoesCarry:
+class TestTheRetirementDateTheAdminEchoCarries:
     """`fl_frontend/src/features/spieler/schemas.ts` refuses a day that does not exist, on seven mutations.
 
     An echo declaring no rule reports a retirement that landed as failed;
     `app/api/spieler/schemas.py` carries why stating the rule refuses nothing the API can serve.
     """
 
-    @pytest.mark.parametrize("echo", RETIREMENT_ECHOES)
     @pytest.mark.parametrize("stamped", ["2026-03-01", None], ids=["retired", "live"])
-    def test_it_takes_what_retire_and_reactivate_stamp(self, echo: str, stamped: str | None):
-        model, body = RETIREMENT_ECHOES[echo]
+    def test_it_takes_what_retire_and_reactivate_stamp(self, stamped: str | None):
+        assert FLSaisonSpielerResponse.model_validate({**SQUAD_ROW_ECHO, "inactive_since": stamped}).inactive_since == stamped
 
-        assert model.model_validate({**body, "inactive_since": stamped}).inactive_since == stamped
-
-    @pytest.mark.parametrize("echo", RETIREMENT_ECHOES)
     @pytest.mark.parametrize("value", ["2026-02-31", "2026-3-1", "gestern"], ids=["no such day", "unpadded", "not a date"])
-    def test_it_refuses_a_value_no_stamp_composes(self, echo: str, value: str, assert_rejects):
-        model, body = RETIREMENT_ECHOES[echo]
-
-        assert_rejects(model, {**body, "inactive_since": value}, "inactive_since")
+    def test_it_refuses_a_value_no_stamp_composes(self, value: str, assert_rejects):
+        assert_rejects(FLSaisonSpielerResponse, {**SQUAD_ROW_ECHO, "inactive_since": value}, "inactive_since")
 
 
 class TestTheProjection:
@@ -343,27 +321,16 @@ class TestTheBaseTierReadExecuted:
         assert person["einwilligung"]["scope"] == "kader_oeffentlich"
         assert (row["stufe"], row["rolle"]) == ("Q3", "kapitaen")
 
-    def test_the_corpus_really_holds_a_retired_person_beside_a_retired_row(self, seeded_url: str):
-        """The same guard for `READ-SQUAD-001`: both cases below pass against a corpus where nobody retired at all."""
+    def test_the_corpus_really_holds_a_retired_row(self, seeded_url: str):
+        """The same guard for `READ-SQUAD-001`: the case below passes against a corpus where nobody retired at all."""
 
         async def body(database: AsyncDatabase) -> Any:
-            person = await database.spieler.find_one({"_id": SPIELER_OIDS["Weber"]})
-            live_row = await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Weber"]})
-            retired_row = await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Kraus"]})
+            return await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Kraus"]})
 
-            return person, live_row, retired_row
-
-        person, live_row, retired_row = on_a_database(seeded_url, body)
-
-        assert (person["inactive_since"], live_row["inactive_since"]) == ("2026-05-01", None)
-        assert retired_row["inactive_since"] == "2026-03-01"
-
-    def test_a_retired_person_keeps_the_squad_rows_they_played(self, seeded_url: str):
-        """`READ-SQUAD-001`, which the admin sidemenu already promises: Stilllegen empties the pickers and leaves the Kadereintrag standing."""
-        assert "Jonas" in self._by_first_name(seeded_url)
+        assert on_a_database(seeded_url, body)["inactive_since"] == "2026-03-01"
 
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
-        """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
+        """`READ-SQUAD-001`: the retirement this read filters on."""
         assert RETIRED_ROW_FIRST_NAME not in self._by_first_name(seeded_url)
 
     def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
@@ -422,8 +389,7 @@ class TestTheBaseTierReadExecuted:
         """The second base-tier path, redacted by `public_initial` where the squad is redacted by the pipeline."""
         assert self._read_one(seeded_url, "Mueller")["last_name"] == "M."
 
-    def test_the_one_player_read_carries_no_leaving_date(self, seeded_url: str):
-        """Against the RETIRED person, so a date really is stored and its absence from the wire is the redaction."""
+    def test_the_one_player_read_serves_its_allow_list_alone(self, seeded_url: str):
         assert self._read_one(seeded_url, "Weber") == {
             "spieler_id": str(SPIELER_OIDS["Weber"]),
             "first_name": "Jonas",
@@ -462,8 +428,7 @@ class TestTheBaseTierReadExecuted:
 def seeded_url(mongo_url: str) -> Iterator[str]:
     """Six people and their squad rows.
 
-    A retired person beside a live row, a retired row, a surname whose initial is two bytes, and a
-    person carrying no surname at all.
+    A retired row, a surname whose initial is two bytes, and a person carrying no surname at all.
     """
 
     async def _seed() -> None:
@@ -478,7 +443,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     _spieler("Adler", "Marek", "Adler"),
                     _spieler("Ohne", "Lena", None),
                     _spieler("Oeztuerk", "Timo", "Öztürk"),
-                    _spieler("Weber", "Jonas", "Weber", inactive_since="2026-05-01"),
+                    _spieler("Weber", "Jonas", "Weber"),
                     _spieler("Kraus", RETIRED_ROW_FIRST_NAME, "Kraus"),
                 ]
             )
@@ -675,13 +640,13 @@ class TestTheAdminEchoIsServedNoMask:
     def test_the_echo_carries_a_withheld_person_s_whole_name(self):
         """Composed by the handler from the stored document, over the row whose public reads serve neither name."""
         row = MASKED_SQUAD["Intern"]
-        echoed = _as_single({"_id": row.oid, "first_name": row.first_name, "last_name": row.last_name, "inactive_since": None})
+        echoed = _as_single({"_id": row.oid, "first_name": row.first_name, "last_name": row.last_name})
 
         assert (echoed.first_name, echoed.last_name) == (row.first_name, row.last_name)
 
     def test_the_echo_refuses_a_withheld_forename(self, assert_rejects):
         """A `null` forename here is the mask having reached the admin editor, and this declaration is what fails first."""
-        body = {"spieler_id": MASKED_SQUAD["Intern"].oid, "last_name": "Gerber", "inactive_since": None}
+        body = {"spieler_id": MASKED_SQUAD["Intern"].oid, "last_name": "Gerber"}
 
         assert_rejects(FLSpielerAdminSingleResponse, {**body, "first_name": None}, "first_name")
 

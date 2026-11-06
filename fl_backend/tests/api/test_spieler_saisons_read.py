@@ -7,9 +7,8 @@ from pymongo.database import Database
 
 from app.api.spieler.schemas import (
     FLEinwilligung,
-    FLPatchSaisonSpielerPayload,
+    FLPatchKaderRowPayload,
     FLPatchSpielerPayload,
-    FLPostSaisonSpielerPayload,
     FLSpieler,
     FLSpielerMembership,
     FLSpielerPublic,
@@ -45,8 +44,8 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607190001")
 
 class TestTheSaisonsPipeline:
     def test_it_filters_out_the_sentinel_alone(self):
-        # No `$match` but the sentinel's, the lookup included: a retired person, a retired row and a
-        # player in no squad all belong in the admin list.
+        # No `$match` but the sentinel's, the lookup included: a retired row and a player in no squad
+        # both belong in the admin list.
         matches = [stage["$match"] for stage in build_spieler_saisons_pipeline() if "$match" in stage]
         assert matches == [build_real_spieler_filter()]
 
@@ -185,14 +184,11 @@ class TestTheResponseModel:
         assert player.memberships[0].stufe is None
 
     def test_a_payload_refuses_the_marker(self):
-        """The create derives it and nothing edits it, so a sent marker is refused rather than silently stored or dropped."""
+        """The admission derives it and nothing edits it, so a sent marker is refused rather than silently stored or dropped."""
 
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonSpielerPayload.model_validate(
+            FLPatchKaderRowPayload.model_validate(
                 {
-                    # Both ids ride in the path, so naming either here is an extra of its own and
-                    # would satisfy this assertion without the marker being read at all.
-                    "team_id": str(TEAM_OID),
                     "nummer": "7",
                     "position": "Mittelfeld",
                     "stufe": "Q1",
@@ -203,18 +199,13 @@ class TestTheResponseModel:
 
         assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "is_nachnominiert")]
 
-    @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
-    def test_a_payload_keeps_the_role_required(self, payload_model):
+    def test_a_payload_keeps_the_role_required(self):
         """The patch `$set`s its dump, so a default here strips an armband a form forgot to send."""
-        assert payload_model.model_fields["rolle"].is_required()
+        assert FLPatchKaderRowPayload.model_fields["rolle"].is_required()
 
-    @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
-    def test_no_payload_declares_the_marker(self, payload_model):
-        """Declared, even defaulted, the create would store a caller's claim about when the entry arrived.
-
-        The backend makes the marker the create's own derivation.
-        """
-        assert "is_nachnominiert" not in payload_model.model_fields
+    def test_no_payload_declares_the_marker(self):
+        """Declared, even defaulted, an edit would store a caller's claim about when the entry arrived."""
+        assert "is_nachnominiert" not in FLPatchKaderRowPayload.model_fields
 
 
 class TestWhichTierMayReadTheConsentRecord:
@@ -263,10 +254,8 @@ class TestTheAddressASignedInPersonIsJoinedOn:
 EINWILLIGUNG = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20")
 
 
-def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return spieler_document(
-        SPIELER_OIDS[name], name[0], name, einwilligung=EINWILLIGUNG, email=f"{name.lower()}@schule.de", inactive_since=inactive_since
-    )
+def _spieler(name: str) -> dict[str, Any]:
+    return spieler_document(SPIELER_OIDS[name], name[0], name, einwilligung=EINWILLIGUNG, email=f"{name.lower()}@schule.de")
 
 
 def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since: str | None = None) -> dict[str, Any]:
@@ -288,8 +277,7 @@ def squads(mongo_database: Database) -> Database:
         [
             {**_spieler("Abel"), "email": STORED_ADDRESS},
             _spieler("Alt"),
-            # The person is retired and their squad row is not: the two are independent.
-            _spieler("Baum", inactive_since="2026-05-01"),
+            _spieler("Baum"),
             _spieler("Cordes"),
             _spieler("Ohne"),
         ]
@@ -326,17 +314,11 @@ class TestTheSaisonsPipelineExecuted:
         assert len(players["Cordes"].memberships) == 2
 
     def test_a_player_with_no_squad_row_comes_back_with_an_empty_list(self, squads: Database):
-        """Not dropped and not malformed — which is what makes the create-then-enter flow possible."""
+        """Not dropped and not malformed: a person outlives their last squad, and the editor still has to reach them."""
         assert self._by_surname(squads)["Ohne"].memberships == []
 
-    def test_a_retired_person_is_returned_with_their_squad_row(self, squads: Database):
-        players = self._by_surname(squads)
-
-        assert players["Baum"].inactive_since == "2026-05-01"
-        assert [row.saison_id for row in players["Baum"].memberships] == [SAISON]
-
     def test_a_retired_squad_row_is_returned_and_says_so(self, squads: Database):
-        """Hiding it would leave no way back: a second create is a 409 against the index the retired row still holds."""
+        """Hiding it would leave no way back: its reactivate is reached from this read alone."""
         rows = {row.saison_id: row for row in self._by_surname(squads)["Cordes"].memberships}
 
         assert rows[PRIOR_SAISON].inactive_since == "2025-11-30"

@@ -12,16 +12,14 @@ from pymongo.errors import OperationFailure
 from app.api.identity.schemas import FLErasureResponse
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
-    delete_spieler,
     patch_saison_spieler,
     patch_spieler,
-    post_saison_spieler,
 )
-from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
+from app.api.spieler.schemas import FLPatchKaderRowPayload, FLPatchSpielerPayload
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SPIELER_ID
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_team_document, spielbericht_document, spieler_document
+from tests.documents import saison_document, saison_spieler_document, saison_team_document, spielbericht_document, spieler_document
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.whole_database import where_held
@@ -95,8 +93,8 @@ def person_row(first_name: str) -> dict[str, Any]:
     )
 
 
-async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, team_id: ObjectId, retired: bool) -> ObjectId:
-    """A person seeded, put in two squads and edited on every row through the real endpoints.
+async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, team_id: ObjectId) -> ObjectId:
+    """A person and two squad rows seeded, then edited on every row through the real endpoints.
 
     The edits are the point: a seed writes no log row, so a person never edited leaves every
     redaction assertion below passing vacuously.
@@ -107,24 +105,12 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
     spieler_id = document["_id"]
 
     for saison_id, worn, then_worn in ((FORMER_SAISON_ID, "41", "42"), (SAISON_ID, "10", "7")):
-        await post_saison_spieler(
-            spieler_id=spieler_id,
-            saison_spieler_data=FLPostSaisonSpielerPayload(
-                saison_id=saison_id, team_id=team_id, nummer=worn, position="Angriff", stufe="Q2", rolle=None
-            ),
-            spieler_collection=database[Collection.SPIELER],
-            saison_spieler_collection=database[Collection.SAISON_SPIELER],
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
-            saisons_collection=database[Collection.SAISONS],
-            db=database.client,
-            today=TODAY,
-        )
+        await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(spieler_id, saison_id, team_id, nummer=worn))
         await patch_saison_spieler(
             spieler_id=spieler_id,
             saison_id=saison_id,
-            saison_spieler_data=FLPatchSaisonSpielerPayload(team_id=team_id, nummer=then_worn, position="Abwehr", stufe="Q2", rolle="kapitaen"),
+            saison_spieler_data=FLPatchKaderRowPayload(nummer=then_worn, position="Abwehr", stufe="Q2", rolle="kapitaen"),
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=database[Collection.SAISONS],
             db=database.client,
         )
@@ -145,14 +131,11 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
         db=database.client,
     )
 
-    if retired:
-        await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
-
     return spieler_id
 
 
 async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
-    """A person seeded, renamed and retired who holds no squad row, so the redaction's squad branch names no id."""
+    """A person seeded and renamed who holds no squad row, so the redaction's squad branch names no id."""
 
     document = person_row(LONE_FIRST_NAME)
     await database[Collection.SPIELER].insert_one(document)
@@ -164,7 +147,6 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
         spieler_collection=database[Collection.SPIELER],
         db=database.client,
     )
-    await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
 
     return spieler_id
 
@@ -227,7 +209,7 @@ class TestARetiredPupilIsGeloeschtWhole:
         """Catches removing the person alone: the squad read `$lookup`s outward from `spieler`, so an orphan is invisible."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID, retired=True)
+            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID)
             response = await erase_the_pupil(database, client, spieler_id)
 
             return response.saison_spieler, await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
@@ -240,8 +222,8 @@ class TestARetiredPupilIsGeloeschtWhole:
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID, retired=True)
-            other_id = await a_pupil_with_a_history(database, first_name="Erika", team_id=AWAY_TEAM_OID, retired=False)
+            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID)
+            other_id = await a_pupil_with_a_history(database, first_name="Erika", team_id=AWAY_TEAM_OID)
             await erase_the_pupil(database, client, spieler_id)
 
             return (
@@ -255,8 +237,8 @@ class TestARetiredPupilIsGeloeschtWhole:
         """Catches an `$or` branch matching on `collection` alone, which would empty the whole log."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID, retired=True)
-            other_id = await a_pupil_with_a_history(database, first_name="Erika", team_id=AWAY_TEAM_OID, retired=False)
+            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID)
+            other_id = await a_pupil_with_a_history(database, first_name="Erika", team_id=AWAY_TEAM_OID)
             await erase_the_pupil(database, client, spieler_id)
 
             return await log_rows_naming(database, other_id)
@@ -278,7 +260,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, first_name=ERASED_FIRST_NAME, team_id=HOME_TEAM_OID, retired=True)
+            spieler_id = await a_pupil_with_a_history(database, first_name=ERASED_FIRST_NAME, team_id=HOME_TEAM_OID)
             left_behind = await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id, "inactive_since": {"$ne": None}})
             seeded = images_naming(await images_in_the_whole_log(database), spieler_id)
             await erase_the_pupil(database, client, spieler_id)
@@ -299,8 +281,8 @@ class TestNothingOfTheirsIsLeftAnywhere:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, first_name=ERASED_FIRST_NAME, team_id=HOME_TEAM_OID, retired=True)
-            await a_pupil_with_a_history(database, first_name=OTHER_FIRST_NAME, team_id=AWAY_TEAM_OID, retired=False)
+            spieler_id = await a_pupil_with_a_history(database, first_name=ERASED_FIRST_NAME, team_id=HOME_TEAM_OID)
+            await a_pupil_with_a_history(database, first_name=OTHER_FIRST_NAME, team_id=AWAY_TEAM_OID)
             await erase_the_pupil(database, client, spieler_id)
 
             return await where_held(database, ERASED_FIRST_NAME, f"{OTHER_FIRST_NAME}-Mustermann")
@@ -320,7 +302,7 @@ class TestAPupilWhoNeverJoinedASquad:
         """Catches an empty id list widened to match every squad row, which would empty the log for the whole league."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            other_id = await a_pupil_with_a_history(database, first_name=OTHER_FIRST_NAME, team_id=AWAY_TEAM_OID, retired=False)
+            other_id = await a_pupil_with_a_history(database, first_name=OTHER_FIRST_NAME, team_id=AWAY_TEAM_OID)
             response = await erase_the_pupil(database, client, await a_pupil_who_never_joined_a_squad(database))
 
             return response.saison_spieler, images_naming(await images_in_the_whole_log(database), other_id)
@@ -439,7 +421,7 @@ class TestAHalfDoneLoeschungCommitsNothing:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID, retired=True)
+            spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID)
             # Narrow enough to refuse the redaction's `$set`, wide enough to admit the removals' own
             # rows, which are recorded with `redacted_at` null.
             await database.command(

@@ -30,28 +30,6 @@ from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 
 
-async def pull_a_person_to_enter(
-    *,
-    spieler_collection: AsyncCollection,
-    spieler_id: CustomObjectId,
-    # REQUIRED for `refuse_a_full_squad`'s reason: the anchor below closes the race.
-    session: AsyncClientSession,
-) -> None:
-    """A 404 where nobody stands behind the id, the sentinel included.
-
-    The erasure writes no row this entry writes, so only the anchor on the person puts the two in one
-    write set.
-    """
-
-    await pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), projection=["_id"], session=session)
-
-    await anchor_in_db(
-        collection=spieler_collection,
-        db_filter={"_id": spieler_id},
-        session=session,
-    )
-
-
 async def refuse_a_full_squad(
     *,
     saison_spieler_collection: AsyncCollection,
@@ -62,6 +40,8 @@ async def refuse_a_full_squad(
     rules: Mapping[str, Any],
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
+    # Whether the row entering is a nominee's, which the caller reads or derives: a nominee stands outside the cap.
+    nominee: bool,
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
@@ -79,6 +59,10 @@ async def refuse_a_full_squad(
         db_filter={"_id": saison_id},
         session=session,
     )
+
+    # After the anchor: a nominee counts nothing, and still contends with a window moved under the verdict that made them one.
+    if nominee:
+        return
 
     squad_size = await saison_spieler_collection.count_documents(
         build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id), session=session

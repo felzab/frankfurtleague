@@ -527,19 +527,14 @@ class SquadRowsRunningTheSameRival:
 
 class TestAustragen:
     def test_it_stamps_the_row_and_leaves_the_person(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any]:
             response = await send(mongo_replica_set_url, "DELETE", row_url(TEILT_DIE_SIEBEN), ANSPRECH)
 
-            return (
-                response,
-                await database[Collection.SAISON_SPIELER].find_one({"spieler_id": TEILT_DIE_SIEBEN}),
-                await database[Collection.SPIELER].find_one({"_id": TEILT_DIE_SIEBEN}),
-            )
+            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": TEILT_DIE_SIEBEN})
 
-        response, row, person = on_a_league(mongo_replica_set_url, run)
+        response, row = on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
         assert row["inactive_since"] == TODAY
-        assert person is not None and person["inactive_since"] is None
         # The live `7` it shared is the captain's alone now, and an ausgetragen row wears nothing.
         assert response.json()["nummer_double"] is False

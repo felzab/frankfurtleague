@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
 import { orderStufen } from "@/features/spieler/constants";
-import { getSpielerNachnominierung, getSpielerSaisons } from "@/features/spieler/queries";
+import { getSpielerSaisons } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
 import { collectHeldRollen, countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamSaisons } from "@/features/teams/queries";
@@ -53,15 +53,10 @@ async function AdminSpielerEditContent({
 
   const membership = spieler.memberships.find((candidate) => candidate.saison_id === selectedSaison.id) ?? null;
 
-  // Asked once the season resolves, since the URL may name none, and only
-  // for a player holding no row there: the entry branch is the one place the verdict is shown.
-  const nachnominierung = membership === null ? await getSpielerNachnominierung(selectedSaison.id) : null;
-
   const saison: SpielerSaisonMembership = {
     saisonId: selectedSaison.id,
     saisonStatus: selectedSaison.status,
     erlaubteStufen: orderStufen(selectedSaison.rules.allowed_stufen),
-    nachnominierungLaeuft: nachnominierung?.nachnominierung ?? null,
     membership:
       membership === null
         ? null
@@ -84,7 +79,6 @@ async function AdminSpielerEditContent({
   // place: a squad at the cap counting this player would refuse an edit that moves nobody.
   const liveSquadRows = countLiveSquadRows({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
 
-  // The picker offers the selected season's teams only: a transfer is meaningful within it alone.
   const teams: SpielerTeamOption[] = teamsRes.teams
     .filter((team) => team.memberships.some((candidate) => candidate.saison_id === selectedSaison.id))
     .map((team) => ({
@@ -102,7 +96,6 @@ async function AdminSpielerEditContent({
         id: spieler.id,
         first_name: spieler.first_name,
         last_name: spieler.last_name,
-        inactive_since: spieler.inactive_since,
         birth_date: spieler.birth_date,
         email: spieler.email,
         adresswechsel_id: spieler.address_change_id,

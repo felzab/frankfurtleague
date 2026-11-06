@@ -62,7 +62,6 @@ BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
 BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.de"
 BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
 SPIELER_ACTIVE = "spieler.aktiv@schule.de"
-SPIELER_FORMER = "spieler.ehemalig@schule.de"
 SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.de"
 SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
 SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.de"
@@ -86,7 +85,6 @@ BEWERBUNG_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860011")
 BEWERBUNG_DECIDED_OID = ObjectId("6890a1b2c3d4e5f607860012")
 BEWERBUNG_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607860013")
 SPIELER_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860021")
-SPIELER_FORMER_OID = ObjectId("6890a1b2c3d4e5f607860022")
 SCHIEDSRICHTER_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860031")
 SCHIEDSRICHTER_RETIRED_OID = ObjectId("6890a1b2c3d4e5f607860032")
 SCHIEDSRICHTER_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
@@ -186,7 +184,6 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(SPIELER_ACTIVE_OID, "Anna", "Aktiv", email=SPIELER_ACTIVE),
-            spieler_document(SPIELER_FORMER_OID, "Anna", "Ehemalig", email=SPIELER_FORMER, inactive_since="2026-03-01"),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -283,7 +280,6 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(SEAT_EXITED, ("seats", SEAT_EXITED_ROW), id="a withdrawn team's seat"),
             pytest.param(BEWERBUNG_OPEN, ("bewerbungen", BEWERBUNG_OPEN_OID), id="a seat on a pending application"),
             pytest.param(SPIELER_ACTIVE, ("spieler", SPIELER_ACTIVE_OID), id="a live pupil"),
-            pytest.param(SPIELER_FORMER, ("spieler", SPIELER_FORMER_OID), id="a retired pupil"),
             pytest.param(SCHIEDSRICHTER_ACTIVE, ("schiedsrichter", SCHIEDSRICHTER_ACTIVE_OID), id="a live referee"),
             pytest.param(SCHIEDSRICHTER_RETIRED, ("schiedsrichter", SCHIEDSRICHTER_RETIRED_OID), id="a retired referee"),
             pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),

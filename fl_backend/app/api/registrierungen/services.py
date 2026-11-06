@@ -40,34 +40,47 @@ from app.shared.schemas.literals import FLConfirmationState
 SUBMITTED = "submitted"
 
 
-def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any, today: str) -> bool:
-    """Whether this season takes a registration on `today`: the season the site is on, its link not paused, `today` up to its window's `end`.
+def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any) -> bool:
+    """Whether this season takes a registration: the season the site is on, its link not paused.
 
     The window opens at the activation, so a `future` season takes none whatever its window says, and a `past` one is
-    over for good, a link minted earlier outliving it. The window is null or the whole object the season form writes,
-    `end` included. One predicate answers every `running` a link is shown with and this flow's refusal, so a link and
-    the write it opens cannot disagree.
+    over for good, a link minted earlier outliving it. Its `end` closes nothing: an entry past it is a nominee
+    (`app/api/saisons/services.py :: entry_is_a_nominee`), through the same link until the season ends. The window is
+    null or the whole object the season form writes. One predicate answers every `running` a link is shown with and
+    this flow's refusal, so a link and the write it opens cannot disagree.
     """
 
-    if registrierung is None or saison_status != "active":
-        return False
-
-    return bool(registrierung["open"]) and today <= str(registrierung["end"])
+    return registrierung is not None and saison_status == "active" and bool(registrierung["open"])
 
 
-def find_fenster_refusal(*, saison_status: Any, registrierung: Any, today: str) -> WriteRefusal | None:
+def find_fenster_refusal(*, saison_status: Any, registrierung: Any) -> WriteRefusal | None:
     """Why this season takes no registration today, or `None`.
 
     ONE code for every way `saison_nimmt_registrierungen_an` says no: naming which would report a
     season's administrative state to an anonymous visitor.
     """
 
-    if saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung, today=today):
+    if saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung):
         return None
 
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_CLOSED,
         status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_team_departed_refusal(*, austritt: Any) -> WriteRefusal | None:
+    """`document_not_found`: the invite's team has left the season, so its link opens nothing, as a revoked invite's does.
+
+    The record's presence and never its `date`, as a seat's grant reads it.
+    """
+
+    if austritt is None:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.DOCUMENT_NOT_FOUND,
+        status=HTTPStatus.NOT_FOUND,
     )
 
 
@@ -103,15 +116,16 @@ def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> WriteRef
     )
 
 
-def find_kader_refusal(*, squad_size: int, max_kader_size: int) -> WriteRefusal | None:
-    """`registrierung_kader_full`: the squad already stands at the season's cap.
+def kader_free(*, nominee: bool, squad_size: int, max_kader_size: int) -> bool:
+    """Whether a squad takes this entry: a nominee stands outside the cap, so only an ordinary entry is held to it."""
 
-    Over the same two numbers the administrator's Kader editor compares, and asked on every
-    submission rather than inside the Nachnominierung period alone, so two writers cannot disagree
-    about a full squad.
-    """
+    return nominee or squad_size < max_kader_size
 
-    if squad_size < max_kader_size:
+
+def find_kader_refusal(*, free: bool) -> WriteRefusal | None:
+    """`registrierung_kader_full`: the squad already stands at the season's cap, the answer `kader_free` gives."""
+
+    if free:
         return None
 
     # No figure in the message: a stranger holding a link learns nothing about a squad's size.
@@ -786,7 +800,6 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], address: str) -> dic
     return {
         **{field: registrierung_raw[field] for field in (*PERSON_IDENTITY_FIELDS, "birth_date")},
         "email": address,
-        "inactive_since": None,
     }
 
 

@@ -8849,7 +8849,7 @@
       },
       "FLPatchKaderRowPayload": {
         "additionalProperties": false,
-        "description": "What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.\n\nNever `_SaisonSpielerPayload`'s child, which carries `team_id`: a representative moves no pupil\nto another team, and `extra=\"forbid\"` refuses that key.",
+        "description": "What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.\n\nNo player moves between teams, so `extra=\"forbid\"` refuses `team_id`; it is also what refuses\n`is_nachnominiert`, which no edit sets or clears.",
         "properties": {
           "nummer": {
             "anyOf": [
@@ -8978,79 +8978,6 @@
           "version"
         ],
         "title": "FLPatchSaisonResponse",
-        "type": "object"
-      },
-      "FLPatchSaisonSpielerPayload": {
-        "additionalProperties": false,
-        "description": "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.\n\n`team_id` is editable here: a mid-season transfer is a change to the junction row.",
-        "properties": {
-          "nummer": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{1,4}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
-          }
-        },
-        "required": [
-          "team_id",
-          "nummer",
-          "position",
-          "stufe",
-          "rolle"
-        ],
-        "title": "FLPatchSaisonSpielerPayload",
         "type": "object"
       },
       "FLPatchSaisonTeamKontaktePayload": {
@@ -10002,75 +9929,6 @@
           "created_id"
         ],
         "title": "FLPostSaisonResponse",
-        "type": "object"
-      },
-      "FLPostSaisonSpielerPayload": {
-        "additionalProperties": false,
-        "description": "One player's membership of one team's squad for one season.\n\nEvery field is required, including those a squad often does not know: a caller states `null`\nrather than omitting, so the answer is theirs and not a default nobody chose.",
-        "properties": {
-          "nummer": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{1,4}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "team_id",
-          "nummer",
-          "position",
-          "stufe",
-          "rolle",
-          "saison_id"
-        ],
-        "title": "FLPostSaisonSpielerPayload",
         "type": "object"
       },
       "FLPostSaisonTeamPayload": {
@@ -17036,24 +16894,12 @@
         "type": "object"
       },
       "FLSpielerAdminSingleResponse": {
-        "description": "The same player echoed back to the admin who just wrote them, with their whole name.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date.",
+        "description": "The same player echoed back to the admin who just wrote them, with their whole name.",
         "properties": {
           "first_name": {
             "minLength": 1,
             "title": "First Name",
             "type": "string"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
           },
           "last_name": {
             "anyOf": [
@@ -17081,7 +16927,6 @@
           "spieler_id",
           "first_name",
           "last_name",
-          "inactive_since",
           "version"
         ],
         "title": "FLSpielerAdminSingleResponse",
@@ -17176,25 +17021,6 @@
         "title": "FLSpielerMembership",
         "type": "object"
       },
-      "FLSpielerNachnominierungResponse": {
-        "description": "Whether an entry into this season's squads today would be marked a Nachnominierung.",
-        "properties": {
-          "nachnominierung": {
-            "title": "Nachnominierung",
-            "type": "boolean"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "nachnominierung"
-        ],
-        "title": "FLSpielerNachnominierungResponse",
-        "type": "object"
-      },
       "FLSpielerPosition": {
         "enum": [
           "Tor",
@@ -17268,7 +17094,7 @@
         "type": "string"
       },
       "FLSpielerSaisonsResponse": {
-        "description": "Every player, retired ones included, each with their squad rows. Sorted by name.",
+        "description": "Every player, each with their squad rows. Sorted by name.",
         "properties": {
           "spieler": {
             "items": {
@@ -17551,18 +17377,6 @@
             "title": "Id",
             "type": "string"
           },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
           "last_name": {
             "anyOf": [
               {
@@ -17591,7 +17405,6 @@
           "first_name",
           "last_name",
           "id",
-          "inactive_since",
           "birth_date",
           "einwilligung",
           "email",
@@ -24710,7 +24523,7 @@
     },
     "/api/v0/registrierungen/invitation/view": {
       "post": {
-        "description": "Answer what this registration link is for: the team, its school, the season, and what the form may offer.\n\nA POST because the link value travels in the body and never in a path the edge would log. A shut\nwindow is a STATE here rather than a refusal, so a link opened after the deadline reads as closed\nrather than as invalid; only a link that opens no live invite is refused.",
+        "description": "Answer what this registration link is for: the team, its school, the season, and what the form may offer.\n\nA POST because the link value travels in the body and never in a path the edge would log. A paused\nor ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as\ninvalid; only a link that opens no live invite, or whose team has left the season, is refused.",
         "operationId": "registrierungen_post_invitation_view",
         "requestBody": {
           "content": {
@@ -24975,7 +24788,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/admit": {
       "post": {
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list\nholds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer\n(`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address\nthis admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on\nthe day the registration was submitted, never today's and never lifted from a retired row; this person's retired\nrow of this season is rewritten rather than a second one written, whichever team it was on. The registration is\ndeleted and its values redacted from the log in the same transaction, so a second press meets no row. Its\nsubmission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list\nholds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer\n(`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
         "operationId": "registrierungen_admit",
         "parameters": [
           {
@@ -30053,87 +29866,9 @@
         ]
       }
     },
-    "/api/v0/spieler/nachnominierung/{saison_id}": {
-      "get": {
-        "description": "Whether a player entered into this season's squads today would be marked a Nachnominierung.\n\n`POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's\n`start_date` on. 404 where no season has this id.",
-        "operationId": "spieler_get_spieler_nachnominierung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerNachnominierungResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Whether a squad entry into a season today is a Nachnominierung",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
     "/api/v0/spieler/saisons": {
       "get": {
-        "description": "Every player, retired ones included, each with every squad row they hold.\n\nA club page's squad cannot answer it: it serves one team's squad in one season, and so never a\nplayer outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
+        "description": "Every player, each with every squad row they hold.\n\nA club page's squad cannot answer it: it serves one team's squad in one season, and so never a\nplayer outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
         "operationId": "spieler_get_spieler_saisons",
         "responses": {
           "200": {
@@ -30200,7 +29935,7 @@
     },
     "/api/v0/spieler/self": {
       "get": {
-        "description": "Answer the signed-in address's own pupil record's stored data with every squad row it holds.\n\nPERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired\nrecord is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
+        "description": "Answer the signed-in address's own pupil record's stored data with every squad row it holds.\n\nPERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself.\nIts consent is the account page's (`GET /account/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
         "operationId": "spieler_get_self",
         "responses": {
           "200": {
@@ -30266,83 +30001,6 @@
       }
     },
     "/api/v0/spieler/{spieler_id}": {
-      "delete": {
-        "description": "Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE.",
-        "operationId": "spieler_delete_spieler",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerAdminSingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Retire a Spieler (soft delete)",
-        "tags": [
-          "spieler"
-        ]
-      },
       "get": {
         "description": "One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.",
         "operationId": "spieler_get_spieler_by_id",
@@ -30508,174 +30166,6 @@
         ]
       }
     },
-    "/api/v0/spieler/{spieler_id}/reactivate": {
-      "post": {
-        "description": "Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate.",
-        "operationId": "spieler_reactivate_spieler",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerAdminSingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Bring a retired Spieler back",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/{spieler_id}/saisons": {
-      "post": {
-        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired. A\nsquad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never\ntaken from the body: it is true from the season's `start_date` on.",
-        "operationId": "spieler_post_saison_spieler",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPostSaisonSpielerPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Add a Spieler to a squad",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "delete": {
         "description": "Take a player out of a season's squad. SOFT: the row stays.\n\nThe row records that this player wore this number in this squad, which stays true after they\nleave. `GET /spieler/saisons` is where an admin reads it back, marked by `inactive_since`.",
@@ -30764,7 +30254,7 @@
         ]
       },
       "patch": {
-        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not\n(`kader_rolle_taken`).",
+        "description": "Update a player's squad entry for that season. The team stays the stored row's: no player moves between teams.\n\nA DUPLICATE `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose); a `rolle`\nanother live row holds is not (`kader_rolle_taken`).",
         "operationId": "spieler_patch_saison_spieler",
         "parameters": [
           {
@@ -30791,7 +30281,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLPatchSaisonSpielerPayload"
+                "$ref": "#/components/schemas/FLPatchKaderRowPayload"
               }
             }
           },
@@ -30862,7 +30352,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected: a create reviving the row\nwould overwrite both. Refused where the squad has filled up, where its club left, or where the\n`rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nRefused where the squad has filled up, a nominee's row standing outside that cap, where its club\nleft, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).",
         "operationId": "spieler_reactivate_saison_spieler",
         "parameters": [
           {

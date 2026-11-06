@@ -6,18 +6,16 @@ import { KADER_ABSCHNITT, rolleLabel } from "./constants";
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { SpielerTeamOption } from "./types";
 
 /**
- * Widened to what a draft holds mid-edit: `team_id` is null while the enter-a-season picker is
- * untouched, `membership` while the player is in no squad for the selected season at all.
+ * Widened to what a draft holds mid-edit: `membership` is null while the player is in no squad for
+ * the selected season at all.
  */
 export type FLSpielerDraftFields = {
   first_name: string;
   last_name: string;
   birth_date: string | null;
   membership: {
-    team_id: string | null;
     nummer: string;
     position: FLSpielerPosition | null;
     stufe: FLSpielerStufe | null;
@@ -42,69 +40,49 @@ const FIELD_DESCRIPTORS = [
   },
 ] as const satisfies readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[];
 
-/** Built per call: `team_id` needs the season's team list, since a change row showing an id is one nobody can check. */
-function squadDescriptors(teams: readonly SpielerTeamOption[]) {
-  const nameById = new Map(teams.map((team) => [team.teamId, team.name]));
+const SQUAD_DESCRIPTORS = [
+  {
+    path: "nummer",
+    label: "Nummer",
+    group: KADER_ABSCHNITT,
+    appliesTo: (source) => source.membership !== null,
+    read: (source) => emptyAsNull(source.membership?.nummer ?? ""),
+  },
+  {
+    path: "position",
+    label: "Position",
+    group: KADER_ABSCHNITT,
+    appliesTo: (source) => source.membership !== null,
+    read: (source) => source.membership?.position ?? null,
+  },
+  {
+    path: "stufe",
+    label: "Stufe",
+    group: KADER_ABSCHNITT,
+    appliesTo: (source) => source.membership !== null,
+    read: (source) => source.membership?.stufe ?? null,
+  },
+  {
+    path: "rolle",
+    label: "Rolle",
+    group: KADER_ABSCHNITT,
+    appliesTo: (source) => source.membership !== null,
+    // `null` where no role is held, so giving one up renders as a REMOVAL in the change list. The
+    // German comes from `ROLLE_OPTIONS`, which is what the control beside it reads.
+    read: (source) => (source.membership?.rolle == null ? null : rolleLabel(source.membership.rolle)),
+  },
+] as const satisfies readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[];
 
-  return [
-    {
-      path: "team_id",
-      label: "Team",
-      group: KADER_ABSCHNITT,
-      appliesTo: (source) => source.membership !== null,
-      // An unknown id renders as itself rather than as null: the player is in a team the selected
-      // season does not offer, which is a real state worth seeing rather than an empty change row.
-      read: (source) => {
-        const teamId = source.membership?.team_id ?? null;
-        return teamId === null ? null : (nameById.get(teamId) ?? teamId);
-      },
-    },
-    {
-      path: "nummer",
-      label: "Nummer",
-      group: KADER_ABSCHNITT,
-      appliesTo: (source) => source.membership !== null,
-      read: (source) => emptyAsNull(source.membership?.nummer ?? ""),
-    },
-    {
-      path: "position",
-      label: "Position",
-      group: KADER_ABSCHNITT,
-      appliesTo: (source) => source.membership !== null,
-      read: (source) => source.membership?.position ?? null,
-    },
-    {
-      path: "stufe",
-      label: "Stufe",
-      group: KADER_ABSCHNITT,
-      appliesTo: (source) => source.membership !== null,
-      read: (source) => source.membership?.stufe ?? null,
-    },
-    {
-      path: "rolle",
-      label: "Rolle",
-      group: KADER_ABSCHNITT,
-      appliesTo: (source) => source.membership !== null,
-      // `null` where no role is held, so giving one up renders as a REMOVAL in the change list. The
-      // German comes from `ROLLE_OPTIONS`, which is what the control beside it reads.
-      read: (source) => (source.membership?.rolle == null ? null : rolleLabel(source.membership.rolle)),
-    },
-  ] as const satisfies readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[];
-}
-
-export type SpielerFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"] | ReturnType<typeof squadDescriptors>[number]["path"];
+export type SpielerFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"] | (typeof SQUAD_DESCRIPTORS)[number]["path"];
 
 export function deriveSpielerDraftStatus({
   stored,
   draft,
   fieldErrors,
-  teams,
 }: {
   stored: FLSpielerDraftFields;
   draft: FLSpielerDraftFields;
   fieldErrors: FieldErrors;
-  /** The selected season's teams, for resolving `team_id` to the name the picker showed. */
-  teams: readonly SpielerTeamOption[];
 }): FLSpielerDraftStatus {
-  return deriveDraftStatus({ descriptors: [...FIELD_DESCRIPTORS, ...squadDescriptors(teams)], stored, draft, fieldErrors });
+  return deriveDraftStatus({ descriptors: [...FIELD_DESCRIPTORS, ...SQUAD_DESCRIPTORS], stored, draft, fieldErrors });
 }

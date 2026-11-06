@@ -8,7 +8,7 @@ from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
-from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SPIELER_ID
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -101,7 +101,6 @@ def build_ghost_spieler() -> dict[str, Any]:
         "last_name": None,
         "einwilligung": None,
         "birth_date": None,
-        "inactive_since": GHOST_INACTIVE_SINCE,
     }
 
 
@@ -154,9 +153,8 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
     squad_match: dict[str, Any] = {
         "team_id": team_id,
         "saison_id": saison_id,
-        # The SQUAD ROW's retirement, and only ever that (`READ-SQUAD-001`): the same term on the
-        # person would take a retired person's squad entries down with them. No switch: this tier
-        # marks no row it would un-hide (`READ-SQUAD-002`).
+        # The SQUAD ROW's retirement (`READ-SQUAD-001`). No switch: this tier marks no row it would
+        # un-hide (`READ-SQUAD-002`).
         "inactive_since": None,
         # The sentinel, so it never joins a squad row whatever the rows hold.
         "spieler_id": dict(_NOT_THE_GHOST),
@@ -248,18 +246,23 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
-    """Which rows count towards `max_kader_size`.
+# The rows inside `max_kader_size`, whichever squad is counted. Retired rows are out: a player who left gave their place
+# back. Nominees are out: they stand outside the cap, so entering one neither needs a place nor takes one.
+CAPPED_SQUAD_ROW: Mapping[str, Any] = {"inactive_since": None, "is_nachnominiert": False}
 
-    Retired rows are out: a player who left gave their place back. The writing player is out so a
-    no-op -- an edit keeping the team, a reactivate of a live row -- is not refused by its own place.
+
+def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId | None) -> Mapping[str, Any]:
+    """Which rows of one squad count towards `max_kader_size`.
+
+    The writing player is out so a no-op, a reactivate of a live row, is not refused by its own place; `None` where the
+    count is asked for nobody, a registration not yet being a squad row.
     """
 
     return {
         "saison_id": saison_id,
         "team_id": team_id,
-        "inactive_since": None,
-        "spieler_id": {"$ne": excluding_spieler_id},
+        **CAPPED_SQUAD_ROW,
+        **({} if excluding_spieler_id is None else {"spieler_id": {"$ne": excluding_spieler_id}}),
     }
 
 
@@ -415,7 +418,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
 
 
 def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
-    """The one pupil row this address holds, retired or not, a withdrawal reaching it either way.
+    """The one pupil row this address holds.
 
     The `$type` term is the unique index's partial filter, which an equality alone does not imply.
     """
@@ -435,7 +438,7 @@ def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "inactive_since": 1, "einwilligung": 1}},
+        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "einwilligung": 1}},
         {
             "$lookup": {
                 "from": Collection.SAISON_SPIELER,

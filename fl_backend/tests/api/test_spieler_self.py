@@ -51,7 +51,6 @@ ACTIVE_SAISON = "2026"
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 IDENTIFIER_SPELLED_OTHERWISE = "Ortrud.Zwiebelmayer@SCHULE.de"
 YOUNG = "jonas.jungspund@schule.de"
-RETIRED = "rudolf.ruhestand@schule.de"
 BYSTANDER = "baldur.krautzberger@example.com"
 NOBODY = "niemand@schule.de"
 
@@ -154,7 +153,6 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             pupil(PUPIL_OID, "Ortrud", "Zwiebelmayer", IDENTIFIER),
             pupil(YOUNG_OID, "Jonas", "Jungspund", YOUNG, birth_date=SEVENTEEN_BIRTHDATE),
-            pupil(RETIRED_OID, "Rudolf", "Ruhestand", RETIRED, inactive_since="2026-07-01", einwilligung=_einwilligung(media=True)),
             pupil(BYSTANDER_OID, "Baldur", "Krautzberger", BYSTANDER),
         ]
     )
@@ -251,11 +249,6 @@ class TestTheOwnRecord:
 
         assert served(mongo_replica_set_url, _read(IDENTIFIER_SPELLED_OTHERWISE)).json()["spieler"]["spieler_id"] == str(PUPIL_OID)
 
-    def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
-        record = served(mongo_replica_set_url, _read(RETIRED, path=ACCOUNT_PATH)).json()["spieler"]
-
-        assert (record["spieler_id"], record["givable"]) == (str(RETIRED_OID), False)
-
     @pytest.mark.parametrize(("email", "angeboten"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
     def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, angeboten: bool):
         assert served(mongo_replica_set_url, _read(email, path=ACCOUNT_PATH)).json()["spieler"]["media_offered"] is angeboten
@@ -312,28 +305,6 @@ class TestARecordNotHeld:
         response, before, after, _ = served(mongo_replica_set_url, _press(NOBODY, _payload(scope="intern")))
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
-        assert after == before
-
-
-@pytest.mark.db
-class TestARetiredRecord:
-    """A withdrawal reaches every confirmed record the address holds (Art. 7(3) DSGVO); a grant only a live one."""
-
-    def test_a_withdrawal_is_taken(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(
-            mongo_replica_set_url, _press(RETIRED, _payload(scope="intern", media=False, stand=MEDIEN_GRANTED_STAND))
-        )
-
-        assert response.status_code == 204, response.text
-        assert (after[RETIRED_OID]["einwilligung"]["scope"], after[RETIRED_OID]["einwilligung"]["media"]) == ("intern", False)
-
-    def test_a_grant_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def withdrawn_earlier(database: AsyncDatabase) -> None:
-            await database[Collection.SPIELER].update_one({"_id": RETIRED_OID}, {"$set": {"einwilligung.media": False}})
-
-        response, before, after, _ = served(mongo_replica_set_url, _press(RETIRED, _payload(media=True), before=withdrawn_earlier))
-
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert after == before
 
 

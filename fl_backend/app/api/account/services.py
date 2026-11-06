@@ -236,7 +236,7 @@ def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "inactive_since": 1, "einwilligung": 1}},
+        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "einwilligung": 1}},
     ]
 
 
