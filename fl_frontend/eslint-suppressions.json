@@ -144,42 +144,12 @@
       "count": 1
     }
   },
-  "src/app/area/admin/registrierungen/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/registrierungen/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/sperrliste/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
   "src/app/area/admin/sperrliste/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/spieler/[spieler_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spieler/[spieler_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/spieler/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spieler/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     }
@@ -334,13 +304,13 @@
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 5
+      "count": 3
     },
     "react/forbid-component-props": {
-      "count": 2
+      "count": 1
     },
     "react/jsx-no-literals": {
-      "count": 6
+      "count": 2
     }
   },
   "src/features/address-change/components/views/AdminAdresswechselView.tsx": {
@@ -1135,20 +1105,6 @@
       "count": 4
     }
   },
-  "src/features/registrierungen/components/collections/AdminRegistrierungenList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
   "src/features/registrierungen/components/collections/RegistrierungenList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
@@ -1161,20 +1117,6 @@
     },
     "react/jsx-no-literals": {
       "count": 8
-    }
-  },
-  "src/features/registrierungen/components/views/AdminRegistrierungenView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 5
     }
   },
   "src/features/registrierungen/components/views/RegistrierungFormPanel.tsx": {
@@ -1640,25 +1582,6 @@
       "count": 2
     }
   },
-  "src/features/spieler/actions.ts": {
-    "fl/server-action": {
-      "count": 4
-    }
-  },
-  "src/features/spieler/components/collections/AdminSpielerTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 22
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 9
-    }
-  },
   "src/features/spieler/components/collections/KaderList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
@@ -1671,121 +1594,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormAustragenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 10
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormPersonSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/banners.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/features/spieler/components/forms/ClosedSetSelect.tsx": {
@@ -1911,22 +1719,6 @@
       "count": 5
     }
   },
-  "src/features/spieler/components/views/AdminSpielerEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/components/views/AdminSpielerView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/features/spieler/components/views/KaderView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -1954,11 +1746,6 @@
       "count": 2
     }
   },
-  "src/features/spieler/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 9
-    }
-  },
   "src/features/spieler/nachweis.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -1971,12 +1758,7 @@
   },
   "src/features/spieler/refusals.ts": {
     "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/spielerDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 7
+      "count": 1
     }
   },
   "src/features/system/components/ui/ServerIsLive.tsx": {

@@ -278,10 +278,7 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
     if rolle is None or not taken:
         return None
 
-    return WriteRefusal(
-        error_code=Code.KADER_ROLLE_TAKEN,
-        status=HTTPStatus.CONFLICT,
-    )
+    return WriteRefusal(error_code=Code.KADER_ROLLE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("rolle",),))
 
 
 def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId | None) -> list[Mapping[str, Any]]:
