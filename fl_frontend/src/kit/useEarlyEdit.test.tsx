@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useLayoutEffect, useState } from "react";
+import { cloneElement, useLayoutEffect, useState } from "react";
 
 import { act } from "@testing-library/react";
 import { createRoot, hydrateRoot } from "react-dom/client";
@@ -59,14 +59,14 @@ function drawn(page: ReactElement, edit: (root: HTMLElement) => void) {
   return container;
 }
 
-/** Hydrates `page` over `container`, and renders it once more: a render is what writes React's state over a field. */
+/**
+ * Hydrates `page` over `container`, and renders it once more: a render is what writes React's state over a field. The
+ * copy of the element is what makes it a render, since React bails out of the element it already holds.
+ */
 async function hydrated(container: HTMLElement, page: ReactElement) {
   const mismatches: unknown[] = [];
-  await act(async () => {
-    const root = hydrateRoot(container, page, { onRecoverableError: (error) => mismatches.push(error) });
-    await Promise.resolve();
-    root.render(page);
-  });
+  const root = await act(async () => hydrateRoot(container, page, { onRecoverableError: (error) => mismatches.push(error) }));
+  await act(async () => root.render(cloneElement(page)));
   expect(mismatches).toStrictEqual([]);
 }
 
@@ -310,6 +310,50 @@ describe("what a person did to a field before the page hydrated", () => {
 
     expect(onChange.mock.calls).toStrictEqual(raised === undefined ? [] : [[raised]]);
     expect(shown(container)).toBe(kept);
+    container.remove();
+  });
+
+  it("leaves the caret where the person left it", async () => {
+    const page = (
+      <TextField
+        label={WORD}
+        width="W3"
+        kind="text"
+      />
+    );
+    const container = drawn(page, (root) => {
+      typeInto(root, "Lena");
+      const control = root.querySelector("input");
+      control?.focus();
+      control?.setSelectionRange(1, 3);
+    });
+
+    await hydrated(container, page);
+
+    const control = container.querySelector("input");
+    expect([control?.selectionStart, control?.selectionEnd]).toStrictEqual([1, 3]);
+    container.remove();
+  });
+
+  // An address box exposes no caret and throws on being handed one, which the run reports as an unhandled error.
+  it("reaches the owner of a focused address box", async () => {
+    const onChange = vi.fn();
+    const page = (
+      <TextField
+        label={WORD}
+        width="W3"
+        kind="email"
+        onChange={onChange}
+      />
+    );
+    const container = drawn(page, (root) => {
+      typeInto(root, "lena@example.com");
+      root.querySelector("input")?.focus();
+    });
+
+    await hydrated(container, page);
+
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("lena@example.com");
     container.remove();
   });
 
