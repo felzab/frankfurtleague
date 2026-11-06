@@ -189,6 +189,30 @@ class TestTheOneSave:
         assert (club["name"], club["version"]) == ("Adler", 0)
         assert (row["name"], row["version"]) == ("Adler", 0)
 
+    def test_a_colour_moved_onto_another_row_s_is_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": BIEBER}, {"$set": {"trikot_farbe": "rot"}})
+            with pytest.raises(APIError) as refused:
+                await save(database, trikot_farbe="rot")
+
+            return refused.value, await row_now(database)
+
+        refusal, row = on_a_league(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.fields) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),))
+        assert row["trikot_farbe"] is None
+
+    def test_a_stored_pair_of_colours_locks_neither_club_s_other_fields(self, mongo_replica_set_url: str):
+        """A pair the ruling found standing: refused on every save, the rename would need the other club's colour moved first."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SAISON_TEAMS].update_many({"team_id": {"$in": [ADLER, BIEBER]}}, {"$set": {"trikot_farbe": "rot"}})
+            await save(database, trikot_farbe="rot", name="Adler neu")
+
+            return await club_now(database)
+
+        assert on_a_league(mongo_replica_set_url, body)["name"] == "Adler neu"
+
     @pytest.mark.parametrize("moved", [Collection.TEAMS, Collection.SAISON_TEAMS])
     def test_a_write_to_either_document_stales_the_save(self, mongo_replica_set_url: str, moved: Collection):
         """One count over two documents: judged on the club alone, a seat confirmed under the editor would go unseen."""
@@ -314,6 +338,18 @@ class TestTheEntry:
         code, rows = on_a_league(mongo_replica_set_url, body)
 
         assert (code, rows) == (Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED, 1)
+
+    def test_a_colour_another_row_holds_is_refused_on_its_box_and_writes_no_row(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": BIEBER}, {"$set": {"trikot_farbe": "rot"}})
+            with pytest.raises(APIError) as refused:
+                await enter(database, {"kind": "known", "team_id": str(CRONBERG)}, trikot_farbe="rot")
+
+            return refused.value, await database[Collection.SAISON_TEAMS].count_documents({"team_id": CRONBERG})
+
+        refusal, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.fields, rows) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 0)
 
     def test_a_retired_club_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:

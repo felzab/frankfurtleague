@@ -302,7 +302,7 @@ const UNBOOKED = { spielort: null, schiedsrichter: null };
  * in draw order, `dates` each matchday's span, `play` what happened in the fixture of a number, and
  * `knockout` who stands in each knockout fixture, where anybody does yet.
  */
-// One per row of a season: a colour is one team's, and a save of a row holding another's is refused.
+// One per row of a season, a colour being one team's.
 const SEASON_COLOURS = ["blau", "gruen", "rot", "gelb", "orange", "weiss", "schwarz", "grau"];
 
 function season({ id, status, start, end, drawn, groups, dates, play, knockout = {} }) {

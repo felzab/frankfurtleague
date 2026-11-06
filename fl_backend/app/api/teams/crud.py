@@ -185,6 +185,14 @@ async def enter_a_club(
         rules=FLSaisonRules.model_validate(saison_raw["rules"]),
         session=session,
     )
+    await refuse_a_taken_colour(
+        saison_teams_collection=saison_teams_collection,
+        saisons_collection=saisons_collection,
+        saison_id=saison_id,
+        trikot_farbe=trikot_farbe,
+        own_id=None,
+        session=session,
+    )
 
     document = compose_saison_team(
         saison_id=saison_id, team_id=team_id, gruppe=gruppe, trikot_farbe=trikot_farbe, name=team_raw["name"], shorthand=team_raw["shorthand"]

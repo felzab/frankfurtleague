@@ -46,7 +46,15 @@ from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, b
 from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
 from app.api.spielbestaetigungen.services import seat_void_of
-from app.api.teams.crud import enter_a_club, found_a_club, pull_a_club_to_enter, refuse_a_gruppe_move, void_moved_seats, write_the_club
+from app.api.teams.crud import (
+    enter_a_club,
+    found_a_club,
+    pull_a_club_to_enter,
+    refuse_a_gruppe_move,
+    refuse_a_taken_colour,
+    void_moved_seats,
+    write_the_club,
+)
 from app.api.teams.schemas import (
     FLAustrittPayload,
     FLKontaktInviteResponse,
@@ -535,7 +543,8 @@ async def post_team_entry(
 
     A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
     naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
-    `bewerbung_picked_team_already_entered`, and the season and the group as an entry is.
+    `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
+    season and the group as an entry is.
     """
 
     async def found_and_enter(session: AsyncClientSession) -> Any:
@@ -653,7 +662,8 @@ async def patch_team_saison(
     part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
     changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
     included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
-    `entry_gruppe_full` refuse it. 404 where the club holds no row of the season.
+    `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
+    `trikot_farbe`. 404 where the club holds no row of the season.
     """
 
     row_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -686,6 +696,18 @@ async def patch_team_saison(
                 saison_id=saison_id,
                 gruppe=team_data.gruppe,
                 rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+                session=session,
+            )
+
+        # Judged only where the save moves it: a colour a row already stores beside another's must not lock the club's
+        # other fields, as `find_kader_stufe_refusal` passes a stored Stufe.
+        if team_data.trikot_farbe != row_raw.get("trikot_farbe"):
+            await refuse_a_taken_colour(
+                saison_teams_collection=saison_teams_collection,
+                saisons_collection=saisons_collection,
+                saison_id=saison_id,
+                trikot_farbe=team_data.trikot_farbe,
+                own_id=row_raw["_id"],
                 session=session,
             )
 

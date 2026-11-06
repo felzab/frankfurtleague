@@ -70,15 +70,15 @@ function clubOf(entered: Entered): FLPostTeamEntryPayload["club"] {
 
 /**
  * Enters a club into a planned season from the dialog over its list, founding it first where it is new, in one
- * transaction: a refused entry leaves no new club behind. A Kürzel another club holds, a retired one's included, is
- * refused on its box. A season gone live, a group filled and a club retired since the dialog opened are a stale page.
+ * transaction: a refused entry leaves no new club behind. A Kürzel another club holds, a retired one's included, and a
+ * colour another row holds are refused on their boxes. A season gone live, a group filled and a club retired since the dialog opened are a stale page.
  */
 export const enterTeam = action({
   lane: "admin",
   name: "enterTeam",
   input: EnterTeam,
-  ownWords: ["duplicate_key"],
-  paths: { shorthand: "shorthand" },
+  ownWords: ["duplicate_key", "bewerbung_picked_team_already_entered", "trikot_farbe_taken"],
+  paths: { shorthand: "shorthand", trikot_farbe: "trikot_farbe" },
   examples: {
     shorthand: COPY.team.shorthandExample,
     plz: COPY.admin.spielort.plzExample,

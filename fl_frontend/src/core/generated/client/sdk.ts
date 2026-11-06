@@ -4640,7 +4640,8 @@ export const getTeamsPostTeamEntryUrl = (saisonId: string) => {
  *
  * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
  * naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
- * `bewerbung_picked_team_already_entered`, and the season and the group as an entry is.
+ * `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
+ * season and the group as an entry is.
  * @summary Enter a club into a season, one the league holds or a new one
  */
 export const teamsPostTeamEntry = async (
@@ -4813,7 +4814,8 @@ export const getTeamsPatchTeamSaisonUrl = (teamId: string, saisonId: string) => 
  * part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
  * changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
  * included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
- * `entry_gruppe_full` refuse it. 404 where the club holds no row of the season.
+ * `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
+ * `trikot_farbe`. 404 where the club holds no row of the season.
  * @summary Save the team editor: the club and its row of the season, in one transaction
  */
 export const teamsPatchTeamSaison = async (
