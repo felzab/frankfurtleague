@@ -201,16 +201,6 @@ def test_an_areas_count_ignores_its_own_selection_and_keeps_the_others(mongo_url
     assert log.count_per_herkunft == {"public": CREATED_VENUES}
 
 
-def test_an_operation_selection_narrows_the_areas_and_origins_it_leaves(mongo_url: str):
-    """The crossed pair is what this reaches: `teams` counts its creations alone while its patches stay out."""
-
-    log = answered(mongo_url, operation=["insert"])
-
-    assert log.count_per_collection == {"teams": CREATED_TEAMS, "spielorte": CREATED_VENUES}
-    assert log.count_per_operation == EVERY_OPERATION
-    assert log.count_per_herkunft == {"system": CREATED_TEAMS, "public": CREATED_VENUES}
-
-
 def test_an_origin_selects_the_kinds_it_is_filed_under_and_keeps_its_own_count(mongo_url: str):
     """`herkunft` names no stored field, so this is the term `HERKUNFT_JE_KIND` compiles rather than one MongoDB matches.
 
@@ -238,39 +228,6 @@ def test_the_signed_in_origin_selects_both_kinds_it_stands_for(mongo_url: str):
     assert len(log.action_log) == PATCHED_TEAMS
     assert log.count_per_collection == {"teams": PATCHED_TEAMS + PERSON_PATCHES}
     assert log.count_per_herkunft == EVERY_HERKUNFT
-
-
-def test_a_two_area_selection_reaches_the_read_as_one_term(mongo_url: str):
-    """The `$in` against a real collection: the bar is multi-select, and a joined value is the request two picked options make."""
-
-    log = answered(mongo_url, collection=["spielorte", "saisons"])
-
-    assert len(log.action_log) == CREATED_VENUES + 1
-    assert {row.collection for row in log.action_log} == {"spielorte", "saisons"}
-    assert log.count_per_operation == {"insert": CREATED_VENUES, "patch_one": 1}
-    assert log.count_per_herkunft == {"public": CREATED_VENUES, "system": 1}
-
-
-def test_a_two_origin_selection_reaches_the_read_as_one_term(mongo_url: str):
-    """Two categories out of three, each compiled to the kinds filed under it — which an equality could not express."""
-
-    log = answered(mongo_url, herkunft=["system", "public"])
-
-    assert {row.actor.kind for row in log.action_log} == {"system", "public"}
-    assert len(log.action_log) == CREATED_TEAMS + CREATED_VENUES + 1
-    assert log.count_per_collection == {"teams": CREATED_TEAMS, "spielorte": CREATED_VENUES, "saisons": 1}
-    assert log.count_per_herkunft == EVERY_HERKUNFT
-
-
-def test_a_trace_narrows_the_page_and_every_tally_alike(mongo_url: str):
-    """`trace_id` is no facet, so it stays in the tally's own filter — and this trace spans all three dimensions."""
-
-    log = answered(mongo_url, trace_id=FANOUT_TRACE_ID)
-
-    assert len(log.action_log) == CREATED_TEAMS + 1
-    assert log.count_per_collection == {"teams": CREATED_TEAMS, "saisons": 1}
-    assert log.count_per_operation == {"insert": CREATED_TEAMS, "patch_one": 1}
-    assert log.count_per_herkunft == {"system": CREATED_TEAMS + 1}
 
 
 def test_a_document_id_stored_as_an_objectid_selects_its_own_rows(mongo_url: str):

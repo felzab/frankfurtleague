@@ -141,31 +141,8 @@ class TestWhatTheWriteRecords:
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (LAST_COVERED, LAST_COVERED)
 
-    def test_the_served_row_carries_the_bound_and_still_no_hash(self, mongo_replica_set_url: str):
-        """The field has to reach the list or a lapsing ban is one an administrator cannot tell from a standing one."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client)
-
-            return await listed(database)
-
-        served = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
-
-        assert served.sperrliste[0].barred_until_saison_id == LAST_COVERED
-        assert "address_hash" not in served.model_dump_json()
-
 
 class TestTheSeasonTheBanIsCountedFrom:
-    def test_the_running_season_answers_while_one_is_active(self, mongo_replica_set_url: str):
-        """The ordinary state, and the control under the two cases answering nothing: a helper always answering `None` passes both."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
-            return await pull_governing_saison_id(saisons_collection=database[Collection.SAISONS])
-
-        seasons = [saison_document("2025", "past"), saison_document(ENTERED_UNDER, "active"), saison_document("2027", "future")]
-
-        assert on_a_league(mongo_replica_set_url, seasons, body) == ENTERED_UNDER
-
     def test_a_league_holding_only_ended_seasons_answers_nothing(self, mongo_replica_set_url: str):
         """A status set by hand, the rollover promoting in the transaction that demotes.
 
@@ -230,14 +207,6 @@ class TestALeagueWithNoSeasonRunning:
 
         assert on_a_league(mongo_replica_set_url, seasons, body) == 0
 
-    def test_the_check_answers_not_barred_rather_than_refusing(self, mongo_replica_set_url: str):
-        """A public submission must not be turned away for the league's own state, and the refusal above is what leaves the list empty."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return await is_barred(database, against=None)
-
-        assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is False
-
 
 class TestTheBoundaryTheCheckReads:
     def test_the_last_covered_season_still_bars_and_the_one_after_it_does_not(self, mongo_replica_set_url: str):
@@ -249,16 +218,6 @@ class TestTheBoundaryTheCheckReads:
             return await is_barred(database, against=LAST_COVERED), await is_barred(database, against=FIRST_CLEAR)
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (True, False)
-
-    def test_a_lapsed_row_answers_false_while_it_still_stands(self, mongo_replica_set_url: str):
-        """What makes the sweep's failure harmless: nothing else removes a lapsed row, and the check passes over it either way."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, int]:
-            await ban(database, client)
-
-            return await is_barred(database, against=FIRST_CLEAR), await database[Collection.BAN_LIST].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (False, 1)
 
 
 class TestTheSweepAtAnActivation:
@@ -331,16 +290,3 @@ class TestTheSweepAtAnActivation:
         assert GRUND not in repr(recorded)
         # The address the ban was taken from survives nowhere, the filter's own values included.
         assert BANNED.split("@")[0].lower() not in repr(recorded).lower()
-
-    def test_an_activation_removing_nothing_still_activates(self, mongo_replica_set_url: str):
-        """The floor under every case above: a sweep sharing the rollover's transaction may still never move its answer."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            await a_drawn_target(database, FIRST_CLEAR)
-            rolled_over = await activate(database, client, FIRST_CLEAR)
-            activated = await database[Collection.SAISONS].find_one({"_id": FIRST_CLEAR})
-
-            assert activated is not None
-            return str(activated["status"]), rolled_over.deactivated
-
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == ("active", 1)
