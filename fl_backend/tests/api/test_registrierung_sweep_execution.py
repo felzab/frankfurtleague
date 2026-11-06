@@ -27,7 +27,14 @@ from tests.api import test_registrierung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, team_document
+from tests.documents import (
+    SPIELER_TEXT_VERSIONS,
+    own_einwilligung_document,
+    rules_document,
+    saison_document,
+    saison_team_document,
+    team_document,
+)
 from tests.outbox import MAIL_NOW
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
@@ -55,6 +62,7 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607970011")
 INVITATION_OID = ObjectId("6890a1b2c3d4e5f607970021")
 
 TEAM_NAME = "Adler"
+THE_EXIT: Mapping[str, Any] = {"type": "rueckzug", "reason": "Keine Mannschaft mehr", "date": MAILED_ON_THE_MARK}
 
 
 def einwilligung(*, confirmed_at: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
@@ -132,6 +140,7 @@ def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_many([season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")])
             await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
+            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, TEAM_NAME, "ADX"))
             await database[Collection.REGISTRIERUNGEN].insert_many(the_corpus())
             # One recorded write per row, so every one has a log image holding its person.
             for document in the_corpus():
@@ -153,6 +162,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saison_id=saison_id,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         action_log_collection=database[Collection.ACTION_LOG],
         outbox_collection=database[Collection.OUTBOX],
@@ -207,6 +217,26 @@ class TestTheReminderClock:
         assert bookkeeping["token_hashes"] == [hash_token(f"first-{REMIND_OID}")]
         assert (bookkeeping["reminded_at"], bookkeeping["sent_at"]) == (TODAY, MAILED_ON_THE_MARK)
         assert bookkeeping["deadline"] == "2026-04-05"
+
+    @pytest.mark.parametrize("club_left", [pytest.param(THE_EXIT, id="departed"), pytest.param(None, id="replaced")])
+    def test_a_club_that_left_the_season_owes_no_reminder(self, mongo_replica_set_url: str, club_left: Mapping[str, Any] | None):
+        """Its link reads as over, so a reminder is a false mail to a real person; the row stays for the deadline clock to take."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            clubs = database[Collection.SAISON_TEAMS]
+            if club_left is None:
+                await clubs.delete_one({"team_id": TEAM_OID})
+            else:
+                await clubs.update_one({"team_id": TEAM_OID}, {"$set": {"austritt": club_left}})
+            answer = await sweep(database, client)
+
+            return answer.reminded, await reminded_ids(database), await stored(database, REMIND_OID)
+
+        count, owed, document = on_a_league(mongo_replica_set_url, body)
+
+        assert (count, owed) == (0, [])
+        assert document is not None
+        assert document["confirmation"]["reminded_at"] is None
 
     def test_the_days_second_pass_reminds_nobody_again(self, mongo_replica_set_url: str):
         """One chase per registration, whatever the mail did after the stamp: the stamp is what spends it."""

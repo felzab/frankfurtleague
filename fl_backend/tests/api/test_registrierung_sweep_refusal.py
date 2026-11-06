@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from typing import Any
 
 import pytest
+from bson import ObjectId
 
 from app.api.bewerbungen.services import latest_decision_due
 from app.api.registrierungen import system_router
@@ -173,10 +174,12 @@ SAISON_ID = "2026"
 # predicate counts forwards from the send.
 THE_MARK = MAILED_ON_THE_MARK
 
+STANDING_CLUB = ObjectId("6890a1b2c3d4e5f607970011")
+
 CLOCK_FILTERS: Mapping[str, Mapping[str, Any]] = {
     "season's end": build_undecided_filter(saison_id=SAISON_ID),
     "deadline": build_unconfirmed_filter(saison_id=SAISON_ID, today=TODAY),
-    "reminder": build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY),
+    "reminder": build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY, team_ids=[STANDING_CLUB]),
     "decline": build_decline_filter(saison_id=SAISON_ID, today=TODAY),
 }
 
@@ -207,6 +210,7 @@ class TestWhatEachClockReads:
         assert CLOCK_FILTERS["reminder"] == {
             "saison_id": SAISON_ID,
             "status": "submitted",
+            "team_id": {"$in": [STANDING_CLUB]},
             "einwilligung.confirmed_at": None,
             "confirmation.reminded_at": None,
             "confirmation.deadline": {"$gte": TODAY},
@@ -258,7 +262,7 @@ ROUND_TRIPS_A_ROW = 3
 
 # The other commands of the worst call erasing one page per clock, the share's Postausgang key lookup and insert among
 # them, counted on the wire by the same case.
-OTHER_COMMANDS = 16
+OTHER_COMMANDS = 17
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 PER_COMMAND_S = 0.00127

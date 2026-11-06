@@ -1445,10 +1445,10 @@ export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
  * below do not run for a `past` season, whose own end takes every row they read.
  *
  * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Then one reminder per registration at its reminder age, earliest deadline first: `reminded_at` is stamped and the
- * reminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded
- * share of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is
- * made inside a transaction and takes its log rows with it.
+ * named that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:
+ * `reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that
+ * inbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every
+ * removal names this season alone, is made inside a transaction and takes its log rows with it.
  *
  * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
  * its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
