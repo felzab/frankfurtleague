@@ -753,13 +753,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
         )
         planned = []
         for db_filter, order in index_reads(BEWERBUNGEN_QUEUE_FILTERS):
-            explained = (
-                await database["bewerbungen"]
-                .find(db_filter)
-                .sort(build_bewerbungen_sort(order=order))
-                .limit(50)
-                .explain()
-            )
+            explained = await database["bewerbungen"].find(db_filter).sort(build_bewerbungen_sort(order=order)).limit(50).explain()
             planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
         return planned
 

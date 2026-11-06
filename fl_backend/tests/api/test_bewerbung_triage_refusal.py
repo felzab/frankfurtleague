@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
+    compose_erneut_update,
     compose_kontakt_seat_update,
     find_acceptance_code_refusal,
     find_new_club_refusal,
@@ -69,7 +70,12 @@ class TestWhatASeatWriteMoves:
     def written(self, **confirmations: Any) -> Mapping[str, Any]:
         person = {"first_name": "Berta", "last_name": "Beispiel", "email": "berta@example.de", "phone": "069 1234567"}
 
-        return compose_kontakt_seat_update(seats=("trainer",), person=person, today="2026-04-01", confirmations=confirmations)["$set"]
+        return compose_kontakt_seat_update(seats=("trainer",), person=person, today="2026-04-01", kontakte={}, confirmations=confirmations)[
+            "$set"
+        ]
+
+    def re_sent(self, **confirmations: Any) -> Mapping[str, Any]:
+        return compose_erneut_update(seats=("trainer",), today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
 
     def test_only_the_written_seat_restarts(self):
         written = self.written(trainer=self.SEAT, ansprechperson=self.SEAT, stellvertretung=self.SEAT)
@@ -86,6 +92,19 @@ class TestWhatASeatWriteMoves:
         """That seat still takes the application on the day the notice named, and a second notice would announce one deletion twice."""
 
         assert "erasure_announced_at" not in self.written(trainer=self.SEAT, stellvertretung={**self.SEAT, "declined_at": "2026-03-20"})
+
+    def test_a_fresh_link_moving_the_day_the_notice_named_takes_the_announcement_back(self):
+        """The notice named the earliest day, not always the declining seat's: the application now goes on a later one nobody was told."""
+
+        earliest = {"trainer": {**self.SEAT, "deadline": "2026-03-10"}, "stellvertretung": {**self.SEAT, "declined_at": "2026-03-05"}}
+
+        assert self.written(**earliest)["erasure_announced_at"] is None
+        assert self.re_sent(**earliest)["erasure_announced_at"] is None
+
+    def test_a_re_send_leaving_the_day_keeps_the_announcement(self):
+        """The earliest day is another seat's, so the deletion stands as the notice named it."""
+
+        assert "erasure_announced_at" not in self.re_sent(trainer=self.SEAT, stellvertretung={**self.SEAT, "deadline": "2026-03-10"})
 
 
 class TestTheCodeAnAcceptanceTakes:

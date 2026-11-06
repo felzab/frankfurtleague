@@ -899,15 +899,31 @@ def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool)
     return {"$set": written, "$unset": {"idempotency_fingerprint": ""}}
 
 
-def compose_erneut_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+def _fresh_links(*, seats: Sequence[str], today: str) -> dict[str, Any]:
+    # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
+    return {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}
+
+
+def _moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str], today: str) -> bool:
+    """Whether fresh links on these seats move `deletion_day`, the earliest day and not always the declining seat's, which a notice named."""
+
+    fresh = {**(confirmations if isinstance(confirmations, Mapping) else {}), **{seat: compose_bestaetigung(today=today) for seat in seats}}
+    unanswered = {**(kontakte if isinstance(kontakte, Mapping) else {}), **dict.fromkeys(seats)}
+
+    return deletion_day(kontakte=unanswered, confirmations=fresh) != deletion_day(kontakte=kontakte, confirmations=confirmations)
+
+
+def compose_erneut_update(*, seats: Sequence[str], today: str, kontakte: Any, confirmations: Any) -> Mapping[str, Any]:
     """A re-send: one fresh entry per seat this person holds, restarting those seats' 14 days and no other's.
 
     Both seats one person holds, as the confirmation writes both: one entry left standing would keep
     the replaced address's link alive through `paired_seat`.
     """
 
-    # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
-    return {"$set": {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}}
+    moved = _moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats, today=today)
+
+    # A day that stands keeps its announcement, since a second notice would announce one deletion twice; a moved one is told afresh.
+    return {"$set": {**_fresh_links(seats=seats, today=today), **({"erasure_announced_at": None} if moved else {})}}
 
 
 def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
@@ -1062,16 +1078,15 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
     return seat_named(zugleich) if seat == "trainer" else ("trainer" if seat == zugleich else None)
 
 
-def compose_kontakt_seat_update(*, seats: Sequence[str], person: Mapping[str, Any], today: str, confirmations: Any) -> Mapping[str, Any]:
+def compose_kontakt_seat_update(
+    *, seats: Sequence[str], person: Mapping[str, Any], today: str, kontakte: Any, confirmations: Any
+) -> Mapping[str, Any]:
     """The person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
-    erneut = compose_erneut_update(seats=seats, today=today)
-    # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced.
-    announced = (
-        {}
-        if any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
-        else {"erasure_announced_at": None}
-    )
+    # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced, on the day it named.
+    stands = any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
+    moved = _moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats, today=today)
+    announced = {} if stands and not moved else {"erasure_announced_at": None}
     # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
     einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
@@ -1080,7 +1095,7 @@ def compose_kontakt_seat_update(*, seats: Sequence[str], person: Mapping[str, An
 
     # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
     # `$set` under a null is `PathNotViable`, which aborts the transaction.
-    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"], **announced}}
+    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **_fresh_links(seats=seats, today=today), **announced}}
 
 
 # --- The retention SWEEP. Seven clocks, each a pure predicate over one document and `today`, so
@@ -1206,7 +1221,10 @@ def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[st
 
 
 def deletion_day(*, kontakte: Any, confirmations: Any) -> str | None:
-    """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names."""
+    """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names.
+
+    A write moving it takes the notice's stamp back (`compose_erneut_update`), so a stamp means the named day still holds.
+    """
 
     days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in ausstehende_seats(kontakte=kontakte)]
 

@@ -1436,12 +1436,13 @@ class TestCorrectingOneContactAddress:
         assert before is not None and before.delivery is not None and before.delivery.state == "undeliverable"
         assert after is not None and (after.state, after.delivery) == ("open", None)
 
-    def test_one_person_holding_two_seats_is_corrected_on_both(self, mongo_replica_set_url: str):
-        """A seat left on the old address keeps a live link to a mailbox the league has stopped using."""
+    @pytest.mark.parametrize("pressed", ["ansprechperson", "trainer"])
+    def test_one_person_holding_two_seats_is_corrected_on_both(self, mongo_replica_set_url: str, pressed: str):
+        """A seat left on the old address keeps a live link to a mailbox the league has stopped using, whichever seat the page posts."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client, mirrored=True)
-            response = await correct(database, client, "ansprechperson")
+            response = await correct(database, client, pressed)
 
             return response.rollen, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
@@ -1764,18 +1765,34 @@ class TestAResendRacingAnAnswer:
         assert code == Code.BEWERBUNG_KONTAKT_BARRED
         assert after == before
 
-    def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):
+    def test_a_resend_moving_the_day_a_notice_named_owes_the_deletion_its_notice_again(self, mongo_replica_set_url: str):
+        """The read the re-send judged reaches its update: a stamp left on a moved day leaves the Ansprechperson told of a day that went."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": ERNEUT_BEWERBUNG},
+                {"$set": {"erasure_announced_at": "2026-03-30", "confirmations.ansprechperson.deadline": "2026-04-05"}},
+            )
+            await resend(database, "ansprechperson")
+
+            return await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        assert on_a_league(mongo_replica_set_url, body)["erasure_announced_at"] is None
+
+    @pytest.mark.parametrize("pressed", ["ansprechperson", "trainer"])
+    def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str, pressed: str):
         """The caller records the delivery and words the mail's role text from `rollen`, so one seat named would cover half the link."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_open_ansprechperson_seat(database, mirrored=True)
-            response = await resend(database, "ansprechperson")
+            response = await resend(database, pressed)
 
             return response, await drained(database, client), await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
         response, [mail], stored = on_a_league(mongo_replica_set_url, body)
 
-        assert response.rollen == ["ansprechperson", "trainer"]
+        assert sorted(response.rollen) == ["ansprechperson", "trainer"]
         assert {seat: stored["confirmations"][seat]["token_hashes"] for seat in ("ansprechperson", "trainer")} == dict.fromkeys(
             ("ansprechperson", "trainer"), [hash_token(mail.token or "")]
         )

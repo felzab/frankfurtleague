@@ -605,7 +605,7 @@ async def resend_einwilligung(
 
     # The judgement is in the FILTER, so a decision or an answer landing after the read leaves the row
     # untouched rather than overwritten.
-    async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
+    async def mint_on(stored: Mapping[str, Any], seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
         async def mint_unless_barred(session: AsyncClientSession) -> Mapping[str, Any]:
             """Write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
 
@@ -613,7 +613,9 @@ async def resend_einwilligung(
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-                update=compose_erneut_update(seats=seats, today=today),
+                update=compose_erneut_update(
+                    seats=seats, today=today, kontakte=stored.get("kontakte"), confirmations=stored.get("confirmations")
+                ),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
@@ -644,7 +646,7 @@ async def resend_einwilligung(
             return await session.with_transaction(mint_unless_barred)
 
     try:
-        matched = await mint_on(seats)
+        matched = await mint_on(bewerbung_raw, seats)
     except DocumentNotFoundError:
         # The judgement above was read outside the write's transaction, so a decision or an answer
         # landing between them leaves the filter matching nothing. Judged again rather than answered as
@@ -653,7 +655,7 @@ async def resend_einwilligung(
         seats = seats_judged_on(reread)
         # A re-read that passes is a row that moved back between the two, a decline and then a seat write:
         # one more write, whose own miss is the only one answering 404.
-        matched = await mint_on(seats)
+        matched = await mint_on(reread, seats)
 
     return FLBewerbungEinwilligungResendResponse(
         rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), confirmation_deadline=confirmation_deadline
@@ -743,6 +745,7 @@ async def post_kontakt_seat(
                 # The person as the slot stores them, so a sixth field added here reaches storage.
                 person=sitz_data.model_dump(mode="json", exclude={"version"}),
                 today=today,
+                kontakte=kontakte,
                 confirmations=confirmations,
             ),
             session=session,
