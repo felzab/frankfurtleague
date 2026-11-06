@@ -9,6 +9,7 @@
  */
 import { once } from "node:events";
 import { Agent, createServer, request } from "node:http";
+import path from "node:path";
 import { pipeline } from "node:stream";
 
 import { test as base } from "@playwright/test";
@@ -28,11 +29,21 @@ export type JourneyOptions = {
   mover: string;
   /** A referee's address the account acts delete. */
   leaver: string;
+  /** The schools the applicant's journeys apply as, one per way an application ends. `declined` is a club the form lists. */
+  applicants: { accepted: string; declined: string; objected: string };
+  /** The club the Austritt takes out of the running season, and the fixture its one opponent with a contact is told of. */
+  departing: { club: string; fixture: string };
+  /** The club the administration enters into the planned season. */
+  entered: string;
+  /** The pupil the administration edits in the running season's squads. */
+  squadded: string;
 };
 
 type JourneyFixtures = {
   /** The address this journey visits from, which the stack's edge reads as the visitor's. */
   visitor: string;
+  /** The administrator's device, beside the one the journey's own person holds, already signed in. */
+  administration: Page;
 };
 
 type WorkerFixtures = {
@@ -52,6 +63,13 @@ function visitorAddress(workerIndex: number, started: number): string {
     throw new Error(`198.18.0.0/15 holds no address for journey ${String(started)} of worker ${String(workerIndex)}`);
   return `198.${String(18 + Math.floor(workerIndex / 256))}.${String(workerIndex % 256)}.${String(started + 1)}`;
 }
+
+/**
+ * The session `./administrator.setup.ts` saves, which every administration journey opens with
+ * (https://playwright.dev/docs/auth). Beside the stack's keys in `.tmp-e2e/`, which goes when the stack goes and no
+ * failed run uploads: it holds a live session of that stack.
+ */
+export const ADMINISTRATOR_STATE = path.resolve(__dirname, "..", "..", "..", ".tmp-e2e", "administrator.json");
 
 /** The header Cloudflare names the visitor in, and the one `nginx/e2e/e2e.conf` trusts from the host. */
 const VISITOR_HEADER = "cf-connecting-ip";
@@ -172,6 +190,10 @@ export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures
   twoDevices: ["", { option: true }],
   mover: ["", { option: true }],
   leaver: ["", { option: true }],
+  applicants: [{ accepted: "", declined: "", objected: "" }, { option: true }],
+  departing: [{ club: "", fixture: "" }, { option: true }],
+  entered: ["", { option: true }],
+  squadded: ["", { option: true }],
 
   // `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it as.
   // Worker-scoped, so the count lives as long as the worker and a replacement worker starts its own block
@@ -223,5 +245,15 @@ export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures
   context: async ({ context }, provide) => {
     await standInForTurnstile(context);
     await provide(context);
+  },
+
+  // A second context as a fixture, as Playwright's guide builds one for a second role
+  // (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), on the proxy for the reason
+  // `../accountActs.spec.ts`'s second device is.
+  administration: async ({ browser, proxy }, provide) => {
+    const device = await browser.newContext({ proxy, storageState: ADMINISTRATOR_STATE });
+    await standInForTurnstile(device);
+    await provide(await device.newPage());
+    await device.close();
   },
 });
