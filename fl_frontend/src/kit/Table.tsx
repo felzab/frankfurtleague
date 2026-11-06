@@ -7,6 +7,7 @@ import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
+import { RowPress } from "./RowPress";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
@@ -59,9 +60,16 @@ export type TableRow = {
   /** The record's name; with `href` the whole row opens the record. */
   name: Words;
   href?: Route;
+  /**
+   * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check page
+   * back to a card: a client page's own, since a function cannot cross from the server.
+   */
+  onOpen?: () => void;
   /** A club's plaque before its name, or before a name of the club's own, such as a scorer's. */
   plaque?: Plaque;
   chip?: ChipProps;
+  /** Why the row's record was turned away, on a line of its own under the name, in the danger colour. */
+  refusal?: Copy;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
   /**
@@ -156,6 +164,8 @@ const table = tv({
     end: "w-0 pe-3",
     // A prose or a stacked cell's column label on a phone, drawn for the eye alone: the read head names the column.
     label: "",
+    // Under the name line, cut as a name is: the row keeps its height at the least, and a phone's width cuts no chip.
+    refusal: "block truncate text-xs text-danger",
   },
   variants: {
     align: {
@@ -381,6 +391,7 @@ function NameCell({
   const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
   const words = lonePlaque ? <span className={s.clubName()}>{name}</span> : name;
+  const opens = row.onOpen === undefined ? words : <RowPress onPress={row.onOpen}>{words}</RowPress>;
   const shape = prose ? "wraps" : plaque === undefined ? "name" : "plaque";
   return (
     <td
@@ -397,7 +408,7 @@ function NameCell({
           text={name}
           className={nameWords({ cut: !prose, lonePlaque })}>
           {row.href === undefined ? (
-            words
+            opens
           ) : (
             <Link
               href={row.href}
@@ -408,6 +419,7 @@ function NameCell({
         </CutText>
         {row.chip !== undefined && <Chip {...row.chip} />}
       </span>
+      {row.refusal !== undefined && <span className={s.refusal()}>{row.refusal}</span>}
     </td>
   );
 }
@@ -434,7 +446,8 @@ export function Table({
   plaqueAlone = false,
 }: TableProps) {
   const nameHead = table({ align: "start", compact, prose, stack }).head();
-  const isLinked = rows.some((row) => row.href !== undefined);
+  const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
+  const isLinked = rows.some(leadsOn);
   // Every row keeps the chevron's room on a phone where some row draws one there.
   const phoneEnd = { prose, stack, chevronOnPhone: isLinked && chevronOnPhone };
   const endStyle = prose || stack ? phoneEndStyle(rankLabel, columns) : undefined;
@@ -498,7 +511,7 @@ export function Table({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const marks = { linked: row.href !== undefined, muted: row.muted === true };
+              const marks = { linked: leadsOn(row), muted: row.muted === true };
               return (
                 <tr
                   key={row.id}
@@ -553,7 +566,7 @@ export function Table({
                       role="cell"
                       className={table(phoneEnd).end()}
                       style={endStyle}>
-                      {row.href !== undefined && <RowEnd />}
+                      {leadsOn(row) && <RowEnd />}
                     </td>
                   )}
                 </tr>
