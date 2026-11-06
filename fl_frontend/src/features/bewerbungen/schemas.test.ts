@@ -1,18 +1,12 @@
 import { renderMarkup, textOf } from "@/test-support/renderMarkup.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 import { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FormTeamSection } from "./components/forms/BewerbungForm/FormTeamSection.tsx";
-import {
-  BEWERBUNG_STUFENGROESSE_MAX,
-  BEWERBUNG_TOKEN_MAX_LENGTH,
-  BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-  SCHULE_NICHT_IN_LISTE,
-} from "./constants.ts";
-import { FLBewerbungEinwilligungAnswerPayloadSchema, FLBewerbungKontaktEmailPayloadSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
+import { BEWERBUNG_STUFENGROESSE_MAX, BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
+import { FLBewerbungKontaktEmailPayloadSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
 import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
@@ -663,43 +657,5 @@ describe("the one field of a submitted application an administrator may move", (
   it("folds as sign-in folds, never as a case-fold would", () => {
     expect(gleicheAdresse("erika@XN--MLLER-KVA.de", "Erika@xn--mller-kva.de")).toBe(true);
     expect(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de")).toBe(false);
-  });
-});
-
-describe("the consenting answer's birth date", () => {
-  /* The empty picker is the missing date, so the date picker's required mark is set by hand on the
-     strength of this refusal alone. */
-  it("is refused missing, on the date's own path, in German", () => {
-    const parsed = FLBewerbungEinwilligungAnswerPayloadSchema.safeParse({
-      token: "x".repeat(20),
-      answer: "given",
-      birth_date: "",
-      whatsapp: false,
-      media: false,
-      text_versions: SEAT_TEXT_VERSIONS,
-    });
-
-    expect(parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message])).toStrictEqual([
-      ["birth_date", "Bitte gib Dein Geburtsdatum ein."],
-    ]);
-  });
-});
-
-describe("the ceiling on the confirmation link's own token", () => {
-  /* A decline, so the body is whole without a date and no clock decides the case. */
-  const antwortBody = { answer: "declined" };
-
-  const verdict = (token: string) => FLBewerbungEinwilligungAnswerPayloadSchema.safeParse({ token: token, ...antwortBody });
-
-  /* No control renders the token, so past `CustomBewerbungToken`'s ceiling the endpoint's
-     `payload_refused` naming it marks nothing, and the page can only report a failed save. */
-  it("answers a token past the endpoint's ceiling with the sentence the missing one gets", () => {
-    const parsed = verdict("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1));
-    expect(parsed.success).toBe(false);
-    expect(parsed.error?.issues.map((issue) => issue.message)).toStrictEqual(["Bitte öffne den Link aus Deiner E-Mail erneut."]);
-  });
-
-  it("takes a token at the ceiling, as the endpoint does", () => {
-    expect(verdict("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH)).success).toBe(true);
   });
 });

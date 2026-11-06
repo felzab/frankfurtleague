@@ -94,7 +94,7 @@ function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
     case "confirmed":
       return undefined;
     case "objected":
-      return { tone: "danger", label: SERVER_COPY.schiedsrichterConfirmation.objected };
+      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
     case "unanswered":
     case "unasked":
       return { tone: "warn", label: WORDS.unconfirmed };

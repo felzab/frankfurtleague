@@ -202,6 +202,9 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
   "body_unreadable",
+  // A contact's link answered in another window, or its season row closed, since the page was served.
+  "bewerbung_seat_already_answered",
+  "kontakt_saison_past",
   // A season's dates, rules, draw, swap, replacement and links, each of which the season editor closes off its own read
   // before it is pressed: the season moved since the page was served.
   "saison_start_taken_place",

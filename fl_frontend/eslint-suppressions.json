@@ -9,11 +9,6 @@
       "count": 2
     }
   },
-  "src/app/(public)/confirm/kontakt/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/(public)/confirm/spiel/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -32,11 +27,6 @@
   "src/app/(public)/registrierung/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
-    }
-  },
-  "src/app/api/bestaetigung/kontakt/route.ts": {
-    "fl/server-action": {
-      "count": 1
     }
   },
   "src/app/api/bestaetigung/spiel/route.ts": {
@@ -232,11 +222,6 @@
   "src/core/addressChangeEmail.ts": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/core/bewerbungEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 41
     }
   },
   "src/core/dismissControl.ts": {
@@ -780,20 +765,6 @@
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/views/BestaetigungFormPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 13
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 10
-    },
-    "react/jsx-no-literals": {
-      "count": 7
-    }
-  },
   "src/features/bewerbungen/components/views/BestaetigungHinweise.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -814,31 +785,6 @@
     },
     "react/jsx-no-literals": {
       "count": 3
-    }
-  },
-  "src/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 9
-    }
-  },
-  "src/features/bewerbungen/components/views/BestaetigungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 33
-    },
-    "react/jsx-no-literals": {
-      "count": 20
     }
   },
   "src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx": {

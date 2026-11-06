@@ -1,10 +1,8 @@
 import {
   bewerbungenAcceptBewerbung,
   bewerbungenDeclineBewerbung,
-  bewerbungenGetEinwilligungView,
   bewerbungenGetSweepSaisons,
   bewerbungenPostBewerbung,
-  bewerbungenPostEinwilligung,
   bewerbungenPostKontaktSeat,
   bewerbungenResendEinwilligung,
   bewerbungenSweepSaison,
@@ -14,11 +12,7 @@ import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import type {
   FLAcceptBewerbungPayload,
   FLAcceptBewerbungResponse,
-  FLBewerbungEinwilligungAnswerResponse,
-  FLBewerbungEinwilligungDeclined,
-  FLBewerbungEinwilligungGiven,
   FLBewerbungEinwilligungResendResponse,
-  FLBewerbungEinwilligungViewResponse,
   FLBewerbungKontaktSeatPayload,
   FLBewerbungKontaktSeatResponse,
   FLBewerbungSweepResponse,
@@ -27,9 +21,7 @@ import type {
   FLDeclineBewerbungResponse,
   FLKontaktRolle,
   FLPostBewerbungPayload,
-  FLSaisonTeamEinwilligungAnswerResponse,
   FLSweepSaisonsResponse,
-  FLTokenPayload,
 } from "@/core/generated/client/types";
 
 /**
@@ -61,21 +53,6 @@ export async function ablehnenBewerbung({
 /** Records one school's application. */
 export async function postBewerbung(payload: FLPostBewerbungPayload, idempotencyKey: string | null): Promise<FLCreatedResponse> {
   return bewerbungenPostBewerbung(payload, { headers: idempotencyKey === null ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } });
-}
-
-/**
- * A POST that reads. The token is the credential, and a GET would put it in a query string the
- * backend's own route template does not redact.
- */
-export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<FLBewerbungEinwilligungViewResponse> {
-  return bewerbungenGetEinwilligungView(payload);
-}
-
-/** Records one contact person's answer and spends their token. */
-export async function postEinwilligung(
-  payload: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined,
-): Promise<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse> {
-  return bewerbungenPostEinwilligung(payload);
 }
 
 /**

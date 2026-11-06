@@ -23,6 +23,7 @@ export type SaisonValues = {
   forfeitLoser: string;
   bewerbungStart: CalendarDay | null;
   bewerbungEnd: CalendarDay | null;
+  bewerbungPaused: boolean;
   registrierungEnd: CalendarDay | null;
   registrierungPaused: boolean;
 };
@@ -46,6 +47,8 @@ export function valuesOf(saison: FLSaisonAdmin): SaisonValues {
     forfeitLoser: String(rules.forfeit_ergebnis.verlierer_tore),
     bewerbungStart: dayOf(saison.bewerbung?.start ?? null),
     bewerbungEnd: dayOf(saison.bewerbung?.end ?? null),
+    // `open` is the form's own flag: false pauses it.
+    bewerbungPaused: saison.bewerbung === null ? false : !saison.bewerbung.open,
     registrierungEnd: dayOf(saison.registrierung?.end ?? null),
     // `open` is the link's own flag: false pauses it.
     registrierungPaused: saison.registrierung === null ? false : !saison.registrierung.open,

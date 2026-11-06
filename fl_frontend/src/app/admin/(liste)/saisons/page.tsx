@@ -1,5 +1,3 @@
-import { DateField } from "@/kit/DateField";
-import { FieldRows } from "@/kit/FieldRows";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -12,9 +10,10 @@ import { CREATE_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { CreateFields } from "./CreateFields";
+
 import type { Copy } from "@/core/copy";
 import type { Code, FLSaisonAdminListed } from "@/core/generated/client/types";
-import type { NextSaison } from "@/features/saisons/nextSaison";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -74,37 +73,21 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
     act: { verb: "create", object: name },
     action: createSaison,
     // Read oldest first, the order `getAdminSaisons` asks for.
-    children: <CreateFields next={nextSaisonOf(saisons.at(-1))} />,
+    children: (
+      <CreateFields
+        next={nextSaisonOf(saisons.at(-1))}
+        required={CREATE_REQUIRED}
+      />
+    ),
     ...(refusals.create === null ? {} : { locked: lockedOf(refusals.create) }),
   };
-}
-
-/** The create dialog's boxes, starting from the days the newest season suggests. */
-function CreateFields({ next }: { next: NextSaison }) {
-  return (
-    <FieldRows>
-      <DateField
-        label={WORDS.start}
-        name="start_date"
-        isRequired={CREATE_REQUIRED.start}
-        defaultValue={next.start}
-      />
-      <DateField
-        label={WORDS.end}
-        name="end_date"
-        isRequired={CREATE_REQUIRED.end}
-        defaultValue={next.end}
-      />
-    </FieldRows>
-  );
 }
 
 /** The table's head, drawn while the seasons are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.saison,
-  // A phone's row holds the name, its chip and the start beside them, with room to spare at 390 px.
   columns: [
-    { key: "start", label: WORDS.start, width: "date" },
+    { key: "start", label: WORDS.start, narrow: true, width: "date" },
     { key: "end", label: WORDS.end, hideOnPhone: true, width: "date" },
     { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
     { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },

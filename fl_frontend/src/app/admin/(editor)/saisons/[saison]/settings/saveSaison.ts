@@ -47,6 +47,7 @@ const SaveSaison = z.object({
       forfeitLoser: numberBox(rules.forfeit_ergebnis.shape.verlierer_tore),
       bewerbungStart: day(bewerbungShape.shape.start),
       bewerbungEnd: day(bewerbungShape.shape.end),
+      bewerbungPaused: z.boolean(),
       registrierungEnd: day(registrierungShape.shape.end),
       registrierungPaused: z.boolean(),
     })
@@ -71,9 +72,10 @@ function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonP
     return { ok: false, fieldErrors: { "changes.bewerbungStart": COPY.shared.field.required } };
   if (bewerbungStart !== null && bewerbungEnd === null)
     return { ok: false, fieldErrors: { "changes.bewerbungEnd": COPY.shared.field.required } };
+  // `open` is the form's own flag and the link's, which each box sets as its pause.
+  const bewerbungPaused = either(changes.bewerbungPaused, saison.bewerbung?.open === false);
   const registrierungEnd = either(changes.registrierungEnd, saison.registrierung?.end ?? null);
-  // `open` is the link's own flag, which the box sets as its pause.
-  const paused = either(changes.registrierungPaused, saison.registrierung?.open === false);
+  const registrierungPaused = either(changes.registrierungPaused, saison.registrierung?.open === false);
 
   return {
     start_date: either(changes.start, saison.start_date),
@@ -93,11 +95,8 @@ function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonP
         verlierer_tore: either(changes.forfeitLoser, stored.forfeit_ergebnis.verlierer_tore),
       },
     },
-    bewerbung:
-      bewerbungStart === null || bewerbungEnd === null
-        ? null
-        : { open: saison.bewerbung?.open ?? true, start: bewerbungStart, end: bewerbungEnd },
-    registrierung: registrierungEnd === null ? null : { end: registrierungEnd, open: !paused },
+    bewerbung: bewerbungStart === null || bewerbungEnd === null ? null : { open: !bewerbungPaused, start: bewerbungStart, end: bewerbungEnd },
+    registrierung: registrierungEnd === null ? null : { end: registrierungEnd, open: !registrierungPaused },
   };
 }
 

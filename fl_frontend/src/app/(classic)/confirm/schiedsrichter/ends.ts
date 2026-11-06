@@ -8,7 +8,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { EndState } from "@/kit/MailedPage";
 
-const WORDS = SERVER_COPY.schiedsrichterConfirmation;
+const WORDS = SERVER_COPY.entryConfirmation;
 
 /** The start page, the next step after an objection and after a link that no longer holds. */
 export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };

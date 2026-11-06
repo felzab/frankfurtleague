@@ -13,7 +13,7 @@ import {
 import { rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Pair, TimeOfDay } from "./format";
-import type { FLKontaktRolle, FLSpielerStufe } from "./generated/client/types";
+import type { FLKontaktRolle, FLSchulform, FLSpielerRolle, FLSpielerStufe } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
 
@@ -58,6 +58,7 @@ const VERB = {
   send: "Senden",
   submit: "Abschicken",
   confirm: "Bestätigen",
+  accept: "Annehmen",
   decline: "Ablehnen",
   oppose: "Widersprechen",
   adopt: "Übernehmen",
@@ -77,6 +78,9 @@ const VERB = {
   /** A venue's and a referee's retiring, and its undoing, each the danger box's act. */
   retire: "Stilllegen",
   reactivate: "Reaktivieren",
+  /** The bulk accept's two ways on from a card. */
+  next: "Weiter",
+  skip: "Überspringen",
 } as const;
 
 /** The closed set of button verbs: a button names its act with one of these. */
@@ -115,6 +119,8 @@ const SCHIEDSRICHTER = "Schiedsrichter";
 const KADER = "Kader";
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 const PRIVACY_NOTICE = "Datenschutz";
+// The danger box over a record's retiring: a venue's, a referee's and a club's alike.
+const STILLLEGUNG = "Stilllegung";
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
@@ -218,12 +224,11 @@ export const COPY = catalogue({
       /** A signed-in frame's way home, its role's Übersicht. */
       toOverview: "Zur Übersicht",
       toSaisons: "Zu den Saisons",
+      toTeams: "Zu den Teams",
     },
 
     /** The match pop-up's way to the match's own page. */
     toSpiel: "Zum Spiel",
-    /** A club's plaque popover's way to the club's own page. */
-    toTeam: "Zum Team",
     /** A fact nobody has entered, where a sentence names it in words rather than a glyph: a match mail's ground. */
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
@@ -266,6 +271,9 @@ export const COPY = catalogue({
     tore: "Tore",
     /** A record's name: a box's label, a list's column head. */
     name: "Name",
+    /** A person's two names, each its own box wherever a person is entered. */
+    firstName: "Vorname",
+    lastName: "Nachname",
     /** The glossary's nouns for a pupil, a referee and a squad: a page's title, a Funktion, an entry's box. */
     spieler: SPIELER,
     schiedsrichter: SCHIEDSRICHTER,
@@ -327,6 +335,7 @@ export const COPY = catalogue({
     adminSpielorte: "Spielorte",
     adminSchiedsrichter: SCHIEDSRICHTER,
     adminBewerbungen: "Bewerbungen",
+    adminBewerbungenBulk: "Sammel-Zusage",
     adminSpieler: SPIELER,
     registrierungen: "Registrierungen",
     teamKader: KADER,
@@ -345,11 +354,72 @@ export const COPY = catalogue({
     bewerbung: (saison: string) => `Bewerbung ${saisonName(saison)}`,
   },
 
-  // Redesign: goes with its last importer.
-  /** The old application form's words. */
+  /** The public application form's own words; what the administration names alike stands in `team`. */
   bewerbung: {
-    /** The one switch acknowledging, for all three seats, that their people know of their entry. */
+    /** The object of „Bewerbung abschicken“, „Bewerbung annehmen“ and „Bewerbung ablehnen“, and the review page's first box. */
+    object: "Bewerbung",
+    schoolDescription: "Die Schulen, die schon mitgespielt haben",
+    /** The switch under the school picker, revealing a new school's fields. */
+    schoolNotListed: "Meine Schule ist nicht in der Liste",
+    teamName: "Teamname",
+    teamNameDescription: "Kurz, wie das Team genannt wird",
+    stufengroesseDescription: "Wie viele im Abi-Jahrgang sind",
+    /** Each seat confirms for one person, which a shared inbox would let one person do for two. */
+    ownAddress: "Die eigene Adresse der Person",
+    /** A covered seat's box, in place of its fields. */
+    seatCovered: "Übernimmt die Trainerin oder der Trainer.",
+    trikotSatzDescription: "Zum Beispiel 15 rote Trikots",
+    goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
+    wunschgegnerDescription: "Für den ersten Spieltag",
+    /** The name of the combo's arrow. */
+    suggestions: "Vorschläge anzeigen",
+    /** The one sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its link. */
+    notice: { before: "Jede Kontaktperson bekommt eine E-Mail von der Liga, mehr unter ", after: "." },
+    // Redesign: goes with its last importer.
+    /** The old form's one switch acknowledging, for all three seats, that their people know of their entry. */
     kenntnisnahme: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
+  },
+
+  /**
+   * A club's fields, one word each wherever a person meets them: the public form, the acceptance, the bulk accept, the
+   * review page and the team editor.
+   */
+  team: {
+    kontakte: "Kontaktpersonen",
+    /** The object of „Sitz bearbeiten“. */
+    seat: "Sitz",
+    fullName: "Vollständiger Name",
+    shorthand: "Kürzel",
+    shorthandDescription: "Drei Buchstaben",
+    /** The closed box of a known club, whose code the acceptance does not set. */
+    shorthandFixed: "Vergeben, als das Team angelegt wurde",
+    /** Inside `shared.field.format`: no real club's code, so no reader takes it for one. */
+    shorthandExample: "ABC",
+    schulform: "Schulform",
+    /** The school authority's own wording, so a `G8` or a `G9` stays in the label rather than being spelled out. */
+    schulformOption: {
+      gymnasium_g8: "Gymnasium (G8)",
+      gymnasium_g9: "Gymnasium (G9)",
+      gesamtschule: "Gesamtschule",
+      privatschule_g8: "Privatschule (G8)",
+      privatschule_g9: "Privatschule (G9)",
+      oberstufengymnasium: "Oberstufengymnasium",
+    } satisfies Record<FLSchulform, string>,
+    website: "Website",
+    gruppe: "Gruppe",
+    trikotFarbe: "Trikotfarbe",
+    wunschfarbe: "Wunschfarbe",
+    stufengroesse: "Größe der Stufe",
+    trikotSatz: "Vorhandene Trikotsätze",
+    expectedKader: "Voraussichtliche Kadergröße",
+    goodSpieler: "Davon im Verein",
+    wunschgegner: "Wunschgegner",
+    /** The select in the Trainer's box, whose two other entries are `KONTAKT_ROLLE_LONG_FORM`'s. */
+    trainerAlso: {
+      label: "Übernimmt zugleich",
+      description: "Eine Person kann zwei Rollen haben.",
+      none: "Keine weitere Rolle",
+    },
   },
 
   /** The Spielplan, and a match's page, which opens as the pop-up over it. */
@@ -595,7 +665,7 @@ export const COPY = catalogue({
       },
       /** The facts an entry box shows of its record. */
       facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
-      /** Under the media box of a person short of its floor, who may not give that choice yet. */
+      /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
       mediaFrom: (age: number) => `Erst ab ${formatNumber(age)} Jahren`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
@@ -675,10 +745,31 @@ export const COPY = catalogue({
 
     /** A referee's fee for a match: the referee's own default, and a match's booking. */
     payment: "Honorar",
+    /** The chip of a contact seat, and of a registration where it says confirmed. */
+    confirmed: "Bestätigt",
+    expired: "Abgelaufen",
+    erased: "Gelöscht",
+    /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
+    seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} von ${formatNumber(seats)}`,
+    /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
+    seatLine: (rollen: readonly FLKontaktRolle[], address: string | null, day: Copy | null) =>
+      [rollenText(rollen), address, day].filter((part) => part !== null).join(" · "),
+    /** The name's place on an emptied seat. */
+    seatEmpty: "Niemand",
+    /** The description of a free text a mail hands to people it may not concern. */
+    noNames: "Ohne Namen",
+    /** The chip beside a seat's or a link's state, where its last mail met trouble. */
+    delivery: {
+      delayed: "Noch nicht zugestellt",
+      undeliverable: "Unzustellbar",
+      suppressed: "Zustellung blockiert",
+      complaint: "Als Spam gemeldet",
+    },
+
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
     facts: { before: "Bisher", after: "Neu", fromNow: "Ab sofort", mailTo: "E-Mail an" },
     /** A venue's and a referee's danger box, holding the act retiring the record or bringing it back. */
-    stilllegung: "Stilllegung",
+    stilllegung: STILLLEGUNG,
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
@@ -766,6 +857,8 @@ export const COPY = catalogue({
       lockedByDraw: "Gesperrt, solange ein Spielplan steht",
       /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
       registrierungPaused: "Registrierung pausiert",
+      /** The application form paused: the window stands, and the form reads closed until the box is cleared. */
+      bewerbungPaused: "Bewerbung pausiert",
 
       /** When the Spielplan was drawn, beside its counts. */
       drawnOn: "Angelegt",
@@ -892,6 +985,8 @@ export const COPY = catalogue({
       /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */
       abgelehnt: "Abgelehnt",
       cancelled: "Abgesagt",
+      /** A rejection's and a club's exit's stated reason: its box and its fact. */
+      reason: "Grund",
       answerBy: (day: CalendarDay) => `Antwort bis ${formatDate(day)}`,
       enteredByLeague: "Von der Verwaltung eingetragen",
       notAsked: "Noch nicht angefragt",
@@ -900,6 +995,133 @@ export const COPY = catalogue({
         spiele.length === 1
           ? `Das Ergebnis von Spiel ${formatNumber(spiele[0] ?? 0)} wird gelöscht.`
           : `Die Ergebnisse von Spiel ${formatList(spiele.map(formatNumber))} werden gelöscht.`,
+    },
+
+    /** The Bewerbungen list, its two dialogs, the Sammel-Zusage and the review page. */
+    bewerbung: {
+      search: "Bewerbungen suchen",
+      /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
+      received: "Eingegangen",
+      /** A row's chip and the status filter's option, by where the application stands. */
+      incomplete: "Unvollständig",
+      complete: "Vollständig",
+      accepted: "Angenommen",
+      /** Stands in the status chip's place on an undecided row: its `Dublette`. */
+      teamDouble: "Team doppelt",
+      /** The origin filter, whose options are `newSchool` and `existingTeam`. */
+      origin: "Herkunft",
+      existingTeam: "Bestehendes Team",
+      /** The acceptance's group over the open Kürzel box, and „Team eintragen“'s group and entry. */
+      newSchool: "Neue Schule",
+      /** A colour's description in the acceptance, by its `TRIKOT_FARBEN` name. */
+      wish: (farbe: string) => `Wunsch: ${farbe}`,
+      /** „E-Mail an“'s value in both dialogs: each decision mails every seat. */
+      allSeats: "Alle Kontaktpersonen",
+      /** The bulk card's line over the record's name. */
+      cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} von ${formatNumber(total)}`,
+      /** The object of the bulk's button and of its question. */
+      count: (count: number) => (count === 1 ? "1 Bewerbung" : `${formatNumber(count)} Bewerbungen`),
+      acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonName(saison)}.`,
+      /** „E-Mail an“'s value in the bulk's question. An application names at least two people, so the count is never 1. */
+      kontaktCount: (count: number) => `${formatNumber(count)} Kontaktpersonen`,
+      /** The chip of a row the check page's confirm refused. */
+      shorthandTaken: "Kürzel vergeben",
+      /** The title of the bulk's end card. */
+      acceptedCount: (count: number) => (count === 1 ? "1 Team aufgenommen" : `${formatNumber(count)} Teams aufgenommen`),
+      /** The review page's facts of a decided application. */
+      acceptedOn: "Angenommen am",
+      declinedOn: "Abgelehnt am",
+      /** „Annehmen“'s reason while locked, a seat open, objected or erased alike. */
+      awaitsConfirmations: "Erst, wenn alle Kontaktpersonen bestätigt haben",
+    },
+
+    /** The Teams list, its create dialog and the team editor. */
+    team: {
+      search: "Teams suchen",
+      /** A full group's greyed entry. */
+      gruppeFull: "Voll",
+      /** „Team eintragen“'s reason while locked. */
+      onlyPlanned: "Nur in einer geplanten Saison",
+      /** The filter opening the list past the season's clubs, the one way into a retired club. */
+      show: "Zeigen",
+      showSeason: "Teams der Saison",
+      showRetired: "Auch stillgelegte",
+      /** The state filter's option for a club playing on, beside each exit's `state`. */
+      active: "Aktiv",
+      enterDescription: "Ein bekanntes Team oder eine neue Schule",
+      /** The field group over the season's fields in „Team eintragen“. */
+      inSaison: (saison: string) => `In der ${saisonName(saison)}`,
+      /** Under Name and Kürzel once changed: a finished season keeps the name it was played under. */
+      renameReach: "Gilt für laufende und geplante Saisons.",
+      /** The public text on the club's page. */
+      description: "Beschreibung",
+      descriptionNote: "Steht auf der Teamseite",
+      austrittType: "Art",
+      austrittFrom: "Wirksam ab",
+      registrierungslink: "Registrierungslink",
+      linkValidUntil: "Gültig bis",
+      registrierungEnd: (day: CalendarDay) => `Ende der Registrierung, ${formatDate(day)}`,
+      /** The one copy button's name, over a link shown once. */
+      copyLink: "Link kopieren",
+      linkOnce: "Der Link ist nur jetzt zu sehen.",
+      /** Replacing the link and withdrawing it alike. */
+      linkVoidConsequence: "Der bisherige Link gilt nicht mehr.",
+      /** The danger box's title, by what its rows are about: the exit, the retiring, or both. */
+      dangerBox: (austritt: boolean, retirement: boolean) =>
+        austritt && retirement ? `Austritt und ${STILLLEGUNG}` : austritt ? "Austritt" : STILLLEGUNG,
+      /** The exit's row and its dialog's title. */
+      austrittAct: "Aus der Saison nehmen",
+      austrittRowLine: "Das Team scheidet aus dieser Saison aus.",
+      /** The exit's reason while locked: before the season's start the replacement is the route. */
+      fromStart: "Erst ab Saisonbeginn",
+      austrittReasonDescription: "Steht ohne Namen auf der Website",
+      /** Under the exit's date: the write calls no fixture off, so the line says only what it ends. */
+      austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden.",
+      /** „E-Mail an“'s value in the exit's dialog. */
+      austrittMailTo: "Gegner und eingeteilte Schiedsrichter",
+      /** The danger box's two consequences, under the act's name and in its question alike, as a venue's. */
+      retireConsequence: "Das Team steht für neue Saisons nicht mehr zur Auswahl.",
+      reactivateConsequence: "Das Team steht wieder zur Auswahl.",
+      /** The retiring's reason while locked. */
+      retireLocked: "Nur ohne laufende oder geplante Saison",
+    },
+
+    /** The Spieler list and its editor. */
+    spieler: {
+      search: "Spieler suchen",
+      /** A row's chips, and with `inKader` the state filter's options. */
+      nominee: "Nachnominiert",
+      deregistered: "Ausgetragen",
+      inKader: "Im Kader",
+      nummerDouble: "Nummer doppelt",
+      /** The editor's boxes and fields. */
+      person: "Person",
+      deregisteredOn: "Ausgetragen am",
+      nummer: "Nummer",
+      position: "Position",
+      stufe: "Stufe",
+      rolle: "Rolle",
+      rolleOption: { kapitaen: "Kapitän", co_kapitaen: "Co-Kapitän" } satisfies Record<FLSpielerRolle, string>,
+      /** The read-only box of what the pupil chose. */
+      einwilligung: "Einwilligung",
+      nameOnSite: "Name auf der Website",
+      media: "Fotos und Videos",
+      mediaYes: "Ja",
+      mediaNo: "Nein",
+      givenOn: "Erteilt am",
+      confirmedOn: "Bestätigt am",
+      /** The danger box's title, and the object of its reactivation. */
+      kaderEntry: "Kadereintrag",
+      /** The object of „Aus dem Kader austragen“. */
+      fromKader: "Aus dem Kader",
+      /** The danger box's two consequences, under the act's name and in its question alike. */
+      deregisterConsequence: "Die Person steht in dieser Saison nicht mehr im Kader.",
+      reactivateConsequence: "Die Person steht wieder im Kader.",
+    },
+
+    /** The Registrierungen list. */
+    registrierung: {
+      search: "Registrierungen suchen",
     },
   },
 

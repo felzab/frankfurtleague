@@ -1,7 +1,5 @@
 import type {
   FLBewerbung,
-  FLBewerbungEinwilligungViewResponse,
-  FLBewerbungEinwilligungViewResponseQuelle,
   FLBewerbungKontaktpersonPayload,
   FLBewerbungSchulePayload,
   FLSchulform,
@@ -73,19 +71,3 @@ export type BewerbungFormDraft = {
  * that answered "abgelaufen" there would state a deadline it never learnt.
  */
 export type FensterZustand = "running" | "noch-nicht" | "closed" | "vorbei" | "keine-frist";
-
-/**
- * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a
- * guessed link that a record once existed; a season row's spent link is worded for the row its read named.
- */
-export type LinkZustand = "confirmed" | "declined" | "expired" | "invalid" | "barred";
-
-/**
- * A spent link keeps the record it opened where the read answered one, so its panel says what is true of
- * that record; a link opening nothing names none.
- */
-export type EinwilligungAnsicht =
-  // One member per open state, so a check of `zustand` narrows to the one the caller handles.
-  | { zustand: "valid"; ansicht: FLBewerbungEinwilligungViewResponse }
-  | { zustand: "saison_past"; ansicht: FLBewerbungEinwilligungViewResponse }
-  | { zustand: LinkZustand; quelle?: FLBewerbungEinwilligungViewResponseQuelle };

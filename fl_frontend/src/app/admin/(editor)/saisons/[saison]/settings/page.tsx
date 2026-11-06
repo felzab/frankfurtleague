@@ -124,7 +124,13 @@ export default function SaisonSettingsPage({ params }: Props) {
               count={Object.values(FLSpielerStufe).length}
             />,
           ],
-          [{ rows: 2, width: "C10" }],
+          [
+            { rows: 2, width: "C10" },
+            <CheckboxPlaceholder
+              key="paused"
+              label={WORDS.bewerbungPaused}
+            />,
+          ],
           [
             <FieldPlaceholder
               key="end"

@@ -32,7 +32,7 @@ function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
     case "confirmed":
       return undefined;
     case "objected":
-      return { tone: "danger", label: SERVER_COPY.schiedsrichterConfirmation.objected };
+      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
     case "unanswered":
     case "unasked":
       return { tone: "warn", label: WORDS.unconfirmed };
@@ -77,7 +77,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
     { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line" },
-    { key: "phone", label: COPY.account.entries.facts.phone, width: "phone" },
+    { key: "phone", label: COPY.account.entries.facts.phone, hideOnPhone: true, width: "phone" },
   ],
 };
 
