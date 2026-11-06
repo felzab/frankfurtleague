@@ -5,15 +5,18 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 import { textOf } from "@/core/copy";
 
 import { MessageLine, RequiredMark } from "./FieldParts";
-import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
+import { messageLine, toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
-import { placeholderBar, PlaceholderSentence } from "./Skeleton";
+import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 
 import type { Copy, Words } from "@/core/copy";
 
-/** A box while its record is read: the drawn box as a bar, and its label as lines, wrapping as the label will. */
-export function CheckboxPlaceholder({ label }: { label: string }) {
+/**
+ * A box while its record is read: the drawn box as a bar, its label as lines, wrapping as the label will, and its
+ * description's line where its record shows one.
+ */
+export function CheckboxPlaceholder({ label, description }: { label: string; description?: Copy }) {
   return (
     <div className={toggleField()}>
       <span className={toggleRow({ in: "field" })}>
@@ -23,6 +26,14 @@ export function CheckboxPlaceholder({ label }: { label: string }) {
           words={label}
         />
       </span>
+      {description !== undefined && (
+        <div className={toggleLine()}>
+          <PlaceholderLine
+            text={messageLine()}
+            words={description}
+          />
+        </div>
+      )}
     </div>
   );
 }

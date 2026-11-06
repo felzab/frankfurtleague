@@ -31,7 +31,7 @@ type TableColumn = {
    * What the column holds, which sets the least it takes, on a table that waits: its values are the read's, so without
    * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
    */
-  width?: "count" | "pair" | "date" | "phone" | "line";
+  width?: "count" | "pair" | "marked" | "date" | "phone" | "line";
 } & (
   | { /** Left out on a phone, where the row keeps its name and two facts. */ hideOnPhone?: boolean; phoneOnly?: never }
   /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
@@ -184,11 +184,12 @@ const table = tv({
     // whatever the rows hold. A minimum, since the name's `w-full` leaves every other column its min-content width
     // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
     // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
-    // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“ or a count with its mark's
+    // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“, a count with its mark's
     // slots, a date ten characters, a phone number 20, a line of an address 35.
     width: {
       count: { head: "min-w-12" },
-      pair: { head: "min-w-16 max-lg:min-w-11" },
+      pair: { head: "min-w-16 max-lg:min-w-13" },
+      marked: { head: "min-w-16 max-lg:min-w-11" },
       date: { head: "min-w-28" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-72" },

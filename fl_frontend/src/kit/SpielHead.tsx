@@ -7,7 +7,7 @@ import { Callout } from "./Callout";
 import { headGround } from "./cardStyles";
 import { CutText } from "./CutText";
 import { RouteDialog, RouteDialogBody } from "./Dialog";
-import { Facts, FactsPlaceholder } from "./Facts";
+import { Facts, FactsPlaceholder, SPIELORT_WORDS } from "./Facts";
 import { Link } from "./Link";
 import { Placeholder, placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
@@ -230,7 +230,7 @@ function PopupPlaceholder() {
     <RouteDialogBody
       title={COPY.shared.loading}
       act={
-        <Placeholder>
+        <Placeholder layout="grid">
           <span className={buttonPlaceholder("w-full")} />
         </Placeholder>
       }>
@@ -242,7 +242,7 @@ function PopupPlaceholder() {
         <FactsPlaceholder
           look="free"
           pairs={4}
-          spielort={2}
+          wraps={{ pair: 2, words: SPIELORT_WORDS }}
         />
       </Waiting>
     </RouteDialogBody>

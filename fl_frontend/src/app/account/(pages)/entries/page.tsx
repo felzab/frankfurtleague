@@ -173,7 +173,11 @@ export default function AccountEntriesPage() {
             choices={Object.values(SPIELER_WORDINGS.scope.options)}
           />
           <ConsentLinePlaceholder line={SPIELER_WORDINGS.scope.line} />
-          <CheckboxPlaceholder label={SPIELER_WORDINGS.media.label} />
+          {/* The floor is the record's; any two figures stand as wide. */}
+          <CheckboxPlaceholder
+            label={SPIELER_WORDINGS.media.label}
+            description={WORDS.mediaFrom(18)}
+          />
           <ConsentLinePlaceholder line={SPIELER_WORDINGS.media.line} />
         </AccountBoxPlaceholder>
       }>

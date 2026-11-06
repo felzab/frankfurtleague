@@ -1,6 +1,6 @@
 import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
-import { FactsPlaceholder } from "@/kit/Facts";
+import { EMAIL_WORDS, FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { requires } from "@/core/action";
@@ -70,6 +70,7 @@ export default function AccountSignInPage() {
             <FactsPlaceholder
               pairs={1}
               look="free"
+              wraps={{ pair: 0, words: EMAIL_WORDS }}
             />
             <FieldPlaceholder width="W3" />
           </AccountBoxPlaceholder>
