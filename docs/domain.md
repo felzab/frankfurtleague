@@ -100,7 +100,7 @@ brought up to date.
   rules a direct entry meets.
 - **Registration** — the season records a second window of its own, `registrierung`, which holds an end alone: it
   opens when the season is activated and runs to that end, which falls before the season's start
-  (`registrierung_window_reaches_saison_start`), and its `offen` flag pauses the link without moving either. It is
+  (`registrierung_window_reaches_saison_start`), and its `open` flag pauses the link without moving either. It is
   judged apart from the application window above, so the two may run in any order or not at all.
 - **Entry** — a club takes a place in a group only while the season is `future` (`entry_saison_not_future`), only in a
   group the season runs (`entry_gruppe_not_offered`), and only while that group has room (`entry_gruppe_full`).
@@ -153,7 +153,7 @@ undraw, patch the rules, change the entries, draw again — with the group moves
 takes a club back out of a season and an `austritt` leaves its row occupying the place, so a group's
 occupancy never falls: an undraw reopens the group count and the group size upward alone, and either of them
 below what the groups already hold is refused whatever is undrawn (`rules_gruppen_in_use`, `rules_capacity_below_use`). **Not
-every bound over stored rows behaves that way**: `max_kadergroesse` is held above the largest squad, counted
+every bound over stored rows behaves that way**: `max_kader_size` is held above the largest squad, counted
 over rows no retirement has taken out (`rules_kader_below_use`), so retiring players lowers that cap where nothing
 lowers a group's occupancy. Only the qualifier count can skip the whole route, moving on a confirmed
 replace's own payload (`spielplan_replace_outside_its_window`) because it leaves every group as it stands. Both operations are
@@ -315,7 +315,7 @@ no later feature can come to depend on a flag.
   record the walkover on; `eligibility_disqualified` refuses only a request disturbing one.
 - **A group phase in which every club qualifies.** A seeding-only group stage is a real format, so
   `rules_qualifiers_above_gruppe` bounds the qualifiers from above alone.
-- **A matchday of a later phase dated before one of an earlier phase.** `spieltag_beginn_out_of_order` finds its neighbour on
+- **A matchday of a later phase dated before one of an earlier phase.** `spieltag_start_out_of_order` finds its neighbour on
   the indexed `(saison_id, saison_phase, position)`, and no stored key orders the phases. The matchday list
   sections a season by phase in played order, so such dates read as running backwards.
 - **A `future` season holding recorded results.** Binding a result to the status would make the one-way
