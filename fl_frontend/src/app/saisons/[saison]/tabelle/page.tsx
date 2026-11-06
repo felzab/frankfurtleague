@@ -52,7 +52,14 @@ const COLUMNS: TableProps["columns"] = [
 ];
 
 /** Every group's table's head, drawn while the Tabelle is read and over each group's rows once it is. */
-const HEAD: TableHead = { nameLabel: column.team, rankLabel: column.platz, columns: COLUMNS, compact: true, chevronOnPhone: false };
+const HEAD: TableHead = {
+  nameLabel: column.team,
+  rankLabel: column.platz,
+  columns: COLUMNS,
+  compact: true,
+  chevronOnPhone: false,
+  plaqueAlone: true,
+};
 
 /**
  * One club's row: its place as the backend numbers it, level clubs sharing one and a club that has played no
