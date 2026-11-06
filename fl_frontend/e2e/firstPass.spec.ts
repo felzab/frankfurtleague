@@ -5,7 +5,7 @@
  * what the made-up seed left it. This file's project runs after every other (`fl_frontend/playwright.config.ts`), past
  * that minute, once: the seed holds one of each.
  */
-import { expect } from "@playwright/test";
+import { expect, test as sinkRead } from "@playwright/test";
 
 import { SAISON, SUBJECT } from "./support/application";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
@@ -25,7 +25,8 @@ test("an application whose 14 days lapsed is deleted, and its Ansprechperson tol
   await expect(page.getByRole("main").getByRole("link", { name: "Lärche", exact: true })).toHaveCount(0);
 });
 
-test("the referee booked on a departed club's fixture is told", async () => {
+// Playwright's own test: it reads the sink and opens no page, and a journey's `test` fails any journey the edge never saw.
+sinkRead("the referee booked on a departed club's fixture is told", async () => {
   const notice = await mailedMessage("ben.brandt@example.com", "Nicht mehr eingeteilt: Spiel am", SINCE_THE_START);
 
   expect(notice.join("\n"), "the fixture the referee no longer whistles").toContain("Esche vs. Weide");
