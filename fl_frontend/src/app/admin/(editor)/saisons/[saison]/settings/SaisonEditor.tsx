@@ -262,6 +262,8 @@ export function SaisonEditor({
             isRequired={required.end}
             value={draft.end}
             onChange={(day) => set("end", day)}
+            // A span ending before it begins is refused here, before the write sees it.
+            {...(draft.start === null ? {} : { minValue: draft.start })}
           />
         </FieldRows>
       ),
@@ -415,22 +417,32 @@ export function SaisonEditor({
       id: "bewerbungsfenster",
       title: WORDS.bewerbungsfenster,
       fields: (
-        <FieldRows>
-          <DateField
-            label={WORDS.start}
-            name="bewerbungStart"
-            isRequired={bewerbungSet && required.bewerbungStart}
-            value={draft.bewerbungStart}
-            onChange={(day) => set("bewerbungStart", day)}
+        <>
+          <FieldRows>
+            <DateField
+              label={WORDS.start}
+              name="bewerbungStart"
+              isRequired={bewerbungSet && required.bewerbungStart}
+              value={draft.bewerbungStart}
+              onChange={(day) => set("bewerbungStart", day)}
+            />
+            <DateField
+              label={WORDS.end}
+              name="bewerbungEnd"
+              isRequired={bewerbungSet && required.bewerbungEnd}
+              value={draft.bewerbungEnd}
+              onChange={(day) => set("bewerbungEnd", day)}
+              // A span ending before it begins is refused here, before the write sees it.
+              {...(draft.bewerbungStart === null ? {} : { minValue: draft.bewerbungStart })}
+            />
+          </FieldRows>
+          <Checkbox
+            label={WORDS.bewerbungPaused}
+            name="bewerbungPaused"
+            isSelected={draft.bewerbungPaused}
+            onChange={(paused) => set("bewerbungPaused", paused)}
           />
-          <DateField
-            label={WORDS.end}
-            name="bewerbungEnd"
-            isRequired={bewerbungSet && required.bewerbungEnd}
-            value={draft.bewerbungEnd}
-            onChange={(day) => set("bewerbungEnd", day)}
-          />
-        </FieldRows>
+        </>
       ),
     },
     {
