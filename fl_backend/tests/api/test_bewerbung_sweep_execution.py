@@ -538,6 +538,25 @@ class TestAnApplicationWhoseNoticeCannotArrive:
         assert (erased_count, document) == (1, None)
         assert [notice["an"] for notice in notices] == ["wraxlington@example.com"]
 
+    def test_a_seat_never_mailed_is_owed_neither_a_reminder_nor_the_notice(self, mongo_replica_set_url: str):
+        """The two later mails past the bound: that mailbox has heard of nothing, and the day stands for the people who have."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            unmailed = {f"confirmations.{seat}.sent_at": None for seat in KONTAKT_ROLLEN}
+            await database[Collection.BEWERBUNGEN].update_many({"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": unmailed})
+            response = await sweep(database, client, now=MAIL_NOW)
+
+            return (
+                response,
+                await stored(database, DELETE_OID),
+                await owed(database, "bewerbung_reminder"),
+                await owed(database, "bewerbung_erasure"),
+            )
+
+        response, document, reminders, notices = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.erased, document, reminders, notices) == (1, None, [], [])
+
     def test_a_seat_the_provider_refuses_is_not_reminded(self, mongo_replica_set_url: str):
         """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
 

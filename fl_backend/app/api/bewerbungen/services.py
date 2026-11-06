@@ -28,7 +28,7 @@ from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLPostTeamPayload, normalise_phone
 from app.core.codes import Code
 from app.core.collections import Collection as Sammlung
-from app.core.crud import build_sort
+from app.core.crud import build_sort, literal_pattern
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
@@ -374,8 +374,10 @@ def compose_bestaetigung(*, today: str) -> dict[str, Any]:
     return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today), "reminded_at": None, "declined_at": None}
 
 
-def compose_bestaetigungen(*, today: str) -> dict[str, Any]:
-    return {seat: compose_bestaetigung(today=today) for seat in KONTAKT_ROLLEN}
+def compose_bestaetigungen(*, today: str, unmailed: Collection[str] = ()) -> dict[str, Any]:
+    """Every seat's bookkeeping at the submission. An `unmailed` seat's `sent_at` is null, which no reminder reaches: no mail was owed it."""
+
+    return {seat: {**compose_bestaetigung(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_ROLLEN}
 
 
 # The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
@@ -415,9 +417,10 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 }
 
 # Narrower than the view's: the answer takes its wording from the payload and names no school. The
-# address is what a consent asks the ban list of, and no answer carries it.
+# address is what a consent asks the ban list of, and no answer carries it. `sent_at` says whether a
+# decline's notice has anybody to tell (`ansprechperson_mailbox`).
 EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
-    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline"),
+    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "sent_at"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
     **_per_seat("kontakte", "first_name", "email", "einwilligung.confirmed_at", *KONTAKT_WAHL_FIELDS),
     "kontakte.trainer_is_also": 1,
@@ -792,12 +795,20 @@ def seat_first_name(*, kontakte: Any, seat: str) -> str:
     return str(slot.get("first_name") or "") if isinstance(slot, Mapping) else ""
 
 
-def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontaktRolle]]:
+def _was_mailed(confirmations: Any, seat: str) -> bool:
+    return (_entry_of(confirmations, seat) or {}).get("sent_at") is not None
+
+
+def ansprechperson_mailbox(*, kontakte: Any, confirmations: Any) -> tuple[str | None, list[FLKontaktRolle]]:
     """The Ansprechperson's address as stored, and every seat that same inbox holds.
 
     `None` where that seat is empty: the message this addresses has nowhere to go, and a substitute
-    recipient would mail a third party.
+    recipient would mail a third party. `None` too where the seat was never mailed: that person has heard of no
+    application, and a stranger's own Widerspruch would otherwise reach a mailbox past `OPEN_LINKS_PER_MAILBOX`.
     """
+
+    if not _was_mailed(confirmations, "ansprechperson"):
+        return None, []
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     addresses: dict[str, str] = {}
@@ -882,16 +893,90 @@ def build_eigene_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
     return {"status": "submitted", **rows_seating(*identifiers)}
 
 
-# The open applications of one season an address may stand on before a press naming it mails nobody. Each press owes the
-# address a mail and each open application a reminder and a notice, so this is the ceiling on what a stranger can send one
-# mailbox past the bot check; two schools sharing a person, or a school applying twice, stay under it.
-OPEN_APPLICATIONS_PER_ADDRESS: Final = 3
+# The form's unanswered links of one season a mailbox may hold before a press naming it mails that mailbox nothing. What a
+# stranger can do through a public form is make the league mail an address, and each link owes a reminder and a notice
+# after it, so this bounds the mail and refuses nobody: a refusal would be a lock a stranger can aim at a real school. An
+# answer frees its link, so a real person is never held at it; two schools sharing a person stay under it. The application
+# form and the registration form each count their own.
+# A plain read in the press, so it holds for presses in sequence, and presses at once can pass it by what is in flight,
+# which the edge's burst bounds; the rows they store then hold the mailbox shut until its links are answered or lapse. No
+# write conflict makes it exact, because one on the season document lets a burst stall every school's press and every
+# season write past the request's deadline, and a bound on mail is a rate bound.
+OPEN_LINKS_PER_MAILBOX: Final = 3
 
 
-def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
+def mailbox_of(address: str) -> str:
+    """The mailbox a stored address reaches, its plus-tag off. A provider's own aliases, such as Gmail's dots, stay out of reach."""
+
+    local, _, domain = address.rpartition("@")
+
+    return f"{local.partition('+')[0]}@{domain}"
+
+
+def mailbox_pattern(address: str) -> str:
+    """A `$regex` matching this address's mailbox and each plus-tagged form of it, on the stored fold; its fixed prefix keeps it on an index."""
+
+    local, _, domain = mailbox_of(address).rpartition("@")
+
+    return f"^{literal_pattern(local)}(\\+[^@]*)?@{literal_pattern(domain)}$"
+
+
+# What `open_links_on` judges a row by.
+OPEN_LINK_FIELDS: Mapping[str, int] = {**_per_seat("kontakte", "email", "einwilligung.confirmed_at"), **_per_seat("confirmations", "sent_at")}
+
+
+def build_open_links_filter(*, saison_id: str, address: str) -> Mapping[str, Any]:
+    """The season's open applications holding a mailed, unconfirmed seat at this address's mailbox: a Widerspruch empties the slot and leaves.
+
+    Each seat's terms together, so a row a flood stored unmailed stays out of a read bounded by what was mailed.
+    """
+
+    pattern = {"$regex": mailbox_pattern(address)}
+
+    return {
+        "saison_id": saison_id,
+        "status": "submitted",
+        "$or": [
+            {
+                f"kontakte.{seat}.email": pattern,
+                f"kontakte.{seat}.einwilligung.confirmed_at": None,
+                f"confirmations.{seat}.sent_at": {"$ne": None},
+            }
+            for seat in KONTAKT_ROLLEN
+        ],
+    }
+
+
+def open_links_on(*, row: Mapping[str, Any], mailbox: str) -> int:
+    """The unanswered links this application's mails left in this mailbox: one a person, and one application can name its plus-tagged forms."""
+
+    kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
+    waiting: list[FLKontaktRolle] = [
+        seat for seat in KONTAKT_ROLLEN if _was_mailed(confirmations, seat) and not _seat_is_confirmed(kontakte, seat)
+    ]
+
+    return sum(mailbox_of(address) == mailbox for address, _ in people_with_address(kontakte=kontakte, seats=waiting))
+
+
+def seats_past_the_bound(*, kontakte: Any, open_links: Mapping[str, int]) -> list[FLKontaktRolle]:
+    """The seats this submission owes no mail, each person after the first taking a link of the mailbox's count, in the mails' order."""
+
+    held = dict(open_links)
+    past: list[FLKontaktRolle] = []
+    for address, seats in people_with_address(kontakte=kontakte):
+        mailbox = mailbox_of(address)
+        if held[mailbox] >= OPEN_LINKS_PER_MAILBOX:
+            past += seats
+        else:
+            held[mailbox] += 1
+
+    return past
+
+
+def objection_is_announced(*, kontakte: Any, confirmations: Any, seats: Sequence[str]) -> bool:
     """Whether a decline of these seats is told to an Ansprechperson who still stands, in a notice naming the deletion day."""
 
-    return "ansprechperson" not in seats and ansprechperson_mailbox(kontakte=kontakte)[0] is not None
+    return "ansprechperson" not in seats and ansprechperson_mailbox(kontakte=kontakte, confirmations=confirmations)[0] is not None
 
 
 def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool) -> Mapping[str, Any]:
@@ -956,7 +1041,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
 
 
 def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names, or it stands on too many open applications.
+    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
     """
@@ -965,8 +1050,7 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
         return None
 
     # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
-    # list, and 403 because what fails is who is applying rather than the season's state. One code for
-    # the ban and the ceiling, since a code of its own would tell a prober which of the two answered.
+    # list, and 403 because what fails is who is applying rather than the season's state.
     return WriteRefusal(
         error_code=Code.BEWERBUNG_ADDRESS_BARRED,
         status=HTTPStatus.FORBIDDEN,
@@ -1252,7 +1336,7 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     erasure emptied holds no deadline and takes nobody else, so that application goes once no seat's link runs.
 
     Nothing about the Ansprechperson's mail holds the day up: the people named were promised it, and `owed_loeschung`
-    owes the notice as for any address, an empty slot leaving nobody to tell.
+    owes the notice as for any address, an empty slot or a seat never mailed leaving nobody to tell.
 
     STRICTLY past: the link answers on the deadline's own day, so the deletion waits a day. An
     emptied seat is outstanding.
@@ -1517,14 +1601,16 @@ def owed_link(
     )
 
 
-def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schule: str, deadline: str) -> list[OwedMail]:
+def owed_at_submission(
+    *, bewerbung_id: Any, kontakte: Any, saison_id: str, schule: str, deadline: str, unmailed: Collection[str]
+) -> list[OwedMail]:
     """Every person's first mail: the Ansprechperson the receipt naming who is still to answer, each other person their link.
 
-    Keyed by the application and the person's first seat, so a retried transaction owes nothing twice.
+    None to an `unmailed` seat. Keyed by the application and the person's first seat, so a retried transaction owes nothing twice.
     """
 
     mails: list[OwedMail] = []
-    for email, seats in people_with_address(kontakte=kontakte):
+    for email, seats in people_with_address(kontakte=kontakte, seats=[seat for seat in KONTAKT_ROLLEN if seat not in unmailed]):
         stamm = f"{Sammlung.BEWERBUNGEN}/{bewerbung_id}"
         if "ansprechperson" not in seats:
             mails.append(
@@ -1562,12 +1648,11 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
 def owed_loeschung(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedMail | None:
     """The fourteen-day clock's notice to the Ansprechperson, naming who never confirmed.
 
-    `None` where the Ansprechperson slot is empty, which leaves nobody to tell, or where a Widerspruch's notice already named
-    the deletion.
+    `None` where `ansprechperson_mailbox` leaves nobody to tell, or where a Widerspruch's notice already named the deletion.
     """
 
     kontakte = bewerbung_raw.get("kontakte")
-    email, rollen = ansprechperson_mailbox(kontakte=kontakte)
+    email, rollen = ansprechperson_mailbox(kontakte=kontakte, confirmations=bewerbung_raw.get("confirmations"))
     if email is None or deletion_was_announced(bewerbung_raw=bewerbung_raw):
         return None
 

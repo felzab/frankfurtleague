@@ -353,9 +353,13 @@ export const AddressChangeInviteAddressChangeParams = zod.object({
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
- * already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number
- * are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press. Two people sharing
+ * an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being
+ * that one person.
+ *
+ * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
+ * press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
+ * either way, so it tells a stranger nothing about the address.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbungBodyKaderExpectedSizeMax = 200;
@@ -634,7 +638,8 @@ export const BewerbungenGetFormParams = zod.object({
  * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
  * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
  * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
- * Every application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.
+ * Every application with a confirmed seat is served past the newest rows a flood can fill: a flood naming strangers
+ * confirms nothing, and a sender confirming one seat at a time has to hold each mailbox.
  * @summary One Saison's Bewerbungen for its list
  */
 export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
@@ -1250,6 +1255,9 @@ export const OutboxPostSignInBody = zod
  * registration it holds, stores none and owes no second mail. The same key over other details is refused
  * (`registrierung_key_differing`). A key whose registration the team has since admitted is refused too
  * (`registrierung_already_admitted`) and stores nothing: the pupil is in the squad.
+ *
+ * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
+ * the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierungBodyEmailMax = 254;
@@ -3789,8 +3797,8 @@ export const TeamsDeleteInvitationParams = zod.object({
  * Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
  * (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
  *
- * **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
- * administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
+ * A row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link
+ * opens nothing, whoever holds it.
  * @summary Mint this team's registration link for a season
  */
 export const teamsPostInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3810,7 +3818,7 @@ export const TeamsPostInvitationParams = zod.object({
  * is handed out.
  *
  * 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
- * them, and where the season holds no row for the team.
+ * them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.
  * @summary Mail this team's live registration link to its confirmed contact seats
  */
 export const teamsPostInvitationDispatchPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

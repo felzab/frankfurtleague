@@ -27,6 +27,9 @@ export type SeatView = {
 
 const WORDS = COPY.admin.schiedsrichter;
 
+/** A seat the submission owed no mail, its mailbox holding too many unanswered links: „Link senden“ is what reaches it. */
+const NOT_SENT: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
+
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
   confirmed: { tone: "success", label: COPY.admin.confirmed },
   valid: { tone: "warn", label: COPY.template.open },
@@ -62,7 +65,7 @@ export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
     // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
     const state = entry?.state ?? "erased";
     const day = entry === null ? null : dayOfState(bewerbung, seat, entry);
-    const delivery = deliveryChip(entry?.delivery ?? null);
+    const delivery = entry?.sent_at === null ? NOT_SENT : deliveryChip(entry?.delivery ?? null);
     return {
       seat,
       rollen: seat === "trainer" && also !== null ? [seat, also] : [seat],

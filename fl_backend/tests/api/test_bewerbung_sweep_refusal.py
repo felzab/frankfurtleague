@@ -357,12 +357,14 @@ class TestWhatTheNoticesNeed:
     def test_the_notice_goes_to_the_ansprechperson_and_names_every_seat_that_mailbox_holds(self):
         """The double-seated case is the one the single-seat spelling gets wrong: it names one seat to a reader holding two."""
 
-        assert ansprechperson_mailbox(kontakte=kontakte()) == ("ansgar@example.com", ["ansprechperson"])
-        assert ansprechperson_mailbox(kontakte=kontakte(trainer=kontaktperson_document("Ansgar"))) == (
+        mailed = {"ansprechperson": {"sent_at": "2026-03-01"}}
+
+        assert ansprechperson_mailbox(kontakte=kontakte(), confirmations=mailed) == ("ansgar@example.com", ["ansprechperson"])
+        assert ansprechperson_mailbox(kontakte=kontakte(trainer=kontaktperson_document("Ansgar")), confirmations=mailed) == (
             "ansgar@example.com",
             ["trainer", "ansprechperson"],
         )
-        assert ansprechperson_mailbox(kontakte=kontakte(ansprechperson=None)) == (None, [])
+        assert ansprechperson_mailbox(kontakte=kontakte(ansprechperson=None), confirmations=mailed) == (None, [])
 
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
         assert first_name_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"
