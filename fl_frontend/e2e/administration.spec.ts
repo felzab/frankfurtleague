@@ -21,7 +21,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
   await page.goto(`/admin/saisons/${PLANNED}/teams`);
   await page.getByRole("button", { name: "Team eintragen" }).click();
   const dialog = page.getByRole("dialog", { name: "Team eintragen" });
-  await choose(page, dialog, /^Team/, entered);
+  await choose(page, dialog, /^Team$/, entered);
   await choose(page, dialog, /^Gruppe/, /^Gruppe C/);
   await dialog.getByRole("button", { name: "Eintragen" }).click();
   await expect(dialog).toBeHidden();
@@ -31,7 +31,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: entered })).toBeVisible();
   const main = page.getByRole("main");
   await typeInto(main.getByRole("textbox", { name: /^Website/ }), website);
-  await choose(page, main, /^Trikotfarbe/, "Schwarz");
+  await choose(page, main, /Trikotfarbe/, "Schwarz");
   const bar = page.getByRole("region", { name: "Speichern" });
   await expect(bar.getByText("2 Änderungen", { exact: true })).toBeVisible();
   await bar.getByRole("button", { name: "Speichern" }).click();
@@ -40,7 +40,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
   // Read back from the server: both halves stand.
   await page.reload();
   await expect(main.getByRole("textbox", { name: /^Website/ })).toHaveValue(website);
-  await expect(main.getByRole("button", { name: /^Trikotfarbe/ })).toContainText("Schwarz");
+  await expect(main.getByRole("button", { name: /Trikotfarbe/ })).toContainText("Schwarz");
 });
 
 test("a pupil's squad row saves from its editor, and the season's Registrierungen stand", async ({ page, squadded }) => {

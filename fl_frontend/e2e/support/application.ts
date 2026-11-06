@@ -51,7 +51,10 @@ export async function typeInto(box: Locator, value: string): Promise<void> {
   await box.fill(value);
 }
 
-/** Opens the select `label` names inside `scope` and presses `option`, which its list shows in a pop-over of the page's. */
+/**
+ * Opens the select `label` names inside `scope` and presses `option`, which its list shows in a pop-over of the page's. A
+ * select's button is named by its value, then its label (`useSelect`), so only a select holding no value starts on its label.
+ */
 export async function choose(page: Page, scope: Locator, label: RegExp, option: string | RegExp): Promise<void> {
   await scope.getByRole("button", { name: label }).click();
   await page.getByRole("option", { name: option, exact: true }).click();
