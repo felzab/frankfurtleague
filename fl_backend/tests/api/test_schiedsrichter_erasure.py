@@ -70,15 +70,15 @@ DEFAULT_PAYMENT = 20
 # The pair the seeded edit replaced. It survives in one place only -- the log row that edit wrote --
 # which is the copy an erasure stopping at the collection leaves standing.
 FORMER_KONTAKT = {
-    SCHIEDSRICHTER_OID: {"telefon": "+49 69 7654321", "email": "ak-vertretung@example.com"},
-    OTHER_SCHIEDSRICHTER_OID: {"telefon": "+49 69 9998887", "email": "bk-vertretung@example.com"},
+    SCHIEDSRICHTER_OID: {"phone": "+49 69 7654321", "email": "ak-vertretung@example.com"},
+    OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 9998887", "email": "bk-vertretung@example.com"},
 }
 
 # What each referee holds when the erasure runs. No value here or above is shared between the two,
 # so the log sweep below can attribute every hit it finds to one referee.
 KONTAKT = {
-    SCHIEDSRICHTER_OID: {"telefon": "+49 69 1234567", "email": "koerner.anna@example.com"},
-    OTHER_SCHIEDSRICHTER_OID: {"telefon": "+49 69 2223334", "email": "kraus.bernd@example.com"},
+    SCHIEDSRICHTER_OID: {"phone": "+49 69 1234567", "email": "koerner.anna@example.com"},
+    OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 2223334", "email": "kraus.bernd@example.com"},
 }
 
 # Injected through `get_germany_now`, and in summer, so the conversion below moves the clock. A century ahead of the
@@ -106,7 +106,7 @@ A_RESCHEDULED_TIME = "15:00:00"
 # The day the seeded links were minted, earlier than every press here, so a block found carrying it
 # is the seed's rather than one a case wrote.
 MINTED_ON = "2126-03-02"
-GEBURTSDATUM = "1984-05-09"
+BIRTH_DATE = "1984-05-09"
 
 TOKEN_HASHES = {oid: hash_token(f"raw-token-for-{oid}") for oid in REFEREE_NAMES}
 
@@ -159,7 +159,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         # them would let a nulling write pass every case below.
         "confirmation": {**compose_confirmation(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
         "einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, media=True),
-        "geburtsdatum": GEBURTSDATUM,
+        "birth_date": BIRTH_DATE,
         "version": 0,
     }
 
@@ -172,8 +172,8 @@ def fixture_document(schiedsrichter_id: ObjectId, spiel_id: ObjectId, spiel_nr: 
         saison_id=SAISON_ID,
         spiel_nr=spiel_nr,
         spieltag_id=SPIELTAG_OID,
-        datum="2126-03-15",
-        uhrzeit="14:00:00",
+        date="2126-03-15",
+        time="14:00:00",
         schiedsrichter={"schiedsrichter_id": schiedsrichter_id, "payment": DEFAULT_PAYMENT},
         ergebnis="2:1",
     )
@@ -315,7 +315,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
             name=REFEREE_NAMES[schiedsrichter_id],
             schule=SCHULE,
             default_payment=DEFAULT_PAYMENT,
-            kontakt=FLKontaktPayload(telefon=KONTAKT[schiedsrichter_id]["telefon"], email=former_email),
+            kontakt=FLKontaktPayload(phone=KONTAKT[schiedsrichter_id]["phone"], email=former_email),
             version=served["version"],
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -341,7 +341,7 @@ async def a_fixture_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) 
     await patch_one_in_db(
         collection=database[Collection.SPIELE],
         db_filter={"_id": spiel_id},
-        update={"$set": {"uhrzeit": A_RESCHEDULED_TIME}},
+        update={"$set": {"time": A_RESCHEDULED_TIME}},
         expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
@@ -749,7 +749,7 @@ def test_no_value_of_theirs_survives_anywhere_in_the_log(mongo_replica_set_url: 
     assert [value for value in theirs if value in rendered] == []
     # Their replaced pair, not their live one: only what an edit replaced is ever in the log at all. Both halves,
     # each logged by its own write, so neither half of the redaction passes on a log missing that write.
-    assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["telefon"] in rendered
+    assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["phone"] in rendered
     assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["email"] in rendered
     assert REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID] in rendered
 

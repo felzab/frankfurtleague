@@ -438,7 +438,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirmations.sweep(database, client)
-            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"time": "19:00:00"}})
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
             # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
@@ -462,7 +462,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
         assert commits[:2] == [None, MAX_TIME_EXPIRED]
         assert lost.has_error_label(UNKNOWN_COMMIT_RESULT)
         # Each side's fresh row and the referee's, about the moved Ansetzung, each stamped with the mails it owes beside it.
-        assert sorted((row["party"]["art"], row["ansetzung"]["uhrzeit"], row["asked_at"]) for row in standing) == [
+        assert sorted((row["party"]["kind"], row["ansetzung"]["time"], row["asked_at"]) for row in standing) == [
             ("schiedsrichter", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),

@@ -85,7 +85,7 @@ RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=18,
+    max_kader_size=18,
     forfeit_ergebnis=STANDARD_FORFEIT,
     allowed_stufen=["E1"],
 )
@@ -300,7 +300,7 @@ class TestApplyingThePayload:
 
     def test_the_fixtures_own_identity_is_never_taken_from_the_payload(self, saison):
         stored = FLSpiel.model_validate(saison[1])
-        patched = patched_spiel(saison, 2, datum=None)
+        patched = patched_spiel(saison, 2, date=None)
 
         assert (patched.spiel_nr, patched.spieltag_id, patched.saison_id, patched.saison_phase) == (
             stored.spiel_nr,
@@ -572,12 +572,12 @@ def held_by(saison_docs: list[dict[str, Any]], nr: int) -> BookedReferences:
 def untimed_first(saison_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """`saison` with spiel 1 given no time, so it claims nothing."""
 
-    return [{**saison_docs[0], "uhrzeit": None}, *saison_docs[1:]]
+    return [{**saison_docs[0], "time": None}, *saison_docs[1:]]
 
 
 # A result and a note on spiel 1, which leave its claims as they were.
 A_RESULT = {"team1": team(ADLER, "Adler", tore=2), "team2": team(BIEBER, "Bieber", tore=0)}
-A_NOTE = {"notiz": "Anstoß verschoben"}
+A_NOTE = {"note": "Anstoß verschoben"}
 
 
 class TestTheReferencesASaveAnchors:
@@ -587,9 +587,9 @@ class TestTheReferencesASaveAnchors:
         ("seasoned", "nr", "overrides"),
         [
             # The race `booking_unknown_resource` never sees: neither reference moves, and both claims do.
-            pytest.param(as_seeded, 1, {"uhrzeit": "10:00:00"}, id="a kept booking moved to another hour"),
-            pytest.param(as_seeded, 1, {"datum": "2026-03-14"}, id="a kept booking moved to another day"),
-            pytest.param(untimed_first, 1, {"uhrzeit": "18:00:00"}, id="an untimed fixture given its time"),
+            pytest.param(as_seeded, 1, {"time": "10:00:00"}, id="a kept booking moved to another hour"),
+            pytest.param(as_seeded, 1, {"date": "2026-03-14"}, id="a kept booking moved to another day"),
+            pytest.param(untimed_first, 1, {"time": "18:00:00"}, id="an untimed fixture given its time"),
             *REOPENING_SAVES,
         ],
     )
@@ -625,7 +625,7 @@ class TestEligibility:
         """Refuse-by-default: an unscheduled fixture is more often ahead than behind."""
 
         assert (
-            eligibility_for(saison, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"), datum=None)
+            eligibility_for(saison, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"), date=None)
             == Code.ELIGIBILITY_DISQUALIFIED
         )
 
@@ -695,12 +695,12 @@ class TestEligibility:
     def test_re_dating_a_fixture_past_its_occupants_exit_is_refused(self, saison):
         """No side moved and the DATE did, which is the other half of the same predicate: the club is as ineligible either way."""
 
-        assert eligibility_for(saison, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, datum=AFTER_THE_FIXTURE) == Code.ELIGIBILITY_DISQUALIFIED
+        assert eligibility_for(saison, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, date=AFTER_THE_FIXTURE) == Code.ELIGIBILITY_DISQUALIFIED
 
     def test_clearing_the_date_of_a_fixture_a_departed_club_stands_on_is_refused(self, saison):
         """Refuse-by-default reaches an unmoved side too: an unscheduled fixture is more often ahead than behind."""
 
-        assert eligibility_for(saison, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, datum=None) == Code.ELIGIBILITY_DISQUALIFIED
+        assert eligibility_for(saison, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, date=None) == Code.ELIGIBILITY_DISQUALIFIED
 
     def test_clearing_the_event_that_permitted_a_departed_club_is_refused(self, spiel_at, saison):
         """The carve-out is not a one-way door.
@@ -741,7 +741,7 @@ class TestEligibility:
         """No date makes fielding a club outside the season legal."""
 
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
-        assert eligibility_for(saison, 30, missing, team1=team(CRONBERG, "Cronberg"), datum="2020-01-01") == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
+        assert eligibility_for(saison, 30, missing, team1=team(CRONBERG, "Cronberg"), date="2020-01-01") == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
 
 
 class TestSpieltagOccupancy:
@@ -880,7 +880,7 @@ class TestApplyingARelease:
 def joined(
     *,
     nr: int,
-    datum: str | None,
+    date: str | None,
     side_disqualified_from: str | None,
     side: str = "team1",
     sonderereignis: str | None = None,
@@ -894,7 +894,9 @@ def joined(
     def occupant(team_id: str, name: str, disqualified_from: str | None) -> dict[str, Any]:
         # `type` is set and never varied: the rule reads the DATE, so a `rueckzug` would exercise
         # the same branch with a different word in it.
-        record = None if disqualified_from is None else {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": disqualified_from}
+        record = (
+            None if disqualified_from is None else {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": disqualified_from}
+        )
 
         return {**team(team_id, name), "austritt": record, "austritt_type": None if record is None else record["type"]}
 
@@ -904,8 +906,8 @@ def joined(
         "team2": occupant(BIEBER, "Bieber", side_disqualified_from if side == "team2" else None),
         "team1_quelle": None,
         "team2_quelle": None,
-        "datum": datum,
-        "uhrzeit": None,
+        "date": date,
+        "time": None,
         "ort": None,
         "schiedsrichter": None,
         "ergebnis": None,
@@ -928,31 +930,31 @@ class TestTheDisqualifiedOccupantFault:
     """Derived, never stored, and it empties nothing: what to do about the fixture is a competition decision."""
 
     def test_a_fixture_on_the_effective_day_is_reported(self):
-        """`datum` is the day the disqualification took effect, so that day's fixtures are affected."""
+        """`date` is the day the disqualification took effect, so that day's fixtures are affected."""
 
-        faults = occupant_faults(joined(nr=1, datum="2026-03-15", side_disqualified_from="2026-03-15"))
+        faults = occupant_faults(joined(nr=1, date="2026-03-15", side_disqualified_from="2026-03-15"))
 
         assert [fault.reason for fault in faults] == ["departed_occupant"]
 
     def test_a_fixture_after_the_disqualification_is_reported(self):
-        faults = occupant_faults(joined(nr=4, datum="2026-04-01", side_disqualified_from="2026-03-15"))
+        faults = occupant_faults(joined(nr=4, date="2026-04-01", side_disqualified_from="2026-03-15"))
 
         assert len(faults) == 1
         assert faults[0].spiel_nr == 4
         assert faults[0].side == "team1"
         assert faults[0].ausgeschieden_seit == "2026-03-15"
-        assert faults[0].spiel_datum == "2026-04-01"
+        assert faults[0].spiel_date == "2026-04-01"
 
     def test_an_undated_fixture_is_reported(self):
         """Refuse-by-default, matching the write path."""
 
-        faults = occupant_faults(joined(nr=9, datum=None, side_disqualified_from="2026-03-15"))
+        faults = occupant_faults(joined(nr=9, date=None, side_disqualified_from="2026-03-15"))
 
         assert len(faults) == 1
-        assert faults[0].spiel_datum is None
+        assert faults[0].spiel_date is None
 
     def test_either_side_is_reported(self):
-        faults = occupant_faults(joined(nr=2, datum="2026-04-01", side_disqualified_from="2026-03-15", side="team2"))
+        faults = occupant_faults(joined(nr=2, date="2026-04-01", side_disqualified_from="2026-03-15", side="team2"))
 
         assert [fault.side for fault in faults] == ["team2"]
         assert faults[0].team_name == "Bieber"
@@ -960,7 +962,7 @@ class TestTheDisqualifiedOccupantFault:
     def test_a_group_phase_fixture_is_covered(self):
         """No bracket rule looks at the group phase, which is why this is derived beside the walk."""
 
-        faults = occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15"))
+        faults = occupant_faults(joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15"))
 
         assert len(faults) == 1
 
@@ -968,9 +970,9 @@ class TestTheDisqualifiedOccupantFault:
         """One fault per remaining fixture: each needs the same decision taken separately."""
 
         faults = occupant_faults(
-            joined(nr=1, datum="2026-03-01", side_disqualified_from="2026-03-15"),
-            joined(nr=2, datum="2026-04-01", side_disqualified_from="2026-03-15"),
-            joined(nr=3, datum="2026-05-01", side_disqualified_from="2026-03-15"),
+            joined(nr=1, date="2026-03-01", side_disqualified_from="2026-03-15"),
+            joined(nr=2, date="2026-04-01", side_disqualified_from="2026-03-15"),
+            joined(nr=3, date="2026-05-01", side_disqualified_from="2026-03-15"),
         )
 
         assert [fault.spiel_nr for fault in faults] == [2, 3]
@@ -978,7 +980,7 @@ class TestTheDisqualifiedOccupantFault:
     def test_a_no_show_naming_the_other_side_is_still_reported(self):
         """Directional: the departed club turned up and took the forfeit, so the table still scores it."""
 
-        faults = occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis="nichtantreten_team2"))
+        faults = occupant_faults(joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis="nichtantreten_team2"))
 
         assert [fault.side for fault in faults] == ["team1"]
 
@@ -987,7 +989,7 @@ class TestTheDisqualifiedOccupantFault:
         """A cancelled knockout advances nobody, so the slot still has to say who plays it."""
 
         faults = occupant_faults(
-            joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis=sonderereignis, saison_phase="viertelfinale")
+            joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis=sonderereignis, saison_phase="viertelfinale")
         )
 
         assert [fault.reason for fault in faults] == ["departed_occupant"]
@@ -995,16 +997,16 @@ class TestTheDisqualifiedOccupantFault:
     def test_an_abandoned_fixture_is_still_reported(self):
         """An abandonment is a fixture that took place, so it records no absence and exempts neither side."""
 
-        faults = occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis="abgebrochen"))
+        faults = occupant_faults(joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis="abgebrochen"))
 
         assert [fault.reason for fault in faults] == ["departed_occupant"]
 
     def test_an_undated_fixture_recording_no_absence_is_still_reported(self):
         """The carve-out is judged on the event alone, so clearing the date past it changes nothing."""
 
-        faults = occupant_faults(joined(nr=9, datum=None, side_disqualified_from="2026-03-15", sonderereignis="abgebrochen"))
+        faults = occupant_faults(joined(nr=9, date=None, side_disqualified_from="2026-03-15", sonderereignis="abgebrochen"))
 
-        assert [fault.spiel_datum for fault in faults] == [None]
+        assert [fault.spiel_date for fault in faults] == [None]
 
 
 def double_entries(*spiele: dict[str, Any]) -> list:
@@ -1195,13 +1197,13 @@ class TestTheResolutionNeverFieldsAClubTwice:
 class TestTheClashComparesRealTime:
     """`spiel_double_booked` across a date boundary, and the read that has to fetch the fixtures the comparison now reaches."""
 
-    def slot(self, datum: str, uhrzeit: str, nr: int = 3) -> BookedSlot:
-        return BookedSlot(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource="Spielort")
+    def slot(self, date: str, time: str, nr: int = 3) -> BookedSlot:
+        return BookedSlot(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=nr, date=date, time=time, resource="Spielort")
 
     def test_two_bookings_either_side_of_midnight_clash(self):
         """An hour apart on the clock and a day apart on the calendar: the pair a comparison scoped by date never sees."""
 
-        refusal = find_clash_refusal(datum="2026-03-08", uhrzeit="00:30:00", booked=[self.slot("2026-03-07", "23:30:00")])
+        refusal = find_clash_refusal(date="2026-03-08", time="00:30:00", booked=[self.slot("2026-03-07", "23:30:00")])
 
         assert refusal is not None and refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
 
@@ -1214,9 +1216,9 @@ class TestTheClashComparesRealTime:
     def test_the_booking_read_is_keyed_on_that_window(self, saison):
         """Narrow this read back to the claim's own date and the rule above goes quiet rather than red, handed no neighbour to refuse."""
 
-        claims = find_slot_claims(payload_for(saison, 1, datum="2026-03-08"))
+        claims = find_slot_claims(payload_for(saison, 1, date="2026-03-08"))
 
-        assert build_slot_holder_filter(claims)["datum"] == {"$in": days_a_clash_can_reach("2026-03-08")}
+        assert build_slot_holder_filter(claims)["date"] == {"$in": days_a_clash_can_reach("2026-03-08")}
 
     def test_the_window_is_calendar_arithmetic_rather_than_string_work(self):
         """A month boundary is where a day counted off the text of a date goes wrong."""
@@ -1232,8 +1234,8 @@ class TestTheClashComparesRealTime:
             ),
             # A fixture called off frees the ground, and judging it would make the admin move it before recording why.
             *(pytest.param({"sonderereignis": event}, [], id=f"{event}-frees-its-slot") for event in SONDEREREIGNIS_RECORDING_AN_ABSENCE),
-            pytest.param({"datum": None}, [], id="no-date"),
-            pytest.param({"uhrzeit": None}, [], id="no-time"),
+            pytest.param({"date": None}, [], id="no-date"),
+            pytest.param({"time": None}, [], id="no-time"),
         ],
     )
     def test_a_fixture_claims_its_venue_and_its_referee_while_it_keeps_a_slot_at_an_hour(self, saison, overrides, claimed):
@@ -1245,7 +1247,7 @@ class TestTheClashComparesRealTime:
             # A note on a fixture a reopening left clashing is saved rather than refused until somebody moves one of the two.
             pytest.param(as_seeded, A_RESULT, [], id="a result"),
             pytest.param(as_seeded, A_NOTE, [], id="a note"),
-            pytest.param(as_seeded, {"uhrzeit": "10:00:00"}, ["Spielort", "Schiedsrichter"], id="a new hour"),
+            pytest.param(as_seeded, {"time": "10:00:00"}, ["Spielort", "Schiedsrichter"], id="a new hour"),
             pytest.param(as_seeded, {"schiedsrichter": A_DIFFERENT_SCHIEDSRICHTER}, ["Schiedsrichter"], id="a new referee"),
             pytest.param(called_off_first, {"sonderereignis": None}, ["Spielort", "Schiedsrichter"], id="a call-off lifted"),
         ],

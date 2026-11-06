@@ -124,16 +124,19 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SpielberichteCollection,
+    SpielberichteReadCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
     SpieltageCollection,
+    SpieltageReadCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
+from app.core.readonly import ReadCollection
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import FLGruppenNames
@@ -250,9 +253,9 @@ async def get_saison_admin(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     teams_collection: TeamsCollection,
-    spielberichte_collection: SpielberichteCollection,
+    spielberichte_collection: SpielberichteReadCollection,
     invitations_collection: InvitationsCollection,
     ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
@@ -663,7 +666,7 @@ async def _judge_the_activation(
     target_status: str,
     saisons_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
-    spieltage_collection: AsyncCollection,
+    spieltage_collection: ReadCollection,
     session: AsyncClientSession | None,
 ) -> tuple[list[Any], WriteRefusal | None]:
     """The seasons activating this one would close, and why it must be refused, or `None`.

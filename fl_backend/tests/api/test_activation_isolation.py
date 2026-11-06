@@ -163,7 +163,7 @@ def on_a_league(
                 # answer every case in this file before the interference it is about could be judged. Inside
                 # the season's span, so a patch of its dates is not refused on them.
                 await database[Collection.SPIELTAGE].update_many(
-                    {"saison_id": saison_id}, {"$set": {"beginn": f"{saison_id}-09-15", "ende": f"{saison_id}-09-16"}}
+                    {"saison_id": saison_id}, {"$set": {"start": f"{saison_id}-09-15", "end": f"{saison_id}-09-16"}}
                 )
 
             for saison_id in finished:

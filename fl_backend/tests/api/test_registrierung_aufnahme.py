@@ -83,12 +83,12 @@ NORA = "nora@example.com"
 # As a visitor may type it, and the fold every record stores it under.
 TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
-GEBURTSDATUM = "2009-05-04"
+BIRTH_DATE = "2009-05-04"
 # The label of the media wording a press withdrawing it is given under.
 KONTO_LABEL = SPIELER_TEXT_VERSIONS["media"]
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
-RULES: Mapping[str, Any] = documents.rules_document(max_kadergroesse=3, allowed_stufen=["Q1", "Q2"])
+RULES: Mapping[str, Any] = documents.rules_document(max_kader_size=3, allowed_stufen=["Q1", "Q2"])
 
 STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
@@ -177,9 +177,9 @@ def registrierung_document(
     saison_id: str = SAISON_ID,
     team_id: ObjectId = TEAM_OID,
     email: str = FOLDED_EMAIL,
-    vorname: str = "Thessaly",
-    nachname: str = "Okonkwo-Brandt",
-    geburtsdatum: str = GEBURTSDATUM,
+    first_name: str = "Thessaly",
+    last_name: str = "Okonkwo-Brandt",
+    birth_date: str = BIRTH_DATE,
     token: str = TOKEN,
     position: str | None = "Mittelfeld",
     nummer: str | None = "17",
@@ -193,18 +193,18 @@ def registrierung_document(
         email,
         saison_id=saison_id,
         team_id=team_id,
-        vorname=vorname,
-        nachname=nachname,
+        first_name=first_name,
+        last_name=last_name,
         token=token,
         submitted_at="2026-03-30",
-        frist="2026-04-06",
+        deadline="2026-04-06",
         position=position,
         nummer=nummer,
         stufe=stufe,
         confirmed=None
         if not confirmed
         else {
-            "geburtsdatum": geburtsdatum,
+            "birth_date": birth_date,
             "scope": "intern",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
@@ -276,13 +276,13 @@ async def decline(
     client: AsyncMongoClient,
     registrierung_id: Any,
     *,
-    grund: Any = None,
+    decision_reason: Any = None,
     identifier: str = ANNA,
     registrierungen: Any = None,
 ) -> Any:
     return await person_router.decline(
         registrierung_id=registrierung_id,
-        ablehnung_data=FLRegistrierungDeclinePayload(grund=grund),
+        ablehnung_data=FLRegistrierungDeclinePayload(decision_reason=decision_reason),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -336,21 +336,21 @@ async def squad_rows(database: AsyncDatabase, *, spieler_id: Any) -> list[Mappin
 
 
 def a_stored_person(spieler_id: ObjectId, *, email: str | None = FOLDED_EMAIL, **fields: Any) -> dict[str, Any]:
-    stored = {"geburtsdatum": GEBURTSDATUM, **fields}
+    stored = {"birth_date": BIRTH_DATE, **fields}
     if email is not None:
         stored["email"] = email
 
-    return documents.spieler_document(spieler_id, stored.pop("vorname", "Thessaly"), stored.pop("nachname", "Okonkwo-Brandt"), **stored)
+    return documents.spieler_document(spieler_id, stored.pop("first_name", "Thessaly"), stored.pop("last_name", "Okonkwo-Brandt"), **stored)
 
 
 # A person's record as their own earlier confirmation left it, both choices granted, and the evidence each choice left.
-STORED_AM = "2026-01-20T11:00:00+00:00"
-STORED_GRANT = {choice: {"at": STORED_AM, "text_version": label} for choice, label in SPIELER_TEXT_VERSIONS.items()}
+STORED_AT = "2026-01-20T11:00:00+00:00"
+STORED_GRANT = {choice: {"at": STORED_AT, "text_version": label} for choice, label in SPIELER_TEXT_VERSIONS.items()}
 
 
 def granted_by_an_earlier_registration() -> dict[str, Any]:
     return documents.own_einwilligung_document(
-        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", at=STORED_AM, media=True
+        text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", at=STORED_AT, media=True
     )
 
 
@@ -366,11 +366,11 @@ class TestWhatAnAdmissionWrites:
 
         assert [person["_id"] for person in stored] == [answer.spieler_id]
         person = stored[0]
-        assert (person["email"], person["vorname"], person["nachname"], person["geburtsdatum"]) == (
+        assert (person["email"], person["first_name"], person["last_name"], person["birth_date"]) == (
             FOLDED_EMAIL,
             "Thessaly",
             "Okonkwo-Brandt",
-            GEBURTSDATUM,
+            BIRTH_DATE,
         )
         assert person["einwilligung"]["confirmed_at"] == "2026-03-31" and person["einwilligung"]["scope"] == "intern"
         assert len(rows) == 1
@@ -393,9 +393,9 @@ class TestWhatAnAdmissionWrites:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await post_confirmation(
-                antwort_data=FLRegistrierungConfirmationPayload(
+                answer_data=FLRegistrierungConfirmationPayload(
                     token=TOKEN,
-                    geburtsdatum=GEBURTSDATUM,
+                    birth_date=BIRTH_DATE,
                     scope="intern",
                     media=False,
                     text_versions=FLSpielerTextVersions.model_validate(SPIELER_TEXT_VERSIONS),
@@ -537,7 +537,7 @@ class TestTheSquadCap:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await seed(database, registrierung_document())
-            second = await seed(database, registrierung_document(email="zweite@beispielschule.de", vorname="Zweite"))
+            second = await seed(database, registrierung_document(email="zweite@beispielschule.de", first_name="Zweite"))
 
             async def the_rival_takes_the_place() -> None:
                 await admit(database, client, second)
@@ -616,7 +616,7 @@ class TestABarredAddress:
 class TestThePersonAnAdmissionNames:
     @pytest.mark.parametrize(
         "differs",
-        [{"vorname": "Thessa"}, {"geburtsdatum": "2009-05-05"}],
+        [{"first_name": "Thessa"}, {"birth_date": "2009-05-05"}],
         ids=("another name", "another birthdate"),
     )
     def test_an_address_match_that_differs_is_refused_unless_the_body_names_it(self, mongo_replica_set_url: str, differs: Mapping[str, Any]):
@@ -639,14 +639,14 @@ class TestThePersonAnAdmissionNames:
         assert (code, untouched) == (Code.REGISTRIERUNG_PERSON_NOT_NAMED, True)
         # No second person: the yes overwrites the stored name and birthdate with the confirmed ones.
         assert answer.spieler_id == stored_id
-        assert [(row["_id"], row["vorname"], row["geburtsdatum"]) for row in stored] == [(stored_id, "Thessaly", GEBURTSDATUM)]
+        assert [(row["_id"], row["first_name"], row["birth_date"]) for row in stored] == [(stored_id, "Thessaly", BIRTH_DATE)]
 
     def test_an_address_match_under_the_same_name_is_admitted_with_no_spieler_id(self, mongo_replica_set_url: str):
         stored_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Stored in another case and spacing, which the name fold reads as the same person.
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, vorname="THESSALY"))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, first_name="THESSALY"))
             registrierung_id = await seed(database, registrierung_document())
             listed = await read(database, client)
             answer = await admit(database, client, registrierung_id)
@@ -657,7 +657,7 @@ class TestThePersonAnAdmissionNames:
 
         assert person is not None and person.deviates_from is False
         assert admitted == stored_id
-        assert len(stored) == 1 and stored[0]["geburtsdatum"] == GEBURTSDATUM
+        assert len(stored) == 1 and stored[0]["birth_date"] == BIRTH_DATE
 
     def test_a_returning_persons_record_is_renewed_with_the_registrations_evidence(self, mongo_replica_set_url: str):
         """The confirmation page promises renewal, a narrowed answer left under the older record being ignored.
@@ -698,7 +698,7 @@ class TestThePersonAnAdmissionNames:
 
         stored_id = ObjectId()
         confirmed = compose_confirmation_update(
-            geburtsdatum=GEBURTSDATUM,
+            birth_date=BIRTH_DATE,
             scope="intern",
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
@@ -748,7 +748,7 @@ class TestThePersonAnAdmissionNames:
 
         stored_id = ObjectId()
         confirmed = compose_confirmation_update(
-            geburtsdatum=GEBURTSDATUM,
+            birth_date=BIRTH_DATE,
             scope="intern",
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
@@ -830,7 +830,7 @@ class TestTheSentinelIsNobodyToAdmit:
     Admitted into, it would take that registration's name onto every erased pupil's surviving entry.
     """
 
-    WHITESPACE: Mapping[str, Any] = {"vorname": "   ", "nachname": "   "}
+    WHITESPACE: Mapping[str, Any] = {"first_name": "   ", "last_name": "   "}
 
     def test_a_registration_naming_it_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -851,9 +851,9 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
     """The returning pupil's page pressed over a stored birthdate: no label, no choice and no date."""
 
     return await post_confirmation(
-        antwort_data=FLRegistrierungConfirmationPayload(
+        answer_data=FLRegistrierungConfirmationPayload(
             token=TOKEN,
-            geburtsdatum=None,
+            birth_date=None,
             scope=None,
             media=None,
             text_versions=None,
@@ -931,7 +931,7 @@ class TestAReturningRegistration:
 
         assert admitted == person["_id"] == stored_id
         assert person["einwilligung"] == self.HELD
-        assert (person["geburtsdatum"], person["email"]) == (GEBURTSDATUM, FOLDED_EMAIL)
+        assert (person["birth_date"], person["email"]) == (BIRTH_DATE, FOLDED_EMAIL)
 
     def test_an_administrators_correction_of_the_birthdate_made_since_stands(self, mongo_replica_set_url: str):
         """The registration holds the date its page took from the person; written back, it would undo the correction unseen."""
@@ -943,14 +943,14 @@ class TestAReturningRegistration:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
-            await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"geburtsdatum": corrected}})
+            await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"birth_date": corrected}})
             await admit(database, client, registrierung_id, spieler_id=stored_id)
 
             return (await persons(database))[0]
 
         person = on_a_league(mongo_replica_set_url, body)
 
-        assert (person["geburtsdatum"], person["email"]) == (corrected, FOLDED_EMAIL)
+        assert (person["birth_date"], person["email"]) == (corrected, FOLDED_EMAIL)
 
     def test_a_withdrawal_made_while_the_page_stood_open_stands(self, mongo_replica_set_url: str):
         """The page opened while media stood on, the account page withdrew it, the page was pressed, the team admitted.
@@ -984,7 +984,7 @@ class TestAReturningRegistration:
 
         view, einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        assert view.seite == "bestaetigung_spieler_wiederkehrend"
+        assert view.page == "bestaetigung_spieler_wiederkehrend"
         assert (einwilligung["media"], einwilligung["evidence"]["media"]["text_version"]) == (False, KONTO_LABEL)
 
 
@@ -1084,7 +1084,7 @@ class TestEverySeatActsAlike:
     def test_a_seat_reads_admits_and_declines(self, mongo_replica_set_url: str, identifier: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             admitted = await seed(database, registrierung_document())
-            declined = await seed(database, registrierung_document(email="zweite@beispielschule.de", vorname="Zweite"))
+            declined = await seed(database, registrierung_document(email="zweite@beispielschule.de", first_name="Zweite"))
             listed = await read(database, client, identifier=identifier)
             await admit(database, client, admitted, identifier=identifier)
             await decline(database, client, declined, identifier=identifier)
@@ -1146,7 +1146,7 @@ class TestTheDecline:
             registrierung_id = await seed(database, registrierung_document())
 
             async def the_rival_declines() -> None:
-                await decline(database, client, registrierung_id, grund="other_person", identifier=THEO)
+                await decline(database, client, registrierung_id, decision_reason="other_person", identifier=THEO)
 
             registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
             with pytest.raises(DocumentNotFoundError):
@@ -1156,23 +1156,25 @@ class TestTheDecline:
 
         passes, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored is not None and stored["decision"] == {"made_at": TODAY, "by": THEO, "grund": "other_person"}
+        assert stored is not None and stored["decision"] == {"made_at": TODAY, "by": THEO, "decision_reason": "other_person"}
         assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
 
-    @pytest.mark.parametrize("grund", [None, "other_person"])
-    def test_it_writes_the_state_and_the_decision_and_nothing_else(self, mongo_replica_set_url: str, grund: str | None):
+    @pytest.mark.parametrize("decision_reason", [None, "other_person"])
+    def test_it_writes_the_state_and_the_decision_and_nothing_else(self, mongo_replica_set_url: str, decision_reason: str | None):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             before = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
-            await decline(database, client, registrierung_id, grund=grund, identifier=THEO)
+            await decline(database, client, registrierung_id, decision_reason=decision_reason, identifier=THEO)
 
             return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), await notes_owed(database)
 
         before, after, owed = on_a_league(mongo_replica_set_url, body)
 
-        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "grund": grund}}
+        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "decision_reason": decision_reason}}
         # The confirmed pupil's note, owed in the decline's own transaction.
-        assert [(row["an"], row["data"]["team"], row["data"]["grund"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", grund)]
+        assert [(row["an"], row["data"]["team"], row["data"]["decision_reason"]) for row in owed] == [
+            (FOLDED_EMAIL, "Zorbanax", decision_reason)
+        ]
 
     def test_a_decided_registration_answers_404_to_either_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1223,10 +1225,10 @@ class TestThePendingReadServesNoAddress:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(ObjectId(), vorname="Thessa"))
+            await database[Collection.SPIELER].insert_one(a_stored_person(ObjectId(), first_name="Thessa"))
             await seed(database, registrierung_document())
-            await seed(database, registrierung_document(email="zweite@beispielschule.de", vorname="Zweite"))
-            await seed(database, registrierung_document(confirmed=False, email="dritte@beispielschule.de", vorname="Dritte"))
+            await seed(database, registrierung_document(email="zweite@beispielschule.de", first_name="Zweite"))
+            await seed(database, registrierung_document(confirmed=False, email="dritte@beispielschule.de", first_name="Dritte"))
 
             async with app_client(mongo_replica_set_url, app=_served(), now=NOW) as http:
                 response = await http.get(
@@ -1240,6 +1242,6 @@ class TestThePendingReadServesNoAddress:
         assert status == 200
         assert len(served["registrierungen"]) == 3
         assert "person" in keys_at_every_depth(served)
-        assert not {"email", "telefon", "geburtsdatum", "einwilligung"} & set(keys_at_every_depth(served))
+        assert not {"email", "phone", "birth_date", "einwilligung"} & set(keys_at_every_depth(served))
         text = json.dumps(served)
-        assert not any(value in text for value in ("beispielschule.de", GEBURTSDATUM, "@"))
+        assert not any(value in text for value in ("beispielschule.de", BIRTH_DATE, "@"))

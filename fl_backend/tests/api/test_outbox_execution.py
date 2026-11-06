@@ -126,7 +126,7 @@ async def reported(
     result: FLOutboxResultKind,
     *,
     now: datetime = NOW,
-    grund: str | None = None,
+    delivery_reason: str | None = None,
 ) -> FLOutboxResultResponse:
     assert lease is not None
     return await post_result(
@@ -135,7 +135,7 @@ async def reported(
             id=row_id,
             result=result,
             message_id=f"msg-{row_id}" if result == "sent" else None,
-            grund=grund,
+            delivery_reason=delivery_reason,
         ),
         outbox_collection=database[Collection.OUTBOX],
         now=now,
@@ -289,9 +289,9 @@ class TestTheDrain:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row_id = await owe(database, client, "ban/1")
             first = await claimed(database, client)
-            failed = await reported(database, first.lease, row_id, "retry", grund="rate_limit_exceeded")
+            failed = await reported(database, first.lease, row_id, "retry", delivery_reason="rate_limit_exceeded")
             waiting = await claimed(database, client, now=NOW + REPETITION_AFTER - timedelta(seconds=1))
-            refused = (await stored(database, row_id))["grund"]
+            refused = (await stored(database, row_id))["delivery_reason"]
             again = await claimed(database, client, now=NOW + REPETITION_AFTER)
             await reported(database, again.lease, row_id, "sent", now=NOW + REPETITION_AFTER)
 
@@ -300,7 +300,7 @@ class TestTheDrain:
         repeated, waiting, again, row_id, refused, row = on_a_database(mongo_replica_set_url, body)
 
         assert (repeated, waiting, again) == (1, [], [row_id])
-        assert (refused, row["state"], row["grund"]) == ("rate_limit_exceeded", "sent", None)
+        assert (refused, row["state"], row["delivery_reason"]) == ("rate_limit_exceeded", "sent", None)
 
     def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
@@ -392,7 +392,7 @@ class TestTheDeliveryEvent:
             answer = await claimed(database, client)
 
             async def event(state: FLOutboxDeliveryState, row: ObjectId = row_id) -> bool:
-                payload = FLOutboxEventPayload(id=row, state=state, grund=None, at=NOW)
+                payload = FLOutboxEventPayload(id=row, state=state, delivery_reason=None, at=NOW)
                 return (await post_event(event_data=payload, outbox_collection=database[Collection.OUTBOX])).applied
 
             # The provider's event can outrun the send's own report, which has then recorded nothing of the message.

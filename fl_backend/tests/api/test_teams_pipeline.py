@@ -4,12 +4,12 @@ from typing import Any
 import pytest
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, FLSpiel
+from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_CANCELLED, FLSpiel
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import (
-    ABSAGE_AS_NAME,
-    ABSAGE_COUNT_NAME,
     AS_NAME,
+    CANCELLED_AS_NAME,
+    CANCELLED_COUNT_NAME,
     STATISTIK_AS_NAME,
     _counted_goals,
     build_team_pipeline,
@@ -27,7 +27,7 @@ STANDARD_RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=18,
+    max_kader_size=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=STUFEN,
 )
@@ -79,8 +79,8 @@ def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
     return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == STATISTIK_AS_NAME)
 
 
-def absage_stage(pipeline: Pipeline) -> Mapping[str, Any]:
-    return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == ABSAGE_AS_NAME)
+def cancelled_stage(pipeline: Pipeline) -> Mapping[str, Any]:
+    return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == CANCELLED_AS_NAME)
 
 
 def junction_match(pipeline: Pipeline) -> Mapping[str, Any] | None:
@@ -162,19 +162,19 @@ def test_a_shoot_out_leaves_the_goals_it_was_played_over_alone(spiel, spiel_team
 SCOPE_PHASES: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", "gruppenphase"), ("total", None)]
 
 
-class TestTheAbsageLookup:
+class TestTheCancelledLookup:
     """The one place `sonderereignis` is read, kept separate from the scoring so the event stays out of it."""
 
     def test_it_selects_on_the_event_and_nothing_else(self):
         """Narrowing to a null `ergebnis` reads like a correction and would drop every forfeit."""
-        match_stage = absage_stage(build())["pipeline"][0]["$match"]
+        match_stage = cancelled_stage(build())["pipeline"][0]["$match"]
 
-        assert match_stage["sonderereignis"] == {"$in": list(SONDEREREIGNIS_COUNTED_AS_ABSAGE)}
+        assert match_stage["sonderereignis"] == {"$in": list(SONDEREREIGNIS_COUNTED_AS_CANCELLED)}
         assert "ergebnis" not in match_stage
 
     def test_it_counts_every_fixture_that_did_not_take_place_and_no_abandonment(self):
         """In literals, never against the absence set it happens to equal: a shared answer is not a shared question."""
-        selected = set(SONDEREREIGNIS_COUNTED_AS_ABSAGE)
+        selected = set(SONDEREREIGNIS_COUNTED_AS_CANCELLED)
 
         assert {"ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "annulliert"} <= selected
         assert selected.isdisjoint({"abgebrochen"})
@@ -183,18 +183,18 @@ class TestTheAbsageLookup:
         """A second reader would bring `sonderereignis` into the scoring."""
         readers = [stage for stage in build() if reads(stage, "sonderereignis")]
 
-        assert [stage.get("$lookup", {}).get("as") for stage in readers] == [ABSAGE_AS_NAME]
+        assert [stage.get("$lookup", {}).get("as") for stage in readers] == [CANCELLED_AS_NAME]
 
     @pytest.mark.parametrize(("scope", "expected"), SCOPE_PHASES)
     def test_it_selects_the_same_matches_the_figures_are_derived_from(self, scope, expected):
         """Cancellations over every phase beside a match count over one would badge games the table never counted."""
         counting = statistik_stage(build(scope=scope))["pipeline"][0]["$match"]
-        absage = absage_stage(build(scope=scope))["pipeline"][0]["$match"]
+        cancelled = cancelled_stage(build(scope=scope))["pipeline"][0]["$match"]
 
         assert counting.get("saison_phase") == expected
-        assert absage.get("saison_phase") == expected
-        assert absage["saison_id"] == counting["saison_id"]
-        assert absage["$expr"] == counting["$expr"]
+        assert cancelled.get("saison_phase") == expected
+        assert cancelled["saison_id"] == counting["saison_id"]
+        assert cancelled["$expr"] == counting["$expr"]
 
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
@@ -218,7 +218,7 @@ def test_the_cancellation_count_survives_the_zeroed_fallback():
     """Merged over the figures rather than into them: a team with no counting match can still have had fixtures called off."""
     merged = projection(build())["statistik"]["$mergeObjects"]
 
-    assert merged[-1] == {"count_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}}
+    assert merged[-1] == {"count_cancelled_spiele": {"$ifNull": [{"$first": f"${CANCELLED_AS_NAME}.{CANCELLED_COUNT_NAME}"}, 0]}}
 
 
 def test_reads_statistik_from_no_stored_copy():
@@ -267,7 +267,7 @@ def test_derives_the_statistics_after_the_strict_junction_join():
     """Ordering, not style: summing matches before the join would do the work for teams the join then drops."""
     pipeline = build()
     stage_names = [next(iter(stage)) for stage in pipeline]
-    match_lookups = {STATISTIK_AS_NAME, ABSAGE_AS_NAME}
+    match_lookups = {STATISTIK_AS_NAME, CANCELLED_AS_NAME}
     first_index = next(i for i, stage in enumerate(pipeline) if stage.get("$lookup", {}).get("as") in match_lookups)
 
     assert stage_names.index("$unwind") < first_index

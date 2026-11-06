@@ -37,7 +37,7 @@ def rules_payload(
         "number_of_gruppen": groups,
         "teams_per_gruppe": per_group,
         "tiebreak_order": tiebreak,
-        "max_kadergroesse": kader,
+        "max_kader_size": kader,
         "forfeit_ergebnis": {"sieger_tore": forfeit[0], "verlierer_tore": forfeit[1]},
         "allowed_stufen": ["E1", "E2", "Q1", "Q2"],
     }
@@ -200,7 +200,7 @@ class TestEachRefusalNamesItsBound:
             pytest.param(
                 {"stored": rules(kader=18), "proposed": rules(kader=10), "largest_squad": 12},
                 Code.RULES_KADER_BELOW_USE,
-                ("rules", "max_kadergroesse"),
+                ("rules", "max_kader_size"),
                 {"min": 12},
                 id="the squad cap holds the largest squad",
             ),

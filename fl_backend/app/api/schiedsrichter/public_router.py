@@ -14,7 +14,7 @@ from app.api.schiedsrichter.services import (
     CONFIRMATION_ANSWER_FIELDS,
     CONFIRMATION_FIELD,
     CONFIRMATION_VIEW_FIELDS,
-    EINWILLIGUNG_FELD,
+    EINWILLIGUNG_FIELD,
     answered_at_of,
     build_token_filter,
     compose_confirmation_update,
@@ -93,7 +93,7 @@ async def get_confirmation_view(
     assert raw is not None
 
     block = raw[CONFIRMATION_FIELD]
-    einwilligung = raw.get(EINWILLIGUNG_FELD)
+    einwilligung = raw.get(EINWILLIGUNG_FIELD)
 
     barred = await barred_addresses(ban_list, [str((raw.get("kontakt") or {}).get("email") or "")])
 
@@ -162,7 +162,7 @@ async def post_confirmation(
         # The STAMP is asked first, as `state_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
@@ -243,7 +243,7 @@ async def post_decline(
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
 
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
 
         await patch_one_in_db(

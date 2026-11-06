@@ -52,13 +52,14 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
-    SpielberichteCollection,
+    SpielberichteReadCollection,
     SpieleCollection,
-    SpieltageCollection,
+    SpieltageReadCollection,
     TeamsCollection,
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
@@ -382,7 +383,7 @@ async def _spielplan_of(
     *,
     saison_id: str,
     saisons_collection: AsyncCollection,
-    spieltage_collection: AsyncCollection,
+    spieltage_collection: ReadCollection,
     spiele_collection: AsyncCollection,
     phase_term: Mapping[str, Any],
 ) -> tuple[PublicSaison, list[FLSpielplanSpieltag]]:
@@ -406,7 +407,7 @@ async def _spielplan_of(
 async def get_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     spiele_collection: SpieleCollection,
 ) -> FLSpielplanResponse:
     """Every matchday of one season with its matches, in playing order, and the matchday to open on.
@@ -429,7 +430,7 @@ async def get_spielplan(
 async def get_ko_runde(
     saison_id: str,
     saisons_collection: SaisonsCollection,
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     spiele_collection: SpieleCollection,
 ) -> FLKoRundeResponse:
     """Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.
@@ -563,7 +564,7 @@ async def get_spiel(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
-    spielberichte_collection: SpielberichteCollection,
+    spielberichte_collection: SpielberichteReadCollection,
 ) -> FLSpielPageResponse:
     """One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
 

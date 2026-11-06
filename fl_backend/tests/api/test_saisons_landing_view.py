@@ -19,17 +19,18 @@ VACATED_DATABASE_NAME = worker_database("fl_saisons_landing_view_vacated_test")
 SAISON = "2026"
 TODAY = "2026-03-05"
 ALPHA, BETA = ObjectId("6890a1b2c3d4e5f607440001"), ObjectId("6890a1b2c3d4e5f607440002")
+DORA = ObjectId("6890a1b2c3d4e5f607440005")
 FINALE_DAY = ObjectId("6890a1b2c3d4e5f607440013")
 
 
-def side(team_id: ObjectId, name: str, tore: int | None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": name, "shorthand": name[:3].upper(), "tore": tore}
+def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
+    return {"team_id": team_id, "tore": tore}
 
 
 def match(
     spiel_nr: int,
     spieltag_id: ObjectId,
-    datum: str | None,
+    date: str | None,
     tore: tuple[int, int] | None,
     *,
     names: tuple[str, str] = ("Alpha", "Beta"),
@@ -37,8 +38,8 @@ def match(
 ) -> dict[str, Any]:
     """Alpha against Beta unless `names` says otherwise, any other name a club of its own."""
 
-    ids = {"Alpha": ALPHA, "Beta": BETA}
-    home, away = (side(ids.get(name) or ObjectId(), name, None if tore is None else tore[index]) for index, name in enumerate(names))
+    ids = {"Alpha": ALPHA, "Beta": BETA, "Dora": DORA}
+    home, away = (side(ids.get(name) or ObjectId(), None if tore is None else tore[index]) for index, name in enumerate(names))
 
     return documents.spiel_document(
         spiel_id=ObjectId(),
@@ -48,14 +49,14 @@ def match(
         saison_phase=saison_phase,
         team1=home,
         team2=away,
-        datum=datum,
-        uhrzeit="14:00:00",
+        date=date,
+        time="14:00:00",
         ergebnis=None if tore is None else f"{tore[0]}:{tore[1]}",
     )
 
 
 def spieltag(spieltag_id: ObjectId, position: int, saison_phase: str = "gruppenphase") -> dict[str, Any]:
-    return {"_id": spieltag_id, "beginn": None, "ende": None, "position": position, "saison_phase": saison_phase, "saison_id": SAISON}
+    return {"_id": spieltag_id, "start": None, "end": None, "position": position, "saison_phase": saison_phase, "saison_id": SAISON}
 
 
 def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> None:
@@ -94,13 +95,17 @@ def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_dec
         VACATED_DATABASE_NAME,
         {
             Collection.SAISON_TEAMS: [
+                *(
+                    documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
+                    for team_id, name in ((ALPHA, "Alpha"), (BETA, "Beta"), (DORA, "Dora"))
+                ),
                 documents.saison_team_document(
-                    SAISON, cara, "Cara", "CAR", austritt={"type": "disqualifikation", "grund": "Ausgeschlossen", "datum": "2026-02-28"}
-                )
+                    SAISON, cara, "Cara", "CAR", austritt={"type": "disqualifikation", "exit_reason": "Ausgeschlossen", "date": "2026-02-28"}
+                ),
             ],
             Collection.SPIELTAGE: [spieltag(FINALE_DAY, 1, "finale")],
             Collection.SPIELE: [
-                {**match(2, FINALE_DAY, "2026-03-01", (0, 3), names=("Cara", "Dora"), saison_phase="finale"), "team1": side(cara, "Cara", 0)},
+                {**match(2, FINALE_DAY, "2026-03-01", (0, 3), names=("Cara", "Dora"), saison_phase="finale"), "team1": side(cara, 0)},
                 match(3, FINALE_DAY, "2026-03-01", (2, 1), saison_phase="finale"),
             ],
         },
@@ -129,13 +134,15 @@ def finale_match(
     """`third` is the read's mark; `left` names a club by name and the day it left the season; every match is played on `MATCH_DAY`."""
 
     def joined(name: str, tore: int | None) -> FLSpielTeamFieldJoinedInternal:
-        austritt = None if left is None or name not in left else FLAustritt(type="disqualifikation", grund="Ausgeschlossen", datum=left[name])
+        austritt = (
+            None if left is None or name not in left else FLAustritt(type="disqualifikation", exit_reason="Ausgeschlossen", date=left[name])
+        )
         return FLSpielTeamFieldJoinedInternal(
             team_id=ObjectId(), name=name, shorthand=name[:3].upper(), tore=tore, austritt_type=austritt and austritt.type, austritt=austritt
         )
 
     return FLSpielJoinedInternal.model_construct(
-        datum=MATCH_DAY,
+        date=MATCH_DAY,
         spiel_nr=THIRD_NR if third else FINAL_NR,
         for_third_place=third,
         team1=joined(*team1),

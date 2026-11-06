@@ -18,7 +18,7 @@ from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schied
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelfResponse,
 )
-from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, build_self_referee_filter, build_self_referee_pipeline
+from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -108,12 +108,12 @@ async def patch_einwilligung(
     @journal.attempted
     async def write(session: AsyncClientSession) -> None:
         row = await schiedsrichter_collection.find_one(
-            eigener_eintrag, projection={"kontakt.email": 1, "birth_date": 1, EINWILLIGUNG_FELD: 1}, session=session
+            eigener_eintrag, projection={"kontakt.email": 1, "birth_date": 1, EINWILLIGUNG_FIELD: 1}, session=session
         )
         # The fold decides, as it does for the read: the filter's pattern is the wider rule.
         refuse(find_own_entry_refusal(held=row is not None and is_own_schiedsrichter(row, identifier)))
         assert row is not None
-        saved = row[EINWILLIGUNG_FELD]
+        saved = row[EINWILLIGUNG_FIELD]
 
         async def may_give() -> bool:
             return may_grant_on_schiedsrichter(await roles_of(identifier, records, session=session), schiedsrichter_id)

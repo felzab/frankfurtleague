@@ -178,8 +178,8 @@ class TestPatchOneInDb:
                 id="a 32-bit integer made a 64-bit one",
             ),
             pytest.param(
-                {"_id": ObjectId(TEAM_OID), "trikot": {"farbe": "rot", "satz": 2}},
-                {"_id": ObjectId(TEAM_OID), "trikot": {"satz": 2, "farbe": "rot"}},
+                {"_id": ObjectId(TEAM_OID), "trikot": {"colour": "rot", "satz": 2}},
+                {"_id": ObjectId(TEAM_OID), "trikot": {"satz": 2, "colour": "rot"}},
                 id="a sub-document's keys reordered",
             ),
         ],

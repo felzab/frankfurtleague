@@ -60,12 +60,12 @@ class TestSpieler:
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
 
-    @pytest.mark.parametrize("field", ["vorname", "geburtsdatum", "einwilligung"])
+    @pytest.mark.parametrize("field", ["first_name", "birth_date", "einwilligung"])
     def test_the_record_refuses_a_person_stored_as_nobody(self, field):
         """No write stores such a person, so the read-back is the one place a hand edit blanking one shows."""
 
         with pytest.raises(ValidationError):
-            FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"vorname": "Max", "nachname": "Mustermann", field: None}))
+            FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"first_name": "Max", "last_name": "Mustermann", field: None}))
 
     def test_the_record_refuses_the_sentinel_holding_an_address(self):
         """No lookup by address excludes the sentinel, so the read-back is where one given an address shows."""
@@ -77,10 +77,10 @@ class TestSpieler:
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):
         """No default and no null, so neither a form that forgot the field nor a cleared picker clears a stored date."""
 
-        names = {"vorname": "Max", "nachname": "Mustermann"}
+        names = {"first_name": "Max", "last_name": "Mustermann"}
 
         with pytest.raises(ValidationError):
-            FLPatchSpielerPayload.model_validate(names if absent else {**names, "geburtsdatum": None})
+            FLPatchSpielerPayload.model_validate(names if absent else {**names, "birth_date": None})
 
 
 class TestEinwilligung:
@@ -128,11 +128,11 @@ class TestTheMatchdaysSpan:
 
     def test_refuses_a_matchday_ending_before_it_begins(self):
         with pytest.raises(ValidationError) as failure:
-            FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04", "version": 0})
+            FLPatchSpieltagPayload.model_validate({"start": "2026-09-05", "end": "2026-09-04", "version": 0})
 
         # At the end it judges, as the wire's path names it: a refusal at the model's own path reaches no box.
         assert [(error["type"], error["loc"], error.get("ctx")) for error in failure.value.errors()] == [
-            ("spieltag_ends_before_start", ("ende",), {"start": "2026-09-05"})
+            ("spieltag_ends_before_start", ("end",), {"start": "2026-09-05"})
         ]
 
 
@@ -150,7 +150,7 @@ class TestTheSeasonsSpans:
             "end_date": stored["end_date"],
             "rules": stored["rules"],
             "bewerbung": {"start": "2025-09-01", "end": "2025-10-31"},
-            "registrierung": {"offen": True, "end": "2025-12-15"},
+            "registrierung": {"open": True, "end": "2025-12-15"},
             "version": 0,
             **overrides,
         }
@@ -169,7 +169,7 @@ class TestTheSeasonsSpans:
                 id="the application window's end",
             ),
             pytest.param(
-                {"registrierung": {"offen": True, "end": "2026-01-01"}},
+                {"registrierung": {"open": True, "end": "2026-01-01"}},
                 ("registrierung_window_reaches_saison_start", ("registrierung", "end"), {"latest": "2025-12-31"}),
                 id="the registration window's end",
             ),
@@ -206,16 +206,16 @@ STRIPPED_WRITE_FIELDS = [
     "spielort.address.strasse",
     "spielort.name",
     "schiedsrichter.name",
-    "spieler_patch.nachname",
-    "spieler_patch.vorname",
+    "spieler_patch.last_name",
+    "spieler_patch.first_name",
     "team.full_name",
     "team.name",
     "team.shorthand",
     "saison_team.saison_id",
     "saison_spieler.saison_id",
-    "kontaktperson.nachname",
-    "kontaktperson.vorname",
-    "saison_team.austritt.grund",
+    "kontaktperson.last_name",
+    "kontaktperson.first_name",
+    "saison_team.austritt.exit_reason",
 ]
 
 # A run of spaces at every width up to the widest floor the table carries. An exact-width field is
@@ -244,20 +244,20 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
     def cases(self, address, kontakt, saison, saison_spieler, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
-        spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": "2009-05-04"}
+        spieler = {"first_name": "Max", "last_name": "Mustermann", "birth_date": "2009-05-04"}
         team_payload = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.
         kontaktperson = {
-            "vorname": "Anke",
-            "nachname": "Koerner",
+            "first_name": "Anke",
+            "last_name": "Koerner",
             "email": "a.koerner@example.de",
-            "telefon": "+49 170 1234567",
+            "phone": "+49 170 1234567",
             "einwilligung": {"scope": "kontaktdaten", "date": "2026-01-15"},
         }
         saison_team = {
             "gruppe": "A",
-            "austritt": {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-01"},
+            "austritt": {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-03-01"},
             "trikot_farbe": None,
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
@@ -269,8 +269,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "spielort.address.strasse": (FLPostSpielortPayload, spielort, ("address", "strasse")),
             "spielort.name": (FLPostSpielortPayload, spielort, ("name",)),
             "schiedsrichter.name": (FLPostSchiedsrichterPayload, schiedsrichter, ("name",)),
-            "spieler_patch.nachname": (FLPatchSpielerPayload, spieler, ("nachname",)),
-            "spieler_patch.vorname": (FLPatchSpielerPayload, spieler, ("vorname",)),
+            "spieler_patch.last_name": (FLPatchSpielerPayload, spieler, ("last_name",)),
+            "spieler_patch.first_name": (FLPatchSpielerPayload, spieler, ("first_name",)),
             "team.full_name": (FLPostTeamPayload, team_payload, ("full_name",)),
             "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
@@ -279,9 +279,9 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             # invisible to the other's clauses.
             "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
             "saison_spieler.saison_id": (FLPostSaisonSpielerPayload, new_saison_spieler, ("saison_id",)),
-            "kontaktperson.nachname": (FLKontaktpersonPayload, kontaktperson, ("nachname",)),
-            "kontaktperson.vorname": (FLKontaktpersonPayload, kontaktperson, ("vorname",)),
-            "saison_team.austritt.grund": (FLPatchSaisonTeamPayload, saison_team, ("austritt", "grund")),
+            "kontaktperson.last_name": (FLKontaktpersonPayload, kontaktperson, ("last_name",)),
+            "kontaktperson.first_name": (FLKontaktpersonPayload, kontaktperson, ("first_name",)),
+            "saison_team.austritt.exit_reason": (FLPatchSaisonTeamPayload, saison_team, ("austritt", "exit_reason")),
         }
 
     @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])

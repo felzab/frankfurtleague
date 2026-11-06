@@ -94,7 +94,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
             find_booking_refusal(UNREAD_SPIEL_ID, payload, saison, ResolvedReferences(teams={}), RULES)
 
 
-RULES = FLSaisonRules.model_validate(rules_document(max_kadergroesse=50, allowed_stufen=["E1", "E2"]))
+RULES = FLSaisonRules.model_validate(rules_document(max_kader_size=50, allowed_stufen=["E1", "E2"]))
 
 
 class _SaisonCollection:
@@ -173,7 +173,7 @@ BYSTANDER = "6890a1b2c3d4e5f607220003"
 OPPONENT = "6890a1b2c3d4e5f607220004"
 
 # Before the day every fixture below is played on, which is what makes the occupant a fault.
-DEPARTURE = {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": "2026-03-01"}
+DEPARTURE = {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": "2026-03-01"}
 FIXTURE_DAY = "2026-03-15"
 
 CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED, SEEDED_FROM_A_GROUP_NOT_RUN = 1, 2, 3, 4
@@ -221,7 +221,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
                 "spiel_nr": nr,
                 "spieltag_id": spieltag_id,
                 "saison_id": SAISON_ID,
-                "datum": FIXTURE_DAY,
+                "date": FIXTURE_DAY,
                 "ergebnis": None,
                 "team1": team1,
                 "team2": team2,
@@ -259,7 +259,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
             REFEREED_FIRST_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
-            uhrzeit="18:00:00",
+            time="18:00:00",
             schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20},
         ),
         fixture(
@@ -267,7 +267,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
             REFEREED_LATER_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
-            uhrzeit="19:00:00",
+            time="19:00:00",
             schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20},
         ),
     ]

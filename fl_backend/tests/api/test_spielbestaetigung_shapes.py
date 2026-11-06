@@ -15,13 +15,13 @@ def spiel(**overrides: Any) -> dict[str, Any]:
 
     return {
         "_id": ObjectId("650000000000000000000009"),
-        "datum": "2027-05-14",
-        "uhrzeit": "18:30:00",
-        "ort": {"spielort_id": SPIELORT, "name": "Halle", "maps_link": "x", "mietpreis": 40},
-        "team1": {"team_id": TEAM1, "name": "Eins", "shorthand": "EIX", "tore": None},
-        "team2": {"team_id": TEAM2, "name": "Zwei", "shorthand": "ZWX", "tore": None},
+        "date": "2027-05-14",
+        "time": "18:30:00",
+        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "team1": {"team_id": TEAM1, "tore": None},
+        "team2": {"team_id": TEAM2, "tore": None},
         "ergebnis": None,
-        "notiz": None,
+        "note": None,
         **overrides,
     }
 
@@ -36,13 +36,13 @@ class TestTheStandNamesOneAnsetzung:
     @pytest.mark.parametrize(
         "moved",
         [
-            {"datum": "2027-05-15"},
-            {"uhrzeit": "18:31:00"},
+            {"date": "2027-05-15"},
+            {"time": "18:31:00"},
             {"ort": {"spielort_id": ObjectId("650000000000000000000004")}},
             {"team1": {"team_id": ObjectId("650000000000000000000004")}},
             {"team2": {"team_id": ObjectId("650000000000000000000004")}},
         ],
-        ids=["datum", "uhrzeit", "spielort", "team1", "team2"],
+        ids=["date", "time", "spielort", "team1", "team2"],
     )
     def test_each_input_moves_it(self, moved: dict[str, Any]):
         assert ansetzung_stand_of(spiel(**moved)) != ansetzung_stand_of(spiel())
@@ -50,6 +50,6 @@ class TestTheStandNamesOneAnsetzung:
     def test_what_is_no_input_leaves_it(self):
         """A result, a note or a renamed side is no new Ansetzung, and must not void a confirmation."""
 
-        renamed = {"team_id": TEAM1, "name": "Umbenannt", "shorthand": "UMX", "tore": 2}
+        renamed = {"team_id": TEAM1, "tore": 2}
 
-        assert ansetzung_stand_of(spiel(ergebnis="2:1", notiz="x", team1=renamed)) == ansetzung_stand_of(spiel())
+        assert ansetzung_stand_of(spiel(ergebnis="2:1", note="x", team1=renamed)) == ansetzung_stand_of(spiel())

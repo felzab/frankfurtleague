@@ -2,17 +2,17 @@ from typing import Any
 
 from app.api.einladungen.services import (
     bestaetigte_empfaenger,
-    plan_einladung_versand,
+    plan_einladung_dispatch,
 )
 from tests.documents import kontaktperson_document
 
 CONFIRMED_ON = "2026-03-20"
 
 
-def kontaktperson(vorname: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:
+def kontaktperson(first_name: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:
     """One seat as the junction stores it. `confirmed_at` is the whole of what a recipient has to clear."""
 
-    return kontaktperson_document(vorname, confirmed_at=confirmed_at, email=email, telefon="+49 69 1234567")
+    return kontaktperson_document(first_name, confirmed_at=confirmed_at, email=email, phone="+49 69 1234567")
 
 
 def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung: Any = None) -> dict[str, Any]:
@@ -56,7 +56,7 @@ class TestATeamTheBanListKeepsTheLinkFrom:
     def test_a_re_send_does_not_reach_past_the_ban(self):
         """Each press would mint over the team's live link while nobody on it can be reached."""
 
-        decided = plan_einladung_versand(
+        decided = plan_einladung_dispatch(
             austritt=None,
             kontakte=kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON)),
             einladung_raw={**EINLADUNG, "sent_at": CONFIRMED_ON},

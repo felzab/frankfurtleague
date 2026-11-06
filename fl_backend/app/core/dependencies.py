@@ -65,6 +65,8 @@ SpieleReadCollection = Annotated[ReadCollection, Depends(collection_dependency(C
 
 SpielerReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELER))]
 
+SpieltageReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELTAGE))]
+
 TeamsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.TEAMS))]
 
 SaisonsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SAISONS))]
@@ -90,6 +92,8 @@ GrantsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(C
 GrantsAnnouncedReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.GRANTS_ANNOUNCED))]
 
 SpielbestaetigungenReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
+
+SpielberichteReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELBERICHTE))]
 
 AddressChangeReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 

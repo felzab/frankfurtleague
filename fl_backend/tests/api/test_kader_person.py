@@ -82,8 +82,8 @@ GROSS_ASKED = "GROSS.KADER@schule.DE"
 B_ANSPRECH = "b.ansprech.kader@schule.de"
 BARRED = "gesperrt.kader@schule.de"
 
-SEAT_TELEFON = "+49 69 5550199"
-PUPIL_EMAIL_DOMAIN = "schueler.example.de"
+SEAT_PHONE = "+49 69 5550199"
+PUPIL_EMAIL_DOMAIN = "pupil.example.de"
 
 KADER_PATH = f"/api/v{API_VERSION}/spieler/kader"
 
@@ -91,7 +91,7 @@ PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", 
 
 
 def _seat(email: str) -> dict[str, Any]:
-    return kontaktperson_document("Anna", confirmed_at="2026-01-06", email=email, telefon=SEAT_TELEFON)
+    return kontaktperson_document("Anna", confirmed_at="2026-01-06", email=email, phone=SEAT_PHONE)
 
 
 def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
@@ -110,9 +110,9 @@ def _saison(saison_id: str, status: str) -> dict[str, Any]:
     )
 
 
-def _pupil(spieler_id: ObjectId, vorname: str, nachname: str) -> dict[str, Any]:
+def _pupil(spieler_id: ObjectId, first_name: str, last_name: str) -> dict[str, Any]:
     # An address on the person row, so a read that joined one in would carry it.
-    return spieler_document(spieler_id, vorname, nachname, email=f"{vorname.lower()}@{PUPIL_EMAIL_DOMAIN}")
+    return spieler_document(spieler_id, first_name, last_name, email=f"{first_name.lower()}@{PUPIL_EMAIL_DOMAIN}")
 
 
 def _row(spieler_id: ObjectId, team_id: ObjectId, **fields: Any) -> dict[str, Any]:
@@ -241,7 +241,7 @@ class TestTheSquadRead:
         rows = {row["spieler_id"]: row for row in body["kader"]}
 
         assert set(rows) == {str(spieler_id) for spieler_id in (KAPITAEN, TEILT_DIE_SIEBEN, NULL_SIEBEN, AUSGETRAGEN, ALTE_STUFE)}
-        assert rows[str(KAPITAEN)]["nachname"] == "Kapitänsdóttir-Weber"
+        assert rows[str(KAPITAEN)]["last_name"] == "Kapitänsdóttir-Weber"
         assert rows[str(KAPITAEN)]["rolle"] == "kapitaen"
         assert rows[str(AUSGETRAGEN)]["inactive_since"] == "2026-02-01"
         assert body["allowed_stufen"] == ERLAUBTE_STUFEN
@@ -268,8 +268,8 @@ class TestTheSquadRead:
 
         assert "@" not in text
         assert PUPIL_EMAIL_DOMAIN not in text
-        assert SEAT_TELEFON not in text
-        assert "telefon" not in text
+        assert SEAT_PHONE not in text
+        assert "phone" not in text
         assert "email" not in text
         assert "einwilligung" not in text
 

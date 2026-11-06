@@ -138,18 +138,18 @@ def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **field
         email,
         saison_id=ACTIVE_SAISON,
         team_id=TEAM_OIDS[0],
-        vorname="Rita",
-        nachname="Registriert",
+        first_name="Rita",
+        last_name="Registriert",
         token=str(oid),
         submitted_at="2026-01-02",
-        frist="2026-01-09",
+        deadline="2026-01-09",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
         confirmed=None
         if not confirmed
         else {
-            "geburtsdatum": "2009-05-04",
+            "birth_date": "2009-05-04",
             "scope": "intern",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
@@ -218,7 +218,7 @@ async def _seed(database: AsyncDatabase) -> None:
             REGISTERED_WITHOUT_CHOICE,
             confirmed=False,
             **compose_confirmation_update(
-                geburtsdatum="2009-05-04", scope=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
+                birth_date="2009-05-04", scope=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
             )["$set"],
         )
     )

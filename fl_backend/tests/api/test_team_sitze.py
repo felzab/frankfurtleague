@@ -159,6 +159,6 @@ class TestTheSeatRead:
 
         # A refused read would pass the scan below with nothing scanned.
         assert (status, len(served["seats"])) == (200, 3)
-        assert not {"email", "telefon", "geburtsdatum", "einwilligung", "confirmed_at"} & set(keys_at_every_depth(served))
+        assert not {"email", "phone", "birth_date", "einwilligung", "confirmed_at"} & set(keys_at_every_depth(served))
         text = json.dumps(served)
         assert not any(value in text for value in ("@", "+49", "1984-05-09", "2026-03-21"))

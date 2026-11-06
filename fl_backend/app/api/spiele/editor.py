@@ -189,7 +189,7 @@ async def _spielbericht_of(
     saisons_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
-    spielberichte_collection: AsyncCollection,
+    spielberichte_collection: ReadCollection,
 ) -> FLSpielEditorBericht | None:
     """The report as the administrator's panel composes it, its goals alone: the cards and the remarks are not the editor's."""
 
@@ -228,7 +228,7 @@ async def read_spiel_editor(
     schiedsrichter_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
-    spielberichte_collection: AsyncCollection,
+    spielberichte_collection: ReadCollection,
     spielbestaetigungen_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     saison_teams_collection: ReadCollection,

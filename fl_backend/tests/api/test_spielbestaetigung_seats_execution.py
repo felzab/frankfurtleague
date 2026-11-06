@@ -65,33 +65,33 @@ ANSWERED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60022")
 REASON_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6003{position}") for position in range(5)]
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b60041")
 
-TELEFON = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
+PHONE = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
 
 
-def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
+def person(first_name: str, *, email: str | None = None) -> dict[str, Any]:
     """One person as the contacts editor sends them."""
 
     return {
-        "vorname": vorname,
-        "nachname": "Musterfrau",
-        "email": email or f"{vorname.lower()}@example.com",
-        "telefon": TELEFON[vorname],
+        "first_name": first_name,
+        "last_name": "Musterfrau",
+        "email": email or f"{first_name.lower()}@example.com",
+        "phone": PHONE[first_name],
         "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 
-def stored(vorname: str) -> dict[str, Any]:
+def stored(first_name: str) -> dict[str, Any]:
     """The same person as the row holds them, entered by the league and unconfirmed."""
 
-    sent = person(vorname)
+    sent = person(first_name)
 
     return documents.kontaktperson_document(
-        vorname,
+        first_name,
         einwilligung={"date": sent["einwilligung"]["date"]},
         entered_by="liga",
-        nachname=sent["nachname"],
+        last_name=sent["last_name"],
         email=sent["email"],
-        telefon=sent["telefon"],
+        phone=sent["phone"],
     )
 
 
@@ -118,7 +118,7 @@ def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1
     sides = {f"team{position}": {"team_id": team_id, "tore": None} for position, team_id in enumerate((TEAM_OID, OTHER_TEAM_OID), start=1)}
 
     return documents.spiel_document(
-        spiel_id=spiel_id, saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, datum="2026-04-18", uhrzeit="14:00:00", **sides
+        spiel_id=spiel_id, saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, date="2026-04-18", time="14:00:00", **sides
     )
 
 
@@ -132,8 +132,8 @@ def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fi
 
     return documents.spielbestaetigung_document(
         spiel,
-        party={"art": "team", "team_id": team_id},
-        frist="2026-04-11",
+        party={"kind": "team", "team_id": team_id},
+        deadline="2026-04-11",
         asked_at=TODAY,
         kontakte={seat: {"token_hashes": [hash_token(link(row, seat))], "delivery": None} for seat in KONTAKT_ROLLEN},
         **fields,
@@ -147,7 +147,7 @@ ROWS = {
         "answered",
         TEAM_OID,
         FIXTURES[1],
-        antwort={"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None},
+        answer={"kind": "zugesagt", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
     ),
     "other": confirmation_row("other", OTHER_TEAM_OID, FIXTURES[0]),
 }
@@ -229,7 +229,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
 
 
 async def answers(database: AsyncDatabase) -> list[Any]:
-    return [row.get("antwort") async for row in database[Collection.SPIELBESTAETIGUNGEN].find({}, sort=[("_id", 1)])]
+    return [row.get("answer") async for row in database[Collection.SPIELBESTAETIGUNGEN].find({}, sort=[("_id", 1)])]
 
 
 async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapping[str, Any]) -> Any:
@@ -326,7 +326,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch through the season row's own link."""
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), antwort="declined"),
+        answer_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), answer="declined"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -393,7 +393,7 @@ class TestEverySeatWriteVoidsItsLinks:
         links, stored_answers = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
 
         assert links == {"open": ALL - voided, "answered": ALL - voided, "other": other}
-        assert stored_answers == [row["antwort"] for row in ROWS.values()]
+        assert stored_answers == [row["answer"] for row in ROWS.values()]
 
     def test_a_new_person_at_the_same_mailbox_voids_the_seat(self, mongo_replica_set_url: str):
         """Two people sharing one inbox are two holders: the link went to the one who left the seat."""
@@ -410,15 +410,15 @@ UNDRAWN_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6005{position}") for positio
 LATER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60061")
 
 
-def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, begruendung: str) -> dict[str, Any]:
+def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, reason: str) -> dict[str, Any]:
     """A row the team declined from `rolle`'s link, giving a reason; closed since, as a move closes an answered row."""
 
     return confirmation_row(
         row,
         team_id,
         spiel,
-        antwort=documents.kontakt_antwort_document(rolle, begruendung=begruendung),
-        closed={"at": TODAY, "grund": "ansetzung_changed"},
+        answer=documents.kontakt_answer_document(rolle, reason=reason),
+        closed={"at": TODAY, "reason": "ansetzung_changed"},
     )
 
 
@@ -443,15 +443,15 @@ CLEARED = {"from her seat", "her predecessor's, from her seat", "from her seat, 
 NAMED = {row["spiel_id"]: name for name, row in {**REASONS, **UNDRAWN}.items()}
 
 
-def left_behind(name: str, antwort: Mapping[str, Any]) -> tuple[str, Any]:
-    return name, antwort["begruendung"]
+def left_behind(name: str, answer: Mapping[str, Any]) -> tuple[str, Any]:
+    return name, answer["reason"]
 
 
 def expected(name: str) -> tuple[str, Any]:
     if name in CLEARED:
         return name, None
 
-    return left_behind(name, {**REASONS, **UNDRAWN}[name]["antwort"])
+    return left_behind(name, {**REASONS, **UNDRAWN}[name]["answer"])
 
 
 class TestALeavingContactsReasonsGo:
@@ -488,12 +488,12 @@ class TestALeavingContactsReasonsGo:
             await write(database, client)
 
             found["rows"] = sorted(
-                [left_behind(NAMED[row["spiel_id"]], row["antwort"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
+                [left_behind(NAMED[row["spiel_id"]], row["answer"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
             )
             logged = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
             found["images"] = sorted(
                 [
-                    left_behind(NAMED[image["spiel_id"]], image["antwort"])
+                    left_behind(NAMED[image["spiel_id"]], image["answer"])
                     async for row in logged
                     for image in (row["before"] if isinstance(row["before"], list) else [row["before"]])
                     if image.get("spiel_id") in NAMED
@@ -518,7 +518,7 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
 
         # Refused `link_invalid` (`links_answering` admits no other refusal), never served as `barred`.
         assert links["answered"] == ALL - {"trainer"}
-        assert stored_answers == [row["antwort"] for row in ROWS.values()]
+        assert stored_answers == [row["answer"] for row in ROWS.values()]
 
 
 class TestALeavingPersonsLinksLeaveTheLog:
@@ -538,7 +538,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "at": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "state": "delivered", "delivery_reason": None, "at": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )

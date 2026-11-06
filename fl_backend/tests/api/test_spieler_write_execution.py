@@ -25,7 +25,7 @@ DATABASE_NAME = worker_database("fl_spieler_write_test")
 
 SAISON_ID = "2026"
 # Two, so a squad reaches its cap in two inserts and the third write is the refusal under test.
-MAX_KADERGROESSE = 2
+MAX_KADER_SIZE = 2
 
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400001")
 AWAY_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400002")
@@ -37,7 +37,7 @@ TODAY = "2026-04-01"
 
 # Any well-formed date: no rule judges a pupil's age (`docs/domain.md`'s what the model permits on purpose),
 # so a value chosen for how old it makes somebody would pin a refusal nothing runs.
-GEBURTSDATUM = "2008-05-17"
+BIRTH_DATE = "2008-05-17"
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -47,10 +47,10 @@ def spieler_id_for(index: int) -> ObjectId:
     return ObjectId(f"6890a1b2c3d4e5f6074100{index:02d}")
 
 
-def person_row(*, spieler_number: int, geburtsdatum: str = GEBURTSDATUM) -> dict[str, Any]:
+def person_row(*, spieler_number: int, birth_date: str = BIRTH_DATE) -> dict[str, Any]:
     """A pupil as their admission wrote them, seeded rather than admitted: the admission needs a registration."""
 
-    return spieler_document(spieler_id_for(spieler_number), "Max", "Mustermann", geburtsdatum=geburtsdatum)
+    return spieler_document(spieler_id_for(spieler_number), "Max", "Mustermann", birth_date=birth_date)
 
 
 def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None, rolle: str | None = None) -> dict[str, Any]:
@@ -62,7 +62,7 @@ def on_a_database(url: str, body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await database.saisons.insert_one(saison_document(SAISON_ID, "active", rules=rules_document(max_kadergroesse=MAX_KADERGROESSE)))
+            await database.saisons.insert_one(saison_document(SAISON_ID, "active", rules=rules_document(max_kader_size=MAX_KADER_SIZE)))
             # Both clubs entered, so `kader_team_not_in_saison` passes and every refusal below is the cap. The
             # season's own name and shorthand are required on the row and read by nothing here.
             await database.saison_teams.insert_many(
@@ -138,7 +138,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
             await database.spieler.insert_one(person_row(spieler_number=92))
             await patch_spieler(
                 spieler_id=spieler_id_for(92),
-                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
+                spieler_data=FLPatchSpielerPayload(first_name="Maximilian", last_name="Mustermann", birth_date=BIRTH_DATE),
                 spieler_collection=database.spieler,
                 db=database.client,
             )
@@ -146,7 +146,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
 
         stored = on_a_database(mongo_replica_set_url, body)
 
-        assert stored["vorname"] == "Maximilian"
+        assert stored["first_name"] == "Maximilian"
         assert stored["einwilligung"] == EINWILLIGUNG
 
 
@@ -157,10 +157,10 @@ class TestThePersonsBirthdate:
         """Restated rather than untouched: the patch payload requires the field, so a name correction carries the date it read."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await database.spieler.insert_one(person_row(spieler_number=93, geburtsdatum=GEBURTSDATUM))
+            await database.spieler.insert_one(person_row(spieler_number=93, birth_date=BIRTH_DATE))
             await patch_spieler(
                 spieler_id=spieler_id_for(93),
-                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
+                spieler_data=FLPatchSpielerPayload(first_name="Maximilian", last_name="Mustermann", birth_date=BIRTH_DATE),
                 spieler_collection=database.spieler,
                 db=database.client,
             )
@@ -168,8 +168,8 @@ class TestThePersonsBirthdate:
 
         stored = on_a_database(mongo_replica_set_url, body)
 
-        assert stored["vorname"] == "Maximilian"
-        assert stored["geburtsdatum"] == GEBURTSDATUM
+        assert stored["first_name"] == "Maximilian"
+        assert stored["birth_date"] == BIRTH_DATE
 
 
 class TestTheSquadCapOnEveryWritePath:
@@ -177,7 +177,7 @@ class TestTheSquadCapOnEveryWritePath:
 
     def test_entering_a_full_squad_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> APIError:
-            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
+            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE)
 
             with pytest.raises(APIError) as excinfo:
                 await enter(database, spieler_id_for(90), HOME_TEAM_OID)
@@ -192,7 +192,7 @@ class TestTheSquadCapOnEveryWritePath:
         """The floor under the case above, or that refusal could be a blanket one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE - 1)
+            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE - 1)
             return await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
         assert on_a_database(mongo_replica_set_url, body).team_id == HOME_TEAM_OID
@@ -201,7 +201,7 @@ class TestTheSquadCapOnEveryWritePath:
         """A player who left the squad gave their place back, which is what makes the count a LIVE one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE - 1)
+            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE - 1)
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
@@ -213,7 +213,7 @@ class TestTheSquadCapOnEveryWritePath:
         """The DESTINATION is judged: the player's own place is in the team they are leaving."""
 
         async def body(database: AsyncDatabase) -> APIError:
-            await fill(database, AWAY_TEAM_OID, MAX_KADERGROESSE)
+            await fill(database, AWAY_TEAM_OID, MAX_KADER_SIZE)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
             with pytest.raises(APIError) as excinfo:
@@ -227,7 +227,7 @@ class TestTheSquadCapOnEveryWritePath:
 
     def test_transferring_into_a_squad_with_room_goes_through(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            await fill(database, AWAY_TEAM_OID, MAX_KADERGROESSE - 1)
+            await fill(database, AWAY_TEAM_OID, MAX_KADER_SIZE - 1)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
             return await move(database, spieler_id_for(90), AWAY_TEAM_OID)
 
@@ -237,7 +237,7 @@ class TestTheSquadCapOnEveryWritePath:
         """The over-breadth trap: the player already holds one of the places, so counting their own row would refuse a shirt change."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE - 1)
+            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE - 1)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
             # The squad is now exactly full, and this write changes only the shirt.
             return await move(database, spieler_id_for(90), HOME_TEAM_OID, nummer="7")
@@ -254,7 +254,7 @@ class TestTheSquadCapOnEveryWritePath:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
-            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
+            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE)
 
             with pytest.raises(APIError) as excinfo:
                 await revive(database, spieler_id_for(90))
@@ -272,7 +272,7 @@ class TestTheSquadCapOnEveryWritePath:
             await database.saison_spieler.insert_one(
                 {**squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01"), "nummer": "9"}
             )
-            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE - 1)
+            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE - 1)
 
             return await revive(database, spieler_id_for(90))
 
@@ -432,7 +432,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
-            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
+            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE)
             await hand_the_junction_row_over(database, HOME_TEAM_OID)
 
             with pytest.raises(APIError) as excinfo:

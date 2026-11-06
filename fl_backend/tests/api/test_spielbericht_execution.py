@@ -18,7 +18,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.overview import FLOverviewSpielberichtRow
 from app.api.saisons.overview_router import get_saison_overview
 from app.api.spielberichte.admin_router import get_spielberichte
-from app.api.spielberichte.crud import count_eingereichte_berichte
+from app.api.spielberichte.crud import count_submitted_berichte
 from app.api.spielberichte.person_router import get_spielbericht_bericht, put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtPayload
 from app.api.spiele.admin_router import patch_spiel
@@ -40,7 +40,7 @@ DATABASE_NAME = worker_database("fl_spielbericht_test")
 
 SAISON_ID = "2027"
 VORSAISON_ID = "2026"
-DATUM = "2027-05-14"
+DATE = "2027-05-14"
 NOW = datetime(2027, 5, 14, 21, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2027-05-14"
 
@@ -65,8 +65,7 @@ PEOPLE = {TEAM1: ("Ida", "Albers"), TEAM2: ("Lea", "Dietz")}
 
 
 def side(team_id: ObjectId) -> dict[str, Any]:
-    name, shorthand = NAMES[team_id]
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
+    return {"team_id": team_id, "tore": None}
 
 
 def fixture(*, spiel_id: ObjectId = SPIEL, saison_id: str = SAISON_ID, **fields: Any) -> dict[str, Any]:
@@ -81,10 +80,10 @@ def fixture(*, spiel_id: ObjectId = SPIEL, saison_id: str = SAISON_ID, **fields:
             "saison_phase": "achtelfinale",
             "team1": side(TEAM1),
             "team2": side(TEAM2),
-            "datum": DATUM,
-            "uhrzeit": "18:00:00",
-            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Otto Gruber", "payment": 20},
-            "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
+            "date": DATE,
+            "time": "18:00:00",
+            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
+            "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
             **fields,
         },
     )
@@ -103,7 +102,7 @@ def referee(referee_id: ObjectId, name: str, email: str) -> dict[str, Any]:
 async def seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
     for team_id, (name, shorthand) in NAMES.items():
-        vorname, nachname = PEOPLE[team_id]
+        first_name, last_name = PEOPLE[team_id]
         await database[Collection.TEAMS].insert_one(documents.team_document(team_id, name, shorthand))
         await database[Collection.SAISON_TEAMS].insert_one(
             documents.saison_team_document(
@@ -112,7 +111,7 @@ async def seed(database: AsyncDatabase) -> None:
                 name,
                 shorthand,
                 kontakte=documents.kontakte_document(
-                    trainer=documents.kontaktperson_document(vorname, nachname=nachname, email=f"{vorname.lower()}@example.com")
+                    trainer=documents.kontaktperson_document(first_name, last_name=last_name, email=f"{first_name.lower()}@example.com")
                 ),
             )
         )
@@ -170,8 +169,8 @@ def on_the_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-def tor(seite: str, spieler_id: ObjectId | None, minute: str = "23") -> dict[str, Any]:
-    return {"seite": seite, "spieler_id": spieler_id, "minute": minute, "eigentor": False}
+def tor(side: str, spieler_id: ObjectId | None, minute: str = "23") -> dict[str, Any]:
+    return {"side": side, "spieler_id": spieler_id, "minute": minute, "eigentor": False}
 
 
 def bericht(
@@ -183,8 +182,8 @@ def bericht(
         "bericht": {
             "ergebnis_vorschlag": {"team1_tore": team1, "team2_tore": team2, "elfmeterschiessen": None, "sonderereignis": None},
             "torschuetzen": [tor("team1", LINA)] if torschuetzen is None else torschuetzen,
-            "karten": [{"seite": "team2", "spieler_id": MIA, "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"}],
-            "bemerkungen": None,
+            "karten": [{"side": "team2", "spieler_id": MIA, "minute": "45+2", "colour": "gelb", "card_reason": "foulspiel"}],
+            "remarks": None,
             **fields,
         },
         "bericht_stand": stand,
@@ -261,7 +260,7 @@ class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
             await put(
                 database,
                 client,
-                bericht(1, 1, [tor("team1", LINA), tor("team2", MIA)], stand=1, bemerkungen="Starker Regen ab der Pause."),
+                bericht(1, 1, [tor("team1", LINA), tor("team2", MIA)], stand=1, remarks="Starker Regen ab der Pause."),
                 response=corrected,
             )
 
@@ -275,8 +274,8 @@ class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
         assert first.kader.team1[0].spieler_id == LINA and [spieler.spieler_id for spieler in first.kader.team1] == [LINA]
         [document] = documents_now
         block = document["bericht"]
-        assert (block["version"], block["ergebnis_vorschlag"]["team1_tore"], block["bemerkungen"]) == (2, 1, "Starker Regen ab der Pause.")
-        assert block["submitted_by"] == {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
+        assert (block["version"], block["ergebnis_vorschlag"]["team1_tore"], block["remarks"]) == (2, 1, "Starker Regen ab der Pause.")
+        assert block["submitted_by"] == {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
         assert block["adopted_version"] is None
 
 
@@ -289,10 +288,8 @@ class TestAFormOpenedBeforeAnotherWrite:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht())
             await put(database, client, bericht(2, 0, [tor("team1", LINA), tor("team1", None)], stand=1))
-            stale = await outcome_of(put(database, client, bericht(stand=1, bemerkungen="Starker Regen.")))
-            fresh = await outcome_of(
-                put(database, client, bericht(2, 0, [tor("team1", LINA), tor("team1", None)], stand=2, bemerkungen="Regen."))
-            )
+            stale = await outcome_of(put(database, client, bericht(stand=1, remarks="Starker Regen.")))
+            fresh = await outcome_of(put(database, client, bericht(2, 0, [tor("team1", LINA), tor("team1", None)], stand=2, remarks="Regen.")))
 
             return stale, fresh, (await stored(database))[0]["bericht"]
 
@@ -301,7 +298,7 @@ class TestAFormOpenedBeforeAnotherWrite:
         assert stale == Code.BERICHT_MEANWHILE_CHANGED
         # A form reloaded on the correction writes as any other.
         assert fresh == COMMITTED
-        assert (block["version"], block["ergebnis_vorschlag"]["team1_tore"], block["bemerkungen"]) == (3, 2, "Regen.")
+        assert (block["version"], block["ergebnis_vorschlag"]["team1_tore"], block["remarks"]) == (3, 2, "Regen.")
 
     def test_a_first_write_crossing_another_is_refused_on_its_retry(self, mongo_replica_set_url: str):
         """A first write from the referee's other window commits inside this one: the insert conflicts, and the retry meets version 1.
@@ -335,7 +332,7 @@ async def call_off(database: AsyncDatabase) -> None:
 
 
 async def move_to_tomorrow(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"datum": "2027-05-15"}})
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2027-05-15"}})
 
 
 async def nothing(_: AsyncDatabase) -> None:
@@ -378,9 +375,7 @@ class BerichteRunningARivalBeforeTheirWrite(InterleavedCollection):
 
 
 async def take_the_referee_off(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one(
-        {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": ANDERER, "name": "Ella Engel", "payment": 20}}}
-    )
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": ANDERER, "payment": 20}}})
 
 
 async def take_lina_out_of_the_squad(database: AsyncDatabase) -> None:
@@ -399,7 +394,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         [
             pytest.param(retire_the_referee, Code.ROLE_NOT_HELD, id="the-referee-s-record-retired"),
             pytest.param(take_the_referee_off, Code.BERICHT_NOT_OFFICIATED, id="the-referee-taken-off"),
-            pytest.param(call_off, Code.BERICHT_ABGESAGT, id="the-fixture-called-off"),
+            pytest.param(call_off, Code.BERICHT_CANCELLED, id="the-fixture-called-off"),
             pytest.param(take_lina_out_of_the_squad, Code.BERICHT_NOT_IN_KADER, id="the-scorer-ausgetragen"),
         ],
     )
@@ -527,7 +522,7 @@ class TestTheReads:
     def test_a_fixture_taking_no_report_serves_no_squad(self, mongo_replica_set_url: str):
         """Only the pupils the stored report names, by name: the squads are served for picking, and nothing is picked here.
 
-        One fixture taking none, the read's wiring; which fixtures take one is `nimmt_einen_bericht`'s, held in the shapes.
+        One fixture taking none, the read's wiring; which fixtures take one is `takes_a_bericht`'s, held in the shapes.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -539,7 +534,7 @@ class TestTheReads:
 
         assert (form.kader.team1, form.kader.team2) == ([], [])
         assert form.bericht is not None
-        assert sorted((spieler.spieler_id, spieler.nachname) for spieler in form.named) == [(LINA, "Krause"), (MIA, "Westphal")]
+        assert sorted((spieler.spieler_id, spieler.last_name) for spieler in form.named) == [(LINA, "Krause"), (MIA, "Westphal")]
 
     def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_geloescht_one_by_nobody(self, mongo_replica_set_url: str):
         """The two arms past the squad rows on the referee's form: no bare id shown, an erased pupil's entry still holding it."""
@@ -553,7 +548,7 @@ class TestTheReads:
 
         answer = on_the_league(mongo_replica_set_url, body)
 
-        assert sorted((spieler.spieler_id, spieler.nachname) for spieler in answer.named) == [(LINA, "Krause"), (MIA, None)]
+        assert sorted((spieler.spieler_id, spieler.last_name) for spieler in answer.named) == [(LINA, "Krause"), (MIA, None)]
 
     def test_after_the_season_the_referee_reads_the_report_alone(self, mongo_replica_set_url: str):
         """Played and standing, so only the season's end decides: the persons the report names, no squad to pick from."""
@@ -569,7 +564,7 @@ class TestTheReads:
         assert (before.completed, after.completed) == (False, True)
         assert (after.kader.team1, after.kader.team2) == ([], [])
         assert after.bericht == before.bericht
-        assert sorted((spieler.spieler_id, spieler.nachname) for spieler in after.named) == [(LINA, "Krause"), (MIA, "Westphal")]
+        assert sorted((spieler.spieler_id, spieler.last_name) for spieler in after.named) == [(LINA, "Krause"), (MIA, "Westphal")]
 
 
 async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> None:
@@ -613,10 +608,12 @@ async def seed_the_season_before(database: AsyncDatabase) -> None:
             VORSAISON_ID,
             TEAM1,
             *NAMES[TEAM1],
-            kontakte=documents.kontakte_document(trainer=documents.kontaktperson_document("Gerda", nachname="Vogt", email="gerda@example.com")),
+            kontakte=documents.kontakte_document(
+                trainer=documents.kontaktperson_document("Gerda", last_name="Vogt", email="gerda@example.com")
+            ),
         )
     )
-    vorjahr = fixture(spiel_id=VORJAHRESSPIEL, saison_id=VORSAISON_ID, datum="2026-05-14")
+    vorjahr = fixture(spiel_id=VORJAHRESSPIEL, saison_id=VORSAISON_ID, date="2026-05-14")
     await database[Collection.SPIELE].insert_one(vorjahr)
     await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(vorjahr))
 
@@ -628,13 +625,13 @@ class TestEachReportReadKeepsToTheFixturesSeason:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_the_season_before(database)
             # Last season's trainer of Adler, nobody this fixture's people hold.
-            geschrieben = await outcome_of(put(database, client, bericht(bemerkungen="Frau Vogt sah von der Tribüne zu.")))
+            geschrieben = await outcome_of(put(database, client, bericht(remarks="Frau Vogt sah von der Tribüne zu.")))
             states = await get_spielberichte(
                 spielberichte_collection=database[Collection.SPIELBERICHTE],
                 saisons_collection=database[Collection.SAISONS],
                 saison_id=SAISON_ID,
             )
-            counted = await count_eingereichte_berichte(
+            counted = await count_submitted_berichte(
                 spielberichte_collection=database[Collection.SPIELBERICHTE], saison_id=SAISON_ID, session=None
             )
 
@@ -730,8 +727,8 @@ async def a_reported_quarter_final(database: AsyncDatabase, client: AsyncMongoCl
         {
             "$set": {
                 "spieltag_id": ObjectId(),
-                "datum": DATUM,
-                "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Otto Gruber", "payment": 20},
+                "date": DATE,
+                "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
             }
         },
     )
@@ -771,7 +768,7 @@ class TestAReportOutlivingItsFixturesClub:
         moved, sent_again, block = on_the_league(mongo_replica_set_url, body)
 
         assert moved == ["teams_changed"], "a report about the club that left read as one about Biber"
-        assert (block["version"], block["seiten"]) == (2, {"team1": TEAM2, "team2": None})
+        assert (block["version"], block["sides"]) == (2, {"team1": TEAM2, "team2": None})
         # The correction voided the quarter-final's result, so the report proposes again.
         assert sent_again == ["vorgeschlagen"]
 

@@ -40,6 +40,7 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
+    SpielberichteReadCollection,
     SpielbestaetigungenCollection,
     SpielbestaetigungenReadCollection,
     SpieleCollection,
@@ -47,6 +48,7 @@ from app.core.dependencies import (
     SpieleReadCollection,
     SpielorteCollection,
     SpieltageCollection,
+    SpieltageReadCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -109,7 +111,7 @@ async def get_spiele_admin(
 async def get_spiele_spielplan(
     saison_id: Annotated[str, Query(description="The season whose matchdays and knockout rounds the list shows")],
     saisons_collection: SaisonsReadCollection,
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     spiele_collection: SpieleReadCollection,
 ) -> FLSpieleSpielplanAdminResponse:
     """
@@ -148,7 +150,7 @@ async def get_spiel_admin(
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
-    spielberichte_collection: SpielberichteCollection,
+    spielberichte_collection: SpielberichteReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     saison_teams_collection: SaisonTeamsReadCollection,

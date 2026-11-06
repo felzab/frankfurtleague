@@ -49,15 +49,15 @@ NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
 SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
 
-REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "end": "2026-04-30"}
+REGISTRIERUNG: Mapping[str, Any] = {"open": True, "end": "2026-04-30"}
 
 TEAM_NAMES = {TWO_SEATS: "Adler", UNCONFIRMED: "Bieber", NO_BLOCK: "Cronberg", ALREADY_MAILED: "Dornbusch", WITHDRAWN: "Eschborn"}
 
-AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-25"}
+AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-03-25"}
 
 
-def kontaktperson(vorname: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:
-    return kontaktperson_document(vorname, confirmed_at=confirmed_at, email=email, telefon="+49 69 1234567")
+def kontaktperson(first_name: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:
+    return kontaktperson_document(first_name, confirmed_at=confirmed_at, email=email, phone="+49 69 1234567")
 
 
 def kontakte(*, trainer: Any = None, ansprechperson: Any = None) -> dict[str, Any]:
@@ -120,7 +120,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active") -> Any:
                 saison_document(
                     SAISON_ID,
                     saison_status,
-                    rules=rules_document(number_of_gruppen=2, max_kadergroesse=50),
+                    rules=rules_document(number_of_gruppen=2, max_kader_size=50),
                     registrierung=dict(REGISTRIERUNG),
                 )
             )
@@ -144,8 +144,8 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str)
                 invitation_id=invitation_id,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
-                recipient=[FLInvitationRecipient(rolle="trainer", vorname="Fendrick", email=an)],
-                occasion="versand",
+                recipient=[FLInvitationRecipient(rolle="trainer", first_name="Fendrick", email=an)],
+                occasion="dispatch",
             ),
             now=MAIL_NOW,
         )
@@ -204,7 +204,7 @@ async def editor(database: AsyncDatabase) -> Any:
 async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
     return await post_invitations_dispatch(
         saison_id=SAISON_ID,
-        versand_data=FLInvitationDispatchPayload(resend=resend),
+        dispatch_data=FLInvitationDispatchPayload(resend=resend),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
@@ -746,7 +746,7 @@ class TestTheSeasonWidePress:
             collection = as_collection(_InsertFailsForOneTeam(database[Collection.INVITATIONS], ALREADY_MAILED))
             done = await post_invitations_dispatch(
                 saison_id=SAISON_ID,
-                versand_data=FLInvitationDispatchPayload(resend=True),
+                dispatch_data=FLInvitationDispatchPayload(resend=True),
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 invitations_collection=collection,
                 saisons_collection=database[Collection.SAISONS],

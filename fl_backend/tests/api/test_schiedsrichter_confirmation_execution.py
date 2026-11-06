@@ -32,7 +32,7 @@ from app.api.schiedsrichter.schemas import (
 )
 from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
-    EINWILLIGUNG_FELD,
+    EINWILLIGUNG_FIELD,
     ERASE_AT_FIELD,
     compose_confirmation,
     confirmation_deadline_from,
@@ -73,7 +73,7 @@ DEFAULT_PAYMENT = 20
 EMAIL = "collina@example.com"
 CORRECTED_EMAIL = "collina.pierluigi@example.com"
 BANNED_EMAIL = "gesperrt@example.com"
-TELEFON = "+49 69 1234567"
+PHONE = "+49 69 1234567"
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 A_CHILDS_BIRTHDATE = "2018-01-01"
@@ -96,7 +96,7 @@ def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str
         "name": NAME,
         "schule": SCHULE,
         "default_payment": DEFAULT_PAYMENT,
-        "kontakt": {"telefon": TELEFON, "email": email},
+        "kontakt": {"phone": PHONE, "email": email},
         "inactive_since": None,
         "version": 0,
         **overrides,
@@ -104,7 +104,7 @@ def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str
 
 
 def payload_body(*, email: str | None = EMAIL) -> dict[str, Any]:
-    return {"name": NAME, "schule": SCHULE, "default_payment": DEFAULT_PAYMENT, "kontakt": {"telefon": TELEFON, "email": email}}
+    return {"name": NAME, "schule": SCHULE, "default_payment": DEFAULT_PAYMENT, "kontakt": {"phone": PHONE, "email": email}}
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -211,7 +211,7 @@ async def read_view(database: AsyncDatabase, token: str | None, *, today: str = 
 async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, *, today: str = TODAY, **overrides: Any) -> Any:
     body = {
         "token": token,
-        "geburtsdatum": AN_ADULTS_BIRTHDATE,
+        "birth_date": AN_ADULTS_BIRTHDATE,
         "scope": "kader_oeffentlich",
         "media": True,
         "text_versions": dict(TEXT_VERSIONS),
@@ -219,7 +219,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     }
 
     return await post_confirmation(
-        antwort_data=FLSchiedsrichterConfirmationPayload.model_validate(body),
+        answer_data=FLSchiedsrichterConfirmationPayload.model_validate(body),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         ban_list=ban_list(database),
         db=client,
@@ -275,9 +275,9 @@ class TestTheCreateIsTheInvitation:
 
         assert response.answer.confirmation is not None
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
-        assert row[CONFIRMATION_FIELD]["frist"] == response.answer.confirmation.frist == confirmation_deadline_from(today=TODAY)
+        assert row[CONFIRMATION_FIELD]["deadline"] == response.answer.confirmation.deadline == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
-        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(frist=confirmation_deadline_from(today=TODAY))
+        assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
 
     def test_a_banned_address_leaves_no_referee_behind(self, mongo_replica_set_url: str):
         """What the create's transaction is for: judged outside one, the row stands with a live link the caller was told had been refused."""
@@ -540,10 +540,10 @@ class TestTheConfirmation:
 
         response, row = on_a_league(mongo_replica_set_url, body)
 
-        assert row["geburtsdatum"] == AN_ADULTS_BIRTHDATE
+        assert row["birth_date"] == AN_ADULTS_BIRTHDATE
         # Each choice evidenced by the confirmation, its instant in UTC: `NOW` is half past noon in
         # Frankfurt's summer time.
-        assert row[EINWILLIGUNG_FELD] == {
+        assert row[EINWILLIGUNG_FIELD] == {
             "scope": "kader_oeffentlich",
             "date": TODAY,
             "confirmed_at": TODAY,
@@ -571,7 +571,7 @@ class TestTheConfirmation:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_EXISTS
-        assert row[EINWILLIGUNG_FELD]["scope"] == "kader_oeffentlich"
+        assert row[EINWILLIGUNG_FIELD]["scope"] == "kader_oeffentlich"
 
     def test_a_press_after_the_deadline_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """A lapsed link still answering takes a consent after the deadline the mail named, on an entry already due to go."""
@@ -587,8 +587,8 @@ class TestTheConfirmation:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.LINK_EXPIRED
-        assert row.get(EINWILLIGUNG_FELD) is None
-        assert row.get("geburtsdatum") is None
+        assert row.get(EINWILLIGUNG_FIELD) is None
+        assert row.get("birth_date") is None
 
     def test_a_birthdate_under_the_floor_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
         """A consent from someone under the referees' minimum age is one the league may not hold."""
@@ -597,14 +597,14 @@ class TestTheConfirmation:
             minted = await resend(database, client)
 
             with pytest.raises(APIError) as refused:
-                await confirm(database, client, minted.token, geburtsdatum=A_CHILDS_BIRTHDATE)
+                await confirm(database, client, minted.token, birth_date=A_CHILDS_BIRTHDATE)
 
             return refused.value, await stored(database)
 
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_AGE
-        assert row.get("geburtsdatum") is None
+        assert row.get("birth_date") is None
 
 
 class TestTheDecline:
@@ -624,13 +624,13 @@ class TestTheDecline:
                 await resend(database, client)
 
             view = await read_view(database, minted.token)
-            return clock, await stored(database), asked_again.value, (view.state, view.answered_on)
+            return clock, await stored(database), asked_again.value, (view.state, view.answered_at)
 
         clock, row, asked_again, state = on_a_league(mongo_replica_set_url, body)
 
         assert row[CONFIRMATION_FIELD]["declined_at"] == TODAY
         assert row[ERASE_AT_FIELD] == clock
-        assert row.get(EINWILLIGUNG_FELD) is None
+        assert row.get(EINWILLIGUNG_FIELD) is None
         assert asked_again.error_code == Code.CONFIRMATION_EXISTS
         assert state == ("declined", TODAY)
 
@@ -667,8 +667,8 @@ class TestTheDecline:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_EXISTS
-        assert row.get(EINWILLIGUNG_FELD) is None
-        assert row.get("geburtsdatum") is None
+        assert row.get(EINWILLIGUNG_FIELD) is None
+        assert row.get("birth_date") is None
         assert ERASE_AT_FIELD in row
 
 
@@ -734,15 +734,15 @@ class TestTheMediaAge:
             minted = await resend(database, client)
 
             with pytest.raises(APIError) as refused:
-                await confirm(database, client, minted.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
+                await confirm(database, client, minted.token, birth_date=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
 
             return refused.value, await stored(database)
 
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.MEDIA_AGE
-        assert row.get("geburtsdatum") is None
-        assert row.get(EINWILLIGUNG_FELD) is None
+        assert row.get("birth_date") is None
+        assert row.get(EINWILLIGUNG_FIELD) is None
 
 
 class TestALinkToABarredAddress:
@@ -763,5 +763,5 @@ class TestALinkToABarredAddress:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert (refused.error_code, refused.status_code) == (Code.LINK_BARRED, 403)
-        assert row.get(EINWILLIGUNG_FELD) is None
-        assert row.get("geburtsdatum") is None
+        assert row.get(EINWILLIGUNG_FIELD) is None
+        assert row.get("birth_date") is None

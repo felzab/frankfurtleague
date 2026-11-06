@@ -127,8 +127,8 @@ async def record_write(
     """
 
     if collection.name == Collection.ACTION_LOG:
-        # The log recording its own rows would recurse without end, and a redaction is itself a
-        # write. What a redaction did is recoverable from the erasure row that caused it.
+        # A redaction writes the log through these same helpers, and a row of its own would stand under the
+        # pseudonym of the person it erases. What a redaction did is recoverable from the erasure row that caused it.
         return
     if collection.name == Collection.OUTBOX:
         # Bookkeeping of mail, and each row names an address: an image here would keep it in a log

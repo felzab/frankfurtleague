@@ -10,7 +10,7 @@ from collections.abc import Mapping
 import pytest
 
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationResponse, FLSchiedsrichterConfirmationViewResponse
-from app.api.schiedsrichter.services import answered_on_of, state_of
+from app.api.schiedsrichter.services import answered_at_of, state_of
 
 
 class TestWhatALeakedLinkLearns:
@@ -24,12 +24,12 @@ class TestWhatALeakedLinkLearns:
             "minimum_age",
             "maximum_age",
             "media_minimum_age",
-            "frist",
-            "answered_on",
+            "deadline",
+            "answered_at",
         }
 
     @pytest.mark.parametrize(
-        ("einwilligung", "declined_at", "barred", "answered_on"),
+        ("einwilligung", "declined_at", "barred", "answered_at"),
         [
             ({"confirmed_at": "2026-03-02"}, None, False, "2026-03-02"),
             (None, "2026-03-03", False, "2026-03-03"),
@@ -39,14 +39,14 @@ class TestWhatALeakedLinkLearns:
         ids=["confirmed", "declined", "barred", "unanswered"],
     )
     def test_the_view_names_the_day_of_the_answer_its_state_shows_and_no_other(
-        self, einwilligung: Mapping[str, str] | None, declined_at: str | None, barred: bool, answered_on: str | None
+        self, einwilligung: Mapping[str, str] | None, declined_at: str | None, barred: bool, answered_at: str | None
     ):
         """Served beside `barred`, the day would tell a stranger holding the token that the person answered, which the state withholds."""
 
-        confirmation = {"frist": "2026-04-15", "declined_at": declined_at}
+        confirmation = {"deadline": "2026-04-15", "declined_at": declined_at}
         state = state_of(einwilligung=einwilligung, confirmation=confirmation, today="2026-04-01", barred=barred)
 
-        assert answered_on_of(state=state, einwilligung=einwilligung, confirmation=confirmation) == answered_on
+        assert answered_at_of(state=state, einwilligung=einwilligung, confirmation=confirmation) == answered_at
 
     def test_the_answer_declares_exactly_what_the_press_echoes(self):
         """The same equality on the press's answer, which the same token holder reads."""

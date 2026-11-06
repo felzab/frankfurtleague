@@ -123,12 +123,12 @@ A_STORED_VALUE = "Quillhilde"
 
 
 class _Answer(BaseModel):
-    geburtsdatum: str = Field(pattern=r"^[0-9]{4}$")
+    birth_date: str = Field(pattern=r"^[0-9]{4}$")
 
 
 def _refused_by_the_answer() -> ValidationError:
     try:
-        _Answer.model_validate({"geburtsdatum": A_STORED_VALUE})
+        _Answer.model_validate({"birth_date": A_STORED_VALUE})
     except ValidationError as refused:
         return refused
     raise AssertionError("the answer took a value its pattern refuses")
@@ -219,9 +219,7 @@ class TestARowFailingAloneIsPassedOver:
                 lambda: _refused_by_the_answer(),
                 Code.STORED_DATA_INVALID,
                 re.escape("ValidationError: ")
-                + re.escape(
-                    "[{'loc': 'geburtsdatum', 'type': 'string_pattern_mismatch', 'msg': \"String should match pattern '^[0-9]{4}$'\"}]"
-                ),
+                + re.escape("[{'loc': 'birth_date', 'type': 'string_pattern_mismatch', 'msg': \"String should match pattern '^[0-9]{4}$'\"}]"),
                 id="a stored value the answer refuses, with the fields it refused",
             ),
         ],

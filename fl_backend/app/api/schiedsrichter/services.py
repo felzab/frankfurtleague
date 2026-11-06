@@ -191,7 +191,7 @@ TOKEN_HASHES_PATH: Final = f"{CONFIRMATION_FIELD}.token_hashes"
 DECLINED_AT_PATH: Final = f"{CONFIRMATION_FIELD}.declined_at"
 ADDRESS_PATH: Final = "kontakt.email"
 
-EINWILLIGUNG_FELD: Final = "einwilligung"
+EINWILLIGUNG_FIELD: Final = "einwilligung"
 
 # The instant the hourly pass erases an unanswered or declined entry (`app/api/schiedsrichter/system_router.py ::
 # sweep_schiedsrichter`), its log images with it, which a TTL index deleting the row would leave for the log's twelve
@@ -262,7 +262,7 @@ def compose_confirmation_update(
     record = compose_initial(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
     # The clock goes with the answer: a confirmed entry stays until its person or the league ends it.
-    return {"$set": {"birth_date": birth_date, EINWILLIGUNG_FELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
+    return {"$set": {"birth_date": birth_date, EINWILLIGUNG_FIELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
 
 
 def compose_decline_update(*, today: str) -> Mapping[str, Any]:
@@ -496,7 +496,7 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
     """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox."""
 
     # A CONFIRMED referee's address is never the save's (`find_confirmed_address_refusal`).
-    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
+    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FIELD)):
         return False
 
     return _address_moves(stored=stored, payload_email=payload_email)
@@ -508,7 +508,7 @@ def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: 
     Only an address change moves it. Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
     """
 
-    if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)) or not _address_moves(stored=stored, payload_email=payload_email):
+    if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FIELD)) or not _address_moves(stored=stored, payload_email=payload_email):
         return None
 
     return WriteRefusal(
@@ -546,7 +546,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 
     return (
         stored.get("inactive_since") is not None
-        and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(CONFIRMATION_FIELD))
+        and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD))
         and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
     )
 
@@ -554,7 +554,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
 # of the row is what must not reach them.
 CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
+    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,
     # For the ban list alone, as the answer's read takes it: the response model declares no field to
@@ -567,7 +567,7 @@ CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
 # Narrower than the view's: the answer takes its wording from the payload rather than the row. The
 # address is what the press asks the ban list of, and no answer carries it.
 CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
+    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,
     "kontakt.email": 1,
@@ -577,7 +577,7 @@ CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
 INVITE_FIELDS: Mapping[str, int] = {
     "inactive_since": 1,
     "kontakt.email": 1,
-    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
+    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     DECLINED_AT_PATH: 1,
 }
 
@@ -601,7 +601,7 @@ SELF_FIELDS: Mapping[str, int] = {
     "birth_date": 1,
     "default_payment": 1,
     "inactive_since": 1,
-    EINWILLIGUNG_FELD: 1,
+    EINWILLIGUNG_FIELD: 1,
 }
 
 

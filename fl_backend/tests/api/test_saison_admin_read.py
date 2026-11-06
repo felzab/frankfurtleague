@@ -87,7 +87,7 @@ async def the_season_past(database: AsyncDatabase) -> None:
 
 
 async def matchdays_dated(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELTAGE].update_many({"saison_id": SAISON_ID}, {"$set": {"beginn": A_DAY, "ende": A_DAY}})
+    await database[Collection.SPIELTAGE].update_many({"saison_id": SAISON_ID}, {"$set": {"start": A_DAY, "end": A_DAY}})
 
 
 async def dated_beside_an_unfinished_season(database: AsyncDatabase) -> None:

@@ -125,7 +125,7 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
     seat = kontaktperson_document(
         "Ortrud" if confirmed else "Ida",
         confirmed_at="2126-09-03" if confirmed else None,
-        geburtsdatum=ADULT if confirmed else None,
+        birth_date=ADULT if confirmed else None,
         einwilligung={"scope": "kontaktdaten_whatsapp", "media": True} if confirmed else {},
     )
     return {**seat, "email": email}
@@ -194,9 +194,9 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPIELER].insert_many(
         [
-            spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, geburtsdatum=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)),
+            spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, birth_date=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)),
             spieler_document(
-                MOVING_PUPIL_OID, "Lenore", "Quastenbach", email=MOVING_PUPIL, geburtsdatum=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)
+                MOVING_PUPIL_OID, "Lenore", "Quastenbach", email=MOVING_PUPIL, birth_date=ADULT, einwilligung=_own(SPIELER_TEXT_VERSIONS)
             ),
         ]
     )
@@ -208,7 +208,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 name="Ortrud Zwiebelmayer",
                 default_payment=20,
                 einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
-                geburtsdatum=ADULT,
+                birth_date=ADULT,
             ),
             schiedsrichter_document(
                 MOVING_REFEREE_OID,
@@ -216,7 +216,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 name="Baldur Krautzberger",
                 default_payment=20,
                 einwilligung=_own(SCHIEDSRICHTER_TEXT_VERSIONS),
-                geburtsdatum=ADULT,
+                birth_date=ADULT,
             ),
             # Entered and mailed before the snapshot's day, and unanswered: the link the objection is pressed through.
             schiedsrichter_document(
@@ -226,7 +226,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 default_payment=20,
                 einwilligung=None,
                 confirmation={**compose_confirmation(today="2126-10-01"), "token_hashes": [hash_token(REFEREE_LINK)]},
-                erase_at=erase_at_from(frist=confirmation_deadline_from(today="2126-10-01")),
+                erase_at=erase_at_from(deadline=confirmation_deadline_from(today="2126-10-01")),
             ),
         ]
     )
@@ -249,16 +249,16 @@ async def _seed(database: AsyncDatabase) -> None:
             REGISTRANT,
             saison_id=SAISON_ID,
             team_id=TEAM_OID,
-            vorname="Jonas",
-            nachname="Jungspund",
+            first_name="Jonas",
+            last_name="Jungspund",
             token=str(REGISTRATION_OID),
             submitted_at="2126-09-20",
-            frist="2126-09-27",
+            deadline="2126-09-27",
             position="Mittelfeld",
             nummer="17",
             stufe="Q1",
             confirmed=registrierung_confirmed(
-                geburtsdatum=ADULT,
+                birth_date=ADULT,
                 today="2126-09-21",
                 at="2126-09-21T08:00:00+00:00",
                 scope="kader_oeffentlich",
@@ -301,7 +301,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
 
 
 def _declined(token: str) -> dict[str, Any]:
-    return {"token": token, "antwort": "declined"}
+    return {"token": token, "answer": "declined"}
 
 
 V = f"/api/v{API_VERSION}"

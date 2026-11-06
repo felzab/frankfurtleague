@@ -782,7 +782,7 @@ class TestTheConfirmation:
         assert (early.removed, early.discarded, early.effective) == (0, 0, 0)
         assert late.effective == 1
         # The lost-mailbox way greets nobody, and carries no account: that mailbox may have passed to a stranger.
-        assert (notices, owed_carries) == ([{"kind": "effective", "an": EMAIL, "vorname": None}], [])
+        assert (notices, owed_carries) == ([{"kind": "effective", "an": EMAIL, "first_name": None}], [])
         assert (after["pupil"]["email"], after["referee"]["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
 
     def test_a_change_finding_nothing_left_to_move_ends_discarded(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -826,8 +826,8 @@ VERA_ROW_OID = ObjectId("6890a1b2c3d4e5f607850032")
 async def held_by_another(database: AsyncDatabase, what: str) -> None:
     """The new address named by another person's entry, its holder never signed in there."""
 
-    vera = {**documents.kontaktperson_document("Vera", confirmed_at=None), "nachname": "Zwirnbach", "email": NEW_EMAIL}
-    confirmed = {**documents.kontaktperson_document("Vera", confirmed_at="2126-03-21"), "nachname": "Zwirnbach", "email": NEW_EMAIL}
+    vera = {**documents.kontaktperson_document("Vera", confirmed_at=None), "last_name": "Zwirnbach", "email": NEW_EMAIL}
+    confirmed = {**documents.kontaktperson_document("Vera", confirmed_at="2126-03-21"), "last_name": "Zwirnbach", "email": NEW_EMAIL}
     match what:
         case "a-grant":
             await granted(database, NEW_EMAIL)
@@ -858,11 +858,11 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
                     NEW_EMAIL,
                     saison_id=SAISON_ID,
                     team_id=SECOND_TEAM_OID,
-                    vorname="Vera",
-                    nachname="Zwirnbach",
+                    first_name="Vera",
+                    last_name="Zwirnbach",
                     token="veras-registration-link",
                     submitted_at="2126-03-30",
-                    frist="2126-04-06",
+                    deadline="2126-04-06",
                     confirmed=None,
                 )
             )
@@ -872,7 +872,7 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
             )
         case "a-pupil":
             await database[Collection.SPIELER].insert_one(
-                documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, geburtsdatum="2010-01-01")
+                documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, birth_date="2010-01-01")
             )
         case "an-owed-carry":
             # Another person's change off it, ended, whose account still stands there until the frontend carries it.
@@ -1101,7 +1101,7 @@ class TestTheToolsStart:
             await start(database, client, released=False)
             await administrator_starts(database, client, grund=GRUND)
             rows = database[Collection.OUTBOX].find({"kind": "address_change_notice"}, sort=[("recorded_at", 1), ("_id", 1)])
-            return [(row["data"]["way"], row["data"]["vorname"]) async for row in rows]
+            return [(row["data"]["way"], row["data"]["first_name"]) async for row in rows]
 
         assert on_a_person(mongo_replica_set_url, body) == [("account", "Lenore"), ("waiting_period", None)]
 
@@ -1726,7 +1726,7 @@ class TestTheAdministratorFollowsTheirMove:
                     "declined",
                     kontakte=documents.kontakte_document(),
                     submitted_at="2126-02-01",
-                    decision={"made_at": "2126-02-15", "by": EMAIL, "grund": "kein Platz"},
+                    decision={"made_at": "2126-02-15", "by": EMAIL, "decision_reason": "kein Platz"},
                 )
             )
             minted = await start(database, client)
@@ -2191,7 +2191,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             declined = registration(DECLINED_REG_OID, SECOND_TEAM_OID, confirmed=False, token="the-declined-registrations-link")
-            declined.update(compose_ablehnung_update(by="admin@frankfurtleague.de", grund=None, today=TODAY)["$set"])
+            declined.update(compose_ablehnung_update(by="admin@frankfurtleague.de", decision_reason=None, today=TODAY)["$set"])
             await database[Collection.REGISTRIERUNGEN].insert_one(declined)
             await confirmed_and_moved(database, client)
             return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
@@ -2206,17 +2206,17 @@ class TestWhatTheEffectLeavesTheLoeschung:
             saison_id=SAISON_ID,
             spiel_nr=2,
             spieltag_id=None,
-            datum="2126-04-25",
-            uhrzeit="14:00:00",
+            date="2126-04-25",
+            time="14:00:00",
             team1={"team_id": TEAM_OID},
             team2={"team_id": SECOND_TEAM_OID},
         )
         answered = documents.spielbestaetigung_document(
             spiel,
-            party={"art": "team", "team_id": TEAM_OID},
+            party={"kind": "team", "team_id": TEAM_OID},
             _id=ANSWERED_OID,
             asked_at="2126-03-30",
-            antwort=documents.kontakt_antwort_document("ansprechperson", begruendung="Wir sind auf Klassenfahrt"),
+            answer=documents.kontakt_answer_document("ansprechperson", reason="Wir sind auf Klassenfahrt"),
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2250,11 +2250,11 @@ class TestWhatTheEffectLeavesTheLoeschung:
             OTHER_EMAIL,
             saison_id=SAISON_ID,
             team_id=SECOND_TEAM_OID,
-            vorname="Jonte",
-            nachname="Wirbelauer",
+            first_name="Jonte",
+            last_name="Wirbelauer",
             token="another-pupil-s-registration-link",
             submitted_at="2126-03-30",
-            frist="2126-04-06",
+            deadline="2126-04-06",
             confirmed=None,
         )
 
@@ -2264,14 +2264,14 @@ class TestWhatTheEffectLeavesTheLoeschung:
             await patch_one_in_db(
                 collection=database[Collection.REGISTRIERUNGEN],
                 db_filter={"_id": DECLINED_REG_OID},
-                update=compose_ablehnung_update(by=EMAIL, grund=None, today=TODAY),
+                update=compose_ablehnung_update(by=EMAIL, decision_reason=None, today=TODAY),
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
             await patch_one_in_db(
                 collection=database[Collection.REGISTRIERUNGEN],
                 db_filter={"_id": DECLINED_REG_OID},
-                update={"$set": {"frist": "2126-04-07"}},
+                update={"$set": {"deadline": "2126-04-07"}},
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
@@ -2315,7 +2315,7 @@ class TestTheLoeschung:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            replacement = {**documents.kontaktperson_document("Vera", confirmed_at="2126-03-21"), "nachname": "Zwirnbach"}
+            replacement = {**documents.kontaktperson_document("Vera", confirmed_at="2126-03-21"), "last_name": "Zwirnbach"}
             await as_administrator(
                 ADMIN,
                 patch_one_in_db(

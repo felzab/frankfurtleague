@@ -52,21 +52,21 @@ LATER_SAISON = "2526"
 # Deliberately unusual, so a hit in the whole-database sweep below cannot be a coincidence: no
 # fixture, no other suite and no seeded default anywhere spells any of these.
 ERASED_EMAIL = "wiltrudis.quastenflosser@example.com"
-ERASED_TELEFON = "+49 69 5550101"
-ERASED_FORMER_TELEFON = "+49 69 5559901"
-ERASED_NACHNAME = "Quastenflosser"
+ERASED_PHONE = "+49 69 5550101"
+ERASED_FORMER_PHONE = "+49 69 5559901"
+ERASED_LAST_NAME = "Quastenflosser"
 
 # The person beside them in the SAME block, whose record must survive untouched.
 BYSTANDER_EMAIL = "ortwinia.pfeffernuss@example.com"
-BYSTANDER_TELEFON = "+49 69 5550202"
-BYSTANDER_FORMER_TELEFON = "+49 69 5559902"
-BYSTANDER_NACHNAME = "Pfeffernuss"
+BYSTANDER_PHONE = "+49 69 5550202"
+BYSTANDER_FORMER_PHONE = "+49 69 5559902"
+BYSTANDER_LAST_NAME = "Pfeffernuss"
 
 # The third slot, and the whole of the row that must not be reached at all.
 UNREACHED_EMAIL = "baldur.krautzberger@example.com"
-UNREACHED_TELEFON = "+49 69 5550303"
-UNREACHED_FORMER_TELEFON = "+49 69 5559903"
-UNREACHED_NACHNAME = "Krautzberger"
+UNREACHED_PHONE = "+49 69 5550303"
+UNREACHED_FORMER_PHONE = "+49 69 5559903"
+UNREACHED_LAST_NAME = "Krautzberger"
 
 # An address stored nowhere, for the no-op case.
 UNKNOWN_EMAIL = "niemand.hierverzeichnet@example.com"
@@ -112,38 +112,38 @@ REDACTED_AT = "2026-04-01T10:30:00+00:00"
 # the number an earlier write replaced. The replaced one lives in the LOG alone, which is the copy an
 # erasure stopping at the collections leaves standing.
 PEOPLE: dict[str, tuple[str, str, str]] = {
-    ERASED_NACHNAME: (ERASED_EMAIL, ERASED_TELEFON, ERASED_FORMER_TELEFON),
-    BYSTANDER_NACHNAME: (BYSTANDER_EMAIL, BYSTANDER_TELEFON, BYSTANDER_FORMER_TELEFON),
-    UNREACHED_NACHNAME: (UNREACHED_EMAIL, UNREACHED_TELEFON, UNREACHED_FORMER_TELEFON),
+    ERASED_LAST_NAME: (ERASED_EMAIL, ERASED_PHONE, ERASED_FORMER_PHONE),
+    BYSTANDER_LAST_NAME: (BYSTANDER_EMAIL, BYSTANDER_PHONE, BYSTANDER_FORMER_PHONE),
+    UNREACHED_LAST_NAME: (UNREACHED_EMAIL, UNREACHED_PHONE, UNREACHED_FORMER_PHONE),
 }
 
 # Who stands in each slot of each seeded row, in `KONTAKT_ROLLEN` order, plus which seat the form said
 # the Trainer also holds. Every case the erasure has to answer is one row here.
 SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], str | None]] = {
     # One slot naming the erased person, and two people beside them who asked for nothing.
-    ROW_A_EARLIER_OID: ((ERASED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), None),
+    ROW_A_EARLIER_OID: ((ERASED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
     # The same person a season later, and in TWO slots: `trainer_is_also` stores one
     # person twice, so clearing the first alone would leave this block naming them.
-    ROW_A_LATER_OID: ((ERASED_NACHNAME, ERASED_NACHNAME, BYSTANDER_NACHNAME), "ansprechperson"),
+    ROW_A_LATER_OID: ((ERASED_LAST_NAME, ERASED_LAST_NAME, BYSTANDER_LAST_NAME), "ansprechperson"),
     # Nobody the erasure may reach.
-    ROW_B_OID: ((UNREACHED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), None),
+    ROW_B_OID: ((UNREACHED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
     # The second store this branch adds, with the person in a different slot than on the junction.
-    BEWERBUNG_OID: ((BYSTANDER_NACHNAME, ERASED_NACHNAME, UNREACHED_NACHNAME), None),
-    OTHER_BEWERBUNG_OID: ((UNREACHED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), None),
+    BEWERBUNG_OID: ((BYSTANDER_LAST_NAME, ERASED_LAST_NAME, UNREACHED_LAST_NAME), None),
+    OTHER_BEWERBUNG_OID: ((UNREACHED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
 }
 
 
-def person(nachname: str, telefon: str) -> dict[str, Any]:
+def person(last_name: str, phone: str) -> dict[str, Any]:
     """Every field `app/api/teams/schemas.py :: FLKontaktperson` requires, all six of them present."""
 
-    email, _, _ = PEOPLE[nachname]
+    email, _, _ = PEOPLE[last_name]
 
     return {
-        "vorname": "Vor" + nachname[:4],
-        "nachname": nachname,
+        "first_name": "Vor" + last_name[:4],
+        "last_name": last_name,
         "email": email,
-        "telefon": telefon,
-        "geburtsdatum": "1979-03-14",
+        "phone": phone,
+        "birth_date": "1979-03-14",
         "einwilligung": confirmed_kenntnisnahme(date="2026-01-05"),
     }
 
@@ -155,11 +155,11 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
     can be attributed to the state it came from.
     """
 
-    telefone = {nachname: (held if live else replaced) for nachname, (_, held, replaced) in PEOPLE.items()}
+    phones = {last_name: (held if live else replaced) for last_name, (_, held, replaced) in PEOPLE.items()}
 
     return {
         row_id: {
-            **{slot: person(nachname, telefone[nachname]) for slot, nachname in zip(KONTAKT_ROLLEN, roles, strict=True)},
+            **{slot: person(last_name, phones[last_name]) for slot, last_name in zip(KONTAKT_ROLLEN, roles, strict=True)},
             "trainer_is_also": zugleich,
         }
         for row_id, (roles, zugleich) in SEEDED_ROLES.items()
@@ -337,7 +337,7 @@ def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
     `bsonType: "string"` is all a stored address is held to.
     """
 
-    return a_junction_row(row_id, LATER_SAISON, a_block_holding({**person(UNREACHED_NACHNAME, UNREACHED_TELEFON), "email": email}))
+    return a_junction_row(row_id, LATER_SAISON, a_block_holding({**person(UNREACHED_LAST_NAME, UNREACHED_PHONE), "email": email}))
 
 
 async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
@@ -352,9 +352,9 @@ async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
             a_junction_row(
                 SWAPPED_ROW_OID,
                 SWAP_SAISON,
-                a_block_holding({**person(ERASED_NACHNAME, ERASED_FORMER_TELEFON), "email": ERASED_EMAIL}),
+                a_block_holding({**person(ERASED_LAST_NAME, ERASED_FORMER_PHONE), "email": ERASED_EMAIL}),
             ),
-            a_junction_row(UNTOUCHED_ROW_OID, SWAP_SAISON, a_block_holding(person(BYSTANDER_NACHNAME, BYSTANDER_FORMER_TELEFON))),
+            a_junction_row(UNTOUCHED_ROW_OID, SWAP_SAISON, a_block_holding(person(BYSTANDER_LAST_NAME, BYSTANDER_FORMER_PHONE))),
         ]
     )
 
@@ -364,14 +364,14 @@ async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
     await patch_one_in_db(
         collection=collection,
         db_filter={"_id": SWAPPED_ROW_OID},
-        update={"$set": {"kontakte.trainer": person(UNREACHED_NACHNAME, UNREACHED_TELEFON)}},
+        update={"$set": {"kontakte.trainer": person(UNREACHED_LAST_NAME, UNREACHED_PHONE)}},
         expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
         collection=collection,
         db_filter={"_id": UNTOUCHED_ROW_OID},
-        update={"$set": {"kontakte.trainer.telefon": BYSTANDER_TELEFON}},
+        update={"$set": {"kontakte.trainer.phone": BYSTANDER_PHONE}},
         expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
@@ -501,7 +501,7 @@ def test_a_seat_held_under_an_address_since_corrected_leaves_the_rows_images(mon
     """Match the reached row's images on the address alone and this fails: the mistyped one sits beside her name and number."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        mistyped = a_block_holding({**person(ERASED_NACHNAME, ERASED_TELEFON), "email": MISTYPED_EMAIL})
+        mistyped = a_block_holding({**person(ERASED_LAST_NAME, ERASED_PHONE), "email": MISTYPED_EMAIL})
         await database[Collection.SAISON_TEAMS].insert_one(a_junction_row(CORRECTED_ROW_OID, LATER_SAISON, mistyped))
         # The save correcting the address alone, which files the image holding the mistyped one.
         await patch_one_in_db(
@@ -559,7 +559,7 @@ def test_a_bystanders_earlier_state_survives_with_only_the_geloescht_seat_null(m
 
     former = FORMER_BLOCKS[ROW_A_EARLIER_OID]
     images = [row["before"] for row in on_a_league(mongo_replica_set_url, body)]
-    earlier = [image for image in images if image["kontakte"]["ansprechperson"]["telefon"] == BYSTANDER_FORMER_TELEFON]
+    earlier = [image for image in images if image["kontakte"]["ansprechperson"]["phone"] == BYSTANDER_FORMER_PHONE]
 
     assert len(earlier) == 1, "the seeded history filed no image of the former block"
     earliest = earlier[0]
@@ -633,11 +633,11 @@ def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_
 
     _, rows, log = after_erasure(mongo_replica_set_url)
     rendered = str(log) + str(sorted(rows.items(), key=lambda pair: str(pair[0])))
-    theirs = (ERASED_EMAIL, ERASED_TELEFON, ERASED_FORMER_TELEFON, ERASED_NACHNAME)
+    theirs = (ERASED_EMAIL, ERASED_PHONE, ERASED_FORMER_PHONE, ERASED_LAST_NAME)
 
     assert [value for value in theirs if value in rendered] == []
-    assert BYSTANDER_FORMER_TELEFON in rendered, "the sweep would pass over a database emptied wholesale"
-    assert UNREACHED_FORMER_TELEFON in rendered
+    assert BYSTANDER_FORMER_PHONE in rendered, "the sweep would pass over a database emptied wholesale"
+    assert UNREACHED_FORMER_PHONE in rendered
 
 
 @pytest.mark.db
@@ -832,7 +832,7 @@ class TestTheSeatJudgesReadWhateverAnImageHolds:
     def test_a_name_reaches_no_document_but_the_one_whose_images_seat_it_at_their_address(self):
         """A namesake elsewhere is somebody else; the one-address rule's reach is the whole log, a name's one document."""
 
-        named = {"vorname": "Klara", "nachname": "Musterfrau"}
+        named = {"first_name": "Klara", "last_name": "Musterfrau"}
         theirs = {"_id": BEWERBUNG_OID, "kontakte": {"stellvertretung": {**named, "email": "klara@example.com"}}}
         namesake = {"_id": OTHER_BEWERBUNG_OID, "kontakte": {"stellvertretung": {**named, "email": "klara@example.org"}}}
 
@@ -843,7 +843,7 @@ class TestTheSeatJudgesReadWhateverAnImageHolds:
     def test_a_seat_holding_no_name_lends_none_to_match_by(self):
         """Match a blank name and every other unnamed seat of the document goes with theirs."""
 
-        unnamed = {"vorname": "", "nachname": ""}
+        unnamed = {"first_name": "", "last_name": ""}
         image = {
             "_id": BEWERBUNG_OID,
             "kontakte": {"trainer": {**unnamed, "email": "x@example.com"}, "ansprechperson": {**unnamed, "email": "y@example.com"}},
@@ -866,8 +866,8 @@ def test_loeschen_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated(mo
     """A fold wider than sign-in's clears the second person's seat on the first person's request."""
 
     block = {
-        **a_block_holding({**person(UNREACHED_NACHNAME, UNREACHED_TELEFON), "email": SHARP_S_EMAIL}),
-        "ansprechperson": {**person(BYSTANDER_NACHNAME, BYSTANDER_TELEFON), "email": DOUBLE_S_EMAIL},
+        **a_block_holding({**person(UNREACHED_LAST_NAME, UNREACHED_PHONE), "email": SHARP_S_EMAIL}),
+        "ansprechperson": {**person(BYSTANDER_LAST_NAME, BYSTANDER_PHONE), "email": DOUBLE_S_EMAIL},
     }
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -910,10 +910,10 @@ def test_no_value_of_a_swapped_out_person_survives_anywhere(mongo_replica_set_ur
     _, rows, log = after_loeschen_a_swapped_out_person(mongo_replica_set_url)
     rendered = str(log) + str(sorted(rows.items(), key=lambda pair: str(pair[0])))
 
-    theirs = (ERASED_EMAIL, ERASED_FORMER_TELEFON, ERASED_NACHNAME)
+    theirs = (ERASED_EMAIL, ERASED_FORMER_PHONE, ERASED_LAST_NAME)
 
     assert [value for value in theirs if value in rendered] == []
-    assert BYSTANDER_FORMER_TELEFON in rendered, "an unrelated row's pre-image was emptied as collateral"
+    assert BYSTANDER_FORMER_PHONE in rendered, "an unrelated row's pre-image was emptied as collateral"
 
 
 # An application this person did NOT stand in until a later write put them there. Its own row, so
@@ -965,8 +965,8 @@ SHARED_EARLIER_OID = ObjectId("6890a1b2c3d4e5f607816004")
 SHARED_LATER_OID = ObjectId("6890a1b2c3d4e5f607816005")
 
 
-def sharing_the_inbox(nachname: str, telefon: str) -> dict[str, Any]:
-    return {**person(nachname, telefon), "email": SHARED_INBOX}
+def sharing_the_inbox(last_name: str, phone: str) -> dict[str, Any]:
+    return {**person(last_name, phone), "email": SHARED_INBOX}
 
 
 def after_revealing_a_shared_inbox(url: str) -> FLErasureViewResponse:
@@ -976,8 +976,8 @@ def after_revealing_a_shared_inbox(url: str) -> FLErasureViewResponse:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
-                    a_junction_row(SHARED_EARLIER_OID, EARLIER_SAISON, a_block_holding(sharing_the_inbox(ERASED_NACHNAME, ERASED_TELEFON))),
-                    a_junction_row(SHARED_LATER_OID, LATER_SAISON, a_block_holding(sharing_the_inbox(BYSTANDER_NACHNAME, BYSTANDER_TELEFON))),
+                    a_junction_row(SHARED_EARLIER_OID, EARLIER_SAISON, a_block_holding(sharing_the_inbox(ERASED_LAST_NAME, ERASED_PHONE))),
+                    a_junction_row(SHARED_LATER_OID, LATER_SAISON, a_block_holding(sharing_the_inbox(BYSTANDER_LAST_NAME, BYSTANDER_PHONE))),
                 ]
             )
 
@@ -992,9 +992,9 @@ def test_both_colleagues_on_one_shared_inbox_are_named(mongo_replica_set_url: st
 
     view = after_revealing_a_shared_inbox(mongo_replica_set_url)
 
-    assert [(seat.nachname, seat.saison_id) for seat in view.seats] == [
-        (ERASED_NACHNAME, EARLIER_SAISON),
-        (BYSTANDER_NACHNAME, LATER_SAISON),
+    assert [(seat.last_name, seat.saison_id) for seat in view.seats] == [
+        (ERASED_LAST_NAME, EARLIER_SAISON),
+        (BYSTANDER_LAST_NAME, LATER_SAISON),
     ]
     assert view.bewerbungen == []
 

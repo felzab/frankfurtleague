@@ -28,7 +28,7 @@ from app.api.schiedsrichter.schemas import (
 )
 from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
-    EINWILLIGUNG_FELD,
+    EINWILLIGUNG_FIELD,
     INVITE_FIELDS,
     build_real_referees_filter,
     build_referee_filter,
@@ -310,7 +310,7 @@ async def patch_schiedsrichter(
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
+            projection={"kontakt.email": 1, EINWILLIGUNG_FIELD: 1, "inactive_since": 1},
             session=session,
         )
         taken = await is_held_elsewhere(
@@ -541,7 +541,7 @@ async def invite_schiedsrichter(
         )
 
         refuse(find_retired_refusal(inactive_since=stored.get("inactive_since")))
-        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(CONFIRMATION_FIELD)))
+        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD)))
 
         email = (stored.get("kontakt") or {}).get("email")
         refuse(find_missing_address_refusal(email=email))

@@ -5,7 +5,7 @@ from app.api.spieltage.schemas import FLSpieltag, FLSpieltageSingleResponse
 from app.api.spieltage.services import with_expected_matches
 from app.core.config import API_VERSION
 from app.core.crud import pull_one_from_db
-from app.core.dependencies import SaisonsCollection, SpieltageCollection
+from app.core.dependencies import SaisonsCollection, SpieltageReadCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -19,7 +19,7 @@ router = APIRouter(
 @router.get(by_id("spieltag_id"), response_model=FLSpieltageSingleResponse, summary="One Spieltag")
 async def get_spieltag(
     spieltag_id: CustomRouteObjectId,
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsCollection,
 ) -> FLSpieltageSingleResponse:
     """One matchday by its id, its match count derived from its own season's rules.

@@ -24,7 +24,7 @@ RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=50,
+    max_kader_size=50,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=STUFEN,
 )
@@ -57,8 +57,8 @@ class TestTheTabellesGroups:
         ]
 
     def test_a_row_names_only_the_type_of_an_austritt(self, team):
-        """`grund` is free text written for publication, and the club's own page is where it is published."""
-        austritt = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-14"}
+        """`exit_reason` is free text written for publication, and the club's own page is where it is published."""
+        austritt = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-03-14"}
         rows = build_tabelle([FLTeam.model_validate(team(gruppe="A", austritt=austritt))], spiele=[], rules=RULES).root["A"]
 
         assert rows[0].austritt_type == "rueckzug"

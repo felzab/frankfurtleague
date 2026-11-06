@@ -29,11 +29,11 @@ SAISON_ID = "2026"
 BEWERBUNG_ID = "6890a1b2c3d4e5f60793{:04d}"
 
 KONTAKTPERSON = {
-    "vorname": "Anke",
-    "nachname": "Koerner",
+    "first_name": "Anke",
+    "last_name": "Koerner",
     "email": "a.koerner@example.de",
-    "telefon": "+49 170 1234567",
-    "geburtsdatum": "1984-05-09",
+    "phone": "+49 170 1234567",
+    "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }
 
