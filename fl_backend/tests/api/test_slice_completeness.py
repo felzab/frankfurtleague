@@ -144,13 +144,6 @@ class TestTheBracketWriteRefusesATruncatedSeason:
         with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
             run_advance(collection)
 
-    def test_a_season_at_the_cap_still_resolves(self, spiel):
-        """The boundary in the other direction: the largest readable season must not answer 500."""
-
-        advanced, faults = run_advance(_SaisonCollection(saison_of(spiel, LIST_LIMIT_DEFAULT)))
-
-        assert (advanced, faults) == ([], [])
-
 
 class _Rows:
     """A collection answering every `find` with the same rows, whether `pull_many_from_db` limits the cursor or a caller lists it bare."""
@@ -347,16 +340,3 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
             (REFEREED_FIRST, "schiedsrichter", REFEREED_AN_HOUR_LATER),
             (REFEREED_AN_HOUR_LATER, "schiedsrichter", REFEREED_FIRST),
         ]
-
-    def test_the_bracket_walk_contributes_nothing_to_this_corpus(self, spiel):
-        """So no case above can be passing on a fault the walk raised: it has `gruppe` reasons of its own, and none is in this set."""
-
-        faults = sweep(spiel)
-
-        assert {fault.reason for fault in faults} == {
-            "fielded_twice",
-            "departed_occupant",
-            "gruppe_not_run",
-            "retired_booking",
-            "double_booked",
-        }

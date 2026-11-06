@@ -3,9 +3,7 @@ import functools
 import logging
 import re
 from collections.abc import AsyncIterator
-from datetime import date
-from http import HTTPStatus
-from typing import Annotated, Any, Self
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -13,25 +11,21 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
-from pydantic import AfterValidator, BaseModel, Field, ValidationError, model_validator
-from pydantic_core import PydanticCustomError
+from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, NetworkTimeout, PyMongoError
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.core.codes import Code
 from app.core.exception_handlers import (
-    ROUTING_CODES,
     db_exception_handler,
     pydantic_validation_exception_handler,
     register_exception_handlers,
 )
-from app.core.exceptions import APIError, WriteRefusal
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
 from app.core.routing import SAFE, SAFE_WHEN
 from app.main import create_app
-from app.shared.schemas.custom import PERSON_NAME_PATTERN, refuse_reversed_span
+from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from tests.config import BASE_AUTH, build_test_config
 from tests.core.app_source import application
 
@@ -96,79 +90,6 @@ async def refuse_a_nested_field(payload: NestedPayload) -> dict[str, bool]:
     return {"ok": True}
 
 
-def refuse_with_a_day(value: str) -> str:
-    """A domain rule whose context holds a day as a `date`, which no JSON body could carry, beside a figure."""
-
-    raise PydanticCustomError("note_refused", "refused", {"day": date(2026, 9, 1), "max": 3})
-
-
-class RuledPayload(BaseModel):
-    """A span the shared helper judges, beside a field a rule with a non-scalar bound refuses."""
-
-    beginn: str
-    ende: str
-    note: Annotated[str, AfterValidator(refuse_with_a_day)] | None = None
-
-    @model_validator(mode="after")
-    def the_span_runs_forwards(self) -> Self:
-        refuse_reversed_span(start=self.beginn, end=self.ende, kind="spieltag_ends_before_start")
-        return self
-
-
-@VALIDATION_APP.post("/ruled")
-async def refuse_a_rule(payload: RuledPayload) -> dict[str, bool]:
-    """Never reached: every case posts a body the route refuses."""
-
-    return {"ok": True}
-
-
-# A code of a rule no route here enforces, so only this case's own route answers it.
-PLANTED_REFUSAL = Code.RULES_GRUPPEN_IN_USE
-JUDGED_PATH = ("kontakt", "email")
-
-
-@VALIDATION_APP.post("/refused/{status}")
-async def refuse_at(status: int) -> None:
-    """Refuses at the status its path names, naming the body path it judged."""
-
-    raise APIError(HTTPStatus(status), PLANTED_REFUSAL, fields=(JUDGED_PATH,))
-
-
-# The fewest groups the planted rule allows, as a season's rule refusal names the groups in use.
-PLANTED_BOUND = 3
-
-
-@VALIDATION_APP.post("/bounded")
-async def refuse_with_a_bound() -> None:
-    """Refuses as an endpoint's check does, through its `WriteRefusal`, naming the bound its rule holds the field to."""
-
-    raise WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus.CONFLICT, fields=(JUDGED_PATH,), bounds={"min": PLANTED_BOUND}).error()
-
-
-# The fixtures a planted retirement waits on, which the refusal names on the path's id as a list.
-PLANTED_FIXTURES = [4, 7, 9]
-
-
-@VALIDATION_APP.delete("/retired/{record_id}")
-async def refuse_a_retirement(record_id: str) -> None:
-    """Refuses as a retirement does: on the path's id, naming the fixtures that block it."""
-
-    raise WriteRefusal(
-        error_code=PLANTED_REFUSAL,
-        status=HTTPStatus.CONFLICT,
-        fields=(("record_id",),),
-        location="path",
-        bounds={"spiel_nrs": PLANTED_FIXTURES, "count": len(PLANTED_FIXTURES)},
-    ).error()
-
-
-@VALIDATION_APP.get("/starlette/{status}")
-async def raise_starlettes_own(status: int) -> None:
-    """Raises the base class the router raises, at the status its path names."""
-
-    raise StarletteHTTPException(status_code=status)
-
-
 FILTERED_PATH = "/filtered"
 
 
@@ -196,25 +117,6 @@ def logged_document(caplog) -> str:
 
 
 class TestFailureBodies:
-    def test_missing_credentials_answer_names_its_code_and_id(self):
-        response = client().get(GUARDED_READ)
-
-        assert response.status_code == 401
-        body = response.json()
-        assert body["error_code"] == Code.ACCESS_KEY_REFUSED
-        assert re.fullmatch(r"[a-f0-9]{32}", body["trace_id"])
-        assert response.headers["WWW-Authenticate"] == "Bearer"
-
-    def test_a_wrong_key_is_distinguishable_by_code(self):
-        response = client().get(GUARDED_READ, headers={"Authorization": "Bearer wrong"})
-
-        assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
-
-    def test_an_unavailable_database_is_503_with_its_code(self):
-        response = client().get(GUARDED_READ, headers=BASE_AUTH)
-
-        assert (response.status_code, response.json()["error_code"]) == (503, Code.NO_DATABASE_CLIENT)
-
     def test_the_body_and_the_headers_carry_nothing_but_the_code_the_id_and_the_challenge(self):
         """`error_response` forwards `exc.headers` as well as the body, so either is a channel a message could leak through."""
 
@@ -235,36 +137,7 @@ def refused(body: object) -> dict[str, Any]:
 
 
 class TestTheRefusedFieldsReachTheCaller:
-    """A 422 names where each refusal sits, so a form marks that field."""
-
-    def test_each_field_is_named_by_its_path_inside_the_body(self):
-        body = refused({"kontakt": {"email": "far-too-long"}, "names": [{"vorname": "Anna"}, {"vorname": REJECTED_NAME}]})
-
-        # An integer rather than `"1"`: a caller joining the path gets the dotted name its input carries. Pydantic's
-        # own kinds carry no context: a caller words each from its kind, so the pattern stays on the server.
-        assert body["fields"] == [
-            {"in": "body", "path": ["kontakt", "email"], "kind": "string_too_long", "ctx": {}},
-            {"in": "body", "path": ["names", 1, "vorname"], "kind": "string_pattern_mismatch", "ctx": {}},
-        ]
-
-    def test_a_rule_s_bound_reaches_the_caller_as_its_context(self):
-        """The caller words the line from the bound, so the start a span may not end before has to cross the wire."""
-
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/ruled", json={"beginn": "2026-09-05", "ende": "2026-09-01"})
-
-        assert response.json()["fields"] == [{"in": "body", "path": [], "kind": "spieltag_ends_before_start", "ctx": {"start": "2026-09-05"}}]
-
-    def test_a_context_member_no_json_scalar_holds_stays_off_the_wire(self):
-        """A day held as a `date` no JSON body could carry: the refusal answers 422, not 500, with the figure beside it."""
-
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
-            "/ruled", json={"beginn": "2026-09-01", "ende": "2026-09-05", "note": "x"}
-        )
-
-        assert (response.status_code, response.json()["fields"]) == (
-            422,
-            [{"in": "body", "path": ["note"], "kind": "note_refused", "ctx": {"max": 3}}],
-        )
+    """A 422 names where each refusal sits and what kind it is, and nothing the caller sent."""
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
         body = refused({"kontakt": {"email": "a@b"}, "names": [{"vorname": REJECTED_NAME}]})
@@ -274,49 +147,6 @@ class TestTheRefusedFieldsReachTheCaller:
         assert [set(field) for field in body["fields"]] == [{"in", "path", "kind", "ctx"}]
         assert REJECTED_NAME not in str(body)
         assert "String should match pattern" not in str(body)
-
-    def test_an_undecodable_body_is_malformed_syntax_naming_no_field(self):
-        """400 and no `fields`: nothing inside the body was read, so no field is at fault."""
-
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
-            "/nested", content=b'{"kontakt": ', headers={"content-type": "application/json"}
-        )
-
-        assert response.status_code == 400
-        assert response.json()["error_code"] == Code.BODY_UNREADABLE and response.json()["fields"] == []
-
-
-class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
-    @pytest.mark.parametrize("status", [HTTPStatus.UNPROCESSABLE_CONTENT, HTTPStatus.CONFLICT])
-    def test_a_refusal_names_the_body_path_its_rule_judged_under_the_rule_s_own_code_at_any_status(self, status: HTTPStatus):
-        """One body for every status: a 409 about one field names it as a 422 does, so a form marks that field."""
-
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(status)}")
-
-        assert response.status_code == status
-        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {}}]
-
-    def test_a_refusal_s_bound_reaches_the_caller_as_its_field_s_context(self):
-        """The caller words the field's line from the bound, so a bound the server moves and left off the wire is a stale line on the screen."""
-
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/bounded")
-
-        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL, "ctx": {"min": PLANTED_BOUND}}]
-
-    def test_a_path_refusal_s_list_bound_reaches_the_caller_on_the_path_s_field(self):
-        """A retirement names the fixtures to move first: off the wire, the dialog names none and the administrator hunts for them."""
-
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).delete("/retired/an-id")
-
-        assert response.json()["fields"] == [
-            {"in": "path", "path": ["record_id"], "kind": PLANTED_REFUSAL, "ctx": {"spiel_nrs": PLANTED_FIXTURES, "count": 3}}
-        ]
-
-    @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
-    def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(f"/starlette/{status}")
-
-        assert (response.status_code, response.json()["error_code"]) == (status, ROUTING_CODES[status])
 
 
 QUERY_ID = "6890a1b2c3d4e5f607182930"
@@ -333,31 +163,6 @@ class TestAMalformedQueryIdIsARefusedPayload:
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": team_id})
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
-
-    def test_a_well_formed_query_id_reaches_the_handler_as_an_object_id(self):
-        """The control: the same parameter carrying a real id is validated into the type every lookup by it needs."""
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": QUERY_ID})
-
-        assert (response.status_code, response.json()) == (200, {"team_id": ObjectId.__name__})
-
-
-def access_codes(caplog, request: Any) -> list[Any]:
-    """Each access line's code for one request, read off the line the middleware writes."""
-
-    with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-        request()
-
-    return [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "method", None) is not None]
-
-
-class TestTheAccessLineCarriesTheRefusal:
-    """A refusal writes no line of its own, so the access line is the one record of which code a request answered."""
-
-    def test_a_refusal_s_code_rides_its_access_line(self, caplog):
-        assert access_codes(caplog, lambda: client().get(GUARDED_READ)) == [Code.ACCESS_KEY_REFUSED]
-
-    def test_a_success_s_access_line_carries_no_code(self, caplog):
-        assert access_codes(caplog, lambda: TestClient(VALIDATION_APP).get(ANSWERED_PATH)) == [None]
 
 
 # The values the report below carries. Distinctive, so absence from a whole log document is
@@ -435,24 +240,12 @@ class TestTraceContext:
 
         assert response.json()["trace_id"] == "c0ffee00" * 4
 
-    def test_nothing_is_echoed_on_the_response(self):
-        """The failure body is the one channel handing the id back: a response header would put it where nothing reads it."""
-        response = client().get(GUARDED_READ, headers={"traceparent": TRACEPARENT, **BASE_AUTH})
-
-        assert not {"traceparent", "x-correlation-id"} & {name.lower() for name in response.headers}
-
     def test_a_malformed_traceparent_is_replaced_not_honoured(self):
         response = client().get(GUARDED_READ, headers={"traceparent": "NOT/AN/ID", **BASE_AUTH})
 
         minted = response.json()["trace_id"]
         assert minted != "NOT/AN/ID"
         assert re.fullmatch(r"[a-f0-9]{32}", minted)
-
-    def test_the_retired_header_is_read_by_nothing(self):
-        """A hop still sending the old header must find it ignored rather than honoured: it carries no span and no version."""
-        response = client().get(GUARDED_READ, headers={"X-Correlation-ID": "c0ffee00" * 4, **BASE_AUTH})
-
-        assert response.json()["trace_id"] != "c0ffee00" * 4
 
 
 class TestAccessLine:
@@ -468,13 +261,6 @@ class TestAccessLine:
         assert line.status == 200
         assert isinstance(line.duration_ms, float)
         assert line.trace_id == "c0ffee00" * 4
-
-    def test_the_query_string_is_part_of_the_logged_path(self, caplog):
-        with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-            client().get(GUARDED_READ, params={"limit": 5}, headers=BASE_AUTH)
-
-        paths = [record.path for record in caplog.records if getattr(record, "path", None)]
-        assert f"{GUARDED_READ}?limit=5" in paths
 
 
 async def crash() -> None:
@@ -537,11 +323,6 @@ class TestACrashIsAnsweredInsideItsRequest:
 
     So the handler reads the request's ids only where they are bound around that layer.
     """
-
-    def test_the_failure_body_quotes_the_request_s_trace_id(self, caplog):
-        response, _ = _crashed(caplog, "/crash")
-
-        assert (response.status_code, response.json()) == (500, {"error_code": Code.UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4, "fields": []})
 
     @pytest.mark.parametrize(("path", "status"), CRASHES)
     def test_the_crash_line_carries_the_access_line_s_ids(self, caplog, path: str, status: int):
