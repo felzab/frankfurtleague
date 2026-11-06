@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY, textOf } from "@/core/copy";
-import { dayOf, formatDatum, formatNumber } from "@/core/format";
+import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
@@ -40,11 +41,13 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
     matches.flatMap(({ spiel }) => [spiel.team1, spiel.team2].flatMap((team) => (team === null ? [] : [[team.team_id, team.name] as const]))),
   );
   const words = SERVER_COPY.season.filter;
-  const filter = (name: string, label: Copy, options: Filter["options"]): Filter => {
-    const named = address[name];
-    const value = Array.isArray(named) ? named[0] : named;
-    return { name, label, all: words.all, options, value: options.some((option) => option.id === value) ? (value ?? null) : null };
-  };
+  const filter = (name: string, label: Copy, options: Filter["options"]): Filter => ({
+    name,
+    label,
+    all: words.all,
+    options,
+    value: filterValue(address[name], options),
+  });
   const filters = [
     filter(
       "phase",
@@ -88,9 +91,9 @@ function wordsOf(spiel: FLSpielJoined): string {
   return [
     textOf(team1.name),
     textOf(team2.name),
-    spiel.ort?.name,
+    spiel.spielort?.name,
     whenOf(spiel),
-    spiel.datum === null ? null : formatDatum(dayOf(spiel.datum)),
+    spiel.date === null ? null : formatDate(dayOf(spiel.date)),
     formatNumber(spiel.spiel_nr),
     spiel.schiedsrichter?.name,
   ]
@@ -108,9 +111,11 @@ export default function SpielSearchPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "saison", title: { route: "spielSearch" } }}
       filters={season.then(({ filters }) => filters)}
+      filterCount={3}
       list={{
         kind: "spiele",
         search: { label: COPY.page.spielSearch },
+        wait: 30,
         content: season.then(({ matches, filters }) => {
           const narrowed = filters.some((filter) => filter.value !== null);
           return {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -8,9 +8,11 @@ import SaisonsLayout from "./layout";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
 
+/** The season the address names; a case naming one the frame does not hold sets it. */
+const address = vi.hoisted(() => ({ saison: "2027" }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/saisons/2027",
-  useParams: () => ({ saison: "2027" }),
+  usePathname: () => `/saisons/${address.saison}`,
+  useParams: () => ({ saison: address.saison }),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 vi.mock("next/server", () => ({ connection: async () => undefined }));
@@ -43,5 +45,24 @@ describe("the public season pages' frame", () => {
       "/saisons/2027/tabelle",
     );
     expect(screen.getAllByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }).length).toBeGreaterThan(0);
+  });
+
+  // The not-found page stands inside this frame, so a menu following an unknown season would lead every entry to a 404.
+  it("keeps its menus on the site's season where the address names one the frame does not hold", async () => {
+    address.saison = "1999";
+    onTestFinished(() => {
+      address.saison = "2027";
+    });
+    await act(async () => {
+      render(
+        <SaisonsLayout>
+          <p>Seite</p>
+        </SaisonsLayout>,
+      );
+    });
+
+    expect(screen.getAllByRole("link", { name: COPY.page.tabelle }).map((link) => link.getAttribute("href"))).toContain(
+      "/saisons/2027/tabelle",
+    );
   });
 });

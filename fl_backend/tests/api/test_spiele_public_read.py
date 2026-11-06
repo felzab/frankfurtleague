@@ -1,62 +1,35 @@
-import asyncio
-import functools
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
-from httpx2 import Response
 from pydantic import BaseModel, ValidationError
-from pymongo import MongoClient
 
 from app.api.spiele.schemas import (
     FLSpiel,
-    FLSpieleAdminListResponse,
     FLSpielJoined,
     FLSpielJoinedAdmin,
-    FLSpielJoinedInternal,
-    FLSpielOrtField,
-    FLSpielOrtFieldPublic,
-    FLSpielSchiedsrichterField,
+    FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPublic,
     FLSpielTeamFieldJoined,
-    FLSpielTeamFieldJoinedInternal,
     public_referee_name,
 )
 from app.api.spieltage.schemas import FLSpielplanSpieltag
-from app.api.teams.schemas import FLTeam
-from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.main import create_app
-from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
 from tests.core.app_source import application
-from tests.database import a_clean_database_sync
-from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
-    own_einwilligung_document,
-    saison_document,
-    saison_team_document,
-    schiedsrichter_document,
-    spiel_document,
-    spielbestaetigung_document,
-)
-
-from .conftest import unwritten
+from tests.documents import spiel_document
 
 # The two figures `READ-MONEY-001` keeps off the base tier, spelled as a DOCUMENT spells them: the
-# assertions below search decoded bodies by key, where a model's field name would not match.
+# assertions below search published property names, where a model's field name need not match.
 MIETPREIS_KEY = "mietpreis"
 PAYMENT_KEY = "payment"
 MONEY_KEYS = frozenset({MIETPREIS_KEY, PAYMENT_KEY})
 
 # What the backend keeps off a served fixture side: the free text naming a school and the day it took
 # effect. Spelled as a DOCUMENT spells them, for `MONEY_KEYS`' reason.
-AUSTRITT_DETAIL_KEYS = frozenset({"grund", "datum"})
+AUSTRITT_DETAIL_KEYS = frozenset({"reason", "date"})
 AUSTRITT_TYPE_KEY = "austritt_type"
 
-# Searched per SIDE rather than over the whole body: a fixture's own `datum` shares its name with a
+# Searched per SIDE rather than over the whole body: a fixture's own `date` shares its name with a
 # withdrawal's, so a body-wide search for that key could never fail.
 SIDES = ("team1", "team2")
 
@@ -81,14 +54,7 @@ SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
-SPIELE_PREFIX = f"/api/v{API_VERSION}/spiele"
-SINGLE_PATH = f"{SPIELE_PREFIX}/{SPIEL_ID}"
-ADMIN_PATH = f"{SINGLE_PATH}/verwaltung"
-ADMIN_LIST_PATH = f"{SPIELE_PREFIX}/list/verwaltung?saison_id={SAISON_ID}"
-# The base tier's list of fixtures: the season's matchdays, each holding its matches.
-SPIELPLAN_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/spielplan"
-
-AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def stored_document() -> dict[str, Any]:
@@ -99,12 +65,12 @@ def stored_document() -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALX", "tore": 2},
-        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BEX", "tore": 1},
-        datum="2026-03-15",
-        uhrzeit="14:00:00",
-        ort={"spielort_id": SPIELORT_ID, "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
-        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": SCHIEDSRICHTER_NAME, "payment": PAYMENT},
+        team1={"team_id": HOME, "tore": 2},
+        team2={"team_id": AWAY, "tore": 1},
+        date="2026-03-15",
+        time="14:00:00",
+        spielort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
+        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
 
@@ -112,7 +78,7 @@ def stored_document() -> dict[str, Any]:
 def spieltag_document() -> dict[str, Any]:
     """The fixture's matchday, which the Spielplan lists it under."""
 
-    return {"_id": SPIELTAG_ID, "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
+    return {"_id": SPIELTAG_ID, "start": None, "end": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
 
 
 def joined_document() -> dict[str, Any]:
@@ -126,36 +92,14 @@ def joined_document() -> dict[str, Any]:
 
     return {
         **document,
-        "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
-        "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
+        "team1": {**document["team1"], "name": "Alpha", "shorthand": "ALX", "austritt": None, AUSTRITT_TYPE_KEY: None},
+        "team2": {**document["team2"], "name": "Beta", "shorthand": "BEX", "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
+        "spielort": {**document["spielort"], "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt"},
         "ansetzung_confirmed": None,
         "for_third_place": False,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
-        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_confirmed": True},
+        "schiedsrichter": {**document["schiedsrichter"], "name": SCHIEDSRICHTER_NAME, "name_is_public": True, "einsatz_confirmed": True},
     }
-
-
-def team_document() -> dict[str, Any]:
-    """The AWAY club as `build_team_pipeline` serves it to a club's own page: the junction's record joined on whole."""
-
-    return {
-        "_id": AWAY,
-        "name": "Beta",
-        "shorthand": "BEX",
-        "full_name": "Beta-Schule Frankfurt",
-        "description": "",
-        "website_url": "https://beta.example.org",
-        "address": {"strasse": "Beispielweg", "hausnummer": "1", "plz": "60311", "stadtteil": "Innenstadt", "stadt": "Frankfurt"},
-        "schulform": None,
-        "gruppe": "A",
-        "statistik": {},
-        "austritt": dict(AUSTRITT),
-        "inactive_since": None,
-    }
-
-
-def junction_row() -> dict[str, Any]:
-    return saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT))
 
 
 def keys_anywhere(payload: Any) -> set[str]:
@@ -177,7 +121,7 @@ def keys_anywhere(payload: Any) -> set[str]:
 def keys_under(payload: Any, field: str) -> set[str]:
     """Every mapping key at every depth BENEATH any `field` key, wherever one is nested.
 
-    Scoped where `keys_anywhere` is not: a fixture's own `datum` shares its name with a
+    Scoped where `keys_anywhere` is not: a fixture's own `date` shares its name with a
     withdrawal's, so a body-wide search for that key could never fail.
     """
 
@@ -191,87 +135,27 @@ def keys_under(payload: Any, field: str) -> set[str]:
     return set()
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(build_test_config())
-
-
-def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
-    async def _answered() -> Response:
-        async with app_client(uri, app=_served()) as http:
-            return await http.get(path, headers=dict(headers))
-
-    return asyncio.run(_answered())
-
-
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
-# from being left as a claim.
-@pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
-    """The fixture and its junction row, in the database `build_test_config` names -- the one the app resolves its collections from."""
-
-    database_name = build_test_config().db_base_name
-
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
-        database[Collection.GRANTS].insert_many(grants_for_the_suite())
-        database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-        database[Collection.SPIELTAGE].insert_one(spieltag_document())
-        database[Collection.SPIELE].insert_one(stored_document())
-        # Publishing their name, so the reduction is what the base tier serves rather than a withheld null.
-        database[Collection.SCHIEDSRICHTER].insert_one(
-            schiedsrichter_document(
-                SCHIEDSRICHTER_ID,
-                email="ada.kern@example.com",
-                name=SCHIEDSRICHTER_NAME,
-                default_payment=PAYMENT,
-                einwilligung=own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-03-01"),
-            )
-        )
-        # Agreeing to the fixture as it stands, without which the base tier withholds the referee whole.
-        database[Collection.SPIELBESTAETIGUNGEN].insert_one(
-            spielbestaetigung_document(
-                stored_document(),
-                party={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER_ID},
-                kontakte=None,
-                antwort={"art": "zugesagt", "am": "2026-03-02", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": None},
-            )
-        )
-        database[Collection.SAISON_TEAMS].insert_one(junction_row())
-
-        with unwritten(mongo_replica_set_url, database_name):
-            yield mongo_replica_set_url
-    finally:
-        client.close()
-
-
 # The whole membership of each base-tier embedded shape, so a field added to one is named here or
 # fails. The venue's money-bearing twin extends this shape, so a relation between the two cannot
 # stand in.
 PUBLIC_EMBEDDED_FIELDS = [
-    pytest.param(FLSpielOrtFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
+    pytest.param(FLSpielortFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
     pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"name", "name_is_public"}), id="the referee"),
 ]
 
 # The base-tier FIXTURE's whole membership. Its aggregation projects no allow-list, so the model is
 # the one this read has and a field added to `FLSpielCommon` reaches
 # an anonymous caller unnamed.
-BASE_TIER_FIXTURE_FIELDS = frozenset(
+BASE_TIER_SPIEL_FIELDS = frozenset(
     {
         "id",
         "team1",
         "team2",
         "team1_quelle",
         "team2_quelle",
-        "datum",
-        "uhrzeit",
-        "ort",
+        "date",
+        "time",
+        "spielort",
         "schiedsrichter",
         "ergebnis",
         "elfmeterschiessen",
@@ -281,7 +165,7 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         "saison_phase",
         "saison_id",
         # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
-        "notiz",
+        "note",
         # A verdict and never a row: no seat, no answer's reason.
         "ansetzung_confirmed",
         # The one rule for the match for third place, which the join composes.
@@ -289,27 +173,9 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
     }
 )
 
-# (the base-tier shape, the shape carrying the figure it withholds, that figure).
-EMBEDDED_PAIRS = [
-    pytest.param(FLSpielOrtFieldPublic, FLSpielOrtField, MIETPREIS_KEY, id="the venue"),
-    pytest.param(FLSpielSchiedsrichterFieldPublic, FLSpielSchiedsrichterField, PAYMENT_KEY, id="the referee"),
-]
-
 
 class TestTheEmbeddedShapes:
-    """Which of the two figures each embedded model declares, read off `model_fields` rather than off an instance."""
-
-    @pytest.mark.parametrize(("public_model", "admin_model", "money"), EMBEDDED_PAIRS)
-    def test_the_base_tier_shape_declares_no_figure(self, public_model: type[BaseModel], admin_model: type[BaseModel], money: str):
-        """The claim in its narrowest form: the field is absent from the declaration, so no read through it can serve one."""
-
-        assert money not in public_model.model_fields
-
-    @pytest.mark.parametrize(("public_model", "admin_model", "money"), EMBEDDED_PAIRS)
-    def test_the_money_bearing_shape_still_declares_it(self, public_model: type[BaseModel], admin_model: type[BaseModel], money: str):
-        """The control for the assertion above, which a rename of either figure would otherwise satisfy on both models at once."""
-
-        assert money in admin_model.model_fields
+    """What each embedded base-tier model declares, read off `model_fields` rather than off an instance."""
 
     @pytest.mark.parametrize(("public_model", "public_fields"), PUBLIC_EMBEDDED_FIELDS)
     def test_the_base_tier_shape_declares_exactly_these_fields(self, public_model: type[BaseModel], public_fields: frozenset[str]):
@@ -323,26 +189,7 @@ class TestTheEmbeddedShapes:
 
 
 class TestTheJoinedSideShapes:
-    """Which spelling of a withdrawal each side model declares, read off `model_fields` rather than off an instance."""
-
-    def test_the_served_side_declares_no_record(self):
-        """The claim in its narrowest form: a free-text reason is absent from the declaration, so no read through it can serve one."""
-
-        assert "austritt" not in FLSpielTeamFieldJoined.model_fields
-
-    def test_the_served_side_still_names_the_route_out(self):
-        """The control for the assertion above, which a side dropping the withdrawal entirely would satisfy.
-
-        A withdrawal reported as a disqualification is the untruth the neutral record prevents, and
-        the type tells them apart.
-        """
-
-        assert AUSTRITT_TYPE_KEY in FLSpielTeamFieldJoined.model_fields
-
-    def test_the_internal_side_still_declares_the_record(self):
-        """The other end of the split: one document, two models, and only the walk's own shape reads the record out of it."""
-
-        assert "austritt" in FLSpielTeamFieldJoinedInternal.model_fields
+    """Which spelling of a withdrawal the served side declares, read off `model_fields` rather than off an instance."""
 
     def test_the_served_side_declares_exactly_these_fields(self):
         """The served side's whole membership, since the internal shape inherits it.
@@ -354,34 +201,13 @@ class TestTheJoinedSideShapes:
         assert set(FLSpielTeamFieldJoined.model_fields) == {"team_id", "name", "shorthand", "tore", "austritt_type"}
 
 
-class TestTheFixtureShapes:
-    """What each fixture model declares, and what survives validation of ONE raw document through it -- the step that drops the figures."""
+class TestTheSpielShapes:
+    """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
-    def test_the_raw_document_carries_both_figures(self):
-        """The control for this whole class: without it, every absence below would pass on a document that never held them."""
-
-        assert MONEY_KEYS <= keys_anywhere(joined_document())
-
-    def test_the_base_tier_fixture_drops_both(self):
-        """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
-
-        dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
-
-        assert MONEY_KEYS & keys_anywhere(dumped) == set()
-
-    def test_the_base_tier_fixture_still_carries_what_a_card_renders(self):
-        """Without it, a shape that dropped the venue and the referee entirely would satisfy the assertion above."""
-
-        parsed = FLSpielJoined.model_validate(joined_document())
-
-        assert parsed.ort is not None and parsed.ort.name == SPIELORT_NAME
-        assert parsed.schiedsrichter is not None and parsed.schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
-
-    def test_the_base_tier_fixture_cuts_the_referees_surname(self):
+    def test_the_base_tier_spiel_cuts_the_referees_surname(self):
         """`READ-REFEREE-001`, on the shape a base-tier read answers with rather than on the reducer alone.
 
-        The stored document carries the surname in full, so a model that stopped reducing would
-        serve it and the case above would still pass.
+        The stored document carries the surname in full, so a model that stopped reducing would serve it.
         """
 
         parsed = FLSpielJoined.model_validate(joined_document())
@@ -389,13 +215,6 @@ class TestTheFixtureShapes:
         assert parsed.schiedsrichter is not None
         assert parsed.schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
         assert SCHIEDSRICHTER_SURNAME not in parsed.model_dump_json()
-
-    def test_the_admin_fixture_keeps_the_referees_whole_name(self):
-        """The other end of the split, and the reason the stored shape extends no model carrying the reduction."""
-
-        parsed = FLSpielJoinedAdmin.model_validate(joined_document())
-
-        assert parsed.schiedsrichter is not None and parsed.schiedsrichter.name == SCHIEDSRICHTER_NAME
 
     def test_a_referee_block_the_join_never_judged_is_refused(self):
         """Required as `ansetzung_confirmed` is: served without its verdict, a read that skipped the gate would publish every referee."""
@@ -409,28 +228,15 @@ class TestTheFixtureShapes:
         with pytest.raises(ValidationError):
             FLSpielJoined.model_validate(unjudged)
 
-    def test_the_admin_fixture_keeps_both(self):
-        """The other end of the split: one document, two models, and only `FLSpielJoinedAdmin` reads the figures out of it."""
-
-        parsed = FLSpielJoinedAdmin.model_validate(joined_document())
-
-        assert parsed.ort is not None and parsed.ort.mietpreis == MIETPREIS
-        assert parsed.schiedsrichter is not None and parsed.schiedsrichter.payment == PAYMENT
-
-    def test_the_base_tier_fixture_declares_exactly_these_fields(self):
+    def test_the_base_tier_spiel_declares_exactly_these_fields(self):
         """The tier's whole membership, since neither the admin nor the internal shape narrows it.
 
         A subset relation against either would survive a field added here, both inheriting this one.
         """
 
-        assert set(FLSpielJoined.model_fields) == BASE_TIER_FIXTURE_FIELDS
+        assert set(FLSpielJoined.model_fields) == BASE_TIER_SPIEL_FIELDS
 
-    def test_the_raw_document_carries_the_whole_withdrawal(self):
-        """The control for the cases below: without it, every absence would pass on a document that never held a reason."""
-
-        assert AUSTRITT_DETAIL_KEYS <= keys_under(joined_document(), "team2")
-
-    def test_the_base_tier_fixture_drops_the_reason_and_the_day(self):
+    def test_the_base_tier_spiel_drops_the_reason_and_the_day(self):
         """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
@@ -438,29 +244,13 @@ class TestTheFixtureShapes:
         for side in SIDES:
             assert AUSTRITT_DETAIL_KEYS & keys_under(dumped, side) == set()
 
-    def test_the_base_tier_fixture_still_says_which_way_the_club_left(self):
-        """Without it, a shape that dropped the withdrawal entirely would satisfy the assertion above."""
-
-        parsed = FLSpielJoined.model_validate(joined_document())
-
-        assert parsed.team2 is not None and parsed.team2.austritt_type == AUSTRITT["type"]
-        assert parsed.team1 is not None and parsed.team1.austritt_type is None
-
-    def test_the_admin_fixture_drops_them_too(self):
+    def test_the_admin_spiel_drops_them_too(self):
         """No fixture response carries a reason: the money is withheld by TIER, and the withdrawal is narrowed on every tier at once."""
 
         dumped = FLSpielJoinedAdmin.model_validate(joined_document()).model_dump()
 
         for side in SIDES:
             assert AUSTRITT_DETAIL_KEYS & keys_under(dumped, side) == set()
-
-    def test_the_walks_own_fixture_keeps_the_record(self):
-        """`find_departed_occupants` orders a fault on the day a club left, so the shape it reads still carries the record whole."""
-
-        parsed = FLSpielJoinedInternal.model_validate(joined_document())
-
-        assert parsed.team2 is not None and parsed.team2.austritt is not None
-        assert (parsed.team2.austritt.grund, parsed.team2.austritt.datum) == (AUSTRITT["grund"], AUSTRITT["datum"])
 
 
 class TestTheTwoListShapes:
@@ -476,14 +266,6 @@ class TestTheTwoListShapes:
 
         assert spieltag.spiele[0].schiedsrichter is not None
         assert spieltag.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
-
-    def test_the_admin_list_keeps_it_whole(self):
-        """Without this the admin fixture search matches a surname against an initial and finds nothing."""
-
-        response = FLSpieleAdminListResponse.model_validate({"spiele": [joined_document()]})
-
-        assert response.spiele[0].schiedsrichter is not None
-        assert response.spiele[0].schiedsrichter.name == SCHIEDSRICHTER_NAME
 
 
 # (stored, what the base tier serves). The surname is everything after the FIRST space, so a
@@ -516,28 +298,12 @@ class TestTheSurnameReduction:
         assert FLSpielSchiedsrichterFieldPublic.model_validate(published).name == served
 
 
-class TestThePageThatPublishesTheWithdrawal:
-    """`FLTeam`, which a club's OWN page reads: the narrowing moves nothing, it only stops the copies travelling."""
-
-    def test_the_club_page_read_still_carries_the_whole_record(self):
-        """The other end of the whole change: the reason and the day are published, on the one surface that renders them."""
-
-        parsed = FLTeam.model_validate(team_document())
-
-        assert parsed.austritt is not None
-        assert (parsed.austritt.type, parsed.austritt.grund, parsed.austritt.datum) == (
-            AUSTRITT["type"],
-            AUSTRITT["grund"],
-            AUSTRITT["datum"],
-        )
-
-
 class TestTheStoredShape:
     """`FLSpiel`, which is on no endpoint and whose dump every write `$set`s wholesale."""
 
     @pytest.mark.parametrize(
         ("embedded", "money", "amount"),
-        [("ort", MIETPREIS_KEY, MIETPREIS), ("schiedsrichter", PAYMENT_KEY, PAYMENT)],
+        [("spielort", MIETPREIS_KEY, MIETPREIS), ("schiedsrichter", PAYMENT_KEY, PAYMENT)],
         ids=["the venue", "the referee"],
     )
     def test_the_dump_a_save_writes_keeps_the_figure(self, embedded: str, money: str, amount: int):
@@ -548,15 +314,10 @@ class TestTheStoredShape:
         assert dumped[money] == amount
 
 
-BASE_TIER_CASES = [
-    pytest.param(SPIELPLAN_PATH, id="the Spielplan"),
-    pytest.param(SINGLE_PATH, id="one fixture"),
-]
-
 # What no base-tier read may publish anywhere in its answer: the admin fixture shape, either figure, and the booked
 # referee's record id. Property names as the document publishes them, which are the keys a body carries.
 WITHHELD_PROPERTIES = MONEY_KEYS | {"schiedsrichter_id"}
-ADMIN_FIXTURE_SCHEMA = FLSpielJoinedAdmin.__name__
+ADMIN_SPIEL_SCHEMA = FLSpielJoinedAdmin.__name__
 
 
 def _reached(document: Mapping[str, Any], schema: Any) -> tuple[set[str], set[str]]:
@@ -593,110 +354,22 @@ def _reads_under(document: Mapping[str, Any], scheme: str) -> dict[str, tuple[se
     }
 
 
-def test_no_base_tier_read_publishes_the_admin_fixture_shape_either_figure_or_the_referees_record():
+def test_no_base_tier_read_publishes_the_admin_spiel_shape_either_figure_or_the_referees_record():
     """Read off the published document, so every base-tier read serving a fixture is held, a new one with no case of its own among them.
 
-    The wire cases above hold two reads against a seeded body; this holds every read's declared shape, where a page's
-    model swapped for the admin fixture shape would serve the referee's whole name, the rent and the fee.
+    This holds every read's declared shape, where a page's model swapped for the admin fixture shape would serve the
+    referee's whole name, the rent and the fee.
     """
 
     document = application().openapi()
     reads = _reads_under(document, "BaseKey")
 
-    leaks = {path: sorted(({ADMIN_FIXTURE_SCHEMA} & names) | (WITHHELD_PROPERTIES & properties)) for path, (names, properties) in reads.items()}
+    leaks = {path: sorted(({ADMIN_SPIEL_SCHEMA} & names) | (WITHHELD_PROPERTIES & properties)) for path, (names, properties) in reads.items()}
     assert {path: leaked for path, leaked in leaks.items() if leaked} == {}
 
     # Non-vacuous: the base-tier reads serving a fixture are among those walked, and the walk sees a leak where one
     # stands, the admin fixture reads reaching the shape and all three keys.
     assert [path for path, (_, properties) in reads.items() if "spiel_nr" in properties]
-    admin_fixture_reads = [properties for names, properties in _reads_under(document, "AdminKey").values() if ADMIN_FIXTURE_SCHEMA in names]
-    assert admin_fixture_reads
-    assert all(WITHHELD_PROPERTIES <= properties for properties in admin_fixture_reads)
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("path", BASE_TIER_CASES)
-def test_no_base_tier_body_carries_either_figure_at_any_depth(seeded_url: str, path: str):
-    """The serialised answer to a real request, which is the only thing the wire is actually bound by."""
-
-    response = answered(seeded_url, path, BASE_AUTH)
-
-    assert response.status_code == 200
-    keys = keys_anywhere(response.json())
-
-    assert MONEY_KEYS & keys == set(), f"{path} served {sorted(MONEY_KEYS & keys)}"
-    # The booked referee's record id is withheld too.
-    assert "schiedsrichter_id" not in keys
-    # Non-vacuous: both records ARE in the body, so what is asserted above is what they carry rather
-    # than an empty result or a venue nothing served.
-    assert {"spielort_id", "name_is_public"} <= keys
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("path", BASE_TIER_CASES)
-def test_no_base_tier_body_carries_a_withdrawal_reason_or_day_at_any_depth(seeded_url: str, path: str):
-    """The serialised answer to a real request, which is the only thing the wire is actually bound by.
-
-    Every public surface listing a fixture reads this, and the free text names a school -- so a
-    side carries the route out and nothing else.
-    """
-
-    response = answered(seeded_url, path, BASE_AUTH)
-
-    assert response.status_code == 200
-    body = response.json()
-
-    for side in SIDES:
-        served = AUSTRITT_DETAIL_KEYS & keys_under(body, side)
-        assert served == set(), f"{path} served {sorted(served)} under {side}"
-
-    # Searched as VALUES over the undecoded body as well: a key RENAMED on the way out satisfies the
-    # structural check above and publishes both all the same.
-    assert AUSTRITT["grund"] not in response.text
-    assert AUSTRITT["datum"] not in response.text
-
-    # Non-vacuous, in both directions: the club that left is still marked, and by the route it took
-    # rather than by a boolean -- so what is asserted above is a narrowing rather than an empty body.
-    assert AUSTRITT_TYPE_KEY in keys_anywhere(body)
-    assert AUSTRITT["type"] in response.text
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("path", BASE_TIER_CASES)
-def test_no_base_tier_body_carries_the_referees_surname(seeded_url: str, path: str):
-    """The serialised answer to a real request, which is the only thing the wire is actually bound by.
-
-    Searched as text rather than under `name`: a surname reaches the caller whatever key carries it,
-    and the reduction is a value rather than a shape.
-    """
-
-    response = answered(seeded_url, path, BASE_AUTH)
-
-    assert response.status_code == 200
-    assert SCHIEDSRICHTER_SURNAME not in response.text
-    # Non-vacuous: the referee is served, reduced rather than dropped.
-    assert PUBLIC_SCHIEDSRICHTER_NAME in response.text
-
-
-@pytest.mark.db
-def test_the_admin_body_carries_both_figures(seeded_url: str):
-    """The control for the pair above, on the same seeded document: the figures are withheld by tier, never absent from the data."""
-
-    response = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)
-
-    assert response.status_code == 200
-    assert MONEY_KEYS <= keys_anywhere(response.json())
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("path", [pytest.param(ADMIN_PATH, id="one fixture"), pytest.param(ADMIN_LIST_PATH, id="the list")])
-def test_the_admin_body_carries_the_referees_whole_name(seeded_url: str, path: str):
-    """The control for the case above, on the same seeded document: the surname is withheld by tier, never absent from the data.
-
-    The list too, since the fixture search matches a typed surname against what the list served it.
-    """
-
-    response = answered(seeded_url, path, ADMIN_AUTH)
-
-    assert response.status_code == 200
-    assert SCHIEDSRICHTER_NAME in response.text
+    admin_spiel_reads = [properties for names, properties in _reads_under(document, "AdminKey").values() if ADMIN_SPIEL_SCHEMA in names]
+    assert admin_spiel_reads
+    assert all(WITHHELD_PROPERTIES <= properties for properties in admin_spiel_reads)

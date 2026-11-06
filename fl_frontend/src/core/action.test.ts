@@ -85,7 +85,7 @@ vi.mock("./logging", () => ({
   },
 }));
 
-const Venue = z.object({ name: z.string().min(1).max(10), plz: z.string().regex(/^\d{5}$/) });
+const Venue = z.object({ name: z.string().min(1).max(10), postcode: z.string().regex(/^\d{5}$/) });
 
 /** The backend's failure body at `statusCode` with `code`. */
 const failure = (statusCode: number, code: Code | undefined) =>
@@ -146,12 +146,12 @@ describe("the admin lane", () => {
   ])("turns a caller the guard refuses as %s away in its shared line, before anything else", async (refused, reason) => {
     state.admin = { refused };
 
-    expect(await create()({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: false, reason });
+    expect(await create()({ name: "Nord", postcode: "60438" })).toStrictEqual({ ok: false, reason });
     expect(state.steps).toStrictEqual(["admin guard"]);
   });
 
   it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
-    const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", plz: "60438" });
+    const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", postcode: "60438" });
 
     expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
     expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "create", name: "Error" } }]);
@@ -180,7 +180,7 @@ describe("the person lane", () => {
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await register({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(state.steps).toStrictEqual(["person guard"]);
-    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", grund: "no_session" } }]);
+    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", reason: "no_session" } }]);
   });
 
   it.each([
@@ -214,13 +214,16 @@ describe("the passkey touch a lane declares", () => {
     state.touch = false;
 
     // An input the schema refuses: read first, it would answer with the box's message.
-    expect(await touched(lane)({ name: "", plz: "x", holder: HOLDER })).toStrictEqual({ ok: false, reason: COPY.signIn.refusal.touchMissing });
+    expect(await touched(lane)({ name: "", postcode: "x", holder: HOLDER })).toStrictEqual({
+      ok: false,
+      reason: COPY.signIn.refusal.touchMissing,
+    });
     expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch"]);
   });
 
   /* The touch on a page whose own session ended signs in whichever account's passkey answers: the act would run as it. */
   it.each(["admin", "person"] as const)("refuses the %s lane's act a touch signed another account in for, running nothing", async (lane) => {
-    expect(await touched(lane)({ name: "Nord", plz: "60438", holder: "jemand-anderes@example.org" })).toStrictEqual({
+    expect(await touched(lane)({ name: "Nord", postcode: "60438", holder: "jemand-anderes@example.org" })).toStrictEqual({
       ok: false,
       reason: COPY.shared.failure.signInExpired,
     });

@@ -1,3 +1,4 @@
+import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
 /*
@@ -21,23 +22,23 @@ import { tv } from "./tv";
  */
 export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1" });
 
-export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
+export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" });
 
 /** The asterisk after a required field's label. */
 export const requiredMark = tv({ base: "text-danger" });
 
 /**
- * One line, always there, so a message appearing or going moves nothing. The one line is cut, and its words
- * add nothing to the width a field is laid out at, so a long message never widens a field sized by its
- * content, such as a pair's short side. The code's line holds a refusal of two sentences, so it wraps and
- * grows from its one line rather than cutting the refusal off.
+ * At least one line, always there, so a message that fits it moves nothing. A longer one wraps at its field's width
+ * and takes a second line rather than being cut, since its end is what a person acts on. Its words add nothing to the
+ * width a field is laid out at, so it never widens a field sized by its content, such as a pair's short side; a note
+ * inside a list's entry sets its own width instead, the entry being sized by its words.
  */
 export const messageLine = tv({
-  base: "text-xs",
+  base: "min-h-4 text-xs",
   variants: {
-    lines: {
-      one: "h-4 truncate contain-inline-size",
-      several: "min-h-4",
+    width: {
+      field: "contain-inline-size",
+      words: "",
     },
     tone: {
       description: "text-fg-muted",
@@ -45,7 +46,7 @@ export const messageLine = tv({
       error: "text-danger",
     },
   },
-  defaultVariants: { lines: "one" },
+  defaultVariants: { width: "field" },
 });
 
 /**
@@ -63,8 +64,8 @@ export const statusLine = tv({
     tone: {
       none: "",
       changes: "text-fg",
-      // An act's reason it cannot run, in the small muted tone a danger row's second line takes.
-      locked: "text-xs text-fg-muted",
+      // A danger row's second line at rest, its act's consequence in the small muted face.
+      resting: "text-xs text-fg-muted",
       saved: "text-success",
       error: "text-danger",
     },
@@ -155,7 +156,14 @@ export const fieldUnit = tv({
 });
 
 /** The button at a field's end, a date's calendar or a combo box's arrow: as tall and as wide as the field. */
-export const fieldButton = tv({ base: "flex h-full w-8 shrink-0 items-center justify-center text-fg-muted pointer-coarse:w-10" });
+export const fieldButton = tv({
+  base: `flex h-full w-8 shrink-0 items-center justify-center text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:w-10 ${hoverLook({ host: "aria", answer: "full" })}`,
+});
+
+/** A calendar's way to the month before or after: a control of its own size, since the calendar's head has no height to fill. */
+export const monthArrow = tv({
+  base: `flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:size-10 ${hoverLook({ host: "aria", answer: "full" })}`,
+});
 
 /** The text a combo box or a search field is typed into, filling its frame between the frame's other parts. */
 export const groupInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent" });
@@ -167,9 +175,7 @@ export const searchGlyph = tv({ base: "flex shrink-0 items-center ps-3 pe-2 text
 export const searchInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent [&::-webkit-search-cancel-button]:hidden" });
 
 /** A search field's clearing button, there only once something is typed. */
-export const searchClear = tv({
-  base: "flex h-full w-8 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-10",
-});
+export const searchClear = tv({ extend: fieldButton, base: "group-data-empty:invisible" });
 
 /** The six code boxes, centred in the column as every code entry sets them, with the code's one input laid over them. */
 export const codeRow = tv({ base: "relative flex justify-center gap-2" });
@@ -206,7 +212,7 @@ export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" 
  * as the keys' focus does (`focus.css`), over the chosen day's inverted mark too.
  */
 export const calendarCell = tv({
-  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:bg-layer data-outside-month:text-fg-muted data-pressed:bg-layer data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
+  base: `flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10 ${hoverLook({ host: "aria" })}`,
 });
 
 /**
@@ -237,7 +243,7 @@ export const toggleRow = tv({
  * theme and near-black in the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
  */
 export const toggleBox = tv({
-  base: "mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state)",
+  base: `mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state) ${hoverLook({ host: "toggle" })}`,
   variants: {
     shape: {
       square: "rounded-sm",
@@ -254,7 +260,7 @@ export const toggleBox = tv({
     },
   },
   compoundVariants: [
-    { selected: false, invalid: false, class: "border-border-control group-data-hovered/toggle:border-fg-muted" },
+    { selected: false, invalid: false, class: "border-border-control" },
     { selected: false, invalid: true, class: "border-danger" },
   ],
 });
@@ -284,7 +290,7 @@ export const radioList = tv({
  */
 export const choiceCard = tv({
   slots: {
-    card: "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:not-data-selected:border-fg-muted data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
+    card: `grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand ${hoverLook({ host: "aria" })}`,
     words: "grid gap-1",
     title: "font-semibold",
     line: "text-xs text-fg-muted",
@@ -301,12 +307,13 @@ export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
  * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
  */
 export const switchTrack = tv({
-  base: "mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state)",
+  base: `mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state) ${hoverLook({ host: "toggle" })}`,
   variants: {
     selected: {
-      true: "bg-brand",
+      // In the ground's colour as its thumb is, so the layer steps the fill as it does a chosen box's.
+      true: "bg-brand text-bg",
       // Drawn inside the track, so the edge moves neither the track nor its thumb.
-      false: "bg-bg-muted inset-ring inset-ring-border-control group-data-hovered/toggle:inset-ring-fg-muted",
+      false: "bg-bg-muted inset-ring inset-ring-border-control",
     },
   },
 });
@@ -344,17 +351,15 @@ export const menuPopover = tv({
 });
 
 /**
- * The pop-up a short text opens in, anchored to its control and dimming nothing: the help behind a section's ⓘ and
- * a club behind its plaque, on one surface. Help is a few sentences, set at the help popover's 320 px so they wrap
- * at one measure; a club's name and its link are a few words, so that pop-up is as wide as they are, never
- * narrower than 192 px. Neither is wider than the screen.
+ * The pop-up the help behind a section's ⓘ opens in, anchored to its control and dimming nothing: a few sentences set
+ * at 320 px so they wrap at one measure, never wider than the screen, in the control edge, which stands apart from the
+ * row or the box beneath it where the hairline is lost on it.
  */
 export const popoverSurface = tv({
-  base: "max-w-panel rounded-lg border border-border bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
+  base: "max-w-panel rounded-lg border border-border-control bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
   variants: {
     width: {
       help: "w-popover",
-      fit: "min-w-48",
     },
   },
 });
@@ -408,10 +413,8 @@ export const choiceButton = tv({
       // reaches over both, the frame's whole 32 or 40 px, so the raised segment keeps its look and the frame its
       // height beside the fields, by the touch rule at this file's head. The target is laid from the segment's own
       // inner edge: its 1-px edge, then the frame's inset and edge, 4 px up and down, its own edge at the sides.
-      segmented:
-        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-border-control data-selected:bg-bg-muted",
-      boxes:
-        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-brand data-selected:bg-brand/12 pointer-coarse:h-10",
+      segmented: `relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-selected:border-border-control data-selected:bg-bg-muted ${hoverLook({ host: "aria" })}`,
+      boxes: `h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-brand data-selected:bg-brand/12 pointer-coarse:h-10 ${hoverLook({ host: "aria" })}`,
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {
@@ -421,7 +424,11 @@ export const choiceButton = tv({
   },
   compoundVariants: [
     { kind: "segmented", content: "words", class: "min-w-16 px-3" },
-    { kind: "segmented", content: "glyph", class: "w-8 text-fg-muted data-hovered:text-fg data-selected:text-fg pointer-coarse:w-10" },
+    {
+      kind: "segmented",
+      content: "glyph",
+      class: `w-8 text-fg-muted data-selected:text-fg pointer-coarse:w-10 ${hoverLook({ host: "aria", answer: "words" })}`,
+    },
   ],
   defaultVariants: { content: "words" },
 });

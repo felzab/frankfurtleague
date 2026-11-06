@@ -12,13 +12,13 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter
+from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
 from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, saison_status_lookup
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
-from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELF_REFEREE_ORDER, build_self_referee_filter
+from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
@@ -215,9 +215,9 @@ def _account_einwilligung(block: Mapping[str, Any]) -> dict[str, Any]:
 def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "spieler_id": row["_id"],
-        "vorname": row["vorname"],
-        "nachname": row.get("nachname"),
-        "geburtsdatum": row.get("geburtsdatum"),
+        "first_name": row["first_name"],
+        "last_name": row.get("last_name"),
+        "birth_date": row.get("birth_date"),
     }
 
 
@@ -236,19 +236,18 @@ def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
+        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "einwilligung": 1}},
     ]
 
 
-def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
+def compose_spieler_account(row: Mapping[str, Any], *, today: str) -> dict[str, Any]:
     """The pupil's account entry: its stored data and its consent, never its squad rows, which the page lists none of."""
 
     return {
         **_compose_spieler_person(row),
         "einwilligung": _account_einwilligung(row["einwilligung"]),
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
-        "givable": givable,
-        "media_offered": media_offered(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "media_offered": media_offered(birth_date=row.get("birth_date"), today=today),
         "media_minimum_age": MEDIA_MIN_AGE_YEARS,
     }
 
@@ -259,14 +258,14 @@ def _compose_schiedsrichter_person(row: Mapping[str, Any]) -> dict[str, Any]:
         "name": row["name"],
         "schule": row.get("schule"),
         "kontakt": row["kontakt"],
-        "geburtsdatum": row.get("geburtsdatum"),
+        "birth_date": row.get("birth_date"),
     }
 
 
 def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One referee row's stored data and its fee, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects them."""
+    """One referee row's stored data and its fee, as `app/api/schiedsrichter/services.py :: SELF_FIELDS` projects them."""
 
-    return {**_compose_schiedsrichter_person(row), "honorar": row["default_payment"]}
+    return {**_compose_schiedsrichter_person(row), "default_payment": row["default_payment"]}
 
 
 def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -278,7 +277,7 @@ def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_referee_filter(identifier)},
-        {"$project": {"name": 1, "schule": 1, "kontakt": 1, "geburtsdatum": 1, "inactive_since": 1, EINWILLIGUNG_FELD: 1}},
+        {"$project": {"name": 1, "schule": 1, "kontakt": 1, "birth_date": 1, "inactive_since": 1, EINWILLIGUNG_FIELD: 1}},
     ]
 
 
@@ -290,7 +289,7 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
         "einwilligung": _account_einwilligung(row["einwilligung"]),
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
         "givable": givable,
-        "media_offered": media_offered(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "media_offered": media_offered(birth_date=row.get("birth_date"), today=today),
         "media_minimum_age": MEDIA_MIN_AGE_YEARS,
     }
 
@@ -311,7 +310,7 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "name": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "birth_date", "einwilligung")},
             }
         },
         # Read by the same Funktionen.
@@ -326,7 +325,7 @@ def seat_choices_of_row(blocks: Sequence[Mapping[str, Any]]) -> dict[FLEinwillig
     """
 
     return {
-        "scope": "kontaktdaten_whatsapp" if any(is_given("scope", block.get("scope")) for block in blocks) else "kontaktdaten",
+        "scope": "kontakt_data_whatsapp" if any(is_given("scope", block.get("scope")) for block in blocks) else "kontakt_data",
         "media": any(is_given("media", block.get("media")) for block in blocks),
     }
 
@@ -377,7 +376,7 @@ def compose_seats_self(
                 "rollen": rollen,
                 **_seat_choices_held(held),
                 "media_minimum_age": MEDIA_MIN_AGE_YEARS,
-                "media_offered": all(media_offered(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
+                "media_offered": all(media_offered(birth_date=seat.get("birth_date"), today=today) for seat in held),
                 "givable": holds_a_seat(seats_with_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
             }
         )
@@ -393,7 +392,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending application with a seat at the address, `own_seats` then keeping the confirmed ones as on a season row."""
 
     return [
-        {"$match": build_eigene_bewerbung_filter(identifier)},
+        {"$match": build_own_bewerbung_filter(identifier)},
         {
             "$project": {
                 "saison_id": 1,
@@ -447,9 +446,9 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
                     "team_id",
                     "status",
                     "email",
-                    "vorname",
-                    "nachname",
-                    "geburtsdatum",
+                    "first_name",
+                    "last_name",
+                    "birth_date",
                     "einwilligung",
                 )
             }
@@ -477,7 +476,7 @@ def compose_registrierungen_self(
                 "scope": block.get("scope"),
                 "media": is_given("media", block.get("media")) if traegt_wahlen(block) else None,
                 "evidence_state": evidence_state_of(blocks=[block]),
-                **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum")},
+                **{field: row.get(field) for field in ("first_name", "last_name", "birth_date")},
             }
         )
 

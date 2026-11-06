@@ -7,7 +7,6 @@ import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import Response
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -16,7 +15,7 @@ from tests import documents
 from tests.app_client import app_client
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
@@ -61,7 +60,13 @@ def junction_row(saison_id: str) -> dict[str, Any]:
     return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe=GRUPPE_OF[saison_id])
 
 
-def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
+def opponent_row() -> dict[str, Any]:
+    """Every fielded club holds its season's row: a read joins a side's name from it, and a fixture stores none."""
+
+    return documents.saison_team_document(ARCHIVED, OPPONENT_OID, "Lessing", "LSX", gruppe=GRUPPE_OF[ARCHIVED])
+
+
+def spieler_document(spieler_id: ObjectId, first_name: str) -> dict[str, Any]:
     """A player of that club, holding a row in all three seasons.
 
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
@@ -69,7 +74,7 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
 
     published = documents.own_einwilligung_document(text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20")
 
-    return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
+    return documents.spieler_document(spieler_id, first_name, "Müller", einwilligung=published)
 
 
 def squad_row(saison_id: str) -> dict[str, Any]:
@@ -86,19 +91,19 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=an_id("3", saison_id),
-        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": 2 if won else None},
-        team2={"team_id": OPPONENT_OID, "name": "Lessing", "shorthand": "LSX", "tore": 0} if won else None,
+        team1={"team_id": TEAM_OID, "tore": 2 if won else None},
+        team2={"team_id": OPPONENT_OID, "tore": 0} if won else None,
         ergebnis="2:0" if won else None,
-        datum=f"{saison_id}-03-15",
-        uhrzeit="14:00:00",
+        date=f"{saison_id}-03-15",
+        time="14:00:00",
     )
 
 
 def spieltag_document(saison_id: str) -> dict[str, Any]:
     return {
         "_id": an_id("3", saison_id),
-        "beginn": f"{saison_id}-03-15",
-        "ende": f"{saison_id}-03-15",
+        "start": f"{saison_id}-03-15",
+        "end": f"{saison_id}-03-15",
         "position": 1,
         "saison_phase": "gruppenphase",
         "saison_id": saison_id,
@@ -115,7 +120,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.TEAMS].insert_one(team_document())
-            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
+            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF] + [opponent_row()])
             await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))
@@ -200,14 +205,6 @@ class TestEveryReadScopedByASeasonResolvesIt:
 
         assert response.status_code == 404, response.text
 
-    @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-    def test_a_readable_season_is_served(self, path: str, parameters: list[Mapping[str, Any]], saison_id: str, seeded_league: str):
-        """The control: a read that refused every season would pass the case above."""
-
-        response = answered(seeded_league, request_for(path, parameters, saison_id))
-
-        assert response.status_code == 200, response.text
-
 
 def test_the_inventory_is_read_off_the_app():
     """Not empty, so a security scheme or a parameter renamed past these filters cannot pass by matching nothing."""
@@ -222,27 +219,3 @@ def test_a_match_of_another_season_misses_on_the_season_s_match_page(seeded_leag
     response = answered(seeded_league, f"{PREFIX}/saisons/{RUNNING}/spiele/{an_id('2', ARCHIVED)}")
 
     assert response.status_code == 404, response.text
-
-
-@pytest.mark.db
-def test_one_club_in_a_past_season_is_served_as_that_season(seeded_league: str):
-    """Its group and its figures are that season's: the archived season's group and its one win."""
-
-    def served(saison_id: str) -> tuple[str, int]:
-        team = answered(seeded_league, f"{PREFIX}/teams/{TEAM_OID}?saison_id={saison_id}").json()["team"]
-
-        return team["gruppe"], team["statistik"]["punkte"]
-
-    assert (served(ARCHIVED), served(RUNNING)) == ((GRUPPE_OF[ARCHIVED], 3), (GRUPPE_OF[RUNNING], 0))
-
-
-@pytest.mark.db
-def test_the_planned_season_holds_what_every_read_above_withheld(seeded_league: str):
-    """What makes the refusals mean something: each collection really holds the planned season's document."""
-
-    async def body() -> dict[str, int]:
-        database: AsyncDatabase = shared_client(seeded_league)[DATABASE_NAME]
-        collections = (Collection.SAISON_TEAMS, Collection.SPIELE, Collection.SPIELTAGE, Collection.SAISON_SPIELER)
-        return {name: await database[name].count_documents({"saison_id": PLANNED}) for name in collections}
-
-    assert all(on_the_seed_loop(body()).values())

@@ -20,13 +20,13 @@ import type { FLOutboxSignInPayload, FLPasskeyDataKind } from "../generated/clie
  * library's own, a fresh code or link.
  */
 export async function oweSignInMail(
-  an: string,
+  to: string,
   data: FLOutboxSignInPayload["data"],
   secret?: { readonly value: string; readonly validMs: number },
 ): Promise<void> {
   await outboxPostSignIn({
-    an: an,
-    data: data,
+    to,
+    data,
     secret: secret === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: secret.value }),
     valid_until: secret === undefined ? null : new Date(now().getTime() + secret.validMs).toISOString(),
   });

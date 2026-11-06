@@ -2,12 +2,14 @@
 
 import { createContext, useContext, useRef, useState } from "react";
 
-import { Form } from "react-aria-components/Form";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { StatusLine } from "./FieldParts";
+import { HeldForm } from "./HeldForm";
 import { StatusPage } from "./StatusPage";
+import { useBotCheck } from "./useBotCheck";
 import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
@@ -62,7 +64,8 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
  * form stays with its input, each field's message under its field and the reason in the line under the
  * acts. The main act stands full width; a second, quieter act beneath it sends without asking the fields,
  * as an objection needs none of them. The end stands in `OneShotEnd`, which the form stands inside, and outlives
- * a visit elsewhere and the page's own re-render: what was done stays done.
+ * a visit elsewhere and the page's own re-render: what was done stays done. A form anybody may send carries the bot
+ * check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the column.
  */
 export function OneShotForm({
   head,
@@ -70,6 +73,9 @@ export function OneShotForm({
   acts,
   carry = {},
   touch = false,
+  botCheck,
+  replayField,
+  boxes = false,
   children,
 }: {
   /** What stands above the form: the page's title and what the person answers. */
@@ -80,6 +86,15 @@ export function OneShotForm({
   carry?: Readonly<Record<string, string>>;
   /** The main act asks the passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
   touch?: boolean;
+  /** The bot check's public key, on a form whose action declares the check (`fl_frontend/src/core/action.ts`). */
+  botCheck?: { siteKey: string };
+  /**
+   * The field a replay key posts under, where a press whose answer was lost may have landed: one key for as long as the
+   * form stands, whatever the page reads again, so the second press finds the first rather than repeating it.
+   */
+  replayField?: string;
+  /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, as an editor's do. */
+  boxes?: boolean;
   /** The form's fields, the kit's, each with its `name`. */
   children?: ReactNode;
 }) {
@@ -94,65 +109,92 @@ export function OneShotForm({
     { resetOnLeave: false },
   );
   const { run, refusal, isTouching } = usePasskeyTouch(touch, carry.holder);
+  const check = useBotCheck({ siteKey: botCheck?.siteKey ?? null, size: "flexible" });
+  const [replayKey] = useState(() => crypto.randomUUID());
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<Act>("primary");
+  const [isChecking, setChecking] = useState(false);
+  // The check's own refusal: the action never ran, so no answer of its says it.
+  const [checkRefusal, setCheckRefusal] = useState<Copy | null>(null);
 
   // The end stands in `OneShotEnd`, in this form's place.
   if (answer?.ok === true) return null;
 
   const refused = answer !== null && !answer.ok ? answer : null;
-  const status: FormStatus = refusal !== null ? { tone: "error", text: refusal } : statusOf(refused, isBlocked, isPending);
-  const isBusy = isPending || isTouching;
+  const held = refusal ?? checkRefusal;
+  const status: FormStatus = held !== null ? { tone: "error", text: held } : statusOf(refused, isBlocked, isPending);
+  const isBusy = isPending || isTouching || isChecking;
 
-  const send = (element: HTMLFormElement, act: Act) => {
+  /** The token Cloudflare minted joins the form's data, or the press ends on the check's own sentence. */
+  const checked = async (formData: FormData) => {
+    setCheckRefusal(null);
+    setChecking(true);
+    const request = await check.takeToken();
+    setChecking(false);
+    if ("sentence" in request) {
+      setCheckRefusal(request.sentence);
+      return;
+    }
+    formData.set(TURNSTILE_FIELD, request.token);
+    submit(formData);
+  };
+  const post = (formData: FormData) => {
+    if (botCheck === undefined) submit(formData);
+    else void checked(formData);
+  };
+
+  // The form's data is read before the prompt, which the browser may hold for as long as the person takes.
+  const send = (formData: FormData, act: Act) => {
     setPressed(act);
-    // Read before the prompt, which the browser may hold for as long as the person takes.
-    const formData = new FormData(element);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
+    if (replayField !== undefined) formData.set(replayField, replayKey);
     formData.set(ACT_FIELD, act);
     // The quieter act posts without the touch: an objection hands nothing over.
-    if (act === "primary") void run(() => submit(formData));
-    else submit(formData);
+    if (act === "primary") void run(() => post(formData));
+    else post(formData);
   };
 
   return (
     <ClassicPage width="form">
       {head}
-      <Form
+      <HeldForm
         ref={form}
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!isBusy) send(event.currentTarget, "primary");
+        onSend={(formData) => {
+          if (!isBusy) send(formData, "primary");
         }}
         className="grid gap-6">
-        {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
-        {/* Full width on a phone; from `lg` each act as wide as its label, centred in the column, as a status card
-            sets its way on, with the status line centred under them. */}
-        <div className="grid gap-3 lg:justify-items-center lg:text-center">
-          <Button
-            variant="primary"
-            type="submit"
-            label={acts.primary}
-            isBusy={isBusy && pressed === "primary"}
-          />
-          {acts.secondary !== undefined && (
+        {children !== undefined && <div className={boxes ? "grid gap-6" : "grid justify-items-start gap-4"}>{children}</div>}
+        {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+        <div className="grid">
+          {check.widget}
+          {/* Full width on a phone; from `lg` each act as wide as its label, centred in the column, as a status card
+              sets its way on, with the status line centred under them. */}
+          <div className="grid gap-3 lg:justify-items-center lg:text-center">
             <Button
-              variant="quiet"
-              label={acts.secondary}
-              isBusy={isBusy && pressed === "secondary"}
-              onPress={() => {
-                if (form.current !== null && !isBusy) send(form.current, "secondary");
-              }}
+              variant="primary"
+              type="submit"
+              label={acts.primary}
+              isBusy={isBusy && pressed === "primary"}
             />
-          )}
-          <StatusLine
-            status={status}
-            placement="column"
-          />
+            {acts.secondary !== undefined && (
+              <Button
+                variant="quiet"
+                label={acts.secondary}
+                isBusy={isBusy && pressed === "secondary"}
+                onPress={() => {
+                  if (form.current !== null && !isBusy) send(new FormData(form.current), "secondary");
+                }}
+              />
+            )}
+            <StatusLine
+              status={status}
+              placement="column"
+            />
+          </div>
         </div>
-      </Form>
+      </HeldForm>
     </ClassicPage>
   );
 }

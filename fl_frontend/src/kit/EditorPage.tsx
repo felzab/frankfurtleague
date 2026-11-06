@@ -2,26 +2,26 @@
 
 import { useRef, useState } from "react";
 
-import { Form } from "react-aria-components/Form";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { Dialog } from "./Dialog";
+import { actLabel } from "./dialogAct";
 import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
 import { StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
-import { lockedLine } from "./lockedLine";
+import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
-import { Section } from "./Section";
+import { dangerRow, Section } from "./Section";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
+import type { DialogAct } from "./dialogAct";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
 import type { FormStatus } from "./useFormAction";
@@ -35,25 +35,33 @@ export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ..
 
 /**
  * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
- * consequence at the left, its button at the right, which asks before it acts.
+ * consequence at the left, its button at the right, which asks before it acts: a question, or a dialog where the act
+ * takes inputs first, such as an exit's route, reason and day.
  */
 export type DangerAct = {
   name: Copy;
   consequence: Copy;
-  /** The question its button opens; the button carries the question's verb and tone. */
-  confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
-  /**
-   * The passkey touch before the question, for an act on its fixed list: the address the page was drawn for
-   * (`usePasskeyTouch`). An editor is an administrator's page, and an administrator signs in by passkey alone, so the
-   * person always holds one.
-   */
-  touch?: { holder: string };
-  /**
-   * Why the act cannot run on the record as it stands, which the page read: the button disabled, and this reason in
-   * the row's second line in place of the consequence, as every act's `locked` reason stands (`useLocked`).
-   */
+  /** Why the act cannot run on the record as it stands, which the page read, the button saying why (`Button`). */
   locked?: Copy;
-};
+} & (
+  | {
+      /** The question its button opens; the button carries the question's verb and tone. */
+      confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
+      /**
+       * The passkey touch before the question, for an act on its fixed list: the address the page was drawn for
+       * (`usePasskeyTouch`). An editor is an administrator's page, and an administrator signs in by passkey alone, so the
+       * person always holds one.
+       */
+      touch?: { holder: string };
+      dialog?: never;
+    }
+  | {
+      /** The dialog its button opens; the button carries the dialog's act and its tone. */
+      dialog: DialogAct & { tone: "danger" };
+      confirm?: never;
+      touch?: never;
+    }
+);
 
 /**
  * One danger row. An act behind the passkey touch asks the touch on its press, its button busy until the
@@ -63,15 +71,23 @@ export type DangerAct = {
 function DangerRow({ act }: { act: DangerAct }) {
   const [isAsking, setAsking] = useState(false);
   const { run, refusal, isTouching } = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
-  const label = COPY.shared.verb[act.confirm.verb];
+  const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
-  const isLocked = locked !== undefined;
-  // The row's one line, a live region from the first render, so the touch's refusal and a reason are announced as each
-  // replaces the consequence, which rests in the small muted face of the reason taking its place.
-  const line: FormStatus = refusal === null ? lockedLine(locked ?? act.consequence) : { tone: "error", text: refusal };
+  // The row's one line, a live region from the first render, so the touch's refusal is announced as it replaces the
+  // consequence.
+  const line: FormStatus = refusal === null ? { tone: "resting", text: act.consequence } : { tone: "error", text: refusal };
+  const button = (
+    <Button
+      variant={act.dialog === undefined ? act.confirm.tone : act.dialog.tone}
+      label={label}
+      isBusy={isTouching}
+      locked={locked}
+      onPress={act.touch === undefined ? undefined : () => void run(() => setAsking(true))}
+    />
+  );
   return (
     // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
-    <div className={`flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}`}>
+    <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
         <StatusLine
@@ -79,31 +95,24 @@ function DangerRow({ act }: { act: DangerAct }) {
           placement="column"
         />
       </div>
-      {act.touch === undefined ? (
+      {act.touch !== undefined || locked !== undefined ? (
+        button
+      ) : act.dialog === undefined ? (
         <ConfirmDialog
           {...act.confirm}
-          trigger={
-            <Button
-              variant={act.confirm.tone}
-              label={label}
-              isDisabled={isLocked}
-            />
-          }
+          trigger={button}
         />
       ) : (
-        <>
-          <Button
-            variant={act.confirm.tone}
-            label={label}
-            isBusy={isTouching}
-            isDisabled={isLocked}
-            onPress={() => void run(() => setAsking(true))}
-          />
-          <ConfirmDialog
-            {...act.confirm}
-            open={{ isOpen: isAsking, onOpenChange: setAsking }}
-          />
-        </>
+        <Dialog
+          {...act.dialog}
+          trigger={button}
+        />
+      )}
+      {act.touch !== undefined && (
+        <ConfirmDialog
+          {...act.confirm}
+          open={{ isOpen: isAsking, onOpenChange: setAsking }}
+        />
       )}
     </div>
   );
@@ -122,7 +131,8 @@ function DangerRow({ act }: { act: DangerAct }) {
  *
  * A record its season no longer lets change opens `closed`, read-only rather than open to a save the write
  * refuses: every field disabled, the reason under the first box's title, the chip „Abgeschlossen“ after the
- * title, and neither the danger box nor the bar, since there is nothing to save.
+ * title, and neither the danger box nor the bar, since there is nothing to save. A danger box whose acts are about more
+ * than the closed record stays (`outlivesClosed`), as a club is retired from the league and not from a finished season.
  */
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
@@ -132,6 +142,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   sections,
   danger,
   closed,
+  closedChip = { tone: "neutral", label: COPY.template.closed },
 }: {
   title: PageTitle;
   chip?: ChipProps;
@@ -143,10 +154,12 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   lead?: Copy;
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
   closed?: Copy;
+  /** The chip of a closed record whose state says more than „Abgeschlossen“. */
+  closedChip?: ChipProps;
   editor: Editor<Values>;
   sections: readonly [EditorSection, ...EditorSection[]];
   /** The danger box: its title, naming what its acts are about, and its rows. */
-  danger?: { title: Copy; acts: ReadonlyArray<DangerAct> };
+  danger?: { title: Copy; acts: ReadonlyArray<DangerAct>; outlivesClosed?: true };
 }) {
   const form = useRef<HTMLFormElement>(null);
 
@@ -154,7 +167,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
     <RailPage
       scope="area"
       title={title}
-      chip={closed === undefined ? chip : { tone: "neutral", label: COPY.template.closed }}
+      chip={closed === undefined ? chip : closedChip}
       bar={
         closed === undefined ? (
           <EditorBar
@@ -166,14 +179,16 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           />
         ) : undefined
       }>
-      <Form
+      <HeldForm
         ref={form}
         validationErrors={editor.fieldErrors}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
         onInvalid={() => editor.block()}
-        onSubmit={(event) => {
-          event.preventDefault();
-          editor.submit();
+        // The bar's busy button is not the whole guard: Enter in a lone field submits a form with no submit button too,
+        // and a second save mid-flight would go on the version the first stores past, its refusal standing over a save
+        // that went through.
+        onSend={() => {
+          if (!editor.isPending) editor.submit();
         }}
         className={formColumn()}>
         {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
@@ -189,7 +204,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
                 {section.fields}
               </Section>
             ))}
-            {closed === undefined && danger !== undefined && danger.acts.length > 0 && (
+            {(closed === undefined || danger?.outlivesClosed === true) && danger !== undefined && danger.acts.length > 0 && (
               <Section
                 title={danger.title}
                 danger={danger.acts.map((act) => (
@@ -202,7 +217,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
             )}
           </DraftUnsaved>
         </FormClosed>
-      </Form>
+      </HeldForm>
     </RailPage>
   );
 }

@@ -62,7 +62,7 @@ class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
 class FLSchiedsrichterMint(BaseModel):
     """The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself."""
 
-    frist: CustomDateString
+    deadline: CustomDateString
     # The address the mail is owed to, read in the write's own transaction, so the answer names the mailbox the link
     # goes to rather than one a rival save has replaced.
     email: CustomNonEmptyString
@@ -91,7 +91,7 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     # Refusing an absent key would 500 the list.
     confirmation: FLSchiedsrichterConfirmation | None = None
     einwilligung: FLEinwilligung | None = None
-    geburtsdatum: CustomOptionalDateString = None
+    birth_date: CustomOptionalDateString = None
     # The writes counted so far, which the editor's save sends back.
     version: int = 0
 
@@ -182,18 +182,18 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     # Served for `minimum_age`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.
     media_minimum_age: int = Field(gt=0)
-    frist: CustomDateString
+    deadline: CustomDateString
     # The day of the person's own answer, so a reopened link says what they did and when; null on every state showing
     # no answer, `barred` among them. A leaked token learns from it nothing past the state it already shows: the
     # person's own day, never who they are.
-    answered_on: CustomOptionalDateString
+    answered_at: CustomOptionalDateString
 
 
 class FLSchiedsrichterConfirmationPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: CustomToken
-    geburtsdatum: CustomDateString
+    birth_date: CustomDateString
     scope: FLEinwilligungScope
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
@@ -242,7 +242,7 @@ class FLSchiedsrichterSelfPerson(BaseReadModel):
     name: CustomNonEmptyString
     schule: str | None
     kontakt: FLKontakt
-    geburtsdatum: CustomOptionalDateString = None
+    birth_date: CustomOptionalDateString = None
 
 
 class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
@@ -251,8 +251,7 @@ class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
     The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
     """
 
-    # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
-    honorar: int
+    default_payment: int
 
 
 class FLSchiedsrichterSelfResponse(BaseAPIResponse):

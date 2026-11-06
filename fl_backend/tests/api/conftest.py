@@ -46,7 +46,7 @@ SAISON_SHORTHANDS = {
 }
 
 # A dict rather than a model: Pydantic could not express a row its record model rejects.
-AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def config_for(database_name: str) -> BackendConfig:
@@ -116,7 +116,7 @@ def _team(key: str, shorthand: str, name: str | None = None) -> dict[str, Any]:
 
 
 def _junction(key: str, gruppe: str, *, saison_id: str = SAISON, name: str | None = None, **overrides: Any) -> dict[str, Any]:
-    """The row `post_saison_team` writes: the club's identity COPIED in at entry, which every fixture read joins."""
+    """The row `enter_a_club` writes: the club's identity COPIED in at entry, which every fixture read joins."""
 
     return saison_team_document(saison_id, TEAM_OIDS[key], name or key, SAISON_SHORTHANDS[key], gruppe=gruppe, **overrides)
 
@@ -159,9 +159,9 @@ def _spiel(
         "spieltag_id": _spieltag_oid(saison_id, nr),
         # Written null rather than left out: each is a nullable key the collection still REQUIRES,
         # and a `quelle` is its side's independent sibling rather than a value the side implies.
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
+        "date": None,
+        "time": None,
+        "spielort": None,
         "schiedsrichter": None,
         "team1_quelle": None,
         "team2_quelle": None,
@@ -173,8 +173,6 @@ def _spiel(
     }
 
 
-# Module level, so `test_corpus_shape.py` can hold the rows to a rule no single document carries without a
-# database (`tests/conftest.py :: mongo_database`).
 TEAMS = [
     _team("Helmholtz", "HGX", name="Helmholtz-Gymnasium"),
     _team("Bock", "BOX"),
@@ -190,12 +188,12 @@ SAISON_TEAMS = [
         "Helmholtz",
         "A",
         statistik={
-            "count_gespielte_spiele": 99,
+            "count_played_spiele": 99,
             "siege": 99,
             "niederlagen": 99,
             "unentschieden": 99,
-            "tore_geschossen": 99,
-            "tore_kassiert": 99,
+            "tore_scored": 99,
+            "tore_conceded": 99,
             "punkte": 99,
         },
     ),
@@ -240,27 +238,12 @@ SPIELE = [
 
 @pytest.fixture(scope="session")
 def league(mongo_database: Database) -> SeededLeague:
-    """Collections dropped singly: `fl_test` is shared, not owned.
-
-    `squads` in `test_spieler_saisons_read.py` seeds the rest of it, so a clear reaching past
-    what this fixture seeds empties that corpus, and the reverse.
-    """
-
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
 
-    # Copies: `insert_many` writes `_id` into each mapping it is handed, and the module-level rows
-    # are read by `test_corpus_shape.py` as the fixture declares them.
+    # Copies: `insert_many` writes `_id` into each mapping it is handed, and the module-level rows are shared.
     mongo_database.teams.insert_many([dict(row) for row in TEAMS])
     mongo_database.saison_teams.insert_many([dict(row) for row in SAISON_TEAMS])
     mongo_database.spiele.insert_many([dict(row) for row in SPIELE])
 
     return SeededLeague(database=mongo_database, team_oids=dict(TEAM_OIDS))
-
-
-# A floor rather than the exact count: an endpoint added is covered by the parametrisation in each
-# module without editing anything, so pinning the number would ask for a bump and prove nothing.
-
-# Set under the inventory by less than the largest router holds, so that router dropping out of the
-# mount lands below the floor.
-MINIMUM_EXPECTED_MUTATIONS = 30

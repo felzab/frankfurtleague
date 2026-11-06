@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Final
+from typing import Any, Final
 
 from fastapi import APIRouter, Depends
 from pymongo import ASCENDING, ReturnDocument
@@ -25,13 +26,14 @@ from app.api.registrierungen.services import (
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db, redact_log_rows_in_db
 from app.core.dependencies import (
     ActionLogCollection,
     DBClient,
     OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
+    SaisonTeamsCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -39,7 +41,7 @@ from app.core.dependencies import (
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
 # session, so `bind_actor` would refuse it.
@@ -51,8 +53,8 @@ router = APIRouter(
 _TEAM_UNBEKANNT = ""
 
 # Three commands a row (the stamp, its read-back and its log row) and two a share (the Postausgang's key lookup and its
-# insert) beside the fourteen of the worst call erasing one page per clock: 163 commands at a 37 ms round trip plus
-# 1.27 ms take 6.24 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# insert) beside the fifteen of the worst call erasing one page per clock: 164 commands at a 37 ms round trip plus
+# 1.27 ms take 6.28 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 49
 
 
@@ -65,6 +67,7 @@ async def sweep_registrierungen(
     saison_id: str,
     registrierungen_collection: RegistrierungenCollection,
     saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     teams_collection: TeamsCollection,
     action_log_collection: ActionLogCollection,
     outbox_collection: OutboxCollection,
@@ -80,10 +83,10 @@ async def sweep_registrierungen(
     below do not run for a `past` season, whose own end takes every row they read.
 
     Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
-    named that day. Then one reminder per registration at its reminder age, earliest deadline first: `reminded_at` is stamped and the
-    reminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded
-    share of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is
-    made inside a transaction and takes its log rows with it.
+    named that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:
+    `reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that
+    inbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every
+    removal names this season alone, is made inside a transaction and takes its log rows with it.
 
     A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
     its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
@@ -170,18 +173,27 @@ async def sweep_registrierungen(
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
         """Stamp each reminder and owe its mail in one transaction, a share a pass. Read in-session, so a retry re-judges."""
 
-        rows = await batch.saw(
-            pull_many_from_db(
+        async def read_the_due() -> list[Mapping[str, Any]]:
+            clubs = await pull_whole_from_db(
+                collection=saison_teams_collection,
+                db_filter={"saison_id": saison_id, "austritt": None},
+                what=f"season {saison_id}'s clubs",
+                projection=["team_id"],
+                session=session,
+            )
+
+            return await pull_many_from_db(
                 collection=registrierungen_collection,
-                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
+                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today, team_ids=[club["team_id"] for club in clubs])),
                 projection=["status", "einwilligung", "confirmation", "email", "team_id"],
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
                 # first; `_id` makes the page the same page whichever plan the server picks.
-                sort_by=[("confirmation.frist", ASCENDING), ("_id", ASCENDING)],
+                sort_by=[("confirmation.deadline", ASCENDING), ("_id", ASCENDING)],
                 session=session,
             )
-        )
+
+        rows = await batch.saw(read_the_due())
         due = [row for row, is_due in batch.judged(rows, lambda row: erinnerung_is_due(registrierung_raw=row, today=today)) if is_due]
         taken = batch.took(due[: batch.share])
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
@@ -203,15 +215,16 @@ async def sweep_registrierungen(
             session=session,
             mails=[
                 OwedMail(
-                    # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
-                    key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
-                    an=str(row["email"]),
+                    # The pass's instant: an address change owes the moved row its reminder again, on the first one's day too,
+                    # and that row's links are dead until this mail goes. Every attempt of a pass shares it.
+                    key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{stamp}",
+                    to=str(row["email"]),
                     data=FLRegistrierungLinkData(
                         kind="registrierung_reminder",
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
                         team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                         saison_id=saison_id,
-                        frist_days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
+                        deadline_days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
                     ),
                     reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=row["_id"], seat=None),
                     link=REGISTRIERUNG_LINK,
@@ -259,9 +272,9 @@ async def sweep_registrierungen(
     )
     failed = len(passed)
 
-    erinnert = 0
+    reminded_count = 0
     ohne_entscheidung, redacted_undecided = 0, 0
-    unbestaetigt, redacted_unconfirmed = 0, 0
+    unconfirmed, redacted_unconfirmed = 0, 0
     # The season's end takes every row the two clocks in the other arm read, so a link minted
     # for one of them would be a credential nobody can spend.
     if season_has_ended(saison_status=saison_status):
@@ -274,7 +287,7 @@ async def sweep_registrierungen(
         )
         failed += len(passed)
     else:
-        unbestaetigt, redacted_unconfirmed, passed = await drain(
+        unconfirmed, redacted_unconfirmed, passed = await drain(
             db=db,
             page_of=loeschen_the_unconfirmed,
             page=SWEEP_PAGE,
@@ -293,12 +306,12 @@ async def sweep_registrierungen(
             clock="reminder",
         )
         failed += len(passed)
-        erinnert = sum(reminded)
+        reminded_count = sum(reminded)
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,
-        reminded=erinnert,
-        erased_unconfirmed=unbestaetigt,
+        reminded=reminded_count,
+        erased_unconfirmed=unconfirmed,
         erased_without_decision=ohne_entscheidung,
         erased_declined=abgelehnte,
         redacted_action_log=redacted_undecided + redacted_unconfirmed + redacted_declined,

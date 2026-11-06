@@ -8,13 +8,13 @@ import type { TableRow } from "@/kit/Table";
 import type { ComponentProps, ReactElement } from "react";
 
 const STATISTIK = {
-  count_abgesagte_spiele: 0,
-  count_gespielte_spiele: 3,
+  count_cancelled_spiele: 0,
+  count_played_spiele: 3,
   siege: 1,
   unentschieden: 1,
   niederlagen: 1,
-  tore_geschossen: 4,
-  tore_kassiert: 4,
+  tore_scored: 4,
+  tore_conceded: 4,
   punkte: 4,
 };
 

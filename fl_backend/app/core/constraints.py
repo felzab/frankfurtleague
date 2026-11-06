@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 from app.core.crud import GERMAN_COLLATION
-from app.shared.schemas.bounds import ACTION_LOG_ENTRY_RETENTION_SECONDS, ADDRESS_CHANGE_RETENTION_DAYS
+from app.shared.schemas.bounds import ACTION_LOG_ENTRY_RETENTION_SECONDS, ADDRESS_CHANGE_RETENTION_DAYS, MAILBOX_ANCHOR_RETENTION_SECONDS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
@@ -110,9 +110,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "uniq_spielbestaetigung_open",
-        ("spiel_id", "party.art", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
+        ("spiel_id", "party.kind", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
         "one open confirmation per party per Ansetzung",
-        partial_filter={"antwort": {"$type": "null"}, "closed": {"$type": "null"}},
+        partial_filter={"answer": {"$type": "null"}, "closed": {"$type": "null"}},
     ),
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
@@ -306,7 +306,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             ((f"bericht.{entries}.spieler_id", ASCENDING),),
             "the reports naming a leaving pupil, read inside their erasure's transaction",
         )
-        for entries in ("torschuetzen", "karten")
+        for entries in ("scorers", "cards")
     ),
     # Under the collation the two squad reads sort names by: the report reads it on every form and panel read and twice
     # on every write, the squad page on every read.
@@ -419,6 +419,13 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     ),
     # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
     TTLIndex(Collection.OUTBOX, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
+    TTLIndex(
+        Collection.MAILBOX_ANCHORS,
+        "mailbox_anchors_anchored_at",
+        "anchored_at",
+        MAILBOX_ANCHOR_RETENTION_SECONDS,
+        "a mailbox's document is removed once no press has named it for that long",
+    ),
 )
 
 

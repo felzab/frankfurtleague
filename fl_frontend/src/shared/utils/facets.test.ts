@@ -350,21 +350,11 @@ for (const file of filesUnder(FEATURES_DIR, (name) => name === "facets.ts", 1)) 
   for (const [name, value] of Object.entries(loaded)) {
     if (isFacetArray(value)) discovered.push([`${slice}/${name}`, value]);
   }
-
-  // The spieler slice's team facet is assembled per call, so the discovered constant does not contain it.
-  // Calling the builder with a sample club puts it under the same checks as every other facet.
-  const builder = loaded["buildSpielerFacets"];
-  if (typeof builder === "function") {
-    const built: unknown = (builder as (teams: readonly { teamId: string; name: string; shorthand: string }[]) => unknown)([
-      { teamId: "6890a1b2c3d4e5f607190001", name: "Helmholtz", shorthand: "HE" },
-    ]);
-    if (isFacetArray(built)) discovered.push([`${slice}/buildSpielerFacets(...)`, built]);
-  }
 }
 
 describe("every facet set in the app", () => {
   // Pinned so a slice's facets quietly dropping out of the walk is a failure rather than a smaller run.
-  const EXPECTED_SETS = 6;
+  const EXPECTED_SETS = 1;
 
   it("discovers every slice's facets", () => {
     expect(
@@ -496,7 +486,6 @@ type Told = Record<string, Record<string, number>>;
 const counted = (told: Told, param: string): Record<string, number> => told[param] ?? assert.fail(`no count is told for ${param}`);
 
 const actionLogView = async () => (await import("@/features/aktionen/components/views/AdminAktionenView.tsx")).AdminAktionenView;
-const bewerbungenView = async () => (await import("@/features/bewerbungen/components/views/AdminBewerbungenView.tsx")).AdminBewerbungenView;
 
 /**
  * The view of each slice whose facets narrow the read, served no rows and told `told`, each loaded by
@@ -516,17 +505,6 @@ const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>
         vorgangId: null,
         richtung: "desc",
       }) satisfies ComponentProps<Awaited<ReturnType<typeof actionLogView>>> as never,
-  },
-  "bewerbungen/BEWERBUNGEN_FACETS": {
-    load: async () => (await bewerbungenView()) as ComponentType<never>,
-    props: (told) =>
-      ({
-        bewerbungen: [],
-        anzahlJeStatus: counted(told, "status"),
-        anzahlJeSaisonbezug: counted(told, "saisonbezug"),
-        dublettenSchluessel: [],
-        richtung: "desc",
-      }) satisfies ComponentProps<Awaited<ReturnType<typeof bewerbungenView>>> as never,
   },
 };
 

@@ -2,7 +2,7 @@
 
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
-import { FieldColumns } from "@/kit/FieldColumns";
+import { FieldRows } from "@/kit/FieldRows";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
@@ -30,7 +30,7 @@ export function SpieltagEditor({
   record: EditorRecord<SpieltagValues>;
   save: (change: EditorSave<SpieltagValues>) => Promise<ActionAnswer<number>>;
   /** Whether the write takes the matchday without each date, read off its schema on the server. */
-  required: { beginn: boolean; ende: boolean };
+  required: { start: boolean; end: boolean };
   /** Why the matchday is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;
 }) {
@@ -44,28 +44,27 @@ export function SpieltagEditor({
       closed={closed}
       sections={[
         {
-          id: "zeitraum",
-          title: WORDS.zeitraum,
+          id: "period",
+          title: WORDS.period,
           fields: (
-            // A span's two ends, sharing their row at every width.
-            <FieldColumns>
+            <FieldRows>
               <DateField
-                label={WORDS.beginn}
-                name="beginn"
-                isRequired={required.beginn}
-                value={draft.beginn}
-                onChange={(beginn) => set("beginn", beginn)}
+                label={WORDS.start}
+                name="start"
+                isRequired={required.start}
+                value={draft.start}
+                onChange={(start) => set("start", start)}
               />
               <DateField
-                label={WORDS.ende}
-                name="ende"
-                isRequired={required.ende}
-                value={draft.ende}
-                onChange={(ende) => set("ende", ende)}
+                label={WORDS.end}
+                name="end"
+                isRequired={required.end}
+                value={draft.end}
+                onChange={(end) => set("end", end)}
                 // A span ending before it begins is refused here, before the write sees it.
-                {...(draft.beginn === null ? {} : { minValue: draft.beginn })}
+                {...(draft.start === null ? {} : { minValue: draft.start })}
               />
-            </FieldColumns>
+            </FieldRows>
           ),
         },
       ]}

@@ -1,4 +1,4 @@
-import type { CalendarDay, Uhrzeit } from "@/core/format";
+import type { CalendarDay, TimeOfDay } from "@/core/format";
 import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 /** The Sonderereignis select's first entry, which saves as no event. */
@@ -12,19 +12,19 @@ export const NO_SONDEREREIGNIS = "keines";
 export type SpielValues = {
   team1: string | null;
   team2: string | null;
-  datum: CalendarDay | null;
-  uhrzeit: Uhrzeit | null;
+  date: CalendarDay | null;
+  time: TimeOfDay | null;
   spielort: string | null;
   mietpreis: string;
   schiedsrichter: string | null;
-  honorar: string;
+  payment: string;
   hasResult: boolean;
   tore1: string;
   tore2: string;
   shootOut1: string;
   shootOut2: string;
   sonderereignis: string;
-  notiz: string;
+  note: string;
 };
 
 /** A no-show, whose goals the write composes from the season's rules rather than taking any typed. */
@@ -61,18 +61,18 @@ export function valuesOf(spiel: FLSpielJoinedAdmin): SpielValues {
     team1: spiel.team1?.team_id ?? null,
     team2: spiel.team2?.team_id ?? null,
     // Both already parsed as a calendar day and a time of day by the read's schema.
-    datum: spiel.datum as SpielValues["datum"],
-    uhrzeit: spiel.uhrzeit as SpielValues["uhrzeit"],
-    spielort: spiel.ort?.spielort_id ?? null,
-    mietpreis: figure(spiel.ort?.mietpreis),
+    date: spiel.date as SpielValues["date"],
+    time: spiel.time as SpielValues["time"],
+    spielort: spiel.spielort?.spielort_id ?? null,
+    mietpreis: figure(spiel.spielort?.mietpreis),
     schiedsrichter: spiel.schiedsrichter?.schiedsrichter_id ?? null,
-    honorar: figure(spiel.schiedsrichter?.payment),
+    payment: figure(spiel.schiedsrichter?.payment),
     hasResult,
     tore1: hasResult ? figure(spiel.team1?.tore) : "",
     tore2: hasResult ? figure(spiel.team2?.tore) : "",
     shootOut1: figure(spiel.elfmeterschiessen?.team1),
     shootOut2: figure(spiel.elfmeterschiessen?.team2),
     sonderereignis: spiel.sonderereignis ?? NO_SONDEREREIGNIS,
-    notiz: spiel.notiz ?? "",
+    note: spiel.note ?? "",
   };
 }

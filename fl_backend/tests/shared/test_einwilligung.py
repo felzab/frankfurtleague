@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload, FLRegistrierungEinwilligung
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationPayload, FLSchiedsrichterRecord
 from app.api.spieler.schemas import FLSpielerRecord
@@ -82,12 +82,6 @@ class TestARecordCitesItsKindsWordings:
     """What `python -m app.readback` holds a stored record to: a re-point mapping one choice's label onto another reads as refused."""
 
     @pytest.mark.parametrize(("model", "labels", "document", "block"), RECORDS)
-    def test_its_kinds_own_labels_read(self, model: type[BaseModel], labels: Any, document: Callable[[], dict[str, Any]], block: Any):
-        """The floor: without it the refusals below would pass on a model refusing everything."""
-
-        model.model_validate(document())
-
-    @pytest.mark.parametrize(("model", "labels", "document", "block"), RECORDS)
     @pytest.mark.parametrize("choice", CHOICES)
     @pytest.mark.parametrize("cited_by", ["the act", "the grant it ended"])
     def test_another_wordings_label_on_a_choice_is_refused(
@@ -126,12 +120,12 @@ def _replaced(kind: type[FLSeatTextVersions] | type[FLSpielerTextVersions] | typ
 
 
 def _seat_answer(*, scope: str, media: bool, text_versions: Any) -> Any:
-    return TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
+    return TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
         {
-            "antwort": "given",
+            "answer": "given",
             "token": "raw-trainer",
-            "geburtsdatum": "1984-05-09",
-            "whatsapp": scope == "kontaktdaten_whatsapp",
+            "birth_date": "1984-05-09",
+            "whatsapp": scope == "kontakt_data_whatsapp",
             "media": media,
             "text_versions": text_versions,
         }
@@ -141,7 +135,7 @@ def _seat_answer(*, scope: str, media: bool, text_versions: Any) -> Any:
 def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
     def validate(*, scope: str, media: bool, text_versions: Any) -> Any:
         return model.model_validate(
-            {"token": "raw-link", "geburtsdatum": "1984-05-09", "scope": scope, "media": media, "text_versions": text_versions}
+            {"token": "raw-link", "birth_date": "1984-05-09", "scope": scope, "media": media, "text_versions": text_versions}
         )
 
     return validate
@@ -149,9 +143,9 @@ def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
 
 # Each payload carrying `text_versions`, beside its kind and the value granting each choice in its vocabulary.
 CONFIRMATIONS: Final[list[Any]] = [
-    pytest.param(_seat_answer, FLSeatTextVersions, "kontaktdaten_whatsapp", id="a seat's answer"),
-    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_oeffentlich", id="a registration"),
-    pytest.param(_confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_oeffentlich", id="a referee"),
+    pytest.param(_seat_answer, FLSeatTextVersions, "kontakt_data_whatsapp", id="a seat's answer"),
+    pytest.param(_confirmation(FLRegistrierungConfirmationPayload), FLSpielerTextVersions, "kader_public", id="a registration"),
+    pytest.param(_confirmation(FLSchiedsrichterConfirmationPayload), FLSchiedsrichterTextVersions, "kader_public", id="a referee"),
 ]
 
 

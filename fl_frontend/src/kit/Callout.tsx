@@ -1,3 +1,4 @@
+import { placeholderBar } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -26,6 +27,11 @@ export type CalloutProps = {
   /** A sentence of the catalogue's, or a record's own text, shown as it was stored, as `PageTitle` takes a record's name. */
   text: Words;
 };
+
+/** The box while what it says is read: a bar of its size, its sentence's words set unseen so it wraps as they will. */
+export function CalloutPlaceholder({ text }: { text: Copy }) {
+  return <p className={placeholderBar(box().root({ class: "w-full text-transparent" }))}>{text}</p>;
+}
 
 /** A consequence or a state, said in one visible box tinted in its status hue. */
 export function Callout({ tone, title, text }: CalloutProps) {

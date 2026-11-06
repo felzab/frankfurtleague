@@ -4,7 +4,7 @@ import { TextField } from "@/kit/TextField";
 import { COPY } from "@/core/copy";
 import { CREATE_RULES } from "@/features/schiedsrichter/fieldRules";
 
-const FACTS = COPY.account.entries.facts;
+const FACTS = COPY.shared.facts;
 
 /**
  * A new referee's inputs in the create dialog over the list, in the order of the editor's boxes, as a new venue's
@@ -34,14 +34,14 @@ export function SchiedsrichterFields() {
         maxLength={max.schule}
       />
       <TextField
-        label={COPY.admin.honorar}
-        name="honorar"
+        label={COPY.admin.payment}
+        name="default_payment"
         width="C5"
         kind="digits"
         unit={COPY.shared.unit.euro}
-        isRequired={required.honorar}
+        isRequired={required.default_payment}
       />
-      <FieldGroup name={COPY.admin.schiedsrichter.kontaktdaten}>
+      <FieldGroup name={COPY.admin.schiedsrichter.kontaktData}>
         <TextField
           label={COPY.signIn.address}
           name="email"
@@ -52,10 +52,10 @@ export function SchiedsrichterFields() {
         />
         <TextField
           label={FACTS.phone}
-          name="telefon"
+          name="phone"
           width="W3"
           kind="tel"
-          isRequired={required.telefon}
+          isRequired={required.phone}
         />
       </FieldGroup>
     </>

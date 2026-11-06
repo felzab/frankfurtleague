@@ -6,14 +6,12 @@ import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
-import { lockedLine } from "./lockedLine";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
-import type { FormStatus } from "./useFormAction";
 
 /** The question an act asks before it runs; its button then carries the question's verb and tone. */
 type Question = ConfirmWords;
@@ -35,9 +33,9 @@ const sameInputs = (now: ReadonlyArray<unknown>, then: ReadonlyArray<unknown>) =
  * act's own note where it has one. A done line speaks of the inputs it was pressed on: it goes once one of `inputs`
  * changes, as the editor's bar trades its „Gespeichert“ for the next edit, and once the page is left. `isDisabled`
  * closes the button while its inputs are incomplete, the section's fields showing what is missing, or while the press
- * would reach nobody. `locked` closes it where its write would refuse the record as it stands, which the page read,
- * the reason in the act's line in place of its outcome, as every act's `locked` reason stands (`useLocked`); inside an
- * editor whose draft holds unsaved changes the act is closed the same way.
+ * would reach nobody. `locked` closes it where its write would refuse the record as it stands, which the page read, the
+ * button saying why (`Button`); inside an editor whose draft holds unsaved changes the act is closed the same way
+ * (`useLocked`).
  */
 export function SectionAct({
   children,
@@ -67,25 +65,32 @@ export function SectionAct({
   });
   // The inputs of the last press, whose answer the line shows only while they still hold.
   const [pressedOn, setPressedOn] = useState(inputs);
-  const outcome = sameInputs(inputs, pressedOn) ? statusOf(answer, false, isPending) : null;
+  const status = sameInputs(inputs, pressedOn) ? statusOf(answer, false, isPending) : null;
   const reason = useLocked(locked);
-  const status: FormStatus = reason === undefined ? outcome : lockedLine(reason);
-  const isClosed = isDisabled || reason !== undefined;
+  const button = (
+    <Button
+      variant={variant}
+      label={label}
+      isBusy={confirm === undefined && isPending}
+      isDisabled={isDisabled}
+      locked={reason}
+      lockedEdge="start"
+      onPress={
+        confirm === undefined
+          ? () => {
+              setPressedOn(inputs);
+              submit(undefined);
+            }
+          : undefined
+      }
+    />
+  );
 
   return (
     <>
       {children}
-      {confirm === undefined ? (
-        <Button
-          variant={variant}
-          label={label}
-          isBusy={isPending}
-          isDisabled={isClosed}
-          onPress={() => {
-            setPressedOn(inputs);
-            submit(undefined);
-          }}
-        />
+      {confirm === undefined || reason !== undefined ? (
+        button
       ) : (
         <ConfirmDialog
           {...confirm}
@@ -95,13 +100,7 @@ export function SectionAct({
             if (answered.ok) submit(answered);
             return answered;
           }}
-          trigger={
-            <Button
-              variant={variant}
-              label={label}
-              isDisabled={isClosed}
-            />
-          }
+          trigger={button}
         />
       )}
       <StatusLine

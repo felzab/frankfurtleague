@@ -4,20 +4,20 @@ import { parseDate } from "@internationalized/date";
 export type CalendarDay = `${number}-${number}-${number}`;
 
 /** A time of day as the API stores it, `HH:MM` or `HH:MM:SS`. */
-export type Uhrzeit = `${number}:${number}` | `${number}:${number}:${number}`;
+export type TimeOfDay = `${number}:${number}` | `${number}:${number}:${number}`;
 
 // A served day or time in the type the formats take: the backend's schema holds each to its stored format, which the
 // generated client types as a plain string, so the one narrowing stands here and nowhere else.
-export function dayOf(datum: string): CalendarDay;
-export function dayOf(datum: string | null): CalendarDay | null;
-export function dayOf(datum: string | null): CalendarDay | null {
-  return datum as CalendarDay | null;
+export function dayOf(date: string): CalendarDay;
+export function dayOf(date: string | null): CalendarDay | null;
+export function dayOf(date: string | null): CalendarDay | null {
+  return date as CalendarDay | null;
 }
 
-export function timeOf(uhrzeit: string): Uhrzeit;
-export function timeOf(uhrzeit: string | null): Uhrzeit | null;
-export function timeOf(uhrzeit: string | null): Uhrzeit | null {
-  return uhrzeit as Uhrzeit | null;
+export function timeOf(time: string): TimeOfDay;
+export function timeOf(time: string | null): TimeOfDay | null;
+export function timeOf(time: string | null): TimeOfDay | null {
+  return time as TimeOfDay | null;
 }
 
 /** One side's figure each, as a fixture and its shoot-out store them. */
@@ -27,16 +27,20 @@ export type Pair = { readonly team1: number; readonly team2: number };
 // UTC and a browser elsewhere disagree about the day and the hour. The frontend's one spelling of it.
 export const TIME_ZONE = "Europe/Berlin";
 
-const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
-const DATUM_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
-const DAY_MONTH = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit" });
-const WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "long" });
-const YEAR = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, year: "numeric" });
-const DATUM_LONG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
+const DATE = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
+const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
+const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat("de-DE", {
+  timeZone: TIME_ZONE,
+  weekday: "short",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+const DATE_LONG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
 const INSTANT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
-const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+const TIME = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
-const UHRZEIT_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+const TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 // A stored day and time together, read in UTC as the time alone is, in the instant's own form.
 const DAY_AND_TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", dateStyle: "long", timeStyle: "short" });
 const NUMBER = new Intl.NumberFormat("de-DE");
@@ -63,6 +67,9 @@ export const yearsLater = (day: CalendarDay, years: number): CalendarDay => pars
  */
 export const bornBy = (today: CalendarDay, years: number): CalendarDay => yearsLater(today, -years);
 
+/** The day before `day`. */
+export const dayBefore = (day: CalendarDay): CalendarDay => parseDate(day).subtract({ days: 1 }).toString() as CalendarDay;
+
 /** The earliest birthdate at most `years` old on `today`: the day after the latest that is a year older. */
 export const bornAfter = (today: CalendarDay, years: number): CalendarDay =>
   parseDate(bornBy(today, years + 1))
@@ -77,28 +84,22 @@ function asInstant(day: CalendarDay | Date): Date {
 }
 
 /** „24.10.2026“: a date in a list, a table or a field message. */
-export const formatDatum = (day: CalendarDay | Date): string => DATUM.format(asInstant(day));
+export const formatDate = (day: CalendarDay | Date): string => DATE.format(asInstant(day));
 
 /** „So., 14.03.“: a match's day in its row, whose season already names the year. */
-export const formatDatumWithWeekday = (day: CalendarDay | Date): string => DATUM_WITH_WEEKDAY.format(asInstant(day));
+export const formatDateWithWeekday = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY.format(asInstant(day));
 
-/**
- * „06.03.“ over „Samstag 2027“: a match's date in its tile, the day and the month as the figure, the weekday and
- * the year on the line under it. One formatter asked for both would write „2027 Samstag“.
- */
-export function formatDatumPair(day: CalendarDay | Date): { figure: string; line: string } {
-  const instant = asInstant(day);
-  return { figure: DAY_MONTH.format(instant), line: `${WEEKDAY.format(instant)} ${YEAR.format(instant)}` };
-}
+/** „Fr., 06.11.2026“: one match's day on its own, in its pop-up and on its page, where no season names the year. */
+export const formatDateWithWeekdayAndYear = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY_AND_YEAR.format(asInstant(day));
 
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
-export const formatDatumLong = (day: CalendarDay | Date): string => DATUM_LONG.format(asInstant(day));
+export const formatDateLong = (day: CalendarDay | Date): string => DATE_LONG.format(asInstant(day));
 
 /** „15:30“. */
-export function formatUhrzeit(time: Uhrzeit | Date): string {
-  if (time instanceof Date) return UHRZEIT.format(time);
+export function formatTime(time: TimeOfDay | Date): string {
+  if (time instanceof Date) return TIME.format(time);
   const [hour = 0, minute = 0] = time.split(":").map(Number);
-  return UHRZEIT_SAVED.format(Date.UTC(1970, 0, 1, hour, minute));
+  return TIME_SAVED.format(Date.UTC(1970, 0, 1, hour, minute));
 }
 
 /**
@@ -115,7 +116,7 @@ export function formatInstant(instant: string | Date): string {
  * „14. März 2027 um 15:30“: a fixture's stored day and time inside a sentence or a mail, worded as `formatInstant`
  * words an instant. The pair is the league's wall clock and names no instant, so no zone may move it.
  */
-export function formatDayAndTime(day: CalendarDay, time: Uhrzeit): string {
+export function formatDayAndTime(day: CalendarDay, time: TimeOfDay): string {
   const [year = 0, month = 1, dayOfMonth = 1] = day.split("-").map(Number);
   const [hour = 0, minute = 0] = time.split(":").map(Number);
   return DAY_AND_TIME_SAVED.format(Date.UTC(year, month - 1, dayOfMonth, hour, minute));
@@ -123,11 +124,11 @@ export function formatDayAndTime(day: CalendarDay, time: Uhrzeit): string {
 
 /**
  * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. The
- * runtime's ICU data decides the spaces around the dash (`format.test.ts` holds Node's thin spaces), and a
- * browser's may write others, so a span is formatted on the server and handed to a client component as a
- * string: formatted during a client component's server render, it hydrates against different text.
+ * runtime's ICU data decides the spaces around the dash, and a browser's may write others, so a span is formatted on
+ * the server and handed to a client component as a string: formatted during a client component's server render, it
+ * hydrates against different text.
  */
-export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): string => DATUM.formatRange(asInstant(from), asInstant(to));
+export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): string => DATE.formatRange(asInstant(from), asInstant(to));
 
 /** „1.234,5“. */
 export const formatNumber = (number: number): string => NUMBER.format(number);

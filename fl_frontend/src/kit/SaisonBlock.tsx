@@ -5,7 +5,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { Card, CardPlaceholder } from "./Card";
 import { stacked } from "./cardStyles";
 import { Countdown } from "./Countdown";
-import { GroupHead } from "./GroupHead";
+import { GroupHead, GroupHeadPlaceholder } from "./GroupHead";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
 import { SpielList, SpielListPlaceholder } from "./SpielRow";
@@ -68,10 +68,10 @@ type SaisonState =
  * the others by its hue.
  */
 const STATE_CHIP: Record<SaisonState["kind"], ChipProps> = {
-  countdown: { tone: "info", label: SERVER_COPY.landing.saison.state.planned },
-  window: { tone: "info", label: SERVER_COPY.landing.saison.state.planned },
-  running: { tone: "success", label: SERVER_COPY.landing.saison.state.running },
-  decided: { tone: "warn", label: SERVER_COPY.landing.saison.state.decided },
+  countdown: { tone: "info", label: SERVER_COPY.saisonState.planned },
+  window: { tone: "info", label: SERVER_COPY.saisonState.planned },
+  running: { tone: "success", label: SERVER_COPY.saisonState.running },
+  decided: { tone: "warn", label: SERVER_COPY.saisonState.decided },
 };
 
 const block = tv({
@@ -163,26 +163,23 @@ function Body({ state }: { state: SaisonState }) {
 
 /**
  * The season's card while the season is read: the card's own head, its name's line and its chip's place, over the
- * running season's body, the last match and the next under their heads, the state a season spends most of its days
- * in.
+ * running season's body, the last match and the next under their heads as bars, the state a season spends most of its
+ * days in, whose words the other states do not hold.
  */
 export function SaisonBlockPlaceholder() {
   const slots = block();
   return (
     <CardPlaceholder chip>
-      {[SERVER_COPY.landing.saison.last, SERVER_COPY.landing.saison.next].map((title) => (
-        <section
-          key={title}
+      {[0, 1].map((index) => (
+        <div
+          key={index}
           className={slots.group()}>
-          <GroupHead
-            text={title}
-            inset="rows"
-          />
+          <GroupHeadPlaceholder inset="rows" />
           <SpielListPlaceholder
             count={1}
             bare
           />
-        </section>
+        </div>
       ))}
     </CardPlaceholder>
   );

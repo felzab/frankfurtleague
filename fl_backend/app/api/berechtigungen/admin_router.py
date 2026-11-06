@@ -384,7 +384,7 @@ async def _queue_the_request(
         grants_collection=grants_collection,
         now=now,
         session=session,
-        an=approver,
+        to=approver,
         reference=FLOutboxReference(collection=Collection.GRANT_APPROVAL_REQUESTS, id=approval_request_id, seat=None),
     )
 

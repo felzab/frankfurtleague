@@ -28,24 +28,25 @@ export type SpielRowProps = {
   team2: SpielSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: { tore: Pair; elfmeterschiessen?: Pair };
-  /** The row's one chip, after when it is played, such as „Vorläufig“ on a match whose date is not confirmed. */
+  /** The row's one chip, such as „Vorläufig“ on a match whose date is not confirmed. */
   chip?: ChipProps;
+  /** Something befell the match: its sides' names and plaques muted, the chip alone in its hue. */
+  muted?: boolean;
+  /** The side that did not turn up, its name struck, which is how a row says which; the chip does not repeat it. */
+  absent?: "team1" | "team2";
+  /** `false` in a list of many, whose cards in view would each cost a request (`Link`). */
+  prefetch?: false;
 };
 
 /**
- * The one-line row's grid and the card's lines. Where some row of the list carries a chip, every row's when column
- * holds the date with the widest chip beside it, so the sides stand under each other in every row, and the card's
- * date line is the chip's height.
+ * The one-line row's grid and the card's lines. The when column holds the date with the chip under it, so the sides
+ * stand under each other in every row, chip or none. A card's date line is a chip's height, chip or none, so every
+ * card stands as tall as every other and as its wait, which cannot know whether a list holds a chip.
  */
 const forms = tv({
   slots: {
     line: "grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
-    card: "grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden",
-  },
-  variants: {
-    chips: {
-      true: { line: "grid-cols-[14rem_minmax(0,1fr)_6rem_minmax(0,1fr)_auto]", card: "grid-rows-[1.25rem_1.5rem_1.5rem]" },
-    },
+    card: "grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1.25rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden",
   },
 });
 
@@ -82,6 +83,12 @@ const row = tv({
     mirrored: {
       true: { side: "justify-end" },
     },
+    muted: {
+      true: { name: "text-fg-muted" },
+    },
+    struck: {
+      true: { name: "line-through" },
+    },
   },
 });
 
@@ -117,18 +124,26 @@ export function GoalSeparator({ score }: { score: Figures }) {
   return <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_SEPARATOR}</span>;
 }
 
-function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures; part: "team1" | "team2"; mirrored?: boolean }) {
-  const style = row({ ...look(score, part), mirrored: mirrored === true });
+type SideProps = { side: SpielSide; score: Figures; part: "team1" | "team2"; mirrored?: boolean } & Pick<SpielRowProps, "muted" | "absent">;
+
+function Side({ side, score, part, mirrored, muted, absent }: SideProps) {
+  const style = row({ ...look(score, part), mirrored: mirrored === true, muted: muted === true, struck: absent === part });
   const name = textOf(side.name);
+  const plaque = (
+    <TeamPlaque
+      plaque={side.plaque}
+      muted={muted === true}
+    />
+  );
   return (
     <span className={style.side()}>
-      {mirrored !== true && <TeamPlaque plaque={side.plaque} />}
+      {mirrored !== true && plaque}
       {/* Cut with „…“ where the side's column is too narrow, the whole name in its `title` while it is cut. */}
       <CutText
         text={name}
         className={style.name()}
       />
-      {mirrored === true && <TeamPlaque plaque={side.plaque} />}
+      {mirrored === true && plaque}
     </span>
   );
 }
@@ -136,24 +151,6 @@ function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures
 function Goals({ score, part }: { score: Figures; part: "team1" | "team2" }) {
   return <span className={row(look(score, part)).goals()}>{goalsOf(score, part)}</span>;
 }
-
-/**
- * When the match is played, and the row's chip beside it, which keeps its size: the words give way, wrapping in the
- * one-line row's two lines and cut with „…“ on the card's one date line.
- */
-function When({ when, chip, form }: { when: Copy; chip: ChipProps | undefined; form: "line" | "card" }) {
-  return (
-    <span className={whenCell({ form })}>
-      <span className={whenWords({ cut: form === "card" })}>{when}</span>
-      {chip !== undefined && <Chip {...chip} />}
-    </span>
-  );
-}
-
-const whenCell = tv({
-  base: "flex min-w-0 items-center gap-2",
-  variants: { form: { line: "col-start-1 row-span-2 row-start-1", card: "text-xs" } },
-});
 
 /**
  * The one-line row's score: centred in the row's two lines, or, after a shoot-out, on the first with „n. E.“ under
@@ -164,37 +161,42 @@ const scoreCell = tv({
   variants: { shootOut: { true: "", false: "row-span-2" } },
 });
 
-const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { cut: { true: "truncate" } } });
+/**
+ * When the match is played: wrapping in the one-line row's two lines, and cut with „…“ on the card's one date line
+ * and above a chip, which keeps its size and leaves the words one line of the row.
+ */
+const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { cut: { true: "max-w-full truncate" } } });
 
 /**
- * A match in a list, the whole row a link to it. In a wide list one line, 56 px: when with the row's chip beside
+ * A match in a list, the whole row a link to it. In a wide list one line, 56 px: when with the row's chip under
  * it, the first side, the score with „n. E.“ centred under it, the second side, the chevron. In a
- * narrow one a card of two lines under the date line, which holds the chip, each side with its goals at the right,
- * „n. E.“ on the date line, and no chevron; every row the same height with or without a shoot-out. `chips` is the
- * list's: whether some row of it carries a chip.
+ * narrow one a card of two lines under the date line, whose right end holds the chip and „n. E.“, each side with
+ * its goals at the right, and no chevron; every row the same height with or without a shoot-out or a chip.
  */
-function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowProps & { chips: boolean }) {
+function SpielRow({ href, when, team1, team2, result, chip, muted, absent, prefetch }: SpielRowProps) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
-  const form = forms({ chips });
+  const form = forms();
+  const event = { muted, absent };
 
   return (
     <div className={stacked()}>
       <Link
         href={href}
-        placement="card">
+        placement="card"
+        prefetch={prefetch}>
         <span className={form.line()}>
-          <When
-            when={when}
-            chip={chip}
-            form="line"
-          />
+          <span className="col-start-1 row-span-2 row-start-1 flex min-w-0 flex-col items-start gap-1">
+            <span className={whenWords({ cut: chip !== undefined })}>{when}</span>
+            {chip !== undefined && <Chip {...chip} />}
+          </span>
           <span className="col-start-2 row-span-2 row-start-1">
             <Side
               side={team1}
               score={score}
               part="team1"
               mirrored
+              {...event}
             />
           </span>
           <span className={scoreCell({ shootOut: shootOut !== null })}>
@@ -215,6 +217,7 @@ function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowPro
               side={team2}
               score={score}
               part="team2"
+              {...event}
             />
           </span>
           {/* A row in a list says it leads on; the phone's form stands as a card of its own and says nothing. */}
@@ -223,17 +226,18 @@ function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowPro
           </span>
         </span>
         <span className={form.card()}>
-          <When
-            when={when}
-            chip={chip}
-            form="card"
-          />
-          <span className="text-end text-xs text-fg-muted">{shootOut}</span>
+          <span className={whenWords({ cut: true, class: "text-xs" })}>{when}</span>
+          {/* „n. E.“ last, so it stays over the goals it qualifies. */}
+          <span className="flex items-center justify-end gap-2 text-xs text-fg-muted">
+            {chip !== undefined && <Chip {...chip} />}
+            {shootOut}
+          </span>
           <span className="flex min-w-0 items-center gap-2">
             <Side
               side={team1}
               score={score}
               part="team1"
+              {...event}
             />
           </span>
           <span className="min-w-7 text-end">
@@ -247,6 +251,7 @@ function SpielRow({ href, when, team1, team2, result, chip, chips }: SpielRowPro
               side={team2}
               score={score}
               part="team2"
+              {...event}
             />
           </span>
           <span className="min-w-7 text-end">
@@ -282,7 +287,7 @@ function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
  * the date line over each side with its goals at the right.
  */
 function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
-  const form = forms({ chips: false });
+  const form = forms();
   return (
     <div className={layout === "rows" ? stacked() : ""}>
       <span className={form.line()}>
@@ -364,7 +369,6 @@ export function SpielList({
   layout = "rows",
   bare = false,
 }: { matches: ReadonlyArray<SpielRowProps & { id: string }> } & ({ layout?: "rows"; bare?: boolean } | { layout: "cards"; bare?: never })) {
-  const chips = matches.some((spiel) => spiel.chip !== undefined);
   if (layout === "cards") {
     return (
       <div className="grid gap-3 lg:grid-cols-2">
@@ -372,10 +376,7 @@ export function SpielList({
           <div
             key={id}
             className={cardSurface({ class: "@container overflow-hidden" })}>
-            <SpielRow
-              {...spiel}
-              chips={chips}
-            />
+            <SpielRow {...spiel} />
           </div>
         ))}
       </div>
@@ -387,7 +388,6 @@ export function SpielList({
         <SpielRow
           key={id}
           {...spiel}
-          chips={chips}
         />
       ))}
     </div>

@@ -81,9 +81,7 @@
 @import "@heroui/styles/components/tooltip.css" layer(components);
 
 /* Pickers */
-@import "@heroui/styles/components/combo-box.css" layer(components);
 @import "@heroui/styles/components/select.css" layer(components);
-@import "@heroui/styles/components/autocomplete.css" layer(components);
 
 /* Utilities */
 @import "@heroui/styles/components/scroll-shadow.css" layer(components);
@@ -353,6 +351,15 @@ html:has([data-app-shell]) {
   scrollbar-gutter: stable both-edges;
 }
 
+/* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
+   saved, found by a selector, before the saved offset, and a placeholder is never the content's DOM, so
+   the selector lands on the wrong element and nothing corrects it once the content arrives. With no
+   element saved inside `main` the browser restores by offset at the first layout, and anchors live on the
+   frame outside it alone: a classic page's footer, which absorbs what the content adds. */
+@utility overflow-anchor-none {
+  overflow-anchor: none;
+}
+
 /* Reserving a scrollbar's space is the opposite concern, spelled at the call site with
    `scrollbar-gutter-stable`. */
 @utility scrollbar-hide {
@@ -453,7 +460,6 @@ input:focus:placeholder-shown::placeholder {
 [data-slot="number-field-group"],
 [data-slot="search-field-group"],
 [data-slot="date-input-group"],
-[data-slot="autocomplete-trigger"],
 [data-slot="select-trigger"],
 [data-slot="textarea"] {
   /* THE RING GOES WITH NO STATE SELECTOR, so a state the arms below skip cannot let it back in —
@@ -479,7 +485,7 @@ input:focus:placeholder-shown::placeholder {
           [data-disabled="true"],
           [aria-disabled="true"],
           [data-invalid="true"],
-          :is([data-slot="select"], [data-slot="autocomplete"])[data-invalid="true"] *
+          [data-slot="select"][data-invalid="true"] *
         )
       ) {
       --field-resting-border: var(--border-control-hover);
@@ -521,7 +527,7 @@ input:focus:placeholder-shown::placeholder {
      focus reads by weight and refusal by hue. */
   /* A picker's refusal is marked on its ROOT alone, never on the trigger this block styles. */
   &[data-invalid="true"],
-  :is([data-slot="select"], [data-slot="autocomplete"])[data-invalid="true"] & {
+  [data-slot="select"][data-invalid="true"] & {
     --field-focus-accent: var(--accent-danger);
     /* So the picker and date-group resets below, which restore the resting border, restore this one. */
     --field-resting-border: var(--accent-danger);
@@ -565,7 +571,7 @@ input:focus:placeholder-shown::placeholder {
 /* Only the focus arms above are skipped, so an open picker still reads as active
    and the ring suppression goes with them. A TEXT field is untouched and must
    stay so: it has no open state, so its border IS the caret's indicator. */
-:is([data-slot="autocomplete-trigger"], [data-slot="select-trigger"]):is(
+[data-slot="select-trigger"]:is(
     :focus,
     :focus-visible,
     :focus-within,
@@ -635,9 +641,7 @@ input:focus:placeholder-shown::placeholder {
     [data-slot="date-input-group"],
     [data-slot="textarea"]
   ):is([readonly], :has(input[readonly]))[data-focus-visible="true"],
-:is([data-slot="autocomplete-trigger"], [data-slot="select-trigger"])[data-focus-visible="true"]:not([aria-expanded="true"]):not(
-    :has([aria-expanded="true"])
-  ) {
+[data-slot="select-trigger"][data-focus-visible="true"]:not([aria-expanded="true"]):not(:has([aria-expanded="true"])) {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -712,7 +716,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
 /* Number fields carry no vertical padding, anywhere. The group is a fixed height with a centred
    grid, so padding on the input only fights it and a number field stops lining up with the
-   autocomplete beside it. */
+   picker beside it. */
 [data-slot="number-field-input"] {
   padding-block: 0;
 }
@@ -775,15 +779,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   .skeleton--shimmer::after,
   .skeleton--shimmer::before {
     animation: none !important;
-  }
-
-  /* The cascade keeps its fade and loses the travel and the stagger, resolving as one cross-fade. */
-  :root {
-    --card-enter-shift: 0;
-  }
-
-  .cards-cascade [role="listitem"] {
-    animation-delay: 0ms !important;
   }
 
   /* `.toast__timer` is not stopped here: it is a timer readout, and a 3px bar shortening is no
@@ -876,39 +871,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   .toast:hover .toast__timer {
     animation-play-state: paused;
   }
-
-  /* TIER 2 OF THREE, the other two being class strings in
-     `shared/components/ui/motion.ts` — read it first, since the three are one set. */
-  /* The stagger is the mechanism, not the timing: on a tab switch each card lands
-     where the last one sat, so a simultaneous swap reads as content mutating in
-     place however gently it fades. */
-  /* `role="listitem"` rather than a card type, so every collection arrives alike.
-     Not `>`: `SpielCardsList` wraps its cards in a `display: contents` div, which
-     `:nth-child` still counts through. */
-  .cards-cascade [role="listitem"] {
-    animation: card-enter var(--motion-slow) var(--motion-ease-enter) both;
-  }
-  .cards-cascade [role="listitem"]:nth-child(2) {
-    animation-delay: 25ms;
-  }
-  .cards-cascade [role="listitem"]:nth-child(3) {
-    animation-delay: 50ms;
-  }
-  .cards-cascade [role="listitem"]:nth-child(4) {
-    animation-delay: 75ms;
-  }
-  .cards-cascade [role="listitem"]:nth-child(5) {
-    animation-delay: 100ms;
-  }
-  .cards-cascade [role="listitem"]:nth-child(6) {
-    animation-delay: 125ms;
-  }
-  .cards-cascade [role="listitem"]:nth-child(7) {
-    animation-delay: 150ms;
-  }
-  .cards-cascade [role="listitem"]:nth-child(n + 8) {
-    animation-delay: 175ms;
-  }
 }
 
 /* Session 8: the calendar's overrides go with HeroUI's `Calendar`, by this session at the latest. */
@@ -951,7 +913,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     @apply border border-brand font-bold;
   }
 
-  /* The chosen day, in the pair `StufenPicker` already carries. */
+  /* The chosen day, in the brand's solid pair. */
   .calendar__cell[data-selected="true"],
   .calendar-year-picker__year-cell[data-selected="true"],
   .calendar-year-picker__year-cell[aria-selected="true"] {
@@ -1066,13 +1028,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 @keyframes admin-placeholder-hold {
   from {
     --admin-placeholder-hold: 1;
-  }
-}
-
-@keyframes card-enter {
-  from {
-    opacity: 0;
-    transform: translateY(var(--card-enter-shift, 0.5rem));
   }
 }
 

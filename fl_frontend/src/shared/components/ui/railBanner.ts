@@ -60,11 +60,3 @@ export function resolveBlockingBanners<B extends RailBanner>(banners: readonly B
 
   return first === undefined ? null : [first, ...rest];
 }
-
-/**
- * Unresolved on purpose: superseding answers what the rail's list still needs to say, and a callout at the control that
- * causes it competes with nothing for that space.
- */
-export function inlineBannersAt<B extends RailBanner>(banners: readonly B[], spot: NonNullable<B["inline"]>): readonly B[] {
-  return banners.filter((banner) => banner.inline === spot);
-}

@@ -2,16 +2,18 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
+from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
-    find_kontakt_email_refusal,
+    compose_kontakt_seat_update,
+    compose_resend_update,
+    find_acceptance_code_refusal,
     find_new_club_refusal,
+    find_seat_contact_refusal,
 )
 from app.core.codes import Code
 from tests.documents import kontaktperson_document
-
-# Every one of these is stored happily and refused by `FLTeam`, which reads the clubs list. The
-# first is an XSS sink the moment React renders it into an href.
 
 
 class ZorbanaxBoom(RuntimeError):
@@ -45,6 +47,98 @@ class TestOnlyTheSchoolsOwnFaultIsRefused:
             find_new_club_refusal(club_document=ExplodingSchule())
 
 
+class TestADeclinesReason:
+    """The reason is stored and mailed verbatim, so a NUL or a page break an administrator pasted reaches every person it goes to."""
+
+    @pytest.mark.parametrize("reason", ["Kein\x00Platz", "Kein\x0cPlatz", "Kein\u2028Platz"])
+    def test_a_character_no_paragraph_holds_is_refused(self, reason: str):
+        with pytest.raises(ValidationError):
+            FLDeclineBewerbungPayload(reason=reason, version=0)
+
+
+class TestWhatASeatWriteMoves:
+    """Per seat: a write restarting the application's other seats keeps their details past their own 14 days."""
+
+    SEAT = {"token_hashes": [], "sent_at": "2026-03-01", "deadline": "2026-03-15", "reminded_at": None, "declined_at": None}
+
+    def written(self, seats: tuple[str, ...] = ("trainer",), /, **confirmations: Any) -> Mapping[str, Any]:
+        person = {"first_name": "Berta", "last_name": "Beispiel", "email": "berta@example.de", "phone": "069 1234567"}
+
+        return compose_kontakt_seat_update(seats=seats, person=person, today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
+
+    def re_sent(self, **confirmations: Any) -> Mapping[str, Any]:
+        return compose_resend_update(seats=("trainer",), today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
+
+    def test_only_the_written_seat_restarts(self):
+        written = self.written(trainer=self.SEAT, ansprechperson=self.SEAT, stellvertretung=self.SEAT)
+
+        assert written["confirmations.trainer"]["deadline"] == "2026-04-15"
+        assert not any("ansprechperson" in path or "stellvertretung" in path for path in written)
+
+    def test_filling_the_last_declined_seat_takes_the_announcement_back(self):
+        """The notice named a deletion this write calls off, so the next deletion is announced afresh.
+
+        Another seat holds the same day, as all three do from the submission, so the objection's end decides and no moved day does.
+        """
+
+        assert self.written(trainer={**self.SEAT, "declined_at": "2026-03-20"}, stellvertretung=self.SEAT)["erasure_announced_at"] is None
+
+    def test_an_objection_on_another_seat_keeps_the_announcement(self):
+        """That seat still takes the application on the day the notice named, and a second notice would announce one deletion twice."""
+
+        assert "erasure_announced_at" not in self.written(trainer=self.SEAT, stellvertretung={**self.SEAT, "declined_at": "2026-03-20"})
+
+    @pytest.mark.parametrize("seats", [("ansprechperson",), ("trainer", "ansprechperson")], ids=["alone", "as the Trainer's mirror"])
+    def test_seating_an_ansprechperson_takes_the_announcement_back_though_the_day_stands(self, seats: tuple[str, ...]):
+        """The notice told the mailbox this write replaces, so the person seated hears of the deletion from the sweep or from nobody."""
+
+        confirmations = {"trainer": self.SEAT, "ansprechperson": self.SEAT, "stellvertretung": {**self.SEAT, "declined_at": "2026-03-20"}}
+
+        assert self.written(seats, **confirmations)["erasure_announced_at"] is None
+
+    def test_a_fresh_link_moving_the_day_the_notice_named_takes_the_announcement_back(self):
+        """The notice named the earliest day, not always the declining seat's: the application now goes on a later one nobody was told."""
+
+        earliest = {"trainer": {**self.SEAT, "deadline": "2026-03-10"}, "stellvertretung": {**self.SEAT, "declined_at": "2026-03-05"}}
+
+        assert self.written(**earliest)["erasure_announced_at"] is None
+        assert self.re_sent(**earliest)["erasure_announced_at"] is None
+
+    def test_a_re_send_leaving_the_day_keeps_the_announcement(self):
+        """The earliest day is another seat's, so the deletion stands as the notice named it."""
+
+        assert "erasure_announced_at" not in self.re_sent(trainer=self.SEAT, stellvertretung={**self.SEAT, "deadline": "2026-03-10"})
+
+    def test_a_confirmed_seats_old_deadline_counts_for_neither_day(self):
+        """Counted, the day reads moved and the stamp goes, so a person is told of one deletion twice."""
+
+        kontakte = {
+            "trainer": kontaktperson_document("Quillhilde", confirmed_at="2026-03-02"),
+            "ansprechperson": kontaktperson_document("Ansgar"),
+            "stellvertretung": kontaktperson_document("Stellan"),
+            "trainer_is_also": None,
+        }
+        confirmations = {"trainer": {**self.SEAT, "deadline": "2026-03-10"}, "ansprechperson": self.SEAT, "stellvertretung": self.SEAT}
+
+        update = compose_resend_update(seats=("ansprechperson",), today="2026-04-01", kontakte=kontakte, confirmations=confirmations)
+
+        assert "erasure_announced_at" not in update["$set"]
+
+
+class TestTheCodeAnAcceptanceTakes:
+    """A new school accepted with no code fails at the club's own parse as the school's fault, and a code on a picked club is dropped unsaid."""
+
+    @pytest.mark.parametrize(
+        ("new_school", "shorthand"),
+        [pytest.param(True, None, id="a new school with none"), pytest.param(False, "ABX", id="a picked club with one")],
+    )
+    def test_the_wrong_side_of_the_rule_is_refused_on_the_box(self, new_school: bool, shorthand: str | None):
+        refusal = find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand)
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields) == (Code.PAYLOAD_REFUSED, (("shorthand",),))
+
+
 class TestCorrectingOneContactAddress:
     def test_another_spelling_of_the_address_another_person_is_reached_at_is_refused(self):
         """On the sign-in fold, as the submission compares it: otherwise two people end on one mailbox the erasure cannot tell apart."""
@@ -56,6 +150,26 @@ class TestCorrectingOneContactAddress:
             "trainer_is_also": None,
         }
 
-        refusal = find_kontakt_email_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com")
+        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com", phone="069 7654321")
 
-        assert refusal is not None and refusal.error_code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        # Naming the field, or the dialog has no box to say it on.
+        assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, (("email",),))
+
+    def test_another_spelling_of_the_number_another_person_is_reached_at_is_refused(self):
+        """Stored, it reaches the season row at acceptance, where every later write on either person is refused `kontakt_phone_taken`."""
+
+        seats = {
+            "trainer": kontaktperson_document("Quillhilde", phone="069 1000"),
+            "ansprechperson": kontaktperson_document("Ansgar", phone="069 2000"),
+            "stellvertretung": kontaktperson_document("Stellan", phone="069 3000"),
+            "trainer_is_also": None,
+        }
+
+        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="+49 (0)69 3000")
+
+        assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, (("phone",),))
+
+    def test_the_seat_keeps_its_own_number(self):
+        seats = {"ansprechperson": kontaktperson_document("Ansgar", phone="069 2000"), "trainer": None, "stellvertretung": None}
+
+        assert find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="069 2000") is None

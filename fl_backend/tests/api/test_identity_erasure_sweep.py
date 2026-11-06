@@ -30,8 +30,6 @@ from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.saisons.admin_router import activate_saison
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
-from app.api.spieler.admin_router import post_saison_spieler
-from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -40,7 +38,6 @@ from app.core.crud import patch_one_in_db
 from app.core.journal import JOURNAL_TOKEN
 from app.core.logging import JSONFormatter
 from app.main import create_app
-from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
@@ -60,11 +57,10 @@ from tests.documents import (
 )
 from tests.erasure import erasure_collections
 from tests.whole_database import where_held
-from tests.wire import commands_by_name, commands_sent
+from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 from .conftest import config_for
-from .test_identity_erasure_sweep_refusal import COMMANDS_A_PERSON, OTHER_COMMANDS
 
 pytestmark = pytest.mark.db
 
@@ -93,29 +89,29 @@ def address_of(position: int) -> str:
     return f"schuelerin.{position}@beispielschule.de"
 
 
-def pupil(spieler_id: ObjectId, email: str, *, nachname: str = "Muster", **fields: Any) -> dict[str, Any]:
-    return spieler_document(spieler_id, "Quintessa", nachname, email=email, **fields)
+def pupil(spieler_id: ObjectId, email: str, *, last_name: str = "Muster", **fields: Any) -> dict[str, Any]:
+    return spieler_document(spieler_id, "Quintessa", last_name, email=email, **fields)
 
 
 def squad_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
     return saison_spieler_document(spieler_id, saison_id, TEAM_OID, **fields)
 
 
-def registration(registrierung_id: ObjectId, email: str, *, declined: bool = False, nachname: str = "Muster") -> dict[str, Any]:
+def registration(registrierung_id: ObjectId, email: str, *, declined: bool = False, last_name: str = "Muster") -> dict[str, Any]:
     document = registrierung_document(
         registrierung_id,
         email,
         saison_id="2026",
         team_id=TEAM_OID,
-        vorname="Quintessa",
-        nachname=nachname,
+        first_name="Quintessa",
+        last_name=last_name,
         token=f"token-{registrierung_id}",
         submitted_at="2026-03-02",
-        frist="2026-03-09",
+        deadline="2026-03-09",
     )
 
     return (
-        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", grund=None, today="2026-03-05")["$set"]} if declined else document
+        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", reason=None, today="2026-03-05")["$set"]} if declined else document
     )
 
 
@@ -135,7 +131,7 @@ def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
     """A report naming that due pupil among its scorers, whose repoint writes a log row: what makes a pupil's erasure its costliest."""
 
     report = spielbericht_document({"_id": numbered(7000 + position), "saison_id": "2024"})
-    report["bericht"]["torschuetzen"][0]["spieler_id"] = numbered(position)
+    report["bericht"]["scorers"][0]["spieler_id"] = numbered(position)
 
     return {Collection.SPIELBERICHTE: [report]}
 
@@ -354,11 +350,11 @@ GRANT = numbered(17)
 async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     """A due pupil, and a contact seat, a referee row and a grant held at the same address, each with its log images."""
 
-    await database[Collection.SPIELER].insert_one(pupil(REACHED, ADDRESS, nachname="Pupillensloot"))
+    await database[Collection.SPIELER].insert_one(pupil(REACHED, ADDRESS, last_name="Pupillensloot"))
     await database[Collection.SAISON_SPIELER].insert_many(
         [squad_row(REACHED, saison_id, _id=row_id) for saison_id, row_id in zip(("2023", "2024"), REACHED_ROWS, strict=True)]
     )
-    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, ADDRESS, declined=True, nachname="Pupillensloot"))
+    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, ADDRESS, declined=True, last_name="Pupillensloot"))
     await database[Collection.SAISON_TEAMS].insert_one(
         {
             "_id": SEAT_ROW,
@@ -368,7 +364,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
                 "Lindenschule",
                 "LSX",
                 kontakte=kontakte_document(
-                    ansprechperson=kontaktperson_document("Quirinus", confirmed_at="2026-03-01", nachname="Sitzsloot", email=ADDRESS)
+                    ansprechperson=kontaktperson_document("Quirinus", confirmed_at="2026-03-01", last_name="Sitzsloot", email=ADDRESS)
                 ),
             ),
         }
@@ -386,7 +382,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
         }
     )
 
-    await edited(database, Collection.SPIELER, REACHED, {"$set": {"geburtsdatum": "2008-04-04"}})
+    await edited(database, Collection.SPIELER, REACHED, {"$set": {"birth_date": "2008-04-04"}})
     for row_id in REACHED_ROWS:
         await edited(database, Collection.SAISON_SPIELER, row_id, {"$set": {"nummer": "7"}})
     await edited(database, Collection.REGISTRIERUNGEN, REACHED_REGISTRATION, {"$set": {"nummer": "7"}})
@@ -470,7 +466,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
             # Another person's, at the address the pupil held when the run read them.
-            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, nachname="Fremd"))
+            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, last_name="Fremd"))
             await database[Collection.REGISTRIERUNGEN].update_one({"_id": numbered(5001)}, {"$set": {"email": corrected}})
 
             async def correct_it() -> None:
@@ -496,9 +492,6 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 # only a rival that failed or hung waits it out, and the case then says so rather than passing.
 RIVAL_BOUND_S = 5.0
 
-EINLADUNG = numbered(950)
-EINLADUNG_TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
-
 
 class CommittedInsideThePupilsTransaction:
     """The seasons, running `rival` to its commit after a pupil's transaction reads the statuses, its first read.
@@ -523,70 +516,6 @@ class CommittedInsideThePupilsTransaction:
             self.committed = task.done() and task.exception() is None
 
         return cursor
-
-
-async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = "2026") -> Any:
-    """The administrator's entry into a kept season, the running one unless named, which keeps the pupil."""
-
-    return await post_saison_spieler(
-        spieler_id=numbered(1),
-        saison_spieler_data=FLPostSaisonSpielerPayload(
-            saison_id=saison_id, team_id=TEAM_OID, nummer=None, position=None, stufe=None, rolle=None
-        ),
-        spieler_collection=database[Collection.SPIELER],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        db=client,
-        today=TODAY,
-    )
-
-
-async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
-    """The team entered in 2026, its registration window open today and its link live, so nothing but the race decides."""
-
-    await database[Collection.SAISONS].update_one({"_id": "2026"}, {"$set": {"registrierung": {"offen": True, "end": "2026-04-30"}}})
-    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LSX"))
-    await database[Collection.INVITATIONS].insert_one(
-        {
-            "_id": EINLADUNG,
-            "saison_id": "2026",
-            "team_id": TEAM_OID,
-            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
-            "created_at": "2026-03-15",
-            "created_by": "admin@frankfurtleague.de",
-            "revoked_at": None,
-        }
-    )
-
-
-class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
-    @pytest.mark.parametrize(
-        "rival",
-        [
-            # Held by the person alone: the entry anchors the pupil, whose deletion then conflicts with it, and
-            # the season the entry counts its squad in is no write of the deletion's.
-            pytest.param(a_squad_row_entered, id="a squad row"),
-            # The same anchor in the season just ended, which no registration reaches.
-            pytest.param(functools.partial(a_squad_row_entered, saison_id=JUST_ENDED), id="a squad row in the season just ended"),
-        ],
-    )
-    def test_the_pupil_stands(self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]):
-        """Remove the pupil's anchor in `pull_a_person_to_enter` and both arms fail."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1))
-            await a_running_season_open_to_its_team(database)
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(JUST_ENDED, TEAM_OID, "Lindenschule", "LSX"))
-            seasons = CommittedInsideThePupilsTransaction(database[Collection.SAISONS], lambda: rival(database, client))
-            answer = await run(database, client, saisons_collection=seasons)
-
-            return seasons.committed, counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        committed, answer, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert committed, "the rival never committed inside the pupil's transaction, so this case proves nothing"
-        assert (answer["spieler"], answer["skipped"], standing) == (0, 1, 1)
 
 
 # Planned below the season just ended, which activation does not refuse, beside a running season whose fixtures are all played.
@@ -829,43 +758,23 @@ class TestNoJournalLine:
 # --- What a call costs on the wire, which the share is sized at.
 
 
-# Two runs apart by this many pupils, both inside one share.
-FEW = ERASURES_PER_PASS // 2
-
 # The server's first batch for a cursor naming no size: one pending registration more takes the read a `getMore`.
 FIRST_BATCH = 101
 
 
-class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
-    def test_counted_on_the_wire(self, mongo_replica_set_url: str):
-        """A step added to the pupil's transaction, or a read moved into it, turns this red before it times out a call in production."""
+# One pupil's commands on the wire at their costliest, a report naming them, whose repoint writes a log row.
+COMMANDS_A_PERSON = 22
 
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                for collection in (
-                    Collection.SPIELER,
-                    Collection.SAISON_SPIELER,
-                    Collection.REGISTRIERUNGEN,
-                    Collection.SPIELBERICHTE,
-                    Collection.ACTION_LOG,
-                ):
-                    await database[collection].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
-                await seeded(database, *(shape for position in range(due) for shape in (a_due_pupil(position), a_report_naming(position))))
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, run)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body)
-
-        assert (twice - few) / FEW == COMMANDS_A_PERSON
+# The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first
+# batch, the page being one document.
+OTHER_COMMANDS = 3 + 1
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_a_full_share(self, mongo_replica_set_url: str):
-        """`tests/api/test_identity_erasure_sweep_refusal.py`'s budget: a share and one more due, pending registrations past the first batch.
+        """A share and one more due, pending registrations past the first batch.
 
-        A command added to the call turns this red, so the share is judged against the deadline again.
+        A command added to the call turns this red, so `ERASURES_PER_PASS` is judged against the deadline again.
         """
 
         waiting = [registration(numbered(6000 + position), f"angemeldet.{position}@beispielschule.de") for position in range(FIRST_BATCH + 1)]

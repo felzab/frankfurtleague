@@ -113,24 +113,24 @@ def current_spieltag_id(spieltage: Sequence[FLSpielplanSpieltag], *, saison_stat
 
 def find_spieltag_span_refusal(
     *,
-    beginn: str,
-    ende: str,
+    start: str,
+    end: str,
     saison_start: str,
     saison_end: str,
-    fixture_dates: Sequence[str],
+    spiel_dates: Sequence[str],
 ) -> WriteRefusal | None:
     """Why this matchday's span must be refused, or `None`.
 
-    `fixture_dates` is every DATED fixture of the matchday; an undated one constrains nothing.
+    `spiel_dates` is every DATED fixture of the matchday; an undated one constrains nothing.
     """
 
-    if beginn < saison_start or ende > saison_end:
+    if start < saison_start or end > saison_end:
         return WriteRefusal(
             error_code=Code.SPIELTAG_OUTSIDE_SAISON,
             status=HTTPStatus.CONFLICT,
         )
 
-    outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
+    outside = sorted(date for date in spiel_dates if date < start or date > end)
     if outside:
         return WriteRefusal(
             error_code=Code.SPIELTAG_SPAN_BELOW_SPIELE,
@@ -145,17 +145,17 @@ class DatedNeighbour:
     """One dated matchday beside the one being re-dated, inside the same phase of the same season."""
 
     position: int
-    beginn: str
+    start: str
 
 
-def dated_beginn(spieltag_raw: Mapping[str, Any]) -> str | None:
-    """One stored `beginn` as the rule takes it, or `None` for an undated row.
+def dated_start(spieltag_raw: Mapping[str, Any]) -> str | None:
+    """One stored `start` as the rule takes it, or `None` for an undated row.
 
     The record model reads the field string-or-null (`app/api/spieltage/schemas.py :: FLSpieltagRecord`), so
     nothing converts it: a `str()` would turn an undated row into a day above every ISO date.
     """
 
-    return spieltag_raw["beginn"]
+    return spieltag_raw["start"]
 
 
 def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | None:
@@ -164,40 +164,40 @@ def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | 
     if spieltag_raw is None:
         return None
 
-    beginn = dated_beginn(spieltag_raw)
+    start = dated_start(spieltag_raw)
 
-    return None if beginn is None else DatedNeighbour(position=spieltag_raw["position"], beginn=beginn)
+    return None if start is None else DatedNeighbour(position=spieltag_raw["position"], start=start)
 
 
 def find_spieltag_order_refusal(
     *,
-    beginn: str,
-    stored_beginn: str | None,
+    start: str,
+    stored_start: str | None,
     previous: DatedNeighbour | None,
     following: DatedNeighbour | None,
 ) -> WriteRefusal | None:
-    """Why this matchday's `beginn` must be refused for its place in the phase, or `None`.
+    """Why this matchday's `start` must be refused for its place in the phase, or `None`.
 
     `previous` and `following` are the nearest DATED matchday below and above this `position`; an
     undated one states no date to compare, so the caller passes neither.
     """
 
-    # The STEP, never the state: an `ende`-only edit resubmits this
-    # `beginn`. A first dating moves from no pair at all, so it is judged against both neighbours.
-    moved_earlier = stored_beginn is None or beginn < stored_beginn
-    moved_later = stored_beginn is None or beginn > stored_beginn
+    # The STEP, never the state: an `end`-only edit resubmits this
+    # `start`. A first dating moves from no pair at all, so it is judged against both neighbours.
+    moved_earlier = stored_start is None or start < stored_start
+    moved_later = stored_start is None or start > stored_start
 
     # The predecessor first, and both are reachable at once only for a first dating landing between
     # two neighbours already out of order: the earlier position is the pair a reader checks first.
-    if previous is not None and moved_earlier and beginn < previous.beginn:
+    if previous is not None and moved_earlier and start < previous.start:
         return WriteRefusal(
-            error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_START_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
         )
 
-    if following is not None and moved_later and following.beginn < beginn:
+    if following is not None and moved_later and following.start < start:
         return WriteRefusal(
-            error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_START_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
         )
 

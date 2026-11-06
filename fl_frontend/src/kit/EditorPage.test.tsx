@@ -132,7 +132,7 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
         },
       ]}
       danger={{
-        title: COPY.admin.stilllegung,
+        title: COPY.admin.retirement,
         acts: [
           {
             name: COPY.shared.withObject(COPY.admin.spielort.object, "retire"),
@@ -167,13 +167,19 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
 // An act raises the record's version and runs on the stored values: pressed under a draft, it would act on values the
 // boxes show changed, and the draft's save would then be refused as stale.
 describe("an editor's own acts", () => {
-  it("close while the draft holds a change", async () => {
-    render(<ActingEditor act={vi.fn()} />);
+  it.each([COPY.shared.withObject(COPY.page.spielplan, "create"), COPY.shared.verb.retire, COPY.shared.verb.discard])(
+    "answer a press with the draft's reason while it holds a change, asking nothing and running nothing: %s",
+    async (name) => {
+      const act = vi.fn();
+      render(<ActingEditor act={act} />);
 
-    await userEvent.type(screen.getByRole("textbox"), " Nord");
+      await userEvent.type(screen.getByRole("textbox"), " Nord");
+      await userEvent.click(screen.getByRole("button", { name }));
 
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(COPY.page.spielplan, "create") }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByRole("button", { name: COPY.shared.verb.retire }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByRole("button", { name: COPY.shared.verb.discard }).hasAttribute("disabled")).toBe(true);
-  });
+      expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.template.draftUnsaved);
+      // A dialog's trigger around the locked button would open the question behind the reason.
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(act).not.toHaveBeenCalled();
+    },
+  );
 });

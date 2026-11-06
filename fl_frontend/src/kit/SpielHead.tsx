@@ -2,13 +2,14 @@ import { Suspense } from "react";
 
 import { COPY, textOf } from "@/core/copy";
 
+import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
 import { headGround } from "./cardStyles";
 import { CutText } from "./CutText";
-import { RouteDialog } from "./Dialog";
-import { Facts } from "./Facts";
+import { RouteDialog, RouteDialogBody } from "./Dialog";
+import { Facts, FactsPlaceholder, SPIELORT_WORDS } from "./Facts";
 import { Link } from "./Link";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { Placeholder, placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -146,7 +147,6 @@ export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" 
   );
 }
 
-/** The match pop-up's body, once the match is read. */
 /** A side of the head while its match is read: the plaque, the name's line and the standing's line, centred. */
 function SidePlaceholder() {
   const style = head();
@@ -166,11 +166,11 @@ function SidePlaceholder() {
 }
 
 /**
- * A match's head on its own page while the match is read: the head's own box, its eyebrow's line over the two sides
- * about the score, each as bars at their sizes, the line under the score kept.
+ * A match's head while the match is read, in the place the head will take: the head's own surface, its eyebrow's line
+ * over the two sides about the score, each as bars at their sizes, the line under the score kept.
  */
-export function SpielHeadPlaceholder() {
-  const style = head({ placement: "page" });
+export function SpielHeadPlaceholder({ placement = "page" }: { placement?: "dialog" | "page" }) {
+  const style = head({ placement });
   return (
     <div className={style.root()}>
       <PlaceholderLine
@@ -194,8 +194,6 @@ export function SpielHeadPlaceholder() {
 export type SpielPopupContent = {
   /** The dialog's name, read rather than drawn: the head names the match by its two sides. */
   title: Copy;
-  /** The page the pop-up opens over, reached instead of Back where the tab's history holds nothing before it. */
-  beneath: Route;
   /** The way to the match's own page, the kit's `Link` drawn as the primary button. */
   act: ReactElement;
   head: SpielHeadProps;
@@ -203,20 +201,18 @@ export type SpielPopupContent = {
   sonderereignis: { title: Copy; text: Copy } | null;
 };
 
+/** The match pop-up's body, once the match is read. */
 async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
-  const { title, beneath, act, head: pairing, facts, sonderereignis } = await popup;
+  const { title, act, head: pairing, facts, sonderereignis } = await popup;
   return (
-    <RouteDialog
+    <RouteDialogBody
       title={title}
-      beneath={beneath}
       act={act}>
       <SpielHead {...pairing} />
-      {facts.length > 0 && (
-        <Facts
-          look="free"
-          facts={facts}
-        />
-      )}
+      <Facts
+        look="free"
+        facts={facts}
+      />
       {sonderereignis !== null && (
         <Callout
           tone="danger"
@@ -224,19 +220,46 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
           text={sonderereignis.text}
         />
       )}
-    </RouteDialog>
+    </RouteDialogBody>
+  );
+}
+
+/** The match pop-up's body while the match is read: the band, the four facts and the act, named by the wait's word. */
+function PopupPlaceholder() {
+  return (
+    <RouteDialogBody
+      title={COPY.shared.loading}
+      act={
+        <Placeholder layout="grid">
+          <span className={buttonPlaceholder("w-full")} />
+        </Placeholder>
+      }>
+      {/* The dialog's name says the wait, so its status would say it twice. */}
+      <Waiting
+        layout="grid gap-6"
+        status={false}>
+        <SpielHeadPlaceholder placement="dialog" />
+        <FactsPlaceholder
+          look="free"
+          pairs={4}
+          wraps={{ pair: 2, words: SPIELORT_WORDS }}
+        />
+      </Waiting>
+    </RouteDialogBody>
   );
 }
 
 /**
  * The match pop-up: the matchday and the pairing on the band across its top, the facts under them, what befell
- * the match where something did, and the way to the match's page as the dialog's act. It waits for its match
- * in its one boundary and opens once the match is read, drawing nothing before.
+ * the match where something did, and the way to the match's page as the dialog's act. It opens at once, on the press,
+ * and waits for its match in its one boundary, inside the dialog, as its body's placeholders.
  */
-export function SpielPopup({ popup }: { popup: Promise<SpielPopupContent> }) {
+export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<SpielPopupContent> }) {
   return (
-    <Suspense fallback={null}>
-      <PopupBody popup={popup} />
-    </Suspense>
+    <RouteDialog beneath={beneath}>
+      <Suspense fallback={<PopupPlaceholder />}>
+        <PopupBody popup={popup} />
+      </Suspense>
+    </RouteDialog>
   );
 }

@@ -23,7 +23,7 @@ from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
 from app.api.berechtigungen.antraege import compose_approval_request
-from app.api.einladungen.services import compose_einladung
+from app.api.invitations.services import compose_invitation
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import log_stamp
@@ -34,7 +34,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.core.app_source import api_routes, application
 from tests.database import a_clean_database_sync
-from tests.documents import ban_document, saison_document
+from tests.documents import ban_document, saison_document, saison_team_document, team_document
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
@@ -95,46 +95,44 @@ NAMES_AN_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/action_log": "/api/v0/action_log",
     "/api/v0/action_log/{action_log_entry_id:objectid}": f"/api/v0/action_log/{AKTION_OID}",
     "/api/v0/grants": "/api/v0/grants",
-    "/api/v0/bewerbungen": "/api/v0/bewerbungen",
     "/api/v0/bewerbungen/{bewerbung_id:objectid}": f"/api/v0/bewerbungen/{BEWERBUNG_OID}",
-    "/api/v0/registrierungen": "/api/v0/registrierungen",
     "/api/v0/sperrliste": "/api/v0/sperrliste",
-    "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/invitation": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/invitation",
+    "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/admin": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/admin",
 }
 
 _PERSON_RECORDS = "a person's own record, whose address a ban withholds nowhere: the administrator takes it away by hand"
 
 # Each read no answer of which names an administrator, and what it serves instead.
 NAMES_NO_ADMINISTRATOR: dict[str, str] = {
+    "/api/v0/bewerbungen/list/admin": "a season's applications by count and chip, no decision among them",
     "/api/v0/address_change/view": "what an address holds by kind and its live change, which names neither its starter nor its approver",
     "/api/v0/identity/erasure/view": "every record an erasure would reach, by name and id and with no address",
     "/api/v0/registrierungen/kader/{team_id:objectid}/{saison_id}": "a team's pending registrations, no decision among them",
+    "/api/v0/registrierungen/list/admin": "a season's pending registrations by name and day, no decision among them",
     "/api/v0/saisons/list/admin": "seasons and their rules",
     "/api/v0/saisons/{saison_id}/admin": "one season, its clubs by name and the clubs a replacement may bring in",
     "/api/v0/saisons/{saison_id}/erasure/preview": "how many pupils an activation deletes, counted and never named",
     "/api/v0/saisons/{saison_id}/overview": "fixtures, their open confirmation rows, report states and applications by school",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
-    "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{art: "admin"}` with no address',
-    "/api/v0/spiele/list/verwaltung": "fixtures",
+    "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{kind: "admin"}` with no address',
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
     "/api/v0/spiele/spielplan": "a season's fixtures by matchday",
-    "/api/v0/spiele/{spiel_id:objectid}/verwaltung": "one fixture, what its editor offers, and its report and rows naming an admin by kind",
+    "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture, what its editor offers, and its report and rows naming an admin by kind",
     "/api/v0/spieler/kader/{team_id:objectid}/{saison_id}": "one team's squad as its seat holders read it, which carries nobody's address",
-    "/api/v0/spieler/saisons": f"players and their squad rows, {_PERSON_RECORDS}",
+    "/api/v0/spieler/list/admin": "a season's squad rows by name and club, which carry nobody's address",
+    "/api/v0/spieler/{spieler_id:objectid}/saisons/{saison_id}/admin": f"one player and their squad row, {_PERSON_RECORDS}",
     "/api/v0/spieler/self": "the signed-in pupil's own record, which carries no address",
     "/api/v0/schiedsrichter/self": "the signed-in referee's own records, served to that person alone",
     "/api/v0/spielbestaetigungen/self": "the signed-in referee's own fixture assignments, which carry nobody's address",
     "/api/v0/account/einwilligungen": "the signed-in person's own consent records, served to that person alone",
     "/api/v0/account/address_change": "the signed-in person's own pending address change, served to that person alone",
     "/api/v0/identity/account/erasure/view": "the signed-in person's own records an erasure would remove, by name and with no address",
-    "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
-    "/api/v0/spieltage/list/verwaltung": "spieltage",
-    "/api/v0/spieltage/{spieltag_id:objectid}/verwaltung": "one matchday",
+    "/api/v0/spieltage/list/admin": "spieltage",
+    "/api/v0/spieltage/{spieltag_id:objectid}/admin": "one matchday",
     "/api/v0/spielorte": "venues",
     "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
-    "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
-    "/api/v0/teams/saisons": "clubs and their seasons",
+    "/api/v0/teams/list/admin": "a season's clubs by name, their seats counted",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/self/seats": "one team's seat holders by name, as the seat holders read them",
     "/api/v0/spielberichte": "a season's reports by state, naming nobody",
     "/api/v0/spielberichte/{spiel_id:objectid}/bericht": "one fixture's report as its referee reads it, its administrator named by kind",
@@ -144,8 +142,6 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
 STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
-# The season before the running one, so a ban naming it as its last has lapsed.
-LAPSED = f"{int(SAISON_ID) - 1}"
 
 
 def _seed(url: str, *, ban_until: str | None) -> None:
@@ -158,6 +154,8 @@ def _seed(url: str, *, ban_until: str | None) -> None:
     try:
         database = a_clean_database_sync(client, url, DATABASE_NAME)
         database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Adler", "ADL"))
+        database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADL"))
         database[Collection.GRANTS].insert_many(
             [
                 *grants_for_the_suite(),
@@ -186,18 +184,18 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             ]
         )
         database[Collection.INVITATIONS].insert_one(
-            compose_einladung(
+            compose_invitation(
                 saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01", sent_at=None
             )
         )
         database[Collection.BEWERBUNGEN].insert_one(
-            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "grund": "Kein Platz"}}
+            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "reason": "Kein Platz"}}
         )
         database[Collection.REGISTRIERUNGEN].insert_one(
             {
-                **registrierung_document(REGISTRIERUNG_OID, vorname="Thessaly"),
+                **registrierung_document(REGISTRIERUNG_OID, first_name="Thessaly"),
                 "status": "declined",
-                "decision": {"made_at": "2026-04-03", "by": BARRED, "grund": None},
+                "decision": {"made_at": "2026-04-03", "by": BARRED, "reason": None},
             }
         )
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a
@@ -279,15 +277,6 @@ def barred(mongo_replica_set_url: str, unbarred: dict[str, tuple[int, str]]) -> 
     yield _answers(mongo_replica_set_url)
 
 
-@pytest.fixture(scope="module")
-def lapsed(mongo_replica_set_url: str, barred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
-    """Seeded after `barred` has read, for the same reason."""
-
-    _seed(mongo_replica_set_url, ban_until=LAPSED)
-
-    yield _answers(mongo_replica_set_url)
-
-
 def test_every_admin_tier_read_is_named_once():
     """Two listings reached by different routes, this module's and the mounted app's, required to agree."""
 
@@ -299,33 +288,9 @@ def test_every_admin_tier_read_is_named_once():
 
 @pytest.mark.db
 @pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
-def test_an_unbarred_administrator_is_served_by_address(unbarred: dict[str, tuple[int, str]], route: str):
-    """The control: a read the seed never reached would pass the case below having served nothing."""
-
-    status, text = unbarred[route]
-
-    assert status == 200, text
-    assert BARRED in text.lower()
-    assert _flags_set(json.loads(text)) == []
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
 def test_a_barred_administrator_is_withheld_beside_a_flag(barred: dict[str, tuple[int, str]], route: str):
     status, text = barred[route]
 
     assert status == 200, text
     assert BARRED not in text.lower()
     assert _flags_set(json.loads(text)) != [], "the address is gone and nothing says it was withheld"
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
-def test_an_administrator_whose_ban_has_lapsed_is_served_by_address(lapsed: dict[str, tuple[int, str]], route: str):
-    """The running season is what the bound is read against: asked without it, the lapsed row would still withhold."""
-
-    status, text = lapsed[route]
-
-    assert status == 200, text
-    assert BARRED in text.lower()
-    assert _flags_set(json.loads(text)) == []

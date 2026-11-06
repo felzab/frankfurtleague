@@ -185,9 +185,9 @@ function SidemenuEntriesAtAddress<TIcon extends string>({
 }) {
   const state = useSidemenuState();
   const props = {
-    structure: structure,
+    structure,
     linkPrefix: useLinkPrefix(state.linkPrefix),
-    iconDictionary: iconDictionary,
+    iconDictionary,
     isDesktopCollapsed: state.isDesktopCollapsed,
     pathname: usePathname(),
     onMobileClose: state.onMobileClose,

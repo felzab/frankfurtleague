@@ -13,7 +13,7 @@ import {
 } from "@/core/generated/zod/inputs";
 
 /** A referee's fields, by the names the create dialog and the editor post. */
-type SchiedsrichterField = "name" | "email" | "telefon" | "schule" | "honorar";
+type SchiedsrichterField = "name" | "email" | "phone" | "schule" | "default_payment";
 
 /** What a referee write asks of each field, read on the server so its schema never reaches the browser. */
 export type SchiedsrichterRules = {
@@ -30,9 +30,9 @@ type Body = typeof SchiedsrichterPostSchiedsrichterBody | typeof SchiedsrichterP
 const requiredOf = ({ shape }: Body): SchiedsrichterRules["required"] => ({
   name: requires(shape.name, ""),
   email: requires(shape.kontakt.shape.email, null),
-  telefon: requires(shape.kontakt.shape.telefon, null),
+  phone: requires(shape.kontakt.shape.phone, null),
   schule: requires(shape.schule, null),
-  honorar: requires(shape.default_payment, null),
+  default_payment: requires(shape.default_payment, null),
 });
 
 /** The create's rules, which the dialog over the list holds its boxes to. */

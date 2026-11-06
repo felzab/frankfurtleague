@@ -1,8 +1,10 @@
-import { textOf } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
+import { formatDateWithWeekdayAndYear, formatOrdinal, formatTime } from "@/core/format";
 
 import { cardSurface } from "./cardStyles";
+import { SPIELORT_WORDS } from "./Facts";
 import { Link } from "./Link";
-import { PlaceholderLine } from "./Skeleton";
+import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { RecordFigures } from "./Table";
 import { tv } from "./tv";
 
@@ -27,8 +29,9 @@ export type StatTile = {
  * The grids a page may lay its tiles in, each fixing how many it holds, so a page cannot hand a layout the
  * wrong count: `four` for a club's standing or a season's counts, two a row on a phone and all four in one row
  * from `lg`; `five` for a match's facts, two a row on a phone with the fifth, such as the venue, wide across both,
- * and from `lg` five equal tiles filling the row. Every tile is a rectangle as tall as its label, value and line,
- * at every width: one shape for every set of figures on the site.
+ * and from `lg` all five in one row. `five`'s columns are as wide as their tiles' contents, the spare room shared, so
+ * at every width a tile is never narrower than its figure, a date being the widest. Every tile is a rectangle as tall
+ * as its label, value and line, at every width: one shape for every set of figures on the site.
  */
 type Layout =
   | { layout: "four"; items: readonly [StatTile, StatTile, StatTile, StatTile] }
@@ -44,15 +47,14 @@ const tiles = tv({
     // One line inside its tile, set without the capitals' tracking so „Schiedsrichter“, the longest label,
     // fits a tile; past that it is cut with „…“ rather than running over the tile's edge.
     label: "min-w-0 truncate text-xs font-medium text-fg-muted uppercase",
-    // A figure never breaks inside itself, set at a size the narrowest tile holds a date or a time at, and is never
-    // cut either, so no figure shows short of a digit.
+    // A figure never breaks inside itself and is never cut, so no figure shows short of a digit.
     value: "font-numeric text-xl font-semibold whitespace-nowrap",
     line: "text-xs text-fg-muted",
   },
   variants: {
     layout: {
       four: { root: "grid-cols-2 lg:grid-cols-4" },
-      five: { root: "grid-cols-2 lg:grid-cols-5" },
+      five: { root: "grid-cols-[repeat(2,auto)] lg:grid-cols-[repeat(5,auto)]" },
     },
     // Words wrap between themselves, a word longer than its tile at a hyphenation point, and only past that
     // anywhere, so a venue's name never runs over a narrow tile's edge.
@@ -66,15 +68,64 @@ const tiles = tv({
   },
 });
 
+const { fact } = COPY.spielplan;
+
+/**
+ * A match's five tiles while it is read, at typical words set unseen. `five`'s columns take their widths from their
+ * words, so bars of a guessed share would stand in five equal columns and jump sideways on landing; the words also
+ * give the value's row its baselines and let the venue wrap where a real one does.
+ */
+const MATCH_WAIT = [
+  { label: fact.spieltag, value: formatOrdinal(2), line: COPY.shared.phase.gruppenphase },
+  { label: fact.date, value: formatDateWithWeekdayAndYear("2027-03-06") },
+  { label: fact.time, value: formatTime("14:00") },
+  { label: fact.schiedsrichter, value: COPY.shared.noValue, words: true },
+  { label: fact.spielort, value: SPIELORT_WORDS, words: true },
+] as const satisfies ReadonlyArray<{ label: string; value: string; line?: string; words?: true }>;
+
+/** A match's tiles while it is read, `five`'s own grid at `MATCH_WAIT`'s words. */
+function MatchTilesPlaceholder() {
+  return (
+    <div className={tiles({ layout: "five" }).root()}>
+      {MATCH_WAIT.map((item, index) => {
+        const words = "words" in item;
+        const slots = tiles({ layout: "five", words, wide: index === 4 });
+        return (
+          <div
+            key={item.label}
+            className={slots.tile({ class: cardSurface() })}>
+            <PlaceholderLine
+              text={slots.label()}
+              words={item.label}
+            />
+            <PlaceholderSentence
+              text={slots.value()}
+              words={item.value}
+              lines={words ? 2 : 1}
+            />
+            {"line" in item && (
+              <PlaceholderLine
+                text={slots.line()}
+                words={item.line}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * The tiles while the record is read: the layout's own grid with its count of tiles, each its label's line, its
- * value's and the line under it as bars, at a tile's size.
+ * value's and, unless `line` says these tiles carry none, the line under it as bars, at a tile's size.
  */
-export function StatTilesPlaceholder({ layout }: { layout: Layout["layout"] }) {
+export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["layout"]; line?: boolean }) {
+  if (layout === "five") return <MatchTilesPlaceholder />;
   return (
     <div className={tiles({ layout }).root()}>
-      {Array.from({ length: layout === "four" ? 4 : 5 }, (_, index) => {
-        const slots = tiles({ layout, wide: layout === "five" && index === 4 });
+      {Array.from({ length: 4 }, (_, index) => {
+        const slots = tiles({ layout });
         return (
           <div
             key={index}
@@ -87,10 +138,12 @@ export function StatTilesPlaceholder({ layout }: { layout: Layout["layout"] }) {
               text={slots.value()}
               width="w-1/2"
             />
-            <PlaceholderLine
-              text={slots.line()}
-              width="w-1/3"
-            />
+            {line && (
+              <PlaceholderLine
+                text={slots.line()}
+                width="w-1/3"
+              />
+            )}
           </div>
         );
       })}

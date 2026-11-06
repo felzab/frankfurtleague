@@ -1,9 +1,9 @@
+import { COPY } from "@/core/copy";
+
 import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage } from "./ClassicPage";
-import { LandingSectionPlaceholder } from "./LandingSection";
 import { Link } from "./Link";
 import { PageWait } from "./PageFade";
-import { PillarsPlaceholder } from "./Pillars";
 import { SaisonBlockPlaceholder } from "./SaisonBlock";
 import { Placeholder, Waiting } from "./Skeleton";
 import { tv } from "./tv";
@@ -15,7 +15,7 @@ import type { ReactElement, ReactNode } from "react";
 /** One of the hero's two ways on: a label and its address. */
 type HeroAct = { label: Copy; href: Route };
 
-/** What the landing reads: the hero's two ways on, the season's card beside the hero, and the sections. */
+/** What the hero reads: its two ways on and the season's card beside it. */
 export type LandingContent = {
   /** The Spielplan, in every state. */
   primary: HeroAct;
@@ -23,15 +23,12 @@ export type LandingContent = {
   secondary: HeroAct;
   /** The season's card, `SaisonBlock`. */
   aside: ReactElement;
-  /** The sections, each a landing block. */
-  sections: ReactNode;
 };
 
 const hero = tv({
   slots: {
     // Split from `lg`: the tagline and the words under it at the left, the season card at the right beside both,
-    // 48 px between; one column below. Board: the side card's width, 25 rem. The rows part by their items'
-    // padding, so the read's parts, which stand in the grid directly, keep the gaps a nested column would.
+    // 48 px between; one column below. Board: the side card's width, 25 rem. The rows part by their items' padding.
     root: "grid items-start gap-x-12 lg:grid-cols-[minmax(0,1fr)_25rem]",
     title: "pb-6 font-heading text-3xl tracking-display uppercase lg:col-start-1 lg:row-start-1",
     words: "grid content-start gap-6 pb-8 lg:col-start-1 lg:row-start-2 lg:pb-0",
@@ -44,58 +41,31 @@ const hero = tv({
   },
 });
 
-/** The three parts under the tagline, each in its place in the hero's grid, read or waited for. */
-function Parts({ words, aside, sections }: { words: ReactNode; aside: ReactNode; sections: ReactNode }) {
-  const slots = hero();
+/** The hero's two ways on, once the read has landed. */
+async function Acts({ content }: { content: Promise<LandingContent> }) {
+  const { primary, secondary } = await content;
   return (
-    <>
-      <div className={slots.words()}>{words}</div>
-      <div className={slots.aside()}>{aside}</div>
-      <div className={slots.sections()}>{sections}</div>
-    </>
-  );
-}
-
-/** The lead's paragraphs under the tagline, the same once read and while the read waits, the page knowing them first. */
-function Lead({ lead }: { lead: ReadonlyArray<Copy> }) {
-  return (
-    <div className={hero().lead()}>
-      {lead.map((paragraph) => (
-        <p key={paragraph}>{paragraph}</p>
-      ))}
+    <div className={hero().acts()}>
+      <Link
+        href={primary.href}
+        placement="button"
+        look="primary"
+        label={primary.label}
+      />
+      <Link
+        href={secondary.href}
+        placement="button"
+        look="secondary"
+        label={secondary.label}
+      />
     </div>
   );
 }
 
-/** The parts once the read has landed. */
-async function Read({ lead, content }: { lead: ReadonlyArray<Copy>; content: Promise<LandingContent> }) {
-  const { primary, secondary, aside, sections } = await content;
-  const slots = hero();
-  return (
-    <Parts
-      words={
-        <>
-          <Lead lead={lead} />
-          <div className={slots.acts()}>
-            <Link
-              href={primary.href}
-              placement="button"
-              look="primary"
-              label={primary.label}
-            />
-            <Link
-              href={secondary.href}
-              placement="button"
-              look="secondary"
-              label={secondary.label}
-            />
-          </div>
-        </>
-      }
-      aside={aside}
-      sections={sections}
-    />
-  );
+/** The season's card, once the read has landed. */
+async function Aside({ content }: { content: Promise<LandingContent> }) {
+  const { aside } = await content;
+  return aside;
 }
 
 /**
@@ -103,59 +73,59 @@ async function Read({ lead, content }: { lead: ReadonlyArray<Copy>; content: Pro
  * `h1`, its tagline, over the lead and its two ways on, the season's card beside them; then the page's
  * sections, each one of the landing's blocks.
  *
- * The tagline is the page's title and stands at once, as every template's title stands outside its wait, and so does
- * the lead under it, which the page knows before the read; everything else waits for the read in the template's one
- * boundary, drawn meanwhile as its blocks' placeholders, part by part in the place each final block takes: the two
- * ways on, the season's card and the first section, so nothing moves when the read arrives.
+ * What the page knows before its read stands at once, and that is every static part: the tagline, the lead and the
+ * sections' words, so the first paint has the page's real height at every width, a phone's too, and the browser's
+ * restored scroll lands where the person was. What the read decides waits in place, each part in a boundary of its own
+ * drawn as its block's placeholder: here the two ways on and the season's card, in `sections` the band under the steps,
+ * the figures, the doors and the schools, the one read landing them together.
  */
 export function LandingPage({
   title,
   lead,
   content,
+  sections,
 }: {
   /** The tagline, the page's one heading. */
   title: Copy;
   /** The paragraphs under the tagline. */
   lead: ReadonlyArray<Copy>;
   content: Promise<LandingContent>;
+  /** The sections, each a landing block, each part the read decides in a boundary of its own. */
+  sections: ReactNode;
 }) {
   const slots = hero();
   return (
     <ClassicPage width="landing">
       <div className={slots.root()}>
         <h1 className={slots.title()}>{title}</h1>
-        <PageWait
-          fallback={
-            <Parts
-              words={
-                <>
-                  <Lead lead={lead} />
-                  <Waiting layout={slots.acts()}>
-                    <span className={buttonPlaceholder("w-28")} />
-                    <span className={buttonPlaceholder("w-36")} />
-                  </Waiting>
-                </>
-              }
-              aside={
-                <Placeholder>
-                  <SaisonBlockPlaceholder />
-                </Placeholder>
-              }
-              sections={
-                // One screen while it waits: a phone's hero fills it, so the sections' placeholder stands from `lg`.
-                <Placeholder layout="max-lg:hidden">
-                  <LandingSectionPlaceholder>
-                    <PillarsPlaceholder />
-                  </LandingSectionPlaceholder>
-                </Placeholder>
-              }
-            />
-          }>
-          <Read
-            lead={lead}
-            content={content}
-          />
-        </PageWait>
+        <div className={slots.words()}>
+          <div className={slots.lead()}>
+            {lead.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+          <PageWait
+            fallback={
+              <Waiting layout={slots.acts()}>
+                <span className={buttonPlaceholder()}>{COPY.page.spielplan}</span>
+                {/* The resting word: an open application window's lands in the read. */}
+                <span className={buttonPlaceholder()}>{COPY.page.about}</span>
+              </Waiting>
+            }>
+            <Acts content={content} />
+          </PageWait>
+        </div>
+        <div className={slots.aside()}>
+          <PageWait
+            fallback={
+              <Placeholder>
+                <SaisonBlockPlaceholder />
+              </Placeholder>
+            }>
+            <Aside content={content} />
+          </PageWait>
+        </div>
+        <div className={slots.sections()}>{sections}</div>
       </div>
     </ClassicPage>
   );

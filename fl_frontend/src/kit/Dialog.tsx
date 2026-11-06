@@ -1,13 +1,13 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useRef, useState } from "react";
+import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 import { Form, FormContext } from "react-aria-components/Form";
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
@@ -15,37 +15,14 @@ import { actLabel } from "./dialogAct";
 import { StatusLine } from "./FieldParts";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
-import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { ModalOverlayProps } from "react-aria-components/Modal";
 import type { DialogAct } from "./dialogAct";
-
-/** An overlay's open state as another control holds it, such as a combo box's create entry. */
-export type HeldOpen = { isOpen: boolean; onOpenChange: (isOpen: boolean) => void };
-
-/**
- * An overlay's open state, closed whenever Next hides the page it stands on: Next keeps a departed route
- * in a hidden `Activity`, and a menu or dialog found open on the way back is stale. Closing in a layout
- * effect's cleanup is the reset Next's guide to preserving UI state gives for transient overlays. Given the
- * state another control holds, it closes that one through its setter, so the overlay closes whatever kind of
- * state its holder keeps; an overlay mounted already open is closed by React's strict mode in development,
- * which runs that cleanup once on mount, so a holder mounts the overlay closed and opens it by the state.
- */
-export function useOpenUntilHidden(held?: HeldOpen) {
-  const [own, setOwn] = useState(false);
-  const isOpen = held?.isOpen ?? own;
-  const setOpen = held?.onOpenChange ?? setOwn;
-  // The cleanup runs once, with the setter of the last render: a holder may pass a new one on every render.
-  const close = useRef(setOpen);
-  useLayoutEffect(() => {
-    close.current = setOpen;
-  });
-  useLayoutEffect(() => () => close.current(false), []);
-  return [isOpen, setOpen] as const;
-}
+import type { HeldOpen } from "./useOpenUntilHidden";
 
 /**
  * The dim behind a dialog: a 10 % black scrim and a 4-px blur, fading in and out on the overlay tokens. It
@@ -110,25 +87,49 @@ export function ActRow({ children }: { children: ReactNode }) {
 }
 
 /**
- * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot:
- * centred, the closing button in its corner, its title read but not drawn, its body, which is the page's
- * own body rendered on the server, and last its one act, the blocks 24 px apart as a dialog's fields and
- * acts are. It stands open while its route does; the closing button, Escape or a press outside it goes
- * Back, which closes it and leaves the page beneath as it was. Always open: Next keeps a departed route
- * in a hidden `Activity`, which hides the overlay's portal with it and runs its effects' cleanup, the
- * scroll lock's included.
+ * What a route dialog holds, read on the server: its title read but not drawn, its body, which is the page's own body,
+ * and last its one act, the blocks 24 px apart as a dialog's fields and acts are. The same parts while the read waits,
+ * placeholders as its body and act and the wait's word as its title, so the dialog is named throughout.
  */
-export function RouteDialog({
+export function RouteDialogBody({
   title,
-  beneath,
   act,
   children,
 }: {
   title: Copy;
-  /** The page it opens over, reached instead of Back where the tab's history holds nothing to go back to. */
-  beneath: Route;
   /** The way on, the kit's `Link` drawn as the primary button, which stands last and as wide as the dialog. */
   act: ReactElement;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      {/* Read, not drawn: the body's first block names the match by its two sides, which a drawn title would repeat. */}
+      <Heading
+        slot="title"
+        level={2}
+        className="sr-only">
+        {title}
+      </Heading>
+      {children}
+      <div className="grid">{act}</div>
+    </>
+  );
+}
+
+/**
+ * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot: centred, the
+ * closing button in its corner, over its `RouteDialogBody`. A read it waits for stands in a boundary inside it, around
+ * that body, never around this overlay: a boundary's swap unmounts what it holds, so the dim would start its fade again.
+ * It stands open while its route does; the closing button, Escape or a press outside it goes Back, which closes it and
+ * leaves the page beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
+ * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
+ */
+export function RouteDialog({
+  beneath,
+  children,
+}: {
+  /** The page it opens over, reached instead of Back where the tab's history holds nothing to go back to. */
+  beneath: Route;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -144,13 +145,6 @@ export function RouteDialog({
       <AriaDialog
         data-kit-focus
         className="relative grid gap-6">
-        {/* Read, not drawn: the body's first block names the match by its two sides, which a drawn title would repeat. */}
-        <Heading
-          slot="title"
-          level={2}
-          className="sr-only">
-          {title}
-        </Heading>
         {/* In the box's corner, 12 px from its edges, over whatever the first block draws there: Primer's dialog
             requires the close button and forbids hiding it. Its hover is the one layer, laid over the match head's
             band as over any ground. */}
@@ -162,7 +156,6 @@ export function RouteDialog({
           />
         </div>
         {children}
-        <div className="grid">{act}</div>
       </AriaDialog>
     </DialogOverlay>
   );
@@ -180,13 +173,13 @@ function ActForm({
   label,
   action,
   close,
+  carry = {},
+  lead,
+  tone = "primary",
   children,
-}: {
-  title: Copy;
+}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "tone" | "children"> & {
   label: Copy;
-  action: (formData: FormData) => Promise<ActionAnswer>;
   close: () => void;
-  children: ReactNode;
 }) {
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
@@ -216,7 +209,9 @@ function ActForm({
           event.preventDefault();
           // React's submit event bubbles through the portal to the outer form, whose save would run too.
           event.stopPropagation();
-          submit(new FormData(event.currentTarget));
+          const formData = new FormData(event.currentTarget);
+          for (const [name, value] of Object.entries(carry)) formData.set(name, value);
+          submit(formData);
         }}>
         <Heading
           slot="title"
@@ -224,6 +219,7 @@ function ActForm({
           className="text-xl font-semibold">
           {title}
         </Heading>
+        {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
         <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>
           <StatusLine
@@ -236,7 +232,7 @@ function ActForm({
             onPress={close}
           />
           <Button
-            variant="primary"
+            variant={tone}
             type="submit"
             label={label}
             isBusy={isPending}
@@ -268,7 +264,7 @@ type Opening =
  * noting more than it was asked leaves it open on its note, and a refused one leaves it open with the input kept and
  * the refusal shown.
  */
-export function Dialog({ title, act, trigger, open, action, children }: DialogAct & Opening) {
+export function Dialog({ act, trigger, open, ...form }: DialogAct & Opening) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const label = actLabel(act);
 
@@ -280,12 +276,10 @@ export function Dialog({ title, act, trigger, open, action, children }: DialogAc
       onOpenChange={setOpen}>
       <AriaDialog data-kit-focus>
         <ActForm
-          title={title}
+          {...form}
           label={label}
-          action={action}
-          close={() => setOpen(false)}>
-          {children}
-        </ActForm>
+          close={() => setOpen(false)}
+        />
       </AriaDialog>
     </DialogOverlay>
   );

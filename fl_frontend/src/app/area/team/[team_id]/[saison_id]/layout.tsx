@@ -67,7 +67,7 @@ async function seatsHere(params: TeamParams) {
   const { roles: funktionen } = rolesOf(subject);
 
   // A seat on a `past` season is no Funktion, so its address lands here as held by nobody.
-  return { funktionen: funktionen, saisonId: saison_id, seats: seatsAt(funktionen, team_id, saison_id) };
+  return { funktionen, saisonId: saison_id, seats: seatsAt(funktionen, team_id, saison_id) };
 }
 
 /** The bar heads a refused session's address as it does before the read: it holds no seat to be refused from. */
@@ -92,7 +92,7 @@ async function TeamSaisonChip({ params }: { params: TeamParams }) {
   return (
     <SaisonChipSlot
       saisonId={saisonId}
-      isLaufend={seats.some((seat) => seat.saison_status === "active")}
+      isRunning={seats.some((seat) => seat.saison_status === "active")}
     />
   );
 }

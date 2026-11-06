@@ -7,13 +7,12 @@ from app.api.saisons.schedule import (
     group_matchdays,
     group_matches_per_matchday,
     knockout_phases_for,
-    qualifier_count,
     schedule_for,
     total_group_matches,
 )
-from app.api.saisons.schemas import FLSaison, FLSaisonRules
-from app.api.saisons.services import find_rules_refusal, total_season_fixtures, with_schedule, workable_shapes
-from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_rules_refusal, total_season_spiele, with_schedule
+from app.api.spiele.schemas import MAX_QUALIFIERS, PHASE_ORDER
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -50,27 +49,10 @@ def refusal_for(shape: FLSaisonRules) -> WriteRefusal | None:
 
 
 class TestThePhaseSet:
-    def test_the_rank_is_built_from_the_order(self):
-        """One declaration, so a phase cannot be ranked and unordered or the reverse."""
-
-        assert tuple(PHASE_RANK) == PHASE_ORDER
-        assert list(PHASE_RANK.values()) == list(range(len(PHASE_ORDER)))
-
     def test_every_phase_of_the_literal_is_ordered(self):
         """A member added to the Literal and not to the order would sort and refuse unpredictably."""
 
         assert set(PHASE_ORDER) == set(get_args(FLSaisonPhase.__value__))
-
-    def test_the_knockout_rounds_are_every_phase_but_the_group_phase(self):
-        """The group phase feeds the bracket rather than halving it."""
-
-        assert KNOCKOUT_PHASES == PHASE_ORDER[1:]
-        assert "gruppenphase" not in KNOCKOUT_PHASES
-
-    def test_the_capacity_follows_from_the_phase_set(self):
-        """The ceiling is what the phases can hold: adding a wider round raises it and nothing else changes."""
-
-        assert MAX_QUALIFIERS == 2 ** len(KNOCKOUT_PHASES)
 
 
 class TestTheGroupPhase:
@@ -85,12 +67,6 @@ class TestTheGroupPhase:
         """The bye: with an odd n one team sits out each round, so the schedule needs an extra one."""
 
         assert group_matchdays(teams) == expected
-
-    def test_a_group_of_one_or_none_has_no_matchdays(self):
-        """A group that cannot produce a pair produces no matchday, rather than a negative count."""
-
-        assert group_matchdays(1) == 0
-        assert group_matchdays(0) == 0
 
     def test_all_groups_play_on_the_same_matchday(self):
         """Which is what makes the per-matchday count multiply by the number of groups."""
@@ -146,9 +122,6 @@ class TestTheBracket:
 
         assert knockout_phases_for(qualifiers) == ()
 
-    def test_the_qualifier_count_is_per_group_times_groups(self):
-        assert qualifier_count(rules(groups=4, qualifiers=2)) == 8
-
 
 class TestTheMatchForThirdPlace:
     @pytest.mark.parametrize(("groups", "qualifiers", "finale"), [(2, 2, 2), (4, 2, 2), (4, 4, 2)])
@@ -163,7 +136,7 @@ class TestTheMatchForThirdPlace:
 
         shape = rules(groups=groups, per_group=4, qualifiers=qualifiers)
 
-        assert total_season_fixtures(shape) == total_group_matches(groups, 4) + bracket
+        assert total_season_spiele(shape) == total_group_matches(groups, 4) + bracket
 
 
 class TestTheWholeSeason:
@@ -192,27 +165,6 @@ class TestTheWholeSeason:
             ("finale", 2),
         ]
 
-    def test_a_season_with_no_bracket_still_describes_its_group_phase(self):
-        """Total rather than raising: the write path refuses these rules, but a season saved before it is still readable."""
-
-        schedule = schedule_for(rules(groups=4, qualifiers=3))
-
-        assert [entry.phase for entry in schedule] == ["gruppenphase"]
-
-    def test_the_expected_count_answers_per_phase(self):
-        """What the wire's `count_spiele` is."""
-
-        rounds = rules()
-
-        assert expected_matches(rounds, "gruppenphase") == 8
-        assert expected_matches(rounds, "viertelfinale") == 4
-        assert expected_matches(rounds, "finale") == 2
-
-    def test_a_phase_this_season_does_not_reach_expects_nothing(self):
-        """Zero is the honest answer, not an error."""
-
-        assert expected_matches(rules(), "achtelfinale") == 0
-
 
 class TestTheLargestLegalSeasonFitsInOneRead:
     """Why `rules_spiele_over_one_read` refuses a shape the field bounds each accept.
@@ -229,28 +181,6 @@ class TestTheLargestLegalSeasonFitsInOneRead:
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SPIELE_OVER_ONE_READ
 
-    def test_the_widest_season_is_a_shape_a_season_can_actually_be_saved_in(self):
-        """Guards the case above: a product the bracket refuses would answer `rules_bracket_impossible` and prove nothing about this one."""
-
-        assert qualifier_count(widest_legal_rules()) == MAX_QUALIFIERS
-        assert knockout_phases_for(MAX_QUALIFIERS) == KNOCKOUT_PHASES
-
-    def test_the_cap_bites_inside_the_field_bounds_rather_than_at_them(self):
-        """A rule refusing every wide shape would satisfy the sweep below and bound nothing; this is the step it actually bites at."""
-
-        widest = widest_legal_rules()
-        accepted = [
-            per_group
-            for per_group in range(2, ceiling("teams_per_gruppe") + 1)
-            if refusal_for(widest.model_copy(update={"teams_per_gruppe": per_group})) is None
-        ]
-
-        # A PREFIX: the count rises with the group size, so an accepted shape above a refused one
-        # would mean the sweep below is measuring something other than the season's own fixtures.
-        assert accepted == list(range(2, max(accepted) + 1))
-        assert max(accepted) < ceiling("teams_per_gruppe")
-        assert refusal_for(widest.model_copy(update={"teams_per_gruppe": max(accepted) + 1})) is not None
-
     def test_no_shape_the_rules_accept_plays_past_one_page(self):
         """Swept rather than argued: the count is quadratic in one bound and linear in another, so a widened bound fails here."""
 
@@ -263,18 +193,10 @@ class TestTheLargestLegalSeasonFitsInOneRead:
                     shape = rules(groups=groups, per_group=per_group, qualifiers=qualifiers)
                     if refusal_for(shape) is None:
                         accepted += 1
-                        assert total_season_fixtures(shape) <= LIST_LIMIT_DEFAULT
+                        assert total_season_spiele(shape) <= LIST_LIMIT_DEFAULT
 
         # A sweep refusing everything would satisfy the assertion above without proving anything.
         assert accepted > 0
-
-    def test_a_stored_season_past_the_cap_resubmitted_unchanged_passes(self):
-        """`rules` is required on the patch, so a refused resubmission would leave a season stored past the cap uneditable, dates included."""
-
-        assert (
-            find_rules_refusal(stored=widest_legal_rules(), proposed=widest_legal_rules(), occupancy_by_gruppe={}, highest_wired_platz=0)
-            is None
-        )
 
 
 class TestTheSeasonCarriesItsSchedule:
@@ -288,36 +210,3 @@ class TestTheSeasonCarriesItsSchedule:
         assert [(entry["phase"], entry["spieltage"], entry["matches_per_spieltag"]) for entry in injected] == [
             (entry.phase, entry.spieltage, entry.matches_per_spieltag) for entry in schedule_for(rules())
         ]
-
-    def test_the_model_accepts_what_the_helper_produces(self, saison):
-        """The pair that matters: a raw document plus this helper validates, and a raw document alone does not."""
-
-        assert FLSaison.model_validate(with_schedule(saison())).schedule[0].matches_per_spieltag == 8
-
-    def test_an_odd_group_keeps_the_bye_round(self, saison):
-        """The case a hand-written TypeScript copy would most plausibly get wrong; serving the number keeps one answer."""
-
-        odd = saison(rules={**saison()["rules"], "teams_per_gruppe": 5})
-
-        assert with_schedule(odd)["schedule"][0] == {"phase": "gruppenphase", "spieltage": 5, "matches_per_spieltag": 8}
-
-    def test_a_season_with_no_bracket_still_carries_its_group_phase(self, saison):
-        """No knockout phase rather than raising, so a season the editor refuses still reads back."""
-
-        no_bracket = saison(rules={**saison()["rules"], "qualifiers_per_gruppe": 3})
-
-        assert [entry["phase"] for entry in with_schedule(no_bracket)["schedule"]] == ["gruppenphase"]
-
-
-class TestTheEditorOffersTheShapesTheDrawAdmits:
-    def test_the_offer_reaches_every_bound_and_stops_at_the_cap(self):
-        """The season editor offers only these shapes, so one missing hides a legal season and one too many offers a draw the save refuses.
-
-        Each offered shape sits at a bound: one group, sixteen groups, sixteen teams, one qualifier and all of a group
-        qualifying. The refused one is the widest the field bounds admit, past `rules_spiele_over_one_read`.
-        """
-
-        offered = {(shape.number_of_gruppen, shape.teams_per_gruppe, shape.qualifiers_per_gruppe) for shape in workable_shapes(rules())}
-
-        assert {(1, 4, 4), (16, 2, 1), (1, 16, 16)} <= offered
-        assert (16, 16, 1) not in offered

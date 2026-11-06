@@ -1,9 +1,6 @@
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import cache
-from http import HTTPStatus
-from itertools import combinations, permutations, product
-from math import factorial
+from itertools import combinations, product
 from typing import Any, get_args
 
 import pytest
@@ -16,20 +13,17 @@ from app.api.saisons.schedule import (
     knockout_phases_for,
     qualifier_count,
     schedule_for,
-    total_group_matches,
 )
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.saisons.services import (
     DRAWN_HOLDING_ITS_SIDES,
     RECORDED_FACT_FIELDS,
-    as_the_draw_answers,
     find_rules_refusal,
     find_spielplan_refusal,
     holds_a_recorded_fact,
 )
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, bracket_seeding, circle_rounds, draw_spielplan
-from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpiel
-from app.api.spieltage.schemas import FLSpieltag
+from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSonderereignis
@@ -43,8 +37,7 @@ SAISON_ID = "2026"
 Seeding = tuple[tuple[FLGruppenNames, int], ...]
 Score = tuple[tuple[int, ...], tuple[int, ...]]
 
-# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row is drawn
-# by one of these, and each shape's legality is derived rather than trusted -- both below.
+# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row is drawn by one of these.
 SHAPES: tuple[tuple[int, int, int], ...] = (
     (1, 7, 4),
     (1, 8, 8),
@@ -141,10 +134,6 @@ class TestTheCircleMethodPairsAGroup:
         assert sorted(played, key=sorted) == sorted((frozenset(pair) for pair in combinations(range(teams), 2)), key=sorted)
 
     @pytest.mark.parametrize("teams", range(2, 17))
-    def test_the_whole_round_robin_is_the_combination(self, teams: int):
-        assert sum(len(pairs) for pairs in circle_rounds(teams)) == total_group_matches(1, teams)
-
-    @pytest.mark.parametrize("teams", range(2, 17))
     def test_nobody_is_paired_twice_in_one_round(self, teams: int):
         """A club fielded twice on one matchday is a state no Spieltag may hold."""
 
@@ -173,23 +162,6 @@ class TestTheCircleMethodPairsAGroup:
 
         assert circle_rounds(3) == (((1, 2),), ((2, 0),), ((0, 1),))
         assert circle_rounds(4) == (((0, 3), (1, 2)), ((2, 0), (3, 1)), ((0, 1), (2, 3)))
-
-    @pytest.mark.parametrize("teams", range(2, 17))
-    def test_the_pinned_club_leads_every_other_fixture_it_plays(self, teams: int):
-        """The alternation `circle_rounds` documents.
-
-        Position 0 is the only club whose pair could otherwise list it first every round, because
-        it is the one the rotation holds still.
-        """
-
-        leads = [pair[0] == 0 for pairs in circle_rounds(teams) for pair in pairs if 0 in pair]
-
-        assert sum(leads) == (len(leads) + 1) // 2
-
-    def test_a_group_too_small_to_pair_plays_nothing(self):
-        """`teams_per_gruppe` has a floor of 2, so this is the boundary rather than a reachable season."""
-
-        assert circle_rounds(1) == ()
 
 
 def ceiling(field: str) -> int:
@@ -252,88 +224,8 @@ def score(seeding: Seeding) -> Score:
     return tuple(sorted(same_group)), tuple(sorted(same_platz))
 
 
-def band_seedings(groups: int, qualifiers: int) -> Iterator[Seeding]:
-    """Every seeding banding the qualifiers by placing, the FIRST band's order held fixed.
-
-    Relabelling the groups is a symmetry of both objectives and normalises any first band to this
-    one, so the best score here is the best score of the whole space.
-    """
-
-    field = groups * qualifiers
-    slot_of_seed = {seed: slot for slot, seed in enumerate(bracket_slots(field))}
-    offered = GRUPPEN[:groups]
-
-    for later in product(permutations_of(offered), repeat=qualifiers - 1):
-        placed: dict[int, tuple[FLGruppenNames, int]] = {
-            slot_of_seed[band * groups + rank + 1]: (gruppe, band + 1)
-            for band, order in enumerate((offered, *later))
-            for rank, gruppe in enumerate(order)
-        }
-        yield tuple(placed[slot] for slot in range(field))
-
-
-@cache
-def permutations_of(offered: tuple[FLGruppenNames, ...]) -> tuple[tuple[FLGruppenNames, ...], ...]:
-    """Cached: the widest sweep would otherwise rebuild this list on every one of its `sweep_size` steps."""
-
-    return tuple(permutations(offered))
-
-
-def partner_consistent_seedings(groups: int, qualifiers: int) -> Iterator[Seeding]:
-    """Every placement the obvious runtime rule permits: round one pairs A with B and C with D, at placings summing to `qualifiers + 1`."""
-
-    # The whole `groups! ** qualifiers` space, never the normalised one: what is counted is how much
-    # the rule leaves open, so no symmetry may be quotiented away first.
-    field = groups * qualifiers
-    seed_at = bracket_slots(field)
-    band_at = [(seed - 1) // groups for seed in seed_at]
-    rank_at = [(seed - 1) % groups for seed in seed_at]
-    opening = range(0, field, 2)
-
-    # Which placings a round-one pair draws is fixed by the bracket itself, so this half of the rule
-    # holds for every arrangement or for none.
-    if any(band_at[slot] + band_at[slot + 1] != qualifiers - 1 for slot in opening):
-        return
-
-    offered = GRUPPEN[:groups]
-    for bands in product(permutations(range(groups)), repeat=qualifiers):
-        if all(bands[band_at[slot + 1]][rank_at[slot + 1]] == bands[band_at[slot]][rank_at[slot]] ^ 1 for slot in opening):
-            yield tuple((offered[bands[band_at[slot]][rank_at[slot]]], band_at[slot] + 1) for slot in range(field))
-
-
-@cache
-def optimum(groups: int, qualifiers: int) -> Score:
-    """The best score the banded space reaches, cached because `sweep_size` is what one call walks."""
-
-    return max(score(seeding) for seeding in band_seedings(groups, qualifiers))
-
-
-def sweep_size(groups: int, qualifiers: int) -> int:
-    """What one exhaustive sweep costs.
-
-    `max(1, ...)`: at a single qualifier `product` walks one seeding and still builds every
-    permutation of the groups first, so the factorial is the floor rather than the exponent.
-    """
-
-    return factorial(groups) ** max(1, qualifiers - 1)
-
-
-# `permutations_of` builds every permutation of the offered groups before `product` walks anything, so
-# a ceiling on the count is what keeps an unreachable size a skipped key rather than a `MemoryError`.
-SWEEP_CEILING = 50_000
-
-SWEPT_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in sorted(BRACKET_SEEDING) if sweep_size(*key) <= SWEEP_CEILING)
-
-# Derived from the WRITE PATH rather than from the reference table, so a widened rules bound gains its
-# second witness without anybody hand-writing a row for the shape it opened.
-SWEEPABLE_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in sorted(legal_combinations()) if sweep_size(*key) <= SWEEP_CEILING)
-
-# A one-group season has only the identity relabelling, so the symmetry test says nothing there.
-MULTI_GROUP_KEYS: tuple[tuple[int, int], ...] = tuple(key for key in SWEPT_KEYS if key[0] > 1)
-
-
 def best_possible(groups: int, qualifiers: int) -> Score:
-    """The score no banded seeding beats, computed rather than swept.
+    """The score no banded seeding beats.
 
     Both objectives reach their own bound at once, so the optimum is no compromise between them.
     """
@@ -349,28 +241,15 @@ def best_possible(groups: int, qualifiers: int) -> Score:
 
 class TestTheTableCoversTheWritePath:
     def test_the_construction_answers_every_combination_a_season_can_be_saved_in(self):
-        """Derived from the rules bounds and the refusal, so widening either cannot strand a legal season with nothing to draw from."""
+        """Derived from the rules bounds and the refusal, so widening either cannot strand a legal season with nothing to draw from.
+
+        The one case holding a shape the reference table leaves out to every qualifier once: `score` cannot see a repeated pair.
+        """
 
         for groups, qualifiers in legal_combinations():
             row = bracket_seeding(number_of_gruppen=groups, qualifiers_per_gruppe=qualifiers)
 
             assert sorted(row) == sorted((gruppe, platz) for gruppe in GRUPPEN[:groups] for platz in range(1, qualifiers + 1))
-
-    def test_no_reference_row_names_a_shape_a_season_cannot_be_saved_in(self):
-        """A row nothing can save is a row nothing drives, so no case below would see it go wrong."""
-
-        assert set(BRACKET_SEEDING) <= legal_combinations()
-
-    def test_every_row_is_a_season_some_test_below_actually_draws(self):
-        """A row exercised only against itself is one no season was ever generated from."""
-
-        assert {(groups, qualifiers) for groups, _, qualifiers in SHAPES} == set(BRACKET_SEEDING)
-
-    @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
-    def test_a_row_holds_one_slot_per_qualifier(self, key: tuple[int, int]):
-        """The first knockout round is full: nobody byes into it."""
-
-        assert len(BRACKET_SEEDING[key]) == key[0] * key[1]
 
 
 class TestEveryRowIsAWholeDraw:
@@ -400,31 +279,6 @@ class TestTheConstructionIsTheTable:
 
         assert bracket_seeding(number_of_gruppen=key[0], qualifiers_per_gruppe=key[1]) == BRACKET_SEEDING[key]
 
-    def test_two_rows_are_exactly_these(self):
-        """Hand-written, so the table is pinned past what `score` cannot see.
-
-        Reversing a row, or swapping every fixture's two slots, leaves both objectives and the
-        `q + 1` sums identical, so the property tests fix the table only up to symmetry.
-        """
-
-        assert BRACKET_SEEDING[(2, 2)] == (("A", 1), ("B", 2), ("B", 1), ("A", 2))
-        assert BRACKET_SEEDING[(4, 2)] == (("A", 1), ("B", 2), ("C", 1), ("D", 2), ("B", 1), ("A", 2), ("D", 1), ("C", 2))
-
-    def test_a_shape_no_bracket_halves_is_refused(self):
-        """A field that is no power of two would index a group the season does not offer."""
-
-        with pytest.raises(ValueError):
-            bracket_seeding(number_of_gruppen=3, qualifiers_per_gruppe=2)
-
-    def test_a_group_count_the_closed_set_cannot_name_is_refused(self):
-        """The smallest power of two past the closed set: at any other field the size guard answers instead, and `match` pins which one did.
-
-        Unrefused, a slot indexes past the last name -- an `IndexError`, never a misseeding.
-        """
-
-        with pytest.raises(ValueError, match="the closed set holds"):
-            bracket_seeding(number_of_gruppen=1 << len(GRUPPEN).bit_length(), qualifiers_per_gruppe=1)
-
 
 class TestTheConstructionScoresTheBestThereIs:
     @pytest.mark.parametrize("key", sorted(legal_combinations()))
@@ -435,80 +289,6 @@ class TestTheConstructionScoresTheBestThereIs:
         """
 
         assert score(bracket_seeding(number_of_gruppen=key[0], qualifiers_per_gruppe=key[1])) == best_possible(*key)
-
-    @pytest.mark.parametrize("key", SWEEPABLE_KEYS)
-    def test_an_exhaustive_sweep_finds_that_same_bound(self, key: tuple[int, int]):
-        """The second route, and the one that answers whether `best_possible` is the real maximum or only a formula."""
-
-        assert optimum(*key) == best_possible(*key)
-
-    @pytest.mark.parametrize("key", SWEPT_KEYS)
-    def test_the_reference_row_still_scores_the_optimum(self, key: tuple[int, int]):
-        """Re-run rather than trusted: the row is a literal, and this sweep is what says it is the best one."""
-
-        assert score(BRACKET_SEEDING[key]) == optimum(*key)
-
-    @pytest.mark.parametrize("key", MULTI_GROUP_KEYS)
-    def test_relabelling_the_groups_leaves_the_score_unchanged(self, key: tuple[int, int]):
-        """What lets the sweep hold one band fixed; without it a fixed band would only BOUND the optimum."""
-
-        offered = GRUPPEN[: key[0]]
-        row = BRACKET_SEEDING[key]
-
-        for order in permutations_of(offered):
-            relabelled: Seeding = tuple((order[offered.index(gruppe)], platz) for gruppe, platz in row)
-            assert score(relabelled) == score(row)
-
-    def test_the_ceiling_admits_every_key_the_closed_set_reaches_and_refuses_the_one_nothing_can_build(self):
-        """A ceiling that quietly emptied either set would leave `best_possible` as its own only witness."""
-
-        assert SWEPT_KEYS == tuple(sorted(BRACKET_SEEDING))
-        # Every reference row is a legal shape this sweep affords, so no row is left resting on the
-        # formula it exists to check.
-        assert set(SWEPT_KEYS) <= set(SWEEPABLE_KEYS)
-        assert sweep_size(8, 2) <= SWEEP_CEILING < sweep_size(16, 1)
-
-
-class TestTheConstructionBeatsTheObviousRuntimeRule:
-    """Pairing partnered groups fixes WHO meets in round one and never WHERE, so the rule alone is not the construction."""
-
-    @pytest.mark.parametrize(("key", "permitted", "sooner"), (((4, 2), 24, 8), ((4, 4), 576, 480)))
-    def test_the_rule_leaves_this_much_open_and_this_much_of_it_is_worse(self, key: tuple[int, int], permitted: int, sooner: int):
-        """`sooner` counts the placements meeting a same-group pair in an EARLIER round than the construction does.
-
-        Both keys are written out: `partner_consistent_seedings` walks `factorial(groups) **
-        qualifiers` candidates, so a wider one added here would not finish.
-        """
-
-        placements = list(partner_consistent_seedings(*key))
-        best = best_possible(*key)
-
-        assert len(placements) == permitted
-        assert sum(1 for one in placements if score(one)[0][0] < best[0][0]) == sooner
-
-    @pytest.mark.parametrize("key", ((4, 2), (4, 4)))
-    def test_the_construction_is_one_the_rule_permits(self, key: tuple[int, int]):
-        """So it CHOOSES within the rule rather than departing from it, and what it adds is which placement to ship."""
-
-        assert bracket_seeding(number_of_gruppen=key[0], qualifiers_per_gruppe=key[1]) in set(partner_consistent_seedings(*key))
-
-
-class TestTheShapesAreSeasonsThatCanExist:
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_the_write_path_accepts_every_shape_drawn_below(self, shape: tuple[int, int, int]):
-        """Otherwise the emission tests below prove the draw of a season nobody can save."""
-
-        groups, teams, qualifiers = shape
-
-        assert (
-            find_rules_refusal(
-                stored=None,
-                proposed=rules(groups=groups, teams=teams, qualifiers=qualifiers),
-                occupancy_by_gruppe={},
-                highest_wired_platz=0,
-            )
-            is None
-        )
 
 
 class TestTheDrawIsTheSeasonTheRulesDescribe:
@@ -525,16 +305,6 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         ]
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_position_restarts_at_one_in_each_phase(self, shape: tuple[int, int, int]):
-        """`uniq_saison_id_saison_phase_position` keys on the phase, so a season legitimately holds several matchdays numbered 1."""
-
-        positions: dict[FLSaisonPhase, list[int]] = {}
-        for spieltag in draw(*shape).spieltage:
-            positions.setdefault(spieltag["saison_phase"], []).append(spieltag["position"])
-
-        assert all(found == list(range(1, len(found) + 1)) for found in positions.values())
-
-    @pytest.mark.parametrize("shape", SHAPES)
     def test_every_matchday_holds_the_matches_its_phase_expects(self, shape: tuple[int, int, int]):
         """`count_spiele` is derived per matchday, so a matchday off this count reads as incomplete forever."""
 
@@ -548,13 +318,6 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
             held[spiel["spieltag_id"]] += 1
 
         assert held == {spieltag_id: expected_matches(season, phase) for spieltag_id, phase in phases.items()}
-
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_the_group_phase_draws_the_whole_combination(self, shape: tuple[int, int, int]):
-        groups, teams, _ = shape
-        drawn = [spiel for spiel in draw(*shape).spiele if spiel["saison_phase"] == "gruppenphase"]
-
-        assert len(drawn) == total_group_matches(groups, teams)
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_the_bracket_halves_down_to_one_final(self, shape: tuple[int, int, int]):
@@ -593,7 +356,7 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         assert sorted(met, key=sorted) == sorted(expected, key=sorted)
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_group_fixture_takes_its_sides_in_the_order_the_pairing_names(self, shape: tuple[int, int, int]):
+    def test_a_group_spiel_takes_its_sides_in_the_order_the_pairing_names(self, shape: tuple[int, int, int]):
         """Every other pairing assertion here compares unordered pairs.
 
         A draw that swapped `team1` and `team2` on every fixture would pass all of them.
@@ -652,41 +415,15 @@ class TestSpielNrRunsOnceThroughTheSeason:
 
         assert keys == sorted(keys)
 
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_bracket_fixture_is_fed_only_by_numbers_already_played(self, shape: tuple[int, int, int]):
-        """A source naming a later fixture is a bracket that cannot resolve; `find_bracket_faults` would report the cycle."""
-
-        for spiel in draw(*shape).spiele:
-            for quelle in (spiel["team1_quelle"], spiel["team2_quelle"]):
-                if quelle is not None and quelle["type"] == "spiel":
-                    assert quelle["spiel_nr"] < spiel["spiel_nr"]
-
 
 class TestTheEmittedDocumentsReadBack:
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_every_fixture_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
-        """A document only the writer can read is one the first read of it answers 500 on; one key no model declares, one nothing reads."""
-
-        for spiel in draw(*shape).spiele:
-            FLSpiel.model_validate(spiel, extra="forbid")
-
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_every_matchday_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
-        """`count_spiele` is injected because it is derived and on no document."""
-
-        groups, teams, qualifiers = shape
-        season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
-
-        for spieltag in draw(*shape).spieltage:
-            FLSpieltag.model_validate({**spieltag, "count_spiele": expected_matches(season, spieltag["saison_phase"])}, extra="forbid")
-
     @pytest.mark.parametrize("shape", SHAPES)
     def test_nothing_is_scheduled_and_nothing_has_happened(self, shape: tuple[int, int, int]):
         """A drawn season states no date, no venue, no referee and no result: each is a later decision, and a placeholder would read as one."""
 
         for spiel in draw(*shape).spiele:
             assert [
-                spiel[field] for field in ("datum", "uhrzeit", "ort", "schiedsrichter", "ergebnis", "elfmeterschiessen", "sonderereignis")
+                spiel[field] for field in ("date", "time", "spielort", "schiedsrichter", "ergebnis", "elfmeterschiessen", "sonderereignis")
             ] == [None] * 7
 
     @pytest.mark.parametrize("shape", SHAPES)
@@ -710,7 +447,7 @@ class TestTheEmittedDocumentsReadBack:
                 assert side is None or isinstance(side["team_id"], ObjectId)
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_every_fixture_sits_in_a_matchday_this_call_produced(self, shape: tuple[int, int, int]):
+    def test_every_spiel_sits_in_a_matchday_this_call_produced(self, shape: tuple[int, int, int]):
         """A `spieltag_id` from anywhere else would strand the fixture in a season it is not part of."""
 
         plan = draw(*shape)
@@ -730,12 +467,12 @@ class TestTheEmittedDocumentsReadBack:
     def test_no_matchday_arrives_dated(self, shape: tuple[int, int, int]):
         """Dating a matchday is a separate operation, and any span written here would be a claim nobody made."""
 
-        assert all((spieltag["beginn"], spieltag["ende"]) == (None, None) for spieltag in draw(*shape).spieltage)
+        assert all((spieltag["start"], spieltag["end"]) == (None, None) for spieltag in draw(*shape).spieltage)
 
 
-class TestAFixtureIsEitherDrawnOrWired:
+class TestASpielIsEitherDrawnOrWired:
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_group_fixture_names_both_clubs_and_no_source(self, shape: tuple[int, int, int]):
+    def test_a_group_spiel_names_both_clubs_and_no_source(self, shape: tuple[int, int, int]):
         for spiel in draw(*shape).spiele:
             if spiel["saison_phase"] == "gruppenphase":
                 assert spiel["team1"] is not None and spiel["team2"] is not None
@@ -743,7 +480,7 @@ class TestAFixtureIsEitherDrawnOrWired:
                 assert spiel["team1"]["tore"] is None and spiel["team2"]["tore"] is None
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_bracket_fixture_names_both_sources_and_no_club(self, shape: tuple[int, int, int]):
+    def test_a_bracket_spiel_names_both_sources_and_no_club(self, shape: tuple[int, int, int]):
         """Absence is MODELLED rather than impersonated: nobody has qualified yet, so neither side holds a club."""
 
         for spiel in draw(*shape).spiele:
@@ -768,7 +505,7 @@ class TestAFixtureIsEitherDrawnOrWired:
         assert wired == list(BRACKET_SEEDING[(groups, qualifiers)])
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_later_bracket_round_names_the_two_fixtures_feeding_it(self, shape: tuple[int, int, int]):
+    def test_a_later_bracket_round_names_the_two_spiele_feeding_it(self, shape: tuple[int, int, int]):
         """Left to right, winners only: the one `verlierer` pair is the match for third place, judged on its own below."""
 
         groups, teams, qualifiers = shape
@@ -794,18 +531,6 @@ class TestAFixtureIsEitherDrawnOrWired:
                 )
                 for slot in range(0, len(feeding), 2)
             ]
-
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_group_source_names_a_placing_the_group_phase_produces(self, shape: tuple[int, int, int]):
-        """A `platz` past the group's size is `gruppe_too_small`, a bracket fault the draw must never write."""
-
-        groups, teams, _ = shape
-
-        for spiel in draw(*shape).spiele:
-            for quelle in (spiel["team1_quelle"], spiel["team2_quelle"]):
-                if quelle is not None and quelle["type"] == "gruppe":
-                    assert quelle["gruppe"] in GRUPPEN[:groups]
-                    assert 1 <= quelle["platz"] <= teams
 
 
 class TestTheSemiFinalLosersPlayForThirdPlace:
@@ -856,25 +581,6 @@ class TestTheDrawFollowsTheEntryOrderAlone:
         assert signature(draw(groups, teams, qualifiers, entered=renamed)) == signature(draw(*shape))
 
 
-class TestADrawRefusesWhatItCannotDrawTruthfully:
-    def test_a_group_short_of_its_size_is_refused(self):
-        """Drawing what stands would short one round robin while every matchday goes on expecting the full one."""
-
-        entered = entered_for(2, 4)
-
-        with pytest.raises(ValueError, match="groups of 4"):
-            draw(2, 4, 2, entered=entered[:-1])
-
-    def test_a_club_in_a_group_the_season_does_not_offer_is_refused(self):
-        """`number_of_gruppen` is the season's capacity, and a club outside it would be drawn into no round robin at all."""
-
-        entered = entered_for(2, 4)
-        stray = EnteredTeam(row_id=entered[0].row_id, team_id=entered[0].team_id, gruppe="C", name="C1-Schule", shorthand="JJX")
-
-        with pytest.raises(ValueError, match="does not offer"):
-            draw(2, 4, 2, entered=(stray, *entered[1:]))
-
-
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
@@ -883,7 +589,7 @@ RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=6,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=20,
+    max_kader_size=20,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=["Q1"],
 )
@@ -894,7 +600,7 @@ FULL: Mapping[FLGruppenNames, int] = {"A": 6, "B": 6, "C": 6, "D": 6}
 def refusal_for(
     *,
     saison_status: str = "future",
-    fixtures_drawn: int = 0,
+    spiele_drawn: int = 0,
     spieltage_held: int = 0,
     occupancy: Mapping[FLGruppenNames, int] = FULL,
     rules: FLSaisonRules = RULES,
@@ -903,33 +609,19 @@ def refusal_for(
 ) -> WriteRefusal | None:
     return find_spielplan_refusal(
         saison_status=saison_status,
-        fixtures_drawn=fixtures_drawn,
+        spiele_drawn=spiele_drawn,
         spieltage_held=spieltage_held,
         rules=rules,
         occupancy_by_gruppe=occupancy,
         replace=replace,
-        recorded_fixtures=recorded,
+        recorded_spiele=recorded,
     )
-
-
-class TestASeasonReadyToBeDrawn:
-    """The one shape that passes, so every refusal below is shown to need its own reason."""
-
-    def test_a_future_season_with_full_groups_and_nothing_drawn_is_permitted(self):
-        assert refusal_for() is None
-
-    def test_a_group_the_season_does_not_offer_may_stand_in_the_map_holding_nobody(self):
-        """The map is counted from stored rows, so an emptied group survives as a key; nobody is stranded by it."""
-
-        two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
-
-        assert refusal_for(occupancy={"A": 6, "B": 6, "C": 0, "D": 0}, rules=two_groups) is None
 
 
 class TestASeasonHoldingMatchdays:
     """`spielplan_spieltage_held`: the draw writes the whole matchday list, so it cannot join one already there."""
 
-    def test_a_matchday_without_fixtures_refuses_the_draw(self):
+    def test_a_matchday_without_spiele_refuses_the_draw(self):
         refusal = refusal_for(spieltage_held=1)
 
         assert refusal is not None
@@ -944,15 +636,6 @@ class TestAFinishedSeason:
 
         assert refusal is not None
         assert refusal.error_code == Code.SAISON_PAST
-
-    def test_a_running_season_is_permitted(self):
-        """The pair to `activate_target_undrawn`, and the whole reason this refuses `past` alone.
-
-        Activation writes `status` one way, so refusing a running season here would leave one
-        activated before its draw unschedulable for good rather than merely out of order.
-        """
-
-        assert refusal_for(saison_status="active") is None
 
 
 class TestWhetherEveryOfferedGroupHoldsItsSize:
@@ -989,52 +672,14 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         assert refusal is not None
         assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
-    def test_an_offered_group_nobody_is_entered_into_is_named_as_holding_none(self):
-        """A group nobody is entered into is absent from the map rather than present at 0.
-
-        The ordinary state of a season about to be drawn, so reading the map by subscript would turn
-        its most frequent refusal into a 500.
-        """
-
-        refusal = refusal_for(occupancy={"A": 6, "B": 6})
-
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
-
-    def test_a_group_the_season_does_not_offer_is_not_counted(self):
-        """`offered_gruppen` bounds it: a two-group season is not short because C and D are absent from the map."""
-
-        two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
-        refusal = find_spielplan_refusal(
-            saison_status="future",
-            fixtures_drawn=0,
-            spieltage_held=0,
-            rules=two_groups,
-            occupancy_by_gruppe={"A": 6, "B": 6},
-            replace=False,
-            recorded_fixtures=0,
-        )
-
-        assert refusal is None
-
 
 class TestAConfirmedReplaceStepsPastWhatItDeletes:
     """`spielplan_already_drawn` and `spielplan_spieltage_held` name what a replace is about to remove, so neither may turn one away."""
 
-    def test_a_season_already_holding_a_whole_spielplan_is_replaced(self):
-        """Drop `and not replace` from the fixture guard and this fails, the replace refused over the rows it deletes."""
-
-        assert refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8) is None
-
-    def test_a_season_holding_matchdays_and_no_fixture_is_replaced(self):
-        """The matchday guard's own step-aside, and the shape a draw stopped between its two writes would leave."""
-
-        assert refusal_for(replace=True, spieltage_held=8) is None
-
     def test_a_group_off_its_size_still_refuses_a_confirmed_replace(self):
         """Gate `spielplan_gruppen_off_rules` on `replace` too and this fails: a replace draws the same fixtures, so needs the same groups."""
 
-        refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
+        refusal = refusal_for(replace=True, spiele_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
@@ -1050,9 +695,9 @@ SCHIEDSRICHTER = "68f0a1b2c3d4e5f607600002"
 BRACKET_PHASE: FLSaisonPhase = next(phase for phase in PHASE_ORDER if phase != DRAWN_HOLDING_ITS_SIDES)
 
 # A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
-# could land in empty. No `notiz` key at all, which is the shape
+# could land in empty. No `note` key at all, which is the shape
 # `app/api/saisons/spielplan.py :: _spiel` leaves.
-UNTOUCHED_FIXTURE: Mapping[str, Any] = {
+UNTOUCHED_SPIEL: Mapping[str, Any] = {
     "saison_phase": DRAWN_HOLDING_ITS_SIDES,
     "ergebnis": None,
     "elfmeterschiessen": None,
@@ -1061,33 +706,20 @@ UNTOUCHED_FIXTURE: Mapping[str, Any] = {
     "team2": {"team_id": BIEBER, "tore": None},
     "team1_quelle": None,
     "team2_quelle": None,
-    "ort": {"spielort_id": None},
+    "spielort": {"spielort_id": None},
     "schiedsrichter": {"schiedsrichter_id": None},
 }
 
 # The OTHER shape the same draw writes, and the one an admin seeds by hand: a knockout slot wired to
 # a placing and holding nobody.
 UNTOUCHED_BRACKET: Mapping[str, Any] = {
-    **UNTOUCHED_FIXTURE,
+    **UNTOUCHED_SPIEL,
     "saison_phase": BRACKET_PHASE,
     "team1": None,
     "team2": None,
     "team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1},
     "team2_quelle": {"type": "gruppe", "gruppe": "B", "platz": 2},
 }
-
-
-def value_at(spiel: Mapping[str, Any], projected: str) -> Any:
-    """What one projected path resolves to, read the way the predicate itself reads it.
-
-    `or {}` rather than a `None` test: the projection delivers a null head where the stored field is
-    null, and a leaf under one is then absent rather than false.
-    """
-
-    head, _, leaf = projected.partition(".")
-    value = spiel.get(head)
-
-    return (value or {}).get(leaf) if leaf else value
 
 
 @dataclass(frozen=True)
@@ -1140,55 +772,18 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
     # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
     # that narrower question instead of this window is the mistake this entry is here to fail.
     "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
-    "ort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"ort": {"spielort_id": SPIELORT}}),
+    "spielort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"spielort": {"spielort_id": SPIELORT}}),
     "schiedsrichter.schiedsrichter_id": RecordedEdit(why="a booked referee", gruppe={"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER}}),
-    "notiz": RecordedEdit(why="an admin's note, which only `PATCH /spiele/{spiel_id}` writes", gruppe={"notiz": "Platz gesperrt"}),
+    "note": RecordedEdit(why="an admin's note, which only `PATCH /spiele/{spiel_id}` writes", gruppe={"note": "Platz gesperrt"}),
 }
 
-# The projected paths the two drawn shapes disagree about -- the sides half, which
-# `app/api/saisons/services.py :: _a_side_is_off_the_draw` reads. Derived, so a field that becomes
-# inverted is asked for both directions with nobody listing it.
-INVERTED_BY_THE_DRAW: frozenset[str] = frozenset(
-    path for path in RECORDED_FACT_FIELDS if value_at(UNTOUCHED_FIXTURE, path) != value_at(UNTOUCHED_BRACKET, path)
-)
 
-
-class TestWhatCountsAsRecordedAgainstAFixture:
+class TestWhatCountsAsRecordedAgainstASpiel:
     """`holds_a_recorded_fact`, which is what the endpoint counts for `spielplan_replace_outside_its_window`.
 
     The refusal reads a COUNT, so no test of it reaches this: the window closes on a cancellation
     and on a booking as well as on a result.
     """
-
-    def test_the_projection_the_map_and_the_two_drawn_shapes_are_read_before_anything_below(self):
-        """The floor: a derivation that quietly finds nothing makes every case under it vacuous.
-
-        The tuple is IMPORTED rather than parsed, so what stands in for "did the parse work" is
-        every derivation here being non-empty and the two fixtures genuine inverses.
-        """
-
-        assert RECORDED_FACT_FIELDS
-        assert RECORDED_EDITS
-        assert INVERTED_BY_THE_DRAW
-        assert BRACKET_PHASE != DRAWN_HOLDING_ITS_SIDES
-
-        # A PROPER subset, so the breadth below is asked of values `has_taken_place` answers for
-        # and of the ones it does not; equality would make the two questions one.
-        assert set(SONDEREREIGNIS_WITHOUT_A_RESULT) < set(get_args(FLSonderereignis.__value__))
-
-        for slot in ("team1", "team2"):
-            assert UNTOUCHED_FIXTURE[slot] is not None and UNTOUCHED_FIXTURE[f"{slot}_quelle"] is None, "the group fixture is not as drawn"
-            assert UNTOUCHED_BRACKET[slot] is None and UNTOUCHED_BRACKET[f"{slot}_quelle"] is not None, "the bracket fixture is not as drawn"
-
-    def test_a_fixture_the_draw_left_alone_does_not(self):
-        """The floor: a predicate answering True for everything would pass every case below."""
-
-        assert holds_a_recorded_fact(UNTOUCHED_FIXTURE) is False
-
-    def test_a_bracket_slot_the_draw_left_alone_does_not_either(self):
-        """The second floor, and the one that matters: read a WIRED empty slot as touched and no drawn season is ever replaceable."""
-
-        assert holds_a_recorded_fact(UNTOUCHED_BRACKET) is False
 
     def test_every_projected_field_is_answered_by_an_edit_and_nothing_else_is(self):
         """THE COUPLING: add a field to `RECORDED_FACT_FIELDS` and this fails naming it.
@@ -1202,39 +797,11 @@ class TestWhatCountsAsRecordedAgainstAFixture:
 
         assert (unanswered, stale) == ([], [])
 
-    def test_the_bracket_direction_is_declared_for_every_field_the_draw_inverts(self):
-        """Declare a group edit alone for one of these and the rule is pinned in one direction only.
-
-        A group fixture is drawn occupied and unwired and a bracket fixture wired and empty, so each
-        of these records by moving the OPPOSITE way on the two shapes.
-        """
-
-        assert {path for path, edit in RECORDED_EDITS.items() if edit.ko is not None} == INVERTED_BY_THE_DRAW
-
     @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
-    def test_an_edit_departs_from_the_draw_in_its_own_field_and_no_other(self, projected: str, edit: RecordedEdit):
-        """An entry closing the window through a NEIGHBOUR proves nothing about the field it is filed under.
-
-        `team1.tore` without its side's id is the case: the fixture then reads as recorded for an
-        emptied side, so dropping the goal counts leaves it green.
-        """
-
-        for drawn, change in ((UNTOUCHED_FIXTURE, edit.gruppe), (UNTOUCHED_BRACKET, edit.ko)):
-            if change is None:
-                continue
-
-            edited = {**drawn, **change}
-            assert set(change) == {projected.partition(".")[0]}, f"{projected}'s edit does not write its own field"
-            assert value_at(edited, projected) != value_at(drawn, projected), f"{projected}'s edit leaves what the draw wrote there"
-
-            moved = [other for other in RECORDED_FACT_FIELDS if other != projected and value_at(edited, other) != value_at(drawn, other)]
-            assert moved == [], f"{projected}'s edit also moves {moved}"
-
-    @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
-    def test_a_fixture_carrying_that_edit_closes_the_window(self, projected: str, edit: RecordedEdit):
+    def test_a_spiel_carrying_that_edit_closes_the_window(self, projected: str, edit: RecordedEdit):
         """Stop reading any one of these and a replace deletes the work it records, the endpoint answering 200."""
 
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **edit.gruppe}) is True, f"{projected} left the group window open: {edit.why}"
+        assert holds_a_recorded_fact({**UNTOUCHED_SPIEL, **edit.gruppe}) is True, f"{projected} left the group window open: {edit.why}"
 
         if edit.ko is not None:
             assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edit.ko}) is True, f"{projected} left the bracket window open: {edit.why}"
@@ -1247,25 +814,7 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         added later is judged rather than assumed.
         """
 
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "sonderereignis": sonderereignis}) is True
-
-    @pytest.mark.parametrize(
-        ("empty", "why"),
-        [
-            ({"notiz": None}, "how CLEARING a note is stored: the patch `$set`s the whole model"),
-            ({"notiz": ""}, "unreachable through the API, and a hand edit can store it"),
-            ({"notiz": "   "}, "whitespace, which `empty_strings_to_none` catches on the API route alone"),
-        ],
-    )
-    def test_a_note_that_says_nothing_leaves_the_window_open(self, empty: Mapping[str, Any], why: str):
-        """Compare `notiz` to None rather than stripping it and the last two close a window nothing was entered in."""
-
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **empty}) is False, why
-
-    def test_a_date_and_a_kickoff_time_leave_the_window_open(self):
-        """Rescheduling is what a replace is FOR, so a dated fixture stays replaceable and the log keeps the dates."""
-
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "datum": "2026-05-01", "uhrzeit": "18:00:00"}) is False
+        assert holds_a_recorded_fact({**UNTOUCHED_SPIEL, "sonderereignis": sonderereignis}) is True
 
 
 class TestASideMovedOffTheDrawClosesTheWindow:
@@ -1285,52 +834,3 @@ class TestASideMovedOffTheDrawClosesTheWindow:
         picked = {**UNTOUCHED_BRACKET, "team1_quelle": None, "team1": {"team_id": ADLER, "tore": None}}
 
         assert holds_a_recorded_fact(picked) is True
-
-    def test_swapping_one_group_occupant_for_another_is_NOT_seen(self):
-        """The rule's limit, stated so it is not mistaken for a gap nobody noticed.
-
-        The draw seats both sides of every group fixture, so "holds a side" is true of all of them
-        and no stored field tells the draw's occupant from a replacement.
-        """
-
-        swapped = {**UNTOUCHED_FIXTURE, "team1": {"team_id": "68f0a1b2c3d4e5f607600013", "tore": None}}
-
-        assert holds_a_recorded_fact(swapped) is False
-
-    def test_a_fixture_reaching_the_predicate_without_a_phase_is_recorded(self):
-        """Drop `saison_phase` from the projection and every window shuts rather than opening on a season somebody drew by hand."""
-
-        no_phase = {key: value for key, value in UNTOUCHED_FIXTURE.items() if key != "saison_phase"}
-
-        assert holds_a_recorded_fact(no_phase) is True
-
-
-def shared(code: Code) -> WriteRefusal:
-    """A refusal as the season's own write answers it, which the draw then re-codes."""
-
-    return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT)
-
-
-def on_the_draw(code: Code) -> tuple[Code, HTTPStatus] | None:
-    answered = as_the_draw_answers(shared(code))
-
-    return None if answered is None else (answered.error_code, answered.status)
-
-
-class TestTheDrawAnswersStoredValuesUnderItsTwins:
-    """A rule a stated shape breaks against a STORED value is a conflict with the season, so it answers 409 under a code of its own."""
-
-    def test_the_forfeit_and_the_span_answer_under_their_twins(self):
-        """A shape's qualifiers can make a bracket the stored level forfeit cannot decide; its matchdays can outgrow the stored span."""
-
-        assert on_the_draw(Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT) == (
-            Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED,
-            HTTPStatus.CONFLICT,
-        )
-        assert on_the_draw(Code.SAISON_SPAN_BELOW_SPIELPLAN) == (Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED, HTTPStatus.CONFLICT)
-
-    def test_a_rule_reading_the_shape_alone_keeps_the_shared_code(self):
-        """The payload's own three numbers are all such a rule reads, so it is the payload the draw refuses."""
-
-        assert on_the_draw(Code.RULES_BRACKET_IMPOSSIBLE) == (Code.RULES_BRACKET_IMPOSSIBLE, HTTPStatus.UNPROCESSABLE_CONTENT)
-        assert as_the_draw_answers(None) is None

@@ -6,12 +6,12 @@ import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { dayOf, formatList, timeOf } from "@/core/format";
 import { saisonsGetSaisonOverview } from "@/core/generated/client/sdk";
 import {
   SpielbestaetigungenEnterSpielbestaetigungBody,
-  spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax,
+  spielbestaetigungenEnterSpielbestaetigungBodyReasonMax,
   SpielbestaetigungenEnterSpielbestaetigungParams,
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
@@ -20,7 +20,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { TerminDialog } from "./TerminDialog";
+import { AppointmentDialog } from "./AppointmentDialog";
 import { VorschlagActs } from "./VorschlagActs";
 import { ZusageDialog } from "./ZusageDialog";
 
@@ -44,14 +44,7 @@ const SPIEL = COPY.admin.spiel;
 const FACTS = COPY.admin.facts;
 
 /** The season's open work, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
-const overviewOf = cache((saison: string) =>
-  runAdminRead(() =>
-    saisonsGetSaisonOverview(saison).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  ),
-);
+const overviewOf = cache((saison: string) => runAdminRead(() => orMissing(saisonsGetSaisonOverview(saison))));
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
@@ -81,9 +74,9 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
 }
 
 /** A stored day and hour as the catalogue's sentences take a slot. */
-const slotOf = (datum: string | null, uhrzeit: string | null) => ({ day: dayOf(datum), time: timeOf(uhrzeit) });
+const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
-const BOOKED = { ort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
+const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
 /** A fault of the bracket or of the fixture's bookings, in one line. */
 function faultLine(fault: FLBracketFault): Copy {
@@ -99,13 +92,13 @@ function faultLine(fault: FLBracketFault): Copy {
     case "gruppenphase_feeder":
     case "feeder_not_played_first":
     case "same_team":
-    case "gruppenphase_fixture_wired":
-    case "source_feeds_another_fixture":
+    case "gruppenphase_spiel_wired":
+    case "source_feeds_another_spiel":
       return words.wiring;
     case "departed_occupant":
       return words.departed_occupant(
         { record: fault.team_name },
-        COPY.shared.austrittSince(COPY.shared.austritt[fault.austritt_type].state, dayOf(fault.ausgeschieden_seit)),
+        COPY.shared.austrittSince(COPY.shared.austritt[fault.austritt_type].state, dayOf(fault.exited_since)),
       );
     case "fielded_twice":
       return words.fielded_twice({ record: fault.team_name });
@@ -125,12 +118,12 @@ function ReasonField() {
     <TextField
       label={COPY.admin.overview.reason}
       // The name `enterZusage` reads the reason by.
-      name="begruendung"
+      name="reason"
       // A paragraph: a reason a person writes, at four lines, its line breaks kept.
       width="W4"
       kind="text"
-      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung, "")}
-      maxLength={spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax}
+      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.reason, "")}
+      maxLength={spielbestaetigungenEnterSpielbestaetigungBodyReasonMax}
     />
   );
 }
@@ -161,8 +154,8 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
     }
     case "vorschlag_open": {
       const team = clubOf(spiel, row.team_id);
-      const proposed = slotOf(row.vorschlag.datum, row.vorschlag.uhrzeit);
-      const current = slotOf(spiel.datum, spiel.uhrzeit);
+      const proposed = slotOf(row.vorschlag.date, row.vorschlag.time);
+      const current = slotOf(spiel.date, spiel.time);
       const [from, to] = [COPY.spielplan.when(current.day, current.time), COPY.spielplan.when(proposed.day, proposed.time)];
       return {
         line: WORDS.proposal(to, team),
@@ -176,7 +169,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
             discard={{
               consequence: WORDS.discardConsequence,
               facts: [
-                { label: COPY.admin.overview.termin, value: from },
+                { label: COPY.admin.overview.appointment, value: from },
                 { label: COPY.admin.overview.vorschlag, value: to },
                 ...mailTo(row.discard_recipients),
               ],
@@ -189,15 +182,15 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
       return { line: WORDS.report[row.state] };
     case "bracket_fault":
       return { line: faultLine(row.fault) };
-    case "termin_missing":
+    case "appointment_missing":
       return {
-        line: WORDS.missing(COPY.admin.overview.termin),
+        line: WORDS.missing(COPY.admin.overview.appointment),
         acts: (
-          <TerminDialog
+          <AppointmentDialog
             spiel={spiel.id}
             version={spiel.version}
-            datum={dayOf(spiel.datum)}
-            uhrzeit={timeOf(spiel.uhrzeit)}
+            date={dayOf(spiel.date)}
+            time={timeOf(spiel.time)}
           />
         ),
       };
@@ -208,7 +201,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
     case "schiedsrichter_missing":
       return { line: WORDS.missing(COPY.shared.schiedsrichter) };
     case "team_missing":
-      return { line: WORDS.missing(COPY.account.entries.facts.team) };
+      return { line: WORDS.missing(COPY.shared.facts.team) };
   }
 }
 
@@ -217,7 +210,7 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
   if (row.kind === "bewerbung") {
     return {
       id: row.bewerbung_id,
-      href: ROUTES.adminBewerbung.path(row.bewerbung_id),
+      href: ROUTES.adminBewerbung.path(saison, row.bewerbung_id),
       name: { record: row.name },
       line: WORDS.seatsConfirmed(row.seats_confirmed, row.seats),
     };
@@ -253,11 +246,23 @@ async function readOverview(params: Props["params"]) {
  * a club's proposed date are each done on their row; everything else opens the fixture's editor, or the application's
  * page.
  */
-export default function UebersichtPage({ params }: Props) {
+export default function OverviewPage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminOverview" } }}
-      list={{ kind: "cards", content: readOverview(params) }}
+      list={{
+        kind: "cards",
+        wait: {
+          rows: 5,
+          cards: [
+            { title: WORDS.card.due, acts: [COPY.shared.withObject(COPY.admin.overview.zusage, "enter")] },
+            { title: WORDS.card.ergebnisse },
+            { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.appointment, "set")] },
+            { title: WORDS.card.bewerbungen },
+          ],
+        },
+        content: readOverview(params),
+      }}
     />
   );
 }

@@ -21,14 +21,14 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /** One venue's row, opening its editor: its name, „Stillgelegt“ and muted once retired, its street and its price. */
-const rowOf = (ort: FLSpielort): TableRow => ({
-  id: ort.id,
-  name: { record: ort.name },
-  href: ROUTES.adminSpielort.path(ort.id),
-  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
+const rowOf = (spielort: FLSpielort): TableRow => ({
+  id: spielort.id,
+  name: { record: spielort.name },
+  href: ROUTES.adminSpielort.path(spielort.id),
+  ...(spielort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
   cells: {
-    adresse: WORDS.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
-    mietpreis: { record: formatEuro(ort.default_mietpreis) },
+    adresse: WORDS.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
+    mietpreis: { record: formatEuro(spielort.default_mietpreis) },
   },
 });
 
@@ -43,7 +43,7 @@ export default function SpielortePage() {
         action: createSpielort,
         children: <SpielortFields rules={SPIELORT_RULES} />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSpielorte() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 8, content: readSpielorte() }}
     />
   );
 }
@@ -52,8 +52,8 @@ export default function SpielortePage() {
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "adresse", label: WORDS.address, hideOnPhone: true },
-    { key: "mietpreis", label: WORDS.mietpreis, figures: true },
+    { key: "adresse", label: WORDS.address, hideOnPhone: true, width: "line" },
+    { key: "mietpreis", label: WORDS.mietpreis, figures: true, narrow: true },
   ],
 };
 

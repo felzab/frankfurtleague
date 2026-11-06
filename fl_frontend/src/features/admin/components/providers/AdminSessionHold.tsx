@@ -22,5 +22,5 @@ export async function AdminSessionHold({ children }: { children: React.ReactNode
 
   // Read off the session this render already holds, so a step-up press asks before it sends
   // rather than after the server refuses it.
-  return <AdminStepUpProvider served={{ ...confirmedUntil(served), inhaberId: served.user.id }}>{children}</AdminStepUpProvider>;
+  return <AdminStepUpProvider served={{ ...confirmedUntil(served), ownerId: served.user.id }}>{children}</AdminStepUpProvider>;
 }

@@ -8,8 +8,8 @@ export type SchiedsrichterValues = {
   name: string;
   schule: string;
   email: string;
-  telefon: string;
-  honorar: string;
+  phone: string;
+  default_payment: string;
 };
 
 /** The editor's values as a stored referee gives them. */
@@ -18,7 +18,7 @@ export function valuesOf(referee: FLSchiedsrichter): SchiedsrichterValues {
     name: referee.name ?? "",
     schule: referee.schule ?? "",
     email: referee.kontakt.email ?? "",
-    telefon: referee.kontakt.telefon ?? "",
-    honorar: String(referee.default_payment),
+    phone: referee.kontakt.phone ?? "",
+    default_payment: String(referee.default_payment),
   };
 }

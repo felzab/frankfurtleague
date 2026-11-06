@@ -25,7 +25,7 @@ const DB_DOUBLE = {
     db: () => ({
       collection: (collection: string) => ({
         createIndex: async (_key: unknown, options: { name: string; timeoutMS?: number }) => {
-          const build = { collection: collection, name: options.name, timeoutMS: options.timeoutMS };
+          const build = { collection, name: options.name, timeoutMS: options.timeoutMS };
           builds.push(build);
           running.set(collection, (running.get(collection) ?? 0) + 1);
           try {

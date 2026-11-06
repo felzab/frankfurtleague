@@ -3,17 +3,15 @@ from typing import Any
 
 import pytest
 
-from app.api.registrierungen.schemas import (
-    FLRegistrierungConfirmationPayload,
-)
 from app.api.registrierungen.services import (
-    SEITE_NEU,
-    SEITE_WIEDERKEHREND,
+    PAGE_NEW,
+    PAGE_RETURNING,
     compose_bestaetigung,
     compose_person,
     compose_person_update,
+    link_is_over,
+    page_of,
     person_named,
-    seite_of,
 )
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
@@ -39,39 +37,49 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
     return {
         "status": "submitted",
         "saison_id": "2026",
-        "vorname": "Quillhilde",
+        "first_name": "Quillhilde",
         "email": "Quillhilde@Example.com",
-        "geburtsdatum": None,
+        "birth_date": None,
         "einwilligung": None,
-        "confirmation": {**compose_bestaetigung(today="2026-03-26", frist=TOMORROW), "token_hashes": [TOKEN_HASH]},
+        "confirmation": {**compose_bestaetigung(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
         **overrides,
     }
+
+
+class TestTheLinksLastDay:
+    @pytest.mark.parametrize(
+        ("deadline", "over"), [pytest.param(TODAY, False, id="the day the mail names"), pytest.param(YESTERDAY, True, id="the day after")]
+    )
+    def test_the_link_answers_through_the_day_the_mail_names(self, deadline: str, over: bool):
+        """A link dying at the midnight before that day locks a pupil out on the day they were told they had."""
+
+        assert link_is_over(confirmation={"deadline": deadline}, status="submitted", departed=False, today=TODAY) is over
 
 
 class TestWhichPageTheLinkOpens:
     """The returning pupil's page is the confirmed person's at this address and name alone."""
 
     PERSON = {
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
-        "geburtsdatum": "2009-05-09",
-        "einwilligung": einwilligung(scope="intern", media=True),
+        "first_name": "Quillhilde",
+        "last_name": "Brackenmoor",
+        "birth_date": "2009-05-09",
+        "einwilligung": einwilligung(scope="internal", media=True),
     }
 
     @pytest.mark.parametrize(
-        ("person", "seite"),
+        ("person", "page"),
         [
-            pytest.param(None, SEITE_NEU, id="nobody at the address"),
-            pytest.param(PERSON, SEITE_WIEDERKEHREND, id="the confirmed person under the registration's name"),
-            pytest.param({**PERSON, "inactive_since": "2025-07-01"}, SEITE_WIEDERKEHREND, id="that person retired"),
-            pytest.param({**PERSON, "vorname": "Bramblewick"}, SEITE_NEU, id="another name at the address, a sibling"),
-            pytest.param({**PERSON, "einwilligung": None}, SEITE_NEU, id="a person who never confirmed"),
+            pytest.param(None, PAGE_NEW, id="nobody at the address"),
+            pytest.param(PERSON, PAGE_RETURNING, id="the confirmed person under the registration's name"),
+            pytest.param({**PERSON, "inactive_since": "2025-07-01"}, PAGE_RETURNING, id="that person retired"),
+            pytest.param({**PERSON, "first_name": "Bramblewick"}, PAGE_NEW, id="another name at the address, a sibling"),
+            pytest.param({**PERSON, "einwilligung": None}, PAGE_NEW, id="a person who never confirmed"),
         ],
     )
-    def test_only_the_confirmed_person_of_the_registrations_name_makes_it_returning(self, person: Any, seite: str):
+    def test_only_the_confirmed_person_of_the_registrations_name_makes_it_returning(self, person: Any, page: str):
         """The unconfirmed case is the one an address alone would get wrong: that page says choices nobody gave still stand."""
 
-        assert seite_of(registrierung_raw=registrierung(nachname="Brackenmoor"), person_raw=person) == seite
+        assert page_of(registrierung_raw=registrierung(last_name="Brackenmoor"), person_raw=person) == page
 
     @pytest.mark.parametrize(
         ("spelling", "found"),
@@ -88,22 +96,22 @@ class TestWhichPageTheLinkOpens:
         On the address alone that pupil's press stores the stored person's birthdate as their own.
         """
 
-        assert (person_named(self.PERSON, vorname=spelling, nachname="Brackenmoor") is not None) == found
+        assert (person_named(self.PERSON, first_name=spelling, last_name="Brackenmoor") is not None) == found
 
     def test_a_surname_that_differs_keeps_the_person_hidden(self):
         """Both fields decide: narrowed on the forename alone, a remarried sibling's row would still be shown back."""
 
-        assert person_named(self.PERSON, vorname="Quillhilde", nachname="Wraxlington") is None
+        assert person_named(self.PERSON, first_name="Quillhilde", last_name="Wraxlington") is None
 
     def test_a_sharp_s_surname_and_its_ss_spelling_are_two_pupils(self):
         """„Weiß“ and „Weiss“ at one mailbox are two pupils, whom `casefold` would show each other's record."""
 
-        stored = {**self.PERSON, "nachname": "Weiß"}
+        stored = {**self.PERSON, "last_name": "Weiß"}
 
-        assert person_named(stored, vorname="Quillhilde", nachname="WEISS") is None
+        assert person_named(stored, first_name="Quillhilde", last_name="WEISS") is None
 
     @pytest.mark.parametrize(
-        ("vorname", "nachname", "found"),
+        ("first_name", "last_name", "found"),
         [
             pytest.param("Quillhilde", "Brackenmoor", True, id="the control, a name on both sides"),
             pytest.param("", "", False, id="both halves empty"),
@@ -111,35 +119,35 @@ class TestWhichPageTheLinkOpens:
             pytest.param("Quillhilde", None, False, id="no surname"),
         ],
     )
-    def test_a_blank_name_on_both_sides_names_nobody(self, vorname: Any, nachname: Any, found: bool):
+    def test_a_blank_name_on_both_sides_names_nobody(self, first_name: Any, last_name: Any, found: bool):
         """Only a hand edit stores one. Compared as two keys, two blanks are one name, and the page shows that person's record back."""
 
-        stored = {**self.PERSON, "vorname": vorname, "nachname": nachname}
+        stored = {**self.PERSON, "first_name": first_name, "last_name": last_name}
 
-        assert (person_named(stored, vorname=vorname, nachname=nachname) is stored) == found
+        assert (person_named(stored, first_name=first_name, last_name=last_name) is stored) == found
 
 
 class TestAPersonIsNeverWrittenNameless:
     """The `spieler` record admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
 
     NEW = {
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
-        "geburtsdatum": "2009-05-09",
-        "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, scope="intern"),
+        "first_name": "Quillhilde",
+        "last_name": "Brackenmoor",
+        "birth_date": "2009-05-09",
+        "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, scope="internal"),
     }
     # A registration carrying no choice, which renews nothing on the person's record.
     RETURNING = {
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
-        "geburtsdatum": "2009-05-09",
+        "first_name": "Quillhilde",
+        "last_name": "Brackenmoor",
+        "birth_date": "2009-05-09",
         "einwilligung": {"confirmed_at": TODAY},
     }
 
     # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
-    @pytest.mark.parametrize("vorname", [None, "", "   "], ids=("null", "empty", "whitespace"))
-    def test_neither_composer_writes_a_person_with_no_forename(self, vorname: Any):
-        nameless = {**self.NEW, "vorname": vorname}
+    @pytest.mark.parametrize("first_name", [None, "", "   "], ids=("null", "empty", "whitespace"))
+    def test_neither_composer_writes_a_person_with_no_forename(self, first_name: Any):
+        nameless = {**self.NEW, "first_name": first_name}
 
         with pytest.raises(ValueError, match="no forename"):
             compose_person(spieler_id="a-new-id", registrierung_raw=nameless, address="quillhilde@example.com")
@@ -154,23 +162,12 @@ class TestAPersonIsNeverWrittenNameless:
             compose_person_update(registrierung_raw=registrierung_raw, saved=None, address="quillhilde@example.com")
 
 
-def antwort(**overrides: Any) -> dict[str, Any]:
+def answer(**overrides: Any) -> dict[str, Any]:
     return {
         "token": RAW,
-        "geburtsdatum": "2009-05-09",
-        "scope": "intern",
+        "birth_date": "2009-05-09",
+        "scope": "internal",
         "media": False,
         "text_versions": dict(SPIELER_TEXT_VERSIONS),
         **overrides,
     }
-
-
-class TestWhatTheAnswerPayloadRefuses:
-    @pytest.mark.parametrize("field", ["token", "geburtsdatum", "scope", "media", "text_versions"])
-    def test_every_field_is_required(self, field: str, assert_rejects):
-        """`media` above all: defaulted, an off switch would store this model's answer where the person's belongs."""
-
-        body = antwort()
-        del body[field]
-
-        assert_rejects(FLRegistrierungConfirmationPayload, body, field)

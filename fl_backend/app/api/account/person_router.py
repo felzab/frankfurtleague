@@ -47,7 +47,7 @@ from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import approver_of
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
+from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -117,9 +117,7 @@ async def get_einwilligungen(
 
     return FLAccountEinwilligungenResponse.model_validate(
         {
-            "spieler": None
-            if pupil is None
-            else compose_spieler_account(pupil, givable=may_grant_on_spieler(subject, pupil["_id"]), today=today),
+            "spieler": None if pupil is None else compose_spieler_account(pupil, today=today),
             "schiedsrichter": [
                 compose_schiedsrichter_account(row, givable=may_grant_on_schiedsrichter(subject, row["_id"]), today=today)
                 for row in referees
@@ -277,7 +275,7 @@ async def post_address_change(
             address=identifier,
             way="account",
             valid_until=record["valid_until"],
-            vorname=holdings.vorname,
+            first_name=holdings.first_name,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

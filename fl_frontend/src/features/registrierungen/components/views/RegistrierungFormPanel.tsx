@@ -1,13 +1,17 @@
 "use client";
 
+// Redesign: goes with its last importer, `RegistrierungView.tsx`.
 import { useEffect, useRef, useState, useTransition } from "react";
+
+import { useBotCheck } from "@/kit/useBotCheck";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { BestaetigungErgebnis } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { COPY } from "@/core/copy";
+import { ConfirmationResult } from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { orderStufen } from "@/features/spieler/constants";
@@ -27,7 +31,6 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
@@ -40,7 +43,7 @@ import type { FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { RegistrierungFormDraft } from "../../types";
 
-type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });
+type RegistrierungAnswer = { success: true } | (PublicEnvelope & { success: false; state?: "invalid" });
 
 const NICHT_ABGESCHICKT = `Deine Registrierung wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
@@ -52,7 +55,7 @@ const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert erneut 
 
 const POSITION_OPTIONS = FLSpielerPositionSchema.options;
 
-const buildEmptyDraft = (): RegistrierungFormDraft => ({ vorname: "", nachname: "", email: "", nummer: "", position: null, stufe: null });
+const buildEmptyDraft = (): RegistrierungFormDraft => ({ first_name: "", last_name: "", email: "", nummer: "", position: null, stufe: null });
 
 /**
  * The registration form the invite opens.
@@ -74,7 +77,7 @@ export function RegistrierungFormPanel({
   onLinkTot: () => void;
 }) {
   const [isPending, startSending] = useTransition();
-  const humanCheck = useTurnstile(siteKey);
+  const humanCheck = useBotCheck({ siteKey, size: "compact" });
   const [draft, setDraft] = useState<RegistrierungFormDraft>(buildEmptyDraft);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it. */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
@@ -109,7 +112,7 @@ export function RegistrierungFormPanel({
         return;
       }
 
-      const sent = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, {
+      const sent = await postPublicForm<RegistrierungAnswer>("/api/registrierung", payload, {
         idempotencyKey: schluessel,
         turnstileToken: request.token,
       });
@@ -124,24 +127,24 @@ export function RegistrierungFormPanel({
         return;
       }
 
-      const antwort = sent.body;
+      const response = sent.body;
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
       startSending(() => {
-        if (!antwort.success) {
+        if (!response.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
-          if (antwort.outcome === "unknown") {
+          if (response.outcome === "unknown") {
             appToast.danger(UNKLAR_TITEL, { description: REGISTRIERUNG_UNKLAR });
             return;
           }
 
           // Renewed only where a box carries the judgement: the row whose mail was refused is stored, so
           // the corrected address is a new registration. A sentence alone keeps its replay.
-          if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+          if (response.fieldErrors !== undefined || response.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
 
           // The invite died between the open and the press: the answer is the whole page, never a toast.
-          if (antwort.zustand !== undefined) {
+          if (response.state !== undefined) {
             onLinkTot();
             return;
           }
@@ -150,15 +153,15 @@ export function RegistrierungFormPanel({
           reportSubmitFailure(
             {
               success: false,
-              error: antwort.error ?? NICHT_ABGESCHICKT,
-              fieldErrors: antwort.fieldErrors,
-              unplacedError: antwort.unplacedError,
+              error: response.error ?? NICHT_ABGESCHICKT,
+              fieldErrors: response.fieldErrors,
+              unplacedError: response.unplacedError,
             },
             { registrierung: payload },
             {
               raise: (shown) =>
                 appToast.failure(
-                  antwort.schonAngekommen === true ? "Registrierung schon angekommen" : "Registrierung nicht abgeschickt",
+                  response.schonAngekommen === true ? "Registrierung schon angekommen" : "Registrierung nicht abgeschickt",
                   shown,
                 ),
             },
@@ -174,18 +177,14 @@ export function RegistrierungFormPanel({
 
   if (isEingereicht) {
     return (
-      <BestaetigungErgebnis
+      <ConfirmationResult
         panelRef={eingereichtRef}
-        tone="erfolg">
+        tone="success">
         <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Deine Registrierung ist eingegangen</h2>
         {/* The recovery path in the answer page's own words: no administrator may edit a stored
             address, so registering again is the only route back from a typo. */}
-        <p className="max-w-md muted-hint">
-          Wir haben Dir eine E-Mail mit einem Link geschickt. Erst wenn Du dort bestätigst, kann Dein Team Dich in den Kader aufnehmen.
-          Bestätigst Du nicht innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine
-          Mail bekommen? Prüfe die Adresse und registriere Dich einfach erneut.
-        </p>
-      </BestaetigungErgebnis>
+        <p className="max-w-md muted-hint">{COPY.registrierung.received(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)}</p>
+      </ConfirmationResult>
     );
   }
 
@@ -211,10 +210,10 @@ export function RegistrierungFormPanel({
         <div className={panel.body()}>
           <div className={FIELD_PAIR_CLASSES}>
             <TextField
-              name="vorname"
-              value={draft.vorname}
-              onChange={(next) => setDraft({ ...draft, vorname: next })}
-              onBlur={() => validateFields(["vorname"])}
+              name="first_name"
+              value={draft.first_name}
+              onChange={(next) => setDraft({ ...draft, first_name: next })}
+              onBlur={() => validateFields(["first_name"])}
               maxLength={KONTAKT_NAME_MAX_LENGTH}>
               <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
               <Input className={FIELD_INPUT_CLASSES} />
@@ -222,10 +221,10 @@ export function RegistrierungFormPanel({
             </TextField>
 
             <TextField
-              name="nachname"
-              value={draft.nachname}
-              onChange={(next) => setDraft({ ...draft, nachname: next })}
-              onBlur={() => validateFields(["nachname"])}
+              name="last_name"
+              value={draft.last_name}
+              onChange={(next) => setDraft({ ...draft, last_name: next })}
+              onBlur={() => validateFields(["last_name"])}
               maxLength={KONTAKT_NAME_MAX_LENGTH}>
               <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
               <Input className={FIELD_INPUT_CLASSES} />
@@ -269,7 +268,7 @@ export function RegistrierungFormPanel({
                 placeholder="Keine Angabe"
                 options={POSITION_OPTIONS}
                 value={draft.position}
-                onChange={(position) => setDraft({ ...draft, position: position })}
+                onChange={(position) => setDraft({ ...draft, position })}
               />
 
               {/* The season's own set, never `STUFE_OPTIONS`: `orderStufen` is what puts the invite's
@@ -280,7 +279,7 @@ export function RegistrierungFormPanel({
                 placeholder="Keine Angabe"
                 options={orderStufen(view.allowed_stufen)}
                 value={draft.stufe}
-                onChange={(stufe) => setDraft({ ...draft, stufe: stufe })}
+                onChange={(stufe) => setDraft({ ...draft, stufe })}
               />
             </div>
           </section>

@@ -9,9 +9,9 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
 import { spieltagLabel } from "@/features/spieltage/utils";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { saveSpieltag } from "./saveSpieltag";
 import { SpieltagEditor } from "./SpieltagEditor";
@@ -24,8 +24,8 @@ type Props = PageProps<"/admin/saisons/[saison]/spieltage/[spieltag]">;
 
 /** The matchday write's two dates, each required where its schema takes no empty one. */
 const REQUIRED = {
-  beginn: requires(SpieltagePatchSpieltagBody.shape.beginn, null),
-  ende: requires(SpieltagePatchSpieltagBody.shape.ende, null),
+  start: requires(SpieltagePatchSpieltagBody.shape.start, null),
+  end: requires(SpieltagePatchSpieltagBody.shape.end, null),
 };
 
 /** One read of the matchday by its id, its editor's one view read, for the tab's title and the page alike. */
@@ -36,7 +36,7 @@ const read = cache(getAdminSpieltag);
  * and for one of another season.
  */
 async function findSpieltag(params: Props["params"]): Promise<FLSpieltagAdminResponse | null> {
-  const spieltag = await objectIdParamOf(params, "spieltag");
+  const spieltag = await adminIdParamOf(params, "spieltag");
   const { saison } = await params;
   const view = spieltag === null ? null : await read(spieltag);
   return view === null || view.spieltag.saison_id !== saison ? null : view;
@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 export default function SpieltagEditorPage({ params }: Props) {
   return (
     <EditorShell
-      wait={{ sections: [[{ columns: 2, width: "C10" }]] }}
+      wait={{ sections: [[{ rows: 2, width: "C10" }]] }}
       editor={readEditor(params)}
     />
   );

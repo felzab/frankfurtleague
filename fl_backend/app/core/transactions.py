@@ -141,9 +141,6 @@ class Batch:
         self.ids: list[Any] = []
         self.taken: list[Any] | None = None
         self.refused: list[tuple[Any, Exception]] = []
-        # The reminder clocks' mailboxes a ban kept back, counted over the attempt's whole read: halves of a
-        # failed share read only the rows it took, so a count summed over them would miss every one.
-        self.withheld = 0
 
     def within(self, db_filter: Mapping[str, Any]) -> Mapping[str, Any]:
         """The clock's own filter, narrowed to a half of a failed read, or to the read without the rows passed over."""
@@ -164,7 +161,7 @@ class Batch:
 
         # Begun afresh before the read: the driver runs the callback again on a transient error, and an
         # attempt failing in its read would otherwise be halved over what an earlier attempt read.
-        self.ids, self.taken, self.refused, self.withheld = [], None, [], 0
+        self.ids, self.taken, self.refused = [], None, []
         rows = await read
         self.ids = [row["_id"] for row in rows]
         return rows

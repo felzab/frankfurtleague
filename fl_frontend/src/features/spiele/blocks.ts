@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatumWithWeekday, formatUhrzeit, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekdayAndYear, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -34,7 +34,7 @@ type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_que
 type Played = Pick<FLSpielJoined, "ergebnis" | "elfmeterschiessen" | "team1" | "team2">;
 
 /** What a match's row is built from: the public read's and the admin read's alike. */
-type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "datum" | "uhrzeit">;
+type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "date" | "time" | "sonderereignis">;
 
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
@@ -104,18 +104,35 @@ function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
 }
 
 /** When a match is played, as its row and its bracket card show it. */
-export const whenOf = (spiel: Pick<FLSpielJoined, "datum" | "uhrzeit">): Copy => COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit));
+export const whenOf = (spiel: Pick<FLSpielJoined, "date" | "time">): Copy => COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
 
 /**
  * The match editor's Vorschau: the match as it is stored, its pairing, when it is played and its result, else the
  * event that leaves it none, else that none is stored yet. A fact about the record, never its unsaved changes.
  */
-export function vorschauOf(spiel: Sides & Played & Pick<FLSpielJoined, "datum" | "uhrzeit" | "sonderereignis">): Copy {
+export function previewOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | "time" | "sonderereignis">): Copy {
   const { team1, team2 } = sidesOf(spiel);
   const tore = toreOf(spiel);
-  const result =
-    tore === null ? (ereignisOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
-  return COPY.admin.spiel.vorschau(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
+  const result = tore === null ? (eventOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
+  return COPY.admin.spiel.preview(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
+}
+
+/**
+ * What befell a match, as every list shows it: the event's chip over a muted row. A no-show's chip leaves the club
+ * to the struck side and says it to a screen reader, which hears no strike.
+ */
+function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<SpielRowProps, "chip" | "muted" | "absent"> {
+  const { sonderereignis } = spiel;
+  if (sonderereignis === null) return {};
+  const label = sonderereignisOf(sonderereignis, spiel);
+  if (sonderereignis !== "nichtantreten_team1" && sonderereignis !== "nichtantreten_team2") {
+    return { chip: { tone: "danger", label }, muted: true };
+  }
+  return {
+    chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtAngetretenChip, spoken: label },
+    muted: true,
+    absent: sonderereignis === "nichtantreten_team1" ? "team1" : "team2",
+  };
 }
 
 /**
@@ -130,6 +147,7 @@ export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
     when: spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
     ...sidesOf(spiel),
     ...resultOf(spiel),
+    ...befellOf(spiel),
   };
 }
 
@@ -165,29 +183,31 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
 }
 
 /**
- * The pop-up's facts under its head, each led by its glyph and each only where it holds a value: when and
- * where the match is played, and who referees it. The matchday stands in the head and the result in its
- * score, so neither is repeated here.
+ * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when and where the
+ * match is played, and who referees it. The matchday stands in the head and the result in its score, so
+ * neither is repeated here.
  */
 export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const { fact } = COPY.spielplan;
-  const day = dayOf(spiel.datum);
-  const time = timeOf(spiel.uhrzeit);
-  const facts: (Fact | null)[] = [
-    day === null ? null : { label: fact.datum, glyph: "calendar", value: { record: formatDatumWithWeekday(day) }, figures: true },
-    time === null ? null : { label: fact.uhrzeit, glyph: "uhrzeit", value: { record: formatUhrzeit(time) }, figures: true },
-    spiel.ort === null
-      ? null
+  const { noValue } = COPY.shared;
+  const day = dayOf(spiel.date);
+  const time = timeOf(spiel.time);
+  return [
+    { label: fact.date, glyph: "calendar", value: day === null ? noValue : { record: formatDateWithWeekdayAndYear(day) }, figures: true },
+    { label: fact.time, glyph: "time", value: time === null ? noValue : { record: formatTime(time) }, figures: true },
+    spiel.spielort === null
+      ? { label: fact.spielort, glyph: "spielorte", value: noValue }
       : {
           label: fact.spielort,
           glyph: "spielorte",
-          elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), label: { record: spiel.ort.name } },
+          elsewhere: { href: buildMapsSearchUrl(spiel.spielort.maps_link), label: { record: spiel.spielort.name } },
         },
-    spiel.schiedsrichter?.name == null
-      ? null
-      : { label: fact.schiedsrichter, glyph: "schiedsrichter", value: { record: spiel.schiedsrichter.name } },
+    {
+      label: fact.schiedsrichter,
+      glyph: "schiedsrichter",
+      value: spiel.schiedsrichter?.name == null ? noValue : { record: spiel.schiedsrichter.name },
+    },
   ];
-  return facts.filter((each) => each !== null);
 }
 
 /** What befell a match in a visitor's words: a no-show names the side that did not turn up. */
@@ -207,7 +227,7 @@ function sonderereignisOf(sonderereignis: FLSonderereignis, spiel: Sides): Copy 
  * What befell the match, for the callout under its head: what happened, and under it what that means for the
  * result; `null` where the match is simply played. A no-show's consequence names the side that turned up.
  */
-export function ereignisOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ergebnis">): { title: Copy; text: Copy } | null {
+export function eventOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ergebnis">): { title: Copy; text: Copy } | null {
   const sonderereignis = spiel.sonderereignis;
   if (sonderereignis === null) return null;
   const title = sonderereignisOf(sonderereignis, spiel);

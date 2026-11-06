@@ -5,11 +5,39 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 import { textOf } from "@/core/copy";
 
 import { MessageLine, RequiredMark } from "./FieldParts";
-import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
+import { messageLine, toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
+import { placeholderBar, PlaceholderSentence } from "./Skeleton";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
+
+/**
+ * A box while its record is read: the drawn box as a bar, its label as lines, wrapping as the label will, and its
+ * description's line where its record shows one.
+ */
+export function CheckboxPlaceholder({ label, description }: { label: string; description?: Copy }) {
+  return (
+    <div className={toggleField()}>
+      <span className={toggleRow({ in: "field" })}>
+        <span className={placeholderBar(toggleBox({ shape: "square", class: "border-transparent" }))} />
+        <PlaceholderSentence
+          text=""
+          words={label}
+        />
+      </span>
+      {description !== undefined && (
+        <div className={toggleLine()}>
+          <PlaceholderSentence
+            text={messageLine()}
+            words={description}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * A saved yes or no, such as a consent or „Startelf“ in a line-up: the drawn box, its label to the
@@ -38,8 +66,10 @@ export function Checkbox({
   defaultSelected?: boolean;
   onChange?: (isSelected: boolean) => void;
 }) {
+  const root = useEarlyEdit();
   return (
     <CheckboxField
+      ref={root}
       className={toggleField()}
       aria-describedby={described["aria-describedby"]}
       name={name}

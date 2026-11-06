@@ -244,7 +244,7 @@ async function seedPasskeys(userId: string, count: number, credentialIDs: readon
     const row = await adapter.create<Record<string, unknown>, { id: string }>({
       model: "passkey",
       data: {
-        userId: userId,
+        userId,
         credentialID: credentialIDs[index] ?? (index === count - 1 ? OWN_CREDENTIAL : `fl-passkey-db-${randomUUID()}`),
         publicKey: "fabricated-public-key",
         counter: 0,
@@ -379,7 +379,7 @@ describe("the sessions a removal ends, against a real database", () => {
     const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
 
     expect({
-      answer: answer,
+      answer,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
       warnings: [...warnings],
@@ -400,7 +400,7 @@ describe("the sessions a removal ends, against a real database", () => {
     const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
 
     expect({
-      answer: answer,
+      answer,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
       warnings: [...warnings],

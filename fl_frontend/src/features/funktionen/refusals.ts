@@ -18,9 +18,9 @@ const INHABER_ABMELDEN = `Diese Adresse gehört einer Inhaberin oder einem Inhab
 function mapper(worte: Readonly<Record<string, string>>): (error: unknown) => { error: string } | null {
   return (error) => {
     if (!isRefusal(error)) return null;
-    const satz = worte[error.serverErrorCode ?? ""];
+    const sentence = worte[error.serverErrorCode ?? ""];
 
-    return satz === undefined ? null : { error: satz };
+    return sentence === undefined ? null : { error: sentence };
   };
 }
 
@@ -46,7 +46,7 @@ export const mapLoeschungAufAnfrageRefusal = mapper(LOESCHEN_WORTE);
  * Whether a failed reveal answered one of the erasure's own refusals, which the panel says alone: a reveal the rule
  * refused has loaded, and calling it a list that failed to load invites a retry the rule refuses again.
  */
-export const isLoeschungRefusal = (satz: string): boolean => Object.values(LOESCHEN_WORTE).includes(satz);
+export const isLoeschungRefusal = (sentence: string): boolean => Object.values(LOESCHEN_WORTE).includes(sentence);
 
 /** The sign-out's refusals, in the sign-out's own words, `null` for the rest. */
 export const mapAbmeldungRefusal = mapper({ own_address: EIGENE_ADRESSE_ABMELDEN, admin_address: INHABER_ABMELDEN } satisfies Partial<

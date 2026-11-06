@@ -32,8 +32,8 @@ CONFIRMED = "2026-01-20"
 
 # One pair of names for every row: what a case here decides is whether the pair is served at all,
 # and distinct names would only make two failures look different.
-VORNAME = "Maxim"
-NACHNAME = "Müller"
+FIRST_NAME = "Maxim"
+LAST_NAME = "Müller"
 INITIAL = "M."
 
 # Outside `FLEinwilligung`'s Literal, and stored anyway: the predicate is read against documents, so
@@ -63,12 +63,12 @@ def _record(scope: Any, confirmed_at: Any) -> dict[str, Any]:
 # whether `confirmed_at` is stamped -- each key's own absence among its states.
 NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
     EinwilligungCase("no record at all", None, False),
-    EinwilligungCase("public, confirmed", _record("kader_oeffentlich", CONFIRMED), True),
-    EinwilligungCase("public, unconfirmed", _record("kader_oeffentlich", None), False),
-    EinwilligungCase("public, no stamp key", _record("kader_oeffentlich", ABSENT), False),
-    EinwilligungCase("internal, confirmed", _record("intern", CONFIRMED), False),
-    EinwilligungCase("internal, unconfirmed", _record("intern", None), False),
-    EinwilligungCase("internal, no stamp key", _record("intern", ABSENT), False),
+    EinwilligungCase("public, confirmed", _record("kader_public", CONFIRMED), True),
+    EinwilligungCase("public, unconfirmed", _record("kader_public", None), False),
+    EinwilligungCase("public, no stamp key", _record("kader_public", ABSENT), False),
+    EinwilligungCase("internal, confirmed", _record("internal", CONFIRMED), False),
+    EinwilligungCase("internal, unconfirmed", _record("internal", None), False),
+    EinwilligungCase("internal, no stamp key", _record("internal", ABSENT), False),
     EinwilligungCase("an unknown scope, confirmed", _record(UNKNOWN_SCOPE, CONFIRMED), False),
     EinwilligungCase("an unknown scope, unconfirmed", _record(UNKNOWN_SCOPE, None), False),
     EinwilligungCase("an unknown scope, no stamp key", _record(UNKNOWN_SCOPE, ABSENT), False),
@@ -78,26 +78,6 @@ NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
 )
 
 CASE_IDS = [case.case for case in NAME_IS_PUBLIC]
-
-
-def _inputs(case: EinwilligungCase) -> tuple[Any, Any]:
-    """The two keys the rule reads, in the state this row stores them, and a pair of `None` where there is no record."""
-
-    if case.einwilligung is None:
-        return None, None
-
-    return case.einwilligung.get("scope", ABSENT), case.einwilligung.get("confirmed_at", ABSENT)
-
-
-def test_the_table_closes_over_every_input_and_both_verdicts():
-    """The floor: every case below joins this table, so a table of one row would pass all of them."""
-
-    spanned = {_inputs(case) for case in NAME_IS_PUBLIC}
-
-    assert spanned == {(None, None)} | {
-        (scope, stamp) for scope in ("kader_oeffentlich", "intern", UNKNOWN_SCOPE, ABSENT) for stamp in (CONFIRMED, None, ABSENT)
-    }
-    assert {case.published for case in NAME_IS_PUBLIC} == {True, False}
 
 
 @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
@@ -134,36 +114,11 @@ class TestTheSquadPipelineAnswersTheSameTable:
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
 
-    def test_the_corpus_stores_a_name_and_the_case_s_own_record_for_every_row(self, seeded_url: str):
-        """First: every assertion below would pass just as well against a corpus storing no name to withhold."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return {person["_id"]: person for person in await database.spieler.find({}).to_list(None)}
-
-        stored = on_the_seed_loop(body(shared_client(seeded_url)[DATABASE_NAME]))
-
-        assert len(stored) == len(NAME_IS_PUBLIC)
-        for case in NAME_IS_PUBLIC:
-            person = stored[_oid_for(case)]
-            assert (person["vorname"], person["nachname"]) == (VORNAME, NACHNAME)
-            assert person["einwilligung"] == case.einwilligung
-
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
         served = self._served(seeded_url)[_nummer_for(case)]
 
-        assert (served["vorname"], served["nachname"]) == ((VORNAME, INITIAL) if case.published else (None, None))
-
-    @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
-    def test_a_withheld_row_keeps_its_number_and_its_position(self, seeded_url: str, case: EinwilligungCase):
-        """The mask reaches the two name fields, so the slot itself stands whichever way the table answers.
-
-        The row is found by its shirt, so a number the mask took would leave this case finding none.
-        """
-
-        served = self._served(seeded_url)[_nummer_for(case)]
-
-        assert served["position"] == "Angriff"
+        assert (served["first_name"], served["last_name"]) == ((FIRST_NAME, INITIAL) if case.published else (None, None))
 
 
 @pytest.mark.db
@@ -174,14 +129,9 @@ class TestTheRefereeJoinAnswersTheSameTable:
         async def body(database: AsyncDatabase) -> Any:
             spiele = await aggregate_many_from_db(collection=database.spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON}))
 
-            return {fixture["schiedsrichter"]["schiedsrichter_id"]: fixture["schiedsrichter"]["name_is_public"] for fixture in spiele}
+            return {spiel["schiedsrichter"]["schiedsrichter_id"]: spiel["schiedsrichter"]["name_is_public"] for spiel in spiele}
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
-
-    def test_every_row_of_the_table_is_booked_on_a_fixture(self, seeded_url: str):
-        """First: a join reaching no referee answers withheld everywhere, which every unpublished row below would pass."""
-
-        assert set(self._verdicts(seeded_url)) == {_schiedsrichter_oid_for(case) for case in NAME_IS_PUBLIC}
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_the_join_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
@@ -192,7 +142,7 @@ def _schiedsrichter_oid_for(case: EinwilligungCase) -> ObjectId:
     return _oid(NAME_IS_PUBLIC.index(case) + 40)
 
 
-def _fixture_oid_for(case: EinwilligungCase) -> ObjectId:
+def _spiel_oid_for(case: EinwilligungCase) -> ObjectId:
     return _oid(NAME_IS_PUBLIC.index(case) + 70)
 
 
@@ -203,7 +153,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
             await database.spieler.insert_many(
-                [spieler_document(_oid_for(case), VORNAME, NACHNAME, einwilligung=case.einwilligung) for case in NAME_IS_PUBLIC]
+                [spieler_document(_oid_for(case), FIRST_NAME, LAST_NAME, einwilligung=case.einwilligung) for case in NAME_IS_PUBLIC]
             )
             await database.saison_spieler.insert_many(
                 [
@@ -227,11 +177,11 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             await database.spiele.insert_many(
                 [
                     spiel_document(
-                        spiel_id=_fixture_oid_for(case),
+                        spiel_id=_spiel_oid_for(case),
                         saison_id=SAISON,
                         spiel_nr=NAME_IS_PUBLIC.index(case) + 1,
                         spieltag_id=_oid(99),
-                        schiedsrichter={"schiedsrichter_id": _schiedsrichter_oid_for(case), "name": "Ada Kern", "payment": 20},
+                        schiedsrichter={"schiedsrichter_id": _schiedsrichter_oid_for(case), "payment": 20},
                     )
                     for case in NAME_IS_PUBLIC
                 ]

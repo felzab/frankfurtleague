@@ -14,10 +14,10 @@ export interface PasskeyStepUp {
 
 /**
  * A confirmation is a fresh sign-in. Once the page's session has
- * ended, its challenge names nobody and any account's passkey answers it: `istInhaber` asks whose
+ * ended, its challenge names nobody and any account's passkey answers it: `isOwner` asks whose
  * session the assertion minted.
  */
-export function usePasskeyStepUp(istInhaber: () => Promise<boolean>): PasskeyStepUp {
+export function usePasskeyStepUp(isOwner: () => Promise<boolean>): PasskeyStepUp {
   const [isPending, setIsPending] = useState(false);
   const [refused, setRefused] = useState(false);
 
@@ -28,7 +28,7 @@ export function usePasskeyStepUp(istInhaber: () => Promise<boolean>): PasskeySte
     setRefused(false);
     try {
       const { error } = await authClient.signIn.passkey();
-      const confirmed = error === null && (await istInhaber());
+      const confirmed = error === null && (await isOwner());
       setRefused(!confirmed);
       return confirmed;
     } catch {
@@ -38,7 +38,7 @@ export function usePasskeyStepUp(istInhaber: () => Promise<boolean>): PasskeySte
     } finally {
       setIsPending(false);
     }
-  }, [istInhaber]);
+  }, [isOwner]);
 
   return { stepUp, isPending, refused };
 }

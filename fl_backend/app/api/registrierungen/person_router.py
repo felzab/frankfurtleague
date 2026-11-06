@@ -45,7 +45,7 @@ from app.api.registrierungen.services import (
     registrierung_ist_bestaetigt,
     traegt_wahlen,
 )
-from app.api.saisons.services import has_started
+from app.api.saisons.services import entry_is_a_nominee
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spieler.crud import refuse_a_full_squad
@@ -149,8 +149,8 @@ async def get_open_registrierungen(
                 {
                     "registrierung_id": row["_id"],
                     "submitted_at": row["submitted_at"],
-                    "vorname": row["vorname"],
-                    "nachname": row["nachname"],
+                    "first_name": row["first_name"],
+                    "last_name": row["last_name"],
                     "nummer": row.get("nummer"),
                     "position": row.get("position"),
                     "stufe": row.get("stufe"),
@@ -160,8 +160,8 @@ async def get_open_registrierungen(
                     if person is None
                     else {
                         "spieler_id": person["_id"],
-                        "vorname": person["vorname"],
-                        "nachname": person.get("nachname"),
+                        "first_name": person["first_name"],
+                        "last_name": person.get("last_name"),
                         "deviates_from": person_weicht_ab(registrierung_raw=row, spieler_raw=person),
                     },
                 }
@@ -192,7 +192,6 @@ async def admit(
     action_log_collection: ActionLogCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungAdmissionResponse:
     """
@@ -203,13 +202,14 @@ async def admit(
     asked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page
     leaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's
     name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
-    person, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs
-    stands, asked over the address this admission proves again.
+    person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
+    this admission proves again.
 
-    The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived
-    today; this person's retired row of this season is rewritten rather than a second one written, whichever team
-    it was on. The registration is deleted and its values redacted from the log in the same transaction, so a second
-    press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
+    The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
+    the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
+    row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
+    deleted and its values redacted from the log in the same transaction, so a second press meets no row. Its
+    submission key moves onto the squad row, so the submission replayed later stores nothing.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
     (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
@@ -241,9 +241,9 @@ async def admit(
         barred = await barred_addresses(ban_list, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session)
         refuse(find_barred_refusal(barred=bool(barred)))
 
-        # The one read of the season: its rules for the level and the cap, its `start_date` for the Nachnominierung marker.
+        # The one read of the season: its rules for the level and the cap, its window for the Nachnominierung marker.
         saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "start_date"], session=session
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
         )
         erlaubte_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
         refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=erlaubte_stufen))
@@ -264,6 +264,11 @@ async def admit(
         )
         refuse(find_schon_im_kader_refusal(kader_raw=kader_raw))
 
+        # The stored mark first: it is never lifted within its season, whatever the window has moved to since.
+        nominee = (kader_raw is not None and kader_raw["is_nachnominiert"]) or entry_is_a_nominee(
+            registrierung=saison_raw.get("registrierung"), day=registrierung_raw["submitted_at"]
+        )
+
         await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
@@ -271,6 +276,7 @@ async def admit(
             rules=saison_raw["rules"],
             team_id=team_id,
             spieler_id=spieler_id,
+            nominee=nominee,
             session=session,
         )
 
@@ -297,7 +303,7 @@ async def admit(
         kader_fields = compose_kader_fields(
             registrierung_raw=registrierung_raw,
             team_id=team_id,
-            is_nachnominiert=has_started(start_date=saison_raw["start_date"], today=today),
+            is_nachnominiert=nominee,
         )
         if kader_raw is None:
             await post_one_to_db(
@@ -334,8 +340,8 @@ async def admit(
             spieler_id=spieler_id,
             team_id=team_id,
             saison_id=saison_id,
-            vorname=registrierung_raw["vorname"],
-            nachname=registrierung_raw["nachname"],
+            first_name=registrierung_raw["first_name"],
+            last_name=registrierung_raw["last_name"],
             nummer=kader_fields["nummer"],
             position=kader_fields["position"],
             stufe=kader_fields["stufe"],
@@ -390,7 +396,7 @@ async def decline(
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
             # read finds nothing pending (`TestTheDecline`), so no status term is reached.
             db_filter={"_id": registrierung_id},
-            update=compose_ablehnung_update(by=identifier, grund=ablehnung_data.grund, today=today),
+            update=compose_ablehnung_update(by=identifier, reason=ablehnung_data.reason, today=today),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -409,13 +415,13 @@ async def decline(
                     OwedMail(
                         # A decline is taken once: a pending row is what this transaction reads, and it leaves that state.
                         key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
-                        an=str(registrierung_raw["email"]),
+                        to=str(registrierung_raw["email"]),
                         data=FLRegistrierungAbsageData(
                             kind="registrierung_absage",
-                            vorname=str(registrierung_raw["vorname"]),
+                            first_name=str(registrierung_raw["first_name"]),
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,
-                            grund=ablehnung_data.grund,
+                            reason=ablehnung_data.reason,
                         ),
                         reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     )
@@ -423,7 +429,7 @@ async def decline(
                 now=germany_now,
             )
 
-        return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
+        return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, first_name=registrierung_raw["first_name"])
 
     async with transaction_session(db) as session:
         return await session.with_transaction(decline_for_the_team)

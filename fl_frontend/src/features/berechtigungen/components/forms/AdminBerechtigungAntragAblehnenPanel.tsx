@@ -43,11 +43,11 @@ const WORTE = {
  */
 export function AdminBerechtigungAntragAblehnenPanel({
   antrag,
-  zeile,
+  row,
 }: {
   antrag: FLGrantApprovalRequestRow;
   /** What tells the row apart in the control's name: the address, or the request's moment where it is withheld. */
-  zeile: string;
+  row: string;
 }) {
   const { denied: verwehrt } = antrag;
   // Its requester withdraws it whatever else holds; anyone else is judged as an approver is.
@@ -86,7 +86,7 @@ export function AdminBerechtigungAntragAblehnenPanel({
             confirm={twoPress}
             reason={verwehrt === null || verwehrt === "started" ? null : ANTRAG_ENTSCHEIDEN_VERWEHRT[verwehrt]}
             resting={worte.resting}
-            restingName={benannt(worte.resting, zeile)}
+            restingName={benannt(worte.resting, row)}
             armed={worte.armed}
             running={worte.running}
             icon={

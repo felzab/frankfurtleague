@@ -325,8 +325,8 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["identity_sweep_erasure"],
-    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postLoeschungSweep"] },
-    runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
+    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postErasureSweep"] },
+    runners: ["src/features/saisons/sweep.ts"],
   },
   {
     operations: ["spielbestaetigungen_get_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
@@ -507,7 +507,7 @@ const handedOnError = (object) =>
  * it did not happen. `sent` is a public form's transport answer, whose `error` is no action's, in a
  * module posting one.
  */
-// Redesign: `gesendet` goes with the confirmation pages sessions 6 to 8 delete, the last spelling it.
+// Redesign: `gesendet` goes with the confirmation pages sessions 7 and 8 delete, the last spelling it.
 const SENT = "/^(?:sent|gesendet)$/";
 const FAILURE_BY_HAND = syntax(
   [
@@ -715,7 +715,6 @@ const SOURCE_BANS = [
         "account",
         "aktionen",
         "bewerbungen",
-        "einladungen",
         "funktionen",
         "registrierungen",
         "schiedsrichter",
@@ -797,9 +796,9 @@ const PALETTE =
 const COLOURED =
   "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
-/** The five keyframes and their module that each old page loses with its rebuild. */
+/** The three keyframes and their module that each old page loses with its rebuild. */
 // Session 8: goes with the last old page, with the two bans that read it.
-const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|card-enter|bracket-phase-enter|toast-timer";
+const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|toast-timer";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -829,11 +828,9 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The six code boxes are each an input, so the focus file's field rule draws the active box's edge;
-      // the table block is the one that writes a table; the kit's link writes the one plain anchor, its
+      // The table block is the one that writes a table; the kit's link writes the one plain anchor, its
       // full-document load, which neither Next's link nor React Aria's under the app's router makes.
       {
-        input: { allow: ["src/kit/CodeField.tsx"] },
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
         tr: TABLE_BLOCK,
@@ -891,6 +888,28 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/kit/EditorPage.tsx"] },
   ),
+  // A field on a native control loses what a person did before hydration unless its root holds `useEarlyEdit`, so the
+  // file of a new one joins this list having done that (`.claude/rules/frontend.md`), and its field joins the hook's test.
+  kitImport(
+    {
+      // The package's root is in the list too, since it exports every one of them.
+      regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorArea|ColorField|ColorSlider|ColorThumb|ColorWheel|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
+      message:
+        "A field on a native control holds `useEarlyEdit` on its root and a row of `src/kit/useEarlyEdit.test.tsx`, then joins this list.",
+    },
+    KIT,
+    {
+      allow: [
+        "src/kit/Checkbox.tsx",
+        "src/kit/CodeField.tsx",
+        "src/kit/ComboBox.tsx",
+        "src/kit/RadioGroup.tsx",
+        "src/kit/SearchField.tsx",
+        "src/kit/Switch.tsx",
+        "src/kit/TextField.tsx",
+      ],
+    },
+  ),
   // React Aria, the icon set and Next's link only inside the kit.
   ...[
     [String.raw`${packageUnder("react-aria", "react-aria-components")}|^@react-(?:aria|stately)\x2F`, "React Aria"],
@@ -931,19 +950,19 @@ const DESIGN_BANS = [
       ["Tooltip", "TooltipTrigger", "OverlayArrow"],
       "Tooltip",
       ["src/kit/Tooltip.tsx"],
-      "A tooltip is the kit's `Tooltip`, which an icon-only `Button` and a glyph segment render.",
+      "A tooltip is the kit's `Tooltip`, which an icon-only `Button`, a locked act's reason and a glyph segment render.",
     ],
     [
       ["Popover"],
       "Popover",
-      ["src/kit/HelpPopover.tsx", "src/kit/PlaquePopover.tsx", "src/kit/OptionList.tsx", "src/kit/DateField.tsx", "src/kit/Menu.tsx"],
-      "Help opens in `HelpPopover`, a club from its plaque in `PlaquePopover`; a list, a calendar and a menu open in their own control.",
+      ["src/kit/HelpPopover.tsx", "src/kit/OptionList.tsx", "src/kit/DateField.tsx", "src/kit/Menu.tsx"],
+      "Help opens in `HelpPopover`; a list, a calendar and a menu open in their own control.",
     ],
     [
       ["Dialog"],
       "Dialog",
-      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx", "src/kit/HelpPopover.tsx", "src/kit/PlaquePopover.tsx"],
-      "A dialog is the kit's `Dialog`, `Sheet`, `ConfirmDialog` or a pop-up's own (`HelpPopover`, `PlaquePopover`).",
+      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx", "src/kit/HelpPopover.tsx"],
+      "A dialog is the kit's `Dialog`, `Sheet`, `ConfirmDialog` or a pop-up's own (`HelpPopover`).",
     ],
     [
       ["Modal", "ModalOverlay"],
@@ -951,7 +970,19 @@ const DESIGN_BANS = [
       ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
       "The overlay is `Dialog`'s, `ConfirmDialog`'s and `Sheet`'s alone.",
     ],
+    [
+      ["Form"],
+      "Form",
+      ["src/kit/HeldForm.tsx", "src/kit/Dialog.tsx"],
+      "A server-drawn form is `HeldForm`, without which a press before hydration goes out as a GET; a client-drawn one is `Dialog`'s.",
+    ],
     [[String.raw`UNSTABLE_Toast\w*`], "Toast", ["src/kit/Toast.tsx"], "A toast is `appToast` through the kit's `Toast`."],
+    [
+      ["DateInput", "DateSegment"],
+      "(?:DateField|DatePicker|DateRangePicker|TimeField)",
+      ["src/kit/dateParts.tsx"],
+      "A date's segments are `Segments`' alone, which stand `inert` until the page's code runs: a digit typed sooner fails hydration.",
+    ],
   ].map(([names, subpath, homes, message]) =>
     kitImport(
       {
@@ -969,7 +1000,7 @@ const DESIGN_BANS = [
     {
       regex: kitModule("Tooltip"),
       message:
-        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons`, a link of the collapsed rail or `Link`'s icon-only placement, and nothing else.",
+        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons`, a link of the collapsed rail or `Link`'s icon-only placement, or says a locked act's reason, and nothing else.",
     },
     PRODUCTION,
     { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
@@ -982,10 +1013,11 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The six blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
-    // page header's title and a school's tile.
+    // The seven blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
+    // page header's title, a school's tile and a party's answer.
     {
       allow: [
+        "src/kit/AnswerRows.tsx",
         "src/kit/Table.tsx",
         "src/kit/Card.tsx",
         "src/kit/SpielRow.tsx",
@@ -1362,6 +1394,9 @@ const eslintConfig = defineConfig([
       // A zero-width or line-separator character in code, a comment or a template reads as nothing and
       // changes what the line means. Plain strings stay free for the typography's no-break spaces.
       "no-irregular-whitespace": "error",
+
+      // `token` rather than `token: token`. Properties alone: a function property keeps the shape it was written in.
+      "object-shorthand": ["error", "properties"],
     },
   },
 

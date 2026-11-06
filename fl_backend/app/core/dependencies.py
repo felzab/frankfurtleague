@@ -58,12 +58,16 @@ GrantApprovalRequestsCollection = Annotated[AsyncCollection, Depends(collection_
 
 OutboxCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.OUTBOX))]
 
+MailboxAnchorsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.MAILBOX_ANCHORS))]
+
 # The same collections typed for reading alone (`app/core/readonly.py`), for an operation the contract marks as
 # writing nothing (`app/core/routing.py :: SAFE`). The same dependency as the writable alias, so an override and
 # FastAPI's per-request cache both still key on it.
 SpieleReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELE))]
 
 SpielerReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELER))]
+
+SpieltageReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELTAGE))]
 
 TeamsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.TEAMS))]
 
@@ -90,6 +94,8 @@ GrantsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(C
 GrantsAnnouncedReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.GRANTS_ANNOUNCED))]
 
 SpielbestaetigungenReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
+
+SpielberichteReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELBERICHTE))]
 
 AddressChangeReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 

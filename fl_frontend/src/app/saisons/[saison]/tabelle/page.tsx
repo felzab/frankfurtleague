@@ -33,7 +33,7 @@ export default function TabellePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "tabelle" } }}
-      list={{ kind: "groups", head: HEAD, content: readGroups(params) }}
+      list={{ kind: "groups", head: HEAD, wait: { groups: 8, rows: 3 }, content: readGroups(params) }}
     />
   );
 }
@@ -41,18 +41,25 @@ export default function TabellePage({ params }: Props) {
 const { column } = SERVER_COPY.season;
 
 const COLUMNS: TableProps["columns"] = [
-  { key: "spiele", label: column.spiele, figures: true },
-  { key: "siege", label: column.siege, figures: true, hideOnPhone: true },
-  { key: "unentschieden", label: column.unentschieden, figures: true, hideOnPhone: true },
-  { key: "niederlagen", label: column.niederlagen, figures: true, hideOnPhone: true },
-  { key: "record", label: column.record, figures: true, phoneOnly: true },
-  { key: "tore", label: column.tore, figures: true },
+  { key: "spiele", label: column.spiele, figures: true, width: "marked" },
+  { key: "siege", label: column.siege, figures: true, hideOnPhone: true, width: "count" },
+  { key: "unentschieden", label: column.unentschieden, figures: true, hideOnPhone: true, width: "count" },
+  { key: "niederlagen", label: column.niederlagen, figures: true, hideOnPhone: true, width: "count" },
+  { key: "record", label: column.record, figures: true, phoneOnly: true, width: "pair" },
+  { key: "tore", label: column.tore, figures: true, width: "pair" },
   { key: "differenz", label: column.differenz, figures: true, hideOnPhone: true },
   { key: "punkte", label: column.punkte, figures: true, strong: true },
 ];
 
 /** Every group's table's head, drawn while the Tabelle is read and over each group's rows once it is. */
-const HEAD: TableHead = { nameLabel: column.team, rankLabel: column.platz, columns: COLUMNS, compact: true, chevronOnPhone: false };
+const HEAD: TableHead = {
+  nameLabel: column.team,
+  rankLabel: column.platz,
+  columns: COLUMNS,
+  compact: true,
+  chevronOnPhone: false,
+  plaqueAlone: true,
+};
 
 /**
  * One club's row: its place as the backend numbers it, level clubs sharing one and a club that has played no
@@ -61,7 +68,7 @@ const HEAD: TableHead = { nameLabel: column.team, rankLabel: column.platz, colum
  */
 function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: readonly FLTabelleRow[]): TableRow {
   const { statistik } = row;
-  const played = { record: formatNumber(statistik.count_gespielte_spiele) };
+  const played = { record: formatNumber(statistik.count_played_spiele) };
   const qualifying = row.platz !== null && row.platz <= qualifiers;
   // Level clubs share their place, and the bracket seeds none of them until the tie resolves.
   const level = rows.some((other) => other.id !== row.id && other.platz === row.platz);
@@ -76,13 +83,13 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: read
     muted: row.austritt_type !== null,
     ...(row.austritt_type === null ? {} : { chip: austrittChip(row.austritt_type) }),
     cells: {
-      spiele: statistik.count_abgesagte_spiele > 0 ? { value: played, cancelled: statistik.count_abgesagte_spiele } : played,
+      spiele: statistik.count_cancelled_spiele > 0 ? { value: played, cancelled: statistik.count_cancelled_spiele } : played,
       siege: { record: formatNumber(statistik.siege) },
       unentschieden: { record: formatNumber(statistik.unentschieden) },
       niederlagen: { record: formatNumber(statistik.niederlagen) },
       record: { counts: [statistik.siege, statistik.unentschieden, statistik.niederlagen] },
-      tore: { record: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }) },
-      differenz: { record: formatSigned(statistik.tore_geschossen - statistik.tore_kassiert) },
+      tore: { record: formatErgebnis({ team1: statistik.tore_scored, team2: statistik.tore_conceded }) },
+      differenz: { record: formatSigned(statistik.tore_scored - statistik.tore_conceded) },
       punkte: { record: formatNumber(statistik.punkte) },
     },
   };

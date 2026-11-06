@@ -42,13 +42,6 @@ describe("the pages a mail opens", () => {
   });
 });
 
-describe("the links every rail frame writes", () => {
-  // The rail's foot signed out, and the strip's and „Mehr“'s two legal pages.
-  it.each(["signIn", "legalNotice", "privacyNotice"] as const)("lead to a page answering at the %s row's address", (row) => {
-    expect(PAGES.has(ROUTES[row].path())).toBe(true);
-  });
-});
-
 /**
  * The league's own words an address carries, each by the glossary entry naming it: a segment is a plural or a
  * spelling of its entry's word, and the entry stands in the glossary's core entities or attributes.
@@ -72,7 +65,6 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
   spielbericht: "Spielbericht",
   tabelle: "Tabelle",
   "ko-runde": "K.-o.-Runde",
-  kuerzel: "Kürzel",
   kontakt: "kontakte",
 };
 
@@ -80,9 +72,9 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
  * Trees the rule does not hold yet, each by its address prefix, each gone with the pages it names.
  */
 const UNHELD = [
-  // Redesign: goes with the old admin pages, sessions 6 and 7.
+  // Redesign: goes with the old admin pages, session 7.
   "/area/admin",
-  // Redesign: goes with their last importers, sessions 6 and 8.
+  // Redesign: goes with their last importers, session 8.
   "/api/bestaetigung",
 ];
 

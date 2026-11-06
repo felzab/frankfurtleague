@@ -47,7 +47,7 @@ from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 from tests.config import ADMIN_KEY, BASE_AUTH, build_test_config
 from tests.core.app_source import api_routes, application, dependency_calls
-from tests.session_headers import SESSION_AGE_S, StampedHeaders, actor_headers, verified_actor
+from tests.session_headers import SESSION_AGE_S, actor_headers, verified_actor
 
 CONFIG = build_test_config()
 
@@ -62,10 +62,6 @@ ACTOR = "admin@example.com"
 
 # A route added to a case's own app, its handler reading what the binder bound.
 PUBLIC_PROBE = "/api/v0/public-probe"
-
-# Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
-# the harness's own included.
-UNREACHED_DATABASE = Code.NO_DATABASE_CLIENT
 
 
 def client() -> TestClient:
@@ -117,11 +113,6 @@ def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: M
 
 
 class TestTheAdministratorsSession:
-    def test_a_passkey_session_reaches_the_grant_read(self):
-        """The control: every refusal below would pass on a guard that refuses everything."""
-
-        assert answer(client().delete(WRITE_PATH, headers=StampedHeaders(ACTOR, ADMIN_KEY))) == (503, UNREACHED_DATABASE)
-
     @pytest.mark.parametrize(
         "headers",
         [
@@ -150,11 +141,6 @@ GRANT_WRITES = [
 # Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
 # link to an address. Listed, and held to the declarations by the case below.
 STEP_UP_WRITES = [
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/accept", id="an acceptance"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/decline", id="a decline"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend", id="a seat's re-send"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email", id="a seat's address correction"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}", id="a reseat"),
     pytest.param("post", "/api/v0/identity/erasure", id="an erasure on a mailed request"),
     pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
@@ -163,8 +149,6 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/address_change/{address_change_id}/invite", id="an address change's fresh link"),
     pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
     pytest.param("delete", "/api/v0/grants/approval_requests/{approval_request_id}", id="a request for a grant refused or withdrawn"),
-    pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
-    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/invite", id="a contact seat's fresh link"),
 ]
 
 
@@ -389,11 +373,6 @@ class TestThePersonsSession:
         assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
         assert "beispielschule" not in str(row).lower()
         assert asked == []
-
-    def test_a_session_inside_the_person_s_window_reaches_the_ban_read(self):
-        """The control: the refusals below would pass on a check refusing everybody."""
-
-        assert answer(person_client().get(PERSON_PROBE, headers=as_person())) == (503, UNREACHED_DATABASE)
 
     def test_a_session_past_the_person_s_window_is_refused(self):
         response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))

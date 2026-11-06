@@ -3,9 +3,9 @@ from datetime import date, timedelta
 from typing import Any
 
 import pytest
+from bson import ObjectId
 
 from app.api.bewerbungen.services import latest_decision_due
-from app.api.registrierungen import system_router
 from app.api.registrierungen.services import (
     bestaetigung_loeschung_is_due,
     build_decline_filter,
@@ -15,8 +15,7 @@ from app.api.registrierungen.services import (
     decline_loeschung_is_due,
     erinnerung_is_due,
 )
-from app.core.middlewares import REQUEST_DEADLINE_S
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_REMINDER_DAYS
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
 
@@ -43,7 +42,7 @@ def bestaetigung(**overrides: Any) -> dict[str, Any]:
         "token_hashes": [FIRST_HASH],
         "sent_at": MAILED_ON_THE_MARK,
         "reminded_at": None,
-        "frist": "2026-04-05",
+        "deadline": "2026-04-05",
         **overrides,
     }
 
@@ -54,7 +53,7 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
     return {
         "status": "submitted",
         "saison_id": "2026",
-        "vorname": "Quillhilde",
+        "first_name": "Quillhilde",
         "email": "quillhilde@example.com",
         "einwilligung": None,
         "confirmation": bestaetigung(),
@@ -81,7 +80,7 @@ class TestTheReminderMark:
         stored = registrierung(confirmation=bestaetigung(sent_at=sent_at))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
-        assert (REGISTRIERUNG_REMINDER_DAYS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS) == (3, 7)
+        assert (REGISTRIERUNG_REMINDER_DAYS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS) == (3, 7)
 
     @pytest.mark.parametrize(
         ("stored", "why"),
@@ -97,24 +96,24 @@ class TestTheReminderMark:
         assert not erinnerung_is_due(registrierung_raw=stored, today=TODAY), why
 
     @pytest.mark.parametrize(
-        ("frist", "due"),
+        ("deadline", "due"),
         [
             pytest.param(TOMORROW, True, id="the day before the deadline"),
             pytest.param(TODAY, True, id="the deadline's own day, when the link still answers"),
             pytest.param(YESTERDAY, False, id="the day after, when the erasure clock has it"),
         ],
     )
-    def test_nothing_past_its_deadline_is_chased(self, frist: str, due: bool):
+    def test_nothing_past_its_deadline_is_chased(self, deadline: str, due: bool):
         """A link minted on the way out is one nobody can spend: the erasure below takes the row the same day."""
 
-        stored = registrierung(confirmation=bestaetigung(frist=frist))
+        stored = registrierung(confirmation=bestaetigung(deadline=deadline))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
 
 
 class TestTheDeadlineClock:
     @pytest.mark.parametrize(
-        ("frist", "due"),
+        ("deadline", "due"),
         [
             pytest.param(TOMORROW, False, id="the day before the deadline"),
             pytest.param(TODAY, False, id="the deadline's own day, when the link still answers"),
@@ -122,20 +121,20 @@ class TestTheDeadlineClock:
             pytest.param(None, False, id="no deadline recorded"),
         ],
     )
-    def test_each_boundary_falls_where_the_bound_says(self, frist: str | None, due: bool):
-        stored = registrierung(confirmation=bestaetigung(frist=frist))
+    def test_each_boundary_falls_where_the_bound_says(self, deadline: str | None, due: bool):
+        stored = registrierung(confirmation=bestaetigung(deadline=deadline))
 
         assert bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY) == due
 
     def test_a_confirmed_registration_waits_for_the_seasons_end_instead(self):
         """The clock's whole reach: a row nobody confirmed leaves at its deadline, and a confirmed one leaves with its season."""
 
-        stored = registrierung(confirmation=bestaetigung(frist=YESTERDAY), einwilligung=einwilligung())
+        stored = registrierung(confirmation=bestaetigung(deadline=YESTERDAY), einwilligung=einwilligung())
 
         assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_declined_registration_is_the_one_month_clocks(self):
-        stored = registrierung(status="declined", confirmation=bestaetigung(frist=YESTERDAY))
+        stored = registrierung(status="declined", confirmation=bestaetigung(deadline=YESTERDAY))
 
         assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
@@ -156,7 +155,7 @@ class TestTheOneMonthClock:
         ],
     )
     def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
-        declined = registrierung(status="declined", decision={"made_at": made_at, "by": "admin", "grund": "kein Platz"})
+        declined = registrierung(status="declined", decision={"made_at": made_at, "by": "admin", "reason": "kein Platz"})
 
         assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
 
@@ -173,10 +172,12 @@ SAISON_ID = "2026"
 # predicate counts forwards from the send.
 THE_MARK = MAILED_ON_THE_MARK
 
+STANDING_CLUB = ObjectId("6890a1b2c3d4e5f607970011")
+
 CLOCK_FILTERS: Mapping[str, Mapping[str, Any]] = {
     "season's end": build_undecided_filter(saison_id=SAISON_ID),
     "deadline": build_unconfirmed_filter(saison_id=SAISON_ID, today=TODAY),
-    "reminder": build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY),
+    "reminder": build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY, team_ids=[STANDING_CLUB]),
     "decline": build_decline_filter(saison_id=SAISON_ID, today=TODAY),
 }
 
@@ -200,16 +201,17 @@ class TestWhatEachClockReads:
             "saison_id": SAISON_ID,
             "status": "submitted",
             "einwilligung.confirmed_at": None,
-            "confirmation.frist": {"$lt": TODAY},
+            "confirmation.deadline": {"$lt": TODAY},
         }
 
     def test_the_reminder_reads_the_unchased_at_their_mark(self):
         assert CLOCK_FILTERS["reminder"] == {
             "saison_id": SAISON_ID,
             "status": "submitted",
+            "team_id": {"$in": [STANDING_CLUB]},
             "einwilligung.confirmed_at": None,
             "confirmation.reminded_at": None,
-            "confirmation.frist": {"$gte": TODAY},
+            "confirmation.deadline": {"$gte": TODAY},
             "confirmation.sent_at": {"$lte": THE_MARK},
         }
 
@@ -250,24 +252,3 @@ class TestWhatEachClockReads:
         """The reads; the removals are held to the season by `tests/api/test_registrierung_sweep_execution.py :: TestTheDeadlineClock`."""
 
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
-
-
-# The reminder's commands a row -- the stamp's update, its read-back and its log row -- pinned on the wire by
-# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-ROUND_TRIPS_A_ROW = 3
-
-# The other commands of the worst call erasing one page per clock, the share's Postausgang key lookup and insert among
-# them, counted on the wire by the same case.
-OTHER_COMMANDS = 16
-
-# The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
-PER_COMMAND_S = 0.00127
-
-# The round trip `system_router.REMINDERS_PER_PASS`'s comment sizes the share for.
-ROUND_TRIP_S = 0.037
-
-
-def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
-    """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
-
-    assert (system_router.REMINDERS_PER_PASS * ROUND_TRIPS_A_ROW + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

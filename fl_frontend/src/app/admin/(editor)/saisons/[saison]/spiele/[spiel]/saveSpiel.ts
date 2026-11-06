@@ -17,7 +17,7 @@ import type { Copy } from "@/core/copy";
 import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 const { shape } = SpielePatchSpielBody;
-const [ortShape] = shape.ort.options;
+const [spielortShape] = shape.spielort.options;
 const [schiedsrichterShape] = shape.schiedsrichter.options;
 const [teamShape] = shape.team1.options;
 const [shootOutShape] = shape.elfmeterschiessen.options;
@@ -38,19 +38,19 @@ const SaveSpiel = z.object({
     .object({
       team1: z.union([teamShape.shape.team_id, z.null()]),
       team2: z.union([teamShape.shape.team_id, z.null()]),
-      datum: shape.datum,
-      uhrzeit: shape.uhrzeit,
-      spielort: z.union([ortShape.shape.spielort_id, z.null()]),
-      mietpreis: figure(ortShape.shape.mietpreis),
+      date: shape.date,
+      time: shape.time,
+      spielort: z.union([spielortShape.shape.spielort_id, z.null()]),
+      mietpreis: figure(spielortShape.shape.mietpreis),
       schiedsrichter: z.union([schiedsrichterShape.shape.schiedsrichter_id, z.null()]),
-      honorar: figure(schiedsrichterShape.shape.payment),
+      payment: figure(schiedsrichterShape.shape.payment),
       hasResult: z.boolean(),
       tore1: figure(z.int().min(0)),
       tore2: figure(z.int().min(0)),
       shootOut1: figure(shootOutShape.shape.team1),
       shootOut2: figure(shootOutShape.shape.team2),
       sonderereignis: z.preprocess((value) => (value === NO_SONDEREREIGNIS ? null : value), shape.sonderereignis),
-      notiz: shape.notiz,
+      note: shape.note,
     })
     .partial(),
 });
@@ -73,7 +73,7 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
   const spielort = changes.spielort === undefined ? stored.spielort : changes.spielort;
   const mietpreis = changes.mietpreis === undefined ? storedFigure(stored.mietpreis) : changes.mietpreis;
   const schiedsrichter = changes.schiedsrichter === undefined ? stored.schiedsrichter : changes.schiedsrichter;
-  const honorar = changes.honorar === undefined ? storedFigure(stored.honorar) : changes.honorar;
+  const payment = changes.payment === undefined ? storedFigure(stored.payment) : changes.payment;
   const sonderereignis = changes.sonderereignis === undefined ? saved.sonderereignis : changes.sonderereignis;
   const hasResult = changes.hasResult ?? stored.hasResult;
   const tore1 = changes.tore1 === undefined ? storedFigure(stored.tore1) : changes.tore1;
@@ -85,7 +85,7 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
   const required = COPY.shared.field.required;
   // A booking's price and fee are required while it is made.
   if (spielort !== null && mietpreis === null) fieldErrors["changes.mietpreis"] = required;
-  if (schiedsrichter !== null && honorar === null) fieldErrors["changes.honorar"] = required;
+  if (schiedsrichter !== null && payment === null) fieldErrors["changes.payment"] = required;
   // An entered result names both sides' goals, as a shoot-out does once either of its figures is typed.
   const scored = hasResult && !isNoShow(sonderereignis) && !takesNoResult(sonderereignis);
   if (scored && tore1 === null) fieldErrors["changes.tore1"] = required;
@@ -106,10 +106,10 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
   const shootOut = !takesShootOut || shootOut1 === null || shootOut2 === null ? null : { team1: shootOut1, team2: shootOut2 };
 
   return {
-    datum: changes.datum === undefined ? stored.datum : changes.datum,
-    uhrzeit: changes.uhrzeit === undefined ? stored.uhrzeit : changes.uhrzeit,
-    ort: spielort === null || mietpreis === null ? null : { spielort_id: spielort, mietpreis },
-    schiedsrichter: schiedsrichter === null || honorar === null ? null : { schiedsrichter_id: schiedsrichter, payment: honorar },
+    date: changes.date === undefined ? stored.date : changes.date,
+    time: changes.time === undefined ? stored.time : changes.time,
+    spielort: spielort === null || mietpreis === null ? null : { spielort_id: spielort, mietpreis },
+    schiedsrichter: schiedsrichter === null || payment === null ? null : { schiedsrichter_id: schiedsrichter, payment },
     team1,
     team2,
     // A hand-picked club no longer follows the side's source: the resolution keeps a side with none as it stands.
@@ -117,7 +117,7 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
     team2_quelle: changes.team2 === undefined ? saved.team2_quelle : null,
     elfmeterschiessen: shootOut,
     sonderereignis,
-    notiz: changes.notiz === undefined ? stored.notiz : changes.notiz,
+    note: changes.note === undefined ? stored.note : changes.note,
   };
 }
 

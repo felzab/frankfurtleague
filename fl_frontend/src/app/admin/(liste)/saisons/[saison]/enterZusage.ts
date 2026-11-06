@@ -16,10 +16,10 @@ export const enterZusage = action({
   name: "enterZusage",
   input: z.object({
     id: SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id,
-    begruendung: SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung,
+    reason: SpielbestaetigungenEnterSpielbestaetigungBody.shape.reason,
   }),
-  run: async ({ id, begruendung }) => {
-    await spielbestaetigungenEnterSpielbestaetigung(id, { begruendung });
+  run: async ({ id, reason }) => {
+    await spielbestaetigungenEnterSpielbestaetigung(id, { reason });
     return { ok: true, value: undefined };
   },
 });

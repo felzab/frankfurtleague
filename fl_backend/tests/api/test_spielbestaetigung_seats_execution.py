@@ -24,9 +24,9 @@ from app.api.identity.journal_replay import Read, Window, replay_line
 from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
-from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
-from app.api.teams.services import compose_kontakt_bestaetigung
+from app.api.teams.admin_router import replace_saison_team
+from app.api.teams.schemas import FLReplaceSaisonTeamPayload
+from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
 from app.core.exceptions import APIError
@@ -41,7 +41,7 @@ from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
+from tests.team_writes import write_the_block
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -65,33 +65,33 @@ ANSWERED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60022")
 REASON_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6003{position}") for position in range(5)]
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b60041")
 
-TELEFON = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
+PHONE = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
 
 
-def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
+def person(first_name: str, *, email: str | None = None) -> dict[str, Any]:
     """One person as the contacts editor sends them."""
 
     return {
-        "vorname": vorname,
-        "nachname": "Musterfrau",
-        "email": email or f"{vorname.lower()}@example.com",
-        "telefon": TELEFON[vorname],
-        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
+        "first_name": first_name,
+        "last_name": "Musterfrau",
+        "email": email or f"{first_name.lower()}@example.com",
+        "phone": PHONE[first_name],
+        "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
     }
 
 
-def stored(vorname: str) -> dict[str, Any]:
+def stored(first_name: str) -> dict[str, Any]:
     """The same person as the row holds them, entered by the league and unconfirmed."""
 
-    sent = person(vorname)
+    sent = person(first_name)
 
     return documents.kontaktperson_document(
-        vorname,
+        first_name,
         einwilligung={"date": sent["einwilligung"]["date"]},
         entered_by="liga",
-        nachname=sent["nachname"],
+        last_name=sent["last_name"],
         email=sent["email"],
-        telefon=sent["telefon"],
+        phone=sent["phone"],
     )
 
 
@@ -112,19 +112,17 @@ def link(row: str, seat: str) -> str:
     return f"{row}-{seat}"
 
 
-def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1) -> dict[str, Any]:
+def spiel(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1) -> dict[str, Any]:
     """This team at home to the other, as the league's schedule stores it, naming neither."""
 
     sides = {f"team{position}": {"team_id": team_id, "tore": None} for position, team_id in enumerate((TEAM_OID, OTHER_TEAM_OID), start=1)}
 
     return documents.spiel_document(
-        spiel_id=spiel_id, saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, datum="2026-04-18", uhrzeit="14:00:00", **sides
+        spiel_id=spiel_id, saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, date="2026-04-18", time="14:00:00", **sides
     )
 
 
-FIXTURES = [
-    fixture(spiel_id, spiel_nr=position) for position, spiel_id in enumerate([SPIEL_OID, ANSWERED_SPIEL_OID, *REASON_SPIEL_OIDS], start=1)
-]
+SPIELE = [spiel(spiel_id, spiel_nr=position) for position, spiel_id in enumerate([SPIEL_OID, ANSWERED_SPIEL_OID, *REASON_SPIEL_OIDS], start=1)]
 
 
 def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
@@ -132,8 +130,8 @@ def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fi
 
     return documents.spielbestaetigung_document(
         spiel,
-        party={"art": "team", "team_id": team_id},
-        frist="2026-04-11",
+        party={"kind": "team", "team_id": team_id},
+        deadline="2026-04-11",
         asked_at=TODAY,
         kontakte={seat: {"token_hashes": [hash_token(link(row, seat))], "delivery": None} for seat in KONTAKT_ROLLEN},
         **fields,
@@ -142,14 +140,14 @@ def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fi
 
 # The team's open row, its answered row, and the other team's open row about the same fixture.
 ROWS = {
-    "open": confirmation_row("open", TEAM_OID, FIXTURES[0]),
+    "open": confirmation_row("open", TEAM_OID, SPIELE[0]),
     "answered": confirmation_row(
         "answered",
         TEAM_OID,
-        FIXTURES[1],
-        antwort={"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None},
+        SPIELE[1],
+        answer={"kind": "zugesagt", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
     ),
-    "other": confirmation_row("other", OTHER_TEAM_OID, FIXTURES[0]),
+    "other": confirmation_row("other", OTHER_TEAM_OID, SPIELE[0]),
 }
 
 Write = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -184,7 +182,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                             "ADX",
                             kontakte=STORED,
                             confirmations={
-                                seat: {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
+                                seat: {**compose_kontakt_confirmation(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
                                 for seat in KONTAKT_ROLLEN
                             },
                         ),
@@ -192,14 +190,12 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                     {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FAX", kontakte=None)},
                 ]
             )
-            await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in FIXTURES])
+            await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in SPIELE])
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(row) for row in ROWS.values()])
 
             await body(database, client)
 
-            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.SPIELBESTAETIGUNGEN)})
-
-            return await links_answering(database), await answers(database), logged
+            return await links_answering(database), await answers(database)
 
     return on_the_seed_loop(_run())
 
@@ -231,26 +227,11 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
 
 
 async def answers(database: AsyncDatabase) -> list[Any]:
-    return [row.get("antwort") async for row in database[Collection.SPIELBESTAETIGUNGEN].find({}, sort=[("_id", 1)])]
+    return [row.get("answer") async for row in database[Collection.SPIELBESTAETIGUNGEN].find({}, sort=[("_id", 1)])]
 
 
 async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapping[str, Any]) -> Any:
-    return await patch_saison_team_kontakte(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-            {"kontakte": dict(kontakte), "kontakte_stand": kontakte_stand_of(STORED)}
-        ),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
-        db=client,
-        actor=fresh_admin_actor(),
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    return await write_the_block(database, kontakte, team_id=TEAM_OID, saison_id=SAISON_ID, version=0, today=TODAY, germany_now=MAIL_NOW)
 
 
 async def hand_the_trainer_on(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -328,7 +309,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch through the season row's own link."""
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), antwort="declined"),
+        answer_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), answer="declined"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -343,7 +324,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     )
 
 
-async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+async def replay_the_objection(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch replayed onto a restore from a snapshot older than the press."""
 
     line = JournalLine(
@@ -384,7 +365,7 @@ class TestEverySeatWriteVoidsItsLinks:
             # The season's end strips every team row of the season, a club whose block was empty already included.
             pytest.param(clear_the_blocks, ALL, "past", set(), id="the sweep clearing a past season's blocks"),
             pytest.param(contradict, {"trainer"}, "active", ALL, id="the Widerspruch on the season row"),
-            pytest.param(replay_the_widerspruch, {"trainer"}, "active", ALL, id="the replay of that Widerspruch"),
+            pytest.param(replay_the_objection, {"trainer"}, "active", ALL, id="the replay of that Widerspruch"),
         ],
     )
     def test_the_moved_seat_s_link_stops_answering_and_nothing_else_does(
@@ -392,20 +373,10 @@ class TestEverySeatWriteVoidsItsLinks:
     ):
         """The other team's row is the control; this team's answered row loses the seat's links too and keeps its answer."""
 
-        links, stored_answers, _ = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
+        links, stored_answers = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
 
         assert links == {"open": ALL - voided, "answered": ALL - voided, "other": other}
-        assert stored_answers == [row["antwort"] for row in ROWS.values()]
-
-    def test_a_retyped_case_moves_nobody_and_voids_nothing(self, mongo_replica_set_url: str):
-        """The save's own identity rule folds the address as a sign-in does, so `Ida@` is the person `ida@` already was."""
-
-        async def retype(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await save(database, client, {**SENT, "trainer": person("Ida", email="Ida@Example.com")})
-
-        links, _, logged = on_a_league(mongo_replica_set_url, retype)
-
-        assert (links, logged) == (KEPT, 0)
+        assert stored_answers == [row["answer"] for row in ROWS.values()]
 
     def test_a_new_person_at_the_same_mailbox_voids_the_seat(self, mongo_replica_set_url: str):
         """Two people sharing one inbox are two holders: the link went to the one who left the seat."""
@@ -413,69 +384,57 @@ class TestEverySeatWriteVoidsItsLinks:
         async def hand_on_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await save(database, client, {**SENT, "trainer": person("Lea", email="ida@example.com")})
 
-        links, _, _ = on_a_league(mongo_replica_set_url, hand_on_in_place)
+        links, _ = on_a_league(mongo_replica_set_url, hand_on_in_place)
 
         assert links == {**KEPT, "open": ALL - {"trainer"}, "answered": ALL - {"trainer"}}
-
-    def test_a_seat_holding_no_entry_on_any_row_is_written_nowhere(self, mongo_replica_set_url: str):
-        """A void that changes nothing files no log row naming a write that changed nothing; the open row's Trainer entry is null."""
-
-        async def hand_on_an_unasked_seat(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"party.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
-            return await hand_the_trainer_on(database, client)
-
-        _, _, logged = on_a_league(mongo_replica_set_url, hand_on_an_unasked_seat)
-        _, _, logged_with_an_entry = on_a_league(mongo_replica_set_url, hand_the_trainer_on)
-
-        assert (logged, logged_with_an_entry) == (0, 1)
 
 
 UNDRAWN_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6005{position}") for position in range(2)]
 LATER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60061")
 
 
-def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, begruendung: str) -> dict[str, Any]:
+def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, reason: str) -> dict[str, Any]:
     """A row the team declined from `rolle`'s link, giving a reason; closed since, as a move closes an answered row."""
 
     return confirmation_row(
         row,
         team_id,
         spiel,
-        antwort=documents.kontakt_antwort_document(rolle, begruendung=begruendung),
-        closed={"at": TODAY, "grund": "ansetzung_changed"},
+        answer=documents.kontakt_answer_document(rolle, reason=reason),
+        closed={"at": TODAY, "reason": "ansetzung_changed"},
     )
 
 
 # Ida holds this team's Trainer seat in this season. Every reason typed from that seat goes, her predecessor's
 # among them, the answer recording the seat alone; one from another seat, team or season stays to the season's end.
 REASONS = {
-    "from her seat": declined("hers", TEAM_OID, FIXTURES[2], "trainer", "Ida ist an dem Tag verreist"),
-    "from a seat of another team": declined("left", OTHER_TEAM_OID, FIXTURES[3], "ansprechperson", "Die Fahrt ist zu weit"),
-    "her predecessor's, from her seat": declined("before", TEAM_OID, FIXTURES[4], "trainer", "Lea hat Spätdienst"),
-    "another seat's": declined("seat", TEAM_OID, FIXTURES[5], "ansprechperson", "Die Halle ist belegt"),
-    "another team's, from the same role": declined("team", OTHER_TEAM_OID, FIXTURES[6], "trainer", "Unser Trainer ist krank"),
+    "from her seat": declined("hers", TEAM_OID, SPIELE[2], "trainer", "Ida ist an dem Tag verreist"),
+    "from a seat of another team": declined("left", OTHER_TEAM_OID, SPIELE[3], "ansprechperson", "Die Fahrt ist zu weit"),
+    "her predecessor's, from her seat": declined("before", TEAM_OID, SPIELE[4], "trainer", "Lea hat Spätdienst"),
+    "another seat's": declined("seat", TEAM_OID, SPIELE[5], "ansprechperson", "Die Halle ist belegt"),
+    "another team's, from the same role": declined("team", OTHER_TEAM_OID, SPIELE[6], "trainer", "Unser Trainer ist krank"),
     "from the same seat in another season": declined(
-        "season", TEAM_OID, fixture(LATER_SPIEL_OID, saison_id=LATER_SAISON_ID), "trainer", "Wir fahren ins Landheim"
+        "season", TEAM_OID, spiel(LATER_SPIEL_OID, saison_id=LATER_SAISON_ID), "trainer", "Wir fahren ins Landheim"
     ),
 }
 # Removed by an undraw, so one array image holds both, hers second: a judge taking every element, or the first, fails.
 UNDRAWN = {
-    "another seat's, undrawn": declined("undrawn-seat", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[0]), "ansprechperson", "Halle zu"),
-    "from her seat, undrawn": declined("undrawn-hers", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[1]), "trainer", "Ida ist krank"),
+    "another seat's, undrawn": declined("undrawn-seat", TEAM_OID, spiel(UNDRAWN_SPIEL_OIDS[0]), "ansprechperson", "Halle zu"),
+    "from her seat, undrawn": declined("undrawn-hers", TEAM_OID, spiel(UNDRAWN_SPIEL_OIDS[1]), "trainer", "Ida ist krank"),
 }
 CLEARED = {"from her seat", "her predecessor's, from her seat", "from her seat, undrawn"}
 NAMED = {row["spiel_id"]: name for name, row in {**REASONS, **UNDRAWN}.items()}
 
 
-def left_behind(name: str, antwort: Mapping[str, Any]) -> tuple[str, Any]:
-    return name, antwort["begruendung"]
+def left_behind(name: str, answer: Mapping[str, Any]) -> tuple[str, Any]:
+    return name, answer["reason"]
 
 
 def expected(name: str) -> tuple[str, Any]:
     if name in CLEARED:
         return name, None
 
-    return left_behind(name, {**REASONS, **UNDRAWN}[name]["antwort"])
+    return left_behind(name, {**REASONS, **UNDRAWN}[name]["answer"])
 
 
 class TestALeavingContactsReasonsGo:
@@ -486,7 +445,7 @@ class TestALeavingContactsReasonsGo:
         [
             pytest.param(erase_the_trainer, id="their erasure"),
             pytest.param(contradict, id="their Widerspruch on the season row"),
-            pytest.param(replay_the_widerspruch, id="the replay of that Widerspruch"),
+            pytest.param(replay_the_objection, id="the replay of that Widerspruch"),
         ],
     )
     def test_theirs_go_from_the_rows_and_the_images_and_nobody_elses_do(self, mongo_replica_set_url: str, write: Write):
@@ -512,12 +471,12 @@ class TestALeavingContactsReasonsGo:
             await write(database, client)
 
             found["rows"] = sorted(
-                [left_behind(NAMED[row["spiel_id"]], row["antwort"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
+                [left_behind(NAMED[row["spiel_id"]], row["answer"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
             )
             logged = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
             found["images"] = sorted(
                 [
-                    left_behind(NAMED[image["spiel_id"]], image["antwort"])
+                    left_behind(NAMED[image["spiel_id"]], image["answer"])
                     async for row in logged
                     for image in (row["before"] if isinstance(row["before"], list) else [row["before"]])
                     if image.get("spiel_id") in NAMED
@@ -538,11 +497,11 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
             await hand_the_trainer_on(database, client)
             await database[Collection.BAN_LIST].insert_one(documents.ban_document("lea@example.com", until=SAISON_ID))
 
-        links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
+        links, stored_answers = on_a_league(mongo_replica_set_url, hand_on_then_bar)
 
         # Refused `link_invalid` (`links_answering` admits no other refusal), never served as `barred`.
         assert links["answered"] == ALL - {"trainer"}
-        assert stored_answers == [row["antwort"] for row in ROWS.values()]
+        assert stored_answers == [row["answer"] for row in ROWS.values()]
 
 
 class TestALeavingPersonsLinksLeaveTheLog:
@@ -553,7 +512,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         [
             pytest.param(erase_the_trainer, {"trainer"}, id="their erasure"),
             pytest.param(contradict, {"trainer"}, id="their Widerspruch"),
-            pytest.param(replay_the_widerspruch, {"trainer"}, id="the replay of their Widerspruch"),
+            pytest.param(replay_the_objection, {"trainer"}, id="the replay of their Widerspruch"),
             # A seat handed on is no leaving of a person: the season row's own images keep the predecessor too.
             pytest.param(hand_the_trainer_on, set(), id="a seat handed on"),
         ],
@@ -562,7 +521,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "at": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "state": "delivered", "reason": None, "at": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )

@@ -1,4 +1,4 @@
-import { SPERRLISTE_EINTRAG } from "@/features/admin/constants";
+import { BAN_LIST_ENTRY } from "@/features/admin/constants";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 /**
@@ -48,7 +48,7 @@ export const SPERRE_MIT_FOLGEN = "Mit Folgen gesperrt";
 /** The ban dialog's one press, read and armed by its first press and sent by its second. */
 export const SPERRE_PRESS = {
   resting: "Adresse sperren",
-  // No „endgültig“, which the list's own lift makes false, as `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` omits it.
+  // No „endgültig“, which the list's own lift makes false.
   armed: "Ja, Adresse sperren",
   running: "Sperrt...",
   // The exact negation of `SPERRE_ERFOLG`, so a refused ban reads in the same words as a saved one.
@@ -122,7 +122,7 @@ const ADRESSE_AUF_DER_SPERRLISTE = "Diese E-Mail-Adresse steht auf der Sperrlist
 export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
   reason: ADRESSE_AUF_DER_SPERRLISTE,
   repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },
-  where: SPERRLISTE_EINTRAG.label,
+  where: BAN_LIST_ENTRY.label,
 });
 
 /**
@@ -132,5 +132,5 @@ export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
 export const SPERRLISTE_ADRESSE_GESPERRT_FELD = buildRefusal({
   reason: ADRESSE_AUF_DER_SPERRLISTE,
   repair: { before: "Hebe die Sperre", after: "auf" },
-  where: SPERRLISTE_EINTRAG.label,
+  where: BAN_LIST_ENTRY.label,
 });

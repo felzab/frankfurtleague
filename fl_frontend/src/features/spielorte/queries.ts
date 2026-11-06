@@ -1,4 +1,4 @@
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { spielorteGetSpielort, spielorteGetSpielorte } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
@@ -20,13 +20,5 @@ export async function getSpielorte(filters: SpielorteGetSpielorteParams = {}): P
  * the id, which the editor answers with its not-found page. Uncached for the list's reason.
  */
 export async function getSpielort(spielortId: string): Promise<FLSpielort | null> {
-  return runAdminRead(() =>
-    spielorteGetSpielort(spielortId).then(
-      ({ spielort }) => spielort,
-      (error: unknown) => {
-        if (isRecordMissing(error)) return null;
-        throw error;
-      },
-    ),
-  );
+  return runAdminRead(() => orMissing(spielorteGetSpielort(spielortId).then(({ spielort }) => spielort)));
 }

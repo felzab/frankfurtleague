@@ -47,7 +47,7 @@ SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607830001")
 NAME = "Ortwin Pfeiffenberger"
 EMAIL = "ortwin.pfeiffenberger@example.com"
 NEW_EMAIL = "o.pfeiffenberger@neuepost.example.org"
-TELEFON = "+49 69 5550303"
+PHONE = "+49 69 5550303"
 GRUND = "Postfach gelöscht, telefonisch unter der hinterlegten Nummer bestätigt am 21.10.2026"
 
 
@@ -59,7 +59,7 @@ def referee_document(**overrides: Any) -> dict[str, Any]:
         "name": NAME,
         "schule": "Bettina-Schule",
         "default_payment": 20,
-        "kontakt": {"telefon": TELEFON, "email": EMAIL},
+        "kontakt": {"phone": PHONE, "email": EMAIL},
         "inactive_since": None,
         "version": 0,
         **overrides,
@@ -89,11 +89,11 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
             (mail,) = await drained(database, client)
             if confirmed:
                 await post_confirmation(
-                    antwort_data=FLSchiedsrichterConfirmationPayload.model_validate(
+                    answer_data=FLSchiedsrichterConfirmationPayload.model_validate(
                         {
                             "token": mail.token,
-                            "geburtsdatum": "1984-05-09",
-                            "scope": "kader_oeffentlich",
+                            "birth_date": "1984-05-09",
+                            "scope": "kader_public",
                             "media": True,
                             "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
                         }
@@ -120,7 +120,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
                 "name": NAME,
                 "schule": "Bettina-Schule",
                 "default_payment": 25,
-                "kontakt": {"telefon": TELEFON, "email": email},
+                "kontakt": {"phone": PHONE, "email": email},
                 "version": served["version"],
             }
         ),
@@ -212,5 +212,5 @@ class TestAnUnconfirmedReferee:
         saved, mail, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
 
         assert saved.confirmation is not None
-        assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
+        assert (mail.to, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(mail.token))]

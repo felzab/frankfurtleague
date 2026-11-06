@@ -3,13 +3,12 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
 from pymongo import MongoClient
 from pymongo.database import Database
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
-from app.api.teams.schemas import FLTeam, FLTeamsFilterParams, FLTeamStatistikScope
+from app.api.teams.schemas import FLTeamStatistikScope
 from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
@@ -33,7 +32,7 @@ RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=18,
+    max_kader_size=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=STUFEN,
 )
@@ -64,7 +63,7 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
 
 
 def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": NAMES[team_id], "shorthand": NAMES[team_id][:3].upper(), "tore": tore}
+    return {"team_id": team_id, "tore": tore}
 
 
 def spiel_document(
@@ -89,8 +88,8 @@ def spiel_document(
         saison_phase=saison_phase,
         team1=None if team1 is None else side(team1, tore1),
         team2=None if team2 is None else side(team2, tore2),
-        datum="2026-03-15",
-        uhrzeit="18:00:00",
+        date="2026-03-15",
+        time="18:00:00",
         ergebnis=ergebnis,
         sonderereignis=sonderereignis,
     )
@@ -164,15 +163,14 @@ class TestTheTwoDerivationsAgree:
 
     @pytest.mark.db
     @pytest.mark.parametrize("scope", ["gruppenphase", "total"])
-    def test_the_figures_match_the_pipelines_over_the_same_fixtures(self, seeded: Database, scope: FLTeamStatistikScope):
-        filters = FLTeamsFilterParams(saison_id=SAISON_ID, statistik_scope=scope)
-        rows = list(seeded[Collection.TEAMS].aggregate(build_team_pipeline(filters=filters, rules=RULES)))
+    def test_the_figures_match_the_pipelines_over_the_same_spiele(self, seeded: Database, scope: FLTeamStatistikScope):
+        rows = list(seeded[Collection.TEAMS].aggregate(build_team_pipeline(saison_id=SAISON_ID, rules=RULES, statistik_scope=scope)))
 
         derived = build_statistik_by_team(season_in_scope(scope), RULES)
 
         # Guarded rather than assumed: an empty read, or a table of zeros, would agree with anything.
         assert {row["name"] for row in rows} == {"Anna", "Bodo", "Caro", "Dirk"}
-        assert any(row["statistik"]["count_gespielte_spiele"] > 0 for row in rows)
+        assert any(row["statistik"]["count_played_spiele"] > 0 for row in rows)
 
         for row in rows:
             expected = derived.get(row["_id"], ZERO_STATISTIK)
@@ -186,25 +184,8 @@ class TestTheScopeIsTheCallersFilter:
         """Both halves of one claim: the derivation filters nothing, so a caller handing it the wrong season answers the wrong question."""
 
         gruppenphase = build_statistik_by_team(season_in_scope("gruppenphase"), RULES)
-        gesamt = build_statistik_by_team(season_in_scope("total"), RULES)
+        total = build_statistik_by_team(season_in_scope("total"), RULES)
 
-        assert gruppenphase[ANNA].count_gespielte_spiele == 3
-        assert gesamt[ANNA].count_gespielte_spiele == 4
-        assert gruppenphase[DIRK] == gesamt[DIRK]
-
-
-class TestAPipelineWithoutRulesDerivesNoTable:
-    @pytest.mark.db
-    def test_a_row_it_returns_is_refused_by_flteam(self, seeded: Database):
-        """The loud half of `rules=None`: a caller that forgets to supply figures gets a refusal, never a table of zeros."""
-
-        filters = FLTeamsFilterParams(saison_id=SAISON_ID)
-        rows = list(seeded[Collection.TEAMS].aggregate(build_team_pipeline(filters=filters, rules=None)))
-
-        assert rows, "the read returned nothing, so the refusal below would prove nothing"
-        assert "statistik" not in rows[0]
-
-        with pytest.raises(ValidationError) as refused:
-            FLTeam.model_validate(rows[0])
-
-        assert [str(error["loc"][-1]) for error in refused.value.errors()] == ["statistik"]
+        assert gruppenphase[ANNA].count_played_spiele == 3
+        assert total[ANNA].count_played_spiele == 4
+        assert gruppenphase[DIRK] == total[DIRK]

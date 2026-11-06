@@ -8,7 +8,7 @@ import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
-import { FieldColumns } from "@/kit/FieldColumns";
+import { FieldRows } from "@/kit/FieldRows";
 import { SectionAct } from "@/kit/SectionAct";
 import { Select } from "@/kit/Select";
 import { Table } from "@/kit/Table";
@@ -16,7 +16,7 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
-import { formatDatum, formatNumber } from "@/core/format";
+import { dayBefore, formatDate, formatNumber } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
@@ -28,13 +28,13 @@ import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
-import type { TableRow } from "@/kit/Table";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SaisonValues } from "./saisonValues";
 
 const WORDS = COPY.admin.saison;
 const SPIELPLAN = COPY.page.spielplan;
-const TEAM = COPY.account.entries.facts.team;
+const TEAM = COPY.shared.facts.team;
 
 const TIEBREAK: readonly Option[] = [
   { id: "tordifferenz", label: WORDS.tordifferenz },
@@ -73,8 +73,8 @@ export type SaisonFacts = {
   locked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
 
-/** The registration links: each team's row, and how many teams the press would mail. */
-export type SaisonLinks = { rows: readonly TableRow[]; mailed: number };
+/** The registration links: their table's head and each team's row, and how many teams the press would mail. */
+export type SaisonLinks = { head: TableHead; rows: readonly TableRow[]; mailed: number };
 
 /** The acts the editor's sections and its danger rows press, each a server action naming its season. */
 export type SaisonActs = {
@@ -243,14 +243,13 @@ export function SaisonEditor({
 
   const sections: [EditorSection, ...EditorSection[]] = [
     {
-      id: "zeitraum",
-      title: WORDS.zeitraum,
+      id: "period",
+      title: WORDS.period,
       ...(facts.takenPlace ? { note: WORDS.startFixed } : {}),
       fields: (
-        // A season's two days, sharing their row at every width.
-        <FieldColumns>
+        <FieldRows>
           <DateField
-            label={WORDS.beginn}
+            label={WORDS.start}
             name="start"
             isRequired={required.start}
             isDisabled={facts.takenPlace}
@@ -258,24 +257,26 @@ export function SaisonEditor({
             onChange={(day) => set("start", day)}
           />
           <DateField
-            label={WORDS.ende}
+            label={WORDS.end}
             name="end"
             isRequired={required.end}
             value={draft.end}
             onChange={(day) => set("end", day)}
+            // A span ending before it begins is refused here, before the write sees it.
+            {...(draft.start === null ? {} : { minValue: draft.start })}
           />
-        </FieldColumns>
+        </FieldRows>
       ),
     },
     {
-      id: "wertung",
-      title: WORDS.wertung,
-      help: WORDS.wertungHelp,
+      id: "scoring",
+      title: WORDS.scoring,
+      help: WORDS.scoringHelp,
       // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
       ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <>
-          <FieldColumns label={WORDS.punkte}>
+          <FieldRows label={WORDS.punkte}>
             <TextField
               label={WORDS.winPoints}
               name="winPoints"
@@ -306,7 +307,7 @@ export function SaisonEditor({
               value={draft.lossPoints}
               onChange={(value) => set("lossPoints", value)}
             />
-          </FieldColumns>
+          </FieldRows>
           <Select
             label={WORDS.tiebreak}
             name="tiebreak"
@@ -320,7 +321,7 @@ export function SaisonEditor({
             }}
           />
           {/* The goals a no-show is scored with, named as one value: their own labels say no more than a score's. */}
-          <FieldColumns label={WORDS.forfeit}>
+          <FieldRows label={WORDS.forfeit}>
             <TextField
               label={WORDS.forfeitWinner}
               name="forfeitWinner"
@@ -339,7 +340,7 @@ export function SaisonEditor({
               value={draft.forfeitLoser}
               onChange={(value) => set("forfeitLoser", value)}
             />
-          </FieldColumns>
+          </FieldRows>
         </>
       ),
     },
@@ -350,7 +351,7 @@ export function SaisonEditor({
       ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <>
-          <FieldColumns>
+          <FieldRows>
             <TextField
               label={WORDS.gruppen}
               name="gruppen"
@@ -371,7 +372,7 @@ export function SaisonEditor({
               value={draft.teamsPerGruppe}
               onChange={(value) => set("teamsPerGruppe", value)}
             />
-          </FieldColumns>
+          </FieldRows>
           <Select
             label={WORDS.qualifiers}
             name="qualifiers"
@@ -416,22 +417,32 @@ export function SaisonEditor({
       id: "bewerbungsfenster",
       title: WORDS.bewerbungsfenster,
       fields: (
-        <FieldColumns>
-          <DateField
-            label={WORDS.beginn}
-            name="bewerbungStart"
-            isRequired={bewerbungSet && required.bewerbungStart}
-            value={draft.bewerbungStart}
-            onChange={(day) => set("bewerbungStart", day)}
+        <>
+          <FieldRows>
+            <DateField
+              label={WORDS.start}
+              name="bewerbungStart"
+              isRequired={bewerbungSet && required.bewerbungStart}
+              value={draft.bewerbungStart}
+              onChange={(day) => set("bewerbungStart", day)}
+            />
+            <DateField
+              label={WORDS.end}
+              name="bewerbungEnd"
+              isRequired={bewerbungSet && required.bewerbungEnd}
+              value={draft.bewerbungEnd}
+              onChange={(day) => set("bewerbungEnd", day)}
+              // A span ending before it begins is refused here, before the write sees it.
+              {...(draft.bewerbungStart === null ? {} : { minValue: draft.bewerbungStart })}
+            />
+          </FieldRows>
+          <Checkbox
+            label={WORDS.bewerbungPaused}
+            name="bewerbungPaused"
+            isSelected={draft.bewerbungPaused}
+            onChange={(paused) => set("bewerbungPaused", paused)}
           />
-          <DateField
-            label={WORDS.ende}
-            name="bewerbungEnd"
-            isRequired={bewerbungSet && required.bewerbungEnd}
-            value={draft.bewerbungEnd}
-            onChange={(day) => set("bewerbungEnd", day)}
-          />
-        </FieldColumns>
+        </>
       ),
     },
     {
@@ -440,10 +451,11 @@ export function SaisonEditor({
       fields: (
         <>
           <DateField
-            label={WORDS.ende}
+            label={WORDS.end}
             name="registrierungEnd"
             value={draft.registrierungEnd}
             onChange={(day) => set("registrierungEnd", day)}
+            {...(draft.start === null ? {} : { maxValue: dayBefore(draft.start) })}
           />
           <Checkbox
             label={WORDS.registrierungPaused}
@@ -471,9 +483,11 @@ export function SaisonEditor({
             facts={[
               { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
               { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
-              ...(facts.spielplan.drawnOn === null
-                ? []
-                : [{ label: WORDS.drawnOn, value: { record: formatDatum(facts.spielplan.drawnOn) }, figures: true }]),
+              {
+                label: WORDS.drawnOn,
+                value: facts.spielplan.drawnOn === null ? COPY.shared.noValue : { record: formatDate(facts.spielplan.drawnOn) },
+                figures: true,
+              },
             ]}
           />
         ),
@@ -492,8 +506,8 @@ export function SaisonEditor({
       ),
     },
     {
-      id: "ersatz",
-      title: WORDS.ersatz,
+      id: "replacement",
+      title: WORDS.replacement,
       ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <Replacement
@@ -522,9 +536,8 @@ export function SaisonEditor({
           }}
           run={() => acts.sendLinks({ saison_id: saison })}>
           <Table
+            {...links.head}
             label={WORDS.registrierungslinks}
-            nameLabel={TEAM}
-            columns={[{ key: "link", label: COPY.account.address.link }]}
             rows={links.rows}
             empty={{ kind: "none", plural: COPY.page.teams, glyph: "teams" }}
             bare

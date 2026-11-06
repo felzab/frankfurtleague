@@ -18,7 +18,7 @@ const BEREICH = { href: "/area", label: DEIN_BEREICH_TITEL };
 export function TeamForbiddenPanel({ funktionen }: { funktionen: readonly Role[] }) {
   // One way out per team and season, however many seats there lead to it.
   const sitze = zieleOf(funktionen.filter((funktion) => funktion.kind === "kontakt")).flatMap(({ href, funktionen: [erste] }) =>
-    erste.kind === "kontakt" ? [{ href: href, label: `${erste.team_name}, Saison ${erste.saison_id}` }] : [],
+    erste.kind === "kontakt" ? [{ href, label: `${erste.team_name}, Saison ${erste.saison_id}` }] : [],
   );
   // A player's, a referee's or the administration's page is reached through the person's own area, so
   // every Funktion the person holds stays one press away from the refusal.
@@ -60,7 +60,7 @@ function wegOf(link: { href: string; label: string }, intent: "primary" | "outli
       key={link.href}
       href={link.href}
       prefetch={false}
-      className={ctaButton({ intent: intent, hover: "css" })}>
+      className={ctaButton({ intent, hover: "css" })}>
       <span className={NAME_WRAP_CLASSES}>{link.label}</span>
     </Link>
   );

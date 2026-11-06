@@ -8,16 +8,16 @@ stays at that field, and a derived one is never re-spelled as a literal.
 from typing import Final, Literal
 
 # The address ceilings, stated by the payload address alone so a stored value over one still reads.
-# `plz` carries none: its own pattern already fixes the width exactly.
-ADDRESS_STRASSE_MAX_LENGTH: Final = 120
-ADDRESS_STADT_MAX_LENGTH: Final = 80
-# Its own constant rather than `stadt`'s, though the numbers agree: a district and a city are bounded
+ADDRESS_POSTCODE_LENGTH: Final = 5
+ADDRESS_STREET_MAX_LENGTH: Final = 120
+ADDRESS_CITY_MAX_LENGTH: Final = 80
+# Its own constant rather than `city`'s, though the numbers agree: a district and a city are bounded
 # for the same reason and by separate judgements, so raising one must not silently raise the other.
-ADDRESS_STADTTEIL_MAX_LENGTH: Final = 80
+ADDRESS_DISTRICT_MAX_LENGTH: Final = 80
 
 # Wide enough for a hyphenated range carrying a letter suffix, the longest thing the field's
 # alphabet of digits, a hyphen and a/b/c can spell as a real address. Anything longer is not one.
-ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
+ADDRESS_HOUSE_NUMBER_MAX_LENGTH: Final = 16
 
 # RFC 5321's whole-address ceiling, the one email-validator already applies.
 # Named so the frontend mirror refuses at the same length: past it the API's payload_refused marks the
@@ -29,11 +29,11 @@ TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 # A fixture's admin note, bounded on the payload alone: a season replace or undraw logs every
 # removed fixture whole in ONE row, and this bound is what keeps that row under BSON's
 # document ceiling by construction rather than by luck.
-SPIEL_NOTIZ_MAX_LENGTH: Final = 4096
+SPIEL_NOTE_MAX_LENGTH: Final = 4096
 
-# Why an application was declined, bounded where an `austritt`'s `grund` is not: this one is composed
+# Why an application was declined, bounded where an `austritt`'s `reason` is not: this one is composed
 # into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
-BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
+BEWERBUNG_DECISION_REASON_MAX_LENGTH: Final = 1000
 
 # The ceiling refuses a mistyped century rather than a real age.
 type FLBewerbungKontaktMinAgeYears = Literal[16]
@@ -60,9 +60,9 @@ BEWERBUNG_REMINDER_DAYS: Final = 3
 BEWERBUNG_TOKEN_MAX_LENGTH: Final = 128
 
 # What kit the school already owns, in its own words. Bounded on the pair that earns
-# `BEWERBUNG_GRUND_MAX_LENGTH` its own: an anonymous caller writes it, and it is stored. Lower,
+# `BEWERBUNG_DECISION_REASON_MAX_LENGTH` its own: an anonymous caller writes it, and it is stored. Lower,
 # because a colour, a count and a size need nothing like a page.
-BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH: Final = 500
+BEWERBUNG_TRIKOT_SET_MAX_LENGTH: Final = 500
 
 # A club's short name, on the public application and the admin payloads alike: both tiers refuse at
 # one ceiling. `name` reaches the junction row, every fixture side and the league table.
@@ -91,7 +91,7 @@ BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: Final = 120
 KONTAKT_NAME_MAX_LENGTH: Final = 80
 
 # The school's estimate of its squad, and the strong players inside it. A ceiling that is a SQUAD
-# SIZE, not `int32`: past this the number is a typo. Not the season's `max_kadergroesse`, which an
+# SIZE, not `int32`: past this the number is a typo. Not the season's `max_kader_size`, which an
 # application is held true against nothing of.
 BEWERBUNG_KADER_SIZE_MAX: Final = 200
 
@@ -99,7 +99,10 @@ BEWERBUNG_KADER_SIZE_MAX: Final = 200
 # COHORT rather than `int32`: no German school graduates a thousand pupils in one year.
 BEWERBUNG_STUFENGROESSE_MAX: Final = 999
 
-TEAM_SHORTHAND_LENGTH: Final = 3
+# Published as `ADDRESS_CHANGE_BOUNDS` are: the generated module holding the pattern is server-only, so a control caps a
+# code at `fl_frontend/src/features/bewerbungen/constants.ts :: SHORTHAND_LENGTH`, which is checked against this alias.
+type FLTeamShorthandLength = Literal[3]
+TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
 SAISON_ID_LENGTH: Final = 4
 
@@ -124,7 +127,7 @@ BAN_LIST_REASON_MAX_LENGTH: Final = 500
 
 # Why a team is out of a season, in an administrator's words on the team's public page: a sentence,
 # `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason.
-AUSTRITT_GRUND_MAX_LENGTH: Final = 500
+AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 # The request an administrator's erasure answers, written onto every log row it files: a mail's date
 # and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.
@@ -142,8 +145,8 @@ ACTOR_PSEUDONYM_SHOWN: Final = 8
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
-type FLSchiedsrichterConfirmationFristDays = Literal[14]
-SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS: Final[FLSchiedsrichterConfirmationFristDays] = 14
+type FLSchiedsrichterConfirmationDeadlineDays = Literal[14]
+SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS: Final[FLSchiedsrichterConfirmationDeadlineDays] = 14
 
 # How long a step of an address change waits from its asking: the new mailbox's link, or the question
 # the person's own change asks the address on file. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
@@ -169,11 +172,15 @@ APPROVAL_DAYS: Final = 7
 # How long an ended change's record is kept, holding no address, so each link answers what became of it.
 ADDRESS_CHANGE_RETENTION_DAYS: Final = 30
 
+# How long a mailbox's document outlives the last press naming it: far past a transaction's life, the one thing it must
+# outlast, and a document gone costs the next press an insert, which conflicts as the update does.
+MAILBOX_ANCHOR_RETENTION_SECONDS: Final = 60 * 60
+
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
-SPIEL_CONFIRMATION_FRIST_DAYS: Final = 7
+SPIEL_CONFIRMATION_DEADLINE_DAYS: Final = 7
 # Also the longest a confirmation link answers, as long as `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS` and
-# `SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS` let the other adult links: the edge's error log accepts a
+# `SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS` let the other adult links: the edge's error log accepts a
 # link's token because it answers nothing past such a deadline.
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 # The one reminder falls this many days before a team row's deadline.
@@ -181,11 +188,11 @@ SPIEL_REMINDER_DAYS: Final = 3
 
 # `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
 # decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
-SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH: Final = 500
+SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
 
 # A report's remarks on one match, whoever writes them, bounded on the payload alone: every correction and adoption files the
 # report whole on a log row, which this keeps far under BSON's document ceiling.
-SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH: Final = 2000
+SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
 # The most scorers, and the most cards, one report lists, for the remarks' reason.
 SPIELBERICHT_ENTRIES_MAX: Final = 60
 
@@ -197,10 +204,10 @@ SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
 # How long a pupil has to confirm their own registration. Seven rather than the application's
 # fourteen because it carries a second job: the window inside which a mistyped address is discovered
 # and the person registers again.
-REGISTRIERUNG_CONFIRMATION_FRIST_DAYS: Final = 7
+REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS: Final = 7
 
 # The age at which one registration link is due its single reminder, counted from the mint and set
-# well inside `REGISTRIERUNG_CONFIRMATION_FRIST_DAYS`, so a pupil reminded still has days to answer.
+# well inside `REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`, so a pupil reminded still has days to answer.
 REGISTRIERUNG_REMINDER_DAYS: Final = 3
 
 # The age a pupil consents at. Its own constant rather than the referee's or the application
@@ -222,7 +229,7 @@ CONSENT_BOUNDS: Final = (
     FLBewerbungConfirmationDeadlineDays,
     FLBewerbungKontaktMinAgeYears,
     FLSignatoryMinAgeYears,
-    FLSchiedsrichterConfirmationFristDays,
+    FLSchiedsrichterConfirmationDeadlineDays,
     FLRegistrierungMinAgeYears,
     FLMedienMinAgeYears,
 )

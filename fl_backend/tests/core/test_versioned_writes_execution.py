@@ -40,7 +40,7 @@ def created(spiel_id: ObjectId, spiel_nr: int) -> dict[str, Any]:
     return document
 
 
-def on_two_fixtures(url: str, body: Body) -> Any:
+def on_two_spiele(url: str, body: Body) -> Any:
     """Two fixtures, each created through the insert helper."""
 
     async def _run() -> Any:
@@ -73,38 +73,38 @@ async def save(database: AsyncDatabase, update: dict[str, Any], *, expected_vers
 class TestASaveNamingItsVersion:
     def test_a_save_on_the_version_standing_writes_and_raises_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> dict[str, Any]:
-            await save(database, {"$set": {"notiz": "verlegt"}}, expected_version=0)
+            await save(database, {"$set": {"note": "verlegt"}}, expected_version=0)
 
             return await stored(database, FIRST)
 
-        after = on_two_fixtures(mongo_replica_set_url, body)
+        after = on_two_spiele(mongo_replica_set_url, body)
 
-        assert (after["notiz"], after[VERSION_FIELD]) == ("verlegt", 1)
+        assert (after["note"], after[VERSION_FIELD]) == ("verlegt", 1)
 
     def test_a_save_on_a_version_another_write_raised_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> tuple[APIError, dict[str, Any]]:
-            await save(database, {"$set": {"notiz": "zuerst"}})
+            await save(database, {"$set": {"note": "zuerst"}})
             with pytest.raises(APIError) as refused:
-                await save(database, {"$set": {"notiz": "veraltet"}}, expected_version=0)
+                await save(database, {"$set": {"note": "veraltet"}}, expected_version=0)
 
             return refused.value, await stored(database, FIRST)
 
-        refusal, after = on_two_fixtures(mongo_replica_set_url, body)
+        refusal, after = on_two_spiele(mongo_replica_set_url, body)
 
         assert (refusal.status_code, refusal.error_code) == (409, Code.VERSION_STALE)
-        assert (after["notiz"], after[VERSION_FIELD]) == ("zuerst", 1)
+        assert (after["note"], after[VERSION_FIELD]) == ("zuerst", 1)
 
 
 class TestEveryOtherWrite:
     def test_a_save_naming_no_version_writes_and_raises_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> dict[str, Any]:
-            await save(database, {"$set": {"notiz": "ohne"}})
+            await save(database, {"$set": {"note": "ohne"}})
 
             return await stored(database, FIRST)
 
-        after = on_two_fixtures(mongo_replica_set_url, body)
+        after = on_two_spiele(mongo_replica_set_url, body)
 
-        assert (after["notiz"], after[VERSION_FIELD]) == ("ohne", 1)
+        assert (after["note"], after[VERSION_FIELD]) == ("ohne", 1)
 
     def test_a_fan_out_raises_the_version_of_every_document_it_changes_and_of_no_other(self, mongo_replica_set_url: str):
         """Repeated, it changes nothing, so it counts nothing and the versions stand."""
@@ -112,10 +112,10 @@ class TestEveryOtherWrite:
         async def body(database: AsyncDatabase) -> tuple[list[int], list[int]]:
             spiele = database[Collection.SPIELE]
             fanned_out = [
-                (await patch_many_in_db(collection=spiele, db_filter={"saison_id": "2026"}, update={"$set": {"notiz": "alle"}})).modified_count
+                (await patch_many_in_db(collection=spiele, db_filter={"saison_id": "2026"}, update={"$set": {"note": "alle"}})).modified_count
                 for _ in range(2)
             ]
 
             return fanned_out, [(await stored(database, spiel_id))[VERSION_FIELD] for spiel_id in (FIRST, SECOND)]
 
-        assert on_two_fixtures(mongo_replica_set_url, body) == ([2, 0], [1, 1])
+        assert on_two_spiele(mongo_replica_set_url, body) == ([2, 0], [1, 1])

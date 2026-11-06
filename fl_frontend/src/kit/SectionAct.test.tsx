@@ -37,4 +37,21 @@ describe("a section's act", () => {
     rerender(page(["a", "c"]));
     expect(line()?.textContent).toBe("");
   });
+
+  // The harm: a dialog's trigger around the locked button would open the question behind the reason.
+  it("answers a press with its reason while locked, never its question", async () => {
+    const reason = COPY.template.draftUnsaved;
+    render(
+      <SectionAct
+        label={LABEL}
+        locked={reason}
+        confirm={{ verb: "swap", subject: COPY.page.teams, consequence: reason, tone: "primary" }}
+        run={async () => DONE}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: LABEL }));
+    expect((await screen.findByRole("tooltip")).textContent).toBe(reason);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
 });

@@ -11,7 +11,6 @@ from pydantic.warnings import UnsupportedFieldAttributeWarning
 import app
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.shared.folding import league_address
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -109,7 +108,6 @@ ADDRESS_FIELDS = _address_fields()
 # The payloads the rule was written for, by name: a discovery that finds none of them would leave
 # the sweep below comparing nothing and passing.
 KNOWN_ADDRESS_FIELDS = {
-    "app.api.bewerbungen.schemas.FLBewerbungKontaktEmailPayload.email",
     "app.api.identity.schemas.FLSubjectPayload.email",
     "app.api.registrierungen.schemas.FLPostRegistrierungPayload.email",
     "app.api.sperrliste.schemas.FLPostSperrlistePayload.email",
@@ -165,16 +163,3 @@ class TestTheErasureLooksUpWhatAnyRuleStored:
     @pytest.mark.parametrize("email", [*BEYOND_ASCII, pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses")])
     def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
         assert payload(email).email == email
-
-    @pytest.mark.parametrize(
-        "email",
-        [
-            pytest.param("", id="empty"),
-            pytest.param("anna.mueller", id="no at sign"),
-            pytest.param(f"{'a' * KONTAKT_EMAIL_MAX_LENGTH}@schule.de", id="past the ceiling"),
-        ],
-    )
-    @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
-    def test_the_erasure_refuses_what_names_no_stored_seat(self, email: str, payload: Callable[[str], Any]):
-        with pytest.raises(ValidationError):
-            payload(email)

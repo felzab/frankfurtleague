@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       return {
         success: true as const,
         ergebnis: antwort.ergebnis,
-        geburtsdatum: antwort.geburtsdatum,
+        birth_date: antwort.birth_date,
         umfang: antwort.scope,
         media: antwort.media,
       };

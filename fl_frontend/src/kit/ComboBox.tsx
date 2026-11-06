@@ -12,6 +12,7 @@ import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 import type { Option } from "./OptionList";
@@ -24,6 +25,12 @@ import type { Option } from "./OptionList";
 export type CreateEntry = { label: Copy; onCreate: (typed: string) => void };
 
 /**
+ * A combo box whose answer is its text, the options suggestions rather than the set, as a school may wish to play one
+ * no list holds yet: the form receives what is typed, up to `maxLength`, and `arrow` names the button opening the list.
+ */
+export type FreeText = { arrow: Copy; maxLength?: number };
+
+/**
  * Pick one of many records by typing part of its name: the field filters its menu as it is typed into,
  * and the whole field shows its edge while it holds the focus. A record the list lacks is created from the
  * list's last entry.
@@ -34,6 +41,7 @@ export function ComboBox({
   consequence,
   options,
   create,
+  free,
   isRequired = false,
   isDisabled = false,
   name,
@@ -46,6 +54,7 @@ export function ComboBox({
   consequence?: Copy;
   options: readonly Option[];
   create?: CreateEntry;
+  free?: FreeText;
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
@@ -60,12 +69,15 @@ export function ComboBox({
   const [chosen, setChosen] = useState(defaultValue ?? null);
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
+  const root = useEarlyEdit();
   return (
     <AriaComboBox
+      ref={root}
       className={fieldRoot()}
       name={name}
-      // The form receives the chosen record's id, not the text typed to find it.
+      // The form receives the chosen record's id, not the text typed to find it, unless the text is the answer.
       formValue="key"
+      allowsCustomValue={free !== undefined}
       value={value}
       defaultValue={defaultValue}
       onChange={(key) => {
@@ -85,10 +97,12 @@ export function ComboBox({
         className={fieldFrame({ width: "W3", inset: "start", layout: "group" })}>
         <Input
           data-kit-focus
+          maxLength={free?.maxLength}
           className={groupInput()}
         />
         <Button
           data-kit-focus
+          aria-label={free?.arrow}
           className={fieldButton()}>
           <Icon
             glyph="expand"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inlineBannersAt, resolveBlockingBanners, resolveRailBanners } from "./railBanner.ts";
+import { resolveBlockingBanners, resolveRailBanners } from "./railBanner.ts";
 
 import type { RailBanner } from "./railBanner.ts";
 
@@ -169,23 +169,5 @@ describe("resolveBlockingBanners", () => {
     resolveBlockingBanners(input);
 
     expect(ids(input)).toStrictEqual(["i", "d"]);
-  });
-});
-
-describe("inlineBannersAt", () => {
-  it("returns only the banners anchored at one spot, in authoring order", () => {
-    const at = (id: string, spot: string | null): RailBanner => ({ ...banner(id, "info"), inline: spot });
-    const banners = [at("one", "absage"), at("two", null), at("three", "absage")];
-
-    expect(ids(inlineBannersAt(banners, "absage"))).toStrictEqual(["one", "three"]);
-  });
-
-  it("does not suppress a banner the rail's list would drop", () => {
-    // The rail asks "what still needs saying"; a callout at the control that causes it is not
-    // competing for that space, so a superseded banner keeps its own panel spot.
-    const general: RailBanner = { ...banner("general", "info"), inline: "saison" };
-    const specific: RailBanner = { ...banner("specific", "warning", ["general"]), inline: "saison" };
-
-    expect(ids(inlineBannersAt([general, specific], "saison"))).toStrictEqual(["general", "specific"]);
   });
 });

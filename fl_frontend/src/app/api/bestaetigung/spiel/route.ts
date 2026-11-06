@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import { postSpielbestaetigung } from "@/features/spielbestaetigungen/mutations";
-import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
-import { FLSpielbestaetigungAntwortPayloadSchema } from "@/features/spielbestaetigungen/schemas";
+import { getSpielbestaetigungView } from "@/features/spielbestaetigungen/queries";
+import { FLSpielbestaetigungAnswerPayloadSchema } from "@/features/spielbestaetigungen/schemas";
 import { mapAnsetzungRefusal } from "@/features/spielbestaetigungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
@@ -13,13 +13,13 @@ import type { NextRequest } from "next/server";
 const ROUTE_NAME = "postSpielbestaetigung";
 
 /** What the link reads as now, its answer's way and seat or its closing's panel, read after the backend refused the write. */
-async function beantworteterStand(token: string): Promise<Exclude<SpielbestaetigungAnsicht, { zustand: "gueltig" | "vorschlag" }>> {
+async function beantworteterStand(token: string): Promise<Exclude<SpielbestaetigungAnsicht, { state: "gueltig" | "vorschlag" }>> {
   // Its failure answered here: a doubt reaching the spine would also drop the fixture list for a write that never stood.
-  const gelesen = await readAfterAnsweredWrite(ROUTE_NAME, () => getSpielbestaetigungAnsicht(token));
+  const read = await readAfterAnsweredWrite(ROUTE_NAME, () => getSpielbestaetigungView(token));
 
   // An open link is the write's refusal and this read disagreeing, and an unread one says nothing either way: the
   // panel naming nothing is the one answer that claims nothing about a row.
-  return gelesen === null || gelesen.zustand === "valid" || gelesen.zustand === "vorschlag" ? { zustand: "invalid" } : gelesen;
+  return read === null || read.state === "valid" || read.state === "vorschlag" ? { state: "invalid" } : read;
 }
 
 // A route handler and not a server action.
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      const parsed = FLSpielbestaetigungAntwortPayloadSchema.safeParse(body);
+      const parsed = FLSpielbestaetigungAnswerPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       }
 
       // The echo alone, never the seat that pressed: the reader is shown what was stored and nothing else the write knows.
-      return { success: true as const, zustand: antwort.state, vorschlag: antwort.vorschlag };
+      return { success: true as const, state: antwort.state, vorschlag: antwort.vorschlag };
     },
   });
 }

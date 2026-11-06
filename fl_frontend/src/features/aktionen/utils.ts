@@ -60,17 +60,17 @@ const ZEITPUNKT_UHRZEIT = new Intl.DateTimeFormat("de-DE", {
   minute: "2-digit",
 });
 
-/** `uhrzeit` is null only where `at` could not be read, and `datum` then carries the stored value unchanged. */
-export type AktionZeitpunkt = { datum: string; uhrzeit: string | null };
+/** `time` is null only where `at` could not be read, and `date` then carries the stored value unchanged. */
+export type AktionZeitpunkt = { date: string; time: string | null };
 
 export function formatAktionZeitpunkt(at: string): AktionZeitpunkt {
   const instant = new Date(at);
 
   // The read model refuses no stored value, so an unreadable `at` arrives here rather than failing the
   // response — and `Intl.format` throws on one, which would take the whole page with it.
-  if (Number.isNaN(instant.getTime())) return { datum: at, uhrzeit: null };
+  if (Number.isNaN(instant.getTime())) return { date: at, time: null };
 
-  return { datum: ZEITPUNKT_DATUM.format(instant), uhrzeit: ZEITPUNKT_UHRZEIT.format(instant) };
+  return { date: ZEITPUNKT_DATUM.format(instant), time: ZEITPUNKT_UHRZEIT.format(instant) };
 }
 
 /**

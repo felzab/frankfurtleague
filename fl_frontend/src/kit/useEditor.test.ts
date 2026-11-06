@@ -13,9 +13,9 @@ import type { EditorRecord, EditorSave } from "./useEditor";
 const router = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => router }));
 
-type Spielort = { name: string; plz: string; mietpreis: string | null };
+type Spielort = { name: string; postcode: string; mietpreis: string | null };
 
-const STORED: EditorRecord<Spielort> = { id: "ort-1", version: 1, values: { name: "Riedberg", plz: "60438", mietpreis: null } };
+const STORED: EditorRecord<Spielort> = { id: "ort-1", version: 1, values: { name: "Riedberg", postcode: "60438", mietpreis: null } };
 
 /** A save answering the version of the record it stored, 2 unless a case says otherwise. */
 function editorOn(record: EditorRecord<Spielort>, answer: () => Promise<ActionAnswer<number>> = async () => ({ ok: true, value: 2 })) {
@@ -34,8 +34,8 @@ describe("an editor's draft", () => {
 
     act(() => result.current.set("mietpreis", "120"));
     // Typed and typed back: the stored postcode is no change, so the save leaves it alone.
-    act(() => result.current.set("plz", "60439"));
-    act(() => result.current.set("plz", "60438"));
+    act(() => result.current.set("postcode", "60439"));
+    act(() => result.current.set("postcode", "60438"));
     await press(result.current.submit);
 
     expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { mietpreis: "120" } });
@@ -46,8 +46,8 @@ describe("an editor's draft", () => {
 
     act(() => result.current.set("name", "SC Riedberg"));
     // Someone else saved the venue; the page serves the record anew.
-    rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, plz: "60439" } } });
-    expect(result.current.draft).toStrictEqual({ name: "SC Riedberg", plz: "60439", mietpreis: null });
+    rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, postcode: "60439" } } });
+    expect(result.current.draft).toStrictEqual({ name: "SC Riedberg", postcode: "60439", mietpreis: null });
 
     await press(result.current.submit);
     // The draft was made on version 1, so the server can refuse the save as stale.
@@ -66,21 +66,21 @@ describe("an editor's draft", () => {
     expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.saved });
     expect(result.current.draft.mietpreis).toBeNull();
 
-    act(() => result.current.set("plz", "60439"));
+    act(() => result.current.set("postcode", "60439"));
     // Someone else renames the venue; the edit rests on the read before it.
     rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, name: "SC Riedberg" } } });
     await press(result.current.submit);
 
-    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 1, changes: { plz: "60439" } });
+    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 1, changes: { postcode: "60439" } });
   });
 
   it("says what else the save moved in place of „Gespeichert“", async () => {
     const note = COPY.admin.spiel.alsoChanged([31]);
     const { result, rerender } = editorOn(STORED, async () => ({ ok: true, value: 2, note }));
 
-    act(() => result.current.set("plz", "60439"));
+    act(() => result.current.set("postcode", "60439"));
     await press(result.current.submit);
-    rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, plz: "60439" } } });
+    rerender({ shown: { id: "ort-1", version: 2, values: { ...STORED.values, postcode: "60439" } } });
 
     expect(result.current.status).toStrictEqual({ tone: "saved", text: note });
   });
@@ -88,11 +88,11 @@ describe("an editor's draft", () => {
   it("keeps its own save's version where someone else wrote before the page served it, under an unsaved edit", async () => {
     const { result, rerender, save } = editorOn(STORED);
 
-    act(() => result.current.set("plz", "60439"));
+    act(() => result.current.set("postcode", "60439"));
     await press(result.current.submit);
     act(() => result.current.set("name", "SC Riedberg"));
     // The page serves a write made after this editor's own.
-    rerender({ shown: { id: "ort-1", version: 3, values: { ...STORED.values, plz: "60439", mietpreis: "90" } } });
+    rerender({ shown: { id: "ort-1", version: 3, values: { ...STORED.values, postcode: "60439", mietpreis: "90" } } });
     await press(result.current.submit);
 
     // The draft rests on version 2, so the server can refuse the save as stale.
@@ -104,7 +104,7 @@ describe("an editor's refused save", () => {
   it("shows a refusal's own reason", async () => {
     const { result } = editorOn(STORED, async () => ({ ok: false, reason: COPY.shared.failure.stale }));
 
-    act(() => result.current.set("plz", "60439"));
+    act(() => result.current.set("postcode", "60439"));
     await press(result.current.submit);
 
     expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.failure.stale });
@@ -121,7 +121,7 @@ describe("an editor's save the server holds back for a question", () => {
   it("drops its question when declined, sending nothing", async () => {
     const { result, save } = heldBack();
 
-    act(() => result.current.set("plz", "60439"));
+    act(() => result.current.set("postcode", "60439"));
     await press(result.current.submit);
     act(() => result.current.decline());
 
@@ -132,7 +132,7 @@ describe("an editor's save the server holds back for a question", () => {
   it("drops its question at the next edit, which it was not asked about", async () => {
     const { result } = heldBack();
 
-    act(() => result.current.set("plz", "60439"));
+    act(() => result.current.set("postcode", "60439"));
     await press(result.current.submit);
     act(() => result.current.set("name", "SC Riedberg"));
 

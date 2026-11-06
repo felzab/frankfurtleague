@@ -12,14 +12,10 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { ABSATZ_CLASSES } from "@/features/bewerbungen/components/ui/Gefuellt";
-import {
-  ANTWORT_NICHT_GESPEICHERT,
-  ANTWORT_NICHT_GESPEICHERT_SATZ,
-  BestaetigungAbschnitt,
-} from "@/features/bewerbungen/components/views/BestaetigungPanels";
-import { FLSpielbestaetigungAntwortPayloadSchema } from "@/features/spielbestaetigungen/schemas";
-import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
+import { PARAGRAPH_CLASSES } from "@/features/bewerbungen/components/ui/Filled";
+import { ANSWER_NOT_SAVED, ANSWER_NOT_SAVED_SENTENCE, ConfirmationSection } from "@/features/bewerbungen/components/views/ConfirmationPanels";
+import { FLSpielbestaetigungAnswerPayloadSchema } from "@/features/spielbestaetigungen/schemas";
+import { SPIELBESTAETIGUNG_REASON_MAX_LENGTH } from "@/features/spiele/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -36,8 +32,8 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type { FLSpielbestaetigungAntwortArt, FLSpielbestaetigungAppointment, FLSpielbestaetigungVon } from "@/core/generated/client/types";
-import type { FLSpielbestaetigungAntwortPayload } from "@/features/spielbestaetigungen/schemas";
+import type { FLSpielbestaetigungAnswerKind, FLSpielbestaetigungAppointment, FLSpielbestaetigungBy } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungAnswerPayload } from "@/features/spielbestaetigungen/schemas";
 import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigungen/utils";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate, Time } from "@internationalized/date";
@@ -47,43 +43,43 @@ const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type SpielbestaetigungAbschluss =
-  | { zustand: "zugesagt-neu" }
-  | { zustand: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungAppointment }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungVon }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungVon }
-  | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
-  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> };
+  | { state: "zugesagt-neu" }
+  | { state: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungAppointment }
+  | { state: "zugesagt"; answered_by: FLSpielbestaetigungBy }
+  | { state: "declined"; answered_by: FLSpielbestaetigungBy }
+  | { state: "discarded"; appointment: FLSpielbestaetigungAppointment }
+  | { state: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> };
 
 /** The route's answer: the echo of what was stored, or a refusal naming the link's state where the link died. */
-export type SpielbestaetigungAntwort =
-  | { success: true; zustand: FLSpielbestaetigungAntwortArt; vorschlag: FLSpielbestaetigungAppointment | null }
+export type SpielbestaetigungAnswer =
+  | { success: true; state: FLSpielbestaetigungAnswerKind; vorschlag: FLSpielbestaetigungAppointment | null }
   | (PublicEnvelope & {
       success: false;
-      zustand?: SpielbestaetigungLinkZustand;
-      answered_by?: FLSpielbestaetigungVon;
+      state?: SpielbestaetigungLinkZustand;
+      answered_by?: FLSpielbestaetigungBy;
       appointment?: FLSpielbestaetigungAppointment;
     });
 
 /** The proposal mid-entry: `""` is a box nobody filled in, which the payload's schema then refuses. */
-type Entwurf = { datum: string; uhrzeit: string; begruendung: string };
+type Entwurf = { date: string; time: string; reason: string };
 
-const LEERER_ENTWURF: Entwurf = { datum: "", uhrzeit: "", begruendung: "" };
+const LEERER_ENTWURF: Entwurf = { date: "", time: "", reason: "" };
 
 /** A Zusage carries nothing but the token: both keys are sent null rather than left out, as the endpoint requires them. */
-const zusagePayload = (token: string): FLSpielbestaetigungAntwortPayload => ({
-  token: token,
-  antwort: "zugesagt",
+const zusagePayload = (token: string): FLSpielbestaetigungAnswerPayload => ({
+  token,
+  answer: "zugesagt",
   vorschlag: null,
-  begruendung: null,
+  reason: null,
 });
 
 /** A proposal declines the date standing: the endpoint takes no decline without one. */
-const vorschlagPayload = (token: string, entwurf: Entwurf): FLSpielbestaetigungAntwortPayload => ({
-  token: token,
-  antwort: "declined",
-  vorschlag: { datum: entwurf.datum, uhrzeit: entwurf.uhrzeit },
+const vorschlagPayload = (token: string, entwurf: Entwurf): FLSpielbestaetigungAnswerPayload => ({
+  token,
+  answer: "declined",
+  vorschlag: { date: entwurf.date, time: entwurf.time },
   // An empty box is no reason, as the endpoint reads one.
-  begruendung: entwurf.begruendung.trim() === "" ? null : entwurf.begruendung,
+  reason: entwurf.reason.trim() === "" ? null : entwurf.reason,
 });
 
 const toCalendarDate = (stored: string): CalendarDate | null => (stored === "" ? null : parseDate(stored));
@@ -92,14 +88,14 @@ const toTime = (stored: string): Time | null => (stored === "" ? null : parseTim
 /** A refused press as the panel it swaps the form for: an answered link keeps the seat that answered. */
 function spentAbschluss(
   state: SpielbestaetigungLinkZustand,
-  answeredBy: FLSpielbestaetigungVon | undefined,
+  answeredBy: FLSpielbestaetigungBy | undefined,
   appointment: FLSpielbestaetigungAppointment | undefined,
 ): SpielbestaetigungAbschluss {
   // As an answered state without its seat: a discard read back without the date it kept claims nothing either.
-  if (state === "discarded") return appointment === undefined ? { zustand: "invalid" } : { zustand: state, appointment };
-  if (state !== "zugesagt" && state !== "declined") return { zustand: state };
+  if (state === "discarded") return appointment === undefined ? { state: "invalid" } : { state, appointment };
+  if (state !== "zugesagt" && state !== "declined") return { state };
   // A route answering an answered state without its seat is the dead-link panel's: claiming nothing about who answered.
-  return answeredBy === undefined ? { zustand: "invalid" } : { zustand: state, answered_by: answeredBy };
+  return answeredBy === undefined ? { state: "invalid" } : { state, answered_by: answeredBy };
 }
 
 /**
@@ -120,42 +116,42 @@ export function SpielbestaetigungFormPanel({
   // The payload the write is judged by, judging the draft too: a second schema here would be the page
   // refusing at rules the endpoint does not, on the day the two disagree.
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } = useDraftFieldErrors({
-    schemas: { antwort: FLSpielbestaetigungAntwortPayloadSchema },
-    failureTitle: ANTWORT_NICHT_GESPEICHERT,
+    schemas: { answer: FLSpielbestaetigungAnswerPayloadSchema },
+    failureTitle: ANSWER_NOT_SAVED,
   });
 
-  useForgiveFixed({ antwort: vorschlagPayload(token, entwurf) });
+  useForgiveFixed({ answer: vorschlagPayload(token, entwurf) });
 
-  const left = (paths: readonly string[]) => validatePaths("antwort", vorschlagPayload(token, entwurf), paths);
+  const left = (paths: readonly string[]) => validatePaths("answer", vorschlagPayload(token, entwurf), paths);
 
-  const sende = async (payload: FLSpielbestaetigungAntwortPayload): Promise<void> => {
-    const sent = await postPublicForm<SpielbestaetigungAntwort>("/api/bestaetigung/spiel", payload);
+  const sende = async (payload: FLSpielbestaetigungAnswerPayload): Promise<void> => {
+    const sent = await postPublicForm<SpielbestaetigungAnswer>("/api/bestaetigung/spiel", payload);
 
     if (!sent.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(sent.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, { description: sent.error });
+      appToast.danger(sent.wroteNothing ? ANSWER_NOT_SAVED : UNKLAR_TITEL, { description: sent.error });
       return;
     }
 
-    const antwort = sent.body;
+    const response = sent.body;
 
     // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
     startTransition(() => {
-      if (!antwort.success) {
-        reportRefusedConfirmation(antwort, {
-          onState: (state) => onAbschluss(spentAbschluss(state, antwort.answered_by, antwort.appointment)),
+      if (!response.success) {
+        reportRefusedConfirmation(response, {
+          onState: (state) => onAbschluss(spentAbschluss(state, response.answered_by, response.appointment)),
           // The hook owns the press's one toast: none where a box shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(
               {
                 success: false,
-                error: antwort.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
-                fieldErrors: antwort.fieldErrors,
-                unplacedError: antwort.unplacedError,
+                error: response.error ?? ANSWER_NOT_SAVED_SENTENCE,
+                fieldErrors: response.fieldErrors,
+                unplacedError: response.unplacedError,
               },
-              { antwort: payload },
-              { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+              { answer: payload },
+              { raise: (shown) => appToast.failure(ANSWER_NOT_SAVED, shown) },
             ),
         });
         return;
@@ -163,18 +159,18 @@ export function SpielbestaetigungFormPanel({
 
       setSubmitFieldErrors({}, {});
       // A stored decline always carries its proposal; one answered without it reads as the Zusage it cannot be.
-      if (antwort.zustand === "declined" && antwort.vorschlag !== null) {
-        onAbschluss({ zustand: "abgelehnt-neu", vorschlag: antwort.vorschlag });
+      if (response.state === "declined" && response.vorschlag !== null) {
+        onAbschluss({ state: "abgelehnt-neu", vorschlag: response.vorschlag });
         return;
       }
-      onAbschluss(antwort.zustand === "zugesagt" ? { zustand: "zugesagt-neu" } : { zustand: "invalid" });
+      onAbschluss(response.state === "zugesagt" ? { state: "zugesagt-neu" } : { state: "invalid" });
     });
   };
 
   // Judged on both presses, as the hook's own guard is: the arming one never arms a payload the endpoint would refuse.
   const sendeZusage = () => {
     const payload = zusagePayload(token);
-    guardSubmit({ antwort: payload }, () => {
+    guardSubmit({ answer: payload }, () => {
       zusage.press(() => sende(payload));
     });
   };
@@ -182,7 +178,7 @@ export function SpielbestaetigungFormPanel({
   // The form's own submit is the proposal's, so an Enter in one of its boxes never sends a Zusage.
   const sendeVorschlag = () => {
     const payload = vorschlagPayload(token, entwurf);
-    guardSubmit({ antwort: payload }, () => {
+    guardSubmit({ answer: payload }, () => {
       startSendingVorschlag(async () => {
         await sende(payload);
       });
@@ -195,7 +191,7 @@ export function SpielbestaetigungFormPanel({
       data-required-marks="on"
       className="flex w-full flex-col gap-6"
       onSubmit={sendeVorschlag}>
-      <BestaetigungAbschnitt titel="Deine Antwort">
+      <ConfirmationSection titel="Deine Antwort">
         <ConfirmActionRow confirm={zusage}>
           <ConfirmPressButton
             confirm={zusage}
@@ -241,35 +237,37 @@ export function SpielbestaetigungFormPanel({
             <Disclosure.Content>
               <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
                 {/* The one thing a reader gets wrong here: a proposal is the club's answer, not a question beside it. */}
-                <p className={ABSATZ_CLASSES}>Mit einem Vorschlag sagst Du den Termin oben ab. Über den neuen Termin entscheidet die Liga.</p>
+                <p className={PARAGRAPH_CLASSES}>
+                  Mit einem Vorschlag sagst Du den Termin oben ab. Über den neuen Termin entscheidet die Liga.
+                </p>
 
                 <div className={FIELD_PAIR_CLASSES}>
                   <AppDatePicker
-                    name="vorschlag.datum"
+                    name="vorschlag.date"
                     label={<Label className={FIELD_LABEL_CLASSES}>Neues Datum</Label>}
                     calendarLabel="Neues Datum auswählen"
-                    value={toCalendarDate(entwurf.datum)}
-                    onChange={(next) => setEntwurf({ ...entwurf, datum: next?.toString() ?? "" })}
-                    onBlur={() => left(["vorschlag.datum"])}
+                    value={toCalendarDate(entwurf.date)}
+                    onChange={(next) => setEntwurf({ ...entwurf, date: next?.toString() ?? "" })}
+                    onBlur={() => left(["vorschlag.date"])}
                     // The calendar alone: the endpoint judges a past date, and the field marks a half-typed one otherwise.
                     minValue={parseDate(getGermanTodayStr())}
                   />
                   <AppTimeField
-                    name="vorschlag.uhrzeit"
+                    name="vorschlag.time"
                     label={<Label className={FIELD_LABEL_CLASSES}>Neuer Anpfiff</Label>}
-                    value={toTime(entwurf.uhrzeit)}
-                    onChange={(next) => setEntwurf({ ...entwurf, uhrzeit: next?.toString() ?? "" })}
-                    onBlur={() => left(["vorschlag.uhrzeit"])}
+                    value={toTime(entwurf.time)}
+                    onChange={(next) => setEntwurf({ ...entwurf, time: next?.toString() ?? "" })}
+                    onBlur={() => left(["vorschlag.time"])}
                   />
                 </div>
 
                 {/* One line, as the endpoint stores it: a line break is refused rather than kept. */}
                 <TextField
-                  name="begruendung"
-                  value={entwurf.begruendung}
-                  onChange={(next) => setEntwurf({ ...entwurf, begruendung: next })}
-                  onBlur={() => left(["begruendung"])}
-                  maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
+                  name="reason"
+                  value={entwurf.reason}
+                  onChange={(next) => setEntwurf({ ...entwurf, reason: next })}
+                  onBlur={() => left(["reason"])}
+                  maxLength={SPIELBESTAETIGUNG_REASON_MAX_LENGTH}>
                   <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
                   <Input className={FIELD_INPUT_CLASSES} />
                   <FieldError className={FIELD_ERROR_CLASSES} />
@@ -291,7 +289,7 @@ export function SpielbestaetigungFormPanel({
             </Disclosure.Content>
           </Disclosure>
         </div>
-      </BestaetigungAbschnitt>
+      </ConfirmationSection>
     </Form>
   );
 }

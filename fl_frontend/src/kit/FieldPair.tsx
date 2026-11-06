@@ -1,23 +1,24 @@
 import { columnCap, fieldFrame, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
+import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
  * Where a side's message line may run past its field, on desktop, where a short field such as a score or a count
- * is narrower than „Zwischen 1 und 16“: the line is cut at the field's width otherwise, its words adding nothing to
+ * is narrower than „Zwischen 1 und 16“: the line wraps at the field's width otherwise, its words adding nothing to
  * the width a field is laid out at (`fieldStyles.ts :: messageLine`). The first side's line runs on under the second
  * side while the second side's own line stands empty, so two messages never overlap; the second side of two short
- * fields runs on into the row the pair leaves after it. A side at the row's end, a long field's partner, keeps its
- * cut. On a phone each side of a pair is as wide as its share of the row, which holds its message.
+ * fields runs on into the row the pair leaves after it. A side at the row's end, a long field's partner, wraps, and so
+ * does each side on a phone, at its share of the row.
  */
 const reach = tv({
   variants: {
     side: {
       first:
-        "lg:[&_[data-kit-message]]:overflow-visible lg:group-has-[[data-pair-side=second]_[data-kit-message]:not(:empty)]/pair:[&_[data-kit-message]]:overflow-hidden",
-      second: "lg:[&_[data-kit-message]]:overflow-visible",
+        "lg:[&_[data-kit-message]]:whitespace-nowrap lg:group-has-[[data-pair-side=second]_[data-kit-message]:not(:empty)]/pair:[&_[data-kit-message]]:whitespace-normal",
+      second: "lg:[&_[data-kit-message]]:whitespace-nowrap",
       none: "",
     },
   },
@@ -26,17 +27,43 @@ const reach = tv({
 /**
  * A field while the record filling it is read: its label's line, its frame at its width class's size, and the
  * message line under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A
- * field whose line appears with its error alone, the sign-in's address, takes `line={false}`.
+ * field whose line appears with its error alone, the sign-in's address, takes `line={false}`. Its label's bar adds
+ * nothing to the width the field is laid out at, so a pair's short side stands as wide as its field. `figures` says a
+ * C5 field holds digits, whose `ch` is the numeric face's, as C2's and C10's always do. `description` is the line's
+ * words where they run past a line, set unseen.
  */
-export function FieldPlaceholder({ width, line = true }: { width: "W3" | "C10" | "C5" | "C2" | "column"; line?: boolean }) {
+export function FieldPlaceholder({
+  width,
+  figures = false,
+  line = true,
+  description,
+}: {
+  width: "W3" | "W3L" | "W4" | "C10" | "C5" | "C2" | "column" | "fit";
+  figures?: boolean;
+  line?: boolean;
+  description?: Copy;
+}) {
+  const numeric = figures || width === "C2" || width === "C10";
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
-        text={fieldLabel()}
-        width="w-24"
+        text={fieldLabel({ class: "self-stretch" })}
+        width="w-full max-w-24"
       />
-      <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[width]}`)} />
-      {line && <span className={messageLine()} />}
+      {/* The frame's own text size and face, which a short width's `ch` is counted in. */}
+      <span
+        className={placeholderBar(
+          `rounded-lg text-sm max-lg:in-data-pair:min-w-full pointer-coarse:text-base ${fieldFrame.variants.width[width]} ${numeric ? fieldFrame.variants.figures.true : ""}`,
+        )}
+      />
+      {description !== undefined ? (
+        <PlaceholderSentence
+          text={messageLine()}
+          words={description}
+        />
+      ) : (
+        line && <span className={messageLine()} />
+      )}
     </div>
   );
 }
@@ -63,7 +90,7 @@ export function FieldPairPlaceholder() {
  * fills it there: the long side takes the room the short one leaves, and two short sides share it, each growing from
  * its own width. Any other pair stands one field per row on a phone, as every field does. The address writes the
  * number after its street but the postcode before its town, which is why `short` names a side. Two fields holding
- * values of one kind stand as `FieldColumns` instead.
+ * values of one kind, or a span's two ends, stand as `FieldRows` instead.
  */
 export function FieldPair({
   short,

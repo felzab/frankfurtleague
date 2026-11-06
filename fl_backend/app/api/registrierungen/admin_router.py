@@ -1,20 +1,25 @@
-from typing import Annotated, Any
+import asyncio
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.registrierungen.schemas import FLRegistrierungenFilterParams, FLRegistrierungenListResponse, FLRegistrierungListAdapter
-from app.api.registrierungen.services import (
-    WITHOUT_TOKEN_HASHES,
-    build_registrierungen_sort,
-    decider_addresses,
-    mit_vorenthaltener_entscheidung,
-    registrierung_ist_bestaetigt,
+from app.api.registrierungen.schemas import (
+    FLRegistrierungAdminRow,
+    FLRegistrierungenAdminFilterParams,
+    FLRegistrierungenAdminListResponse,
 )
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses
+from app.api.registrierungen.services import (
+    REGISTRIERUNG_LIST_FIELDS,
+    SUBMITTED,
+    build_registrierungen_sort,
+    registrierung_ist_bestaetigt,
+    registrierung_was_left_unmailed,
+)
+from app.api.teams.crud import pull_saison_team_names
 from app.core.config import API_VERSION
-from app.core.crud import pull_many_from_db
-from app.core.dependencies import RegistrierungenCollection
+from app.core.crud import pull_many_from_db, pull_one_from_db
+from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
 from app.core.security import bind_actor, verify_access_admin
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
@@ -27,55 +32,54 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-FLRegistrierungenFilters = Annotated[FLRegistrierungenFilterParams, Query()]
+
+FLRegistrierungenAdminFilters = Annotated[FLRegistrierungenAdminFilterParams, Query()]
 
 
-@router.get("", response_model=FLRegistrierungenListResponse, summary="List Registrierungen")
-async def get_registrierungen(
-    registrierungen_collection: RegistrierungenCollection,
-    ban_list: BanListLookup,
-    filters: FLRegistrierungenFilters,
-) -> FLRegistrierungenListResponse:
-    """Every pending registration, newest first, narrowed by season, team and status.
+# Two static segments, matching `GET /saisons/list/admin`.
+@router.get("/list/admin", response_model=FLRegistrierungenAdminListResponse, summary="One Saison's pending Registrierungen for its list")
+async def get_registrierungen_admin(
+    registrierungen_collection: RegistrierungenReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    filters: FLRegistrierungenAdminFilters,
+) -> FLRegistrierungenAdminListResponse:
+    """
+    The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
 
-    `complete` is false where more rows exist than one read serves, `confirmed` says whether the pupil answered their own
-    link, and a barred decision's author is served as `null` beside `decision.by_barred`.
+    The page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.
+    `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
+    `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
+    refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
+    tripwire would hand them the power to 500 this page, and `complete` reports the cut.
     """
 
-    # Each term omitted where the request names nothing, so an absent parameter reads as every value
-    # rather than as a null to match on.
-    db_filter: dict[str, Any] = {
-        field: value
-        for field, value in (("saison_id", filters.saison_id), ("team_id", filters.team_id), ("status", filters.status))
-        if value is not None
-    }
-
-    # One row over what is served, and the extra never is: it answers whether the list is whole
-    # without a count, and counting the filtered set is the unbounded work this read must not do.
-
-    # The projection keeps the token hashes from crossing the wire at all, where the read model would
-    # drop them only after they had.
-    read = await pull_many_from_db(
-        collection=registrierungen_collection,
-        db_filter=db_filter,
-        limit=filters.limit + 1,
-        sort_by=build_registrierungen_sort(sort_by=filters.sort_by, order=filters.order),
-        projection=WITHOUT_TOKEN_HASHES,
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["_id"])
+    read, team_names = await asyncio.gather(
+        pull_many_from_db(
+            collection=registrierungen_collection,
+            db_filter={"saison_id": filters.saison_id, "status": SUBMITTED},
+            limit=filters.limit + 1,
+            sort_by=build_registrierungen_sort(order="desc"),
+            # An inclusion: no address, birthdate or token crosses the wire for a list showing none.
+            projection=list(REGISTRIERUNG_LIST_FIELDS),
+        ),
+        pull_saison_team_names(saison_teams_collection=saison_teams_collection, saison_id=filters.saison_id),
     )
 
-    # Sliced before validation, so the probe row is never parsed and never reaches the wire.
-    served = read[: filters.limit]
-    barred = await barred_addresses(ban_list, decider_addresses(served))
-
-    return FLRegistrierungenListResponse(
-        registrierungen=FLRegistrierungListAdapter.validate_python(
-            [
+    return FLRegistrierungenAdminListResponse(
+        registrierungen=[
+            FLRegistrierungAdminRow.model_validate(
                 {
-                    **mit_vorenthaltener_entscheidung(row, barred),
+                    **row,
+                    "id": row["_id"],
+                    "team_name": team_names.get(row["team_id"]),
                     "confirmed": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")),
+                    "unmailed": registrierung_was_left_unmailed(confirmation=row.get("confirmation")),
                 }
-                for row in served
-            ]
-        ),
+            )
+            # Sliced before validation, so the probe row is never parsed and never reaches the wire.
+            for row in read[: filters.limit]
+        ],
         complete=len(read) <= filters.limit,
     )

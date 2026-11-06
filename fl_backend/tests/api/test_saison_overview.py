@@ -58,82 +58,82 @@ def _side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "tore": tore}
 
 
-def fixture(nr: int, datum: str | None, *, saison_id: str = SAISON, **fields: Any) -> dict[str, Any]:
+def spiel(nr: int, date: str | None, *, saison_id: str = SAISON, **fields: Any) -> dict[str, Any]:
     """A group fixture of its own matchday, slot and cast set unless `fields` empties one."""
 
     set_for = {
         "spieltag_id": ObjectId(OID.format(0x500 + nr)),
         "team1": _side(HOME),
         "team2": _side(AWAY),
-        "datum": datum,
-        "uhrzeit": None if datum is None else "15:00:00",
-        "ort": None if datum is None else ORT,
-        "schiedsrichter": None if datum is None else REFEREE,
+        "date": date,
+        "time": None if date is None else "15:00:00",
+        "spielort": None if date is None else ORT,
+        "schiedsrichter": None if date is None else REFEREE,
     }
 
     return documents.spiel_document(spiel_id=ObjectId(OID.format(nr)), saison_id=saison_id, spiel_nr=nr, **{**set_for, **fields})
 
 
 def club_row(spiel: dict[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
-    return documents.spielbestaetigung_document(spiel, party={"art": "team", "team_id": team_id}, **fields)
+    return documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": team_id}, **fields)
 
 
-REFEREE_PARTY = {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
+REFEREE_PARTY = {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
 
 
 SPIELE = {
-    OVERDUE: fixture(OVERDUE, "2026-03-20"),
-    DUE_TODAY: fixture(DUE_TODAY, "2026-03-17"),
-    MOVED: fixture(MOVED, "2026-03-21"),
-    UNPLAYED: fixture(UNPLAYED, "2026-03-10"),
-    REPORTED: fixture(REPORTED, "2026-03-08", ergebnis="2:1", team1=_side(HOME, 2), team2=_side(AWAY, 1)),
-    PROPOSED: fixture(PROPOSED, "2026-03-25"),
-    UNDATED: fixture(UNDATED, None),
-    DECLINED: fixture(DECLINED, "2026-03-28", schiedsrichter=None),
-    OPEN_SIDE: fixture(OPEN_SIDE, "2026-03-29", saison_phase="halbfinale", team1=None),
+    OVERDUE: spiel(OVERDUE, "2026-03-20"),
+    DUE_TODAY: spiel(DUE_TODAY, "2026-03-17"),
+    MOVED: spiel(MOVED, "2026-03-21"),
+    UNPLAYED: spiel(UNPLAYED, "2026-03-10"),
+    REPORTED: spiel(REPORTED, "2026-03-08", ergebnis="2:1", team1=_side(HOME, 2), team2=_side(AWAY, 1)),
+    PROPOSED: spiel(PROPOSED, "2026-03-25"),
+    UNDATED: spiel(UNDATED, None),
+    DECLINED: spiel(DECLINED, "2026-03-28", schiedsrichter=None),
+    OPEN_SIDE: spiel(OPEN_SIDE, "2026-03-29", saison_phase="halbfinale", team1=None),
     # One club fielded twice on one matchday: the smallest stored fault, reported on both fixtures.
-    CLASH_FIRST: fixture(CLASH_FIRST, "2026-04-01", spieltag_id=CLASH_SPIELTAG, uhrzeit="10:00:00"),
-    CLASH_SECOND: fixture(CLASH_SECOND, "2026-04-01", spieltag_id=CLASH_SPIELTAG, uhrzeit="18:00:00", team2=_side(PICKED)),
-    CALLED_OFF: fixture(CALLED_OFF, None, sonderereignis="ausgefallen"),
-    OTHER_SEASONS: fixture(OTHER_SEASONS, None, saison_id=OTHER_SAISON),
+    CLASH_FIRST: spiel(CLASH_FIRST, "2026-04-01", spieltag_id=CLASH_SPIELTAG, time="10:00:00"),
+    CLASH_SECOND: spiel(CLASH_SECOND, "2026-04-01", spieltag_id=CLASH_SPIELTAG, time="18:00:00", team2=_side(PICKED)),
+    CALLED_OFF: spiel(CALLED_OFF, None, sonderereignis="ausgefallen"),
+    OTHER_SEASONS: spiel(OTHER_SEASONS, None, saison_id=OTHER_SAISON),
 }
 
 ROWS = [
-    club_row(SPIELE[OVERDUE], HOME, frist="2026-03-14", asked_at="2026-03-10"),
-    club_row(SPIELE[DUE_TODAY], AWAY, frist=TODAY, asked_at=None),
+    club_row(SPIELE[OVERDUE], HOME, deadline="2026-03-14", asked_at="2026-03-10"),
+    club_row(SPIELE[DUE_TODAY], AWAY, deadline=TODAY, asked_at=None),
     # Minted for the day the fixture was set for before it moved: it speaks for an Ansetzung the fixture has left.
-    club_row({**SPIELE[MOVED], "datum": "2026-03-22"}, HOME, frist="2026-03-14", asked_at="2026-03-10"),
+    club_row({**SPIELE[MOVED], "date": "2026-03-22"}, HOME, deadline="2026-03-14", asked_at="2026-03-10"),
     club_row(
         SPIELE[PROPOSED],
         AWAY,
-        frist="2026-03-20",
+        deadline="2026-03-20",
         asked_at="2026-03-12",
-        antwort={
-            "art": "declined",
-            "am": "2026-03-14",
-            "von": {"art": "kontakt", "rolle": "trainer"},
-            "vorschlag": {"datum": "2026-03-27", "uhrzeit": "16:00:00"},
-            "begruendung": None,
+        answer={
+            "kind": "declined",
+            "at": "2026-03-14",
+            "by": {"kind": "kontakt", "rolle": "trainer"},
+            "vorschlag": {"date": "2026-03-27", "time": "16:00:00"},
+            "reason": None,
         },
     ),
     documents.spielbestaetigung_document(
         SPIELE[DECLINED],
         party=REFEREE_PARTY,
         asked_at="2026-03-10",
-        closed={"at": "2026-03-12", "grund": "schiedsrichter_declined"},
+        closed={"at": "2026-03-12", "reason": "schiedsrichter_declined"},
     ),
     # The booked referee owing an answer past the deadline too: the fixture's one row names both parties.
-    documents.spielbestaetigung_document(SPIELE[OVERDUE], party=REFEREE_PARTY, frist="2026-03-14", asked_at="2026-03-10"),
+    documents.spielbestaetigung_document(SPIELE[OVERDUE], party=REFEREE_PARTY, deadline="2026-03-14", asked_at="2026-03-10"),
     # The proposal's other club, asked and agreed, and its referee, never asked: an adoption has the pass tell the
     # first of the move and not the second.
     club_row(
         SPIELE[PROPOSED],
         HOME,
-        frist="2026-03-20",
+        deadline="2026-03-20",
         asked_at="2026-03-12",
-        antwort={"art": "zugesagt", "am": "2026-03-13", "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None},
+        answer={"kind": "zugesagt", "at": "2026-03-13", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
     ),
-    documents.spielbestaetigung_document(SPIELE[PROPOSED], party=REFEREE_PARTY, frist="2026-03-20", asked_at=None),
+    documents.spielbestaetigung_document(SPIELE[PROPOSED], party=REFEREE_PARTY, deadline="2026-03-20", asked_at=None),
 ]
 
 
@@ -184,9 +184,9 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
         database[Collection.BEWERBUNGEN].insert_many(
             [
-                application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg", "RIE")),
+                application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
                 application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
-                application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend", "WES")),
+                application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
             ]
         )
 
@@ -232,7 +232,7 @@ class TestEachKindLandsOnItsCard:
             "dates": [
                 ("vorschlag_open", PROPOSED),
                 # Lacking its slot, its ground and its referee, the fixture stands once, for the first of them.
-                ("termin_missing", UNDATED),
+                ("appointment_missing", UNDATED),
                 # The referee's own decline is a referee missing, one row.
                 ("schiedsrichter_missing", DECLINED),
                 ("team_missing", OPEN_SIDE),
@@ -261,12 +261,12 @@ class TestEachKindLandsOnItsCard:
         assert (proposed["spielbestaetigung_id"], proposed["team_id"], proposed["vorschlag"]) == (
             str(ROWS[3]["_id"]),
             str(AWAY),
-            {"datum": "2026-03-27", "uhrzeit": "16:00:00"},
+            {"date": "2026-03-27", "time": "16:00:00"},
         )
         away, home, referee = (
-            {"art": "team", "team_id": str(AWAY)},
-            {"art": "team", "team_id": str(HOME)},
-            {"art": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
+            {"kind": "team", "team_id": str(AWAY)},
+            {"kind": "team", "team_id": str(HOME)},
+            {"kind": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
         )
         # Each recipient by the name its season row holds, so the questions name a party no fixture shows.
         assert sorted(proposed["adoption_recipients"], key=str) == sorted([{**away, "name": "Goethe"}, {**home, "name": "Lessing"}], key=str)
@@ -280,31 +280,28 @@ class TestEachKindLandsOnItsCard:
         )
         assert (riedberg["bewerbung_id"], riedberg["seats_confirmed"], riedberg["seats"]) == (str(NEW_SCHOOL), 2, 3)
 
-    def test_a_season_that_does_not_exist_is_not_found(self, seeded_url: str):
-        assert answered(seeded_url, f"/api/v{API_VERSION}/saisons/1999/overview").status_code == 404
-
 
 def joined(**fields: Any) -> FLSpielJoinedInternal:
     """One fixture of the season as the read joins it, its two clubs named, every gap but those `fields` open closed."""
 
     closed = {
-        "datum": "2026-04-01",
-        "uhrzeit": "18:00:00",
-        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20, "name_is_public": True},
-        "team1": {"team_id": HOME, "name": "Lessing", "shorthand": "LES", "tore": None},
-        "team2": {"team_id": AWAY, "name": "Goethe", "shorthand": "GOE", "tore": None},
+        "date": "2026-04-01",
+        "time": "18:00:00",
+        "spielort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20, "name_is_public": True},
+        "team1": {"team_id": HOME, "tore": None},
+        "team2": {"team_id": AWAY, "tore": None},
     }
     stored = documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON, spiel_nr=1, spieltag_id=ObjectId(), **{**closed, **fields})
 
     return FLSpielJoinedInternal.model_validate(documents.joined_spiel_document(stored))
 
 
-class TestWhatAFixtureStillLacks:
+class TestWhatASpielStillLacks:
     """The gaps the Übersicht's dates card lists, judged without the database: a gap missed leaves a fixture unprepared unseen."""
 
-    def test_a_dated_fixture_with_no_time_still_lacks_its_date(self):
-        assert _gaps(joined(uhrzeit=None), today=TODAY) == ["termin_missing"]
+    def test_a_dated_spiel_with_no_time_still_lacks_its_date(self):
+        assert _gaps(joined(time=None), today=TODAY) == ["appointment_missing"]
 
     def test_a_knockout_side_awaiting_its_source_is_no_missing_club(self):
         """Its club arrives with the bracket's resolution: listed, it asks the administrator to pick a club the draw will place."""

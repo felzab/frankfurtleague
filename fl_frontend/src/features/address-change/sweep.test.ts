@@ -5,11 +5,11 @@ import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types
 
 /** One call's answer, `after` the place the next call starts after. */
 const antwort = (removed: number, verbleibend: number, after: string | null = null): FLAddressChangeSweepResponse => ({
-  removed: removed,
+  removed,
   discarded: 0,
   effective: 0,
   remaining: verbleibend,
-  after: after,
+  after,
 });
 
 /** The pass's answers in turn; past the last, a place-free answer ends any loop rather than hanging it. */
@@ -32,7 +32,7 @@ doubleApiClient((call) => {
   return next;
 });
 
-const { sweepAdresswechsel } = await import("./sweep.ts");
+const { sweepAddressChange } = await import("./sweep.ts");
 
 beforeEach(() => {
   calls.length = 0;
@@ -44,7 +44,7 @@ describe("the address changes' hourly pass", () => {
   it("hands each call the place the last answer named, ends on one naming none, then carries", async () => {
     antworten = [antwort(2, 1, ORT), antwort(1, 1), antwort(4, 4)];
 
-    await sweepAdresswechsel();
+    await sweepAddressChange();
 
     expect(calls).toStrictEqual(["-", ORT, "moves"]);
   });
@@ -53,7 +53,7 @@ describe("the address changes' hourly pass", () => {
   it("rejects where a call answers a place not past the one sent, carrying nothing", async () => {
     antworten = [antwort(2, 5, ORT), antwort(1, 4, ORT)];
 
-    await expect(sweepAdresswechsel()).rejects.toThrow("not past the one they were sent");
+    await expect(sweepAddressChange()).rejects.toThrow("not past the one they were sent");
     expect(calls).toStrictEqual(["-", ORT]);
   });
 
@@ -61,6 +61,6 @@ describe("the address changes' hourly pass", () => {
   it("rejects where a call fails", async () => {
     antworten = [new TypeError("fetch failed")];
 
-    await expect(sweepAdresswechsel()).rejects.toThrow(TypeError);
+    await expect(sweepAddressChange()).rejects.toThrow(TypeError);
   });
 });

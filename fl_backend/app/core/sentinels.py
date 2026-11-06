@@ -26,6 +26,6 @@ GHOST_SCHIEDSRICHTER_ID: Final = ObjectId("000000000000000000000000")
 # can carry, and one digit apart shows the two are sentinels of one kind.
 GHOST_SPIELER_ID: Final = ObjectId("000000000000000000000001")
 
-# The day each sentinel carries as its retirement. Any date the league predates serves; this one is
-# recognisable on sight as a sentinel rather than a day somebody stopped officiating or playing.
+# The day the referee's sentinel carries as its retirement. Any date the league predates serves; this
+# one is recognisable on sight as a sentinel rather than a day somebody stopped officiating.
 GHOST_INACTIVE_SINCE: Final = "2000-01-01"

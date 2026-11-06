@@ -27,7 +27,7 @@ async def owe_the_confirmation(
     outbox_collection: AsyncCollection,
     schiedsrichter_id: Any,
     email: str,
-    frist: str,
+    deadline: str,
     # The referee's `version` after the write owing the mail: the same on a retry of that write, another on every other.
     version: int,
     now: datetime,
@@ -46,8 +46,8 @@ async def owe_the_confirmation(
         mails=[
             OwedMail(
                 key=f"schiedsrichter/{schiedsrichter_id}/confirmation/{version}",
-                an=email,
-                data=FLSchiedsrichterConfirmationData(kind="schiedsrichter_confirmation", frist=frist),
+                to=email,
+                data=FLSchiedsrichterConfirmationData(kind="schiedsrichter_confirmation", deadline=deadline),
                 reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, seat=None),
                 link=FLOutboxLink(paths=[TOKEN_HASHES_PATH], addresses=[ADDRESS_PATH], replaced=True),
             )

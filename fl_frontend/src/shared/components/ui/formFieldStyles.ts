@@ -17,7 +17,7 @@ const FIELD_HEIGHT_CLASSES = "h-10";
  * `data-slot` attributes; repeating them is how they drifted before.
  * `border-control`, never `border-border`: a field's border alone identifies it.
  */
-export const FIELD_INPUT_BOX_CLASSES = `border-control bg-surface fluid-sm ${FIELD_HEIGHT_CLASSES} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
+const FIELD_INPUT_BOX_CLASSES = `border-control bg-surface fluid-sm ${FIELD_HEIGHT_CLASSES} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
 
 /** The ink apart from the box: a read-only stand-in takes the empty grade's, and two inks in one string go by stylesheet order. */
 export const FIELD_INPUT_CLASSES = `${FIELD_INPUT_BOX_CLASSES} text-foreground`;
@@ -47,8 +47,8 @@ export const FIELD_COUNT_INPUT_CLASSES = "w-full fluid-sm";
 const INDICATOR_CLEARANCE_CLASSES = "pe-9";
 
 /**
- * For `Autocomplete.Trigger` and `Select.Trigger`. **No `gap-x-*` here**, and both
- * structures are vendored — re-read `autocomplete.js` and `select.js` on an upgrade.
+ * For `Select.Trigger`. **No `gap-x-*` here**, and its structure is vendored — re-read
+ * `select.js` on an upgrade.
  */
 export const FIELD_TRIGGER_CLASSES = `${FIELD_INPUT_CLASSES} ${INDICATOR_CLEARANCE_CLASSES}`;
 
@@ -60,13 +60,6 @@ export const TOGGLE_GROUP_ALIGN_CLASSES = "justify-center sm:justify-start";
 
 /** The one field-error appearance, so every form reports at the field rather than only through a toast. */
 export const FIELD_ERROR_CLASSES = "fluid-xxs font-bold text-danger-strong";
-
-/**
- * A field error under a `Switch`. HeroUI reserves the track's width ahead of it, for a label written
- * after the track; `formPanel`'s switches put the label first, so that reservation indents the error
- * past the label it belongs under.
- */
-export const FIELD_ERROR_SWITCH_CLASSES = `${FIELD_ERROR_CLASSES} ps-1`;
 
 /**
  * A sub-group inside a panel; `text-foreground-muted` is what separates it from `FIELD_LABEL_CLASSES`, otherwise the same

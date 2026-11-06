@@ -4,7 +4,7 @@ import type { FLSchiedsrichterAccountEinwilligungPayload, FLSchiedsrichterSweepR
 
 // The referee's own press on the account page, under the person lane's actor; the record is named in
 // the path because one address may hold several referee rows.
-export async function patchSchiedsrichterKontoEinwilligung(
+export async function patchSchiedsrichterAccountEinwilligung(
   schiedsrichterId: string,
   payload: FLSchiedsrichterAccountEinwilligungPayload,
 ): Promise<void> {

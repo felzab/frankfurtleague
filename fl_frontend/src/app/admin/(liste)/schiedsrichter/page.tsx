@@ -32,7 +32,7 @@ function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
     case "confirmed":
       return undefined;
     case "objected":
-      return { tone: "danger", label: SERVER_COPY.schiedsrichterConfirmation.objected };
+      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
     case "unanswered":
     case "unasked":
       return { tone: "warn", label: WORDS.unconfirmed };
@@ -51,7 +51,7 @@ function rowOf(referee: FLSchiedsrichter): TableRow {
     muted: referee.inactive_since !== null,
     cells: {
       email: referee.kontakt.email === null ? COPY.shared.noValue : { record: referee.kontakt.email },
-      telefon: referee.kontakt.telefon === null ? COPY.shared.noValue : { record: referee.kontakt.telefon },
+      phone: referee.kontakt.phone === null ? COPY.shared.noValue : { record: referee.kontakt.phone },
     },
   };
 }
@@ -67,7 +67,7 @@ export default function SchiedsrichterPage() {
         action: createSchiedsrichter,
         children: <SchiedsrichterFields />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSchiedsrichter() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 8, content: readSchiedsrichter() }}
     />
   );
 }
@@ -76,8 +76,8 @@ export default function SchiedsrichterPage() {
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "email", label: COPY.signIn.address, hideOnPhone: true },
-    { key: "telefon", label: COPY.account.entries.facts.phone },
+    { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line" },
+    { key: "phone", label: COPY.shared.facts.phone, hideOnPhone: true, width: "phone" },
   ],
 };
 

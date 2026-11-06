@@ -7,7 +7,7 @@ import { StepUpContext } from "@/shared/components/ui/stepUp";
 import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 
-import { pruefeAdministratorAction } from "../../actions";
+import { checkAdministratorAction } from "../../actions";
 
 import type { StepUp } from "@/shared/components/ui/stepUp";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
@@ -22,19 +22,19 @@ export function AdminStepUpProvider({
   children,
 }: {
   /** Wrapped so each server render hands over a new object, even carrying the same figures. */
-  served: ConfirmedUntil & { readonly inhaberId: string };
+  served: ConfirmedUntil & { readonly ownerId: string };
   children: ReactNode;
 }) {
   const windows = useConfirmationWindows(served);
 
   // The account page's holder check over the administrator's own spine: an assertion signing another
   // account in leaves the waiting write unrun.
-  const { inhaberId } = served;
-  const istInhaber = useCallback(async () => {
-    const holder = await pruefeAdministratorAction(inhaberId);
+  const { ownerId } = served;
+  const isOwner = useCallback(async () => {
+    const holder = await checkAdministratorAction(ownerId);
     return holder.success && holder.gleich;
-  }, [inhaberId]);
-  const { stepUp: prompt } = usePasskeyStepUp(istInhaber);
+  }, [ownerId]);
+  const { stepUp: prompt } = usePasskeyStepUp(isOwner);
 
   // Memoised by hand: the React Compiler is deliberately off, and every armed control reads this.
   const stepUp = useMemo<StepUp>(

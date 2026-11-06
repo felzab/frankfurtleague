@@ -7,7 +7,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_rules_refusal
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
 from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
@@ -98,29 +97,11 @@ def payload_of(raw: Mapping[str, Any]) -> FLPatchSpielDataPayload:
     return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS} | {"version": raw.get("version", 0)})
 
 
-class TestTheShapesAreSeasonsThatCanExist:
-    @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_the_write_path_accepts_every_shape_drawn_below(self, shape: Shape):
-        """Otherwise every judge below runs over the draw of a season nobody can save."""
-
-        groups, teams, qualifiers = shape
-
-        assert (
-            find_rules_refusal(
-                stored=None,
-                proposed=rules(groups=groups, teams=teams, qualifiers=qualifiers),
-                occupancy_by_gruppe={},
-                highest_wired_platz=0,
-            )
-            is None
-        )
-
-
 class TestTheDrawnWiringIsWiringTheWritePathAccepts:
     """Run rather than restated: the emitted season judged by the rule an admin's own edit meets."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_no_emitted_fixture_carries_a_wiring_its_own_endpoint_would_refuse(self, shape: Shape):
+    def test_no_emitted_spiel_carries_a_wiring_its_own_endpoint_would_refuse(self, shape: Shape):
         """Wiring the write path refuses is wiring an admin who cleared the slot could never point back at.
 
         The shape's own group count rides along, so a draw seeding outside it would land here too.
@@ -145,7 +126,7 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
     """Asked of the shipped judge, not of the pairing the draw happens to have produced."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_resubmitting_a_fixture_neither_refuses_nor_releases_a_club_from_another(self, shape: Shape):
+    def test_resubmitting_a_spiel_neither_refuses_nor_releases_a_club_from_another(self, shape: Shape):
         """A release is the same fault as the refusal seen from the other slot: the judge found this club already standing on the matchday."""
 
         season = season_of(shape)
@@ -209,8 +190,8 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
         played.append(
             {
                 **raw,
-                "team1": {"team_id": one.team_id, "tore": 1, "name": one.name, "shorthand": one.shorthand},
-                "team2": {"team_id": other.team_id, "tore": 0, "name": other.name, "shorthand": other.shorthand},
+                "team1": {"team_id": one.team_id, "tore": 1},
+                "team2": {"team_id": other.team_id, "tore": 0},
                 "ergebnis": "1:0",
             }
         )

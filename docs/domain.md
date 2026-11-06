@@ -41,7 +41,8 @@ reads like a constant of this league is nearly always one some season chose for 
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and a grant waiting on a
   second administrator's approval (`berechtigungen_antraege`), one mail the league owes one
-  recipient (`outbox`), and one recorded write (`aktionen`).
+  recipient (`outbox`), one mailbox a public form named (`mailbox_anchors`), and one recorded write
+  (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.
@@ -96,11 +97,11 @@ brought up to date.
   code path in the system that writes it.
 - **Applications** — a school applies while the day falls between the two dates of the season's own window,
   both included, and the season has not ended (`bewerbung_window_closed`); closing the window early is moving its
-  end to today. Accepting one creates the club where it is new and writes its junction row, held to the same entry
+  end to today or pausing it (`open`), its dates untouched. Accepting one creates the club where it is new and writes its junction row, held to the same entry
   rules a direct entry meets.
 - **Registration** — the season records a second window of its own, `registrierung`, which holds an end alone: it
   opens when the season is activated and runs to that end, which falls before the season's start
-  (`registrierung_window_reaches_saison_start`), and its `offen` flag pauses the link without moving either. It is
+  (`registrierung_window_reaches_saison_start`), and its `open` flag pauses the link without moving either. It is
   judged apart from the application window above, so the two may run in any order or not at all.
 - **Entry** — a club takes a place in a group only while the season is `future` (`entry_saison_not_future`), only in a
   group the season runs (`entry_gruppe_not_offered`), and only while that group has room (`entry_gruppe_full`).
@@ -153,8 +154,8 @@ undraw, patch the rules, change the entries, draw again — with the group moves
 takes a club back out of a season and an `austritt` leaves its row occupying the place, so a group's
 occupancy never falls: an undraw reopens the group count and the group size upward alone, and either of them
 below what the groups already hold is refused whatever is undrawn (`rules_gruppen_in_use`, `rules_capacity_below_use`). **Not
-every bound over stored rows behaves that way**: `max_kadergroesse` is held above the largest squad, counted
-over rows no retirement has taken out (`rules_kader_below_use`), so retiring players lowers that cap where nothing
+every bound over stored rows behaves that way**: `max_kader_size` is held above the largest squad, counted
+over rows no retirement has taken out and no nominee holds (`rules_kader_below_use`), so retiring players lowers that cap where nothing
 lowers a group's occupancy. Only the qualifier count can skip the whole route, moving on a confirmed
 replace's own payload (`spielplan_replace_outside_its_window`) because it leaves every group as it stands. Both operations are
 held to a `future` season with nothing recorded against a fixture (`spielplan_undraw_outside_its_window`), so what they destroy
@@ -163,8 +164,8 @@ is a schedule nobody has played.
 One freeze sits outside that one:
 
 - **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from its stored
-  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock, the
-  Nachnominierung and the landing read), the points, the qualifiers per group and the tie-break order hold:
+  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock and the
+  landing read), the points, the qualifiers per group and the tie-break order hold:
   the table is derived from them on every read, and the bracket was seeded from the placings the order
   decides. A `past` season stays frozen whatever its start date.
 
@@ -315,7 +316,7 @@ no later feature can come to depend on a flag.
   record the walkover on; `eligibility_disqualified` refuses only a request disturbing one.
 - **A group phase in which every club qualifies.** A seeding-only group stage is a real format, so
   `rules_qualifiers_above_gruppe` bounds the qualifiers from above alone.
-- **A matchday of a later phase dated before one of an earlier phase.** `spieltag_beginn_out_of_order` finds its neighbour on
+- **A matchday of a later phase dated before one of an earlier phase.** `spieltag_start_out_of_order` finds its neighbour on
   the indexed `(saison_id, saison_phase, position)`, and no stored key orders the phases. The matchday list
   sections a season by phase in played order, so such dates read as running backwards.
 - **A `future` season holding recorded results.** Binding a result to the status would make the one-way
@@ -325,11 +326,9 @@ no later feature can come to depend on a flag.
   awarded or the match replayed, and this competition names no rule between them; the editor warns that a
   decided score counts for the table.
 - **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
-  (`confirmation_age`); entering, moving or bringing back a squad row judges none.
-- **A person holding no squad row, and a person retired while holding a live one.** The first is reachable only
-  by a database edit, and `GET /spieler/saisons` serves such a person with an empty list, which is the
-  surface that repairs it. The two retirements are independent, so retiring a person never asks for every squad
-  they played in to be emptied, and the list badges both.
+  (`confirmation_age`); entering or bringing back a squad row judges none.
+- **A person holding no squad row.** Reachable only by a database edit: the administration's lists read a
+  season's squad rows, so such a person stands in none until a registration through a team's link gives them a row.
 - **A retired row kept indefinitely.** No sweep selects on `inactive_since`, which records when a row retired
   and never when it may go; every admin list badges the day it retired.
 - **A stored action-log image no current model accepts.** An image is what a document looked like when it was

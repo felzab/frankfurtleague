@@ -69,8 +69,7 @@ test("a passkey holder's address change and deletion each run behind the touch",
 
   // The change's start asks the touch before it posts, and stands as the pending change its box then shows.
   await page.goto("/account/signin");
-  // Tapped first, as `e2e/support/signIn.ts :: sendFromHere` taps its field: a bare `fill` before React has hydrated
-  // the field leaves its state empty.
+  // Tapped first, as a person reaches the field and `e2e/support/signIn.ts :: sendFromHere` taps its own.
   const field = page.getByLabel("Neue E-Mail-Adresse");
   await field.click();
   await field.fill(HOLDER.replace("@", ".neu@"));

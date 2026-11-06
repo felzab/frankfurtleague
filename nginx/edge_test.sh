@@ -314,7 +314,6 @@ CASES=(
   # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
   # them is a different defect rather than a fix.
   "KEEP|${BASE}/signin?error=Verification|error=Verification"
-  "KEEP|${BASE}/api/bewerbung/kuerzel?shorthand=ABC|shorthand=ABC"
   # A parameter whose name merely ends in `q`, which the one-letter arm must not reach.
   "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
   "KEEP-REF|http://localhost/teams?saison_id=abc&seq=2|seq=2"
@@ -453,7 +452,7 @@ done
 # fails itself, and the table above sends none.
 STREAM_MARKER="fl-stream"
 STREAM=( -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/413"
-  -X POST --data-binary @- "${BASE}/api/bewerbung" )
+  -X POST --data-binary @- "${BASE}/api/client-error" )
 STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/502"
   "${BASE}/api/v0/system/is_live" )
 # The catch-all's 421: a block with no access_log of its own would fall back to the image's stdout.

@@ -25,7 +25,7 @@ export const PERSON_SIDEMENU_ICONS = {
 
 export type PersonIconName = keyof typeof PERSON_SIDEMENU_ICONS;
 
-/** What the bar reads on an address inside `/area` that no page claims, the catch-all's 404 among them. */
+/** What the bar reads on an address inside `/area` that no page claims. */
 export const PERSON_SHELL_FALLBACK = {
   label: DEIN_BEREICH_TITEL,
   hint: {
@@ -89,7 +89,7 @@ export function personStructureFor(eintraege: ReadonlySet<PersonEintrag>): Sidem
     .map((eintrag) => PERSON_SIDEMENU_ENTRIES[eintrag]);
 
   // No group at all rather than an empty one: `SidemenuNavLinks` keys a group on its first entry.
-  return sub_options.length === 0 ? [] : [{ category_name: "", sub_options: sub_options }];
+  return sub_options.length === 0 ? [] : [{ category_name: "", sub_options }];
 }
 
 /**
@@ -109,7 +109,7 @@ export const TEAM_SIDEMENU_ICONS = {
 
 export type TeamIconName = keyof typeof TEAM_SIDEMENU_ICONS;
 
-/** What the bar reads on an address inside a team's area that no page claims, the catch-all's 404 among them. */
+/** What the bar reads on an address inside a team's area that no page claims. */
 export const TEAM_SHELL_FALLBACK = {
   label: "Teambereich",
   hint: {

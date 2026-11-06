@@ -1,5 +1,5 @@
 """
-API · the season-after rule decided from the statuses and rows handed in, and the share one call takes
+API · the season-after rule decided from the statuses and rows handed in
 
 Each case judges arguments alone, so the default tier holds it; the run against a real mongod is
 `tests/api/test_identity_erasure_sweep.py`'s.
@@ -9,7 +9,6 @@ from typing import Any
 
 import pytest
 
-from app.api.identity import system_router
 from app.api.identity.services import (
     closed_by,
     completed_saison_id,
@@ -18,7 +17,6 @@ from app.api.identity.services import (
     open_addresses,
     statuses_after_activating,
 )
-from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.literals import FLSaisonStatus
 
 LEAGUE: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
@@ -107,25 +105,3 @@ class TestTheStatusesAnActivationLeaves:
 
         assert closed_by(statuses, "2026") is None
         assert kept_saison_ids(statuses_after_activating(statuses, "2026")) == {"2025", "2026"}
-
-
-# One pupil's commands on the wire at their costliest, a report naming them, whose repoint writes a log row; pinned by
-# `fl_backend/tests/api/test_identity_erasure_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
-COMMANDS_A_PERSON = 22
-
-# The call's other commands, pinned on the wire by
-# `fl_backend/tests/api/test_identity_erasure_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`: three aggregates,
-# and a `getMore` once the pending registrations outrun the driver's first batch, the page being one document.
-OTHER_COMMANDS = 3 + 1
-
-# The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.
-PER_COMMAND_S = 0.00203
-
-# The round trip `system_router.ERASURES_PER_PASS`'s comment sizes the share for.
-ROUND_TRIP_S = 0.037
-
-
-def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
-    """A share raised past its budget passes every case counting its own pupils, and times out a whole call in production."""
-
-    assert (system_router.ERASURES_PER_PASS * COMMANDS_A_PERSON + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

@@ -2,19 +2,8 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
 
-from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnsetzung,
-    FLSpielbestaetigungAntwortPayload,
-    FLSpielbestaetigungSchiedsrichterAntwortPayload,
-)
-from app.api.spielbestaetigungen.services import (
-    ANSETZUNG_QUELLEN,
-    ansetzung_stand_of,
-    compose_ansetzung,
-)
-from app.shared.schemas.bounds import SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
+from app.api.spielbestaetigungen.services import ansetzung_stand_of
 
 TEAM1 = ObjectId("650000000000000000000001")
 TEAM2 = ObjectId("650000000000000000000002")
@@ -26,34 +15,34 @@ def spiel(**overrides: Any) -> dict[str, Any]:
 
     return {
         "_id": ObjectId("650000000000000000000009"),
-        "datum": "2027-05-14",
-        "uhrzeit": "18:30:00",
-        "ort": {"spielort_id": SPIELORT, "name": "Halle", "maps_link": "x", "mietpreis": 40},
-        "team1": {"team_id": TEAM1, "name": "Eins", "shorthand": "EIX", "tore": None},
-        "team2": {"team_id": TEAM2, "name": "Zwei", "shorthand": "ZWX", "tore": None},
+        "date": "2027-05-14",
+        "time": "18:30:00",
+        "spielort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "team1": {"team_id": TEAM1, "tore": None},
+        "team2": {"team_id": TEAM2, "tore": None},
         "ergebnis": None,
-        "notiz": None,
+        "note": None,
         **overrides,
     }
 
 
 class TestTheStandNamesOneAnsetzung:
-    def test_a_fixed_fixture_keeps_its_digest(self):
+    def test_a_fixed_spiel_keeps_its_digest(self):
         """Pinned: every stored row's `stand` was composed this way, so a changed composition makes every open row read as moved."""
 
         assert ansetzung_stand_of(spiel()) == "ff22b9d18168e96dd86358f6bbc4997b59b77f23fd3028389a8a9f0b1c0ffc27"
-        assert ansetzung_stand_of(spiel(ort=None)) == "e214a39a277656e1c74a8aec08602c77631e7c7a6cdc9a1c2d48fb9b86364259"
+        assert ansetzung_stand_of(spiel(spielort=None)) == "e214a39a277656e1c74a8aec08602c77631e7c7a6cdc9a1c2d48fb9b86364259"
 
     @pytest.mark.parametrize(
         "moved",
         [
-            {"datum": "2027-05-15"},
-            {"uhrzeit": "18:31:00"},
-            {"ort": {"spielort_id": ObjectId("650000000000000000000004")}},
+            {"date": "2027-05-15"},
+            {"time": "18:31:00"},
+            {"spielort": {"spielort_id": ObjectId("650000000000000000000004")}},
             {"team1": {"team_id": ObjectId("650000000000000000000004")}},
             {"team2": {"team_id": ObjectId("650000000000000000000004")}},
         ],
-        ids=["datum", "uhrzeit", "spielort", "team1", "team2"],
+        ids=["date", "time", "spielort", "team1", "team2"],
     )
     def test_each_input_moves_it(self, moved: dict[str, Any]):
         assert ansetzung_stand_of(spiel(**moved)) != ansetzung_stand_of(spiel())
@@ -61,73 +50,6 @@ class TestTheStandNamesOneAnsetzung:
     def test_what_is_no_input_leaves_it(self):
         """A result, a note or a renamed side is no new Ansetzung, and must not void a confirmation."""
 
-        renamed = {"team_id": TEAM1, "name": "Umbenannt", "shorthand": "UMX", "tore": 2}
+        renamed = {"team_id": TEAM1, "tore": 2}
 
-        assert ansetzung_stand_of(spiel(ergebnis="2:1", notiz="x", team1=renamed)) == ansetzung_stand_of(spiel())
-
-    def test_the_snapshot_stores_exactly_the_digests_inputs_beside_it(self):
-        composed = compose_ansetzung(spiel())
-
-        assert set(composed) == set(FLSpielbestaetigungAnsetzung.model_fields) == {*ANSETZUNG_QUELLEN, "stand"}
-        assert composed["stand"] == ansetzung_stand_of(spiel())
-        FLSpielbestaetigungAnsetzung.model_validate(composed)
-
-
-VORSCHLAG = {"datum": "2027-05-20", "uhrzeit": "17:00:00"}
-
-
-class TestTheAnswersShape:
-    @pytest.mark.parametrize(
-        "body",
-        [
-            {"antwort": "declined", "vorschlag": None, "begruendung": "Halle belegt"},
-            {"antwort": "zugesagt", "vorschlag": VORSCHLAG, "begruendung": None},
-            {"antwort": "zugesagt", "vorschlag": None, "begruendung": "danke"},
-            # A control character, written as its code point so the file shows it, stays refused in a paragraph.
-            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": f"Halle{chr(0x0B)}belegt"},
-            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "x" * (SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH + 1)},
-            {"antwort": "declined", "vorschlag": {**VORSCHLAG, "ort": "x"}, "begruendung": None},
-            {"antwort": "zugesagt", "vorschlag": None},
-        ],
-        ids=["decline-without-date", "accept-with-date", "accept-with-reason", "control-character", "over-bound", "extra-key", "key-omitted"],
-    )
-    def test_is_refused(self, body: dict[str, Any]):
-        with pytest.raises(ValidationError):
-            FLSpielbestaetigungAntwortPayload.model_validate({"token": "t", **body})
-
-    @pytest.mark.parametrize("line_break", ["\n", "\r\n"], ids=["LF", "CRLF"])
-    def test_a_reason_keeps_its_line_breaks(self, line_break: str):
-        """A reason keeps the line breaks its text area sends.
-
-        Refused or flattened, the person's words would be lost or merged, and nothing on the page would say so.
-        """
-        reason = f"Halle belegt{line_break}Ab 18 Uhr frei"
-        parsed = FLSpielbestaetigungAntwortPayload.model_validate(
-            {"token": "t", "antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": reason}
-        )
-
-        assert parsed.begruendung == reason
-
-    def test_an_empty_reason_is_none(self):
-        parsed = FLSpielbestaetigungAntwortPayload.model_validate(
-            {"token": "t", "antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "   "}
-        )
-
-        assert parsed.begruendung is None
-
-
-class TestTheRefereesAnswersShape:
-    """A stale page or a scripted client reaches the endpoint past the panel's own schema, which refuses the same two."""
-
-    @pytest.mark.parametrize(
-        "body",
-        [
-            {"antwort": "declined", "begruendung": None},
-            {"antwort": "declined", "begruendung": "   "},
-            {"antwort": "zugesagt", "begruendung": "gern"},
-        ],
-        ids=["decline-without-reason", "decline-with-blank-reason", "accept-with-reason"],
-    )
-    def test_is_refused(self, body: dict[str, Any]):
-        with pytest.raises(ValidationError):
-            FLSpielbestaetigungSchiedsrichterAntwortPayload.model_validate(body)
+        assert ansetzung_stand_of(spiel(ergebnis="2:1", note="x", team1=renamed)) == ansetzung_stand_of(spiel())

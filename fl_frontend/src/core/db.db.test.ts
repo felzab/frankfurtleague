@@ -395,7 +395,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
 
     assert.ok(relay.triggered, "the removal sent no commit, so nothing here was hung");
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung removal settled with ${String(outcome)}`);
-    expect({ logged: logged, printed: printed.map(([line]) => String(line).includes("Failed to abort a MongoDB transaction")) }).toStrictEqual({
+    expect({ logged, printed: printed.map(([line]) => String(line).includes("Failed to abort a MongoDB transaction")) }).toStrictEqual({
       logged: [],
       printed: [true],
     });

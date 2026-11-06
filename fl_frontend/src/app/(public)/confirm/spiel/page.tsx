@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { SpielbestaetigungView } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView";
-import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
+import { getSpielbestaetigungView } from "@/features/spielbestaetigungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -36,14 +36,14 @@ async function SpielbestaetigungContent(props: NextPageProps) {
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.
-  if (typeof token !== "string" || token === "") return <SpielbestaetigungView start={{ zustand: "invalid" }} />;
+  if (typeof token !== "string" || token === "") return <SpielbestaetigungView start={{ state: "invalid" }} />;
 
   // A failed read is its own state: the dead-link panel there would call a live link void. A broken
   // contract is no failed read and reaches the error boundary, which logs it.
-  const gelesen = await runWithIncomingTrace(() => getSpielbestaetigungAnsicht(token).catch(nullUnlessContractBreak));
+  const read = await runWithIncomingTrace(() => getSpielbestaetigungView(token).catch(nullUnlessContractBreak));
 
-  if (gelesen === null) return <SpielbestaetigungView start={{ zustand: "unlesbar" }} />;
-  if (gelesen.zustand !== "valid" && gelesen.zustand !== "vorschlag") return <SpielbestaetigungView start={gelesen} />;
+  if (read === null) return <SpielbestaetigungView start={{ state: "unlesbar" }} />;
+  if (read.state !== "valid" && read.state !== "vorschlag") return <SpielbestaetigungView start={read} />;
 
-  return <SpielbestaetigungView start={{ zustand: gelesen.zustand, ansicht: gelesen.ansicht, token: token }} />;
+  return <SpielbestaetigungView start={{ state: read.state, ansicht: read.ansicht, token }} />;
 }

@@ -1,4 +1,4 @@
-import { laufendDot } from "@/features/saisons/components/ui/laufendDot";
+import { runningDot } from "@/features/saisons/components/ui/runningDot";
 import { PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 
 import type { ReactNode } from "react";
@@ -8,20 +8,20 @@ import type { ReactNode } from "react";
  * keeps the chip rung the corner ladder gives it and not a pill's.
  */
 export function SaisonChip({
-  isLaufend,
+  isRunning,
   children,
 }: {
   /**
    * Required, not optional: the dot claims the season is running, and a caller that cannot say so must
    * pass `false` rather than inherit the claim.
    */
-  isLaufend: boolean;
+  isRunning: boolean;
   children: ReactNode;
 }) {
   return (
     <div
       className={`${PILL_TINT_CLASSES.brand} inline-flex w-fit items-center gap-2 rounded-full border border-brand/30 px-4 py-1.5 fluid-xs font-bold shadow-xs`}>
-      {isLaufend && <span className={laufendDot("xs")} />}
+      {isRunning && <span className={runningDot("xs")} />}
       {children}
     </div>
   );

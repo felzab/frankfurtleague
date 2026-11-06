@@ -5,9 +5,11 @@ from typing import Annotated, Any
 
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, status
-from pymongo import ASCENDING
+from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import compose_chase_update, reopened_chases
 from app.api.outbox.schemas import (
     FLOutboxEventPayload,
     FLOutboxEventResponse,
@@ -32,8 +34,8 @@ from app.api.outbox.services import (
 from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
-from app.core.dependencies import DB, DBClient, OutboxCollection, get_germany_now
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
+from app.core.dependencies import DB, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
 from app.shared.tokens import mint_token
@@ -63,7 +65,7 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "_id": row["reference"]["id"],
-        **{address_path: row["an"] for address_path in link["addresses"]},
+        **{address_path: row["to"] for address_path in link["addresses"]},
         **{parent: {"$type": "object"} for parent in sorted(parents)},
     }
 
@@ -101,7 +103,7 @@ async def post_handout(
     async def claim(session: AsyncClientSession) -> tuple[list[FLOutboxHandout], str | None, int]:
         overdue = await patch_many_in_db(
             collection=outbox_collection,
-            db_filter={**_free(now), "frist": {"$lte": now}},
+            db_filter={**_free(now), "deadline": {"$lte": now}},
             update=final_update("abandoned", now=now),
             session=session,
         )
@@ -114,7 +116,7 @@ async def post_handout(
                 break
             due += await pull_many_from_db(
                 collection=outbox_collection,
-                db_filter={**_free(now), "frist": {"$gt": now}, "kind": kind_filter},
+                db_filter={**_free(now), "deadline": {"$gt": now}, "kind": kind_filter},
                 sort_by=[("recorded_at", ASCENDING), ("_id", ASCENDING)],
                 limit=PAGE - len(due),
                 session=session,
@@ -123,9 +125,9 @@ async def post_handout(
             return [], None, overdue.modified_count
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
-        judged = {str(row["an"]) for row in due if row["kind"] not in UNBARRED}
+        judged = {str(row["to"]) for row in due if row["kind"] not in UNBARRED}
         barred = await barred_addresses(ban_list, judged, session=session) if judged else set()
-        barred_ids = [row["_id"] for row in due if row["kind"] not in UNBARRED and row["an"] in barred]
+        barred_ids = [row["_id"] for row in due if row["kind"] not in UNBARRED and row["to"] in barred]
         dropped_ids: list[Any] = []
 
         tokens: dict[Any, str] = {}
@@ -177,7 +179,7 @@ async def post_handout(
             [
                 FLOutboxHandout(
                     id=row["_id"],
-                    an=row["an"],
+                    to=row["to"],
                     data=row["data"],
                     token=tokens.get(row["_id"]),
                     secret=row["secret"],
@@ -209,7 +211,7 @@ async def post_result(
     Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
 
     `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
-    refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+    refusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,
     is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
     provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
     mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
@@ -222,14 +224,14 @@ async def post_result(
 
     async def settled(update: Mapping[str, Any], narrowed: Mapping[str, Any]) -> bool:
         # Every report writes its refusal or none, so a mail sent after a failed send keeps no reason it no longer has.
-        with_grund = {**update, "$set": {**update["$set"], "grund": result_data.grund}}
-        result = await patch_many_in_db(collection=outbox_collection, db_filter={**held, **narrowed}, update=with_grund)
+        with_delivery_reason = {**update, "$set": {**update["$set"], "delivery_reason": result_data.delivery_reason}}
+        result = await patch_many_in_db(collection=outbox_collection, db_filter={**held, **narrowed}, update=with_delivery_reason)
         return result.modified_count > 0
 
     result = result_data.result
     state = FINAL_STATE[result]
     # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
-    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"frist": {"$lte": now}}]} if result == "retry" else {}
+    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"deadline": {"$lte": now}}]} if result == "retry" else {}
     counted: str
     if await settled(final_update(state, now=now, message_id=result_data.message_id), ends):
         counted = state
@@ -256,17 +258,46 @@ async def post_sign_in(
     or not.
     """
 
-    mail = OwedMail(key=f"{sign_in_data.data.kind}/{ObjectId()}", an=sign_in_data.an, data=sign_in_data.data)
+    mail = OwedMail(key=f"{sign_in_data.data.kind}/{ObjectId()}", to=sign_in_data.to, data=sign_in_data.data)
     await post_one_to_db(
         collection=outbox_collection,
         document=row_of(mail, now=now, secret=sign_in_data.secret, valid_until=sign_in_data.valid_until),
     )
 
 
+async def _reopen_chases(
+    *, mail_id: Any, outbox_collection: AsyncCollection, bewerbungen_collection: AsyncCollection, session: AsyncClientSession
+) -> None:
+    """Opens every chase the delivered mail's address proves reachable, on the application the mail is about."""
+
+    mail = await outbox_collection.find_one(
+        {"_id": mail_id, "reference.collection": str(Collection.BEWERBUNGEN)}, {"to": 1, "reference": 1}, session=session
+    )
+    row = (
+        None
+        if mail is None
+        else await bewerbungen_collection.find_one({"_id": mail["reference"]["id"]}, {"kontakte": 1, "confirmations": 1}, session=session)
+    )
+    if mail is None or row is None:
+        return
+
+    if seats := reopened_chases(bewerbung_raw=row, to=mail["to"]):
+        await patch_one_in_db(
+            collection=bewerbungen_collection,
+            db_filter={"_id": row["_id"]},
+            update=compose_chase_update(seats=seats, closed_at=None),
+            expected_version=None,
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+
 @router.post("/event", response_model=FLOutboxEventResponse, summary="Record one delivery event on its mail's row")
 async def post_event(
     event_data: Annotated[FLOutboxEventPayload, Body()],
     outbox_collection: OutboxCollection,
+    bewerbungen_collection: BewerbungenCollection,
+    db_client: DBClient,
 ) -> FLOutboxEventResponse:
     """
     Record what the mail provider reported about one message, on the row of the mail it was.
@@ -275,17 +306,27 @@ async def post_event(
     it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
     anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
     one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
-    would retry for hours.
+    would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
+    its address, in the same transaction.
     """
 
-    # One document, so the filter's condition and the write are one atomic operation and need no transaction.
-    result = await patch_many_in_db(
-        collection=outbox_collection,
-        db_filter={
-            "_id": event_data.id,
-            "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
-        },
-        update={"$set": {"delivery": {"state": event_data.state, "grund": event_data.grund, "at": event_data.at}}},
-    )
+    async def record(session: AsyncClientSession) -> bool:
+        result = await patch_many_in_db(
+            collection=outbox_collection,
+            db_filter={
+                "_id": event_data.id,
+                "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
+            },
+            update={"$set": {"delivery": {"state": event_data.state, "reason": event_data.reason, "at": event_data.at}}},
+            session=session,
+        )
+        applied = result.modified_count > 0
+        if applied and event_data.state == "delivered":
+            await _reopen_chases(
+                mail_id=event_data.id, outbox_collection=outbox_collection, bewerbungen_collection=bewerbungen_collection, session=session
+            )
 
-    return FLOutboxEventResponse(applied=result.modified_count > 0)
+        return applied
+
+    async with transaction_session(db_client) as session:
+        return FLOutboxEventResponse(applied=await session.with_transaction(record))

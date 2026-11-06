@@ -1,6 +1,7 @@
 import { cache } from "react";
 
-import { registrierungenGetOpenRegistrierungen, registrierungenGetRegistrierungen } from "@/core/generated/client/sdk";
+import { orMissing } from "@/core/errors";
+import { registrierungenGetOpenRegistrierungen, registrierungenGetRegistrierungenAdmin } from "@/core/generated/client/sdk";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -8,7 +9,7 @@ import { runPersonRead } from "@/shared/utils/personRead";
 import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";
 
-import type { FLOpenRegistrierungenResponse, FLRegistrierungenListResponse } from "@/core/generated/client/types";
+import type { FLOpenRegistrierungenResponse, FLRegistrierungenAdminListResponse } from "@/core/generated/client/types";
 import type { ReadingDirection } from "@/shared/utils/readingDirection";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
 
@@ -19,16 +20,12 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  */
 export const getOffeneRegistrierungen = cache(
   async (teamId: string, saisonId: string, order: ReadingDirection): Promise<FLOpenRegistrierungenResponse> =>
-    runPersonRead(() => registrierungenGetOpenRegistrierungen(teamId, saisonId, { order: order })),
+    runPersonRead(() => registrierungenGetOpenRegistrierungen(teamId, saisonId, { order })),
 );
 
-/**
- * Every season's pending registrations and never the header's season alone: a planned season's
- * stranded registrations would sit behind the selector, where nobody looks for them.
- */
-export async function getAdminRegistrierungen(order: ReadingDirection): Promise<FLRegistrierungenListResponse> {
-  // `eingereicht` alone: a declined row waits out its month and asks nothing of an administrator.
-  return runAdminRead(() => registrierungenGetRegistrierungen({ status: "submitted", order: order }));
+/** One season's pending registrations for the Registrierungen list, every team's; `null` where no season holds the id. */
+export async function getRegistrierungenAdmin(saisonId: string): Promise<FLRegistrierungenAdminListResponse | null> {
+  return runAdminRead(() => orMissing(registrierungenGetRegistrierungenAdmin({ saison_id: saisonId })));
 }
 
 /**
@@ -37,13 +34,13 @@ export async function getAdminRegistrierungen(order: ReadingDirection): Promise<
  */
 export async function getEinladungAnsicht(token: string): Promise<RegistrierungStart> {
   return runWithIncomingTrace(() =>
-    postEinladungAnsicht({ token: token }).then(
-      (view) => (einladungZustand(view) === "valid" ? { zustand: "valid", ansicht: view, token: token } : { zustand: "closed", ansicht: view }),
+    postEinladungAnsicht({ token }).then(
+      (view) => (einladungZustand(view) === "valid" ? { state: "valid", ansicht: view, token } : { state: "closed", ansicht: view }),
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live invite void.
         const state = mapRegistrierungAnsichtRefusal(error);
-        if (state !== null) return { zustand: state };
+        if (state !== null) return { state };
         throw error;
       },
     ),
@@ -58,11 +55,11 @@ export async function getEinladungAnsicht(token: string): Promise<RegistrierungS
  */
 export async function getSpielerBestaetigungAnsicht(token: string): Promise<SpielerBestaetigungAnsicht> {
   return runWithIncomingTrace(() =>
-    postBestaetigungAnsicht({ token: token }).then(
-      (ansicht) => (ansicht.state === "valid" ? { zustand: "valid" as const, ansicht: ansicht } : { zustand: ansicht.state }),
+    postBestaetigungAnsicht({ token }).then(
+      (ansicht) => (ansicht.state === "valid" ? { state: "valid" as const, ansicht } : { state: ansicht.state }),
       (error: unknown) => {
         const state = mapRegistrierungAnsichtRefusal(error);
-        if (state !== null) return { zustand: state };
+        if (state !== null) return { state };
         throw error;
       },
     ),

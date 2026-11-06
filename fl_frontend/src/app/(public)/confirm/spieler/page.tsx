@@ -43,18 +43,17 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
     typeof token === "string" && token !== ""
       ? await runWithIncomingTrace(() =>
           getSpielerBestaetigungAnsicht(token).then(
-            (gelesen): SpielerBestaetigungStart =>
-              gelesen.zustand === "valid" ? { zustand: "valid", ansicht: gelesen.ansicht, token: token } : gelesen,
+            (read): SpielerBestaetigungStart => (read.state === "valid" ? { state: "valid", ansicht: read.ansicht, token } : read),
             // A failed read is its own state, the dead-link panel calling a live link void.
-            (error: unknown): SpielerBestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+            (error: unknown): SpielerBestaetigungStart => nullUnlessContractBreak(error) ?? { state: "unlesbar" },
           ),
         )
-      : { zustand: "invalid" };
+      : { state: "invalid" };
 
   return (
     <SpielerBestaetigungView
       start={start}
-      wording={start.zustand === "valid" ? { seite: start.ansicht.seite } : null}
+      wording={start.state === "valid" ? { page: start.ansicht.page } : null}
     />
   );
 }

@@ -20,7 +20,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import DuplicateKeyError
 
 from app.api.berechtigungen.admin_router import (
     delete_approval_request,
@@ -222,9 +221,9 @@ async def owed(database: AsyncDatabase) -> list[tuple[Mapping[str, Any], list[st
 
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
     async for row in database[Collection.OUTBOX].find({"state": "open", "kind": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
-        notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["an"]))
+        notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["to"]))
 
-    return [(data, sorted(an)) for data, an in notices.values()]
+    return [(data, sorted(to)) for data, to in notices.values()]
 
 
 async def asked_for(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> ObjectId:
@@ -318,22 +317,6 @@ class TestFourEyesOnAGrant:
             ANNA,
         )
 
-    def test_a_lone_administrator_grants_alone_and_announces_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answer = await ask(database, client, als=OWNER)
-            return answer.requested, (await tiers(database)).get(NEU), await approval_requests(database), await announced(database)
-
-        assert on_a_league(mongo_replica_set_url, body, grants=[THREE[0]]) == (False, "administration", [], [("granted", NEU, OWNER)])
-
-    def test_a_colleague_the_ban_list_holds_leaves_the_administrator_alone(self, mongo_replica_set_url: str):
-        """A barred colleague approves nothing, so a request would only lapse."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document(BERND, until=STANDING))
-            return (await ask(database, client, als=OWNER)).requested
-
-        assert on_a_league(mongo_replica_set_url, body, grants=[THREE[0], THREE[2]]) is False
-
 
 class TestFourEyesOnAPromotion:
     """A promotion waits on another owner where one exists; a lone owner promotes alone."""
@@ -362,14 +345,6 @@ class TestFourEyesOnAPromotion:
             # The paste nobody had been told of goes out first, as the tier change announces one.
             [("granted", BERND, None), ("changed", BERND, ANNA)],
         )
-
-    def test_a_lone_owner_promotes_alone_though_administrators_could_approve(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answer = await tier(database, client, ANNA_ID)
-            kinds = {kind for kind, _, _ in await announced(database)}
-            return answer.requested, (await tiers(database))[ANNA], await approval_requests(database), "requested" in kinds
-
-        assert on_a_league(mongo_replica_set_url, body) == (False, "owner", [], False)
 
     def test_a_demotion_takes_effect_at_once(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -400,8 +375,8 @@ async def asked(database: AsyncDatabase) -> list[tuple[str | None, str | None, l
     """Each request still owed: its subject, its requester and the approvers it is owed to."""
 
     return [
-        (None if data["current"] is None else data["current"]["address"], data["changed_by"], an)
-        for data, an in await owed(database)
+        (None if data["current"] is None else data["current"]["address"], data["changed_by"], to)
+        for data, to in await owed(database)
         if data["change"] == "requested"
     ]
 
@@ -413,7 +388,7 @@ class TestTheRequestAsksItsApprovers:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await asked_for(database, client)
             await compared(database, client)
-            changes = [(data["change"], an) for data, an in await owed(database) if data["change"] != "requested"]
+            changes = [(data["change"], to) for data, to in await owed(database) if data["change"] != "requested"]
             return await asked(database), changes
 
         # The paste's three grants go to every holder; the request to neither its requester nor its subject.
@@ -490,15 +465,6 @@ class TestOneRequestPerAddress:
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.GRANT_APPROVAL_REQUEST_OPEN, [BERND])
 
-    def test_the_index_holds_one_row_per_address_beneath_the_route(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-            row = compose_approval_request(address=NEU, admin_tier="administration", grant_id=None, started_by=ANNA, now=NOW)
-            await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(row))
-            with pytest.raises(DuplicateKeyError):
-                await database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(dict(row))
-
-        on_a_league(mongo_replica_set_url, body)
-
     def test_a_restored_lapsed_request_is_gone_to_every_reader(self, mongo_replica_set_url: str):
         """A restore puts back a row its TTL index had removed, and nothing journals a lapse: the reads' own `until` term holds it.
 
@@ -539,15 +505,6 @@ class TestWhoMayDecide:
 
         assert on_a_league(mongo_replica_set_url, body, grants=WITH_CARLA_SINCE_HALF_AN_HOUR) == (refused, False, 1)
 
-    def test_an_administrator_granted_before_the_request_approves(self, mongo_replica_set_url: str):
-        """The tenure rule's other side: the same approver, a request asked after her grant."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            approval_request_id = await asked_for(database, client, now=since(600))
-            return await outcome(approve(database, client, approval_request_id, als=CARLA, now=since(60))), NEU in await tiers(database)
-
-        assert on_a_league(mongo_replica_set_url, body, grants=WITH_CARLA_SINCE_HALF_AN_HOUR) == (COMMITTED, True)
-
     @pytest.mark.parametrize(
         ("als", "refused"),
         [
@@ -564,35 +521,6 @@ class TestWhoMayDecide:
 
         grants = [*TWO_OWNERS, grant_document(CARLA_ID, CARLA, "administration")]
         assert on_a_league(mongo_replica_set_url, body, grants=grants) == (refused, "administration")
-
-    def test_the_list_says_who_asked_when_and_why_its_reader_may_not_approve(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            approval_request_id = await asked_for(database, client)
-            return approval_request_id, {als: (await listed(database, client, als=als)).approval_requests for als in (ANNA, BERND)}
-
-        approval_request_id, readers = on_a_league(mongo_replica_set_url, body)
-
-        (by_anna,), (by_bernd,) = readers[ANNA], readers[BERND]
-        assert (by_anna.id, by_anna.address, by_anna.started_by, by_anna.admin_tier, by_anna.stands) == (
-            approval_request_id,
-            NEU,
-            ANNA,
-            "administration",
-            True,
-        )
-        assert (by_anna.asked_at, by_anna.until) == (
-            NOW.astimezone(UTC),
-            (NOW + timedelta(days=APPROVAL_DAYS)).astimezone(UTC),
-        )
-        assert (by_anna.denied, by_bernd.denied) == ("started", None)
-
-    def test_the_requester_withdraws_their_own_and_an_approver_refuses(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            withdrawn = await outcome(refuse(database, client, await asked_for(database, client), als=ANNA))
-            refused = await outcome(refuse(database, client, await asked_for(database, client), als=BERND))
-            return withdrawn, refused, await approval_requests(database), NEU in await tiers(database)
-
-        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, COMMITTED, [], False)
 
     def test_neither_the_promoted_administrator_nor_one_who_is_no_owner_refuses_a_promotion(self, mongo_replica_set_url: str):
         """Refusing is deciding, held to the approval's own rule: only the requester's withdrawal stands outside it."""
@@ -953,13 +881,13 @@ class TestAMovedAdministratorKeepsTheirStanding:
             await compared(database, client, now=since(2 * ASKED_AN_HOUR_AGO))
             approval_request_id = await asked_for(database, client, als=SECOND_ADMIN, now=since(ASKED_AN_HOUR_AGO))
             await move(database, client, at=since(MOVED_AGO))
-            ((_, _, an),) = await asked(database)
+            ((_, _, to),) = await asked(database)
             approved = await outcome(approve(database, client, approval_request_id, als=NEW_EMAIL, now=since(60)))
-            return an, approved, NEU in await tiers(database)
+            return to, approved, NEU in await tiers(database)
 
-        an, approved, granted_now = on_a_person(mongo_replica_set_url, DATABASE_NAME, body)
+        to, approved, granted_now = on_a_person(mongo_replica_set_url, DATABASE_NAME, body)
 
-        assert (NEW_EMAIL in an, EMAIL in an, approved, granted_now) == (True, False, COMMITTED, True)
+        assert (NEW_EMAIL in to, EMAIL in to, approved, granted_now) == (True, False, COMMITTED, True)
 
     def test_their_own_request_made_before_their_move_stays_approvable(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

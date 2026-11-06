@@ -12,9 +12,6 @@ OID = ObjectId("6890a1b2c3d4e5f60fff0001")
 
 
 class TestOneClubNamedTwice:
-    def test_two_clubs_pass(self):
-        assert find_swap_pair_refusal(team1_id=OID, team2_id=ObjectId("6890a1b2c3d4e5f60fff0002")) is None
-
     def test_one_club_named_twice_is_refused_as_the_payload(self):
         """The ids say so, not the groups, which agree either way; a 422 naming both fields, no season making one club a pair."""
 

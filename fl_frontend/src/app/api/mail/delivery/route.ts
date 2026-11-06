@@ -24,7 +24,7 @@ const SVIX_HEADERS = ["svix-id", "svix-timestamp", "svix-signature"] as const;
  */
 // Built per call and never held at module scope: a `Response` carries a body stream that is consumed
 // once, so a shared instance answers the second request of its kind with an unusable body.
-const APPLIED = (applied: boolean) => NextResponse.json({ applied: applied }, { status: 200 });
+const APPLIED = (applied: boolean) => NextResponse.json({ applied }, { status: 200 });
 const NO_SIGNATURE = () => NextResponse.json({ error: "signature" }, { status: 400 });
 const NO_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
 
@@ -46,24 +46,24 @@ const OutboxEventSchema = z.object({
 type OutboxEvent = z.infer<typeof OutboxEventSchema>;
 
 /** The state one event leaves on the row, or `null` for an event that leaves none, `email.sent` among them. */
-function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "state" | "grund"> | null {
+function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "state" | "reason"> | null {
   switch (type) {
     case "email.delivered":
-      return { state: "delivered", grund: null };
+      return { state: "delivered", reason: null };
     // A temporary bounce is the receiving server asking for later, not the mailbox refusing: reading it as permanent
     // would mark a full mailbox unreachable.
     case "email.bounced":
-      return { state: data.bounce?.type === "Permanent" ? "undeliverable" : "delayed", grund: data.bounce?.subType ?? null };
+      return { state: data.bounce?.type === "Permanent" ? "undeliverable" : "delayed", reason: data.bounce?.subType ?? null };
     case "email.suppressed":
-      return { state: "suppressed", grund: data.suppressed?.type ?? null };
+      return { state: "suppressed", reason: data.suppressed?.type ?? null };
     case "email.complained":
-      return { state: "complaint", grund: null };
+      return { state: "complaint", reason: null };
     case "email.delivery_delayed":
-      return { state: "delayed", grund: null };
+      return { state: "delayed", reason: null };
     // The documented reason is the league's own daily quota, which says nothing about the address: a permanent state
     // here would mark the address unreachable for the sender's fault.
     case "email.failed":
-      return { state: "delayed", grund: data.failed?.reason ?? null };
+      return { state: "delayed", reason: data.failed?.reason ?? null };
     default:
       return null;
   }
@@ -82,13 +82,13 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   const state = outboxStateFrom(read.data);
   if (state === null) return null;
 
-  const event = { id: id, at: read.data.created_at, ...state };
+  const event = { id, at: read.data.created_at, ...state };
   // The provider's reason is its own token, kept only where the endpoint takes it: the state stands without one.
-  const payload = OutboxPostEventBody.safeParse(event).data ?? OutboxPostEventBody.safeParse({ ...event, grund: null }).data;
+  const payload = OutboxPostEventBody.safeParse(event).data ?? OutboxPostEventBody.safeParse({ ...event, reason: null }).data;
   if (payload !== undefined) return payload;
 
   // 200 because no retry repairs it, and a line because the alternative is a drop nobody sees.
-  logger.warn("mail.delivery_unplaceable", { grund: "outbox_unreadable" });
+  logger.warn("mail.delivery_unplaceable", { reason: "outbox_unreadable" });
   return null;
 }
 

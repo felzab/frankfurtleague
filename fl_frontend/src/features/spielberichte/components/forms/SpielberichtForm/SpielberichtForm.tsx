@@ -2,6 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 
+import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
+
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
@@ -12,7 +14,6 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
-import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -30,18 +31,18 @@ import type { RailBanner } from "@/shared/components/ui/railBanner";
 import type { SpielberichtDraft, SpielberichtKontext } from "./spielberichtDraft";
 
 /** The block as the form edits it, and its counter, which the write names as the version it was composed on. */
-type GespeicherterBericht = Pick<FLSpielberichtBericht, "ergebnis_vorschlag" | "torschuetzen" | "karten" | "bemerkungen" | "version">;
+type GespeicherterBericht = Pick<FLSpielberichtBericht, "ergebnis_vorschlag" | "scorers" | "cards" | "remarks" | "version">;
 
 /**
  * The report about other clubs than the fixture fields now, which a save moves to them (`seiten_geaendert`). The body
  * names a removal only where the opening took a person out of an entry (`eroeffnungOf`).
  */
-const teamsGeaendert = (geleert: boolean): RailBanner => ({
+const teamsGeaendert = (emptied: boolean): RailBanner => ({
   id: "spielbericht.teams-geaendert",
   severity: "warning",
   raisedBy: "state",
   title: "Im Spiel stehen inzwischen andere Teams",
-  body: geleert
+  body: emptied
     ? "Personen der Teams, die nicht mehr spielen, sind aus ihren Einträgen genommen. Wähle sie neu und speichere den Bericht für die Teams, die jetzt spielen."
     : "Speichere den Bericht für die Teams, die jetzt spielen.",
   inline: null,
@@ -69,13 +70,13 @@ export function SpielberichtForm({
   const [draft, setDraft] = useState<SpielberichtDraft>(eroeffnung.entwurf);
   const [hasSaved, setHasSaved] = useState(false);
   // Past every stored entry's key, so an added entry never reuses one React still holds.
-  const nextKey = useRef(Math.max(saved.torschuetzen.length, saved.karten.length));
+  const nextKey = useRef(Math.max(saved.scorers.length, saved.cards.length));
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
     // The success's own words negated, the press reading „Speichern“; never „nicht gesendet“, which the register
     // keeps for a press refused before anything went out.
     useDraftFieldErrors({
-      schemas: { spielbericht: spielberichtFormSchema(stored?.karten ?? []) },
+      schemas: { spielbericht: spielberichtFormSchema(stored?.cards ?? []) },
       failureTitle: "Spielbericht nicht gespeichert",
     });
 
@@ -145,7 +146,7 @@ export function SpielberichtForm({
                 banners={
                   kontext.seitenGeaendert.size === 0
                     ? []
-                    : [teamsGeaendert(eroeffnung.geleert.torschuetzen.size + eroeffnung.geleert.karten.size > 0)]
+                    : [teamsGeaendert(eroeffnung.emptied.scorers.size + eroeffnung.emptied.cards.size > 0)]
                 }
                 nomen="Spielbericht"
               />
@@ -159,33 +160,31 @@ export function SpielberichtForm({
 
             <FormTorschuetzenSection
               kontext={kontext}
-              entries={draft.torschuetzen}
-              onChange={(torschuetzen) => change({ torschuetzen })}
-              onAdd={() =>
-                change({ torschuetzen: [...draft.torschuetzen, { key: neuerKey(), seite: null, spieler: "", minute: "", eigentor: false }] })
-              }
+              entries={draft.scorers}
+              onChange={(scorers) => change({ scorers })}
+              onAdd={() => change({ scorers: [...draft.scorers, { key: neuerKey(), side: null, spieler: "", minute: "", eigentor: false }] })}
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
-              geleert={eroeffnung.geleert.torschuetzen}
+              emptied={eroeffnung.emptied.scorers}
               istNichtantreten={draft.sonderereignis === "nichtantreten_team1" || draft.sonderereignis === "nichtantreten_team2"}
             />
 
             <FormKartenSection
               kontext={kontext}
-              eintraege={draft.karten}
-              onChange={(karten) => change({ karten })}
+              eintraege={draft.cards}
+              onChange={(cards) => change({ cards })}
               onAdd={() =>
-                change({ karten: [...draft.karten, { key: neuerKey(), seite: null, spieler: "", minute: "", farbe: null, grund: null }] })
+                change({ cards: [...draft.cards, { key: neuerKey(), side: null, spieler: "", minute: "", colour: null, reason: null }] })
               }
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
-              geleert={eroeffnung.geleert.karten}
-              bestand={stored?.karten ?? []}
+              emptied={eroeffnung.emptied.cards}
+              bestand={stored?.cards ?? []}
             />
 
             <FormBemerkungenSection
-              bemerkungen={draft.bemerkungen}
-              onChange={(bemerkungen) => change({ bemerkungen })}
+              remarks={draft.remarks}
+              onChange={(bemerkungen) => change({ remarks: bemerkungen })}
               onValidateFields={validateFields}
             />
           </EditFormLayout>

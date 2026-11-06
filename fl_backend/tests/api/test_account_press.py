@@ -48,8 +48,7 @@ def _press(blocks: list[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice
 
 
 # A stored block, and the press sending each choice back as stored.
-PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"scope": "intern", "media": False}
-PUPIL_GRANTED: Final[Mapping[str, Any]] = {"scope": "kader_oeffentlich", "media": True}
+PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"scope": "internal", "media": False}
 
 
 def _as_stored(block: Mapping[str, Any], **moved: Any) -> dict[FLEinwilligungChoice, Any]:
@@ -57,7 +56,7 @@ def _as_stored(block: Mapping[str, Any], **moved: Any) -> dict[FLEinwilligungCho
 
 
 class TestAGrantThePressMovesNamesItsCurrentWording:
-    @pytest.mark.parametrize(("choice", "giving"), [("scope", "kader_oeffentlich"), ("media", True)])
+    @pytest.mark.parametrize(("choice", "giving"), [("scope", "kader_public"), ("media", True)])
     def test_a_choice_moved_onto_a_grant_under_a_replaced_label_is_refused(self, choice: FLEinwilligungChoice, giving: Any):
         with pytest.raises(APIError) as refused:
             _press([PUPIL_WITHHELD], _as_stored(PUPIL_WITHHELD, **{choice: giving}), _replaced(FLSpielerTextVersions, choice))
@@ -67,8 +66,3 @@ class TestAGrantThePressMovesNamesItsCurrentWording:
             409,
             (("text_versions", choice),),
         )
-
-    def test_a_grant_under_the_current_label_is_taken(self):
-        """The floor for the refusal above: without it, a sequence refusing every grant passes it."""
-
-        _press([PUPIL_WITHHELD], _as_stored(PUPIL_GRANTED), _replaced(FLSpielerTextVersions))

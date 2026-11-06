@@ -50,7 +50,7 @@ SEAT_OPEN = "sitz.offen@schule.de"
 SEAT_EXITED = "sitz.ausgetreten@schule.de"
 BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
 BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
-SPIELER_FORMER = "spieler.ehemalig@schule.de"
+SPIELER = "spieler.anna@schule.de"
 SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
 REGISTERED = "rita.registriert@schule.de"
 ADMIN = "verena.verwaltung@schule.de"
@@ -83,7 +83,7 @@ ASKED = [
     NOBODY,
     BEWERBUNG_OPEN,
     BEWERBUNG_UNCONFIRMED,
-    "Spieler.Ehemalig@Schule.DE",
+    "Spieler.Anna@Schule.DE",
     SCHIEDSRICHTER_RETIRED,
     GHOST_SCHIEDSRICHTER,
     REGISTERED,
@@ -116,19 +116,19 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
         email,
         saison_id=ACTIVE_SAISON,
         team_id=TEAM_OIDS[0],
-        vorname="Rita",
-        nachname="Registriert",
+        first_name="Rita",
+        last_name="Registriert",
         token=email,
         submitted_at="2026-01-02",
-        frist="2026-01-09",
+        deadline="2026-01-09",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
         confirmed=None
         if not confirmed
         else {
-            "geburtsdatum": "2009-05-04",
-            "scope": "intern",
+            "birth_date": "2009-05-04",
+            "scope": "internal",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
@@ -161,14 +161,10 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
             kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OPEN), ansprechperson=_seat(BEWERBUNG_UNCONFIRMED, confirmed_at=None)),
             submitted_at="2026-01-01",
             confirmation_deadline="2026-01-15",
-            schule=new_schule_document("Bewerberschule", "BWX"),
+            schule=new_schule_document("Bewerberschule"),
         )
     )
-    await database[Collection.SPIELER].insert_many(
-        [
-            spieler_document(ObjectId(), "Anna", "Ehemalig", email=SPIELER_FORMER, inactive_since="2026-03-01"),
-        ]
-    )
+    await database[Collection.SPIELER].insert_one(spieler_document(ObjectId(), "Anna", "Anders", email=SPIELER))
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             _referee(ObjectId(), SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
@@ -237,7 +233,7 @@ class TestWhatKeepsAnAccount:
             pytest.param(SEAT_EXITED, id="a withdrawn team's seat"),
             pytest.param(BEWERBUNG_OPEN, id="a pending application's confirmed seat"),
             pytest.param(BEWERBUNG_UNCONFIRMED, id="a pending application's unconfirmed seat"),
-            pytest.param("Spieler.Ehemalig@Schule.DE", id="a retired pupil, asked in capitals"),
+            pytest.param("Spieler.Anna@Schule.DE", id="a pupil, asked in capitals"),
             pytest.param(SCHIEDSRICHTER_RETIRED, id="a retired referee"),
             pytest.param(REGISTERED, id="a confirmed pending registration"),
             pytest.param(ADMIN, id="a grant the comparison has not seen"),

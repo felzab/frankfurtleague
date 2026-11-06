@@ -39,14 +39,14 @@ export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdre
     const { registrierung_id, spieler_id } = validated.data;
     let aufnahme;
     try {
-      aufnahme = await postRegistrierungAufnehmen(registrierung_id, { spieler_id: spieler_id });
+      aufnahme = await postRegistrierungAufnehmen(registrierung_id, { spieler_id });
     } catch (error) {
       const refusal = mapAufnahmeRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
-    return { success: true, message: `${aufnahme.vorname} ist jetzt im Kader.` };
+    return { success: true, message: `${aufnahme.first_name} ist jetzt im Kader.` };
   });
 }
 
@@ -59,10 +59,10 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
     const validated = AblehnenAktion.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    const { registrierung_id, grund } = validated.data;
+    const { registrierung_id, reason } = validated.data;
     let ablehnung;
     try {
-      ablehnung = await postRegistrierungAblehnen(registrierung_id, { grund: grund });
+      ablehnung = await postRegistrierungAblehnen(registrierung_id, { reason });
     } catch (error) {
       const refusal = mapAblehnungRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
@@ -73,7 +73,7 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
     // pupil's address is barred, which no seat holder is told.
     return {
       success: true,
-      message: `${ablehnung.vorname} kommt nicht in den Kader. Die Registrierung löschen wir einen Monat nach der Entscheidung.`,
+      message: `${ablehnung.first_name} kommt nicht in den Kader. Die Registrierung löschen wir einen Monat nach der Entscheidung.`,
     };
   });
 }

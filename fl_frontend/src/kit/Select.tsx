@@ -7,6 +7,7 @@ import { textOf } from "@/core/copy";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
+import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 
@@ -19,6 +20,7 @@ import type { Option } from "./OptionList";
  */
 export function Select({
   label,
+  labelHidden = false,
   description,
   consequence,
   options,
@@ -31,6 +33,8 @@ export function Select({
   onChange,
 }: {
   label: Copy;
+  /** Whether the label names the field to a screen reader alone, the title of a section holding this one field. */
+  labelHidden?: boolean;
   description?: Copy;
   consequence?: Copy;
   options: readonly Option[];
@@ -46,6 +50,7 @@ export function Select({
   return (
     <AriaSelect
       className={fieldRoot()}
+      aria-label={labelHidden ? textOf(label) : undefined}
       name={name}
       value={value}
       defaultValue={defaultValue}
@@ -56,13 +61,15 @@ export function Select({
       // Nothing while none is chosen, as an empty text field shows nothing: no field has a placeholder
       // (`docs/frontend/copy.md`), and React Aria's own, „Element wählen“, is words outside the catalogue.
       placeholder="">
-      <FieldLabel
-        label={label}
-        isRequired={isRequired}
-      />
+      {!labelHidden && (
+        <FieldLabel
+          label={label}
+          isRequired={isRequired}
+        />
+      )}
       <Button
         data-kit-focus="field"
-        className={fieldFrame({ width, inset: "start", layout: "trigger" })}>
+        className={fieldFrame({ width, inset: "start", layout: "trigger", class: hoverLook({ host: "aria" }) })}>
         {width === "fit" ? (
           // Sized to the longest choice, not the chosen one, so choosing never moves the field: every label
           // lies in the value's cell, unseen, and the widest sets the cell's width. The cell's one column may

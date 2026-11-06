@@ -40,7 +40,7 @@ describe("a digits field", () => {
       <Form onSubmit={(event) => event.preventDefault()}>
         <TextField
           label={COPY.shared.startelf}
-          name="plz"
+          name="postcode"
           kind="digits"
           width="C5"
         />

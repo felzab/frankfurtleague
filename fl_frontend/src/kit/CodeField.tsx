@@ -8,6 +8,7 @@ import { Input, TextField } from "react-aria-components/TextField";
 import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 
 import { codeBox, codeInput, codeRow, fieldRoot, messageLine } from "./fieldStyles";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 import type { SyntheticEvent } from "react";
@@ -51,6 +52,7 @@ export function CodeField({
   const [code, setCode] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const root = useEarlyEdit();
 
   // Moved on mount rather than through `autoFocus`, which the lint bans for a load-time grab: the field
   // appears in place of the button just pressed, which would leave a keyboard user on the document body.
@@ -69,6 +71,7 @@ export function CodeField({
 
   return (
     <TextField
+      ref={root}
       className={fieldRoot()}
       aria-label={label}
       name={name}
@@ -103,7 +106,7 @@ export function CodeField({
           answers the code just typed. Empty, the line holds its place. */}
       <div
         role="alert"
-        className={messageLine({ tone: "error", lines: "several" })}>
+        className={messageLine({ tone: "error" })}>
         {error !== undefined && <FieldError>{error}</FieldError>}
       </div>
     </TextField>

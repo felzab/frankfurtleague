@@ -1,9 +1,7 @@
-import { DateField } from "@/kit/DateField";
-import { FieldColumns } from "@/kit/FieldColumns";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum, formatNumber } from "@/core/format";
+import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { createSaison } from "@/features/saisons/createSaison";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
@@ -12,9 +10,10 @@ import { CREATE_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { CreateFields } from "./CreateFields";
+
 import type { Copy } from "@/core/copy";
 import type { Code, FLSaisonAdminListed } from "@/core/generated/client/types";
-import type { NextSaison } from "@/features/saisons/nextSaison";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -35,8 +34,8 @@ const rowOf = (saison: FLSaisonAdminListed): TableRow => ({
   href: ROUTES.adminSaison.path(saison.id),
   chip: saisonChipOf(saison),
   cells: {
-    beginn: { record: formatDatum(dayOf(saison.start_date)) },
-    ende: { record: formatDatum(dayOf(saison.end_date)) },
+    start: { record: formatDate(dayOf(saison.start_date)) },
+    end: { record: formatDate(dayOf(saison.end_date)) },
     teams: countOf(saison.count_teams),
     spiele: countOf(saison.count_spiele),
   },
@@ -49,7 +48,7 @@ export default function SaisonsPage() {
     <ListPage
       head={{ scope: "area", title: { route: "adminSaisons" } }}
       create={readCreate(read)}
-      list={{ kind: "table", head: HEAD, content: readSaisons(read) }}
+      list={{ kind: "table", head: HEAD, wait: 4, content: readSaisons(read) }}
     />
   );
 }
@@ -74,41 +73,22 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
     act: { verb: "create", object: name },
     action: createSaison,
     // Read oldest first, the order `getAdminSaisons` asks for.
-    children: <CreateFields next={nextSaisonOf(saisons.at(-1))} />,
+    children: (
+      <CreateFields
+        next={nextSaisonOf(saisons.at(-1))}
+        required={CREATE_REQUIRED}
+      />
+    ),
     ...(refusals.create === null ? {} : { locked: lockedOf(refusals.create) }),
   };
-}
-
-/** The create dialog's boxes, starting from the days the newest season suggests. */
-function CreateFields({ next }: { next: NextSaison }) {
-  return (
-    <>
-      {/* A season's two days, sharing their row at every width. */}
-      <FieldColumns>
-        <DateField
-          label={WORDS.beginn}
-          name="start_date"
-          isRequired={CREATE_REQUIRED.start}
-          defaultValue={next.start}
-        />
-        <DateField
-          label={WORDS.ende}
-          name="end_date"
-          isRequired={CREATE_REQUIRED.end}
-          defaultValue={next.end}
-        />
-      </FieldColumns>
-    </>
-  );
 }
 
 /** The table's head, drawn while the seasons are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.saison,
-  // A phone's row holds the name, its chip and the start beside them, with room to spare at 390 px.
   columns: [
-    { key: "beginn", label: WORDS.beginn },
-    { key: "ende", label: WORDS.ende, hideOnPhone: true },
+    { key: "start", label: WORDS.start, narrow: true, width: "date" },
+    { key: "end", label: WORDS.end, hideOnPhone: true, width: "date" },
     { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
     { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },
   ],

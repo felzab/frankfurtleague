@@ -1,43 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatAddressFull, formatEuro, formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT, nichtHinterlegt, PLACEHOLDER } from "./format.ts";
+import { formatEuro, formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT, nichtHinterlegt, PLACEHOLDER } from "./format.ts";
 
 describe("the two forms of an empty stored field", () => {
   it("reads „Nicht hinterlegt“ beside a label, and names the field where none stands", () => {
     expect(NICHT_HINTERLEGT).toBe("Nicht hinterlegt");
     expect(nichtHinterlegt("E-Mail")).toBe("E-Mail nicht hinterlegt");
-  });
-});
-
-const address = {
-  strasse: "Hanauer Landstraße",
-  hausnummer: "12a",
-  plz: "60314",
-  stadtteil: "Ostend",
-  stadt: "Frankfurt am Main",
-};
-
-describe("formatAddressFull", () => {
-  it("appends the country and puts stadtteil before stadt", () => {
-    expect(formatAddressFull(address)).toBe("Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main, Deutschland");
-  });
-
-  it("renders an empty stadtteil without a double space", () => {
-    expect(formatAddressFull({ ...address, stadtteil: "" })).toBe("Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland");
-  });
-
-  // The venue list copies this line to the clipboard, so a stray space before the comma travels into
-  // whatever message it is pasted in.
-  it("closes the street up to its comma where the hausnummer is empty", () => {
-    expect(formatAddressFull({ ...address, hausnummer: "" })).toBe("Hanauer Landstraße, 60314 Ostend Frankfurt am Main, Deutschland");
-  });
-
-  it("drops an empty hausnummer and an empty stadtteil together", () => {
-    expect(formatAddressFull({ ...address, hausnummer: "", stadtteil: "" })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main, Deutschland");
-  });
-
-  it("reads a part holding only whitespace as empty", () => {
-    expect(formatAddressFull({ ...address, hausnummer: " ", stadtteil: " " })).toBe("Hanauer Landstraße, 60314 Frankfurt am Main, Deutschland");
   });
 });
 
@@ -78,7 +46,7 @@ describe("formatSpielDatum", () => {
   });
 
   it("defaults to the shared date placeholder", () => {
-    expect(formatSpielDatum(null)).toBe(PLACEHOLDER.datum);
+    expect(formatSpielDatum(null)).toBe(PLACEHOLDER.date);
   });
 });
 
@@ -113,7 +81,7 @@ describe("formatUhrzeit", () => {
     expect(formatUhrzeit(undefined)).toBe("--:--");
     // "" is falsy and must take the placeholder too -- the cards' old `|| "--:--"` relied on that.
     expect(formatUhrzeit("")).toBe("--:--");
-    expect(formatUhrzeit(null)).toBe(PLACEHOLDER.uhrzeit);
+    expect(formatUhrzeit(null)).toBe(PLACEHOLDER.time);
   });
 
   it("accepts an explicit fallback", () => {

@@ -103,7 +103,7 @@ export function RailFrame({
             id={RAIL_ID}
             className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
-            <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
+            <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)]">
               {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
             </div>
             {/* Each part the menus' reads hold back stands meanwhile as its own placeholder, at its own size, so
@@ -160,7 +160,7 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
     <>
       {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
           not drawn over them (`tokens.css`). */}
-      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
+      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
           <Suspense fallback={<EditorBackPlaceholder />}>
@@ -202,7 +202,7 @@ function titleOf(title: PageTitle): string {
 
 const strip = tv({
   slots: {
-    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:border-b lg:border-border lg:bg-bg lg:px-8 lg:pt-0",
+    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 [view-transition-name:strip] lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:border-b lg:border-border lg:bg-bg lg:px-8 lg:pt-0",
     // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
     heading: "min-w-0 font-heading tracking-display break-words uppercase lg:truncate",
   },
@@ -231,6 +231,7 @@ export function RailPage({
   scope,
   title,
   chip,
+  flag,
   action,
   bar,
   children,
@@ -240,6 +241,8 @@ export function RailPage({
   title: PageTitle | null;
   /** The record's status, directly after its name. */
   chip?: ChipProps;
+  /** What that status leaves unsaid, after it. Neither chip gives way on a phone: the title takes what they leave and wraps. */
+  flag?: ChipProps;
   /**
    * The page's one icon-only way on beside its title, after its chip, such as the Spielplan's magnifier to
    * the Spielsuche: the kit's link, which its tooltip names. It may wait for the page's address, as the
@@ -252,7 +255,10 @@ export function RailPage({
 }) {
   const { head, heading } = strip({ scope });
   return (
-    <PageFade>
+    <>
+      {/* Beside the page's fade, never in it, as the bar under it is: the fade writes a name of its own over the name of
+          whatever stands at its top, so each stands apart, one picture across a page's change and a wait's end
+          (`tokens.css`). */}
       <header className={head()}>
         <RailToggle />
         {title === null ? (
@@ -266,7 +272,12 @@ export function RailPage({
         ) : (
           <h1 className={heading()}>{titleOf(title)}</h1>
         )}
-        {chip !== undefined && <Chip {...chip} />}
+        {chip !== undefined && (
+          <span className="flex shrink-0 items-center gap-2">
+            <Chip {...chip} />
+            {flag !== undefined && <Chip {...flag} />}
+          </span>
+        )}
         {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
         {scope === "saison" && (
           <nav
@@ -284,13 +295,15 @@ export function RailPage({
           </nav>
         )}
       </header>
-      {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen, the gutter
-          outside it; the editor's bar spans the whole width under it. */}
-      <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">
-        <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
-      </main>
+      <PageFade>
+        {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen, the gutter
+            outside it; the editor's bar spans the whole width under it. */}
+        <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 overflow-anchor-none lg:px-8 lg:pt-8 lg:pb-12">
+          <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
+        </main>
+      </PageFade>
       {bar}
-    </PageFade>
+    </>
   );
 }
 

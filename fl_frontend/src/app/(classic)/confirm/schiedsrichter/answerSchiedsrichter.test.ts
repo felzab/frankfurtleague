@@ -23,7 +23,7 @@ const posted = (entries: Readonly<Record<string, string>>) => {
 };
 
 const confirmation = (media?: "on") =>
-  posted({ act: "primary", token: TOKEN, geburtsdatum: "2000-01-01", scope: "intern", ...(media === undefined ? {} : { media }) });
+  posted({ act: "primary", token: TOKEN, birth_date: "2000-01-01", scope: "internal", ...(media === undefined ? {} : { media }) });
 
 describe("the referee's answer", () => {
   // The harm: a ticked media consent stored as refused, or an unticked one as given, nothing on the page saying so.
@@ -34,14 +34,14 @@ describe("the referee's answer", () => {
     expect(requestsOf(calls).map(({ endpoint, body }) => ({ endpoint, body }))).toStrictEqual(
       [true, false].map((media) => ({
         endpoint: "/schiedsrichter/confirmation",
-        body: { token: TOKEN, geburtsdatum: "2000-01-01", scope: "intern", media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS },
+        body: { token: TOKEN, birth_date: "2000-01-01", scope: "internal", media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS },
       })),
     );
   });
 
   // The harm: an objection handing over a birthdate or a consent the person filled in before deciding against it.
   it("objects by the token alone, whatever the fields hold", async () => {
-    const objection = posted({ act: "secondary", token: TOKEN, geburtsdatum: "2000-01-01", scope: "intern", media: "on" });
+    const objection = posted({ act: "secondary", token: TOKEN, birth_date: "2000-01-01", scope: "internal", media: "on" });
 
     expect(await answerSchiedsrichter(objection)).toStrictEqual({ ok: true, value: END.objected });
     expect(requestsOf(calls)).toStrictEqual([{ endpoint: "/schiedsrichter/confirmation/decline", method: "POST", body: { token: TOKEN } }]);

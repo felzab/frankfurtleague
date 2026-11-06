@@ -68,7 +68,7 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   (`fl_backend/app/api/registrierungen/person_router.py :: admit`). There is no guardian workflow:
   the record names nobody else as its source
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`).
-- **A contact seat's confirmation is a Kenntnisnahme under Art. 6(1)(f), not an Einwilligung**; the
+- **A contact seat's confirmation is a `Bestätigung` under Art. 6(1)(f), not an Einwilligung**; the
   only consents on its block are the optional WhatsApp scope and the media answer
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
 - **The minimum age is 16 for every role, and 18 for the Ansprechperson and the Stellvertretung**,
@@ -85,7 +85,7 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
 - **A media consent is taken only from 18** (`fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS`): the switch shows only from
   that age, and each confirmation refuses a `true` from anyone younger
   (`fl_backend/app/api/registrierungen/services.py :: find_medien_refusal`,
-  `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`,
+  `fl_backend/app/api/schiedsrichter/services.py :: find_media_refusal`,
   `fl_backend/app/api/einwilligung/services.py :: find_self_media_refusal`).
 - **Each consent choice keeps its own evidence**: when its person last set it, under which wording's
   label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
@@ -105,6 +105,18 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   limits (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`, the per-address counts under
   `fl_frontend/src/core/auth/signInRows.ts :: boundIdentifier`). Whether any meets Art. 22 is
   [section 11](#11-open-and-owed-a-decision)'s question.
+- **A mailbox past the forms' bound is mailed nothing, and nobody is refused.** A mailbox holding
+  three unanswered links of the season (`fl_backend/app/api/bewerbungen/services.py ::
+OPEN_LINKS_PER_MAILBOX`), its plus-tagged forms among them, is sent no link by the next
+  application or registration naming it, and that press stores as any other and is answered alike.
+  Each form counts its own and each season its own, so a mailbox named on both forms, or in two
+  running seasons, can hold three of each.
+  The seat stands unmailed, owed no reminder and no notice, until an administrator sends its link;
+  unsent, it goes with its application on the application's day, and a registration on its own.
+  A real person's seat can stand so behind a stranger's presses, which both administrators' lists
+  say on its row („Nicht gesendet“).
+  Presses at once count exactly: `mailbox_anchors` holds one document per mailbox, a keyed hash of
+  it and the last press's time, for an hour after that press (section 6).
 
 ## 3. The processing activities
 
@@ -117,8 +129,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - People and data: a school's three contact persons per application and per season row, each
     with name, address, telephone number and the birthdate their own confirmation types, their
     confirmation or Widerspruch, and each consent choice with its evidence; the school's details,
-    its address among them. Named by the submitter or an administrator, so taken from a third party (Art. 14).
-  - Recipients: administrators.
+    its address among them. Named by whoever submits the application or by an administrator, so
+    taken from a third party (Art. 14).
+  - Recipients: administrators; an application's Ansprechperson, who is told the other seats' first
+    names and roles and who objected, at an address that may be unconfirmed.
 - **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `einladungen`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
     name's publication and media on consent.
@@ -127,7 +141,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     naming the administrator who minted it.
   - Recipients: administrators; the team's seats, who decide an admission; the booked referee, who
     reads both squads for their fixture's report while the fixture takes one and its season runs
-    (`fl_backend/app/api/spielberichte/services.py :: nimmt_einen_bericht`); the public, as section 4
+    (`fl_backend/app/api/spielberichte/services.py :: takes_a_bericht`); the public, as section 4
     says.
 - **Referees** (`schiedsrichter`).
   - Purpose and basis: booking and paying who officiates; Art. 6(1)(f), the name on a fixture and
@@ -141,7 +155,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Purpose and basis: scheduling, confirming and recording matches; Art. 6(1)(f).
   - People and data: a fixture's note (free text), its booked referee and their `payment`; each
     party's answer with its reason (free text) and, for a club, the seat that gave it and never its
-    holder (`fl_backend/app/api/spielbestaetigungen/services.py :: compose_antwort_update`); a report's line-ups,
+    holder (`fl_backend/app/api/spielbestaetigungen/services.py :: compose_answer_update`); a report's line-ups,
     goals and cards by pupil, each card's reason and the remarks (free text).
   - Recipients: administrators; the booked referee; the public, as section 4 says.
 - **Clubs and seasons** (`teams`, `saison_teams`, `saisons`).
@@ -203,16 +217,16 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 
 - **A club's street address is public, and the application form and the acceptance screen say so**
   (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`;
-  `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`,
-  `fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`).
+  `fl_frontend/src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx`,
+  `fl_frontend/src/app/admin/(liste)/saisons/[saison]/bewerbungen/[bewerbung]/AcceptFields.tsx`).
   **Datenschutzexperte consulted.**
 - **A pupil's name is published only on their own consent, given alone from 16.** Every public read
   of a pupil decides by `fl_backend/app/api/spieler/services.py :: name_is_public`, or its expression
   at a join, `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`: the record present, its
-  `scope` `kader_oeffentlich` and its `confirmed_at` stamped. Every other row is a nameless slot
+  `scope` `kader_public` and its `confirmed_at` stamped. Every other row is a nameless slot
   keeping its number and position, and carries no record id that would link its seasons. The gate
   fails closed. The player editor shows the stored consent read-only and gates nothing
-  (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx`).
+  (`fl_frontend/src/app/admin/(editor)/saisons/[saison]/spieler/[spieler]/SpielerEditor.tsx`).
 - **A referee's name stands on a fixture only on their own consent, and only once they agreed to
   the booking** (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, through the same
   predicate), and no fixture carries the referee's record id
@@ -290,7 +304,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     minted (`fl_backend/app/api/outbox/services.py :: row_of`,
     `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`);
   - a registration link's entry, which names no subject, and the action log's rows written under an
-    earlier address's pseudonym, until the log's twelve months.
+    earlier address's pseudonym, until the log's twelve months;
+  - a mailbox's keyed hash in `mailbox_anchors`, for its hour (section 6).
 - **A retired row is never removed because of its age**: a confirmed referee who stopped, a club
   that left and a past season keep their rows; a person's row goes only by an erasure or by section
   6's clocks, a pupil's season rule and a referee's unconfirmed entry. **Datenschutzexperte consulted.**
@@ -299,35 +314,42 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 
 Each bound is read from the symbol beside it; nothing compares this table with the notice's.
 
-| Store                                        | Bound                                                                                                                                    | Enforced by                                                                                                                                                           |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| An application not every seat confirmed      | Deleted 14 days after its last links, the Ansprechperson told first; held past them while that notice is refused                         | `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`                    |
-| An application undecided at its season's end | Deleted then, whatever was confirmed                                                                                                     | `fl_backend/app/api/bewerbungen/services.py :: undecided_loeschung_is_due`                                                                                            |
-| A declined application                       | One calendar month after the decision                                                                                                    | `:: decline_loeschung_is_due`                                                                                                                                         |
-| An accepted application                      | Once a season after the one it applied for has ended                                                                                     | `:: acceptance_loeschung_is_due`                                                                                                                                      |
-| A season row's contact seats                 | Cleared once the season after theirs has ended, their links with them                                                                    | `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`                                                                                                     |
-| Fixture answers and match reports            | The league's record; from that same clearing, reasons, link hashes, delivery records, remarks and card reasons are stripped              | `fl_backend/app/api/bewerbungen/system_router.py :: strip_the_confirmations`, `:: strip_the_reports`                                                                  |
-| An unconfirmed registration                  | The day after its stored deadline, 7 days from the link, and 14 once session 8 raises the bound                                          | `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_FRIST_DAYS`, `fl_backend/app/api/registrierungen/services.py :: bestaetigung_loeschung_is_due` |
-| A registration undecided at its season's end | Deleted then                                                                                                                             | `fl_backend/app/api/registrierungen/services.py :: undecided_loeschung_is_due`                                                                                        |
-| A declined registration                      | One calendar month after the decision                                                                                                    | `:: decline_loeschung_is_due`                                                                                                                                         |
-| An admitted registration                     | Deleted in the admission's own transaction                                                                                               | `fl_backend/app/api/registrierungen/person_router.py :: admit`                                                                                                        |
-| A pupil                                      | Once the season after their last squad season has ended, at the activation and its hourly pass                                           | `fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`                                                                                                        |
-| A registration link's entry                  | No clock; the link ends with its season's window, or when withdrawn or replaced                                                          | `fl_backend/app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an`                                                                                   |
-| A referee unconfirmed or under a Widerspruch | Erased by the first hourly pass past its stored deadline's day, 14 days from its latest link, its log images redacted with it            | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`     |
-| A confirmed referee                          | Until an administrator deletes the row or the referee asks                                                                               | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                             |
-| A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                  | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                     |
-| A grant                                      | Until revoked or erased                                                                                                                  | `fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`                                                                                                   |
-| A pending grant request                      | A week after it was asked, unless decided, withdrawn or ended sooner                                                                     | `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                                       |
-| An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and no reason and goes 30 days after its end | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                           |
-| A sign-in account and its passkeys           | Within the hour of no league record or grant holding its address, a ban holding none, with no message                                    | `fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`                                                                                                     |
-| A session                                    | A person's 14 days unused, 30 at most; an administrator's 1 hour unused, 24 at most                                                      | `fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`                                                                                    |
-| A sign-in code; the code counts              | 10 minutes; failed codes a day and requested codes an hour, under a keyed hash                                                           | `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                                      |
-| A Postausgang row                            | No facts once sent or given up; deleted 30 days after that, a row carrying a secret when it lapses                                       | `fl_backend/app/api/outbox/services.py :: RETENTION`, `:: row_of`                                                                                                     |
-| The action log                               | 12 months a row                                                                                                                          | `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS`                                                                                       |
-| The edge's access and error logs             | 8 days, host files                                                                                                                       | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                      |
-| The application logs                         | The runtime's size rotation while they run; 30 days as each deploy's copy                                                                | `scripts/ops/deploy.sh :: LOG_DIR`                                                                                                                                    |
-| The erasure journal                          | As the application log, and a file per day deleted 30 days after its last change                                                         | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                      |
+| Store                                        | Bound                                                                                                                                                                                 | Enforced by                                                                                                                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| An application not every seat confirmed      | Deleted once an unconfirmed seat's own 14 days end, whether or not the Ansprechperson's mail arrived; that seat, where it stands and was mailed, is owed the notice in the same write | `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`                       |
+| An application undecided at its season's end | Deleted then, whatever was confirmed                                                                                                                                                  | `fl_backend/app/api/bewerbungen/services.py :: undecided_loeschung_is_due`                                                                                               |
+| A declined application                       | One calendar month after the decision                                                                                                                                                 | `:: decline_loeschung_is_due`                                                                                                                                            |
+| An accepted application                      | Once a season after the one it applied for has ended                                                                                                                                  | `:: acceptance_erasure_is_due`                                                                                                                                           |
+| A season row's contact seats                 | Cleared once the season after theirs has ended, their links with them                                                                                                                 | `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`                                                                                                        |
+| A season row's unconfirmed seat              | Emptied by the first hourly pass past its own 14 days, whatever the season's status, its link and any reason typed from it with it, its log images redacted                           | `fl_backend/app/api/bewerbungen/services.py :: lapsed_seats`, `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`                                          |
+| Fixture answers and match reports            | The league's record; from that same clearing, reasons, link hashes, delivery records, remarks and card reasons are stripped                                                           | `fl_backend/app/api/bewerbungen/system_router.py :: strip_the_confirmations`, `:: strip_the_reports`                                                                     |
+| An unconfirmed registration                  | The day after its stored deadline, 7 days from the link, and 14 once session 8 raises the bound                                                                                       | `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/registrierungen/services.py :: bestaetigung_loeschung_is_due` |
+| A registration undecided at its season's end | Deleted then                                                                                                                                                                          | `fl_backend/app/api/registrierungen/services.py :: undecided_loeschung_is_due`                                                                                           |
+| A declined registration                      | One calendar month after the decision                                                                                                                                                 | `:: decline_loeschung_is_due`                                                                                                                                            |
+| An admitted registration                     | Deleted in the admission's own transaction                                                                                                                                            | `fl_backend/app/api/registrierungen/person_router.py :: admit`                                                                                                           |
+| A pupil                                      | Once the season after their last squad season has ended, by the hourly pass after the activation                                                                                      | `fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`                                                                                                           |
+| A registration link's entry                  | No clock; the link ends with its season, its team's Austritt, or when withdrawn or replaced                                                                                           | `fl_backend/app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an`                                                                                      |
+| A referee unconfirmed or under a Widerspruch | Erased by the first hourly pass past its stored deadline's day, 14 days from its latest link, its log images redacted with it                                                         | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`     |
+| A confirmed referee                          | Until an administrator deletes the row or the referee asks                                                                                                                            | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                                |
+| A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                                                               | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                        |
+| A grant                                      | Until revoked or erased                                                                                                                                                               | `fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`                                                                                                      |
+| A pending grant request                      | A week after it was asked, unless decided, withdrawn or ended sooner                                                                                                                  | `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                                          |
+| An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and no reason and goes 30 days after its end                                              | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                              |
+| A sign-in account and its passkeys           | Within the hour of no league record or grant holding its address, a ban holding none, with no message                                                                                 | `fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`                                                                                                        |
+| A session                                    | A person's 14 days unused, 30 at most; an administrator's 1 hour unused, 24 at most                                                                                                   | `fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`                                                                                       |
+| A sign-in code; the code counts              | 10 minutes; failed codes a day and requested codes an hour, under a keyed hash                                                                                                        | `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                                         |
+| A Postausgang row                            | No facts once sent or given up; deleted 30 days after that, a row carrying a secret when it lapses                                                                                    | `fl_backend/app/api/outbox/services.py :: RETENTION`, `:: row_of`                                                                                                        |
+| A mailbox's document                         | An hour after the last press with room to mail it; a keyed hash, never the address                                                                                                    | `fl_backend/app/shared/schemas/bounds.py :: MAILBOX_ANCHOR_RETENTION_SECONDS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                       |
+| The action log                               | 12 months a row                                                                                                                                                                       | `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS`                                                                                          |
+| The edge's access and error logs             | 8 days, host files                                                                                                                                                                    | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                         |
+| The application logs                         | The runtime's size rotation while they run; 30 days as each deploy's copy                                                                                                             | `scripts/ops/deploy.sh :: LOG_DIR`                                                                                                                                       |
+| The erasure journal                          | As the application log, and a file per day deleted 30 days after its last change                                                                                                      | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                         |
 
+- **A seat an erasure emptied holds no day**, so it takes nobody else: its application goes once no
+  seat's link runs (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), and an empty
+  Ansprechperson seat leaves nobody to tell (`:: owed_erasure`). Nor does one never mailed
+  (`:: ansprechperson_mailbox`): that person has heard of no application, and a stranger's own
+  Widerspruch must not reach them.
 - **No delivery state has a clock of its own**: each goes with what holds it, the Postausgang row
   its message was sent from or the link entry it went out for. No open or click tracking is
   subscribed ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard)).
@@ -382,7 +404,7 @@ the host's, which rests on its signed agreement.
   only the records under their own address.
 - **The origin.** A remotely managed tunnel is the only route to the origin, so every request
   passes Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
-- **Pseudonymisation.** A ban, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
+- **Pseudonymisation.** A ban, a mailbox's document, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
   one master secret by its own label (`fl_backend/app/api/sperrliste/services.py :: address_hash`;
   [`ops/runbooks.md`](ops/runbooks.md#16-the-secret-files)).
 - **Minimisation.** No birthdate reaches a public read; a public row names no record id that links a
@@ -441,6 +463,7 @@ cannot reach is section 5's list, each bounded by its own period.
 | 2026-10-26 | A delivery state stored on the Postausgang row                                                                                                                                                                                                      |
 | 2026-11-04 | One wording per consent, each choice evidenced under its label; a consent's label is its whole sentence; every confirmation link 14 days; a withdrawal by mail; media taken down on withdrawal; Art. 22 before the switch                           |
 | 2026-11-05 | A fixture answer names its answerer by seat alone; an erasure or a Widerspruch clears the reasons typed from the seats it empties                                                                                                                   |
+| 2026-11-06 | An application goes on its day whether or not the Ansprechperson's mail arrived; a season row's unconfirmed seat goes on its day whatever the season's status; a mailbox past the forms' bound is mailed nothing                                    |
 
 ## 11. Open, and owed a decision
 
@@ -511,3 +534,24 @@ procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
     media consent foresees are journalistic-editorial content needing a responsible person under
     § 18(2) MStV; and which basis the notice and the page's description should cite, they citing
     § 5 DDG where this record cites § 18(1) MStV first.
+20. **The objection line's place**: whether a footer of 12 px under the Impressum and privacy links
+    in each first-contact mail, and not on the confirmation page, is „presented clearly and
+    separately from any other information“ under Art. 21(4).
+21. **A Widerspruch and naming the person again**: after one, an administrator can seat the same
+    person and a new application can name them, which mails them again; nothing checks it and only
+    a keyed hash stays in the journal. Whether a Widerspruch must prevent that, and whether a mark
+    may be kept to do so.
+22. **An adult contact person's birthdate**: whether the one age check carries storing the date
+    until the end of the following season, or a note of the check is enough (Art. 5(1)(c), (e)).
+23. **The source under Art. 14(2)(f)**: the form stores nobody as having sent it, the page saying
+    „in der Bewerbung von {Schule}“ and the notice „von der Person, die die Bewerbung einreicht“.
+    Whether that is enough, recital 61's general information being for various sources.
+24. **A Trainer of 16 or 17**: a contact person may be 16, can give the WhatsApp consent and decides
+    admissions to a squad, seeing other minors' names to do so. Whether the answers on pupils and on
+    the two 18 seats carry that too.
+25. **The Ansprechperson as a recipient**: whether the mails naming the other seats make that person
+    a recipient under Art. 4(9), as section 3 and the notice treat them.
+26. **A seat past the bound and Art. 14**: such a person is stored untold, the first mail being
+    where the notice stands, for at most the application's 14 days and one, or a registration's
+    deadline, unless an administrator sends the link. Whether that is the reasonable period of
+    Art. 14(3)(a), its month being the outer limit.

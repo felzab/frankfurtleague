@@ -5,9 +5,9 @@ import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { postSpielbestaetigungAntwort } from "./mutations";
+import { postSpielbestaetigungAnswer } from "./mutations";
 import { SchiedsrichterAbsageSchema } from "./schemas";
-import { ABSAGE_GESPEICHERT, mapSchiedsrichterAntwortRefusal, ZUSAGE_GESPEICHERT } from "./utils";
+import { ABSAGE_GESPEICHERT, mapSchiedsrichterAnswerRefusal, ZUSAGE_GESPEICHERT } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { SchiedsrichterAbsage } from "./schemas";
@@ -17,29 +17,29 @@ import type { SchiedsrichterAbsage } from "./schemas";
  * referee records the signed-in address holds. `sende` is the request, written at each action so the action
  * names the call it makes.
  */
-async function antworten<Z extends "zugesagt" | "abgelehnt">(
+async function answer<Z extends "zugesagt" | "declined">(
   sende: () => Promise<unknown>,
   state: Z,
   message: string,
-): Promise<ActionResult<{ zustand: Z }>> {
+): Promise<ActionResult<{ state: Z }>> {
   try {
     await sende();
   } catch (error) {
-    const refusal = mapSchiedsrichterAntwortRefusal(error);
+    const refusal = mapSchiedsrichterAnswerRefusal(error);
     if (refusal !== null) return { ...refusalResult(refusal), unplacedError: refusal.unplacedError };
     throw error;
   }
 
-  return { success: true, message: message, zustand: state };
+  return { success: true, message, state };
 }
 
 /** The referee agrees to officiate the fixture their row asks about. */
-export async function zusagenSpielbestaetigungAction(spielbestaetigungId: string): Promise<ActionResult<{ zustand: "zugesagt" }>> {
+export async function zusagenSpielbestaetigungAction(spielbestaetigungId: string): Promise<ActionResult<{ state: "zugesagt" }>> {
   return runPersonRecordMutation("zusagenSpielbestaetigungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(spielbestaetigungId);
     if (!id.success) return { success: false, error: VALIDATION_FAILED };
 
-    return antworten(() => postSpielbestaetigungAntwort(id.data, { antwort: "zugesagt", begruendung: null }), "zugesagt", ZUSAGE_GESPEICHERT);
+    return answer(() => postSpielbestaetigungAnswer(id.data, { answer: "zugesagt", reason: null }), "zugesagt", ZUSAGE_GESPEICHERT);
   });
 }
 
@@ -47,7 +47,7 @@ export async function zusagenSpielbestaetigungAction(spielbestaetigungId: string
 export async function absagenSpielbestaetigungAction(
   spielbestaetigungId: string,
   rawPayload: SchiedsrichterAbsage,
-): Promise<ActionResult<{ zustand: "abgelehnt" }>> {
+): Promise<ActionResult<{ state: "declined" }>> {
   return runPersonRecordMutation("absagenSpielbestaetigungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(spielbestaetigungId);
     const validated = SchiedsrichterAbsageSchema.safeParse(rawPayload);
@@ -56,11 +56,7 @@ export async function absagenSpielbestaetigungAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
-    const begruendung = validated.data.begruendung;
-    return antworten(
-      () => postSpielbestaetigungAntwort(id.data, { antwort: "declined", begruendung: begruendung }),
-      "abgelehnt",
-      ABSAGE_GESPEICHERT,
-    );
+    const reason = validated.data.reason;
+    return answer(() => postSpielbestaetigungAnswer(id.data, { answer: "declined", reason }), "declined", ABSAGE_GESPEICHERT);
   });
 }

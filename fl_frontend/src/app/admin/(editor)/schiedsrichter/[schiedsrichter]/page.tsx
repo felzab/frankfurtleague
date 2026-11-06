@@ -2,17 +2,19 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
+import { FactsPlaceholder } from "@/kit/Facts";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum } from "@/core/format";
+import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
 import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { reactivateSchiedsrichter, retireSchiedsrichter, sendSchiedsrichterLink } from "./retireSchiedsrichter";
 import { saveSchiedsrichter } from "./saveSchiedsrichter";
@@ -34,7 +36,7 @@ const read = cache(getSchiedsrichterById);
 
 /** The referee the address names, retired or not: `null` for a malformed id and for one no referee holds. */
 async function findSchiedsrichter(params: Props["params"]) {
-  const id = await objectIdParamOf(params, "schiedsrichter");
+  const id = await adminIdParamOf(params, "schiedsrichter");
   return id === null ? null : read(id);
 }
 
@@ -61,8 +63,30 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         sections: [
-          ["field", "field", "field"],
-          ["pair", "field"],
+          [
+            "field",
+            "field",
+            <FieldPlaceholder
+              key="default_payment"
+              width="C5"
+              figures
+            />,
+          ],
+          ["field", "field"],
+          // A confirmed referee's box, as nearly every entry lands: one waiting on its answer adds its act.
+          [
+            <FactsPlaceholder
+              key="confirmation"
+              pairs={2}
+            />,
+          ],
+        ],
+        danger: [
+          {
+            name: COPY.shared.withObject(COPY.shared.schiedsrichter, "retire"),
+            consequence: WORDS.retireConsequence,
+            act: COPY.shared.verb.retire,
+          },
         ],
       }}
       editor={readEditor(params)}
@@ -77,7 +101,7 @@ function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
     case "confirmed":
       return undefined;
     case "objected":
-      return { tone: "danger", label: SERVER_COPY.schiedsrichterConfirmation.objected };
+      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
     case "unanswered":
     case "unasked":
       return { tone: "warn", label: WORDS.unconfirmed };
@@ -98,7 +122,7 @@ function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: 
       return confirmation?.declined_at == null ? null : WORDS.objectedOn(dayOf(confirmation.declined_at));
     case "unanswered":
       if (confirmation === null) return null;
-      return expired ? WORDS.expiredOn(dayOf(confirmation.frist)) : WORDS.openUntil(dayOf(confirmation.frist));
+      return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : WORDS.openUntil(dayOf(confirmation.deadline));
     case "unasked":
       return null;
   }
@@ -106,14 +130,20 @@ function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: 
 
 /**
  * The Bestätigung's facts: where it stands, and the day the last link went, a fresh one replacing it; the address and
- * the phone stand in their own fields above, each reached from there.
+ * the phone stand in their own fields above, each reached from there. An entry never asked has neither, and no such
+ * block stands for it; once one holds a value both rows stand, the other a dash.
  */
 function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   const standing = standingOf(read);
   const sent = read.schiedsrichter.confirmation?.sent_at ?? null;
+  if (standing === null && sent === null) return [];
   return [
-    ...(standing === null ? [] : [{ label: WORDS.state, value: standing }]),
-    ...(sent === null ? [] : [{ label: COPY.shared.toast.linkSent, value: { record: formatDatum(dayOf(sent)) }, figures: true }]),
+    { label: WORDS.state, value: standing ?? COPY.shared.noValue },
+    {
+      label: COPY.shared.toast.linkSent,
+      value: sent === null ? COPY.shared.noValue : { record: formatDate(dayOf(sent)) },
+      figures: true,
+    },
   ];
 }
 

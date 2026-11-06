@@ -15,7 +15,7 @@ import { AuswahlSelect } from "./AuswahlSelect";
 import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personHinweis, personOptionen, seitenOptionen } from "./eintragFelder";
 import { UNBEKANNT } from "./spielberichtDraft";
 
-import type { FLSpielSeite } from "@/core/generated/client/types";
+import type { FLSpielSide } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielberichtFieldPath, SpielberichtKontext, TorschuetzeDraft } from "./spielberichtDraft";
 
@@ -30,7 +30,7 @@ export function FormTorschuetzenSection({
   onAdd,
   fieldErrors,
   onValidateFields,
-  geleert,
+  emptied,
   istNichtantreten,
 }: {
   kontext: SpielberichtKontext;
@@ -40,13 +40,13 @@ export function FormTorschuetzenSection({
   fieldErrors: FieldErrors;
   onValidateFields: (paths: readonly string[]) => void;
   /** The entries whose person the form took out on opening (`eroeffnungOf`). */
-  geleert: ReadonlySet<number>;
+  emptied: ReadonlySet<number>;
   /** A no-show takes no scorer, so the section offers none rather than an entry its save refuses. */
   istNichtantreten: boolean;
 }) {
   const panel = formPanel();
   const titelId = useId();
-  const listStatus = useFieldStatus<SpielberichtFieldPath>("bericht.torschuetzen");
+  const listStatus = useFieldStatus<SpielberichtFieldPath>("bericht.scorers");
 
   const update = (key: number, change: Partial<TorschuetzeDraft>) =>
     onChange(entries.map((entry) => (entry.key === key ? { ...entry, ...change } : entry)));
@@ -79,9 +79,9 @@ export function FormTorschuetzenSection({
             aria-label="Torschützen"
             className="flex w-full flex-col gap-3">
             {entries.map((entry, index) => {
-              const pfad = `bericht.torschuetzen.${String(index)}`;
+              const path = `bericht.scorers.${String(index)}`;
               const wofuer = `Tor ${String(index + 1)}`;
-              const optionen = personOptionen(kontext, entry.seite, entry.spieler === UNBEKANNT ? "" : entry.spieler);
+              const optionen = personOptionen(kontext, entry.side, entry.spieler === UNBEKANNT ? "" : entry.spieler);
 
               return (
                 <li key={entry.key}>
@@ -103,29 +103,29 @@ export function FormTorschuetzenSection({
                     </div>
 
                     <div className={FIELD_PAIR_CLASSES}>
-                      <AuswahlSelect<FLSpielSeite>
-                        name={`${pfad}.seite`}
+                      <AuswahlSelect<FLSpielSide>
+                        name={`${path}.side`}
                         label="Team"
                         placeholder="Team wählen"
-                        value={entry.seite}
+                        value={entry.side}
                         options={seitenOptionen(kontext)}
                         // Another side's squad names other pupils, so a person picked for the first does not survive the switch.
                         onChange={(seite) =>
-                          update(entry.key, seite === entry.seite ? {} : { seite, spieler: entry.spieler === UNBEKANNT ? UNBEKANNT : "" })
+                          update(entry.key, seite === entry.side ? {} : { side: seite, spieler: entry.spieler === UNBEKANNT ? UNBEKANNT : "" })
                         }
-                        error={fieldErrors[`${pfad}.seite`]}
+                        error={fieldErrors[`${path}.side`]}
                       />
                       <AuswahlSelect<string>
-                        name={`${pfad}.spieler_id`}
+                        name={`${path}.spieler_id`}
                         label="Spielerin oder Spieler"
-                        placeholder={entry.seite === null ? "Zuerst das Team wählen" : "Person wählen"}
+                        placeholder={entry.side === null ? "Zuerst das Team wählen" : "Person wählen"}
                         value={entry.spieler === "" ? null : entry.spieler}
                         options={[{ id: UNBEKANNT, label: TORSCHUETZE_UNBEKANNT_LABEL }, ...optionen]}
                         onChange={(spieler) => update(entry.key, { spieler })}
-                        error={fieldErrors[`${pfad}.spieler_id`]}
+                        error={fieldErrors[`${path}.spieler_id`]}
                         hint={personHinweis({
-                          geleert: geleert.has(entry.key) && entry.spieler === "",
-                          ohneKaderSatz: ohneKader(kontext, entry.seite)
+                          emptied: emptied.has(entry.key) && entry.spieler === "",
+                          ohneKaderSatz: ohneKader(kontext, entry.side)
                             ? "Für dieses Team ist kein Kader hinterlegt. Jedes Tor trägst Du dann als „unbekannt“ ein."
                             : null,
                         })}
@@ -134,10 +134,10 @@ export function FormTorschuetzenSection({
 
                     <div className={FIELD_PAIR_CLASSES}>
                       <MinuteField
-                        name={`${pfad}.minute`}
+                        name={`${path}.minute`}
                         value={entry.minute}
                         onChange={(minute) => update(entry.key, { minute })}
-                        onBlur={() => onValidateFields([`${pfad}.minute`])}
+                        onBlur={() => onValidateFields([`${path}.minute`])}
                       />
                       {/* The shared `Switch`: HeroUI's checkbox has no stylesheet in this tree and would render unstyled. */}
                       <div className="flex w-full flex-col justify-end">

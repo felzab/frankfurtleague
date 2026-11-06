@@ -40,9 +40,9 @@ LINES = {
         record_id=RECORD,
         at=AT,
         text_versions={"scope": "2026-11-name-kader-1", "media": "2026-11-medien-1"},
-        choices={"scope": "intern", "media": False},
+        choices={"scope": "internal", "media": False},
     ),
-    "a Widerspruch": JournalLine(
+    "an objection": JournalLine(
         person_hash=PERSON, kind="objection", collection=Collection.BEWERBUNGEN, record_id=RECORD, at=AT, seats=("trainer", "ansprechperson")
     ),
     # One person's entry, so no slot to name.
@@ -77,7 +77,7 @@ def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     assert LINES["an older erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} erasure"
     assert LINES["a withdrawal"].text() == (
         f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at={AT} text_version.scope=2026-11-name-kader-1 "
-        "text_version.media=2026-11-medien-1 scope=intern media=false"
+        "text_version.media=2026-11-medien-1 scope=internal media=false"
     )
     assert (
         LINES["an address change taking effect"].text()
@@ -113,10 +113,10 @@ def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
             id="an address as a value",
         ),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at=2026-10-15T10:00:00 text_version.scope=v scope=intern", id="no offset"
+            f"{JOURNAL_TOKEN} {PERSON} withdrawal spieler/{RECORD} at=2026-10-15T10:00:00 text_version.scope=v scope=internal", id="no offset"
         ),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection spieler/{RECORD} at={AT} seats=trainer", id="a Widerspruch on a pupil"),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection bewerbungen/{RECORD} at={AT}", id="a Widerspruch naming no seat"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection spieler/{RECORD} at={AT} seats=trainer", id="an objection on a pupil"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} objection bewerbungen/{RECORD} at={AT}", id="an objection naming no seat"),
         pytest.param(
             f"{JOURNAL_TOKEN} {PERSON} objection schiedsrichter/{RECORD} at={AT} seats=trainer", id="a referee's Widerspruch naming a seat"
         ),
@@ -178,7 +178,7 @@ def test_a_withdrawal_naming_one_label_for_its_press_replays_under_its_kinds_lab
 ):
     """An older day file's spelling: refused, the restore would leave every such withdrawal's consent restored."""
 
-    scope = "intern" if collection in (Collection.SPIELER, Collection.REGISTRIERUNGEN, Collection.SCHIEDSRICHTER) else "kontaktdaten"
+    scope = "internal" if collection in (Collection.SPIELER, Collection.REGISTRIERUNGEN, Collection.SCHIEDSRICHTER) else "kontakt_data"
     line = parse_line(f"{JOURNAL_TOKEN} {PERSON} withdrawal {collection}/{RECORD} at={AT} text_version=2026-10-konto scope={scope} media=false")
 
     assert line == JournalLine(

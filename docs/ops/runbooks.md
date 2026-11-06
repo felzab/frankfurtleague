@@ -393,64 +393,59 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
 
 ## 4. When the application queue has been flooded
 
-**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
-`LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
-filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`). Where more do exist it answers
-`complete: false` and the triage page raises a standing warning that cannot be dismissed
-(`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
-BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
-threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
+**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen/list/admin` serves at
+most `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
+filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`). Where more do exist it answers
+`complete: false` and the Bewerbungen list stands under a warning, „Nicht alle Bewerbungen sind geladen.“, that cannot
+be dismissed, its search and filters then reading the rows served: the newest, and past them every application with a
+confirmed seat. Answering short and saying so is the
+deliberate choice over refusing past a threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
 them the power to decide when the page stops working.
 
-**What truncation costs first is the partner of a marked pair, which is why the notice leads on it.** The
-collision is decided on the server over every open application the request's season term leaves, never over the
-rows served (`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), so a served row is
-marked whatever the cut took; a search or a facet cannot take the mark off it either
-(`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungenView.tsx`). What the cut can take is
-the other half: the notice says plainly that a marked row's partner is not always on the page, and reversing
-the read is how it is reached.
+**What truncation costs is the oldest unconfirmed rows, which is where applications submitted before a flood sit.** The
+list is newest first, so a cut-short answer keeps the newest rows, and past them every application with a confirmed
+seat, read apart because a flood naming strangers confirms nothing; one whose sender holds the mailboxes can, a link at a
+time (`fl_backend/app/api/bewerbungen/services.py :: build_confirmed_seat_filter`). The Sammel-Zusage takes complete
+applications alone, so a cut costs it nothing. The page offers no way to the other rows: its filters narrow the rows
+it holds. A marked Dublette keeps its mark, the collision being decided on the
+server over every open application of the season, never over the rows served
+(`fl_backend/app/api/bewerbungen/services.py :: build_duplicates_pipeline`), but its partner is not always among the
+rows. Unconfirmed rows clear by themselves: the sweep deletes an application a day after its earliest outstanding
+seat's deadline, which is what shortens a flood of addresses nobody answers.
 
-**The Herkunft counts are the second thing to distrust.** That facet counts the loaded rows alone, so a zero
-means zero among what came back rather than zero in the queue; the status and season counts come from the
-server and hold whatever the read was cut to.
-
-**Reversing the read is the recovery the page offers, and the only one; the page offers it by two
-routes.** The default order is newest first, so what a cut-short answer keeps is the newest rows and
-what it drops is the oldest — which is exactly where applications submitted before a flood sit. The
-filter bar's read-order control paints the loaded end and lists the other on every view, cut short or
-not (`fl_frontend/src/shared/components/ui/FilterLeiste.tsx :: LeserichtungSelect`); the notice above
-it names that end in a sentence and links the act, reading `Lade die ältesten zuerst` on a default
-view. Either route lands on the identical page.
-
-**The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
-Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
-reduce how many are.
-
-**Narrowing by status is offered and buys nothing here.** The server sets `status` on write, so every
-flooded row is `submitted` and the queue's own default already selects them; season narrowing is not
-offered and would not separate a flood either, a submission being admitted only while one season's window
-is open (`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`). Reaching `saison_id` anyway
-would mean a backend call, and the edge carries exactly one backend path
-(`= /api/v0/system/is_live`), so it would have to be made on the server against
-the backend container. Nothing in this repository wraps that.
+**A mailbox past the bound is mailed nothing, and nobody is refused.** A press naming a mailbox, its plus-tagged forms
+among them, that already holds `OPEN_LINKS_PER_MAILBOX` unanswered links of the season stores like any other and is answered
+alike, so its answer tells a stranger nothing about the address
+(`fl_backend/app/api/bewerbungen/public_router.py :: post_bewerbung`). That seat is owed no link, no reminder and no notice, it
+reads „Nicht gesendet“ on its application and on the list's row, and „Link senden“ reaches it. **Read the list for that chip
+within the 15 days:** a real school's seat can stand behind a stranger's three presses, and the sweep erases the application on
+its day with nobody told. An answer frees its link, each form counts its own and each season its own. The count holds for
+presses at once as for presses in sequence: a press with room to mail writes that mailbox's `mailbox_anchors` document, so its
+rivals retry and read its row. A press finding the mailbox full writes nothing, so a burst contends only until the third link,
+about five seconds at production's round trip, and a press naming another mailbox meets none of it. On a development machine
+some 300 presses at once on one mailbox pass the request's deadline, the time going on conflict retries in one process, which
+a larger pool hardly shortens: most answer 500 having stored and mailed nothing, and a few commit with the answer lost, which
+the same key replays. Whether production's one process reaches that deadline is not measured. A registration counts the same way
+(`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`), reads the same on its list and has no „Link
+senden“: its row lapses on its deadline, and a press after that is mailed.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
-decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
+decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`), so an operator who declines down the queue and sees the
 notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
 surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: accept_bewerbung` and
 `:: decline_bewerbung`) plus the public submission, so a flooded row stays.
 
 **Closing the window is what stops new rows**, and it is the season's own edit rather than anything here. The
 window's span is the season editor's „Bewerbungsfenster“ box (`fl_frontend/src/app/admin/(editor)/saisons/[saison]/settings/SaisonEditor.tsx`),
-reaching `PATCH /saisons/{saison_id}`; closing early is moving its end to today, and the window guard reads the span on
-every submission, so a closed window refuses the next one without touching a row already written.
+reaching `PATCH /saisons/{saison_id}`; closing early is moving its end to today or pausing it (`bewerbung.open`), and the
+window guard reads both on every submission, so a closed window refuses the next one without touching a row already written.
 
-**The rate limit buys time rather than prevention.** `= /api/bewerbung` carries a paired ceiling of 2r/m on
-one /64 and 6r/m on one /48 ([`spec.md`](spec.md) §1.3 for why the pair and why the wide half sits below the
-others), which puts filling the list from a single /48 at roughly three hours of sustained work rather than
-minutes. It does nothing about a flood spread across many allocations, and no concurrency ceiling reaches
-this path: `limit_conn 50` sits on the catch-all and the link pages' blocks alone — a backstop rather than a
-per-visitor control, and the one figure in that section never exercised against a real page load.
+**The bot check is the gate, and the rate limit buys minutes.** The submission is a server action, so the edge
+meters it by the action pair alone, 30 at once and 60 a minute per network ([`spec.md`](spec.md) §1.3), and
+what stops a script is the bot check before the input is read (`fl_frontend/src/core/action.ts`). Past that
+check, the pair does nothing about a flood spread across many allocations, and `limit_conn 50` on the catch-all
+is a backstop rather than a per-visitor control, the one figure in that section never exercised against a real
+page load.
 
 ## 5. When somebody asks for their data, or asks us to change it
 
@@ -470,19 +465,19 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/area/admin/spieler/{spieler_id}`, and the squad rows under each season; `/area/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.bemerkungen`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                                          |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                                   |
-| Contact person | `/area/admin/kontakte/{team_id}` for the season's block, and `/area/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/area/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.created_by`, `einladungen.created_by`, `bewerbungen.decision.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.current.address`, `data.before.address`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.address`), listed under „Offene Anträge“ on `/area/admin/administratoren`, and every address change of a grant holder they started or approved (`address_changes.approval.started_by`, `address_changes.approval.approved_by`), which a read-only Playground query on those fields finds |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.address`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then                                                                                                                                                                                                                                                                                        |
+| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                                                                                                                                                                                                                                                                                                                  |
+| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.by`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/area/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.created_by`, `einladungen.created_by`, `bewerbungen.decision.by`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.current.address`, `data.before.address`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.address`), listed under „Offene Anträge“ on `/area/admin/administratoren`, and every address change of a grant holder they started or approved (`address_changes.approval.started_by`, `address_changes.approval.approved_by`), which a read-only Playground query on those fields finds |
+| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.address`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** Type
 the address on file into the address tool, `/area/admin/adresswechsel`
 (`POST /address_change/view`), the one read serving a live change's new address and reason; the
-editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`an`, and on some rows
-`data.vorname`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
+editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`, and on some rows
+`data.first_name`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
 `address_changes.move.new`); no page renders either, and a read-only Playground query on those fields
 finds them.
 
@@ -504,7 +499,7 @@ address as the sign-in box folds it, in lower case
 
 **A contact person's fixture confirmations are found from the seats they hold.**
 A seat's answer stores neither the address nor a name, only the seat it came from
-(`antwort.von.rolle`) beside the reason typed from it (`antwort.begruendung`).
+(`answer.by.rolle`) beside the reason typed from it (`answer.reason`).
 Their seats' answers, links and the delivery records of the messages that carried them sit under
 `kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
 `party.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
@@ -538,8 +533,8 @@ its day, its administrator and the season it runs to; the hash itself is not sen
 being the value that identifies them.
 
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
-application, an accepted one and a season's contact block are each removed by the retention sweep; an application nobody confirmed is deleted after its deadline, its
-submitter told first; an application nobody decided is deleted once
+application, an accepted one and a season's contact block are each removed by the retention sweep; a season row's unconfirmed seat is emptied on the first pass past its day; an application nobody confirmed is deleted after its deadline, its
+Ansprechperson told; an application nobody decided is deleted once
 the season it applied for has ended, whatever its seats answered; and a log row expires after twelve months.
 
 **A rectification is the ordinary admin edit**, made on the page above. Two carry a trap worth
@@ -624,11 +619,11 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
   corrected address.
 - **A contact seat.** Correct it through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`, which rewrites the
-  address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
-  confirmation deadline, and where one person holds two seats it corrects both. It refuses a seat its
-  person confirmed or answered, and a decided application, and never reaches a season row. A seat
-  whose person has stepped out takes a different route, below.
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_seat`, which writes the person the
+  seat holds. It mints the fresh link, voids the old one and restarts that seat's deadline, and where
+  one person holds two seats it writes both. A confirmed seat's answer goes with the old entry, and the
+  person is asked again. It refuses a seat an erasure emptied and a decided application, and never
+  reaches a season row.
 
 **A person asking to change their own address is pointed to their account page.** Every account's
 address changes there, confirmed by the address on file's link and then by the new mailbox's; an
@@ -662,31 +657,32 @@ their Widerspruch.** On an application, which of the three cases below you are i
 that seat's own link, not by the person's role; a seat on a team's season row is the fourth:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
-  page the link opens, empties the seat at once and tells the submitter so the school can name
-  somebody else (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
+  page the link opens, empties the seat at once and tells the Ansprechperson, where one stands, was
+  mailed and is not the person objecting, so the school can name somebody else
+  (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
   link** (`bewerbung_kontakt_barred`), and the link it already holds opens on the ban's sentence alone,
   offering no Widerspruch: its withdrawal reaches the league's
   mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/area/admin/loeschung`), which erases everything the
   address holds rather than this seat alone. Once the school has named a replacement, seat them
-  from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
-  new person their own link and restarts the confirmation deadline for the whole application; it is
-  acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
-  and neither does one half of a claimed pair whose other half has not stepped out: that application
-  takes only the Absage.
+  with „Sitz bearbeiten“ on that seat's row of the application's review page, which sends the
+  new person their own link and restarts that seat's 14 days alone: the application goes once any other
+  unconfirmed seat's own day passes, so re-send those too where they need longer. It is acceptable again
+  once every seat has confirmed. An ERASED seat offers no such control: that application takes only the
+  Absage.
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
   contradicted takes no second answer (`bewerbung_seat_already_answered`), and a link whose deadline has passed
-  (`bewerbung_token_past_deadline`) or whose application has been decided (`link_expired`) takes none either —
+  or whose application has been decided (`link_expired`) takes none either —
   each is a refusal the person meets on the page, not something to talk them through. The route is „Löschung auf Anfrage“
   like any other.
 - **The application has been decided.** „Löschung auf Anfrage“, as above.
 - **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it
-  is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
-  submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
-  again with „Bestätigungslink senden“ on that seat in the team's contacts editor
+  is live, and the Widerspruch empties the seat and mails nobody, an administrator having entered
+  them (`docs/glossary.md :: Bestätigung`). A lost link is sent again, and a lapsed one until the
+  hourly pass empties its seat, with „Link senden“ on that seat's row in the team's editor
   (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`), which replaces the old link
-  whole. It refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
+  whole; an emptied seat is typed in again, which mails its own link. „Link senden“ refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
   ended or whose team has left it (`kontakt_row_without_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschung auf Anfrage“.
@@ -742,7 +738,7 @@ once the person's own address stands on it again**
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
 has not confirmed, save that address in the referee editor, which on a row still in service mails
 them a confirmation link first, then erase it; a confirmed row's editor refuses the save
-(`schiedsrichter_adresse_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
+(`schiedsrichter_address_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
 hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
 the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
@@ -771,11 +767,11 @@ record holds the address ([`../datenschutz.md`](../datenschutz.md#6-retention-is
 page says so too, every person page refuses the sessions as no session at all, and each is deleted the next time its browser reaches the sign-in
 page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
-administration.** A pupil's registration asks it and is refused (`registrierung_adresse_barred`), and so do
-an application naming the address on any seat (`bewerbung_adresse_barred`), an administrator's correction,
-reseat or re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
-and both sweeps withhold the reminder they would send it, logging per season how many they held
-back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
+administration.** A pupil's registration asks it and is refused (`registrierung_address_barred`), and so do
+an application naming the address on any seat (`bewerbung_address_barred`), an administrator's seat write or
+re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link.
+Both sweeps owe its reminder as they owe any other and stamp the row, and the Postausgang's drain stops the mail as `barred`
+at its hand-out, so no link reaches the address. A grant of the address is refused (`grant_barred`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
 grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead. **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
@@ -808,7 +804,7 @@ it; work through it before the second press, since the dialog closes on the ban.
 - a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
   squad list; a row taken out already is offered „Eintrag ansehen“ instead;
 - a contact seat: „Kontakte bearbeiten“ replaces or clears it on the team's season;
-- a seat on an application: „Bewerbung öffnen“, whose „Neu besetzen“ seats the replacement the
+- a seat on an application: „Bewerbung öffnen“, whose „Sitz bearbeiten“ seats the replacement the
   school names;
 - a registration: „Registrierungen ansehen“ shows a pending one, and a declined one has no link;
   no administrator decides either, its team cannot admit a barred address, and the clock erases
@@ -1203,16 +1199,8 @@ and counts on the pass's line what it erased and the pupils it failed or passed 
 call threw fails the job, its counts on that line all the same, which `scheduler.job_failed` names
 as `erasure`.
 
-**Activating a season runs the same deletion first, inside the press, but only as far as the
-press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
-press sends no deletion call it could not wait out to its answer. Wherever more pupils are due than
-that, the run stops there: the press files the warning `erasure.activation_cut_short`, which
-needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
-`erasure.activation_failed`, an error, is a call that failed rather than ran
-out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
-can still be deleting once the press has answered only where it outlasted the backend's own deadline
-and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
-page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
+**Activating a season deletes nobody**: the first pass after it deletes the pupils the new season
+makes due.
 
 **A pupil counted `failed` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
@@ -1240,21 +1228,12 @@ an empty one or one the rule refuses to the folded address the person is establi
 mailbox's.
 
 **Two promises rest on the retention sweep's pass**
-(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
+(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAddressChange`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
 both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started with a reason takes effect its waiting time after its confirmation. While no
 pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
-its waiting time takes effect only where an approval it still owed is pressed after it. **The
-activation press's message that the next hourly pass deletes what it left („Was noch aussteht,
-löscht der nächste stündliche Durchlauf“) rests on the pupils' deletion running every pass**, and
-with it the squad cache's drop after it.
-
-**Read the season page's count before pressing the rollover.** Beside the press it says at most
-how many pupils activating the season deletes, and which season it closes. It is a bound because it
-counts the pupils the run passes over too (`stored_data_invalid` above). A figure naming more people than
-the league lost is the signal to hold the press and ask why, and a line saying the count is not
-available is a read that failed: reload the page until it gives a figure.
+its waiting time takes effect only where an approval it still owed is pressed after it.
 
 **The fixture confirmations run on every pass**
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`).
@@ -1275,7 +1254,7 @@ docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 
 **The first passes to meet a running season's unasked fixtures are a burst**: they ask about every
 dated fixture of the running season inside the answer window
-(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS` plus
+(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS` plus
 `:: SPIEL_REQUEST_LEAD_TIME_DAYS` days ahead), every mailbox of both clubs' seats and each booked
 referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
 deadline's own days is due the day it is asked.
@@ -1349,7 +1328,7 @@ question.
 
 **The state is a seat holding a date beside no `confirmed_at`**, and nothing in the product clears
 one: the date arrives with a person's own confirmation and rides with their address through every
-later edit (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`), so no save reaches it,
+later edit (`fl_backend/app/api/teams/services.py :: _birth_date_held_by`), so no save reaches it,
 and no record model expresses the pairing either, so the read-back (§2) reports nothing about it.
 
 **It sits on TWO collections, three seats each, and clearing one leaves the other.** One pair of
@@ -1400,6 +1379,14 @@ FLEinwilligungTextVersion`) while §2's read-back passes them, and the replay wo
 label on a withdrawal whose `given_before` keeps the old one. This lapses with the rule above, once
 the hosting holds no snapshot taken before that deploy; delete it then.
 
+**A snapshot taken before the deploy of the current stored names brings back the names that deploy's
+paste moved: once the restore has completed, run that paste again before the replay below, and once
+more after it**, since a withdrawal journalled before that deploy carries its old scope word, which
+the journal takes as a withholding value and the replay writes back as it stands. Here the backend
+stands up with the frontend held, unlike the paste's head, and `uniq_spielbestaetigung_open` stands
+dropped until a boot rebuilds it. This lapses once the hosting holds no snapshot taken before that
+deploy and no journal line of the days before it; delete it then.
+
 **Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
 `fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
 steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
@@ -1414,8 +1401,6 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 - **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the last step.
 - **No sign-in code is mailed.** Sign in by passkey, which every administrator holds and which the
   owner's steps below ask for anyway.
-- **A season's activation still deletes**: its press runs the pupils' deletion itself, which is why
-  it comes last.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
@@ -1496,7 +1481,7 @@ going on to name it since its hash matches nothing the record holds. Four things
 
 - **A grant made after a journalled withdrawal and before the restore's end** is in no journal, so
   the choice stays withdrawn, the safe side, until its person grants it again on the account page.
-- **A Widerspruch's replay mails nobody**: an application's submitter was told when it was made, and
+- **A Widerspruch's replay mails nobody**: an application's Ansprechperson was told when it was made, and
   a season row's seat's and a referee's tell nobody.
 - **An address change that took effect inside the window, started before the snapshot**, replays
   from its line, moving every record again; **one started inside the window** reads `left for
@@ -1513,7 +1498,7 @@ review`, the restored database holding no change to move: ask the person to star
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`. No line records an
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_seat`. No line records an
   administrator's correction, so the tool cannot list these either: the restored record holds the
   replaced address again, and the link the correction voided, which the mailbox it went to can
   answer again until its deadline. The mail thread that asked for each correction is its record:
@@ -1583,9 +1568,9 @@ undid the erasures, and which nothing re-runs:
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
 
-**Then activate again each season whose activation the snapshot predates**, last of all: its press
-runs the pupils' deletion over the state the steps above re-entered. Its deletions are re-derived
-rather than replayed: it journals none, so no listing names them.
+**Then activate again each season whose activation the snapshot predates**, last of all: the first
+pass after the hold runs the pupils' deletion over the state the steps above re-entered. Its
+deletions are re-derived rather than replayed: it journals none, so no listing names them.
 
 **Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
 and deploy (§1).** The first pass runs a minute after the boot and pings the heartbeat, and the
@@ -1680,7 +1665,7 @@ carries the address. Ask when they tried and read that window:
   its own rule accepts, though the sign-in form took it; the two address rules disagree.
 - `auth.code_send_failed` or `auth.sign_in_failed`: the gate admitted the
   address, and the send or the library call around it failed; the code's own Postausgang row
-  (`art: "sign_in_code"`) reading `abandoned` is the provider refusing it, its `grund` the provider's own
+  (`kind: "sign_in_code"`) reading `abandoned` is the provider refusing it, its `delivery_reason` the provider's own
   name for the refusal.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
   hour, so this one was sent nothing. The five count every request,

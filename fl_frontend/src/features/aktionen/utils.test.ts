@@ -11,16 +11,16 @@ import type { FLActionLogEntry } from "@/core/generated/client/types.ts";
 
 describe("formatAktionZeitpunkt", () => {
   it("renders a stored UTC instant in German local time", () => {
-    expect(formatAktionZeitpunkt("2026-08-20T14:23:05+00:00")).toStrictEqual({ datum: "20.08.2026", uhrzeit: "16:23" });
+    expect(formatAktionZeitpunkt("2026-08-20T14:23:05+00:00")).toStrictEqual({ date: "20.08.2026", time: "16:23" });
   });
 
   // The offset can carry the write into the next day, which is the whole reason the zone is pinned.
   it("applies the winter offset and the day it moves the instant to", () => {
-    expect(formatAktionZeitpunkt("2026-01-05T23:30:00+00:00")).toStrictEqual({ datum: "06.01.2026", uhrzeit: "00:30" });
+    expect(formatAktionZeitpunkt("2026-01-05T23:30:00+00:00")).toStrictEqual({ date: "06.01.2026", time: "00:30" });
   });
 
   it("passes an unreadable value through instead of throwing", () => {
-    expect(formatAktionZeitpunkt("irgendwann")).toStrictEqual({ datum: "irgendwann", uhrzeit: null });
+    expect(formatAktionZeitpunkt("irgendwann")).toStrictEqual({ date: "irgendwann", time: null });
   });
 });
 
@@ -78,9 +78,7 @@ const PSEUDONYM = "3f9a07c2";
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
 function actorOf(kind: FLActionLogEntry["actor"]["kind"]): FLActionLogEntry["actor"] {
-  return kind === "person_session"
-    ? { kind: kind, pseudonym: PSEUDONYM, funktion: "spieler" }
-    : { kind: kind, email: "SENTINEL", email_barred: false };
+  return kind === "person_session" ? { kind, pseudonym: PSEUDONYM, funktion: "spieler" } : { kind, email: "SENTINEL", email_barred: false };
 }
 
 describe("herkunftOfAktor", () => {
@@ -130,7 +128,7 @@ describe("personAkteurLabel", () => {
   /* Every Funktion the contract lists, so two sharing one word fail here rather than reading alike on a row. */
   it("names every Funktion in its own word", () => {
     const labels = Object.values(FLActorPersonFunktion).map((funktion) =>
-      personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: funktion }),
+      personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion }),
     );
 
     expect(labels).toStrictEqual(["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);

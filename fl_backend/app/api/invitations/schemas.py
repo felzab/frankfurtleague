@@ -1,0 +1,146 @@
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.api.outbox.schemas import FLOutboxStatus
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+
+
+class FLInvitation(BaseReadModel):
+    """One minted link as it is served, without its hash."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    saison_id: CustomNonEmptyString
+    team_id: CustomObjectId
+    created_at: CustomDateString
+    # The bound actor, on no payload: a link and its `aktionen` row cannot then name two people.
+    created_by: CustomNonEmptyString
+    # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
+    # holding null, so a row that could omit it would fall outside the one-live-invite rule.
+    revoked_at: CustomOptionalDateString
+    # The German day the link's mails were last owed to the team's confirmed seats, by the season's press or the team's own;
+    # null where none ever was, a link minted for copying. Stored rather than read off `outbox`, whose rows are erased a
+    # retention after their final state (`app/api/outbox/services.py :: RETENTION`).
+    sent_at: CustomOptionalDateString
+
+
+class FLInvitationRecord(FLInvitation):
+    """One minted link as `invitations` stores it: the hash of the copied link and of every mailed one, each live."""
+
+    token_hashes: list[str]
+
+
+class FLInvitationRow(FLInvitation):
+    """One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."""
+
+    # Null exactly where `created_by_barred` is set, as the grants list withholds its actors.
+    created_by: CustomNonEmptyString | None
+    created_by_barred: bool
+    # What became of the last mail owed about it, null where none was ever owed.
+    delivery: FLOutboxStatus | None
+
+
+class FLInvitationMintResponse(BaseAPIResponse):
+    """A freshly minted registration link, and the only answer that ever carries its raw value.
+
+    Shown once for copying and mailed on a separate press; no later read recovers it from the hash.
+    """
+
+    saison_id: CustomNonEmptyString
+    team_id: CustomObjectId
+    invitation_id: CustomObjectId
+    token: CustomNonEmptyString
+    created_at: CustomDateString
+    created_by: CustomNonEmptyString
+
+
+class FLInvitationWriteResponse(BaseAPIResponse):
+    """The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere."""
+
+    saison_id: CustomNonEmptyString
+    team_id: CustomObjectId
+    invitation_id: CustomObjectId
+
+
+class FLInvitationRecipient(BaseModel):
+    """One mailbox a link goes to, and the seat it is addressed as."""
+
+    rolle: FLKontaktRolle
+    first_name: CustomNonEmptyString
+    email: CustomNonEmptyString
+
+
+type FLInvitationSkipReason = Literal[
+    "austritt_entered",
+    "no_kontakt_block",
+    "no_confirmed_kontaktperson",
+    "kontakte_barred",
+    "already_sent",
+]
+
+
+class FLInvitationLinkRow(BaseModel):
+    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
+
+    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
+    """
+
+    team_id: CustomObjectId
+    # The junction row's own copy of the club's name, so the list reads as the season's teams do
+    # rather than needing a second read of `teams`.
+    team_name: CustomNonEmptyString
+    recipient: list[FLInvitationRecipient]
+    skipped: FLInvitationSkipReason | None
+    # Whether the team holds a live link: the plan the row shares with the press carries no trace of the invitation itself.
+    has_link: bool
+    # The live link's `sent_at`: the day its mails were last owed, null where it never was mailed or the team holds none.
+    sent_at: CustomOptionalDateString
+
+
+class FLTeamLinkState(BaseModel):
+    """The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team."""
+
+    invitation: FLInvitationRow | None
+    # Composed here rather than derived by the reader, as `app/api/bewerbungen/schemas.py :: FLBewerbungFormWindow` composes its
+    # own: a link is live and opens nothing the moment the registration window shuts.
+    running: bool
+    # Whether the season stands paused: the window can read closed for its dates alone.
+    paused: bool
+    # Why the season's press would pass this team over today, `None` where it would mail it.
+    skipped: FLInvitationSkipReason | None
+
+
+class FLInvitationDispatchPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # False by default, so pressing twice mails nobody twice: a team whose live link already has a mail owed or sent is
+    # skipped unless this says otherwise.
+    resend: bool = False
+
+
+class FLInvitationMailPayload(BaseModel):
+    """The one live link a team's panel shows, to be mailed to the team's confirmed seats."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The row the panel read, so a link replaced or withdrawn since is refused rather than another one mailed.
+    invitation_id: CustomObjectId
+
+
+class FLInvitationMailResponse(BaseAPIResponse):
+    """Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed."""
+
+    invitation_id: CustomObjectId
+    recipient: list[FLInvitationRecipient]
+
+
+class FLInvitationDispatchResponse(BaseAPIResponse):
+    """How the press's teams came out: the season editor's rows then read what each team holds."""
+
+    saison_id: CustomNonEmptyString
+    mailed: int = Field(ge=0)
+    skipped: int = Field(ge=0)
+    # Each one logged with what became of its commit; a team whose commit went unanswered is counted here too.
+    failed: int = Field(ge=0)

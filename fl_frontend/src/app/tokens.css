@@ -12,17 +12,13 @@
     --bg: #eaeaea;
     /* The rail's fill, and a chosen box's lift: the card's, as in the dark theme. */
     --bg-surface: #ffffff;
-    /* One step off a card and off the page: the fill under the pointer on a card, and the small fills, a
-       skeleton's bars on the page among them. */
+    /* One step off a card and off the page: the fill under the pointer on a card, and the small fills. */
     --bg-muted: #d9d9d9;
     /* A card and a table, one step off the page; its head on the page's own grey; a dialog, menu, sheet,
        popover, tooltip or toast. Each a role of its own rather than a step of the scale above, so a theme can
        raise its cards without moving the rail, the fields or the overlays. */
     --bg-card: #ffffff;
     --bg-card-head: #eaeaea;
-    /* A folded card's head under the pointer, lifted toward the text as a chip's tint is, as far as the head's
-       muted count keeps 4.5:1 on it. */
-    --bg-card-head-hover: #c8c8c8;
     --bg-overlay: #ffffff;
     --fg: #0a0a0a;
     --fg-muted: #525252;
@@ -58,7 +54,6 @@
     --bg-muted: #262626;
     --bg-card: #121212;
     --bg-card-head: #262626;
-    --bg-card-head-hover: #383838;
     --bg-overlay: #121212;
     --fg: #ffffff;
     --fg-muted: #a3a3a3;
@@ -104,13 +99,12 @@
     --target-highlight: 2s;
   }
 
-  /* The fill a placeholder's bar takes while it waits (`kit/Skeleton.tsx`): a step off the ground it stands on. The
-     muted fill is that step on the page, a card and an overlay; on a card's head, which the dark theme fills with the
-     muted grey itself, the step would vanish, so a head redeclares it as the head's own step
-     (`cardStyles.ts :: headGround`), as the band redeclares `--focus-ring`. Resolved on the root, which carries
-     `data-theme`, so it follows the theme. */
+  /* The text colour of the ground a placeholder's bar stands on, which `skeleton-bar` takes 12 % of. A name of its own,
+     never `currentColor`: a bar holding unseen words has a transparent `color`, and a muted line's would fade with it.
+     The band redeclares it as it redeclares `--focus-ring`. Resolved on the root, which carries `data-theme`, so it
+     follows the theme. */
   :root {
-    --bg-hover: var(--bg-muted);
+    --bar-ink: var(--fg);
   }
 
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
@@ -135,11 +129,22 @@
   }
 
   /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page in
-     the root's beneath them all. A frame's band and its phone bar, which the page scrolls under, would sit in the
-     root's picture, and a fading part would show what scrolled under them over them: each carries a
-     `view-transition-name` of its own, `band` or `bar`, so it is pictured apart, and painted after the page it
-     sticks over, it stays on top. The classic band and the rail's phone band share `band`, never standing on one
-     page together. */
+     the root's beneath them all. A frame's band, its phone bar, an editor's bar and a rail page's title strip, which the
+     page scrolls under, would sit in the root's picture, and a fading part would show what scrolled under them over them:
+     each carries a `view-transition-name` of its own, `band`, `bar` or `strip`, so it is pictured apart. The groups paint in
+     the order their names were captured, and a name only in the new state is captured after every name of the old
+     one, so a part React's streamed reveal brings in would paint over them; `z-index` is what lifts the three over any
+     other group, the strip a step below the two, since on a phone it scrolls under the band. The classic band and the
+     rail's phone band share `band`, and the phone bar and an editor's bar, which takes its place, share `bar`, neither
+     pair ever standing on one page together. */
+  ::view-transition-group(strip) {
+    z-index: 1;
+  }
+
+  ::view-transition-group(band),
+  ::view-transition-group(bar) {
+    z-index: 2;
+  }
 
   /* The overlay a transition draws over the page would otherwise take the clicks meant for the page. */
   ::view-transition {
@@ -181,23 +186,22 @@
   }
 }
 
-/* A skeleton's shimmer, a sweep across the box. Outside the gate above: it is a loading indicator, and a
-   loading indicator that stops under reduced motion reads as stuck. */
-@keyframes kit-shimmer {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
 /* A placeholder's arrival: it is drawn invisible and becomes visible once `--loading-delay` has passed.
    Outside the gate above, so under reduced motion it still appears, at once rather than fading. */
 @keyframes kit-appear {
   to {
     opacity: 1;
   }
+}
+
+/* A placeholder's bar (`kit/Skeleton.tsx`): 12 % of its ground's text colour, the hover layer's figure, so a bar shows
+   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. Applied here
+   rather than set as a class, so it stands outside `globals.css`'s reduced-motion stop for `.animate-pulse`: a loading
+   indicator that stops reads as stuck. One utility, so a page waiting in hundreds of bars carries one class for all of
+   this rather than its every class on each bar. Its properties sort it ahead of the single-property utilities on the
+   same property, so a bar's own display, size or corners, set beside it, win. */
+@utility skeleton-bar {
+  @apply block shrink-0 animate-pulse overflow-hidden rounded-md bg-bar-ink/12;
 }
 
 /* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
@@ -227,6 +231,13 @@
   }
 }
 
+/* A section of a classic page a link points to by its fragment: it stops under the sticky band rather than behind it. */
+@layer components {
+  .kit-section-target {
+    scroll-margin-top: var(--classic-header);
+  }
+}
+
 /* Registered so the two fade widths interpolate rather than jump. Zero where no scroll drives them: a
    row that fits, or a browser without scroll-driven animations, shows no fade. */
 @property --kit-fade-start {
@@ -247,8 +258,7 @@
   --color-bg-muted: var(--bg-muted);
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
-  --color-bg-card-head-hover: var(--bg-card-head-hover);
-  --color-bg-hover: var(--bg-hover);
+  --color-bar-ink: var(--bar-ink);
   --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
@@ -330,7 +340,7 @@
   --container-question: 25rem; /* a dialog asking one question */
   --container-card: 28rem; /* a status card, and the classic column holding one */
   --container-bracket-phone: 5rem; /* a bracket card on a phone: the plaque and a two-digit figure inside 8-px padding */
-  --container-bracket: 12rem; /* a bracket card on desktop, the most a round's column gives it */
+  --container-bracket: 15rem; /* a bracket card on desktop with 8 px of room on each side, the most a round's column gives it: its 224-px card holds „Verlierer von Spiel 13“ whole */
   --container-dialog: 35rem; /* a dialog holding a form */
   --container-field: calc(
     31ch + 1.625rem

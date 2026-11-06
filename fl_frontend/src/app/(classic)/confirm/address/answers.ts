@@ -31,7 +31,7 @@ const { token } = AddressChangePostAddressChangeAnswerBody.shape;
 export const answerAddressChange = action({
   lane: "public",
   name: "answerAddressChange",
-  input: z.object({ token: token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
+  input: z.object({ token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
   run: async ({ token: link, side, act }): Promise<{ ok: true; value: EndState }> => {
     const answer = act === "primary" ? "confirmed" : "declined";
@@ -42,7 +42,7 @@ export const answerAddressChange = action({
 
     let answered;
     try {
-      answered = await postAddressChangeAnswer({ token: link, answer: answer });
+      answered = await postAddressChangeAnswer({ token: link, answer });
     } catch (error) {
       if (mapAddressChangePressRefusal(error) === null) throw error;
       return { ok: true, value: LINK_INVALID };
@@ -73,14 +73,14 @@ async function carryTheAccount(): Promise<void> {
  * Session 7: the administrator's way answered from its old view, the new mailbox's confirmation and decline and the
  * address on file's stop, each answering what the view shows next.
  */
-export const verwaltungswegBeantworten = action({
+export const answerByAdminRoute = action({
   lane: "public",
-  name: "verwaltungswegBeantworten",
-  input: z.object({ token: token, antwort: z.enum(["confirmed", "declined", "stopped"]) }),
+  name: "answerByAdminRoute",
+  input: z.object({ token, antwort: z.enum(["confirmed", "declined", "stopped"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer or its stop.",
   run: async ({ token: link, antwort }): Promise<ActionAnswer<AdresswechselPresse>> => {
     if (antwort === "confirmed" && (await accountAtNewAddress({ token: link }))) {
-      return { ok: true, value: { zustand: "not_confirmable" } };
+      return { ok: true, value: { state: "not_confirmable" } };
     }
 
     try {
@@ -89,23 +89,23 @@ export const verwaltungswegBeantworten = action({
         return {
           ok: true,
           value: {
-            gedrueckt: { answer: "stopped", effective: false, effective_from: null, approval_open: false },
+            pressed: { answer: "stopped", effective: false, effective_from: null, approval_open: false },
           },
         };
       }
       const answered = await postAddressChangeAnswer({ token: link, answer: antwort });
       if (answered.effective) afterTheResponse(runAddressChangeMoves);
-      return { ok: true, value: { gedrueckt: answered } };
+      return { ok: true, value: { pressed: answered } };
     } catch (error) {
       const refusal = mapAddressChangePressRefusal(error);
       if (refusal === null) throw error;
-      if ("state" in refusal) return { ok: true, value: { zustand: refusal.state } };
+      if ("state" in refusal) return { ok: true, value: { state: refusal.state } };
       if (!("neuLesen" in refusal)) return { ok: false, reason: COPY.shared.failure.stale };
 
       // The change ended or this link was answered since the page opened: the link's own read says how, so the view
       // states it rather than calling the link void. Null where that read failed.
       const ansicht = await postAddressChangeView({ token: link }).then(viewOf, () => null);
-      return { ok: true, value: { ansicht: ansicht } };
+      return { ok: true, value: { ansicht } };
     }
   },
 });

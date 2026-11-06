@@ -12,16 +12,16 @@ from pydantic import Field
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
-from app.api.spielberichte.crud import pull_bericht_lage, pull_genannt
+from app.api.spielberichte.crud import pull_bericht_context, pull_named
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
-    FLSpielberichtSeiten,
+    FLSpielberichtScorer,
+    FLSpielberichtSides,
     FLSpielberichtSpieler,
     FLSpielberichtState,
-    FLSpielberichtTorschuetze,
     FLSpielberichtVorschlag,
 )
-from app.api.spielberichte.services import bericht_zustand_of
+from app.api.spielberichte.services import bericht_state_of
 from app.api.spielbestaetigungen.admin_router import get_spielbestaetigungen
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungenFilterParams
 from app.api.spiele.crud import pull_saison_membership
@@ -85,15 +85,15 @@ class FLSpielEditorTeam(BaseReadModel):
 class FLSpielEditorBericht(BaseReadModel):
     """The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
 
-    `version` is the one an adoption names (`adopts_bericht`), `seiten` the clubs the report is about, and `named`
+    `version` is the one an adoption names (`adopts_bericht`), `sides` the clubs the report is about, and `named`
     each pupil a goal names, by the names their record holds.
     """
 
     state: FLSpielberichtState
     version: int
     ergebnis_vorschlag: FLSpielberichtVorschlag
-    seiten: FLSpielberichtSeiten
-    torschuetzen: list[FLSpielberichtTorschuetze]
+    sides: FLSpielberichtSides
+    scorers: list[FLSpielberichtScorer]
     named: list[FLSpielberichtSpieler]
 
 
@@ -189,32 +189,32 @@ async def _spielbericht_of(
     saisons_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
-    spielberichte_collection: AsyncCollection,
+    spielberichte_collection: ReadCollection,
 ) -> FLSpielEditorBericht | None:
     """The report as the administrator's panel composes it, its goals alone: the cards and the remarks are not the editor's."""
 
-    dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, {"bericht": 1})
-    block = None if dokument is None else dokument.get("bericht")
+    document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, {"bericht": 1})
+    block = None if document is None else document.get("bericht")
     if block is None:
         return None
 
     bericht = FLSpielberichtBericht.model_validate(block)
-    lage = await pull_bericht_lage(
+    context = await pull_bericht_context(
         spiele_collection=spiele_collection,
         saisons_collection=saisons_collection,
         saison_spieler_collection=saison_spieler_collection,
         spiel_id=spiel_id,
         session=None,
     )
-    scorers = {tor.spieler_id for tor in bericht.torschuetzen if tor.spieler_id is not None}
-    named = await pull_genannt(spieler_collection=spieler_collection, lage=lage, kader_offen=False, bericht=block, session=None)
+    scorers = {tor.spieler_id for tor in bericht.scorers if tor.spieler_id is not None}
+    named = await pull_named(spieler_collection=spieler_collection, context=context, kader_open=False, bericht=block, session=None)
 
     return FLSpielEditorBericht(
-        state=bericht_zustand_of(bericht, lage.spiel),
+        state=bericht_state_of(bericht, context.spiel),
         version=bericht.version,
         ergebnis_vorschlag=bericht.ergebnis_vorschlag,
-        seiten=bericht.seiten,
-        torschuetzen=bericht.torschuetzen,
+        sides=bericht.sides,
+        scorers=bericht.scorers,
         named=[spieler for spieler in named if spieler.spieler_id in scorers],
     )
 
@@ -228,7 +228,7 @@ async def read_spiel_editor(
     schiedsrichter_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
-    spielberichte_collection: AsyncCollection,
+    spielberichte_collection: ReadCollection,
     spielbestaetigungen_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     saison_teams_collection: ReadCollection,
@@ -242,16 +242,16 @@ async def read_spiel_editor(
         raise DocumentNotFoundError()
     spiel = FLSpielJoinedAdmin.model_validate(spiele_raw[0])
 
-    gebuchter_ort = None if spiel.ort is None else spiel.ort.spielort_id
+    booked_spielort = None if spiel.spielort is None else spiel.spielort.spielort_id
     gebuchter_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
 
     # The rest named by the fixture alone, so read beside one another.
-    saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, bestaetigungen = await asyncio.gather(
+    saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, confirmations = await asyncio.gather(
         # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"]),
         pull_many_from_db(
             collection=spielorte_collection,
-            db_filter=_offered(gebuchter_ort),
+            db_filter=_offered(booked_spielort),
             limit=LIST_LIMIT_MAX,
             sort_by=[("name", 1)],
             projection=["name", "default_mietpreis", "inactive_since"],
@@ -297,5 +297,5 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=bestaetigungen.spielbestaetigungen,
+        spielbestaetigungen=confirmations.spielbestaetigungen,
     )

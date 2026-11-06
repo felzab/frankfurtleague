@@ -1,16 +1,20 @@
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any
+from datetime import datetime
+from typing import Any, Final
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
+from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
     ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
-    AnsetzungLage,
+    AnsetzungState,
     SeatVoid,
+    austritt_notices_of,
+    build_austritt_spiele_filter,
     build_holding_filter,
     build_referee_images_filter,
     build_referee_rows_filter,
@@ -22,7 +26,7 @@ from app.api.spielbestaetigungen.services import (
     season_end_image_edits,
     seat_entry_image_edits,
 )
-from app.api.spiele.schemas import FLSpielOrtFieldPublic
+from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.collections import Collection
 from app.core.crud import (
@@ -31,6 +35,7 @@ from app.core.crud import (
     erase_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
+    pull_whole_from_db,
     redact_log_rows_in_db,
 )
 from app.core.readonly import ReadCollection
@@ -40,17 +45,17 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 # --- The LINK's view and answer.
 
 # What the VIEW reads off the fixture through the name join: the Ansetzung's inputs, what the page states of it, and
-# what `grund_to_close` decides on. Never the referee, the rent or the note.
-ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
+# what `reason_to_close` decides on. Never the referee, the rent or the note.
+VIEW_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
-    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "ort.name", "ort.maps_link"), 1),
+    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_link"), 1),
     **dict.fromkeys(("ergebnis", "sonderereignis"), 1),
 }
 
-# What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee, whom
-# `grund_to_close` compares a referee's row against. The referee's id alone, never the name the join puts beside it.
-JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
+# What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee's id,
+# which `reason_to_close` compares a referee's row against.
+JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**VIEW_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
 
 
 async def pull_named_spiele(
@@ -80,14 +85,14 @@ def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
     return {
         "_id": 0,
         "team_id": 1,
-        "austritt.datum": 1,
+        "austritt.date": 1,
         "name": 1,
         # The other club's row and every other seat load no address.
         f"kontakte.{seat}.email": {"$cond": [{"$eq": ["$team_id", team_id]}, f"$kontakte.{seat}.email", "$$REMOVE"]},
     }
 
 
-async def pull_ansetzung_lage(
+async def pull_ansetzung_state(
     *,
     spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
@@ -97,7 +102,7 @@ async def pull_ansetzung_lage(
     spiel_projection: Mapping[str, Any] | None,
     verein_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
-) -> AnsetzungLage | None:
+) -> AnsetzungState | None:
     """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
 
     by_id = {"_id": spielbestaetigung_raw["spiel_id"]}
@@ -116,10 +121,10 @@ async def pull_ansetzung_lage(
         session=session,
     ).to_list(length=None)
 
-    return AnsetzungLage(spiel=spiel, vereine=vereine)
+    return AnsetzungState(spiel=spiel, vereine=vereine)
 
 
-async def pull_vorschlag_offen(
+async def pull_vorschlag_open(
     *, spielbestaetigungen_collection: ReadCollection, spielbestaetigung_raw: Mapping[str, Any]
 ) -> FLSpielbestaetigungAppointment | None:
     """The other club's proposal about this same Ansetzung while its decline stands open, its date and hour alone.
@@ -131,15 +136,15 @@ async def pull_vorschlag_offen(
         {
             "saison_id": spielbestaetigung_raw["saison_id"],
             "spiel_id": spielbestaetigung_raw["spiel_id"],
-            "party.art": "team",
+            "party.kind": "team",
             "party.team_id": {"$ne": spielbestaetigung_raw["party"]["team_id"]},
             "ansetzung.stand": spielbestaetigung_raw["ansetzung"]["stand"],
-            "antwort.art": "declined",
+            "answer.kind": "declined",
             "closed": None,
         },
-        projection={"antwort.vorschlag": 1},
+        projection={"answer.vorschlag": 1},
     )
-    vorschlag = ((other or {}).get("antwort") or {}).get("vorschlag")
+    vorschlag = ((other or {}).get("answer") or {}).get("vorschlag")
 
     return FLSpielbestaetigungAppointment.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
 
@@ -175,27 +180,27 @@ async def pull_admin_rows(
 # --- A REFEREE'S OWN ROWS.
 
 # No seat's hashes and no deadline: a referee answers signed in, until the fixture's day.
-EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
+OWN_ROW_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
     "party": 1,
     "ansetzung": 1,
-    "antwort.art": 1,
-    "antwort.von.art": 1,
-    "antwort.begruendung": 1,
+    "answer.kind": 1,
+    "answer.by.kind": 1,
+    "answer.reason": 1,
     "closed": 1,
 }
 
-EIGENE_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.datum": 1}
+OWN_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.date": 1}
 
 
-async def pull_eigene_lagen(
+async def pull_own_states(
     *,
     spiele_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     spielbestaetigungen_raw: Sequence[Mapping[str, Any]],
     session: AsyncClientSession,
-) -> dict[Any, AnsetzungLage]:
+) -> dict[Any, AnsetzungState]:
     """Each row's fixture and clubs' season rows, two reads for the whole list, keyed by the row's id."""
 
     if not spielbestaetigungen_raw:
@@ -212,13 +217,13 @@ async def pull_eigene_lagen(
             "saison_id": {"$in": list({row["saison_id"] for row in spielbestaetigungen_raw})},
             "team_id": {"$in": list({row["ansetzung"][key] for row in spielbestaetigungen_raw for key in ("team1_id", "team2_id")})},
         },
-        EIGENE_VEREIN_FIELDS,
+        OWN_VEREIN_FIELDS,
         session=session,
     ).to_list(length=None)
     by_id = {spiel["_id"]: spiel for spiel in spiele}
 
     return {
-        row["_id"]: AnsetzungLage(
+        row["_id"]: AnsetzungState(
             # An undraw removes a fixture with its rows in one transaction, and this read shares their snapshot.
             spiel=by_id[row["spiel_id"]],
             vereine=[
@@ -233,7 +238,7 @@ async def pull_eigene_lagen(
 
 async def pull_spielorte_public(
     *, spielorte_collection: AsyncCollection, spielort_ids: Iterable[Any], session: AsyncClientSession
-) -> dict[Any, FLSpielOrtFieldPublic]:
+) -> dict[Any, FLSpielortFieldPublic]:
     """The grounds a moved row's Ansetzung names, as the link's view serves one; a ground no row holds is absent."""
 
     wanted = list({spielort_id for spielort_id in spielort_ids if spielort_id is not None})
@@ -242,7 +247,10 @@ async def pull_spielorte_public(
 
     orte = await spielorte_collection.find({"_id": {"$in": wanted}}, {"name": 1, "maps_link": 1}, session=session).to_list(length=None)
 
-    return {ort["_id"]: FLSpielOrtFieldPublic(spielort_id=ort["_id"], name=ort["name"], maps_link=ort["maps_link"]) for ort in orte}
+    return {
+        spielort["_id"]: FLSpielortFieldPublic(spielort_id=spielort["_id"], name=spielort["name"], maps_link=spielort["maps_link"])
+        for spielort in orte
+    }
 
 
 # --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.
@@ -299,7 +307,7 @@ async def strip_the_seasons_confirmations(
     await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_season_reasons_filter(saison_id),
-        update={"$set": {"antwort.begruendung": None}},
+        update={"$set": {"answer.reason": None}},
         session=session,
     )
 
@@ -396,9 +404,9 @@ async def anchor_the_mailboxes_told(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows the notice step read its notices' mailboxes off.
+    """Write the season rows a write read its notices' mailboxes off.
 
-    An erasure or a Widerspruch empties the seat on that row and writes nothing the notice step writes.
+    An erasure or a Widerspruch empties the seat on that row and writes nothing the notices' write writes.
     """
 
     await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)
@@ -417,3 +425,50 @@ async def anchor_the_referees_told(
     """
 
     await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)
+
+
+# --- An AUSTRITT's opponents.
+
+# What `austritt_notices_of` judges and lists of a fixture, which holds no name: each club's comes off its season row.
+AUSTRITT_SPIEL_FIELDS: Final = ["team1", "team2", "date", "time", "ergebnis", "sonderereignis"]
+
+
+async def owe_the_austritt_notices_in_session(
+    *,
+    spiele_collection: ReadCollection,
+    saison_teams_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    saison_id: str,
+    team_id: Any,
+    exit_day: str,
+    now: datetime,
+    # REQUIRED: the exit and its notices commit or fail together.
+    session: AsyncClientSession,
+) -> None:
+    """Owe each opponent of a club leaving the season its notice, at the exit's own write, which happens once."""
+
+    spiele = await pull_whole_from_db(
+        collection=spiele_collection,
+        db_filter=build_austritt_spiele_filter(saison_id=saison_id, team_id=team_id, exit_day=exit_day),
+        what=f"team {team_id}'s fixtures in season {saison_id}",
+        projection=AUSTRITT_SPIEL_FIELDS,
+        session=session,
+    )
+    sides = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")}
+    vereine = await pull_whole_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": list({team_id, *sides} - {None})}},
+        what=f"team {team_id}'s opponents in season {saison_id}",
+        projection=["team_id", "name", "kontakte", "austritt"],
+        session=session,
+    )
+
+    notices = austritt_notices_of(saison_id=saison_id, team_id=team_id, spiele=spiele, vereine={row["team_id"]: row for row in vereine})
+    if not notices:
+        return
+
+    # Ahead of the mails: what each was read off, so a seat emptied or an address moved beside this write conflicts with it.
+    await anchor_the_mailboxes_told(saison_teams_collection=saison_teams_collection, saison_team_ids=sorted(notices, key=str), session=session)
+    await enqueue_mails(
+        outbox_collection=outbox_collection, session=session, mails=[mail for mails in notices.values() for mail in mails], now=now
+    )

@@ -9,7 +9,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { UEBERALL_ABMELDEN } from "@/features/admin/constants";
+import { EVERYWHERE_SIGN_OUT } from "@/features/admin/constants";
 import { endAnmeldungenAction } from "@/features/funktionen/actions";
 import { FLLoeschungAdressePayloadSchema } from "@/features/funktionen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -46,7 +46,7 @@ export function FormAbmeldenSection() {
     }
 
     // Read at the press: an edit of the box disarms, so the address armed on is the one sent.
-    const gesendet = { email: email };
+    const gesendet = { email };
     twoPress.press(async () => {
       // A rejected action may still have written its log row, and uncaught here it takes the page down with it.
       const res = await endAnmeldungenAction(gesendet).catch(rejectedWrite(router));
@@ -71,7 +71,7 @@ export function FormAbmeldenSection() {
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
-          title={UEBERALL_ABMELDEN}
+          title={EVERYWHERE_SIGN_OUT}
         />
       </div>
 
@@ -109,7 +109,7 @@ export function FormAbmeldenSection() {
           <ConfirmPressButton
             confirm={twoPress}
             reason={email.trim() === "" ? "Gib zuerst die E-Mail-Adresse ein." : null}
-            resting={UEBERALL_ABMELDEN}
+            resting={EVERYWHERE_SIGN_OUT}
             armed="Ja, überall abmelden"
             running="Meldet ab..."
             icon={

@@ -10,32 +10,32 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielbestaetigungen.crud import (
-    EIGENE_ZEILE_FIELDS,
-    pull_ansetzung_lage,
-    pull_eigene_lagen,
+    OWN_ROW_FIELDS,
+    pull_ansetzung_state,
+    pull_own_states,
     pull_spielorte_public,
 )
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungenSelfResponse,
-    FLSpielbestaetigungSchiedsrichterAntwortPayload,
-    FLSpielbestaetigungSchiedsrichterAntwortResponse,
+    FLSpielbestaetigungSchiedsrichterAnswerPayload,
+    FLSpielbestaetigungSchiedsrichterAnswerResponse,
     FLSpielbestaetigungSelf,
 )
 from app.api.spielbestaetigungen.services import (
-    ansetzung_verlassen_refusal,
-    ansicht_ansetzung_of,
-    ansicht_snapshot_of,
+    ansetzung_left_refusal,
     build_answerable_filter,
     build_current_rows_pipeline,
     clubs_without_a_season_row,
-    compose_schiedsrichter_antwort_update,
-    eigene_begruendung_of,
-    eingetragen_of,
-    find_fremde_zeile_refusal,
+    compose_schiedsrichter_answer_update,
+    entered_of,
+    find_foreign_row_refusal,
     find_spent_link_refusal,
     first_press_refusal,
-    schiedsrichter_zustand_of,
+    own_reason_of,
+    schiedsrichter_state_of,
     stand_moved,
+    view_ansetzung_of,
+    view_snapshot_of,
 )
 from app.api.teams.crud import pull_team_names
 from app.core.config import API_VERSION
@@ -85,7 +85,7 @@ async def get_self(
     request alone.
 
     Open, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the
-    Ansetzung the row asked about -- its state, `abgesagt` once the fixture is called off, the referee's own decline
+    Ansetzung the row asked about -- its state, `cancelled` once the fixture is called off, the referee's own decline
     reason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is
     served: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open
     ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
@@ -110,7 +110,7 @@ async def get_self(
                 *build_current_rows_pipeline(
                     saison_ids=[str(saison["_id"]) for saison in saisons],
                     schiedsrichter_ids=[entry.schiedsrichter_id for entry in subject.schiedsrichter],
-                    projection=EIGENE_ZEILE_FIELDS,
+                    projection=OWN_ROW_FIELDS,
                 ),
                 {"$limit": LIST_LIMIT_MAX + 1},
             ],
@@ -120,28 +120,35 @@ async def get_self(
         if len(rows) > LIST_LIMIT_MAX:
             raise ValueError("a referee's fixtures in the active seasons outrun one read")
 
-        lagen = await pull_eigene_lagen(
+        ansetzung_states = await pull_own_states(
             spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigungen_raw=rows, session=session
         )
-        moved = [row for row in rows if stand_moved(spielbestaetigung_raw=row, lage=lagen[row["_id"]])]
+        moved = [row for row in rows if stand_moved(spielbestaetigung_raw=row, ansetzung_state=ansetzung_states[row["_id"]])]
         moved_ids = {row["_id"] for row in moved}
         spielorte = await pull_spielorte_public(
             spielorte_collection=spielorte_collection, spielort_ids=[row["ansetzung"]["spielort_id"] for row in moved], session=session
         )
         vereinsnamen = await pull_team_names(
             teams_collection=teams_collection,
-            team_ids=[team_id for row in moved for team_id in clubs_without_a_season_row(spielbestaetigung_raw=row, lage=lagen[row["_id"]])],
+            team_ids=[
+                team_id
+                for row in moved
+                for team_id in clubs_without_a_season_row(spielbestaetigung_raw=row, ansetzung_state=ansetzung_states[row["_id"]])
+            ],
             session=session,
         )
 
-    def eintrag_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelf:
-        lage = lagen[row["_id"]]
+    def entry_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelf:
+        ansetzung_state = ansetzung_states[row["_id"]]
         ansetzung = (
-            ansicht_snapshot_of(
-                spielbestaetigung_raw=row, lage=lage, vereinsnamen=vereinsnamen, spielort=spielorte.get(row["ansetzung"]["spielort_id"])
+            view_snapshot_of(
+                spielbestaetigung_raw=row,
+                ansetzung_state=ansetzung_state,
+                vereinsnamen=vereinsnamen,
+                spielort=spielorte.get(row["ansetzung"]["spielort_id"]),
             )
             if row["_id"] in moved_ids
-            else ansicht_ansetzung_of(lage.spiel)
+            else view_ansetzung_of(ansetzung_state.spiel)
         )
 
         return FLSpielbestaetigungSelf.model_validate(
@@ -150,28 +157,28 @@ async def get_self(
                 "spiel_id": row["spiel_id"],
                 "schiedsrichter_id": row["party"]["schiedsrichter_id"],
                 "ansetzung": ansetzung,
-                "state": schiedsrichter_zustand_of(spielbestaetigung_raw=row, lage=lage, today=today),
-                "begruendung": eigene_begruendung_of(row),
-                "entered": eingetragen_of(row),
-                "past": ansetzung.datum < today,
+                "state": schiedsrichter_state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today),
+                "reason": own_reason_of(row),
+                "entered": entered_of(row),
+                "past": ansetzung.date < today,
             }
         )
 
-    entries = list(map(eintrag_of, rows))
-    kommend = sorted((e for e in entries if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.datum, str(e.id)))
-    vergangen = sorted((e for e in entries if e.past), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
+    entries = list(map(entry_of, rows))
+    upcoming = sorted((e for e in entries if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.date, str(e.id)))
+    past = sorted((e for e in entries if e.past), key=lambda e: (e.ansetzung.date, str(e.id)), reverse=True)
 
-    return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*kommend, *vergangen])
+    return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*upcoming, *past])
 
 
 @router.post(
-    f"{by_id('spielbestaetigung_id')}/antwort",
-    response_model=FLSpielbestaetigungSchiedsrichterAntwortResponse,
+    f"{by_id('spielbestaetigung_id')}/answer",
+    response_model=FLSpielbestaetigungSchiedsrichterAnswerResponse,
     summary="Accept or decline one of the signed-in referee's own fixture assignments",
 )
-async def post_schiedsrichter_antwort(
+async def post_schiedsrichter_answer(
     spielbestaetigung_id: CustomRouteObjectId,
-    antwort_data: Annotated[FLSpielbestaetigungSchiedsrichterAntwortPayload, Body()],
+    answer_data: Annotated[FLSpielbestaetigungSchiedsrichterAnswerPayload, Body()],
     identifier: SchiedsrichterIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
@@ -180,7 +187,7 @@ async def post_schiedsrichter_antwort(
     records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielbestaetigungSchiedsrichterAntwortResponse:
+) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
     """
     Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.
 
@@ -195,14 +202,14 @@ async def post_schiedsrichter_antwort(
     already answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered
     (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,
     time, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a
-    fixture whose day has gone by (`ansetzung_frist_past`). An acceptance is judged again outside the transaction just
+    fixture whose day has gone by (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
     before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
 
     **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
     on the public fixture, and a decline takes it off.
     """
 
-    async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAntwortResponse:
+    async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
 
         subject = await roles_of(identifier, records, session=session)
@@ -215,33 +222,33 @@ async def post_schiedsrichter_antwort(
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
         row = await spielbestaetigungen_collection.find_one(
             {"_id": spielbestaetigung_id, "saison_id": {"$in": [str(saison["_id"]) for saison in saisons]}},
-            projection=EIGENE_ZEILE_FIELDS,
+            projection=OWN_ROW_FIELDS,
             session=session,
         )
         refuse(
-            find_fremde_zeile_refusal(
+            find_foreign_row_refusal(
                 spielbestaetigung_raw=row, schiedsrichter_ids=[entry.schiedsrichter_id for entry in subject.schiedsrichter]
             )
         )
         assert row is not None
 
-        lage = await pull_ansetzung_lage(
+        ansetzung_state = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
             spiel_projection=None,
-            verein_projection={"_id": 0, "team_id": 1, "austritt.datum": 1},
+            verein_projection={"_id": 0, "team_id": 1, "austritt.date": 1},
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
-        assert lage is not None
-        refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=lage, today=today))
+        assert ansetzung_state is not None
+        refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today))
 
         try:
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
-                update=compose_schiedsrichter_antwort_update(antwort=antwort_data.antwort, begruendung=antwort_data.begruendung, today=today),
+                update=compose_schiedsrichter_answer_update(answer=answer_data.answer, reason=answer_data.reason, today=today),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
@@ -249,7 +256,7 @@ async def post_schiedsrichter_antwort(
         except DocumentNotFoundError:
             refuse(first_press_refusal())
 
-        if antwort_data.antwort == "declined":
+        if answer_data.answer == "declined":
             # Never `PATCH /spiele/{spiel_id}`, which re-resolves the season's bracket: a person's press moves this one
             # block. A rival save of the fixture writes this document too, so the two conflict and one retries.
             try:
@@ -264,23 +271,23 @@ async def post_schiedsrichter_antwort(
             except DocumentNotFoundError:
                 # Unreachable: the snapshot judged above books them, and a write since conflicts rather than missing.
                 # Mapped to that judgement's refusal, so no `document_not_found` is published for a miss no caller meets.
-                refuse(ansetzung_verlassen_refusal())
+                refuse(ansetzung_left_refusal())
         else:
             # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction
             # raises no conflict: all judged again outside it before answering.
-            current = await pull_ansetzung_lage(
+            current = await pull_ansetzung_state(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
                 spiel_projection=None,
-                verein_projection={"_id": 0, "team_id": 1, "austritt.datum": 1},
+                verein_projection={"_id": 0, "team_id": 1, "austritt.date": 1},
                 session=None,
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
             assert current is not None
-            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=current, today=today))
+            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
 
-        return FLSpielbestaetigungSchiedsrichterAntwortResponse(spielbestaetigung_id=spielbestaetigung_id, state=antwort_data.antwort)
+        return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(answer)

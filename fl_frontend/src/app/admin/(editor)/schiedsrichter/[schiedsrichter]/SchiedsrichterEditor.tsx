@@ -19,7 +19,7 @@ import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
 const WORDS = COPY.admin.schiedsrichter;
-const FACTS = COPY.account.entries.facts;
+const FACTS = COPY.shared.facts;
 const OBJECT = COPY.shared.schiedsrichter;
 
 /** An act on the referee: a server action taking the referee's id, which a server page passes on as it is. */
@@ -95,7 +95,7 @@ export function SchiedsrichterEditor({
       title={title}
       chip={chip}
       editor={editor}
-      danger={{ title: COPY.admin.stilllegung, acts: [dangerAct] }}
+      danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
       sections={[
         {
           id: "schiedsrichter",
@@ -124,21 +124,21 @@ export function SchiedsrichterEditor({
               />
               {/* The fee is the person's own, as their name is, so it stands in their box. */}
               <TextField
-                label={COPY.admin.honorar}
-                name="honorar"
+                label={COPY.admin.payment}
+                name="default_payment"
                 width="C5"
                 kind="digits"
                 unit={COPY.shared.unit.euro}
-                isRequired={required.honorar}
-                value={draft.honorar}
-                onChange={(honorar) => set("honorar", honorar)}
+                isRequired={required.default_payment}
+                value={draft.default_payment}
+                onChange={(default_payment) => set("default_payment", default_payment)}
               />
             </>
           ),
         },
         {
-          id: "kontaktdaten",
-          title: WORDS.kontaktdaten,
+          id: "kontaktData",
+          title: WORDS.kontaktData,
           fields: (
             <>
               {address.kind === "fixed" ? (
@@ -166,12 +166,12 @@ export function SchiedsrichterEditor({
               )}
               <TextField
                 label={FACTS.phone}
-                name="telefon"
+                name="phone"
                 width="W3"
                 kind="tel"
-                isRequired={required.telefon}
-                value={draft.telefon}
-                onChange={(telefon) => set("telefon", telefon)}
+                isRequired={required.phone}
+                value={draft.phone}
+                onChange={(phone) => set("phone", phone)}
               />
             </>
           ),

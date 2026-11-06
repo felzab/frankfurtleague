@@ -62,7 +62,6 @@ BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
 BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.de"
 BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
 SPIELER_ACTIVE = "spieler.aktiv@schule.de"
-SPIELER_FORMER = "spieler.ehemalig@schule.de"
 SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.de"
 SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
 SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.de"
@@ -86,7 +85,6 @@ BEWERBUNG_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860011")
 BEWERBUNG_DECIDED_OID = ObjectId("6890a1b2c3d4e5f607860012")
 BEWERBUNG_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607860013")
 SPIELER_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860021")
-SPIELER_FORMER_OID = ObjectId("6890a1b2c3d4e5f607860022")
 SCHIEDSRICHTER_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607860031")
 SCHIEDSRICHTER_RETIRED_OID = ObjectId("6890a1b2c3d4e5f607860032")
 SCHIEDSRICHTER_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
@@ -120,7 +118,7 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
         kontakte=_kontakte(trainer=dict(trainer)),
         submitted_at="2026-01-01",
         confirmation_deadline="2026-01-15",
-        schule=new_schule_document(f"Bewerberschule {oid}", str(oid)[-4:]),
+        schule=new_schule_document(f"Bewerberschule {oid}"),
     )
 
 
@@ -138,19 +136,19 @@ def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **field
         email,
         saison_id=ACTIVE_SAISON,
         team_id=TEAM_OIDS[0],
-        vorname="Rita",
-        nachname="Registriert",
+        first_name="Rita",
+        last_name="Registriert",
         token=str(oid),
         submitted_at="2026-01-02",
-        frist="2026-01-09",
+        deadline="2026-01-09",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
         confirmed=None
         if not confirmed
         else {
-            "geburtsdatum": "2009-05-04",
-            "scope": "intern",
+            "birth_date": "2009-05-04",
+            "scope": "internal",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-01-03",
@@ -186,7 +184,6 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(SPIELER_ACTIVE_OID, "Anna", "Aktiv", email=SPIELER_ACTIVE),
-            spieler_document(SPIELER_FORMER_OID, "Anna", "Ehemalig", email=SPIELER_FORMER, inactive_since="2026-03-01"),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -218,7 +215,7 @@ async def _seed(database: AsyncDatabase) -> None:
             REGISTERED_WITHOUT_CHOICE,
             confirmed=False,
             **compose_confirmation_update(
-                geburtsdatum="2009-05-04", scope=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
+                birth_date="2009-05-04", scope=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
             )["$set"],
         )
     )
@@ -283,7 +280,6 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(SEAT_EXITED, ("seats", SEAT_EXITED_ROW), id="a withdrawn team's seat"),
             pytest.param(BEWERBUNG_OPEN, ("bewerbungen", BEWERBUNG_OPEN_OID), id="a seat on a pending application"),
             pytest.param(SPIELER_ACTIVE, ("spieler", SPIELER_ACTIVE_OID), id="a live pupil"),
-            pytest.param(SPIELER_FORMER, ("spieler", SPIELER_FORMER_OID), id="a retired pupil"),
             pytest.param(SCHIEDSRICHTER_ACTIVE, ("schiedsrichter", SCHIEDSRICHTER_ACTIVE_OID), id="a live referee"),
             pytest.param(SCHIEDSRICHTER_RETIRED, ("schiedsrichter", SCHIEDSRICHTER_RETIRED_OID), id="a retired referee"),
             pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),

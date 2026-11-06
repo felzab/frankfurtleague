@@ -35,7 +35,7 @@ const EMAIL_HOST_TLD_REGEX = /[a-zA-Z]$/;
  * IANA's special-use names as the API's `email_validator` lists them (`SPECIAL_USE_DOMAIN_NAMES`), each
  * refused with every name under it. The library moves without us.
  */
-export const SPECIAL_USE_DOMAINS = ["arpa", "invalid", "local", "localhost", "onion", "test"] as const;
+const SPECIAL_USE_DOMAINS = ["arpa", "invalid", "local", "localhost", "onion", "test"] as const;
 
 // RFC 1035 2.3.4 and 2.3.1, in octets, which an ASCII host counts as characters.
 const EMAIL_HOST_MAX_OCTETS = 253;

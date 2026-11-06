@@ -24,21 +24,21 @@ CONTACT_FLOOR = 18
 @pytest.mark.parametrize(
     ("judge", "floor"),
     [
-        (lambda geburtsdatum: find_contact_age_refusal(geburtsdatum=geburtsdatum, today=TODAY, minimum_age=CONTACT_FLOOR), CONTACT_FLOOR),
-        (lambda geburtsdatum: find_pupil_age_refusal(geburtsdatum=geburtsdatum, today=TODAY), REGISTRIERUNG_MIN_AGE_YEARS),
-        (lambda geburtsdatum: find_referee_age_refusal(geburtsdatum=geburtsdatum, today=TODAY), SCHIEDSRICHTER_MIN_AGE_YEARS),
+        (lambda birth_date: find_contact_age_refusal(birth_date=birth_date, today=TODAY, minimum_age=CONTACT_FLOOR), CONTACT_FLOOR),
+        (lambda birth_date: find_pupil_age_refusal(birth_date=birth_date, today=TODAY), REGISTRIERUNG_MIN_AGE_YEARS),
+        (lambda birth_date: find_referee_age_refusal(birth_date=birth_date, today=TODAY), SCHIEDSRICHTER_MIN_AGE_YEARS),
     ],
     ids=["contact", "pupil", "referee"],
 )
-@pytest.mark.parametrize("geburtsdatum", ["2018-01-01", "1900-01-01"], ids=["under_the_floor", "over_the_ceiling"])
-def test_every_raise_carries_the_range_its_page_serves(judge: Callable[[str], WriteRefusal | None], floor: int, geburtsdatum: str):
+@pytest.mark.parametrize("birth_date", ["2018-01-01", "1900-01-01"], ids=["under_the_floor", "over_the_ceiling"])
+def test_every_raise_carries_the_range_its_page_serves(judge: Callable[[str], WriteRefusal | None], floor: int, birth_date: str):
     """Without the bounds, or with a floor other than the one the page served, the birthdate's message is wrong or missing."""
 
-    refusal = judge(geburtsdatum)
+    refusal = judge(birth_date)
 
     assert refusal is not None
     assert (refusal.error_code, refusal.fields, refusal.bounds) == (
         Code.CONFIRMATION_AGE,
-        (("geburtsdatum",),),
+        (("birth_date",),),
         {"min": floor, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
     )

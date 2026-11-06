@@ -39,7 +39,7 @@ def rows_seating(*identifiers: str) -> Mapping[str, Any]:
 
 
 # The address rides along because `find_matching_slots` picks the seat by it, off the row itself.
-SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+SEAT_FIELDS: tuple[str, ...] = ("email", "first_name", "last_name")
 
 
 def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:
@@ -124,7 +124,7 @@ def seat_name(seat: Any) -> PersonName | None:
     if not isinstance(seat, Mapping):
         return None
 
-    name = (person_name_key(seat.get("vorname")), person_name_key(seat.get("nachname")))
+    name = (person_name_key(seat.get("first_name")), person_name_key(seat.get("last_name")))
 
     return name if all(name) else None
 
@@ -202,8 +202,8 @@ def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
     return {key: None for key, block in blocks.items() if block is not None} if held else {}
 
 
-def build_clearing_update(slots: Sequence[str], *, confirmations: bool = False) -> Mapping[str, Any]:
-    """Null the named slots, and their confirmation bookkeeping where the caller found a block.
+def build_clearing_update(slots: Sequence[str], *, confirmations: bool = False, takes_the_notice_back: bool = False) -> Mapping[str, Any]:
+    """Null the named slots, their confirmation bookkeeping where the caller found a block, and a deletion notice whose day this moves.
 
     Dotted keys, so the block itself survives: `app/api/teams/schemas.py :: FLSaisonTeamKontakte` requires
     all four members, and on an application the block is non-nullable outright.
@@ -215,6 +215,8 @@ def build_clearing_update(slots: Sequence[str], *, confirmations: bool = False) 
     # alike: a live link would otherwise outlive the erasure and confirm a slot that names nobody.
     if confirmations:
         cleared.update({f"confirmations.{slot}": None for slot in slots})
+    if takes_the_notice_back:
+        cleared["erasure_announced_at"] = None
 
     # Whatever the block: the submission digest was taken over this person's details too, and a hash
     # of personal data is personal data. An `$unset` creates nothing

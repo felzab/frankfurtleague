@@ -6,7 +6,6 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.saisons.crud import pull_active_saison_id
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     SpielSaveCollections,
@@ -17,14 +16,9 @@ from app.api.spiele.editor import FLSpieleAdminSingleResponse, read_spiel_editor
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
-    FLSpieleAdminListResponse,
-    FLSpieleFilterParams,
-    FLSpielJoinedAdminListAdapter,
 )
 from app.api.spiele.services import (
-    build_spiele_filter,
     build_spiele_pipeline,
-    build_spiele_sort,
 )
 from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
 from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
@@ -40,6 +34,7 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
+    SpielberichteReadCollection,
     SpielbestaetigungenCollection,
     SpielbestaetigungenReadCollection,
     SpieleCollection,
@@ -47,6 +42,7 @@ from app.core.dependencies import (
     SpieleReadCollection,
     SpielorteCollection,
     SpieltageCollection,
+    SpieltageReadCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -63,43 +59,6 @@ router = APIRouter(
 )
 
 
-# Two static segments, matching `GET /saisons/list/verwaltung`. Declared before `{spiel_id}/verwaltung`, whose
-# only separation from this path is the `objectid` convertor.
-@router.get(
-    "/list/verwaltung",
-    response_model=FLSpieleAdminListResponse,
-    summary="Spiele for the admin surfaces",
-)
-async def get_spiele_verwaltung(
-    spiele_collection: SpieleCollection,
-    saisons_collection: SaisonsCollection,
-    filters: FLSpieleFilterParams = Depends(),
-    today: str = Depends(get_german_date_str),
-) -> FLSpieleAdminListResponse:
-    """
-    List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
-
-    Each referee carries their whole name, and each booking its money.
-    """
-
-    # No base-tier season gate: emptying the planned season is the one thing this must not do.
-    if filters.saison_id is None:
-        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
-
-    # The joined pipeline, as the public reads use: a plain `find` drops `austritt`.
-    spiele_raw = await aggregate_many_from_db(
-        collection=spiele_collection,
-        pipeline=build_spiele_pipeline(
-            db_filter=build_spiele_filter(filters=filters, today=today),
-            sort_by=build_spiele_sort(sort_by=filters.sort_by, order=filters.order),
-            limit=filters.limit,
-        ),
-        limit=filters.limit,
-    )
-
-    return FLSpieleAdminListResponse(spiele=FLSpielJoinedAdminListAdapter.validate_python(spiele_raw))
-
-
 # A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.
 @router.get(
     "/spielplan",
@@ -109,7 +68,7 @@ async def get_spiele_verwaltung(
 async def get_spiele_spielplan(
     saison_id: Annotated[str, Query(description="The season whose matchdays and knockout rounds the list shows")],
     saisons_collection: SaisonsReadCollection,
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     spiele_collection: SpieleReadCollection,
 ) -> FLSpieleSpielplanAdminResponse:
     """
@@ -136,11 +95,11 @@ async def get_spiele_spielplan(
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
 # same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spiel_id')}/verwaltung",
+    f"{by_id('spiel_id')}/admin",
     response_model=FLSpieleAdminSingleResponse,
     summary="One Spiel and all the match editor offers and shows beside it",
 )
-async def get_spiel_verwaltung(
+async def get_spiel_admin(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
@@ -148,7 +107,7 @@ async def get_spiel_verwaltung(
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
-    spielberichte_collection: SpielberichteCollection,
+    spielberichte_collection: SpielberichteReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     saison_teams_collection: SaisonTeamsReadCollection,

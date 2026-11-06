@@ -31,32 +31,32 @@ export function ConfirmationFields({
   /** The latest birthdate the media consent's floor admits: a later one leaves the consent unoffered. */
   mediaLatestBirth: CalendarDay;
   /** Which answers the confirmation's write requires, read on the server. */
-  required: { geburtsdatum: boolean; scope: boolean };
+  required: { birth_date: boolean; scope: boolean };
 }) {
-  const [geburtsdatum, setGeburtsdatum] = useState<CalendarDay | null>(null);
+  const [birthDate, setBirthDate] = useState<CalendarDay | null>(null);
   const scopeLine = useId();
   const mediaLine = useId();
   const { scope, media } = SCHIEDSRICHTER_WORDINGS;
   // With no date the age is unknown, and a consent offered then is one the write refuses anybody below its floor.
-  const mediaOffered = geburtsdatum !== null && geburtsdatum <= mediaLatestBirth;
+  const mediaOffered = birthDate !== null && birthDate <= mediaLatestBirth;
 
   return (
     <>
       <DateField
-        label={COPY.account.entries.facts.birthday}
-        name="geburtsdatum"
-        isRequired={required.geburtsdatum}
+        label={COPY.shared.facts.birthday}
+        name="birth_date"
+        isRequired={required.birth_date}
         minValue={earliestBirth}
         maxValue={latestBirth}
-        value={geburtsdatum}
-        onChange={setGeburtsdatum}
+        value={birthDate}
+        onChange={setBirthDate}
       />
       <RadioGroup
         label={{ record: scope.question }}
         aria-describedby={scopeLine}
         name="scope"
         isRequired={required.scope}
-        choices={(["kader_oeffentlich", "intern"] as const).map((value) => ({ id: value, label: { record: scope.options[value] } }))}
+        choices={(["kader_public", "internal"] as const).map((value) => ({ id: value, label: { record: scope.options[value] } }))}
       />
       <ConsentLine
         id={scopeLine}

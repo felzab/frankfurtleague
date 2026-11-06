@@ -23,11 +23,11 @@ const SaveSpielort = z.object({
   changes: z
     .object({
       name: shape.name,
-      strasse: address.strasse,
-      hausnummer: address.hausnummer,
-      plz: address.plz,
-      stadtteil: address.stadtteil,
-      stadt: address.stadt,
+      street: address.street,
+      house_number: address.house_number,
+      postcode: address.postcode,
+      district: address.district,
+      city: address.city,
       mietpreis: numberBox(shape.default_mietpreis),
     })
     .partial(),
@@ -46,8 +46,8 @@ export const saveSpielort = action({
   ownWords: ["duplicate_key"],
   paths: { name: "changes.name" },
   examples: {
-    "changes.plz": COPY.admin.spielort.plzExample,
-    "changes.hausnummer": COPY.admin.spielort.hausnummerExample,
+    "changes.postcode": COPY.admin.spielort.postcodeExample,
+    "changes.house_number": COPY.admin.spielort.houseNumberExample,
     "changes.mietpreis": COPY.admin.spielort.mietpreisExample,
   },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
@@ -55,12 +55,12 @@ export const saveSpielort = action({
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
     const { mietpreis, ...text } = changes;
-    const { name, strasse, hausnummer, plz, stadtteil, stadt } = { ...valuesOf(stored), ...text };
+    const { name, street, house_number, postcode, district, city } = { ...valuesOf(stored), ...text };
     const written = await spielortePatchSpielort(id, {
       name,
       // The stored figure where the price was left alone, never the text the editor shows it as.
       default_mietpreis: mietpreis ?? stored.default_mietpreis,
-      address: { strasse, hausnummer, plz, stadtteil, stadt },
+      address: { street, house_number, postcode, district, city },
       version,
     });
     return { ok: true, value: written.version };

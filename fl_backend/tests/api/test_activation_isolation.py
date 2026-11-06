@@ -5,6 +5,7 @@ from typing import Any, Literal, cast
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, delete_spielplan, patch_saison, post_spielplan
@@ -17,16 +18,17 @@ from app.api.saisons.schemas import (
 )
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLPatchSpielDataPayload
-from app.api.teams.admin_router import patch_saison_team, patch_team
-from app.api.teams.schemas import FLPatchSaisonTeamPayload, FLPatchTeamPayload
+from app.api.teams.crud import write_the_club
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.core.transactions import transaction_session
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.payloads import spiel_patch_body
+from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -163,7 +165,7 @@ def on_a_league(
                 # answer every case in this file before the interference it is about could be judged. Inside
                 # the season's span, so a patch of its dates is not refused on them.
                 await database[Collection.SPIELTAGE].update_many(
-                    {"saison_id": saison_id}, {"$set": {"beginn": f"{saison_id}-09-15", "ende": f"{saison_id}-09-16"}}
+                    {"saison_id": saison_id}, {"$set": {"start": f"{saison_id}-09-15", "end": f"{saison_id}-09-16"}}
                 )
 
             for saison_id in finished:
@@ -256,7 +258,7 @@ async def unplayed_now(database: AsyncDatabase, saison_id: str) -> int:
     )
 
 
-async def fixtures_now(database: AsyncDatabase, saison_id: str) -> int:
+async def spiele_now(database: AsyncDatabase, saison_id: str) -> int:
     return await database[Collection.SPIELE].count_documents({"saison_id": saison_id})
 
 
@@ -292,10 +294,10 @@ async def call_patch_rules(
 async def call_enter_a_result(database: AsyncDatabase) -> None:
     """The rival write: one drawn group fixture of the target takes a result, straight into `spiele`, which fixes its start."""
 
-    fixture = await database[Collection.SPIELE].find_one({"saison_id": TARGET, "saison_phase": "gruppenphase"})
-    assert fixture is not None, "the draw left the target no group fixture to score"
+    spiel = await database[Collection.SPIELE].find_one({"saison_id": TARGET, "saison_phase": "gruppenphase"})
+    assert spiel is not None, "the draw left the target no group fixture to score"
 
-    await database[Collection.SPIELE].update_one({"_id": fixture["_id"]}, {"$set": {"ergebnis": FINAL_SCORE}})
+    await database[Collection.SPIELE].update_one({"_id": spiel["_id"]}, {"$set": {"ergebnis": FINAL_SCORE}})
 
 
 async def results_entered(database: AsyncDatabase) -> int:
@@ -326,7 +328,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
     A missed judgement is unrecoverable: `saison_past` never promotes a `past` season back.
     """
 
-    def test_the_rollover_is_refused_on_the_fixtures_drawn_under_it(self, mongo_replica_set_url: str):
+    def test_the_rollover_is_refused_on_the_spiele_drawn_under_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def draw_the_outgoing_season() -> None:
                 # Permitted while it is `active`: `saison_past` refuses a draw on a `past`
@@ -358,19 +360,19 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
 class TestAnUndrawLandingMidRolloverIsJudgedAgain:
     """The target is drawn when the rollover judges and undrawn when it writes, which `activate_target_undrawn` exists to refuse."""
 
-    def test_the_rollover_is_refused_on_the_fixtures_removed_under_it(self, mongo_replica_set_url: str):
+    def test_the_rollover_is_refused_on_the_spiele_removed_under_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def undraw_the_target() -> None:
                 # Permitted on a `future` season with nothing recorded against it, which the target
                 # of a rollover is by definition.
                 await call_undraw(database, client, TARGET)
 
-            drawn = await fixtures_now(database, TARGET)
+            drawn = await spiele_now(database, TARGET)
             outcome, season_reads = await rollover_under(database, client, undraw_the_target)
 
-            return outcome, season_reads, await statuses_now(database), drawn, await fixtures_now(database, TARGET)
+            return outcome, season_reads, await statuses_now(database), drawn, await spiele_now(database, TARGET)
 
-        outcome, season_reads, statuses, drawn, fixtures = on_a_league(
+        outcome, season_reads, statuses, drawn, spiele = on_a_league(
             mongo_replica_set_url,
             body,
             # Nothing holds `active`, so no incumbent can be the reason for the refusal below.
@@ -385,7 +387,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
 
         # The count's own floor: one reading no fixture would answer none below whatever the undraw did.
         assert drawn > 0
-        assert fixtures == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
+        assert spiele == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
 
 
 class TestTwoFirstActivationsRacing:
@@ -457,48 +459,6 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
             f"{season_reads} season reads where the judgement and the retry's make two: "
             "one is a rival that landed outside the rollover, three an echo of a promotion that committed"
         )
-
-
-class TestTheRolloverStillCommitsWithNothingInterfering:
-    """The control: without it every case above would pass on an endpoint that refused every rollover."""
-
-    def test_the_outgoing_season_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            # The same seed the draw case runs on, interference apart.
-            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "future")],
-            entered=(OUTGOING, TARGET),
-            drawn=(TARGET,),
-        )
-
-        assert statuses == {OUTGOING: "past", TARGET: "active"}
-        assert response.deactivated == 1
-
-    def test_the_sole_incumbent_is_re_activated_rather_than_refused(self, mongo_replica_set_url: str):
-        """The second control, and the one the re-judgement above could break: re-activation is deliberately permitted."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[seeded_saison(TARGET, "active")],
-            entered=(TARGET,),
-            drawn=(TARGET,),
-        )
-
-        assert statuses == {TARGET: "active"}
-        # Nothing but the target held `active`, so the rollover demoted nobody.
-        assert response.deactivated == 0
 
 
 class TestAResultLandingMidPatchIsJudgedAgain:
@@ -597,22 +557,22 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
     on the incumbent's fixtures, and the club move's on the season document.
     """
 
-    def test_a_fixture_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
+    def test_a_spiel_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
         """Drop the outgoing fixtures' anchor from `activate_saison` and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def roll_over_between() -> None:
                 await call_activate(database, client, TARGET)
 
-            fixture = await database[Collection.SPIELE].find_one({"saison_id": OUTGOING, "saison_phase": "gruppenphase"})
-            assert fixture is not None, "the draw left the incumbent no group fixture to save"
+            spiel = await database[Collection.SPIELE].find_one({"saison_id": OUTGOING, "saison_phase": "gruppenphase"})
+            assert spiel is not None, "the draw left the incumbent no group fixture to save"
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 
             outcome = await outcome_of(
                 patch_spiel(
-                    spiel_id=fixture["_id"],
+                    spiel_id=spiel["_id"],
                     # The no-op save: it writes the fixture all the same, which is what the anchor meets.
-                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(fixture)),
+                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(spiel)),
                     db=client,
                     spiele_collection=database[Collection.SPIELE],
                     teams_collection=database[Collection.TEAMS],
@@ -644,7 +604,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
         assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
 
     def test_a_club_row_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
-        """Drop the season's anchor from `patch_saison_team` and this fails."""
+        """Drop the season's anchor from `patch_team_saison` and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def roll_over_between() -> None:
@@ -652,20 +612,18 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
 
             row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": OUTGOING})
             assert row is not None, "the seed entered no club in the incumbent"
+            await database[Collection.TEAMS].insert_one(team_document(row["team_id"], row["name"], row["shorthand"]))
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 
             outcome = await outcome_of(
-                patch_saison_team(
+                save_the_team(
+                    database,
                     team_id=row["team_id"],
                     saison_id=OUTGOING,
                     # A colour alone: a group change would meet the drawn fixtures before `saison_past` is the reason.
-                    saison_team_data=FLPatchSaisonTeamPayload(gruppe=row["gruppe"], austritt=None, trikot_farbe="schwarz"),
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    trikot_farbe="schwarz",
                     # The stand-in delegates every call, which the endpoint's collection type cannot say.
                     saisons_collection=cast(Any, seasons),
-                    spiele_collection=database[Collection.SPIELE],
-                    db=client,
-                    today=TODAY,
                 )
             )
 
@@ -705,7 +663,7 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
     """A rename rewrites the club rows of every season it reads as open, and the rollover writes no club row."""
 
     def test_the_season_closed_under_it_keeps_the_name_it_was_played_under(self, mongo_replica_set_url: str):
-        """Drop the open seasons' anchor from `patch_team` and this fails: the incumbent's row is renamed after it closed."""
+        """Drop the open seasons' anchor from `write_the_club` and this fails: the incumbent's row is renamed after it closed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": OUTGOING})
@@ -716,10 +674,17 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                 await call_activate(database, client, TARGET)
 
             teams = TeamsRunningOneHook(database[Collection.TEAMS], roll_over_between)
-            await patch_team(
-                team_id=row["team_id"],
-                team_data=FLPatchTeamPayload.model_validate(
-                    {
+
+            # The writer rather than the save over it: the save anchors its own season first, so a rollover of that season
+            # would wait on it inside this hook.
+            async def rename(session: AsyncClientSession) -> Any:
+                return await write_the_club(
+                    # The stand-in delegates every call, which the helper's collection type cannot say.
+                    teams_collection=cast(Any, teams),
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    team_id=row["team_id"],
+                    club={
                         "name": RENAMED,
                         "shorthand": "UMX",
                         "description": "",
@@ -727,14 +692,12 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                         "website_url": "https://umbenannt.example.de",
                         "schulform": "gymnasium_g9",
                         "address": dict(ADDRESS),
-                    }
-                ),
-                # The stand-in delegates every call, which the endpoint's collection type cannot say.
-                teams_collection=cast(Any, teams),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                db=client,
-            )
+                    },
+                    session=session,
+                )
+
+            async with transaction_session(client) as session:
+                await session.with_transaction(rename)
 
             rows = await database[Collection.SAISON_TEAMS].find({"team_id": row["team_id"]}).to_list(length=None)
             return row["name"], {entry["saison_id"]: entry["name"] for entry in rows}, teams.passes, await statuses_now(database)

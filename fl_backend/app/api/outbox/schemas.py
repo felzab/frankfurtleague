@@ -4,7 +4,7 @@ from typing import Annotated, Final, Literal, Self, get_args
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
 from app.api.berechtigungen.schemas import FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantNoticeKind, FLGrantSnapshot
-from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
+from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail
@@ -85,7 +85,7 @@ class FLAddressChangeNoticeData(BaseModel):
     # The deadline of what the address on file is asked, which the person's own change's mail states.
     valid_until: AwareDatetime
     # Null on the lost-mailbox way: that mailbox may have passed to a stranger, so the notice greets nobody.
-    vorname: str | None
+    first_name: str | None
 
 
 class FLAddressChangeEffectiveData(BaseModel):
@@ -94,7 +94,7 @@ class FLAddressChangeEffectiveData(BaseModel):
     kind: Literal["address_change_effective"]
     # The effect's own instant.
     instant: AwareDatetime
-    vorname: str | None
+    first_name: str | None
 
 
 class FLAddressChangeDiscardedData(BaseModel):
@@ -108,7 +108,7 @@ class FLSchiedsrichterConfirmationData(BaseModel):
 
     kind: Literal["schiedsrichter_confirmation"]
     # The link's last day, the one date the mail states.
-    frist: CustomDateString
+    deadline: CustomDateString
 
 
 class FLSpielMailAppointment(BaseModel):
@@ -116,15 +116,15 @@ class FLSpielMailAppointment(BaseModel):
 
     team1: str
     team2: str
-    datum: CustomDateString
-    uhrzeit: CustomTimeString
+    date: CustomDateString
+    time: CustomTimeString
 
 
 class FLSpielMailAnsetzung(FLSpielMailAppointment):
     """A fixture as a mail asking about it states it, its ground among the rest."""
 
     # The ground's name; null where nobody assigned one.
-    ort: str | None
+    spielort: str | None
 
 
 class FLSpielRequestData(BaseModel):
@@ -135,7 +135,7 @@ class FLSpielRequestData(BaseModel):
     team: str
     ansetzung: FLSpielMailAnsetzung
     # The row's stored deadline, which a reminder repeats.
-    frist: CustomDateString
+    deadline: CustomDateString
     # The slot a move left, on the request asking about the slot it moved to, which is then the one mail telling the club
     # of the move; null on every other request and on a reminder.
     moved_from: FLSpielMailAppointment | None
@@ -157,7 +157,7 @@ class FLSpielMovedData(BaseModel):
     The mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).
     """
 
-    kind: Literal["spiel_new_scheduled"]
+    kind: Literal["spiel_moved"]
     recipient: Literal["team", "schiedsrichter"]
     # The slot the party was asked about, which no longer stands.
     appointment: FLSpielMailAppointment
@@ -172,7 +172,7 @@ class FLSpielMovedData(BaseModel):
 class FLSpielNoticeData(BaseModel):
     """A party's word that a fixture it was asked about was called off: the slot it was asked about."""
 
-    kind: Literal["spiel_abgesagt"]
+    kind: Literal["spiel_cancelled"]
     # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
     recipient: Literal["team", "schiedsrichter"]
     appointment: FLSpielMailAppointment
@@ -192,6 +192,25 @@ class FLSpielVorschlagDiscardedData(BaseModel):
     appointment: FLSpielMailAppointment
 
 
+class FLSpielMailEntry(BaseModel):
+    """A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them."""
+
+    team1: str
+    team2: str
+    date: CustomDateString | None
+    time: CustomTimeString | None
+
+
+class FLAustrittNoticeData(BaseModel):
+    """An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them."""
+
+    kind: Literal["austritt_notice"]
+    # The departed club's name in that season.
+    team: str
+    saison_id: str
+    spiele: list[FLSpielMailEntry] = Field(min_length=1)
+
+
 # --- The season's and the applications' mails.
 
 
@@ -203,17 +222,17 @@ class FLRegistrierungLinkData(BaseModel):
     team: str
     saison_id: str
     # The window in days, never a date: the reminder states that the window has not moved.
-    frist_days: int = Field(ge=1)
+    deadline_days: int = Field(ge=1)
 
 
 class FLRegistrierungAbsageData(BaseModel):
     """A team's decline, to a pupil whose address was confirmed."""
 
     kind: Literal["registrierung_absage"]
-    vorname: str
+    first_name: str
     team: str
     saison_id: str
-    grund: FLRegistrierungAblehnungsgrund | None
+    reason: FLRegistrierungDecisionReason | None
 
 
 class FLInvitationData(BaseModel):
@@ -237,24 +256,24 @@ class FLBewerbungLinkData(BaseModel):
     schule: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # The day the links stop working, which the reminder repeats rather than moves.
-    frist: CustomDateString
+    deadline: CustomDateString
 
 
 class FLBewerbungPerson(BaseModel):
-    """Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats."""
+    """Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats."""
 
-    vorname: str | None
+    first_name: str | None
     rollen: list[FLKontaktRolle] = Field(min_length=1)
 
 
 class FLBewerbungReceivedData(BaseModel):
-    """The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer."""
+    """The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer."""
 
     kind: Literal["bewerbung_received"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     pending: list[FLBewerbungPerson]
-    frist: CustomDateString
+    deadline: CustomDateString
 
 
 class FLBewerbungZusageData(BaseModel):
@@ -262,6 +281,8 @@ class FLBewerbungZusageData(BaseModel):
 
     kind: Literal["bewerbung_zusage"]
     team: str
+    # The club's code, which a new school first holds through this acceptance.
+    shorthand: str
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     gruppe: FLGruppenNames
@@ -278,11 +299,11 @@ class FLBewerbungAbsageData(BaseModel):
     team: str
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    grund: str
+    reason: str
 
 
 class FLBewerbungErasureData(BaseModel):
-    """The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write."""
+    """The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write."""
 
     kind: Literal["bewerbung_erasure"]
     saison_id: str
@@ -291,13 +312,13 @@ class FLBewerbungErasureData(BaseModel):
 
 
 class FLBewerbungObjectionData(BaseModel):
-    """A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too."""
+    """A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too."""
 
     kind: Literal["bewerbung_objection"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     declined: FLBewerbungPerson
-    frist: CustomDateString
+    deadline: CustomDateString
 
 
 class FLKontaktLinkData(BaseModel):
@@ -308,7 +329,7 @@ class FLKontaktLinkData(BaseModel):
     # The team's name in that season, which is the school the reader is asked about.
     schule: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    frist: CustomDateString
+    deadline: CustomDateString
     # The row's state at the write: a closed row's link takes the Widerspruch alone, and the mail asks only that.
     row: FLKontaktRow
 
@@ -330,6 +351,7 @@ FLOutboxData = Annotated[
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
     | FLInvitationData
@@ -359,10 +381,11 @@ FLOutboxKind = Literal[
     "spiel_request",
     "spiel_reminder",
     "spiel_einteilung",
-    "spiel_new_scheduled",
-    "spiel_abgesagt",
+    "spiel_moved",
+    "spiel_cancelled",
     "spiel_einteilung_lifted",
     "spiel_vorschlag_discarded",
+    "austritt_notice",
     "registrierung_confirmation",
     "registrierung_reminder",
     "registrierung_absage",
@@ -397,7 +420,7 @@ UNDELIVERABLE: Final[frozenset[FLOutboxDeliveryState]] = frozenset({"undeliverab
 CustomMessageId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
 # The provider's own token for a refusal, bounded and on one line, never its prose.
-CustomDeliveryGrund = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
+CustomDeliveryReason = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
 
 class FLOutboxReference(BaseModel):
@@ -415,7 +438,7 @@ class FLOutboxLink(BaseModel):
     # being sent one link for both.
     paths: list[Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]] = Field(min_length=1)
     # The dotted paths holding the recipient's address on the record. The link is minted only while each still holds the
-    # row's `an`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
+    # row's `to`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
     # Empty where the record holds no address to judge: a team's registration link, which is the team's and no person's
     # credential, its recipients standing on another record.
     addresses: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]]
@@ -425,7 +448,7 @@ class FLOutboxLink(BaseModel):
 
 class FLOutboxDelivery(BaseModel):
     state: FLOutboxDeliveryState
-    grund: str | None
+    reason: str | None
     at: datetime
 
 
@@ -452,7 +475,7 @@ class FLOutboxRow(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     key: str
     kind: FLOutboxKind
-    an: str
+    to: str
     # Both removed by the row's final state, after which only its delivery is read.
     data: FLOutboxData | None = Field(default=None)
     # Ciphertext the backend cannot read, under the frontend's key.
@@ -463,7 +486,7 @@ class FLOutboxRow(BaseModel):
     state: FLOutboxRowState
     recorded_at: datetime
     # The last moment a hand-out may send the mail; a row still open after it is given up.
-    frist: datetime
+    deadline: datetime
     erase_at: datetime
     lease: str | None
     leased_until: datetime | None
@@ -471,8 +494,9 @@ class FLOutboxRow(BaseModel):
     attempts: int = Field(ge=0)
     message_id: str | None
     # The provider's own name for the refusal the last failed send met; defaulted, as a row a send never failed holds
-    # none and a row owed before the field was written has none stored.
-    grund: str | None = Field(default=None)
+    # none and a row owed before the field was written has none stored. Prefixed because a record's top level holds no
+    # bare `reason`, the bracket fault's discriminator (`tests/core/test_unenforced.py :: TestNoBracketFaultIsStored`).
+    delivery_reason: str | None = Field(default=None)
     delivery: FLOutboxDelivery | None
 
 
@@ -480,7 +504,7 @@ class FLOutboxHandout(BaseModel):
     """One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret."""
 
     id: CustomObjectId
-    an: str
+    to: str
     data: FLOutboxData
     # The raw link token minted for this hand-out, whose hash alone the record keeps; null on a mail carrying no link.
     token: str | None
@@ -516,7 +540,7 @@ class FLOutboxResultPayload(BaseModel):
     # search by tag. No event needs it, each finding its row by the row's own id.
     message_id: CustomMessageId | None
     # The provider's own name for the refusal a failed send met, the row's one record of why.
-    grund: CustomDeliveryGrund | None
+    delivery_reason: CustomDeliveryReason | None
 
     # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
     # readable id. Only a failed send names a refusal, and one that never reached the provider names none.
@@ -524,7 +548,7 @@ class FLOutboxResultPayload(BaseModel):
     def each_outcome_names_only_its_own(self) -> Self:
         if self.message_id is not None and self.result != "sent":
             raise ValueError("Only a sent mail names a message.")
-        if self.grund is not None and self.result not in ("retry", "abandon"):
+        if self.delivery_reason is not None and self.result not in ("retry", "abandon"):
             raise ValueError("Only a failed send names a refusal.")
 
         return self
@@ -544,7 +568,7 @@ class FLOutboxSignInPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    an: CustomEmail
+    to: CustomEmail
     data: FLOutboxSignInData
     # Encrypted by the frontend before it leaves it, under a key the backend never holds: the code, or the deletion token.
     secret: Annotated[str, StringConstraints(min_length=1, max_length=4096)] | None
@@ -568,7 +592,7 @@ class FLOutboxEventPayload(BaseModel):
     # before the send's report finds its row all the same.
     id: CustomObjectId
     state: FLOutboxDeliveryState
-    grund: CustomDeliveryGrund | None
+    reason: CustomDeliveryReason | None
     # The provider's stamp, stored with the state; the order of states decides, never the order of stamps.
     at: AwareDatetime
 

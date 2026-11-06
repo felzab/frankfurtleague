@@ -6,9 +6,10 @@ import { ROUTES } from "@/core/routes";
 import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { Facts, FactsPlaceholder } from "./Facts";
+import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
-import { PlaceholderLine, Waiting } from "./Skeleton";
-import { StatusPage } from "./StatusPage";
+import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
+import { StatusPage, StatusPagePlaceholder } from "./StatusPage";
 
 import type { Copy } from "@/core/copy";
 import type { Metadata } from "next";
@@ -32,7 +33,7 @@ export type { EndState } from "./OneShot";
  * and as a press ends on it where the link stopped holding since the page opened.
  */
 export function linkInvalid(next: StatusCardProps["next"]): EndState {
-  return { tone: "warn", title: COPY.template.linkInvalid, next: next };
+  return { tone: "warn", title: COPY.template.linkInvalid, next };
 }
 
 /**
@@ -50,37 +51,64 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
  *   done state, worded by the server);
  * - `alreadyDone`: the link opened again, its title saying what the person did and when, with the one place to
  *   change it where there is one, on the danger tint where what they did was to decline;
- * - `ungueltig`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
- * - `ende`: an end the page names itself before any answer, as a deletion link opened signed out.
+ * - `invalid`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
+ * - `end`: an end the page names itself before any answer, as a deletion link opened signed out.
  */
 export type MailedState =
   | {
       state: "question";
       title: Copy;
       facts?: ReadonlyArray<Fact>;
-      sentence: Copy;
+      /** None on the application form, whose title says all there is before its boxes. */
+      sentence?: Copy;
+      /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
+      more?: { before: Copy; after: Copy };
       action: OneShotAction;
       acts: { primary: Copy; secondary?: Copy };
       /** What the form posts unseen beside its fields: the link's token. */
       carry: Readonly<Record<string, string>>;
       /** The main act asks the passkey touch first, for a person holding a passkey. */
       touch?: boolean;
+      /** The bot check's public key, on a page no link's token admits. */
+      botCheck?: { siteKey: string };
+      /** The field the form's replay key posts under, where a press whose answer was lost may have landed. */
+      replayField?: string;
+      /** The fields stand in `Section` boxes, filling the column. */
+      boxes?: boolean;
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
   | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
-  | { state: "ungueltig"; next: StatusCardProps["next"] }
-  | ({ state: "ende" } & EndState)
+  | { state: "invalid"; next: StatusCardProps["next"] }
+  | ({ state: "end" } & EndState)
   // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
-  | { state: "alt"; view: ReactNode };
+  | { state: "legacy"; view: ReactNode };
+
+/**
+ * A mailed page's tab title, its state's own heading, so the tab never asks a question the page has closed; `route` is
+ * the row's title, for the old view whose heading the view keeps. Read off the same read as the page, which the page
+ * memoizes with React's `cache`, since a link's state decides its heading.
+ */
+export function mailedTitle(state: MailedState, route: Copy): Copy {
+  switch (state.state) {
+    case "invalid":
+      return COPY.template.linkInvalid;
+    case "legacy":
+      return route;
+    case "question":
+    case "alreadyDone":
+    case "end":
+      return state.title;
+  }
+}
 
 /** The page once its link is read, in the boundary's place. */
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {
-    case "alt":
+    case "legacy":
       return props.view;
-    case "ungueltig":
+    case "invalid":
       return (
         <StatusPage
           frame="classic"
@@ -96,7 +124,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           next={props.next}
         />
       );
-    case "ende":
+    case "end":
       return (
         <StatusPage
           frame="classic"
@@ -113,11 +141,30 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           acts={props.acts}
           carry={props.carry}
           touch={props.touch}
+          botCheck={props.botCheck}
+          replayField={props.replayField}
+          boxes={props.boxes}
           head={
             <>
               <ClassicTitle text={props.title} />
               {props.facts !== undefined && props.facts.length > 0 && <Facts facts={props.facts} />}
-              <p className="text-base">{props.sentence}</p>
+              {props.sentence !== undefined && (
+                <p className="text-base">
+                  {props.sentence}
+                  {props.more !== undefined && (
+                    <>
+                      {" "}
+                      {props.more.before}
+                      <Link
+                        href={ROUTES.privacyNotice.path()}
+                        placement="text"
+                        label={COPY.page.privacyNotice}
+                      />
+                      {props.more.after}
+                    </>
+                  )}
+                </p>
+              )}
             </>
           }>
           {props.children}
@@ -126,37 +173,67 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
   }
 }
 
+/** What the question's wait knows of the page before the read, stated beside its read. */
+type QuestionWait = {
+  /** How many facts the question lists: a row the read decides, whose count the page states beside it as a list's. */
+  facts: number;
+  /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
+  act: Copy;
+  /** The quieter act's words beneath it, where the question has one. */
+  second?: Copy;
+  /** The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width. */
+  sentence?: string;
+  /** The placeholders of the answer's fields, where the question asks any. */
+  fields?: ReactNode;
+};
+
+/** The question while the read says what it asks: its title, its facts, its sentence, its fields and its acts. */
+function QuestionPlaceholder({ facts, act, second, sentence, fields }: QuestionWait) {
+  return (
+    <ClassicPage width="form">
+      <Waiting layout="flex flex-col gap-6">
+        <PlaceholderLine
+          text={classicTitle()}
+          width="w-2/3"
+        />
+        {facts > 0 && <FactsPlaceholder pairs={facts} />}
+        {sentence === undefined ? (
+          <PlaceholderLine
+            text="text-base"
+            width="w-full"
+          />
+        ) : (
+          <PlaceholderSentence
+            text="text-base"
+            words={sentence}
+          />
+        )}
+        {fields !== undefined && <div className="grid justify-items-start gap-4">{fields}</div>}
+        <div className="grid gap-3 lg:justify-items-center">
+          <span className={buttonPlaceholder()}>{act}</span>
+          {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
+          <span className="min-h-5" />
+        </div>
+      </Waiting>
+    </ClassicPage>
+  );
+}
+
 /**
  * The one shape of the seven pages a mail opens, in the classic frame's form column. Its state is a function of the
  * link's token and the session beside it, so the whole page waits for the read in the template's one boundary:
- * meanwhile the column holds the placeholders of the question, the state a link is opened on: its title, its facts,
- * its sentence and its act.
+ * meanwhile the column holds the state that lands most often, as the classic frame's footer asks (`Skeleton.tsx`): the
+ * question, the state a link is opened on, or `end`, the status card of a page that lands an end most days, as the
+ * application form does outside its window.
  */
-export function MailedPage({ page }: { page: Promise<MailedState> }) {
+export function MailedPage(
+  props: { page: Promise<MailedState> } & ((QuestionWait & { end?: never }) | { end: { title: Copy; next: Copy }; act?: never }),
+) {
   return (
     // Outermost, so neither the state a done answer's re-render reads nor the boundary waiting for it takes the end.
     <OneShotEnd>
-      <Suspense
-        fallback={
-          <ClassicPage width="form">
-            <Waiting layout="flex flex-col gap-6">
-              <PlaceholderLine
-                text={classicTitle()}
-                width="w-2/3"
-              />
-              <FactsPlaceholder pairs={4} />
-              <PlaceholderLine
-                text="text-base"
-                width="w-full"
-              />
-              <div className="grid gap-3 lg:justify-items-center">
-                <span className={buttonPlaceholder("w-full lg:w-40")} />
-                <span className="min-h-5" />
-              </div>
-            </Waiting>
-          </ClassicPage>
-        }>
-        <MailedBody page={page} />
+      <Suspense fallback={props.end === undefined ? <QuestionPlaceholder {...props} /> : <StatusPagePlaceholder {...props.end} />}>
+        <MailedBody page={props.page} />
       </Suspense>
     </OneShotEnd>
   );

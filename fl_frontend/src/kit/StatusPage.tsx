@@ -1,9 +1,11 @@
+import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface } from "./cardStyles";
-import { ClassicPage, ClassicTitle } from "./ClassicPage";
+import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
+import { placeholderBar, PlaceholderSentence, Waiting } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -120,6 +122,45 @@ function RailCardBody({ card: { tone, next, quiet, title }, scope }: { card: Rai
   );
 }
 
+/**
+ * The rail card while the page's read says which end it is: its mark and its button, centred, as a boundary with no page
+ * of its own lands. An end carrying its own title stands only where the league has no season yet.
+ */
+function RailCardPlaceholder() {
+  const slots = statusCard();
+  return (
+    <Waiting>
+      <div className={slots.root()}>
+        <span className={placeholderBar(slots.mark())} />
+        <span className={buttonPlaceholder("w-full lg:w-36")} />
+      </div>
+    </Waiting>
+  );
+}
+
+/**
+ * The classic page's card while its read says which end it is, on a page that lands an end most days: its mark, its
+ * title's lines and its way on as bars. `title` and `next` are the likeliest end's words, set unseen, so the card stands
+ * as that end will at every width and shows none of them.
+ */
+export function StatusPagePlaceholder({ title, next }: { title: Copy; next: Copy }) {
+  const slots = statusCard();
+  return (
+    <ClassicPage width="card">
+      <Waiting>
+        <div className={slots.root()}>
+          <span className={placeholderBar(slots.mark())} />
+          <PlaceholderSentence
+            text={`w-full ${classicTitle()}`}
+            words={title}
+          />
+          <span className={buttonPlaceholder()}>{next}</span>
+        </div>
+      </Waiting>
+    </ClassicPage>
+  );
+}
+
 /** The card once the page's read has said which end it is, in the rail form's boundary. */
 async function CardOnceRead({ card, scope }: { card: Promise<RailCard>; scope: RailPageHead["scope"] }) {
   return (
@@ -136,8 +177,8 @@ async function CardOnceRead({ card, scope }: { card: Promise<RailCard>; scope: R
  * the classic frame the card carries the page's title; in the rail frames the strip carries the page's, and the card
  * the end's where the two differ. The rail form's card is read with the page, as `/saisons` learns that the league
  * has no season yet where it does not send the reader on, so it waits in a boundary of its own under the strip,
- * drawn meanwhile as nothing; a card known before any read, as an error boundary's, which is a Client Component and
- * awaits nothing, is drawn at once.
+ * drawn meanwhile as its placeholder; a card known before any read, as an error boundary's, which is a Client Component
+ * and awaits nothing, is drawn at once.
  */
 export function StatusPage(
   props: (StatusCardProps & { frame: "classic" }) | ({ frame: "rail"; card: Promise<RailCard> | RailCard } & RailPageHead),
@@ -160,7 +201,7 @@ export function StatusPage(
       title={props.title}
       chip={props.chip}>
       {props.card instanceof Promise ? (
-        <PageWait fallback={null}>
+        <PageWait fallback={<RailCardPlaceholder />}>
           <CardOnceRead
             card={props.card}
             scope={props.scope}

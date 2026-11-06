@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -7,107 +8,121 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.results import InsertOneResult
 
 from app.api.address_change.crud import denied_addresses
 from app.api.address_change.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.bewerbungen.services import seat_addresses, seat_named
-from app.api.einladungen.crud import einladung_bezug, owed_einladung_mails
-from app.api.einladungen.schemas import (
-    FLEinladung,
+from app.api.bewerbungen.services import assigned_trikot_farben, seat_addresses, seat_named
+from app.api.invitations.crud import invitation_reference, owed_invitation_mails
+from app.api.invitations.schemas import (
+    FLInvitation,
     FLInvitationMailPayload,
     FLInvitationMailResponse,
     FLInvitationMintResponse,
-    FLInvitationResponse,
     FLInvitationRow,
     FLInvitationWriteResponse,
+    FLTeamLinkState,
 )
-from app.api.einladungen.services import (
+from app.api.invitations.services import (
     WITHOUT_TOKEN_HASH,
-    bestaetigte_empfaenger,
     build_live_team_filter,
-    compose_einladung,
+    compose_invitation,
     compose_revocation_update,
     compose_sent_update,
-    find_saison_vorbei_refusal,
+    confirmed_recipients,
+    find_invitation_saison_past_refusal,
     find_team_in_saison_refusal,
+    plan_invitation_dispatch,
 )
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
 from app.api.outbox.crud import state_of, states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
-from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
+from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses
 from app.api.sperrliste.services import withheld_actor
+from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
 from app.api.spielbestaetigungen.services import seat_void_of
-from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
+from app.api.teams.crud import (
+    enter_a_club,
+    found_a_club,
+    pull_a_club_to_enter,
+    refuse_a_gruppe_move,
+    refuse_a_taken_colour,
+    void_moved_seats,
+    write_the_club,
+)
 from app.api.teams.schemas import (
+    FLAustrittPayload,
     FLKontaktInviteResponse,
     FLKontaktMint,
-    FLPatchSaisonTeamKontaktePayload,
-    FLPatchSaisonTeamKontakteResponse,
-    FLPatchSaisonTeamPayload,
-    FLPatchTeamPayload,
-    FLPatchTeamResponse,
-    FLPostSaisonTeamPayload,
-    FLPostTeamPayload,
+    FLKontaktSeatPayload,
+    FLKontaktSeatResponse,
+    FLPatchTeamSaisonPayload,
+    FLPatchTeamSaisonResponse,
+    FLPostTeamEntryPayload,
+    FLPostTeamEntryResponse,
     FLReplaceSaisonTeamPayload,
     FLReplaceSaisonTeamResponse,
-    FLSaisonTeamResponse,
-    FLTeamListAdapter,
-    FLTeamsFilterParams,
-    FLTeamsListResponse,
-    FLTeamsSaisonsResponse,
-    FLTeamWithMembershipsListAdapter,
+    FLTeamEntryClub,
+    FLTeamEntryOffer,
+    FLTeamMembership,
+    FLTeamRecord,
+    FLTeamsAdminFilterParams,
+    FLTeamsAdminListResponse,
+    FLTeamSaisonAdminResponse,
+    FLTeamSaisonFacts,
 )
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
-    build_team_pipeline,
     build_team_saisons_pipeline,
-    compose_bestaetigungen_mit,
-    compose_bestaetigungen_nach,
-    compose_kontakt_bestaetigung,
+    build_team_spiele_filter,
+    compose_confirmations_with,
+    compose_kontakt_confirmation,
     compose_kontakte_herkunft,
+    compose_seat_block,
     find_austritt_refusal,
-    find_club_entry_refusal,
+    find_austritt_standing_refusal,
     find_gruppe_move_refusal,
+    find_kontakt_row_refusal,
     find_kontakt_seat_barred_refusal,
-    find_kontakt_sitz_refusal,
-    find_kontakt_zeile_refusal,
-    find_kontakte_precondition_refusal,
+    find_kontakt_seat_refusal,
+    find_kontakt_taken_refusal,
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
-    find_shorthand_refusal,
+    gruppe_offer,
     has_taken_place,
-    kontakt_zeile_of,
+    kontakt_row_of,
     links_owed,
     membership_row_ids,
-    mit_adresswechseln,
-    mit_linkstand,
     owed_kontakt_link,
+    saison_blocking_retirement,
     seated_identifiers,
     seats_one_link_answers,
-    voids_a_live_link,
+    teams_admin_rows,
+    with_address_changes,
+    with_link_state,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     aggregate_many_from_db,
     anchor_in_db,
-    insert_live,
-    is_held_elsewhere,
+    build_sort,
+    composite_version,
+    find_stale_save_refusal,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
     set_inactive_since,
 )
@@ -133,19 +148,15 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
-    SessionActor,
     bind_actor,
     get_actor_auth_time,
     get_actor_email,
     verify_access_admin,
-    verify_admin_actor,
-    verify_step_up,
 )
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from app.shared.schemas.responses import FLCreatedResponse
 from app.shared.tokens import mint_token
 
 router = APIRouter(
@@ -188,29 +199,19 @@ async def _rewrite_the_outgoing_clubs_sides(
     return len({spiel_id for spiel_ids in by_slot.values() for spiel_id in spiel_ids})
 
 
-# A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
-# capture this one whatever the declaration order.
-@router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
-async def get_team_saisons(
-    teams_collection: TeamsCollection,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
-    grants_announced_collection: GrantsAnnouncedCollection,
-    outbox_collection: OutboxCollection,
-    today: str = Depends(get_german_date_str),
-    operator: str = Depends(get_actor_email),
-    auth_time: int = Depends(get_actor_auth_time),
-) -> FLTeamsSaisonsResponse:
-    """
-    Every team, retired ones included, each with every season membership it holds. Sorted by name.
+async def _with_seat_states(
+    teams_raw: Sequence[Mapping[str, Any]],
+    *,
+    address_changes_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    today: str,
+    operator: str,
+    auth_time: int,
+) -> list[dict[str, Any]]:
+    """The memberships read with each seat's link state and live address change composed on."""
 
-    `GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
-    change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
-    administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
-    ever owed.
-    """
-
-    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(), collation=GERMAN_COLLATION)
     addresses = seated_identifiers(teams_raw)
     live = (
         {
@@ -232,134 +233,341 @@ async def get_team_saisons(
         session=None,
     )
 
-    lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
+    states = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
 
-    return FLTeamsSaisonsResponse(
-        teams=FLTeamWithMembershipsListAdapter.validate_python(
-            mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, denied=denied)
-        )
+    return with_address_changes(with_link_state(teams_raw, today=today, states=states), live=live, denied=denied)
+
+
+# What a write of a seat's person or link reads of the row: what it composes on, and what the mails it owes name.
+KONTAKT_WRITE_FIELDS = ["kontakte", "confirmations", "name", "austritt"]
+
+
+async def write_the_contact_block(
+    *,
+    stored: Mapping[str, Any],
+    proposed: Mapping[str, Any],
+    expected_version: int,
+    team_id: Any,
+    saison_id: str,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    ban_list: BanList,
+    governing_saison_id: str | None,
+    # Made outside the caller's callback, so a retried transaction owes this save's mails once and a second save its own.
+    nonce: str,
+    today: str,
+    germany_now: datetime,
+    session: AsyncClientSession,
+) -> list[FLKontaktMint]:
+    """Store a block over `stored`, read in this session, owing each person it newly seats their link; each link owed.
+
+    Each seat keeping its person keeps its record and its link. A seat newly filled or handed on is stored as the league's
+    entry, unconfirmed, and a seat handed on loses its links on the team's open match confirmations.
+    """
+
+    kontakte = compose_kontakte_herkunft(kontakte=proposed, stored=stored.get("kontakte"))
+
+    # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
+    # Widerspruch alone.
+    owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
+    # A ban committing after this read conflicts with the save on the saver's own grant row, which
+    # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
+    barred = await barred_addresses(
+        ban_list,
+        {address for seats in owed for address in seat_addresses(kontakte=kontakte, seats=seats)},
+        governing_saison_id=governing_saison_id,
+        session=session,
     )
+    # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
+    # after the save is the press's.
+    refuse(find_kontakt_seat_barred_refusal(barred=bool(barred)))
+
+    entry = compose_kontakt_confirmation(today=today)
+    minted = {seat: entry for seats in owed for seat in seats}
+    links: list[tuple[OwedMail, FLKontaktMint]] = []
+    if owed:
+        # Read only where a link is owed, and in session as the address is. Unanchored: a rollover
+        # committing after this read leaves the mail asking the open row's answer, which the press then
+        # refuses.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        kontakt_row = kontakt_row_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
+        links = [
+            owed_kontakt_link(
+                row=stored,
+                saison_id=saison_id,
+                kontakte=kontakte,
+                seats=seats,
+                deadline=entry["deadline"],
+                kontakt_row=kontakt_row,
+                key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/kontakt/{seats[0]}/{nonce}",
+            )
+            for seats in owed
+        ]
+
+    confirmations = compose_confirmations_with(stored_confirmations=stored.get("confirmations"), minted=minted)
+
+    await patch_one_in_db(
+        collection=saison_teams_collection,
+        db_filter={"team_id": team_id, "saison_id": saison_id},
+        # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
+        # `trikot_farbe` belong to the row's own saves, and a `$set` carrying them would reinstate
+        # whatever this caller last read. The version the editor sent is the helper's to check.
+        update={"$set": {"kontakte": kontakte, "confirmations": confirmations}},
+        expected_version=expected_version,
+        session=session,
+        return_document=ReturnDocument.BEFORE,
+    )
+    # Judged on the block read in this transaction.
+    await void_moved_seats(
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
+        voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
+        session=session,
+    )
+    await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
+
+    return [mint for _, mint in links]
+
+
+async def _served_invitation(live: Mapping[str, Any], *, ban_list: BanList, outbox_collection: AsyncCollection) -> FLInvitationRow:
+    """One live link as a read serves it: its minter withheld where the ban list holds that address, and what became of its last mail."""
+
+    # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
+    created_by = FLInvitation.model_validate(live).created_by
+    barred = await barred_addresses(ban_list, [sign_in_identifier(created_by)])
+    withheld = withheld_actor(created_by, barred)
+    state = await state_of(outbox_collection=outbox_collection, reference=invitation_reference(live["_id"]))
+
+    return FLInvitationRow.model_validate({**live, "created_by": withheld, "created_by_barred": withheld is None, "delivery": state})
 
 
 # Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
     "/list/admin",
-    response_model=FLTeamsListResponse,
-    summary="Teams for a Saison, for the admin surfaces",
+    response_model=FLTeamsAdminListResponse,
+    summary="One season's Teams list and what its create dialog offers",
 )
 async def get_teams_admin(
     teams_collection: TeamsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    filters: FLTeamsFilterParams = Depends(),
-) -> FLTeamsListResponse:
+    filters: FLTeamsAdminFilterParams = Depends(),
+) -> FLTeamsAdminListResponse:
     """
-    List a season's teams for the admin surfaces, a `future` season's included.
+    The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.
 
-    No base-tier season gate: a club is entered while its season is still planned, so an admin who
-    cannot see one cannot enter it.
+    No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
+    the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
+    retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
+    each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
+    the colours the season's rows hold. 404 where no season holds that id.
     """
 
-    filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
-    teams = FLTeamListAdapter.validate_python(
-        await aggregate_many_from_db(
-            collection=teams_collection,
-            pipeline=build_team_pipeline(filters=filters, rules=saison_rules),
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["status", "rules"])
+    rows, clubs = await asyncio.gather(
+        # Each whole, as the group's fill is judged over every row. The seat's stamp and never its person: this list names none.
+        pull_whole_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": filters.saison_id},
+            what=f"season {filters.saison_id}'s clubs",
+            projection=[
+                "team_id",
+                "name",
+                "shorthand",
+                "gruppe",
+                "trikot_farbe",
+                "austritt.type",
+                *[f"kontakte.{seat}.einwilligung.confirmed_at" for seat in KONTAKT_ROLLEN],
+            ],
+            sort_by=build_sort(sort_by="name", order="asc"),
             collation=GERMAN_COLLATION,
-        )
+        ),
+        pull_whole_from_db(
+            collection=teams_collection,
+            db_filter={},
+            what="the league's clubs",
+            projection=["name", "shorthand", "inactive_since"],
+            sort_by=build_sort(sort_by="name", order="asc"),
+            collation=GERMAN_COLLATION,
+        ),
+    )
+    entered = {row["team_id"] for row in rows}
+
+    return FLTeamsAdminListResponse(
+        teams=teams_admin_rows(rows=rows, clubs=clubs, state=filters.state, gruppe=filters.gruppe),
+        entry=FLTeamEntryOffer(
+            clubs=[FLTeamEntryClub.model_validate(club) for club in clubs if club["_id"] not in entered and club.get("inactive_since") is None],
+            gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in rows]),
+            closed=saison_raw["status"] != "future",
+            taken=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in rows]),
+        ),
     )
 
-    return FLTeamsListResponse(teams=teams)
 
-
-@router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a team")
-async def post_team(
-    team_data: Annotated[FLPostTeamPayload, Body()],
+@router.get(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/admin",
+    response_model=FLTeamSaisonAdminResponse,
+    summary="One team in one season for the admin editor",
+)
+async def get_team_saison_admin(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
     teams_collection: TeamsCollection,
-    db: DBClient,
-) -> FLCreatedResponse:
-    """Create a club. `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`.
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    invitations_collection: InvitationsCollection,
+    address_changes_collection: AddressChangeCollection,
+    grants_collection: GrantsCollection,
+    grants_announced_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
+    ban_list: BanListLookup,
+    today: str = Depends(get_german_date_str),
+    operator: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
+) -> FLTeamSaisonAdminResponse:
+    """
+    Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
 
-    The refusal names `shorthand`.
+    `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
+    a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
+    `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
+    `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
+    `retire_blocked` refuses over, by each write's own judgement.
+    `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
+    over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
+    season holds that id.
     """
 
-    async def found_the_club(session: AsyncClientSession) -> InsertOneResult:
-        taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team_data.shorthand, own_id=None, session=session)
-        refuse(find_shorthand_refusal(taken=taken))
-        return await insert_live(collection=teams_collection, document=team_data.model_dump(mode="json"), session=session)
+    saison_raw = await pull_one_from_db(
+        collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "start_date", "rules", "registrierung"]
+    )
+    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(team_id))
+    if not teams_raw:
+        raise DocumentNotFoundError()
 
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(found_the_club)
+    team_raw = teams_raw[0]
+    held_saison_ids = [row["saison_id"] for row in team_raw["memberships"]]
+    row_raw = next((row for row in team_raw["memberships"] if row["saison_id"] == saison_id), None)
 
-    return FLCreatedResponse(
-        created_id=post_operation.inserted_id,
+    # Every membership is read for the seasons `retire_blocked` judges; only this season's seats are served.
+    served, season_rows, held_saisons, spiele_drawn, live = await asyncio.gather(
+        _with_seat_states(
+            [{**team_raw, "memberships": [] if row_raw is None else [row_raw]}],
+            address_changes_collection=address_changes_collection,
+            grants_collection=grants_collection,
+            grants_announced_collection=grants_announced_collection,
+            outbox_collection=outbox_collection,
+            today=today,
+            operator=operator,
+            auth_time=auth_time,
+        ),
+        pull_whole_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id},
+            what=f"season {saison_id}'s clubs",
+            projection=["team_id", "gruppe", "trikot_farbe"],
+        ),
+        pull_many_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
+        spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
+        # A list read where the answer is one row: a team legitimately holds no live invitation, and
+        # `pull_one_from_db` would make that absence a 404.
+        pull_many_from_db(
+            collection=invitations_collection,
+            db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
+            limit=1,
+            projection=WITHOUT_TOKEN_HASH,
+        ),
+    )
+
+    link = None
+    if row_raw is not None:
+        recipients = confirmed_recipients(kontakte=row_raw.get("kontakte"))
+        barred = await barred_addresses(ban_list, [person.email for person in recipients]) if recipients else set()
+        registrierung = saison_raw.get("registrierung")
+        link = FLTeamLinkState(
+            invitation=await _served_invitation(live[0], ban_list=ban_list, outbox_collection=outbox_collection) if live else None,
+            running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=registrierung),
+            paused=registrierung is not None and not registrierung["open"],
+            skipped=plan_invitation_dispatch(
+                austritt=row_raw.get("austritt"),
+                kontakte=row_raw.get("kontakte"),
+                invitation_raw=live[0] if live else None,
+                resend=False,
+                barred=barred,
+            ).skipped,
+        )
+
+    memberships = served[0]["memberships"]
+
+    return FLTeamSaisonAdminResponse(
+        version=composite_version(team_raw, row_raw or {}),
+        team=FLTeamRecord.model_validate(team_raw),
+        saison=FLTeamSaisonFacts(
+            id=saison_id,
+            status=saison_raw["status"],
+            start_date=saison_raw["start_date"],
+            begun=has_started(start_date=str(saison_raw["start_date"]), today=today),
+            registrierung_end=(saison_raw.get("registrierung") or {}).get("end"),
+        ),
+        membership=FLTeamMembership.model_validate(memberships[0]) if memberships else None,
+        gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in season_rows]),
+        gruppe_locked=find_gruppe_move_refusal(spiele_drawn=spiele_drawn) is not None,
+        taken_trikot_farben=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in season_rows if row["team_id"] != team_id]),
+        retire_blocked_by=saison_blocking_retirement(held_saisons),
+        link=link,
     )
 
 
-@router.patch(
-    by_id("team_id"),
-    response_model=FLPatchTeamResponse,
-    summary="Update a team and fan the rename out",
+@router.post(
+    "/saisons/{saison_id}/entry",
+    response_model=FLPostTeamEntryResponse,
+    status_code=201,
+    summary="Enter a club into a season, one the league holds or a new one",
 )
-async def patch_team(
-    team_id: CustomRouteObjectId,
-    team_data: Annotated[FLPatchTeamPayload, Body()],
+async def post_team_entry(
+    saison_id: str,
+    entry_data: Annotated[FLPostTeamEntryPayload, Body()],
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-) -> FLPatchTeamResponse:
+) -> FLPostTeamEntryResponse:
     """
-    Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.
+    Enter a club into a `future` season in a group and a colour, founding it first where it is new.
 
-    Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
-    rewrites; a `past` season keeps the name it was played under. A shorthand another club holds, a retired one included,
-    is refused `duplicate_key`, naming `shorthand`.
+    A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
+    naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
+    `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
+    season and the group as an entry is.
     """
 
-    async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchTeamResponse:
-        taken = await is_held_elsewhere(
-            collection=teams_collection, key="shorthand", value=team_data.shorthand, own_id=team_id, session=session
+    async def found_and_enter(session: AsyncClientSession) -> Any:
+        club = entry_data.club
+        team_id = (
+            club.team_id
+            if club.kind == "known"
+            else await found_a_club(teams_collection=teams_collection, club=club.team.model_dump(mode="json"), session=session)
         )
-        refuse(find_shorthand_refusal(taken=taken))
-        await patch_one_in_db(
-            collection=teams_collection,
-            db_filter={"_id": team_id},
-            update={"$set": team_data.model_dump(mode="json", exclude={"version"})},
-            expected_version=team_data.version,
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
-
-        # Read through the session, so a season closed by a concurrent write cannot leave the
-        # junction rewritten and its fixtures not, or the reverse.
-        open_saisons = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter={"status": {"$ne": "past"}},
-            projection=["_id"],
-            session=session,
-        )
-        # One season per year against a 1024-row read: the list cannot truncate this century.
-        open_saison_ids = [row["_id"] for row in open_saisons]
-        # A read alone joins no write set, and the rollover writes no club row, so without this a season closed under the
-        # rename would have its rows renamed after it closed; anchored, the rollover's demotion conflicts with the rename
-        # and the retry reads the season `past`.
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": open_saison_ids}}, session=session)
-
-        junction = await patch_many_in_db(
-            collection=saison_teams_collection,
-            db_filter={"team_id": team_id, "saison_id": {"$in": open_saison_ids}},
-            update={"$set": {"name": team_data.name, "shorthand": team_data.shorthand}},
+        await enter_a_club(
+            teams_collection=teams_collection,
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            team_id=team_id,
+            saison_id=saison_id,
+            gruppe=entry_data.gruppe,
+            trikot_farbe=entry_data.trikot_farbe,
             session=session,
         )
 
-        return FLPatchTeamResponse(fanned_out_to_saison_teams=junction.modified_count)
+        return team_id
 
-    # One transaction over every write here: a rename reaching some and not the rest leaves a season
-    # disagreeing with itself. `with_transaction` is safe to retry, every write deriving from the payload.
+    # One transaction: a refused entry leaves no new club behind it, which the list would then offer as if chosen.
+    # `with_transaction` is safe to retry, the callback re-reading everything it judges.
     async with transaction_session(db) as session:
-        return await session.with_transaction(rename_and_fan_out)
+        return FLPostTeamEntryResponse(team_id=await session.with_transaction(found_and_enter))
 
 
 @router.delete(
@@ -429,361 +637,259 @@ async def reactivate_team(
         await session.with_transaction(bring_the_club_back)
 
 
-@router.post(
-    f"{by_id('team_id')}/saisons",
-    response_model=FLSaisonTeamResponse,
-    status_code=201,
-    summary="Enter a team into a season",
-    dependencies=[Depends(verify_step_up)],
-)
-async def post_saison_team(
-    team_id: CustomRouteObjectId,
-    saison_team_data: Annotated[FLPostSaisonTeamPayload, Body()],
-    teams_collection: TeamsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    db: DBClient,
-) -> FLSaisonTeamResponse:
-    """
-    Enter a team into a season, in a group, under the name the club carries today.
-
-    A club with no row here is ABSENT from that season rather than merely unlisted.
-    """
-
-    async def enter_the_club(session: AsyncClientSession) -> Mapping[str, Any]:
-        """Judge, then write the row. Everything judged is read in-session, and the group's own count is `refuse_a_full_gruppe`'s."""
-
-        # The one read of the club, and it earns its place twice over: an id naming nothing 404s here
-        # rather than inserting a row pointing at no club, and the season's own copy of the name and
-        # shorthand is seeded from it.
-        team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_team_data.saison_id}, session=session)
-
-        # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another
-        # group, so nobody should be handed a capacity figure to act on first.
-        refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
-
-        await refuse_a_full_gruppe(
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            saison_id=saison_team_data.saison_id,
-            gruppe=saison_team_data.gruppe,
-            saison_status=str(saison_raw["status"]),
-            # Validated, not read raw: a season missing the capacity keys fails here rather than
-            # admitting a team against a bound nobody chose.
-            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-            session=session,
-        )
-
-        document = {
-            "saison_id": saison_team_data.saison_id,
-            "team_id": team_id,
-            "gruppe": saison_team_data.gruppe,
-            # These three required by `FLTeamMembership`, so a row without one
-            # is unreadable; entry carries no departure, kit or people yet.
-            "austritt": None,
-            "trikot_farbe": None,
-            "kontakte": None,
-            # Copied rather than joined on read: once the season is
-            # `past` this is the name it was played under, which makes the copy in its fixtures true
-            # rather than merely old.
-            "name": team_raw["name"],
-            "shorthand": team_raw["shorthand"],
-        }
-        await post_one_to_db(collection=saison_teams_collection, document=document, session=session)
-
-        return document
-
-    # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
-    # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
-    # everything it judges.
-    async with transaction_session(db) as session:
-        entered = await session.with_transaction(enter_the_club)
-
-    return FLSaisonTeamResponse(
-        saison_id=saison_team_data.saison_id,
-        team_id=team_id,
-        gruppe=saison_team_data.gruppe,
-        austritt=None,
-        trikot_farbe=None,
-        kontakte=None,
-        name=entered["name"],
-        shorthand=entered["shorthand"],
-    )
-
-
 @router.patch(
-    f"{by_id('team_id')}/saisons/{{saison_id}}",
-    response_model=FLSaisonTeamResponse,
-    summary="Rewrite a team's season row: group, exit record and kit colour",
+    f"{by_id('team_id')}/saisons/{{saison_id}}/admin",
+    response_model=FLPatchTeamSaisonResponse,
+    summary="Save the team editor: the club and its row of the season, in one transaction",
 )
-async def patch_saison_team(
+async def patch_team_saison(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    saison_team_data: Annotated[FLPatchSaisonTeamPayload, Body()],
+    team_data: Annotated[FLPatchTeamSaisonPayload, Body()],
+    teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLSaisonTeamResponse:
+) -> FLPatchTeamSaisonResponse:
     """
-    Rewrite a team's row for one season: group, exit record and kit colour.
+    Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.
 
-    All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
-    The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
-    refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
-    (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
+    Refused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per
+    part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
+    changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
+    included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
+    `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
+    `trikot_farbe`. 404 where the club holds no row of the season.
     """
 
-    async def move_the_club(session: AsyncClientSession) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
-        """Judge the move, then rewrite the row. Everything judged is read in-session."""
+    row_filter = {"team_id": team_id, "saison_id": saison_id}
 
-        # The identity comes back with the group because this endpoint echoes the whole row and
-        # writes neither field: a group change and an austritt both leave the season's name where it was.
-        existing_raw = await pull_one_from_db(
-            collection=saison_teams_collection,
-            db_filter={"team_id": team_id, "saison_id": saison_id},
-            projection=["gruppe", "name", "shorthand", "austritt"],
-            session=session,
+    async def save_the_club_and_its_row(session: AsyncClientSession) -> FLPatchTeamSaisonResponse:
+        """Judge both parts, then write both. Everything judged is read in-session, so a retry re-judges it."""
+
+        team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=[VERSION_FIELD], session=session)
+        row_raw = await pull_one_from_db(
+            collection=saison_teams_collection, db_filter=row_filter, projection=["gruppe", "trikot_farbe", VERSION_FIELD], session=session
         )
+        refuse(find_stale_save_refusal(team_raw, row_raw, version=team_data.version))
 
-        # One read of the season for both judgements below, anchored so the status belongs to this write set:
-        # `activate_saison` writes this document, so a rollover landing under the move conflicts and the retry reads `past`.
+        # Anchored, so the status belongs to this write set: `activate_saison` writes this document, so a rollover landing
+        # under the save conflicts and the retry reads `past`.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # Every write, an exit record included: a finished season's table and podium are read off these rows,
-        # and an exit recorded now would move places its fixtures can no longer be saved to answer.
-        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+        row_part = {"gruppe": team_data.gruppe, "trikot_farbe": team_data.trikot_farbe}
+        moves_the_row = any(row_raw.get(field) != value for field, value in row_part.items())
+        if moves_the_row:
+            refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
-        # On the anchored season's stored start, so a start moved under this write conflicts and the retry judges the
-        # exit against the date it left.
-        austritt = saison_team_data.austritt
-        start_date = str(saison_raw["start_date"])
-        refuse(
-            find_austritt_refusal(
-                proposed=None if austritt is None else austritt.model_dump(mode="json"),
-                stored=existing_raw.get("austritt"),
-                start_date=start_date,
-                started=has_started(start_date=start_date, today=today),
-            )
-        )
-
-        # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone, so two
-        # austritte contend only on the season's anchor above, which costs one retry.
-        if saison_team_data.gruppe != existing_raw["gruppe"]:
-            # Both sides, because a fixture fields a team on either.
-            fixtures_drawn = await spiele_collection.count_documents(
-                {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}, session=session
-            )
-            refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
-
-            await refuse_a_full_gruppe(
+        if team_data.gruppe != row_raw["gruppe"]:
+            await refuse_a_gruppe_move(
+                spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 saisons_collection=saisons_collection,
+                team_id=team_id,
                 saison_id=saison_id,
-                gruppe=saison_team_data.gruppe,
-                # A MOVE is not an entry -- the club already holds a row -- so the status gate on
-                # entering does not judge it, and only its two group gates apply.
-                saison_status="future",
+                gruppe=team_data.gruppe,
                 rules=FLSaisonRules.model_validate(saison_raw["rules"]),
                 session=session,
             )
 
-        updated_raw = await patch_one_in_db(
-            collection=saison_teams_collection,
-            db_filter={"team_id": team_id, "saison_id": saison_id},
-            update={"$set": saison_team_data.model_dump(mode="json", exclude={"version"})},
-            expected_version=saison_team_data.version,
+        # Judged only where the save moves it: a colour a row already stores beside another's must not lock the club's
+        # other fields, as `find_kader_stufe_refusal` passes a stored Stufe.
+        if team_data.trikot_farbe != row_raw.get("trikot_farbe"):
+            await refuse_a_taken_colour(
+                saison_teams_collection=saison_teams_collection,
+                saisons_collection=saisons_collection,
+                saison_id=saison_id,
+                trikot_farbe=team_data.trikot_farbe,
+                own_id=row_raw["_id"],
+                session=session,
+            )
+
+        stored_team = await write_the_club(
+            teams_collection=teams_collection,
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            team_id=team_id,
+            club=team_data.model_dump(mode="json", exclude={"gruppe", "trikot_farbe", "version"}),
             session=session,
-            return_document=ReturnDocument.AFTER,
         )
 
-        return existing_raw, updated_raw
+        # After the fan-out, which raises this row's count too where the rename reaches it, so the answer is the count stored.
+        stored_row = (
+            await patch_one_in_db(
+                collection=saison_teams_collection,
+                db_filter=row_filter,
+                update={"$set": row_part},
+                expected_version=None,
+                session=session,
+                return_document=ReturnDocument.AFTER,
+            )
+            if moves_the_row
+            else await pull_one_from_db(collection=saison_teams_collection, db_filter=row_filter, projection=[VERSION_FIELD], session=session)
+        )
 
-    # One transaction, because a group change makes two writes: this row and the season the group's
-    # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
+        return FLPatchTeamSaisonResponse(version=composite_version(stored_team, stored_row))
+
+    # One transaction, or a refusal of the row's part leaves the club's half saved under an editor reading it as failed.
+    # `with_transaction` is safe to retry, every write deriving from the payload and an in-session read.
     async with transaction_session(db) as session:
-        existing_raw, updated_raw = await session.with_transaction(move_the_club)
-
-    # `kontakte` below is the one field read off the AFTER image, no payload carrying the block. A
-    # block in a shape this model cannot describe refuses, a keyword being validated like any other value.
-
-    # Assembled after the commit rather than inside the callback, so such a block answers 500 for a
-    # write that landed rather than aborting a correct move over a field this endpoint never touches.
-    return FLSaisonTeamResponse(
-        saison_id=saison_id,
-        team_id=team_id,
-        gruppe=saison_team_data.gruppe,
-        austritt=saison_team_data.austritt,
-        # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
-        # sent are the values now stored and the projection has nothing to widen for.
-        trikot_farbe=saison_team_data.trikot_farbe,
-        kontakte=updated_raw["kontakte"],
-        name=existing_raw["name"],
-        shorthand=existing_raw["shorthand"],
-    )
+        return await session.with_transaction(save_the_club_and_its_row)
 
 
-@router.patch(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
-    response_model=FLPatchSaisonTeamKontakteResponse,
-    summary="Rewrite a team's season contacts, and nothing else on the row",
+@router.put(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/austritt",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Record a team's exit from a season",
 )
-async def patch_saison_team_kontakte(
+async def put_austritt(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
+    austritt_data: Annotated[FLAustrittPayload, Body()],
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    outbox_collection: OutboxCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
+) -> None:
+    """
+    Record how a team left the season, once: an exit is never lifted and never replaced.
+
+    Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
+    `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
+    the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+    """
+
+    row_filter = {"team_id": team_id, "saison_id": saison_id}
+    proposed = austritt_data.model_dump(mode="json")
+
+    async def record_the_exit(session: AsyncClientSession) -> None:
+        stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=row_filter, projection=["austritt"], session=session)
+        # Two presses racing conflict on the row this writes, and the retry reads the exit the first left.
+        refuse(find_austritt_standing_refusal(stored=stored.get("austritt")))
+
+        # Anchored, so the status and the start belong to the write set: `activate_saison` and `PATCH /saisons/{saison_id}`
+        # write this document, so either landing under the exit conflicts and the retry judges the season it left.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+        # A finished season's table and podium are read off these rows.
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
+        start_date = str(saison_raw["start_date"])
+        refuse(find_austritt_refusal(start_date=start_date, started=has_started(start_date=start_date, today=today)))
+
+        await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter=row_filter,
+            update={"$set": {"austritt": proposed}},
+            expected_version=None,
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+        await owe_the_austritt_notices_in_session(
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            outbox_collection=outbox_collection,
+            saison_id=saison_id,
+            team_id=team_id,
+            exit_day=austritt_data.date,
+            now=germany_now,
+            session=session,
+        )
+
+    # One transaction: what the exit owes commits with it or neither does.
+    async with transaction_session(db) as session:
+        await session.with_transaction(record_the_exit)
+
+
+@router.put(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}",
+    response_model=FLKontaktSeatResponse,
+    summary="Write the person one contact seat holds",
+)
+async def put_kontakt_seat(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    seat: str,
+    seat_data: Annotated[FLKontaktSeatPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLPatchSaisonTeamKontakteResponse:
+) -> FLKontaktSeatResponse:
     """
-    Rewrite the three people this team is reached through for one season. Null clears the block.
+    „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
 
-    Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
-    rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
-    beside the block, and a row whose block answers to another token is refused rather than
-    overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
-    which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
-    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
-    `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
-    on is stored as the league's entry, unconfirmed.
+    The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
+    `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
+    in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
+    last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+    stay correctable, and such a link takes the person's Widerspruch alone.
 
-    **Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own
-    transaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering
-    both seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or
-    handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
-    holds nothing live. A save newly seating an address the ban list holds is
-    refused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
-    link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
-    or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
-    is; a save doing none of these is not.
+    Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
+    on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
+    claim, and the seat it named keeps its person. Left out, the claim stands.
 
-    **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
-    or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
-    person's own write grants one.
+    Refused `version_stale` on a row moved since the read, `kontakt_email_taken` and `kontakt_phone_taken` where another
+    seat's person holds the address or the number, and `kontakt_seat_barred` where the ban list holds the address of a
+    person newly seated. 404 for a team and season holding no row, and for a path naming no seat.
     """
 
-    if kontakte_data.kontakte is None:
-        verify_step_up(actor)
+    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
+    rolle = seat_named(seat)
+    if rolle is None:
+        raise DocumentNotFoundError()
 
-    db_filter = {"team_id": team_id, "saison_id": saison_id}
-    payload = kontakte_data.model_dump(mode="json")
-    # Outside the callback, so a retried transaction owes this save's mails once and a second save its own.
+    # Unset fields left out, so an omitted claim stands rather than reading as the null that ends it.
+    sent = seat_data.model_dump(mode="json", exclude={"version"}, exclude_unset=True)
+    # Outside the callback, so a retried transaction owes this save's mail once and a second save its own.
     nonce = secrets.token_hex(8)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
-    async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
-        # In session, so the precondition judges what this write will land on. Read outside one, an
-        # erasure (`app/api/identity/crud.py :: erase_everything`) committing between the
-        # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
+    async def seat_the_person(session: AsyncClientSession) -> FLKontaktSeatResponse:
+        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
+
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
-            db_filter=db_filter,
-            projection=["kontakte", "confirmations", "name", "austritt"],
+            db_filter={"team_id": team_id, "saison_id": saison_id},
+            projection=KONTAKT_WRITE_FIELDS,
             session=session,
         )
+        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=rolle, sent=sent, today=today)
+        refuse(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
 
-        refuse(find_kontakte_precondition_refusal(expected=payload["kontakte_stand"], stored=stored.get("kontakte")))
-
-        kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
-
-        # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
-        # Widerspruch alone.
-        owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
-        # A ban committing after this read conflicts with the save on the saver's own grant row, which
-        # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
-        barred = await barred_addresses(
-            ban_list,
-            {address for seats in owed for address in seat_addresses(kontakte=kontakte, seats=seats)},
-            governing_saison_id=governing_saison_id,
-            session=session,
-        )
-        # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
-        # after the save is the press's.
-        refuse(find_kontakt_seat_barred_refusal(barred=bool(barred)))
-
-        entry = compose_kontakt_bestaetigung(today=today)
-        minted = {seat: entry for seats in owed for seat in seats}
-        links: list[tuple[OwedMail, FLKontaktMint]] = []
-        if owed:
-            assert kontakte is not None
-            # Read only where a link is owed, and in session as the address is. Unanchored: a rollover
-            # committing after this read leaves the mail asking the open row's answer, which the press then
-            # refuses.
-            saison_raw = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session
-            )
-            zeile = kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
-            links = [
-                owed_kontakt_link(
-                    row=stored,
-                    saison_id=saison_id,
-                    kontakte=kontakte,
-                    seats=seats,
-                    frist=entry["frist"],
-                    zeile=zeile,
-                    key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/kontakt/{seats[0]}/{nonce}",
-                )
-                for seats in owed
-            ]
-
-        confirmations = compose_bestaetigungen_nach(
-            kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("confirmations"), minted=minted
-        )
-
-        # Judged on what this transaction mints and voids, which aborts with the refusal: a bearer link
-        # handed out or taken away is a step-up write.
-        voids = voids_a_live_link(
-            stored_kontakte=stored.get("kontakte"),
-            kontakte=kontakte,
-            stored_bestaetigungen=stored.get("confirmations"),
-            confirmations=confirmations,
-            today=today,
-        )
-        if links or voids:
-            verify_step_up(actor)
-
-        updated_raw = await patch_one_in_db(
-            collection=saison_teams_collection,
-            db_filter=db_filter,
-            # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
-            # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
-            # whatever this caller last read. The version the editor sent is the helper's to check.
-            update={"$set": {"kontakte": kontakte, "confirmations": confirmations}},
-            expected_version=kontakte_data.version,
-            session=session,
-            return_document=ReturnDocument.AFTER,
-        )
-        # Judged on the block read in this transaction.
-        await void_moved_seats(
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
-            session=session,
-        )
-        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
-
-        return FLPatchSaisonTeamKontakteResponse(
-            saison_id=saison_id,
+        confirmations = await write_the_contact_block(
+            stored=stored,
+            proposed=kontakte,
+            expected_version=seat_data.version,
             team_id=team_id,
-            # The AFTER image, not the payload: what the row holds is the claim this echo makes.
-            kontakte=updated_raw["kontakte"],
-            confirmations=[mint for _, mint in links],
+            saison_id=saison_id,
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            outbox_collection=outbox_collection,
+            ban_list=ban_list,
+            governing_saison_id=governing_saison_id,
+            nonce=nonce,
+            today=today,
+            germany_now=germany_now,
+            session=session,
         )
 
-    # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,
-    # so a retry after a write conflict refuses on what the winner left rather than on a stale read.
+        # One person, so one link at most.
+        return FLKontaktSeatResponse(email=confirmations[0].email if confirmations else None)
+
     async with transaction_session(db) as session:
-        return await session.with_transaction(rewrite_the_block)
+        return await session.with_transaction(seat_the_person)
 
 
 @router.post(
@@ -810,8 +916,9 @@ async def replace_saison_team(
     """
     Hand this season's junction row, and every fixture on it, to another club.
 
-    Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
-    live squad rows are retired, in ONE transaction: the schedule survives.
+    Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
+    their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
+    the schedule survives.
     """
 
     # Before any read, as the group swap judges its pair: this one is refused whatever the season holds.
@@ -852,7 +959,7 @@ async def replace_saison_team(
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         # The ONE read of the incoming club, and it earns its place three times over: an id naming
-        # nothing 404s here, the row's name is reseeded from it as `post_saison_team` seeds one at
+        # nothing 404s here, the row's name is reseeded from it as `enter_a_club` seeds one at
         # entry, and every rewritten fixture side takes the same two values.
         incoming_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=replacement_data.incoming_team_id, session=session)
 
@@ -881,7 +988,7 @@ async def replace_saison_team(
             )
         )
 
-        # The row's identity, reseeded as `post_saison_team` seeds one at entry: every fixture of the season reads its
+        # The row's identity, reseeded as `enter_a_club` seeds one at entry: every fixture of the season reads its
         # side's name from here. No `tore`: a replacement runs only on fixtures none of which has taken place.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
@@ -942,7 +1049,7 @@ async def replace_saison_team(
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
         # season its club now holds no junction row in -- what `kader_team_not_in_saison` refuses to create.
         # LIVE rows alone, so an earlier exit keeps its own date.
-        ausgetragene_squad = await patch_many_in_db(
+        retired_squad = await patch_many_in_db(
             collection=saison_spieler_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id, "inactive_since": None},
             update={"$set": {"inactive_since": today}},
@@ -961,7 +1068,7 @@ async def replace_saison_team(
             name=updated_raw["name"],
             shorthand=updated_raw["shorthand"],
             rewritten_spiele=rewritten,
-            ausgetragene_kader_rows=ausgetragene_squad.modified_count,
+            retired_kader_rows=retired_squad.modified_count,
         )
 
     # One transaction over every write: a row handed over while its fixtures are not leaves the
@@ -975,7 +1082,6 @@ async def replace_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/confirmation/invite",
     response_model=FLKontaktInviteResponse,
     summary="Send one contact seat a fresh confirmation link",
-    dependencies=[Depends(verify_step_up)],
 )
 async def invite_kontakt(
     team_id: CustomRouteObjectId,
@@ -998,8 +1104,7 @@ async def invite_kontakt(
 
     Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), where the seat holds nobody or its
     person has already confirmed it (`kontakt_seat_without_confirmation`), and where its address is on the ban list (`kontakt_seat_barred`).
-    404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
-    sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+    404 for a team and season holding no row, and for a path naming no seat.
     """
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -1020,14 +1125,14 @@ async def invite_kontakt(
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
-            projection=["kontakte", "confirmations", "name", "austritt"],
+            projection=KONTAKT_WRITE_FIELDS,
             session=session,
         )
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
-        refuse(find_kontakt_zeile_refusal(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")))
+        refuse(find_kontakt_row_refusal(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")))
 
         kontakte = stored.get("kontakte")
-        refuse(find_kontakt_sitz_refusal(kontakte=kontakte, seat=rolle))
+        refuse(find_kontakt_seat_refusal(kontakte=kontakte, seat=rolle))
         assert isinstance(kontakte, Mapping)
 
         seats = seats_one_link_answers(kontakte=kontakte, seat=rolle)
@@ -1036,14 +1141,14 @@ async def invite_kontakt(
         )
         refuse(find_kontakt_seat_barred_refusal(barred=bool(barred)))
 
-        entry = compose_kontakt_bestaetigung(today=today)
+        entry = compose_kontakt_confirmation(today=today)
         await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
             update={
                 "$set": {
-                    "confirmations": compose_bestaetigungen_mit(
-                        stored_bestaetigungen=stored.get("confirmations"), minted=dict.fromkeys(seats, entry)
+                    "confirmations": compose_confirmations_with(
+                        stored_confirmations=stored.get("confirmations"), minted=dict.fromkeys(seats, entry)
                     )
                 }
             },
@@ -1058,8 +1163,8 @@ async def invite_kontakt(
             saison_id=saison_id,
             kontakte=kontakte,
             seats=seats,
-            frist=entry["frist"],
-            zeile=kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")),
+            deadline=entry["deadline"],
+            kontakt_row=kontakt_row_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")),
             key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/resend/{seats[0]}/{nonce}",
         )
         await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail], now=germany_now)
@@ -1083,7 +1188,6 @@ async def post_invitation(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationMintResponse:
@@ -1101,11 +1205,8 @@ async def post_invitation(
     Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
     (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
 
-    **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
-    administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
-
-    A mint voiding a live link is refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
-    writes nothing; a team's first link is not.
+    A row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link
+    opens nothing, whoever holds it.
     """
 
     # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
@@ -1119,25 +1220,22 @@ async def post_invitation(
 
         # Before the junction: a season that has ended cannot be repaired by entering the team into
         # it, so nobody should be handed the junction's answer to act on first.
-        refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
+        refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
-        entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": team_id}, session=session)
-        refuse(find_team_in_saison_refusal(entered=bool(entered)))
+        row = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, {"austritt": 1}, session=session)
+        refuse(find_team_in_saison_refusal(entered=row is not None))
+        refuse(find_austritt_standing_refusal(stored=(row or {}).get("austritt")))
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
         # every team starts in, and the single-document helper answers that with a 404.
-        withdrawn = await patch_many_in_db(
+        await patch_many_in_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_revocation_update(today=today),
             session=session,
         )
-        # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
-        # holds makes the mint a step-up write.
-        if withdrawn.modified_count:
-            verify_step_up(actor)
 
-        document = compose_einladung(
+        document = compose_invitation(
             saison_id=saison_id,
             team_id=team_id,
             token_hashes=[token_hash],
@@ -1153,12 +1251,12 @@ async def post_invitation(
     # One transaction over the revoke and the mint: `uniq_invitation_live` refuses the second live row
     # outright, so the two landing apart would leave the mint failing against the team's own old link.
     async with transaction_session(db) as session:
-        einladung_id = await session.with_transaction(mint_the_link)
+        invitation_id = await session.with_transaction(mint_the_link)
 
     return FLInvitationMintResponse(
         saison_id=saison_id,
         team_id=team_id,
-        invitation_id=einladung_id,
+        invitation_id=invitation_id,
         token=raw_token,
         created_at=today,
         created_by=created_by,
@@ -1228,7 +1326,7 @@ async def post_invitation_dispatch(
     is handed out.
 
     404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
-    them, and where the season holds no row for the team.
+    them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.
     """
 
     async def owe_the_link(session: AsyncClientSession) -> FLInvitationMailResponse:
@@ -1242,12 +1340,13 @@ async def post_invitation_dispatch(
         row = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            projection=["name", "kontakte"],
+            projection=["name", "kontakte", "austritt"],
             session=session,
         )
-        empfaenger = bestaetigte_empfaenger(kontakte=row.get("kontakte"))
+        refuse(find_austritt_standing_refusal(stored=row.get("austritt")))
+        recipients = confirmed_recipients(kontakte=row.get("kontakte"))
         # Only where a mail is owed: a press reaching nobody sent nothing, and the row keeps the day it last was.
-        if empfaenger:
+        if recipients:
             await patch_one_in_db(
                 collection=invitations_collection,
                 db_filter={"_id": mail_data.invitation_id},
@@ -1259,70 +1358,17 @@ async def post_invitation_dispatch(
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
-            mails=owed_einladung_mails(
+            mails=owed_invitation_mails(
                 invitation_id=mail_data.invitation_id,
                 team_name=str(row["name"]),
                 saison_id=saison_id,
-                recipient=empfaenger,
+                recipient=recipients,
                 occasion=f"mail/{today}",
             ),
             now=germany_now,
         )
 
-        return FLInvitationMailResponse(invitation_id=mail_data.invitation_id, recipient=empfaenger)
+        return FLInvitationMailResponse(invitation_id=mail_data.invitation_id, recipient=recipients)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(owe_the_link)
-
-
-@router.get(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
-    response_model=FLInvitationResponse,
-    summary="This team's live registration link for a season, and whether it opens anything",
-)
-async def get_invitation(
-    team_id: CustomRouteObjectId,
-    saison_id: str,
-    invitations_collection: InvitationsCollection,
-    saisons_collection: SaisonsCollection,
-    outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
-    today: str = Depends(get_german_date_str),
-) -> FLInvitationResponse:
-    """
-    What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
-
-    **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
-    of the last mail owed about it — `delivery` null means nobody was ever owed it, which is a state rather than a delivery failure.
-    The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
-
-    `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
-    the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
-    """
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung", "status"])
-
-    # A list read where the answer is one row: a team legitimately holds no live invitation, and
-    # `pull_one_from_db` would make that absence a 404.
-    live = await pull_many_from_db(
-        collection=invitations_collection,
-        db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
-        limit=1,
-        projection=WITHOUT_TOKEN_HASH,
-    )
-
-    einladung = None
-    if live:
-        # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
-        erstellt_von = FLEinladung.model_validate(live[0]).created_by
-        barred = await barred_addresses(ban_list, [sign_in_identifier(erstellt_von)])
-        withheld = withheld_actor(erstellt_von, barred)
-        lage = await state_of(outbox_collection=outbox_collection, reference=einladung_bezug(live[0]["_id"]))
-        einladung = FLInvitationRow.model_validate({**live[0], "created_by": withheld, "created_by_barred": withheld is None, "delivery": lage})
-
-    return FLInvitationResponse(
-        saison_id=saison_id,
-        team_id=team_id,
-        invitation=einladung,
-        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
-    )

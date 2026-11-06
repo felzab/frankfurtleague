@@ -1,7 +1,7 @@
 "use client";
 
+import { AddressFields } from "@/kit/AddressFields";
 import { EditorPage } from "@/kit/EditorPage";
-import { FieldPair } from "@/kit/FieldPair";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
@@ -43,7 +43,7 @@ export function SpielortEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
-  const { required, maxLength: max } = rules;
+  const { required, nameMax } = rules;
 
   const danger: DangerAct = retired
     ? {
@@ -74,7 +74,7 @@ export function SpielortEditor({
       title={title}
       chip={retired ? { tone: "neutral", label: COPY.shared.retired } : undefined}
       editor={editor}
-      danger={{ title: COPY.admin.stilllegung, acts: [danger] }}
+      danger={{ title: COPY.admin.retirement, acts: [danger] }}
       sections={[
         {
           id: "spielort",
@@ -88,7 +88,7 @@ export function SpielortEditor({
                 width="W3L"
                 kind="text"
                 isRequired={required.name}
-                maxLength={max.name}
+                maxLength={nameMax}
                 value={draft.name}
                 onChange={(name) => set("name", name)}
               />
@@ -109,69 +109,10 @@ export function SpielortEditor({
           id: "adresse",
           title: WORDS.address,
           fields: (
-            <>
-              {/* The street and its number, and the postcode and its town, each one line of the address. */}
-              <FieldPair
-                short="second"
-                phone="pair">
-                <TextField
-                  label={WORDS.strasse}
-                  name="strasse"
-                  width="W3"
-                  kind="text"
-                  isRequired={required.strasse}
-                  maxLength={max.strasse}
-                  value={draft.strasse}
-                  onChange={(strasse) => set("strasse", strasse)}
-                />
-                <TextField
-                  label={WORDS.hausnummer}
-                  name="hausnummer"
-                  width="C5"
-                  kind="text"
-                  isRequired={required.hausnummer}
-                  maxLength={max.hausnummer}
-                  value={draft.hausnummer}
-                  onChange={(hausnummer) => set("hausnummer", hausnummer)}
-                />
-              </FieldPair>
-              <TextField
-                label={WORDS.stadtteil}
-                name="stadtteil"
-                width="W3"
-                kind="text"
-                isRequired={required.stadtteil}
-                maxLength={max.stadtteil}
-                value={draft.stadtteil}
-                onChange={(stadtteil) => set("stadtteil", stadtteil)}
-              />
-              <FieldPair
-                short="first"
-                phone="pair">
-                <TextField
-                  label={WORDS.plz}
-                  name="plz"
-                  width="C5"
-                  kind="digits"
-                  isRequired={required.plz}
-                  // The write's postcode is five digits, a rule the field holds itself before the send as well.
-                  maxLength={5}
-                  minLength={5}
-                  value={draft.plz}
-                  onChange={(plz) => set("plz", plz)}
-                />
-                <TextField
-                  label={WORDS.stadt}
-                  name="stadt"
-                  width="W3"
-                  kind="text"
-                  isRequired={required.stadt}
-                  maxLength={max.stadt}
-                  value={draft.stadt}
-                  onChange={(stadt) => set("stadt", stadt)}
-                />
-              </FieldPair>
-            </>
+            <AddressFields
+              rules={rules.address}
+              draft={{ values: draft, set }}
+            />
           ),
         },
       ]}

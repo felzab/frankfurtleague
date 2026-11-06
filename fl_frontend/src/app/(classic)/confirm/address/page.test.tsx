@@ -3,10 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import AddressChangeConfirmationPage from "./page";
+import AddressChangeConfirmationPage, { generateMetadata } from "./page";
 
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
+import type { ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
 
 const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view"] | null }));
@@ -51,6 +52,15 @@ describe("the person's own change, on a link opened again", () => {
     expect(await stateFor({ ...ended, side: "previous", kind: "declined", released_on: "2026-11-03" })).toMatchObject({
       title: COPY.shared.end.doneOn(WORDS.previous.confirmed, "2026-11-03"),
     });
-    expect(await stateFor({ ...ended, side: "new", kind: "expired" })).toMatchObject({ state: "ungueltig" });
+    expect(await stateFor({ ...ended, side: "new", kind: "expired" })).toMatchObject({ state: "invalid" });
+  });
+});
+
+// The harm: a tab asking for an answer over a page saying the link is dead, which no reading of the page meets.
+describe("the tab's title", () => {
+  it("says the link is dead where the page does", async () => {
+    const parent = Promise.resolve({}) as unknown as ResolvingMetadata;
+
+    expect((await generateMetadata({ searchParams: Promise.resolve({}) }, parent)).title).toBe(COPY.template.linkInvalid);
   });
 });

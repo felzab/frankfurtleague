@@ -23,6 +23,12 @@ from app.shared.schemas.einwilligung import PressTextVersions
 MayGive = Callable[[], Awaitable[bool]]
 
 
+async def may_always_give() -> bool:
+    """`MayGive` of a record no state of which refuses a grant: a pupil's, whose every confirmed record stands live."""
+
+    return True
+
+
 async def _before_giving(
     *,
     blocks: Sequence[Mapping[str, Any]],
@@ -64,8 +70,8 @@ async def press_einwilligung(
     )
     refuse(find_grant_wording_refusal(blocks=blocks, chosen=chosen, text_versions=text_versions))
     media = is_given("media", chosen.get("media"))
-    for block, geburtsdatum in zip(blocks, birth_dates, strict=True):
-        refuse(find_self_media_refusal(saved=block, media=media, geburtsdatum=geburtsdatum, today=today))
+    for block, birth_date in zip(blocks, birth_dates, strict=True):
+        refuse(find_self_media_refusal(saved=block, media=media, birth_date=birth_date, today=today))
 
 
 async def press_withdrawal(

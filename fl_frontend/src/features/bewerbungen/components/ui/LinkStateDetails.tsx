@@ -1,0 +1,60 @@
+import { formatAktionZeitpunkt } from "@/features/aktionen/utils";
+import { oldDeliveryChip } from "@/features/bewerbungen/deliveryState";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
+import { labelBadge } from "@/shared/components/ui/badges";
+import { formatSpielDatum } from "@/shared/utils/format";
+
+import type { FLOutboxStatus } from "@/core/generated/client/types";
+import type { ReactNode } from "react";
+
+/** Beside the deadline rather than among the delivery facts, which say what became of the message. */
+const LINK_EXPIRED_LABEL = "abgelaufen";
+
+/** An instant in the action log's words, the administrator's other reading of one. */
+export function instantText(instant: string): string {
+  const { date: datum, time: uhrzeit } = formatAktionZeitpunkt(instant);
+
+  return uhrzeit === null ? datum : `${datum} um ${uhrzeit} Uhr`;
+}
+
+// Redesign: goes with its last importer, `features/address-change/components/forms/AdresswechselWartet.tsx`.
+/**
+ * One confirmation link's sent day, deadline and delivery, as every administrator editor showing a
+ * link reads them out, so one state is one word on each.
+ */
+export function LinkStateDetails({
+  sentAt,
+  deadline: frist,
+  fristArt = "tag",
+  isExpired,
+  delivery,
+  beforeDelivery,
+}: {
+  sentAt: string;
+  deadline: string;
+  /** `zeitpunkt` for a link lapsing at an instant rather than at a day's end, stated to the minute in Berlin. */
+  fristArt?: "tag" | "zeitpunkt";
+  /** The read's judgement of the deadline, never this browser's day; false where a lapse costs nothing. */
+  isExpired: boolean;
+  /** What became of the last mail owed about the link, `null` where none was ever owed. */
+  delivery: FLOutboxStatus | null;
+  /** A fact of the caller's own between the deadline and the delivery. */
+  beforeDelivery?: ReactNode;
+}) {
+  const chip = oldDeliveryChip(delivery);
+
+  return (
+    <>
+      <Angabe label="Link gesendet am">{formatSpielDatum(sentAt)}</Angabe>
+      <Angabe label="Gültig bis">
+        {fristArt === "tag" ? formatSpielDatum(frist) : instantText(frist)}
+        {isExpired && <span className={`${labelBadge("warning")} ms-2 h-7 shrink-0`}>{LINK_EXPIRED_LABEL}</span>}
+      </Angabe>
+      {beforeDelivery}
+      <Angabe label="Zustellung">
+        {/* `null` covers owed, sent and delivered alike: the chip exists for what an administrator can act on. */}
+        {chip === null ? <Leer>Nichts zu melden</Leer> : <span className={`${labelBadge(chip.tone)} h-7 shrink-0`}>{chip.label}</span>}
+      </Angabe>
+    </>
+  );
+}

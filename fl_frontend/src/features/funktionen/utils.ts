@@ -39,7 +39,7 @@ export function zieleOf(funktionen: readonly Role[]): FunktionZiel[] {
     else held.push(funktion);
   }
 
-  return [...byHref].map(([href, held]) => ({ href: href, funktionen: held }));
+  return [...byHref].map(([href, held]) => ({ href, funktionen: held }));
 }
 
 /**
@@ -48,8 +48,8 @@ export function zieleOf(funktionen: readonly Role[]): FunktionZiel[] {
  * person area asks this, so a sign-in lands where `/area` would send it.
  */
 export function soleTeamOf(ziele: readonly FunktionZiel[]): string | null {
-  const [erstes, ...weitere] = ziele;
-  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].kind === "kontakt" ? erstes.href : null;
+  const [first, ...rest] = ziele;
+  return first !== undefined && rest.length === 0 && first.funktionen[0].kind === "kontakt" ? first.href : null;
 }
 
 /** One address's two lines: what it is, and which of the person's Funktionen lead there. */
@@ -78,7 +78,7 @@ export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } 
  * One place is no choice to offer, so the switcher shows only from two.
  */
 export function funktionOrteOf(funktionen: readonly Role[]): FunktionOrt[] {
-  const orte = zieleOf(funktionen).map((ziel) => ({ ziel: ziel, ...zeilenOf(ziel) }));
+  const orte = zieleOf(funktionen).map((ziel) => ({ ziel, ...zeilenOf(ziel) }));
 
   return orte.map(({ ziel, titel, detail }) => {
     const [erste] = ziel.funktionen;
@@ -86,7 +86,7 @@ export function funktionOrteOf(funktionen: readonly Role[]): FunktionOrt[] {
     const geteilt = erste.kind === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
     const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
 
-    return { href: ziel.href, titel: titel, detail: detail, name: name };
+    return { href: ziel.href, titel, detail, name };
   });
 }
 

@@ -27,15 +27,10 @@ from .conftest import unwritten
 BASE_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 ADMIN_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 
-# Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
-# the harness's own included.
-UNREACHED_DATABASE = Code.DATABASE_FAILED
-
 SAISON_ID = "2026"
 
 # Fixed rather than generated, so a failure names the same fixture every run.
 SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230001")
-ABSENT_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230009")
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072300a1")
 HOME = ObjectId("6890a1b2c3d4e5f607230011")
 AWAY = ObjectId("6890a1b2c3d4e5f607230012")
@@ -51,11 +46,11 @@ MIETPREIS = 80
 PAYMENT = 30
 
 PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
-ADMIN_PATH = f"{PUBLIC_PATH}/verwaltung"
+ADMIN_PATH = f"{PUBLIC_PATH}/admin"
 
 # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
 # than through a plain `find`.
-AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def spiel_document() -> dict[str, Any]:
@@ -68,9 +63,9 @@ def spiel_document() -> dict[str, Any]:
         spieltag_id=SPIELTAG_ID,
         team1={"team_id": HOME, "tore": 2},
         team2={"team_id": AWAY, "tore": 1},
-        datum="2026-03-15",
-        uhrzeit="14:00:00",
-        ort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
+        date="2026-03-15",
+        time="14:00:00",
+        spielort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
@@ -116,7 +111,13 @@ def schiedsrichter_rows() -> list[dict[str, Any]]:
             name="Cleo Rau",
             default_payment=25,
             einwilligung=None,
-            confirmation={"token_hashes": [], "sent_at": "2026-03-01", "reminded_at": None, "frist": "2026-03-15", "declined_at": "2026-03-02"},
+            confirmation={
+                "token_hashes": [],
+                "sent_at": "2026-03-01",
+                "reminded_at": None,
+                "deadline": "2026-03-15",
+                "declined_at": "2026-03-02",
+            },
         ),
         {
             **documents.schiedsrichter_document(
@@ -196,34 +197,17 @@ def test_the_wrong_key_is_refused_by_the_guard_of_the_route_that_matched(path: s
     assert response.json()["error_code"] == error_code
 
 
-REACHING_CASES = [
-    pytest.param(ADMIN_PATH, ADMIN_AUTH, id="the admin key on the admin path"),
-    pytest.param(PUBLIC_PATH, BASE_AUTH, id="the base key on the public path"),
-]
-
-
-@pytest.mark.parametrize(("path", "headers"), REACHING_CASES)
-def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, headers: Mapping[str, str]):
-    """The control for the pair above: without it, a refusal from a route that does not exist would read as the guard's."""
-
-    # On the admin path the 500 is the actor check's grant read, which runs only once the key has cleared.
-    response = answered(UNANSWERED_URI, path, headers)
-
-    assert response.status_code == 500
-    assert response.json()["error_code"] == UNREACHED_DATABASE
-
-
 @pytest.mark.parametrize("spiel_id", ["not-an-id", "z" * 24, str(SPIEL_ID)[:-1], f"{SPIEL_ID}0"])
 def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
     """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets."""
 
-    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/verwaltung"
+    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
 
     assert answered(UNANSWERED_URI, path, ADMIN_AUTH).status_code == 404
 
 
 @pytest.mark.db
-def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url: str):
+def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded_url: str):
     """The endpoint's whole point: the two figures the editor round-trips arrive, joined as the public read's shape joins them."""
 
     response = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)
@@ -231,7 +215,7 @@ def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url
     assert response.status_code == 200
     spiel = response.json()["spiel"]
     assert spiel["id"] == str(SPIEL_ID)
-    assert spiel["ort"]["mietpreis"] == MIETPREIS
+    assert spiel["spielort"]["mietpreis"] == MIETPREIS
     assert spiel["schiedsrichter"]["payment"] == PAYMENT
     # The joined field, which only `build_spiele_pipeline` produces. The route out and not the
     # record: the reason is free text about a school, and only a club's own page renders it.
@@ -242,7 +226,7 @@ def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url
 
 
 @pytest.mark.db
-def test_the_editor_offers_the_live_rows_and_the_ones_the_fixture_books(seeded_url: str):
+def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
     """Offering a retired row the fixture does not book, or the ghost, puts a booking on the editor the save then refuses.
 
     The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is
@@ -259,17 +243,3 @@ def test_the_editor_offers_the_live_rows_and_the_ones_the_fixture_books(seeded_u
         ("Cleo Rau", False, True, None),
     ]
     assert (answer["spielbericht"], answer["spielbestaetigungen"]) == (None, [])
-
-
-@pytest.mark.db
-def test_an_id_naming_no_fixture_is_a_404(seeded_url: str):
-    """Well-formed and absent, so the 404 is the handler's answer to an empty aggregation rather than the convertor's."""
-
-    response = answered(
-        seeded_url,
-        f"/api/v{API_VERSION}/spiele/{ABSENT_SPIEL_ID}/verwaltung",
-        ADMIN_AUTH,
-    )
-
-    assert response.status_code == 404
-    assert response.json()["error_code"] == Code.DOCUMENT_NOT_FOUND

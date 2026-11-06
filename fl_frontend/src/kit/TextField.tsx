@@ -4,13 +4,14 @@ import { useContext, useId } from "react";
 
 import { FieldErrorContext } from "react-aria-components/FieldError";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
+import { useIsSSR } from "react-aria/SSRProvider";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
-import { tv } from "./tv";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
@@ -27,14 +28,14 @@ type Shared = {
   maxLength?: number;
   minLength?: number;
   /**
-   * Where the label, the field and its line stand in the field's column: from its start, or centred, as each of a
-   * score's two figures stands under its club. A centred label is cut where it outruns the column.
+   * Whether the label names the field to a screen reader alone, the place around it naming it on the screen: a
+   * section holding this one field, whose title the label is, or a score's column head. A required mark goes with it.
    */
-  align?: "start" | "center";
+  labelHidden?: boolean;
 };
 
 /**
- * The message line under the field: always there, so a message appearing or going moves nothing; or, on the
+ * The message line under the field: always there, so a message that fits it moves nothing; or, on the
  * sign-in's one-field view whose two acts stand right under the field, there only with the error, so the field
  * and its acts read as one block and move down together. A line that is not always there describes nothing.
  */
@@ -97,19 +98,6 @@ const KINDS = {
   search: { type: "search", inputMode: undefined, autoComplete: undefined, pattern: undefined },
 } as const;
 
-/** The field's column, its parts standing from its start or centred in it. */
-const root = tv({
-  extend: fieldRoot,
-  variants: {
-    align: {
-      start: "",
-      // The label is the root's own first child, which a centred column lets shrink to its text, so it is held to
-      // the column's width and cut there.
-      center: "items-center text-center [&>label]:max-w-full [&>label]:truncate",
-    },
-  },
-});
-
 /** The example a malformed value is shown, by kind; a URL names its own. */
 const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
 
@@ -120,12 +108,43 @@ function LineWithError({ constraints }: { constraints: Constraints }) {
 }
 
 /**
+ * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
+ * what a person typed there, so `./useEarlyEdit.ts` has nothing to raise and a press would save nothing under
+ * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
+ * does and keeps its Tab stop and the caret a click leaves, where `inert` takes both. An empty one keeps its replay,
+ * since React writes nothing there.
+ */
+function ParagraphBox({ isStored, className }: { isStored: boolean; className: string }) {
+  // Upstream: goes with `useEarlyEdit`, since React's own replay writes nothing over a `textarea` it hydrates.
+  const isWaiting = useIsSSR();
+  return (
+    <TextArea
+      data-kit-focus="field"
+      rows={4}
+      readOnly={isWaiting && isStored}
+      className={className}
+    />
+  );
+}
+
+/**
  * Type text or a number: the label above, an asterisk after it on a required field, the field at its
  * width class, then its message line as `line` sets it. An error first shows once the value is
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const { label, description, consequence, isRequired = false, isDisabled = false, width, kind, maxLength, minLength, align = "start" } = props;
+  const {
+    label,
+    labelHidden = false,
+    description,
+    consequence,
+    isRequired = false,
+    isDisabled = false,
+    width,
+    kind,
+    maxLength,
+    minLength,
+  } = props;
   const keys = KINDS[kind];
   const constraints: Constraints = {
     maxLength,
@@ -135,9 +154,8 @@ export function TextField(props: TextFieldProps) {
   const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" });
   const field =
     width === "W4" ? (
-      <TextArea
-        data-kit-focus="field"
-        rows={4}
+      <ParagraphBox
+        isStored={Boolean(props.value ?? props.defaultValue)}
         className={frame}
       />
     ) : (
@@ -148,10 +166,13 @@ export function TextField(props: TextFieldProps) {
     );
   const unit = fieldUnit();
   const unitId = useId();
+  const root = useEarlyEdit();
 
   return (
     <AriaTextField
-      className={root({ align })}
+      ref={root}
+      className={fieldRoot()}
+      aria-label={labelHidden ? textOf(label) : undefined}
       name={props.name}
       value={props.value}
       defaultValue={props.defaultValue}
@@ -165,10 +186,12 @@ export function TextField(props: TextFieldProps) {
       pattern={keys.pattern}
       autoComplete={props.autofill ?? keys.autoComplete}
       aria-describedby={props.unit === undefined ? undefined : unitId}>
-      <FieldLabel
-        label={label}
-        isRequired={isRequired}
-      />
+      {!labelHidden && (
+        <FieldLabel
+          label={label}
+          isRequired={isRequired}
+        />
+      )}
       {props.unit === undefined ? (
         field
       ) : (

@@ -1,45 +1,10 @@
-import {
-  bewerbungenPatchEinwilligung,
-  teamsInviteKontakt,
-  teamsPatchEinwilligung,
-  teamsPatchSaisonTeamKontakte,
-} from "@/core/generated/client/sdk";
+import { bewerbungenPatchEinwilligung, teamsPatchEinwilligung } from "@/core/generated/client/sdk";
 
-import type {
-  FLKontaktInviteResponse,
-  FLKontaktRolle,
-  FLPatchSaisonTeamKontaktePayload,
-  FLPatchSaisonTeamKontakteResponse,
-  FLSeatEinwilligungPayload,
-} from "@/core/generated/client/types";
-
-// Both ids go in the PATH, as every junction write spells them — a backend payload model that saw
-// one refuses the whole body. The body is built from the fields its operation declares.
-export async function patchSaisonTeamKontakte({
-  team_id,
-  saison_id,
-  kontakte,
-  kontakte_stand,
-}: { team_id: string; saison_id: string } & FLPatchSaisonTeamKontaktePayload): Promise<FLPatchSaisonTeamKontakteResponse> {
-  return teamsPatchSaisonTeamKontakte(team_id, saison_id, { kontakte: kontakte, kontakte_stand: kontakte_stand });
-}
-
-/** The backend owes the link's mail in the write itself; the seat's earlier link stops opening anything. */
-export async function einladeKontakt({
-  team_id,
-  saison_id,
-  rolle,
-}: {
-  team_id: string;
-  saison_id: string;
-  rolle: FLKontaktRolle;
-}): Promise<FLKontaktInviteResponse> {
-  return teamsInviteKontakt(team_id, saison_id, rolle);
-}
+import type { FLSeatEinwilligungPayload } from "@/core/generated/client/types";
 
 // A seat holder's own two choices, under the person lane's actor: the backend moves them on every seat
 // of theirs on that row and judges the seat itself, a past season's included for a withdrawal.
-export async function patchSitzEinwilligung(teamId: string, saisonId: string, payload: FLSeatEinwilligungPayload): Promise<void> {
+export async function patchSeatEinwilligung(teamId: string, saisonId: string, payload: FLSeatEinwilligungPayload): Promise<void> {
   return teamsPatchEinwilligung(teamId, saisonId, payload);
 }
 

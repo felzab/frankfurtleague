@@ -45,22 +45,22 @@ const ohneUebersicht = (reason: string): string =>
 
 /** Each box's verdict in the write's own words, judged at the press and never between keystrokes. */
 function fehlerIn(email: string, erasureReason: string): Fehler {
-  const geprueft = FLLoeschungPayloadSchema.safeParse({ email: email, reason: erasureReason });
+  const geprueft = FLLoeschungPayloadSchema.safeParse({ email, reason: erasureReason });
   if (geprueft.success) return {};
 
   const fehler: Fehler = {};
   for (const { path, message } of geprueft.error.issues) {
-    const feld = path[0];
-    if ((feld === "email" || feld === "reason") && fehler[feld] === undefined) fehler[feld] = message;
+    const field = path[0];
+    if ((field === "email" || field === "reason") && fehler[field] === undefined) fehler[field] = message;
   }
   return fehler;
 }
 
 /** The armed reveal's body, in the three states the read leaves it in. */
-function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
-  if (gelesen?.status === "read") return <FormLoeschungAnsicht ansicht={gelesen.ansicht} />;
-  if (gelesen?.status === "refused") {
-    return <p className="fluid-xxs leading-normal font-medium text-foreground">{gelesen.reason}</p>;
+function AnsichtBody({ read }: { read: Gelesen | null }) {
+  if (read?.status === "read") return <FormLoeschungAnsicht ansicht={read.ansicht} />;
+  if (read?.status === "refused") {
+    return <p className="fluid-xxs leading-normal font-medium text-foreground">{read.reason}</p>;
   }
 
   // The app's one „not yet here“ treatment: what arrives is a list, so what stands in for it is shaped like one.
@@ -84,17 +84,17 @@ export function FormPersonLoeschenSection() {
   const [email, setEmail] = useState("");
   const [erasureReason, setErasureReason] = useState("");
   const [fehler, setFehler] = useState<Fehler>({});
-  const [gelesen, setGelesen] = useState<Gelesen | null>(null);
+  const [read, setRead] = useState<Gelesen | null>(null);
   // Only the latest arming's read answers, and only while the box is unedited since: Next sends one client's actions
   // one at a time, so an earlier arming's answer lands while the latest waits. React's "ignore stale responses"
   // (https://react.dev/learn/you-might-not-need-an-effect#fetching-data).
   const letzteLesung = useRef(0);
 
   // What the confirmation compares against and the write sends: the address the arming read was made for.
-  const adresse = gelesen?.adresse ?? "";
+  const adresse = read?.adresse ?? "";
   // The API holds the erasure of an address holding a grant to the enrolment's window: the step-up's alone would
   // meet its refusal, and the next press would ask nothing again.
-  const haeltZugang = gelesen?.status === "read" && gelesen.ansicht.admin_tier !== null;
+  const haeltZugang = read?.status === "read" && read.ansicht.admin_tier !== null;
   const { confirm, field, reason } = useTypedAddressConfirm(adresse, { stepUp: haeltZugang ? "enrolment" : true });
   const { isConfirming, isPending } = confirm;
 
@@ -102,7 +102,7 @@ export function FormPersonLoeschenSection() {
 
   const readAnsicht = async (gelesenFuer: string) => {
     const lesung = ++letzteLesung.current;
-    setGelesen({ adresse: gelesenFuer, status: "reading" });
+    setRead({ adresse: gelesenFuer, status: "reading" });
 
     // Settled, never awaited bare: outside a transition a rejected action leaves the placeholder up and the write
     // closed beneath it for good.
@@ -111,7 +111,7 @@ export function FormPersonLoeschenSection() {
     const res = settled.status === "rejected" ? unansweredRead() : settled.value;
 
     if (res.success) {
-      setGelesen({ adresse: gelesenFuer, status: "read", ansicht: res.ansicht });
+      setRead({ adresse: gelesenFuer, status: "read", ansicht: res.ansicht });
       return;
     }
 
@@ -120,14 +120,14 @@ export function FormPersonLoeschenSection() {
     const amFeld = res.fieldErrors?.email;
     if (amFeld !== undefined) {
       setFehler((vorher) => ({ ...vorher, email: amFeld }));
-      setGelesen(null);
+      setRead(null);
       confirm.cancel();
       return;
     }
 
-    const satz = res.unplacedError ?? res.error;
+    const sentence = res.unplacedError ?? res.error;
     // The erasure's own rule alone: that reveal loaded, and a list „not loaded“ invites a retry the rule refuses again.
-    setGelesen({ adresse: gelesenFuer, status: "refused", reason: isLoeschungRefusal(satz) ? satz : ohneUebersicht(satz) });
+    setRead({ adresse: gelesenFuer, status: "refused", reason: isLoeschungRefusal(sentence) ? sentence : ohneUebersicht(sentence) });
   };
 
   const handlePress = () => {
@@ -157,7 +157,7 @@ export function FormPersonLoeschenSection() {
         // Emptied, so the press stands closed over them and its overlay keeps the focus the press had.
         setEmail("");
         setErasureReason("");
-        setGelesen(null);
+        setRead(null);
         if (res.konto === "nichtGeloescht") appToast.warning("Konto nicht gelöscht", { description: res.message });
         else if (res.konto === "unklar") appToast.warning("Unklar, ob das Konto gelöscht wurde", { description: res.message });
         // An address holding no record is answered with zeros rather than refused, and „Person gelöscht“ there would claim one.
@@ -167,7 +167,7 @@ export function FormPersonLoeschenSection() {
     });
   };
 
-  const ansicht = isConfirming ? gelesen : null;
+  const ansicht = isConfirming ? read : null;
   // The names ARE the confirmation, so a press taken over the placeholder would confirm nothing.
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
@@ -239,7 +239,7 @@ export function FormPersonLoeschenSection() {
 
         {isConfirming && (
           <ConfirmReveal>
-            <AnsichtBody gelesen={ansicht} />
+            <AnsichtBody read={ansicht} />
             {ansicht?.status === "read" && <ConfirmTypedAddress field={field} />}
           </ConfirmReveal>
         )}

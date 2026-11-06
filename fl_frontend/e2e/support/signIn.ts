@@ -40,10 +40,11 @@ export async function signInWithCodeHere(page: Page, address: string): Promise<v
 /** Presses „Code senden“ for `address` on the sign-in page the browser stands on. */
 async function sendFromHere(page: Page, address: string): Promise<void> {
   const field = page.getByLabel("E-Mail-Adresse");
-  // Tapped first, as a person reaches the field: React hydrates what a press lands on during the
-  // press itself (https://github.com/reactwg/react-18/discussions/37). A bare `fill` into a field not
-  // yet hydrated loses the address in WebKit: React's state never learns it, and its next render
-  // empties the field.
+  // Tapped first, as a person reaches the field: once the page's code runs, React hydrates what a
+  // press lands on during the press itself (https://github.com/reactwg/react-18/discussions/37).
+  // Before that, text in the field is the browser's until the field replays it on hydrating
+  // (`fl_frontend/src/kit/useEarlyEdit.ts`), and React replays a press held with it
+  // (`fl_frontend/src/kit/HeldForm.tsx`).
   await field.click();
   await field.fill(address);
 
@@ -62,7 +63,7 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
 
 /**
  * The session cookies the browser holds for the site, by name: the library's, under whatever prefix the origin gives
- * it, as `fl_frontend/src/proxy.ts` matches it. Scoped to the site, since the bot check loads from another host.
+ * it, as `fl_frontend/src/proxy.ts` matches it.
  */
 export async function sessionCookies(context: BrowserContext, site: string | undefined): Promise<string[]> {
   return (await context.cookies(String(site))).map((cookie) => cookie.name).filter((name) => name.endsWith(".session_token"));

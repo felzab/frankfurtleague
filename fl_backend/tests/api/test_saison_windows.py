@@ -2,8 +2,9 @@ from typing import Any
 
 import pytest
 
-from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
+from app.api.bewerbungen.services import saison_takes_bewerbungen
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
+from app.api.saisons.services import entry_is_a_nominee
 
 START, END = "2026-03-01", "2026-04-30"
 
@@ -14,25 +15,14 @@ INSIDE = "2026-04-01"
 class TestTheApplicationWindow:
     """A closed application window taking a submission puts a school in the triage queue the league said it would not take.
 
-    One predicate answers the landing's window, `/window/{saison_id}`, the colour read and the submission, so these
-    cases are the whole window rule: today between its two dates, both included, on a season not yet ended.
+    One predicate answers the landing's window, `/form/{saison_id}` and the submission: today between
+    its two dates, both included, on a season not yet ended, the window not paused.
     """
 
-    WINDOW: dict[str, Any] = {"start": START, "end": END}
+    WINDOW: dict[str, Any] = {"open": True, "start": START, "end": END}
 
     def runs(self, *, bewerbung: Any = WINDOW, today: str = INSIDE, saison_status: str = "future") -> bool:
-        return saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today)
-
-    def test_a_day_inside_the_span_takes_applications(self):
-        """The floor: without it every refusal below could pass for a reason nobody is testing."""
-
-        assert self.runs() is True
-
-    @pytest.mark.parametrize("today", [START, END], ids=["the first day", "the last day"])
-    def test_both_ends_are_inside_the_span(self, today: str):
-        """An exclusive comparison drops the day the window opens or the day it closes, which a school was told it had."""
-
-        assert self.runs(today=today) is True
+        return saison_takes_bewerbungen(saison_status=saison_status, bewerbung=bewerbung, today=today)
 
     @pytest.mark.parametrize("today", ["2026-02-28", "2026-05-01"], ids=["the day before", "the day after"])
     def test_a_day_outside_the_span_takes_none(self, today: str):
@@ -41,7 +31,12 @@ class TestTheApplicationWindow:
     def test_a_reversed_span_covers_no_day(self):
         """Span ordering is the payload's alone, so a stored reversal is reachable, and comparing one end would open it for ever."""
 
-        assert self.runs(bewerbung={"start": END, "end": START}) is False
+        assert self.runs(bewerbung={"open": True, "start": END, "end": START}) is False
+
+    def test_a_paused_window_takes_none_inside_its_span(self):
+        """The dates still run, and the pause is the whole answer: a paused form taking a submission is a pause doing nothing."""
+
+        assert self.runs(bewerbung={**self.WINDOW, "open": False}) is False
 
     def test_a_season_recording_no_window_takes_none(self):
         assert self.runs(bewerbung=None) is False
@@ -53,25 +48,16 @@ class TestTheApplicationWindow:
 
 
 class TestTheRegistrationWindow:
-    """A closed registration window taking a submission enters a pupil in a squad the league closed before play began.
+    """A link running where the league closed it, or shut where a late pupil still has to come through it.
 
     One predicate answers every `running` a link is shown with and the submission's refusal: the season the site is
-    on, its link not paused, today up to the window's `end`, both included.
+    on and its link not paused. The window's `end` closes nothing, it makes a nominee.
     """
 
-    WINDOW: dict[str, Any] = {"offen": True, "end": END}
+    WINDOW: dict[str, Any] = {"open": True, "end": END}
 
-    def runs(self, *, registrierung: Any = WINDOW, today: str = INSIDE, saison_status: str = "active") -> bool:
-        return saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung, today=today)
-
-    def test_the_active_season_takes_registrations_until_its_end(self):
-        """The floor, on the last day too, which an exclusive comparison silently drops."""
-
-        assert self.runs() is True
-        assert self.runs(today=END) is True
-
-    def test_the_day_after_the_end_takes_none(self):
-        assert self.runs(today="2026-05-01") is False
+    def runs(self, *, registrierung: Any = WINDOW, saison_status: str = "active") -> bool:
+        return saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung)
 
     def test_a_season_not_yet_activated_takes_none(self):
         """The window opens at the activation: a link minted while the season is `future` opens nothing before it."""
@@ -83,10 +69,25 @@ class TestTheRegistrationWindow:
 
         assert self.runs(saison_status="past") is False
 
-    def test_a_paused_link_takes_none_inside_the_window(self):
+    def test_a_paused_link_takes_none(self):
         """The window still runs, and the pause is the whole answer."""
 
-        assert self.runs(registrierung={**self.WINDOW, "offen": False}) is False
+        assert self.runs(registrierung={**self.WINDOW, "open": False}) is False
 
     def test_a_season_recording_no_window_takes_none(self):
         assert self.runs(registrierung=None) is False
+
+
+class TestTheNominee:
+    """The one verdict the marker, the cap and the link's page read: wrong, a late pupil is capped or an early one marked for good."""
+
+    WINDOW: dict[str, Any] = {"open": True, "end": END}
+
+    def test_the_last_day_of_the_window_is_an_ordinary_entry(self):
+        assert entry_is_a_nominee(registrierung=self.WINDOW, day=END) is False
+
+    def test_the_day_after_it_is_a_nominee(self):
+        assert entry_is_a_nominee(registrierung=self.WINDOW, day="2026-05-01") is True
+
+    def test_a_season_storing_no_window_never_closes_it(self):
+        assert entry_is_a_nominee(registrierung=None, day="2026-05-01") is False

@@ -2,12 +2,14 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
+import { FieldPair, FieldPlaceholder } from "@/kit/FieldPair";
 
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getSpielort } from "@/features/spielorte/queries";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { SPIELORT_SAVE_RULES } from "../../../spielortRules";
 import { reactivateSpielort, retireSpielort } from "./retireSpielort";
@@ -24,7 +26,7 @@ const read = cache(getSpielort);
 
 /** The venue the address names, retired or not: `null` for a malformed id and for one no venue holds. */
 async function findSpielort(params: Props["params"]) {
-  const id = await objectIdParamOf(params, "spielort");
+  const id = await adminIdParamOf(params, "spielort");
   return id === null ? null : read(id);
 }
 
@@ -46,8 +48,44 @@ export default function SpielortEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         sections: [
-          ["field", "field"],
-          ["pair", "field", "pair"],
+          [
+            <FieldPlaceholder
+              key="name"
+              width="W3L"
+            />,
+            <FieldPlaceholder
+              key="mietpreis"
+              width="C5"
+              figures
+            />,
+          ],
+          [
+            <FieldPair
+              key="street"
+              short="second"
+              phone="pair">
+              <FieldPlaceholder width="W3" />
+              <FieldPlaceholder width="C5" />
+            </FieldPair>,
+            <FieldPair
+              key="city"
+              short="first"
+              phone="pair">
+              <FieldPlaceholder
+                width="C5"
+                figures
+              />
+              <FieldPlaceholder width="W3" />
+            </FieldPair>,
+            "field",
+          ],
+        ],
+        danger: [
+          {
+            name: COPY.shared.withObject(COPY.admin.spielort.object, "retire"),
+            consequence: COPY.admin.spielort.retireConsequence,
+            act: COPY.shared.verb.retire,
+          },
         ],
       }}
       editor={readEditor(params)}

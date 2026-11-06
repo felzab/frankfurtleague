@@ -47,6 +47,48 @@ describe("a Konto box's act behind a question", () => {
   });
 });
 
+describe("a locked Konto box", () => {
+  const reason = COPY.template.draftUnsaved;
+
+  // The harm: a locked button is no submit button, and a form without one still submits on Enter from a lone field.
+  it("runs nothing on Enter from its field", async () => {
+    const run = vi.fn<() => Promise<ActionAnswer<unknown>>>();
+    render(
+      <AccountBox
+        title={PASSKEY}
+        description={COPY.account.passkeys.description}
+        act={{ run, button: { label: COPY.shared.withObject(PASSKEY, "setUp") }, locked: reason }}>
+        <input
+          aria-label={COPY.shared.name}
+          name="name"
+        />
+      </AccountBox>,
+    );
+
+    await userEvent.type(screen.getByRole("textbox"), "Laptop{Enter}");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  // The harm: a dialog's trigger around the locked button would open the question behind the reason.
+  it("answers a press with its reason, never the question", async () => {
+    render(
+      <AccountBox
+        title={PASSKEY}
+        description={COPY.account.passkeys.description}
+        act={{
+          run: vi.fn(),
+          button: { confirm: { verb: "delete", subject: PASSKEY, consequence: REFUSAL, tone: "danger" } },
+          locked: reason,
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
+    expect((await screen.findByRole("tooltip")).textContent).toBe(reason);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});
+
 // A row's removal hands its act straight to the question: a refusal must stand in the question, not close it.
 describe("a Konto row's removal", () => {
   it("asks first, keeps the question open with a refusal, and closes once the removal is done", async () => {

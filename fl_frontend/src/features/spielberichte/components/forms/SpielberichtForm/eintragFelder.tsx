@@ -16,12 +16,12 @@ import { benannt } from "@/shared/utils/benannt";
 
 import { SPIELBERICHT_EINTRAEGE_MAX } from "../../../constants";
 
-import type { FLSpielSeite } from "@/core/generated/client/types";
+import type { FLSpielSide } from "@/core/generated/client/types";
 import type { Auswahl } from "./AuswahlSelect";
 import type { KaderOption, SpielberichtKontext } from "./spielberichtDraft";
 
 /** The two sides as a picker offers them, by the names the form's heading uses. */
-export const seitenOptionen = (kontext: SpielberichtKontext): readonly Auswahl<FLSpielSeite>[] => [
+export const seitenOptionen = (kontext: SpielberichtKontext): readonly Auswahl<FLSpielSide>[] => [
   { id: "team1", label: kontext.team1Name },
   { id: "team2", label: kontext.team2Name },
 ];
@@ -30,7 +30,7 @@ export const seitenOptionen = (kontext: SpielberichtKontext): readonly Auswahl<F
  * The pupils one entry may name: that side's live squad, and the one it already names where the squad lacks them,
  * so a stored entry keeps its name rather than reading as unpicked.
  */
-export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielSeite | null, chosen: string): readonly KaderOption[] {
+export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielSide | null, chosen: string): readonly KaderOption[] {
   if (seite === null) return [];
 
   const kader = kontext.kader[seite];
@@ -41,15 +41,15 @@ export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielSeite
 }
 
 /** The chosen side fields no live squad, so its picker offers nobody new and the entry says why. */
-export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielSeite | null): boolean =>
+export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielSide | null): boolean =>
   seite !== null && kontext.kader[seite].length === 0;
 
 /**
  * The person picker's description, its notes joined, empty while none applies: one description slot per field, so two
- * notes are one text. `geleert` marks an entry whose stored person played for a club that has left the fixture.
+ * notes are one text. `emptied` marks an entry whose stored person played for a club that has left the fixture.
  */
-export function personHinweis({ geleert, ohneKaderSatz }: { geleert: boolean; ohneKaderSatz: string | null }): string {
-  return [geleert ? "Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu." : null, ohneKaderSatz]
+export function personHinweis({ emptied, ohneKaderSatz }: { emptied: boolean; ohneKaderSatz: string | null }): string {
+  return [emptied ? "Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu." : null, ohneKaderSatz]
     .filter((sentence): sentence is string => sentence !== null)
     .join(" ");
 }

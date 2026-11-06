@@ -182,7 +182,7 @@ afterAll(() => {
 /** A stored passkey as the plugin's own routes read one, so an admitted route would really act. */
 const aPasskeyFor = (userId: string) => ({
   id: "a-passkey",
-  userId: userId,
+  userId,
   credentialID: "fabricated-credential",
   publicKey: "fabricated-public-key",
   counter: 0,
@@ -946,7 +946,7 @@ describe("the passkey touch an act declares", () => {
     email: PERSON_EMAIL,
     lane: "person" as const,
     authTime: Math.floor((Date.now() - ageMs) / 1000),
-    factor: factor,
+    factor,
   });
 
   it("admits a passkey sign-in inside the touch, and refuses one past it", async () => {
@@ -2453,7 +2453,7 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
     {
       traceId: `${"0".repeat(31)}3`,
       // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
-      actor: { email: email, lane: "person", authTime: 0, factor: "code" },
+      actor: { email, lane: "person", authTime: 0, factor: "code" },
     },
     run,
   );
@@ -2542,7 +2542,7 @@ describe("a person's own account deletion", () => {
     assert.ok(stored[0]?.identifier === `delete-account-${mailedToken(email)}`, "the mail carries a token the store does not hold");
     expect(store.user.filter((user) => user.id === row.userId).length, "the request deleted the account").toBe(1);
     // The token completes the deletion, so the row the backend stores carries it sealed, as it does the code.
-    assert.ok(!JSON.stringify(owed.findLast((entry) => entry.an === email)).includes(mailedToken(email)), "the row holds the token readable");
+    assert.ok(!JSON.stringify(owed.findLast((entry) => entry.to === email)).includes(mailedToken(email)), "the row holds the token readable");
   });
 
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {

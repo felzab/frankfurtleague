@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 /**
  * What a refusal carries, so a weak one cannot ship shorter than its own way out. The two sentences
  * are the FORM register `validation.ts :: VALIDATION_FAILED` declares, the action second.
@@ -31,7 +32,7 @@ export function buildRefusal({ reason, repair, where }: RefusalParts): string {
  * The reload and retry as a `repair`, where the page itself may be what is stale: period-free, since
  * `buildRefusal` closes the sentence it ends.
  */
-export const LADE_NEU_UND_VERSUCHE_ES_ERNEUT = "Lade die Seite neu und versuche es erneut";
+const LADE_NEU_UND_VERSUCHE_ES_ERNEUT = "Lade die Seite neu und versuche es erneut";
 
 /**
  * The reload alone as a `repair`, where what the page shows has moved and the press cannot pass again:
@@ -50,7 +51,7 @@ export const UNKNOWN_REFUSAL = `${LADE_NEU_UND_VERSUCHE_ES_ERNEUT}.`;
  * sentence it ends. „erneut“ is the one word for doing anything again, a link reopened included,
  * never „noch einmal“.
  */
-export const TRY_AGAIN = "Versuche es erneut";
+const TRY_AGAIN = "Versuche es erneut";
 
 /**
  * The way out alone, under a title already saying which step did not happen, where the same press may

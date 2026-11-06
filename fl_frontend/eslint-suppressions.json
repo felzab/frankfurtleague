@@ -1,19 +1,4 @@
 {
-  "src/app/(public)/bewerbung/[saison_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/(public)/bewerbung/[saison_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/(public)/confirm/kontakt/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/(public)/confirm/spiel/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -34,27 +19,12 @@
       "count": 2
     }
   },
-  "src/app/api/bestaetigung/kontakt/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
   "src/app/api/bestaetigung/spiel/route.ts": {
     "fl/server-action": {
       "count": 1
     }
   },
   "src/app/api/bestaetigung/spieler/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/api/bewerbung/kuerzel/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/api/bewerbung/route.ts": {
     "fl/server-action": {
       "count": 1
     }
@@ -104,46 +74,6 @@
       "count": 4
     }
   },
-  "src/app/area/admin/bewerbungen/[bewerbung_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/bewerbungen/[bewerbung_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/bewerbungen/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/bewerbungen/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/kontakte/[team_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/kontakte/[team_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/kontakte/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/kontakte/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -159,16 +89,6 @@
       "count": 1
     }
   },
-  "src/app/area/admin/registrierungen/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/registrierungen/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/sperrliste/loading.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -177,46 +97,6 @@
   "src/app/area/admin/sperrliste/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
-    }
-  },
-  "src/app/area/admin/spieler/[spieler_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spieler/[spieler_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/spieler/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/spieler/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/teams/[team_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/teams/[team_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/teams/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/teams/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
     }
   },
   "src/app/area/team/[team_id]/[saison_id]/layout.tsx": {
@@ -237,11 +117,6 @@
   "src/core/addressChangeEmail.ts": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/core/bewerbungEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 41
     }
   },
   "src/core/dismissControl.ts": {
@@ -347,20 +222,6 @@
     },
     "react/jsx-no-literals": {
       "count": 4
-    }
-  },
-  "src/features/address-change/components/ui/AdresswechselHinweis.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 6
     }
   },
   "src/features/address-change/components/views/AdminAdresswechselView.tsx": {
@@ -581,174 +442,12 @@
       "count": 1
     }
   },
-  "src/features/bewerbungen/actions.ts": {
-    "fl/server-action": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 32
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/components/forms/AdminBewerbungAblehnenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 8
-    }
-  },
-  "src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 23
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 10
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 18
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 19
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 29
-    },
-    "react/forbid-component-props": {
-      "count": 34
-    },
-    "react/jsx-no-literals": {
-      "count": 9
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/FormTeamSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 18
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/kaderBounds.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/useBewerbungDraft.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/components/ui/Gefuellt.tsx": {
+  "src/features/bewerbungen/components/ui/Filled.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/ui/LinkStandAngaben.tsx": {
+  "src/features/bewerbungen/components/ui/LinkStateDetails.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
@@ -757,11 +456,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/ui/band.ts": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
     }
   },
   "src/features/bewerbungen/components/ui/seite.ts": {
@@ -769,42 +463,12 @@
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/views/AdminBewerbungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    }
-  },
-  "src/features/bewerbungen/components/views/AdminBewerbungenView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
+  "src/features/bewerbungen/components/views/ConfirmationNotices.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/views/BestaetigungFormPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 13
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 10
-    },
-    "react/jsx-no-literals": {
-      "count": 7
-    }
-  },
-  "src/features/bewerbungen/components/views/BestaetigungHinweise.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/views/BestaetigungPanels.tsx": {
+  "src/features/bewerbungen/components/views/ConfirmationPanels.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
     },
@@ -821,113 +485,9 @@
       "count": 3
     }
   },
-  "src/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
+  "src/features/bewerbungen/deliveryState.ts": {
     "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 9
-    }
-  },
-  "src/features/bewerbungen/components/views/BestaetigungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 33
-    },
-    "react/jsx-no-literals": {
-      "count": 20
-    }
-  },
-  "src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 24
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 25
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 30
-    },
-    "react/forbid-component-props": {
-      "count": 31
-    },
-    "react/jsx-no-literals": {
-      "count": 12
-    }
-  },
-  "src/features/bewerbungen/components/views/BewerbungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/bewerbungen/duplicates.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 14
-    }
-  },
-  "src/features/bewerbungen/utils.ts": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
-  "src/features/bewerbungen/zustellLage.ts": {
-    "no-restricted-syntax": {
-      "count": 7
+      "count": 6
     }
   },
   "src/features/dashboard/components/ui/DashboardError.tsx": {
@@ -938,19 +498,6 @@
       "count": 2
     },
     "react/forbid-component-props": {
-      "count": 2
-    }
-  },
-  "src/features/einladungen/actions.ts": {
-    "fl/server-action": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/einladungen/refusals.ts": {
-    "no-restricted-syntax": {
       "count": 2
     }
   },
@@ -1101,113 +648,6 @@
       "count": 3
     }
   },
-  "src/features/kontakte/actions.ts": {
-    "fl/server-action": {
-      "count": 2
-    }
-  },
-  "src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    }
-  },
-  "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 17
-    },
-    "react/jsx-no-literals": {
-      "count": 11
-    }
-  },
-  "src/features/kontakte/components/forms/AdminKontakteEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "src/features/kontakte/components/views/AdminKontakteEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/kontakte/kontakteDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "src/features/kontakte/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
-  "src/features/registrierungen/components/collections/AdminRegistrierungenList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
   "src/features/registrierungen/components/collections/RegistrierungenList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
@@ -1222,20 +662,6 @@
       "count": 8
     }
   },
-  "src/features/registrierungen/components/views/AdminRegistrierungenView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
   "src/features/registrierungen/components/views/RegistrierungFormPanel.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
@@ -1247,7 +673,7 @@
       "count": 13
     },
     "react/jsx-no-literals": {
-      "count": 8
+      "count": 6
     }
   },
   "src/features/registrierungen/components/views/RegistrierungView.tsx": {
@@ -1302,24 +728,6 @@
       "count": 12
     }
   },
-  "src/features/saisons/actions.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/features/saisons/components/forms/StufenPicker.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    }
-  },
-  "src/features/saisons/components/ui/SaisonBadge.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "src/features/saisons/components/ui/SaisonChip.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -1348,7 +756,7 @@
       "count": 2
     }
   },
-  "src/features/saisons/components/ui/laufendDot.ts": {
+  "src/features/saisons/components/ui/runningDot.ts": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     }
@@ -1699,25 +1107,6 @@
       "count": 2
     }
   },
-  "src/features/spieler/actions.ts": {
-    "fl/server-action": {
-      "count": 7
-    }
-  },
-  "src/features/spieler/components/collections/AdminSpielerTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "no-restricted-syntax": {
-      "count": 22
-    },
-    "react/forbid-component-props": {
-      "count": 13
-    },
-    "react/jsx-no-literals": {
-      "count": 9
-    }
-  },
   "src/features/spieler/components/collections/KaderList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
@@ -1730,121 +1119,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormAustragenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/FormPersonSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/banners.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
     }
   },
   "src/features/spieler/components/forms/ClosedSetSelect.tsx": {
@@ -1861,7 +1135,7 @@
       "count": 1
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/FormKaderZeileAustragenSection.tsx": {
+  "src/features/spieler/components/forms/KaderRowEditForm/FormKaderRowRetireSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     },
@@ -1878,7 +1152,7 @@
       "count": 2
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/FormKaderZeileSection.tsx": {
+  "src/features/spieler/components/forms/KaderRowEditForm/FormKaderRowSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
     },
@@ -1898,24 +1172,7 @@
       "count": 4
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx": {
+  "src/features/spieler/components/forms/KaderRowEditForm/KaderRowEditForm.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
@@ -1932,7 +1189,24 @@
       "count": 1
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/kaderZeileDraftStatus.ts": {
+  "src/features/spieler/components/forms/KaderRowEditForm/KaderRowRetired.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/KaderRowEditForm/kaderRowDraftStatus.ts": {
     "check-file/folder-naming-convention": {
       "count": 1
     },
@@ -1951,31 +1225,7 @@
       "count": 2
     }
   },
-  "src/features/spieler/components/forms/TeamSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/components/modals/AdminDeleteSpielerModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/ui/Nachweis.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/ui/SpielerAngaben.tsx": {
+  "src/features/spieler/components/ui/SpielerDetails.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
     },
@@ -1987,22 +1237,6 @@
     },
     "react/jsx-no-literals": {
       "count": 5
-    }
-  },
-  "src/features/spieler/components/views/AdminSpielerEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/components/views/AdminSpielerView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
     }
   },
   "src/features/spieler/components/views/KaderView.tsx": {
@@ -2029,17 +1263,7 @@
   },
   "src/features/spieler/constants.ts": {
     "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/spieler/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 12
-    }
-  },
-  "src/features/spieler/nachweis.ts": {
-    "no-restricted-syntax": {
-      "count": 1
+      "count": 2
     }
   },
   "src/features/spieler/personActions.ts": {
@@ -2049,12 +1273,7 @@
   },
   "src/features/spieler/refusals.ts": {
     "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/spieler/spielerDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 8
+      "count": 1
     }
   },
   "src/features/system/components/ui/ServerIsLive.tsx": {
@@ -2065,326 +1284,9 @@
       "count": 1
     }
   },
-  "src/features/teams/actions.ts": {
-    "fl/server-action": {
-      "count": 6
-    }
-  },
-  "src/features/teams/components/collections/AdminKontakteList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "no-restricted-syntax": {
-      "count": 23
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/collections/AdminTeamsTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 14
-    },
-    "react/jsx-no-literals": {
-      "count": 6
-    }
-  },
-  "src/features/teams/components/forms/AdminCreateTeamForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/FormAdresseSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/FormAustrittSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 15
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 10
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 21
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 28
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 12
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/FormKontakteLinkSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 19
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 29
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 10
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/FormVereinSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 15
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 19
-    },
-    "react/forbid-component-props": {
-      "count": 15
-    },
-    "react/jsx-no-literals": {
-      "count": 9
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/banners.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/banners.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.test.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/forms/GruppeSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/forms/TeamFormFields.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/teams/components/forms/TrainerZugleichPicker.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    }
-  },
-  "src/features/teams/components/forms/TrikotFarbeSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 8
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/forms/WebsiteUrlField.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/modals/AdminCreateTeamModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/modals/AdminDeleteTeamModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/modals/DescriptionEditModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/teams/components/views/AdminKontakteView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/teams/components/views/AdminTeamEditView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/views/AdminTeamsView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/features/teams/constants.ts": {
     "no-restricted-syntax": {
-      "count": 12
-    }
-  },
-  "src/features/teams/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 14
-    }
-  },
-  "src/features/teams/teamDraftStatus.ts": {
-    "no-restricted-syntax": {
-      "count": 14
+      "count": 3
     }
   },
   "src/shared/components/layout/footer/Footer.tsx": {
@@ -2606,20 +1508,6 @@
       "count": 3
     }
   },
-  "src/shared/components/ui/AddressFields.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 19
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
   "src/shared/components/ui/AdminCrudEmpty.tsx": {
     "no-restricted-syntax": {
       "count": 6
@@ -2679,11 +1567,6 @@
       "count": 4
     }
   },
-  "src/shared/components/ui/Autocomplete.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/shared/components/ui/BackButton.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 3
@@ -2726,11 +1609,6 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/ComboBox.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/shared/components/ui/ConfirmActionRow.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -2743,23 +1621,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/shared/components/ui/ConfirmDeleteModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 8
     }
   },
   "src/shared/components/ui/ConfirmDiscardModal.tsx": {
@@ -2787,11 +1648,6 @@
       "count": 2
     }
   },
-  "src/shared/components/ui/ConfirmReadoutRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "src/shared/components/ui/ConfirmReveal.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -2804,20 +1660,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/shared/components/ui/ConfirmSaveModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 3
     }
   },
   "src/shared/components/ui/ConfirmTypedAddress.tsx": {
@@ -2958,7 +1800,7 @@
   },
   "src/shared/components/ui/FLLogo.tsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "src/shared/components/ui/FieldLabel.tsx": {
@@ -3121,50 +1963,17 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/RefusableSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    }
-  },
-  "src/shared/components/ui/RetiredBadge.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/shared/components/ui/RowActions.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 8
+      "count": 3
     },
     "better-tailwindcss/no-restricted-classes": {
-      "count": 2
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 1
     },
     "react/forbid-component-props": {
-      "count": 12
-    }
-  },
-  "src/shared/components/ui/SaisonSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
       "count": 3
     }
   },
@@ -3260,11 +2069,6 @@
       "count": 4
     }
   },
-  "src/shared/components/ui/brandTile.ts": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    }
-  },
   "src/shared/components/ui/card.ts": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 4
@@ -3343,11 +2147,6 @@
       "count": 2
     }
   },
-  "src/shared/hooks/useReactivation.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/shared/hooks/useSignOut.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -3357,11 +2156,6 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/shared/hooks/useTurnstile.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }

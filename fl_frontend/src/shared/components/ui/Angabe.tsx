@@ -5,7 +5,7 @@ import { NICHT_HINTERLEGT } from "@/shared/utils/format";
 import type { ReactNode } from "react";
 
 /** Exported for a control that cannot hold `Leer`, such as a read-only input's value. */
-export const LEER_CLASSES = "text-foreground-muted not-italic";
+const LEER_CLASSES = "text-foreground-muted not-italic";
 
 /**
  * Every word standing where a value would, an empty fact or a state such as „Nicht bestätigt“ alike, on

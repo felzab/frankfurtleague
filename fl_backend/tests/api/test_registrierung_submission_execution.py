@@ -13,12 +13,13 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import build_schluessel_filter
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.public_router import get_confirmation_view, post_invitation_view, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import (
     compose_confirmation_update,
+    erinnerung_is_due,
 )
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -27,7 +28,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.main import create_app
 from app.shared.folding import league_address
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -58,14 +59,14 @@ AFTER_TODAY = "2026-04-20"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The deadline the submission stores, derived from the bound rather than spelled: a raised bound
 # must move this expectation with it.
-FRIST = "2026-04-08"
+DEADLINE = "2026-04-08"
 
 # Fixed rather than generated, so a failure names the same row every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607960001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960002")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960003")
-OTHER_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960004")
-REVOKED_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960005")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607960003")
+OTHER_INVITATION_OID = ObjectId("6890a1b2c3d4e5f607960004")
+REVOKED_INVITATION_OID = ObjectId("6890a1b2c3d4e5f607960005")
 
 # The raw link values, which exist in the seed and in a recipient's inbox and nowhere else.
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
@@ -79,12 +80,14 @@ OTHER_TEAM_NAME = "Quillhilde"
 PUPIL_EMAIL = "thessaly@beispielschule.de"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"open": True, "end": "2026-04-30"}
+# Its `end` the day before `TODAY`, so an entry today is a nominee's.
+PAST_WINDOW: Mapping[str, Any] = {"open": True, "end": "2026-03-31"}
 
 RULES: Mapping[str, Any] = documents.rules_document(
     number_of_gruppen=2,
     teams_per_gruppe=2,
-    max_kadergroesse=2,
+    max_kader_size=2,
     # Narrowed to two of the six, so a refusal is told from an accident.
     allowed_stufen=["Q1", "Q2"],
 )
@@ -95,7 +98,7 @@ def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
     return documents.team_document(team_id, name, name[:3].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
 
-def einladung_document(
+def invitation_document(
     invitation_id: ObjectId, team_id: ObjectId, token: str, *, revoked_at: str | None = None, saison_id: str = SAISON_ID
 ) -> dict[str, Any]:
     return {
@@ -114,8 +117,8 @@ def payload(**overrides: Any) -> dict[str, Any]:
 
     return {
         "token": TOKEN,
-        "vorname": "Thessaly",
-        "nachname": "Okonkwo-Brandt",
+        "first_name": "Thessaly",
+        "last_name": "Okonkwo-Brandt",
         "email": PUPIL_EMAIL,
         "position": "Mittelfeld",
         "nummer": "17",
@@ -127,11 +130,11 @@ def payload(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def saison_document(saison_id: str, status: str, registrierung: Any, *, start_date: str = AFTER_TODAY) -> dict[str, Any]:
+def saison_document(saison_id: str, status: str, registrierung: Any) -> dict[str, Any]:
     return documents.saison_document(
         saison_id,
         status,
-        start_date=start_date,
+        start_date=AFTER_TODAY,
         rules=dict(RULES),
         bewerbung=None,
         registrierung=None if registrierung is None else dict(registrierung),
@@ -156,7 +159,6 @@ def on_a_league(
     banned: str | None = None,
     banned_until: str = STANDING,
     saison_status: str = "active",
-    start_date: str = AFTER_TODAY,
 ) -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
 
@@ -166,14 +168,14 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung, start_date=start_date))
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
             await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
             await database[Collection.INVITATIONS].insert_many(
                 [
-                    einladung_document(EINLADUNG_OID, TEAM_OID, TOKEN),
-                    einladung_document(OTHER_EINLADUNG_OID, OTHER_TEAM_OID, OTHER_TOKEN),
-                    einladung_document(REVOKED_EINLADUNG_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
+                    invitation_document(INVITATION_OID, TEAM_OID, TOKEN),
+                    invitation_document(OTHER_INVITATION_OID, OTHER_TEAM_OID, OTHER_TOKEN),
+                    invitation_document(REVOKED_INVITATION_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
                 ]
             )
 
@@ -193,6 +195,15 @@ def on_a_league(
             return await body(database, client)
 
     return on_the_seed_loop(_run())
+
+
+async def leave(database: AsyncDatabase) -> None:
+    """The Austritt of the first club, whose link every case here presses."""
+
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"saison_id": SAISON_ID, "team_id": TEAM_OID},
+        {"$set": {"austritt": {"type": "rueckzug", "reason": "Mannschaft zurückgezogen", "date": TODAY}}},
+    )
 
 
 # A version-4 key, as `crypto.randomUUID()` mints one, fixed so a failure names the same press.
@@ -219,6 +230,7 @@ async def register(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         outbox_collection=database[Collection.OUTBOX],
+        mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
         ban_list=ban_list(database),
         db=client,
         today=TODAY,
@@ -246,8 +258,8 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
     """The pupil's confirmation and a confirmed seat beside it, then the team's own admission through its handler."""
 
     confirmation = compose_confirmation_update(
-        geburtsdatum="2009-05-04",
-        scope="intern",
+        birth_date="2009-05-04",
+        scope="internal",
         media=False,
         text_versions=SPIELER_TEXT_VERSIONS,
         today=TODAY,
@@ -272,7 +284,6 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         action_log_collection=database[Collection.ACTION_LOG],
         ban_list=ban_list(database),
         db=client,
-        today=TODAY,
         germany_now=NOW,
     )
 
@@ -303,13 +314,13 @@ class TestWhatASubmissionStores:
             "invitation_id",
             "submitted_at",
             "status",
-            "vorname",
-            "nachname",
+            "first_name",
+            "last_name",
             "email",
             "position",
             "nummer",
             "stufe",
-            "geburtsdatum",
+            "birth_date",
             "einwilligung",
             "confirmation",
             "decision",
@@ -329,11 +340,11 @@ class TestWhatASubmissionStores:
 
         assert stored["saison_id"] == SAISON_ID
         assert stored["team_id"] == TEAM_OID
-        assert stored["invitation_id"] == EINLADUNG_OID
+        assert stored["invitation_id"] == INVITATION_OID
         assert stored["status"] == "submitted"
         assert stored["submitted_at"] == TODAY
         # Present and null, never absent: the confirmation fills the first two and a decline the third.
-        assert stored["geburtsdatum"] is None
+        assert stored["birth_date"] is None
         assert stored["einwilligung"] is None
         assert stored["decision"] is None
 
@@ -351,7 +362,7 @@ class TestWhatASubmissionStores:
 
         assert stored["confirmation"]["token_hashes"] == []
         assert (stored["confirmation"]["sent_at"], stored["confirmation"]["reminded_at"]) == (TODAY, None)
-        assert [(row["kind"], row["an"], row["reference"]["id"], row["link"]) for row in owed] == [
+        assert [(row["kind"], row["to"], row["reference"]["id"], row["link"]) for row in owed] == [
             (
                 "registrierung_confirmation",
                 PUPIL_EMAIL,
@@ -364,7 +375,7 @@ class TestWhatASubmissionStores:
             "kind": "registrierung_confirmation",
             "team": TEAM_NAME,
             "saison_id": SAISON_ID,
-            "frist_days": REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
+            "deadline_days": REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
         }
 
     def test_the_link_the_hand_out_mints_opens_the_registration(self, mongo_replica_set_url: str):
@@ -378,6 +389,7 @@ class TestWhatASubmissionStores:
             return await get_confirmation_view(
                 view_data=FLTokenPayload(token=mail.token),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
                 ban_list=ban_list(database),
@@ -396,8 +408,8 @@ class TestWhatASubmissionStores:
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert REGISTRIERUNG_CONFIRMATION_FRIST_DAYS == 7
-        assert stored["confirmation"]["frist"] == FRIST
+        assert REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS == 7
+        assert stored["confirmation"]["deadline"] == DEADLINE
 
     def test_neither_a_person_nor_a_squad_row_is_written(self, mongo_replica_set_url: str):
         """Nothing about a pending registration reaches the two collections an admission writes."""
@@ -448,7 +460,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await register(database, client, key=SCHLUESSEL)
-            await database[Collection.INVITATIONS].update_one({"_id": EINLADUNG_OID}, {"$set": {"revoked_at": TODAY}})
+            await database[Collection.INVITATIONS].update_one({"_id": INVITATION_OID}, {"$set": {"revoked_at": TODAY}})
             second = await register(database, client, key=SCHLUESSEL)
 
             return first.registrierung_id, second.registrierung_id
@@ -496,7 +508,7 @@ class TestTheSubmissionKey:
         assert after == before and len(before) == 2
 
     def test_a_press_whose_lookup_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
-        """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the insert as a write conflict."""
+        """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the mailbox's anchor as a write conflict."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             committed = asyncio.Event()
@@ -516,8 +528,8 @@ class TestTheSubmissionKey:
         first, second, lookups, failures, stored = on_a_league(mongo_replica_set_url, body)
 
         assert (second, stored) == (first, 1)
-        # 112 is `WriteConflict`, which `with_transaction` retries: the second run's lookup finds the row.
-        assert (lookups, failures) == (2, ["OperationFailure:112"])
+        # `with_transaction` retries the anchor's `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
+        assert (lookups, failures) == (2, [])
 
     def test_the_lookup_the_endpoint_sends_is_the_one_its_index_serves(self, mongo_replica_set_url: str):
         """A bare equality scans the collection (`fl_backend/tests/core/test_constraints_execution.py`)."""
@@ -531,7 +543,7 @@ class TestTheSubmissionKey:
 
             return held.lookup_filters
 
-        assert on_a_league(mongo_replica_set_url, body) == [build_schluessel_filter(key=str(SCHLUESSEL))]
+        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(SCHLUESSEL))]
 
     def test_a_press_carrying_no_key_is_still_taken_and_stores_none(self, mongo_replica_set_url: str):
         """A page loaded before the form sent one: stored and mailed, unprotected, and outside the unique index."""
@@ -546,18 +558,6 @@ class TestTheSubmissionKey:
         assert len({answer.registrierung_id for answer in answers}) == 2
         assert len(rows) == len(owed) == 2
         assert not any("idempotency_key" in row or "idempotency_fingerprint" in row for row in rows)
-
-    def test_two_presses_at_once_store_one_row(self, mongo_replica_set_url: str):
-        """The loser's lookup finds the winner's row, or its insert meets that row as a write conflict whose retry does."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answers = await asyncio.gather(register(database, client, key=SCHLUESSEL), register(database, client, key=SCHLUESSEL))
-
-            return {answer.registrierung_id for answer in answers}, len(await rows_of(database))
-
-        ids, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert (len(ids), stored) == (1, 1)
 
 
 @functools.cache
@@ -609,15 +609,126 @@ class TestTheKeyOverTheWire:
 
         assert on_a_league(mongo_replica_set_url, body) == (422, 0)
 
-    def test_a_press_carrying_no_key_is_still_taken(self, mongo_replica_set_url: str):
-        """A page loaded before the form sent one: stored, unprotected, and outside the unique index."""
+
+class TestAMailboxPastTheBound:
+    """One address typed through a link passed around: nothing refuses the press, and past the bound nothing more is owed that mailbox."""
+
+    def test_the_press_past_the_bound_is_stored_and_owes_nothing_and_no_reminder_reaches_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            mailed = len(await owed_of(database))
+            await register(database, client)
+            rows = await rows_of(database)
+
+            return len(rows), len(await owed_of(database)) - mailed, rows[-1]["confirmation"]
+
+        stored, more, confirmation = on_a_league(mongo_replica_set_url, body)
+
+        assert (stored, more) == (OPEN_LINKS_PER_MAILBOX + 1, 0)
+        assert confirmation["sent_at"] is None
+        # On the mark, inside the deadline: the sent day is all that stands between this row and its reminder.
+        the_mark = days_after(day=TODAY, days=REGISTRIERUNG_REMINDER_DAYS)
+        assert not erinnerung_is_due(registrierung_raw={"status": "submitted", "confirmation": confirmation}, today=the_mark)
+        assert erinnerung_is_due(registrierung_raw={"status": "submitted", "confirmation": {**confirmation, "sent_at": TODAY}}, today=the_mark)
+
+    def test_a_plus_tag_is_the_same_mailbox(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for tag in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client, email=f"victim+{tag}@example.com")
+            await register(database, client, email="victim@example.com")
+
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) is None
+
+    def test_an_answered_link_frees_its_place(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": {"einwilligung": {"confirmed_at": TODAY}}})
+            await register(database, client)
+
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
+
+    def test_two_presses_at_once_stop_at_the_bound(self, mongo_replica_set_url: str):
+        """The second read its count before the first committed, so only a conflict sends it back to the first's row.
+
+        Tags of one mailbox, its document gone as a mailbox's is after an hour, so the two meet on the insert and on one key.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
+            first, second_address = "victim+first@example.com", "victim+second@example.com"
+            for tag in range(OPEN_LINKS_PER_MAILBOX - 1):
+                await register(database, client, email=f"victim+{tag}@example.com")
+            await database[Collection.MAILBOX_ANCHORS].delete_many({})
+            committed = asyncio.Event()
+            held = HoldsAfterItsLookup(database[Collection.REGISTRIERUNGEN], committed)
+            second = asyncio.create_task(register(database, client, registrierungen=held, email=second_address))
+            await held.until_held(second)
+
+            try:
+                await register(database, client, email=first)
+            except BaseException:
+                await held.abandon(second)
+                raise
+            committed.set()
+            await second
+            days = {row["email"]: row["confirmation"]["sent_at"] for row in await rows_of(database)}
+
+            return [days[first], days[second_address]]
+
+        assert on_a_league(mongo_replica_set_url, body) == [TODAY, None]
+
+    def test_a_press_finding_the_mailbox_full_writes_no_document(self, mongo_replica_set_url: str):
+        """A write would conflict with every rival, at one press a second a mailbox, and a flood's presses would fail a real pupil's."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            before = await database[Collection.MAILBOX_ANCHORS].find().to_list(length=None)
+            await register(database, client)
+
+            return before, await database[Collection.MAILBOX_ANCHORS].find().to_list(length=None)
+
+        before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert after == before
+        assert before and not any("@" in row["_id"] for row in before)
+
+    def test_rows_left_unmailed_hold_no_link(self, mongo_replica_set_url: str):
+        """A flood's stored rows hold nothing of the mailbox once its mailed links are answered."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await over_the_wire(mongo_replica_set_url, key=None)
+            for _ in range(2 * OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            await database[Collection.REGISTRIERUNGEN].update_many(
+                {"confirmation.sent_at": TODAY}, {"$set": {"einwilligung": {"confirmed_at": TODAY}}}
+            )
+            await register(database, client)
 
-            return response.status_code, [("idempotency_key" in row) for row in await rows_of(database)]
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, [False])
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
+
+    @pytest.mark.parametrize(
+        "moved",
+        [pytest.param({"status": "declined"}, id="a registration decided"), pytest.param({"saison_id": "2025"}, id="another season's")],
+    )
+    def test_only_the_seasons_open_registrations_count(self, mongo_replica_set_url: str, moved: dict[str, str]):
+        """A team's decline leaves the pupil free to register again, and a person keeps their address from one season to the next."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": moved})
+            await register(database, client)
+
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
 
 
 class TestWhatASubmissionIsRefused:
@@ -650,7 +761,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "offen": False})
+        outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False})
 
         assert outcome == (Code.REGISTRIERUNG_CLOSED, 0)
 
@@ -685,6 +796,40 @@ class TestWhatASubmissionIsRefused:
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_STUFE_NOT_ALLOWED, 0)
 
+    def test_a_departed_team_s_link_stores_nothing(self, mongo_replica_set_url: str):
+        """Refused as a dead link, ahead of the window: a squad grows no further once its club has left the season."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            await leave(database)
+            with pytest.raises(APIError) as refused:
+                await register(database, client)
+
+            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False}) == (Code.DOCUMENT_NOT_FOUND, 0)
+
+    def test_a_nominee_is_taken_by_a_full_squad(self, mongo_replica_set_url: str):
+        """Past the window's `end` the cap holds nobody, and the row counts neither way until a team admits it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
+            await register(database, client)
+
+            return await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body, registrierung=PAST_WINDOW, squad=RULES["max_kader_size"]) == 1
+
+    def test_nominees_leave_the_cap_to_an_ordinary_entry(self, mongo_replica_set_url: str):
+        """Counted, a late pupil would shut the link on a regular one, on the page and at the write alike."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, int]:
+            await database[Collection.SAISON_SPIELER].update_many({}, {"$set": {"is_nachnominiert": True}})
+            answer = await view(database)
+            await register(database, client)
+
+            return answer.kader_free, await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == (True, 1)
+
     def test_a_full_squad_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             with pytest.raises(APIError) as refused:
@@ -692,7 +837,7 @@ class TestWhatASubmissionIsRefused:
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kadergroesse"]) == (Code.REGISTRIERUNG_KADER_FULL, 0)
+        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == (Code.REGISTRIERUNG_KADER_FULL, 0)
 
     def test_a_retired_squad_row_gives_its_place_back(self, mongo_replica_set_url: str):
         """Counted as the squad editor counts: a player who left the squad is not holding a place."""
@@ -703,7 +848,7 @@ class TestWhatASubmissionIsRefused:
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kadergroesse"]) == 1
+        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == 1
 
     def test_two_submissions_for_one_remaining_place_both_land(self, mongo_replica_set_url: str):
         """The declared race, pinned so a later reader does not read it as a defect.
@@ -718,7 +863,7 @@ class TestWhatASubmissionIsRefused:
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kadergroesse"] - 1) == 2
+        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"] - 1) == 2
 
     def test_a_banned_address_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
@@ -741,16 +886,6 @@ class TestWhatASubmissionIsRefused:
         assert league_address(BANNED_EMAIL.upper()) == league_address(BANNED_EMAIL)
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADDRESS_BARRED
 
-    def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):
-        """The other arm of the ban check, so a check refusing everybody would fail here rather than pass quietly."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await register(database, client)
-
-            return await database[Collection.REGISTRIERUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == 1
-
 
 class TestALapsedBan:
     def test_a_lapsed_ban_refuses_nobody(self, mongo_replica_set_url: str):
@@ -767,31 +902,13 @@ class TestALapsedBan:
 class TestWhatTheInvitesOwnReadAnswers:
     """The read a link opens, which refuses only an invite that opens nothing."""
 
-    def test_it_names_the_team_and_the_school_the_consent_copy_renders(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await view(database)
-
-        answer = on_a_league(mongo_replica_set_url, run)
-
-        assert answer.team == TEAM_NAME
-        assert answer.schule == TEAM_FULL_NAME
-        assert answer.saison_id == SAISON_ID
-
-    def test_it_answers_the_set_the_form_may_offer(self, mongo_replica_set_url: str):
-        """The read and the write are one field, so a form offering more than this is a drifted client."""
-
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await view(database)
-
-        assert on_a_league(mongo_replica_set_url, run).allowed_stufen == list(RULES["allowed_stufen"])
-
     def test_a_shut_window_is_a_state_rather_than_a_refusal(self, mongo_replica_set_url: str):
         """A link pasted after the deadline reads as closed rather than as invalid."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await view(database)
 
-        answer = on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "offen": False})
+        answer = on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "open": False})
 
         assert answer.running is False
 
@@ -814,21 +931,36 @@ class TestWhatTheInvitesOwnReadAnswers:
 
         assert on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
 
-    def test_the_squad_has_room_until_the_cap_is_reached(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return (await view(database)).kader_free
-
-        assert on_a_league(mongo_replica_set_url, run) is True
-        assert on_a_league(mongo_replica_set_url, run, squad=RULES["max_kadergroesse"]) is False
-
-    def test_the_nachnominierung_verdict_turns_on_the_seasons_start(self, mongo_replica_set_url: str):
-        """False the day before it, true on it: the squad create's own test, off the season the read already holds."""
+    def test_the_nachnominierung_verdict_turns_on_the_windows_end(self, mongo_replica_set_url: str):
+        """The page tells a pupil what an entry submitted today would store, off the season the read already holds."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             return (await view(database)).nachnominierung
 
-        assert on_a_league(mongo_replica_set_url, run, start_date="2026-04-02") is False
-        assert on_a_league(mongo_replica_set_url, run, start_date=TODAY) is True
+        assert on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "end": TODAY}) is False
+        assert on_a_league(mongo_replica_set_url, run, registrierung=PAST_WINDOW) is True
+
+    def test_a_link_past_the_windows_end_stays_open_to_a_full_squad(self, mongo_replica_set_url: str):
+        """A nominee stands outside the cap, so a page reading the cap would shut the one way a late pupil has in."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:
+            answer = await view(database)
+
+            return answer.running, answer.kader_free
+
+        assert on_a_league(mongo_replica_set_url, run, registrierung=PAST_WINDOW, squad=RULES["max_kader_size"]) == (True, True)
+
+    def test_a_departed_team_s_link_is_refused(self, mongo_replica_set_url: str):
+        """A squad grows no further once its club has left, so the page opens as a dead link rather than as a form."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await leave(database)
+            with pytest.raises(APIError) as refused:
+                await view(database)
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
 
     def test_a_team_the_season_does_not_hold_is_a_state_the_page_can_word(self, mongo_replica_set_url: str):
         """The second club's link opens: the read answers rather than refusing, and says the team is not entered.

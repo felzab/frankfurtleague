@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy, Verb } from "@/core/copy";
+import type { Copy, Verb, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
@@ -19,6 +19,12 @@ export type DialogAct = {
   action: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
   children: ReactNode;
+  /** The record the act is about, posted beside the inputs under these names, as a mailed form carries its key. */
+  carry?: Readonly<Record<string, string>>;
+  /** One line under the title naming what the inputs are about, such as the seat a person is written into. */
+  lead?: Words;
+  /** `danger` for an act taking a record out of something, as a danger box's question names its verb's tone. */
+  tone?: "primary" | "danger";
 };
 
 /** The act's label, on the dialog's own button and on a trigger naming the same act. */

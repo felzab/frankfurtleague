@@ -3,19 +3,112 @@ import { Activity } from "react";
 import { redirect } from "next/navigation";
 
 import { act, renderHook } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { AccountBox } from "./AccountBox";
 import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
+import { EditorPage } from "./EditorPage";
+import { OneShotForm } from "./OneShot";
+import { SignInPage } from "./SignInPage";
+import { StepCard } from "./StepCard";
+import { TextField } from "./TextField";
+import { useEditor } from "./useEditor";
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 // The hook reads the page again through Next's router, which no test mounts.
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
+
+const WORDS = COPY.signIn;
+const refused = async () => ({ ok: false, reason: COPY.shared.failure.stale }) as const;
+
+/** An editor of one text box, which Enter submits with no submit button on the form. */
+function HeldEditor() {
+  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, refused);
+  return (
+    <EditorPage
+      title={{ record: "Riedberg" }}
+      editor={editor}
+      sections={[
+        {
+          id: "ort",
+          title: WORDS.address,
+          fields: (
+            <TextField
+              label={WORDS.address}
+              name="name"
+              width="W3"
+              kind="text"
+              value={editor.draft.name}
+            />
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+// A press before hydration is the browser's own: without React's holding action, a GET with every field in the URL,
+// which nothing on the page shows until a person reads the address bar or a log keeps the query.
+describe("a form a visitor reaches before hydration", () => {
+  it.each<[string, ReactElement]>([
+    [
+      "the sign-in's address",
+      <SignInPage
+        key="sign-in"
+        view="address"
+        title={WORDS.title}
+        row={null}
+        address={{ label: WORDS.address, value: "", onChange: () => undefined }}
+        check={null}
+        send={{ label: WORDS.sendCode, onPress: () => undefined }}
+        or={WORDS.or}
+        passkey={{ label: WORDS.withPasskey, onPress: () => undefined }}
+      />,
+    ],
+    [
+      "a Konto box",
+      <AccountBox
+        key="account"
+        title={WORDS.address}
+        description={COPY.account.address.description}
+        act={{ run: refused, button: { label: WORDS.sendCode } }}
+      />,
+    ],
+    [
+      "a one-shot form",
+      <OneShotForm
+        key="one-shot"
+        head={<p />}
+        action={refused}
+        acts={{ primary: WORDS.sendCode }}
+      />,
+    ],
+    ["an editor", <HeldEditor key="editor" />],
+    [
+      "a run's card",
+      <StepCard
+        key="step"
+        title={WORDS.title}
+        line={WORDS.title}
+        facts={[]}
+        onNext={() => undefined}
+        onSkip={() => undefined}>
+        <p />
+      </StepCard>,
+    ],
+  ])("hands %s to React, never the browser", (_, form) => {
+    const held = document.createElement("div");
+    held.innerHTML = renderToString(form);
+    expect(held.querySelector("form")?.getAttribute("action")).toMatch(/^javascript:/);
+  });
+});
 
 describe("a form's action through the one wrapper", () => {
   it("answers as the action answered", async () => {
@@ -52,8 +145,8 @@ describe("a form's action through the one wrapper", () => {
 
 describe("a form's status line for a refusal", () => {
   it("points at the fields rather than repeat a reason they already carry", () => {
-    const plz = COPY.shared.field.required;
-    expect(statusOf({ ok: false, fieldErrors: { plz }, reason: plz }, false, false)).toStrictEqual({
+    const postcode = COPY.shared.field.required;
+    expect(statusOf({ ok: false, fieldErrors: { postcode }, reason: postcode }, false, false)).toStrictEqual({
       tone: "error",
       text: COPY.template.checkFields,
     });
@@ -61,9 +154,9 @@ describe("a form's status line for a refusal", () => {
 
   // A boxed refusal and a sentence in one answer: the sentence is said nowhere else, so the line says it.
   it("says a reason no box says, beside the boxes that say theirs", () => {
-    const plz = COPY.shared.field.required;
+    const postcode = COPY.shared.field.required;
     const reason = SERVER_COPY.ruleLine.elfmeterschiessen_without_draw;
-    expect(statusOf({ ok: false, fieldErrors: { plz }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
+    expect(statusOf({ ok: false, fieldErrors: { postcode }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
   });
 
   it("says nothing while the next send is on its way, so the same refusal again is announced again", () => {

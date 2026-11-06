@@ -60,7 +60,10 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
             href={school.href}
             placement="card">
             <span className={slots.content({ class: school.muted === true ? "text-fg-muted" : undefined })}>
-              <TeamPlaque plaque={school.plaque} />
+              <TeamPlaque
+                plaque={school.plaque}
+                muted={school.muted === true}
+              />
               <span className="grid min-w-0">
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="min-w-0">{school.name.record}</span>
@@ -94,11 +97,6 @@ export function SchoolTilesPlaceholder({ count }: { count: number }) {
               <PlaceholderLine
                 text="text-sm"
                 width="w-3/4"
-              />
-              {/* A school's name breaks at its hyphen on a phone's narrow tile, as most of the league's names do. */}
-              <PlaceholderLine
-                text="text-sm lg:hidden"
-                width="w-1/2"
               />
               <PlaceholderLine
                 text="text-xs"

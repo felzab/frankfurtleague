@@ -43,7 +43,7 @@ router = APIRouter(
 )
 
 
-def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
+def _as_seat(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
     person = kontakte.get(slot)
     if not isinstance(person, Mapping):
         return FLTeamSeat.model_validate({"rolle": slot, "name": None, "confirmed": False})
@@ -51,7 +51,7 @@ def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
     return FLTeamSeat.model_validate(
         {
             "rolle": slot,
-            "name": " ".join(str(person.get(field) or "").strip() for field in ("vorname", "nachname")).strip() or None,
+            "name": " ".join(str(person.get(field) or "").strip() for field in ("first_name", "last_name")).strip() or None,
             "confirmed": seat_is_confirmed({"kontakte": kontakte}, slot),
         }
     )
@@ -82,12 +82,12 @@ async def get_team_seats(
         # The seat just judged lives on this row, read in the same snapshot, so it stands and no 404 is owed.
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            [f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("vorname", "nachname", "einwilligung.confirmed_at")],
+            [f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("first_name", "last_name", "einwilligung.confirmed_at")],
             session=session,
         )
         kontakte = (row or {}).get("kontakte") or {}
 
-    return FLTeamSeatsResponse(team_id=team_id, saison_id=saison_id, seats=[_as_sitz(kontakte, slot) for slot in KONTAKT_ROLLEN])
+    return FLTeamSeatsResponse(team_id=team_id, saison_id=saison_id, seats=[_as_seat(kontakte, slot) for slot in KONTAKT_ROLLEN])
 
 
 @router.patch(
@@ -113,7 +113,7 @@ async def patch_einwilligung(
     One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
     differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
     other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
-    other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
+    other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`
     to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
     person confirmed a seat on, a past season's included.
 
@@ -134,7 +134,7 @@ async def patch_einwilligung(
     async def write(session: AsyncClientSession) -> None:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
+            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "birth_date", "einwilligung")},
             session=session,
         )
         rollen = [] if row is None else own_seats(row, identifier)
@@ -150,7 +150,7 @@ async def patch_einwilligung(
 
         await press_einwilligung(
             blocks=[seat["einwilligung"] for seat in seats.values()],
-            birth_dates=[seat.get("geburtsdatum") for seat in seats.values()],
+            birth_dates=[seat.get("birth_date") for seat in seats.values()],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
             text_versions=einwilligung_data.text_versions,

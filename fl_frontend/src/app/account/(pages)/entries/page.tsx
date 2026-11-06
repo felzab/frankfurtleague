@@ -1,8 +1,13 @@
 import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
+import { CheckboxPlaceholder } from "@/kit/Checkbox";
+import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
+import { FactsPlaceholder } from "@/kit/Facts";
+import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
+import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum } from "@/core/format";
+import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountEinwilligungen } from "@/features/account/queries";
@@ -22,11 +27,14 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 const { entries: WORDS } = COPY.account;
 
-/** A fact the record holds, left out where it holds none. */
-const fact = (label: Copy, value: string | null): Fact[] => (value === null || value === "" ? [] : [{ label, value: { record: value } }]);
+/** A fact of the record, a dash where it holds none. */
+const fact = (label: Copy, value: string | null): Fact => ({
+  label,
+  value: value === null || value === "" ? COPY.shared.noValue : { record: value },
+});
 
 /** A birthdate as a list writes a day. */
-const birthday = (datum: string | null): Fact[] => fact(WORDS.facts.birthday, datum === null ? null : formatDatum(dayOf(datum)));
+const birthday = (date: string | null): Fact => fact(COPY.shared.facts.birthday, date === null ? null : formatDate(dayOf(date)));
 
 /** Why the media choice may not be given, where the record is short of its floor and the choice is not held. */
 const mediaFrom = (offered: boolean, floor: number): Copy | null => (offered ? null : WORDS.mediaFrom(floor));
@@ -41,12 +49,12 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             id: `spieler-${spieler.spieler_id}`,
             title: COPY.shared.kader,
             description: WORDS.description.spieler,
-            facts: [...fact(COPY.shared.name, `${spieler.vorname} ${spieler.nachname ?? ""}`.trim()), ...birthday(spieler.geburtsdatum)],
+            facts: [fact(COPY.shared.name, `${spieler.first_name} ${spieler.last_name ?? ""}`.trim()), birthday(spieler.birth_date)],
             save: { kind: "spieler" },
             scope: spieler.einwilligung.scope,
             media: spieler.einwilligung.media,
             evidence: spieler.evidence_state,
-            givable: spieler.givable,
+            givable: true,
             mediaFrom: mediaFrom(spieler.media_offered, spieler.media_minimum_age),
           },
         ];
@@ -55,11 +63,11 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     title: COPY.shared.schiedsrichter,
     description: WORDS.description.schiedsrichter,
     facts: [
-      ...fact(COPY.shared.name, row.name),
-      ...birthday(row.geburtsdatum),
-      ...fact(WORDS.facts.school, row.schule),
-      ...fact(COPY.signIn.address, row.kontakt.email),
-      ...fact(WORDS.facts.phone, row.kontakt.telefon),
+      fact(COPY.shared.name, row.name),
+      birthday(row.birth_date),
+      fact(COPY.shared.facts.school, row.schule),
+      fact(COPY.signIn.address, row.kontakt.email),
+      fact(COPY.shared.facts.phone, row.kontakt.phone),
     ],
     save: { kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id },
     scope: row.einwilligung.scope,
@@ -78,11 +86,11 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             title: COPY.page.registrierung,
             description: WORDS.description.registrierung,
             facts: [
-              ...fact(COPY.shared.name, `${row.vorname} ${row.nachname}`),
-              ...birthday(row.geburtsdatum),
+              fact(COPY.shared.name, `${row.first_name} ${row.last_name}`),
+              birthday(row.birth_date),
               // The team's season, or the season alone where the team no longer stands.
-              ...fact(
-                WORDS.facts.team,
+              fact(
+                COPY.shared.facts.team,
                 row.team_name === null
                   ? COPY.shared.saisonName(row.saison_id)
                   : WORDS.teamSeason({ record: row.team_name }, COPY.shared.saisonName(row.saison_id)),
@@ -102,7 +110,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     id: `seat-${seat.team_id}-${seat.saison_id}`,
     title: { record: seat.team_name },
     description: WORDS.description.seat(seat.rollen),
-    facts: fact(WORDS.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id))),
+    facts: [fact(COPY.shared.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id)))],
     save: { kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id },
     scope: seat.scope,
     media: seat.media,
@@ -115,7 +123,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     // An application stands for no team yet: titled as its page is, by the season it applies for.
     title: COPY.page.bewerbung(bewerbung.saison_id),
     description: WORDS.description.seat(bewerbung.rollen),
-    facts: fact(WORDS.facts.school, bewerbung.schule),
+    facts: [fact(COPY.shared.facts.school, bewerbung.schule)],
     save: { kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id },
     scope: bewerbung.scope,
     media: bewerbung.media,
@@ -144,16 +152,34 @@ async function EntriesContent() {
   );
 }
 
-/** Deine Einträge: each record of the person's own, with its consents. */
+/**
+ * Deine Einträge: each record of the person's own, with its consents. It waits in one box of the commonest kind, a
+ * pupil's, in that kind's own words: which records stand is what the read decides.
+ */
 export default function AccountEntriesPage() {
   return (
     <AccountPage
       route="accountEntries"
       wait={
         <AccountBoxPlaceholder
-          rows={2}
-          foot
-        />
+          description={WORDS.description.spieler}
+          foot={COPY.shared.verb.save}>
+          <FactsPlaceholder
+            pairs={2}
+            look="free"
+          />
+          <RadioGroupPlaceholder
+            label={SPIELER_WORDINGS.scope.question}
+            choices={Object.values(SPIELER_WORDINGS.scope.options)}
+          />
+          <ConsentLinePlaceholder line={SPIELER_WORDINGS.scope.line} />
+          {/* The floor is the record's; any two figures stand as wide. */}
+          <CheckboxPlaceholder
+            label={SPIELER_WORDINGS.media.label}
+            description={WORDS.mediaFrom(18)}
+          />
+          <ConsentLinePlaceholder line={SPIELER_WORDINGS.media.line} />
+        </AccountBoxPlaceholder>
       }>
       <EntriesContent />
     </AccountPage>

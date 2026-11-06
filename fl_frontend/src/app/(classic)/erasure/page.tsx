@@ -1,6 +1,7 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
-import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { erasureLinkStands } from "@/core/auth/accounts";
 import { getAccountSession } from "@/core/auth/guards";
@@ -26,7 +27,8 @@ import type { Metadata, ResolvingMetadata, Route } from "next";
 /** A row no crawler fetches, under the mailed pages' referrer. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.accountErasure;
-  return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
+  const title = mailedTitle(await readState(), row.title);
+  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 
 const WORDS = SERVER_COPY.accountErasure;
@@ -39,20 +41,28 @@ const ENTRIES = COPY.account.entries;
  * sign in; another account's is refused at the press, nothing on a signed-out request naming whose it is.
  */
 export default function AccountErasurePage() {
-  return <MailedPage page={readState()} />;
+  return (
+    <MailedPage
+      page={readState()}
+      // The address and the one kind of record most people hold, a pupil's entry or a contact's seat.
+      facts={2}
+      act={COPY.page.accountErasure}
+    />
+  );
 }
 
-async function readState(): Promise<MailedState> {
+// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`, which would hand one person's list to another.
+const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
-  if (token === null || !(await erasureLinkStands(token))) return { state: "ungueltig", next: TO_ACCOUNT };
+  if (token === null || !(await erasureLinkStands(token))) return { state: "invalid", next: TO_ACCOUNT };
 
   // A signed-out browser signs in and returns to this page, whose cookie holds the token past the sign-in.
   const link = ROUTES.accountErasure.path();
   const subject = await getSubjectSession();
   if (subject === null) {
     return {
-      state: "ende",
+      state: "end",
       tone: "info",
       title: COPY.page.accountErasure,
       next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) as Route },
@@ -76,11 +86,11 @@ async function readState(): Promise<MailedState> {
     sentence: WORDS.question,
     action: eraseAccount,
     acts: { primary: COPY.page.accountErasure },
-    carry: { token: token, holder: subject.email },
+    carry: { token, holder: subject.email },
     // Every person holding a passkey touches it first, an administrator always among them.
     touch: passkeys > 0,
   };
-}
+});
 
 /** What goes, one row per label, the records the erasure view reads under it: the list a deletion erases. */
 function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResponse): Fact[] {
@@ -89,7 +99,8 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
 
-  for (const { vorname, nachname } of spieler) add(ENTRIES.spieler, { record: nachname === null ? vorname : `${vorname} ${nachname}` });
+  for (const { first_name: firstName, last_name: lastName } of spieler)
+    add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
   for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, name === null ? COPY.shared.notProvided : { record: name });
   for (const { rolle, team_name, saison_id } of seats) {
     add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
@@ -100,13 +111,13 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   }
 
   const count = (label: Copy, figure: number): Fact[] =>
-    figure === 0 ? [] : [{ label: label, value: { record: formatNumber(figure) }, figures: true }];
+    figure === 0 ? [] : [{ label, value: { record: formatNumber(figure) }, figures: true }];
 
   return [
     { label: COPY.signIn.address, value: { record: email } },
     ...count(WORDS.passkeys, passkeys),
     ...[...records].map(([label, held]): Fact => ({
-      label: label,
+      label,
       value: held.length === 1 && held[0] !== undefined ? held[0] : ENTRIES.several(held),
     })),
     ...count(WORDS.addressChanges, address_change),

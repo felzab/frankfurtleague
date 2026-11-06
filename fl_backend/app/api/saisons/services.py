@@ -42,12 +42,22 @@ def base_tier_status_term() -> dict[str, Any]:
 def has_started(*, start_date: str, today: str) -> bool:
     """Whether a season has started: from its `start_date`, the German day `today` is, onwards.
 
-    The one start every start lock, the Nachnominierung and the landing read, so the countdown reaching 00:00 in
-    Berlin and the locks closing are one instant. A date and never a fixture: the season's own field is what an
-    administrator sets, and a start read off the earliest match moved whenever a match was re-dated.
+    The one start every start lock and the landing read, so the countdown reaching 00:00 in Berlin and the locks closing
+    are one instant. A date and never a fixture: the season's own field is what an administrator sets, and a start read
+    off the earliest match moved whenever a match was re-dated.
     """
 
     return start_date <= today
+
+
+def entry_is_a_nominee(*, registrierung: Mapping[str, Any] | None, day: str) -> bool:
+    """Whether a squad entry dated `day` is a Nachnominierung: one past the end of the season's registration window.
+
+    The one verdict the marker, the cap and the link's page read. A season storing no window has no end to pass, so
+    nobody in it is a nominee. The window is null or the whole object the season form writes, `end` included.
+    """
+
+    return registrierung is not None and str(registrierung["end"]) < day
 
 
 type DecidedPodium = tuple[
@@ -165,7 +175,7 @@ SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", 
 REDRAWABLE_SHAPE_FIELD = "qualifiers_per_gruppe"
 
 
-def total_season_fixtures(rules: FLSaisonRules) -> int:
+def total_season_spiele(rules: FLSaisonRules) -> int:
     """Every match these rules imply, the bracket's rounds and its match for third place included.
 
     One fold, so every reader weighs one number against the one read's page: a second reading of
@@ -216,7 +226,7 @@ def find_rules_refusal(
     largest_squad: int = 0,
     # The LARGEST count any single matchday of a phase holds, never the sum.
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
-    drawn_fixtures: int = 0,
+    drawn_spiele: int = 0,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`."""
 
@@ -226,7 +236,7 @@ def find_rules_refusal(
     # ABSOLUTE, in every status and whatever is recorded: the shape and the fixtures drawn from it
     # are one fact, so this path never moves half of it. The whole of it moves on the draw, which
     # takes the three numbers on its own payload.
-    if stored is not None and drawn_fixtures > 0:
+    if stored is not None and drawn_spiele > 0:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
             return WriteRefusal(
@@ -280,12 +290,12 @@ def find_rules_refusal(
 
     # AFTER the bracket rule, which is narrower and answers first: a product with no bracket plays
     # no knockout round, so a count taken over one measures a season the admin has not asked for.
-    fixtures = total_season_fixtures(proposed)
-    stored_fixtures = None if stored is None else total_season_fixtures(stored)
+    spiele = total_season_spiele(proposed)
+    stored_spiele = None if stored is None else total_season_spiele(stored)
     # The EXCESS, as `rules_qualifiers_above_gruppe` and `rules_unentschieden_outvalues_win` beside it: `rules` is required on the patch,
     # so a dates-only edit resubmits a stored count unchanged and any step that shrinks one repairs
     # the season.
-    if fixtures > LIST_LIMIT_DEFAULT and (stored_fixtures is None or fixtures > stored_fixtures):
+    if spiele > LIST_LIMIT_DEFAULT and (stored_spiele is None or spiele > stored_spiele):
         return WriteRefusal(
             error_code=Code.RULES_SPIELE_OVER_ONE_READ,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
@@ -330,11 +340,11 @@ def find_rules_refusal(
 
     # Only where the patch LOWERS it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
     # this edit's doing, and refusing it would bar the very edit that repairs the season.
-    if proposed.max_kadergroesse < stored.max_kadergroesse and largest_squad > proposed.max_kadergroesse:
+    if proposed.max_kader_size < stored.max_kader_size and largest_squad > proposed.max_kader_size:
         return WriteRefusal(
             error_code=Code.RULES_KADER_BELOW_USE,
             status=HTTPStatus.CONFLICT,
-            fields=(("rules", "max_kadergroesse"),),
+            fields=(("rules", "max_kader_size"),),
             bounds={"min": largest_squad},
         )
 
@@ -395,7 +405,7 @@ def find_saison_span_refusal(
 ) -> WriteRefusal | None:
     """Why this season's span must be refused, or `None`.
 
-    `spieltag_spans` is every DATED matchday of the season, as `(beginn, ende)`: a span the season no
+    `spieltag_spans` is every DATED matchday of the season, as `(start, end)`: a span the season no
     longer covers strands the matchday, and one still undated constrains nothing, so the caller filters.
     """
 
@@ -459,9 +469,9 @@ RECORDED_FACT_FIELDS: tuple[str, ...] = (
     "team2_quelle",
     "ergebnis",
     "sonderereignis",
-    "ort.spielort_id",
+    "spielort.spielort_id",
     "schiedsrichter.schiedsrichter_id",
-    "notiz",
+    "note",
 )
 
 # The one phase `app/api/saisons/spielplan.py :: draw_spielplan` fills the sides of. Every other it
@@ -512,10 +522,12 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     # STRIPPED, never compared to None: the draw writes no key, clearing a note stores null, and
     # `FLPatchSpielDataPayload.empty_strings_to_none` keeps "" off that route -- a hand edit can
     # still leave one, and an empty note is not a record.
-    if (spiel.get("notiz") or "").strip():
+    if (spiel.get("note") or "").strip():
         return True
 
-    return (spiel.get("ort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get("schiedsrichter_id") is not None
+    return (spiel.get("spielort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get(
+        "schiedsrichter_id"
+    ) is not None
 
 
 def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
@@ -529,11 +541,11 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
 
 
 def find_activation_refusal(
-    *, target_status: str, target_fixtures: int, undated_spieltage: int, outgoing_unplayed: Sequence[int]
+    *, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: Sequence[int]
 ) -> WriteRefusal | None:
     """Why this rollover must be refused, or `None`.
 
-    `undated_spieltage` counts the TARGET season's matchdays holding no `beginn`; `outgoing_unplayed`
+    `undated_spieltage` counts the TARGET season's matchdays holding no `start`; `outgoing_unplayed`
     is the incumbent's alone, empty where there is none, and never the target's own fixtures.
     """
 
@@ -545,7 +557,7 @@ def find_activation_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    if target_fixtures == 0:
+    if target_spiele == 0:
         return WriteRefusal(
             error_code=Code.ACTIVATE_TARGET_UNDRAWN,
             status=HTTPStatus.CONFLICT,
@@ -573,24 +585,24 @@ def find_activation_refusal(
 PLANNING_STATUS: FLSaisonStatus = "future"
 
 
-def _planning_window_is_open(*, saison_status: str, recorded_fixtures: int) -> bool:
+def _planning_window_is_open(*, saison_status: str, recorded_spiele: int) -> bool:
     """Whether this season's Spielplan may still be replaced or removed.
 
     ONE predicate for every rule turning on it: a second copy is how a refusal comes to recommend a
     write the product then turns away.
     """
 
-    return saison_status == PLANNING_STATUS and recorded_fixtures == 0
+    return saison_status == PLANNING_STATUS and recorded_spiele == 0
 
 
-def find_replace_window_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteRefusal | None:
+def find_replace_window_refusal(*, saison_status: str, recorded_spiele: int) -> WriteRefusal | None:
     """`spielplan_replace_outside_its_window`: a replace asked outside the planning window, or `None`.
 
     Apart from `find_spielplan_refusal`, which asks it of every replace, because it is the part of a replace's judgement no
     shape changes: the season editor serves it as the regeneration's state before any shape is picked.
     """
 
-    if _planning_window_is_open(saison_status=saison_status, recorded_fixtures=recorded_fixtures):
+    if _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
         return None
 
     return WriteRefusal(
@@ -602,13 +614,13 @@ def find_replace_window_refusal(*, saison_status: str, recorded_fixtures: int) -
 def find_spielplan_refusal(
     *,
     saison_status: str,
-    fixtures_drawn: int,
+    spiele_drawn: int,
     spieltage_held: int,
     rules: FLSaisonRules,
     occupancy_by_gruppe: Mapping[FLGruppenNames, int],
-    # NEITHER defaults: a caller that forgot `recorded_fixtures` would replace a season already played.
+    # NEITHER defaults: a caller that forgot `recorded_spiele` would replace a season already played.
     replace: bool,
-    recorded_fixtures: int,
+    recorded_spiele: int,
 ) -> WriteRefusal | None:
     """Why drawing this season's Spielplan must be refused, or `None`.
 
@@ -618,7 +630,7 @@ def find_spielplan_refusal(
 
     # What a confirmed replace is about to delete is no reason to turn it away, so `spielplan_already_drawn`
     # and `spielplan_spieltage_held` step aside for one. `spielplan_replace_outside_its_window` below is what bounds it instead.
-    if fixtures_drawn > 0 and not replace:
+    if spiele_drawn > 0 and not replace:
         return WriteRefusal(
             error_code=Code.SPIELPLAN_ALREADY_DRAWN,
             status=HTTPStatus.CONFLICT,
@@ -632,7 +644,7 @@ def find_spielplan_refusal(
 
     # Whether the season holds anything to delete or not: the flag is the operation the caller asked
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
-    if replace and (window_refusal := find_replace_window_refusal(saison_status=saison_status, recorded_fixtures=recorded_fixtures)):
+    if replace and (window_refusal := find_replace_window_refusal(saison_status=saison_status, recorded_spiele=recorded_spiele)):
         return window_refusal
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
@@ -676,14 +688,14 @@ def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:
     )
 
 
-def find_undraw_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteRefusal | None:
+def find_undraw_refusal(*, saison_status: str, recorded_spiele: int) -> WriteRefusal | None:
     """Why removing this season's Spielplan must be refused, or `None`.
 
     The replace's window, read off the OPERATION and not off what there is to remove: a season
     already undrawn is the state asked for, so it removes nothing rather than refusing.
     """
 
-    if _planning_window_is_open(saison_status=saison_status, recorded_fixtures=recorded_fixtures):
+    if _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
         return None
 
     return WriteRefusal(

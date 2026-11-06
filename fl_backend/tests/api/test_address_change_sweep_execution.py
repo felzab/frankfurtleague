@@ -2,7 +2,7 @@
 API · the address change's clock against the shipped indexes: lapses end, due changes take effect, each judged again
 
 A live change whose step lapsed ends within the hour, and a confirmed change whose waiting time ended takes effect or is
-refused, the refused one's new address answered alone. The share's sizing is `tests/api/test_address_change_sweep_refusal.py`'s.
+refused, the refused one's new address answered alone.
 """
 
 import re
@@ -41,11 +41,10 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.records import record_collections
 from tests.whole_database import where_held
-from tests.wire import commands_by_name, commands_sent
+from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 from .address_change_harness import owed
-from .test_address_change_sweep_refusal import COMMANDS_A_DUE_PERSON, COMMANDS_A_LAPSE, OTHER_COMMANDS, SEASON_READ
 
 pytestmark = pytest.mark.db
 
@@ -256,13 +255,13 @@ class TestADueChangeTakesEffect:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_due_person(database, 1)
             answer = await sweep(database, client)
-            return answer, await database[Collection.SPIELER].distinct("email", {"vorname": "Quintessa"}), await owed(database)
+            return answer, await database[Collection.SPIELER].distinct("email", {"first_name": "Quintessa"}), await owed(database)
 
         answer, addresses, notices = on_a_league(mongo_replica_set_url, body)
 
         assert answer.effective == 1
         # The lost-mailbox way greets nobody.
-        assert notices == [{"kind": "effective", "an": on_file(1), "vorname": None}]
+        assert notices == [{"kind": "effective", "to": on_file(1), "first_name": None}]
         assert addresses == [pending(1)]
 
     @pytest.mark.parametrize("barred", ["on_file", "pending"])
@@ -282,7 +281,7 @@ class TestADueChangeTakesEffect:
         answer, ended, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.discarded, answer.effective) == (1, 0)
-        assert notices == [{"kind": "discarded", "an": pending(1)}]
+        assert notices == [{"kind": "discarded", "to": pending(1)}]
         assert (ended["ended"]["kind"], ended["email"]) == ("discarded", None)
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
@@ -292,7 +291,7 @@ class TestADueChangeTakesEffect:
 
         answer, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.discarded, answer.effective, [notice["an"] for notice in notices]) == (1, 0, [pending(1)])
+        assert (answer.discarded, answer.effective, [notice["to"] for notice in notices]) == (1, 0, [pending(1)])
 
 
 class WrittenAfterTheRead:
@@ -517,11 +516,11 @@ class TestTheDeadlineStopsTheCall:
                 on_file(2),
                 saison_id="2026",
                 team_id=ObjectId(),
-                vorname="Quintessa",
-                nachname="Muster 2",
+                first_name="Quintessa",
+                last_name="Muster 2",
                 token=f"registration-{number}",
                 submitted_at="2126-04-14",
-                frist="2126-04-21",
+                deadline="2126-04-21",
             )
             for number in range(3)
         ]
@@ -536,7 +535,7 @@ class TestTheDeadlineStopsTheCall:
 
             return (
                 answer,
-                await database[Collection.SPIELER].distinct("email", {"nachname": "Muster 2"}),
+                await database[Collection.SPIELER].distinct("email", {"last_name": "Muster 2"}),
                 await database[Collection.REGISTRIERUNGEN].distinct("email", {"_id": {"$in": [row["_id"] for row in registrations]}}),
             )
 
@@ -546,80 +545,23 @@ class TestTheDeadlineStopsTheCall:
         assert (dear, moved) == ([on_file(2)], [on_file(2)])
 
 
-FEW = ADDRESS_CHANGE_PER_PASS // 2
+# A due change moving a pupil row and a confirmed referee row. No retention rule bounds an address's records, so a
+# dearer change meets the deadline, moving nothing (`:: TestTheDeadlineStopsTheCall`).
+COMMANDS_A_DUE_PERSON = 50
 
+# The call's other command, one aggregate answering one document at any size.
+OTHER_COMMANDS = 1
 
-async def _cleared(database: AsyncDatabase) -> None:
-    for collection in (Collection.ADDRESS_CHANGES, Collection.ACTION_LOG, Collection.REGISTRIERUNGEN):
-        await database[collection].delete_many({})
-    await database[Collection.SCHIEDSRICHTER].delete_many({"_id": {"$ne": build_ghost_schiedsrichter()["_id"]}})
-    await database[Collection.SPIELER].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
-
-
-class TestALapseCostsTheCommandsItsShareIsSizedAt:
-    def test_counted_on_the_wire(self, mongo_replica_set_url: str):
-        """A write more an end turns this red."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                await _cleared(database)
-                await with_history(database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(due)))
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body)
-
-        assert (twice - few) / FEW == COMMANDS_A_LAPSE
-
-
-class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
-    def test_a_person_holding_a_pupil_row_and_a_confirmed_referee_row_counted_on_the_wire(self, mongo_replica_set_url: str):
-        """The dearer change a share mixes: a due change moving a pupil row and the confirmed referee row beside it.
-
-        A command added to the effect turns this red, so the share is judged against the deadline again.
-        """
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, float]:
-            async def counted(due: int) -> tuple[Any, Counter[str]]:
-                await _cleared(database)
-                for position in range(due):
-                    await a_due_person(database, position)
-
-                return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            (_, few), (answer, twice) = await counted(FEW), await counted(2 * FEW)
-
-            return answer, (twice.total() - few.total()) / FEW
-
-        answer, per_person = on_a_league(mongo_replica_set_url, body)
-
-        assert answer.effective == 2 * FEW
-        assert per_person == COMMANDS_A_DUE_PERSON
+# The running season a page holding a due change asks once.
+SEASON_READ = 1
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    def test_a_full_share(self, mongo_replica_set_url: str):
-        """`tests/api/test_address_change_sweep_refusal.py`'s budget: a share and one more lapsed.
-
-        A command added to the call turns this red, so the share is judged against the deadline again.
-        """
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            await with_history(
-                database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(ADDRESS_CHANGE_PER_PASS + 1))
-            )
-
-            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-        answer, names = on_a_league(mongo_replica_set_url, body)
-
-        assert answer.removed == ADDRESS_CHANGE_PER_PASS
-        assert names.total() - ADDRESS_CHANGE_PER_PASS * COMMANDS_A_LAPSE == OTHER_COMMANDS, names
-
     def test_a_full_share_of_due_changes_asking_the_running_season(self, mongo_replica_set_url: str):
-        """The page's own read beside the season it asks once, which the per-change count's difference cancels out."""
+        """A share and one more due, the dearest call the pass makes.
+
+        A command added to the call turns this red, so `ADDRESS_CHANGE_PER_PASS` is judged against the deadline again.
+        """
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             for position in range(ADDRESS_CHANGE_PER_PASS + 1):

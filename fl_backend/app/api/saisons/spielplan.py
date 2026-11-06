@@ -154,8 +154,8 @@ def _spieltag(*, saison_id: str, phase: FLSaisonPhase, position: int) -> dict[st
         "_id": ObjectId(),
         # Null because dating a matchday is a separate operation: the draw settles the round and its
         # place, and `PATCH /spieltage/{id}` -- a dates-only payload -- is where a person sets these.
-        "beginn": None,
-        "ende": None,
+        "start": None,
+        "end": None,
         "saison_phase": phase,
         "saison_id": saison_id,
         "position": position,
@@ -186,9 +186,9 @@ def _spiel(
         "team2": team2,
         "team1_quelle": team1_quelle,
         "team2_quelle": team2_quelle,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
+        "date": None,
+        "time": None,
+        "spielort": None,
         "schiedsrichter": None,
         "ergebnis": None,
         "elfmeterschiessen": None,

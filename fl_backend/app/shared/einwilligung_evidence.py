@@ -30,8 +30,8 @@ CHOICES: Final[tuple[FLEinwilligungChoice, ...]] = ("scope", "media")
 type TextVersions = Mapping[FLEinwilligungChoice, str]
 
 # The values that GRANT, across both vocabularies; every other value of a choice withholds. A
-# contact seat's `kontaktdaten` is the acknowledgement alone, and WhatsApp the consent on top of it.
-_GIVING: Final[Mapping[str, tuple[object, ...]]] = {"scope": ("kader_oeffentlich", "kontaktdaten_whatsapp"), "media": (True,)}
+# contact seat's `kontakt_data` is the acknowledgement alone, and WhatsApp the consent on top of it.
+_GIVING: Final[Mapping[str, tuple[object, ...]]] = {"scope": ("kader_public", "kontakt_data_whatsapp"), "media": (True,)}
 
 
 def is_given(choice: FLEinwilligungChoice, value: Any) -> bool:
@@ -109,7 +109,7 @@ def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
         if all(receipt is None for _, receipt in values_and_evidence):
             stand[choice] = None
             continue
-        # Sorted keys and `sha256`, as `app/api/teams/schemas.py :: kontakte_stand_of` digests a block.
+        # Sorted keys and `sha256`, never `hash()`, whose seed changes per process.
         canonical = json.dumps(values_and_evidence, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
         stand[choice] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

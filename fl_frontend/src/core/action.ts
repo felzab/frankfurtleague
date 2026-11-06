@@ -177,9 +177,25 @@ type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLa
 const STALE: ReadonlySet<Code> = new Set<Code>([
   "document_not_found",
   "version_stale",
+  // A season narrowed, or a club a replacement took out of it, since the page offering the Stufe or the row's return was read.
+  "kader_stufe_not_allowed",
+  "kader_team_not_in_saison",
+  // A role given away since the page offering the row's return was read, which the reloaded page locks. The save, whose
+  // box this code stands on, words it itself.
+  "kader_rolle_taken",
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
+  // A club's entry and group move, and its retiring, each of which the Teams pages and an application's decision close off
+  // their own read before it is pressed: the season, its groups or the club's seasons moved since the page was served.
+  "entry_saison_not_future",
+  "entry_gruppe_not_offered",
+  "entry_gruppe_full",
+  "entry_gruppe_locked",
+  "retire_blocked",
+  // A seat's fresh link, which the team editor offers only to a seat waiting on its answer.
+  "kontakt_seat_without_confirmation",
+  "kontakt_row_without_saison",
   "role_not_held",
   // A consent's choices moved since the page was served.
   "choices_stale",
@@ -202,6 +218,14 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
   "body_unreadable",
+  // A contact's link answered in another window, or its season row closed, since the page was served.
+  "bewerbung_seat_already_answered",
+  "kontakt_saison_past",
+  // An application decided, or its seats or its season moved, since the page offering its decision was read.
+  "bewerbung_already_decided",
+  "bewerbung_kontakte_unconfirmed",
+  // A unique index answering a write the page's read let through, with no field to place it on: another press got there first.
+  "duplicate_key",
   // A season's dates, rules, draw, swap, replacement and links, each of which the season editor closes off its own read
   // before it is pressed: the season moved since the page was served.
   "saison_start_taken_place",
@@ -222,6 +246,9 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // The replacement's incoming club retired since the page listed it, which lists none retired.
   "team_retired",
   "invitation_team_not_entered",
+  // The application's window shut, or its picked club went, since the form was read.
+  "bewerbung_window_closed",
+  "bewerbung_picked_team_unusable",
   // A referee's fresh link, which the editor offers only to a live entry with an address and no answer yet: the
   // referee moved since the page was served.
   "schiedsrichter_retired",

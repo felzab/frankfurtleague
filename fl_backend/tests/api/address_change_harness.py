@@ -86,12 +86,12 @@ CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
 
-A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "grund": "NoEmail", "at": "2126-03-21T10:00:00.000000+00:00"}
+A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "reason": "NoEmail", "at": "2126-03-21T10:00:00.000000+00:00"}
 
 
 def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:
     seat = documents.kontaktperson_document("Lenore", confirmed_at="2126-03-21" if confirmed else None)
-    return {**seat, "nachname": "Quastenbach", "email": email}
+    return {**seat, "last_name": "Quastenbach", "email": email}
 
 
 def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bool, token: str) -> dict[str, Any]:
@@ -100,16 +100,16 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
         EMAIL,
         saison_id=SAISON_ID,
         team_id=team_id,
-        vorname="Lenore",
-        nachname="Quastenbach",
+        first_name="Lenore",
+        last_name="Quastenbach",
         token=token,
         submitted_at="2126-03-30",
-        frist="2126-04-06",
+        deadline="2126-04-06",
         confirmed=documents.registrierung_confirmed(
-            geburtsdatum="2009-05-04",
+            birth_date="2009-05-04",
             today="2126-03-31",
             at="2126-03-31T08:00:00+00:00",
-            scope="intern",
+            scope="internal",
             media=False,
         )
         if confirmed
@@ -125,7 +125,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
     )
     pupils = [documents.spieler_document(OTHER_OID, "Jonte", "Wirbelauer", email=OTHER_EMAIL)]
     if pupil:
-        pupils.append(documents.spieler_document(SPIELER_OID, "Lenore", "Quastenbach", email=EMAIL, geburtsdatum="2009-05-04"))
+        pupils.append(documents.spieler_document(SPIELER_OID, "Lenore", "Quastenbach", email=EMAIL, birth_date="2009-05-04"))
     await database[Collection.SPIELER].insert_many(pupils)
     if not records:
         return
@@ -144,7 +144,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                     "token_hash": "c" * 64,
                     "sent_at": "2126-03-01",
                     "reminded_at": None,
-                    "frist": "2126-03-15",
+                    "deadline": "2126-03-15",
                     "delivery": dict(A_BOUNCE),
                 },
             ),
@@ -169,7 +169,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 "ansprechperson": {
                     "token_hash": "a" * 64,
                     "sent_at": "2126-03-20",
-                    "frist": "2126-04-03",
+                    "deadline": "2126-04-03",
                     "declined_at": None,
                     "delivery": dict(A_BOUNCE),
                 },
@@ -182,15 +182,15 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=None,
-        datum="2126-04-18",
-        uhrzeit="14:00:00",
+        date="2126-04-18",
+        time="14:00:00",
         team1={"team_id": TEAM_OID},
         team2={"team_id": SECOND_TEAM_OID},
     )
     await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
         documents.spielbestaetigung_document(
             spiel,
-            party={"art": "team", "team_id": TEAM_OID},
+            party={"kind": "team", "team_id": TEAM_OID},
             _id=CONFIRMATION_OID,
             asked_at="2126-03-30",
             kontakte={seat: {"token_hashes": ["b" * 64], "delivery": None} for seat in ("trainer", "ansprechperson", "stellvertretung")},
@@ -296,7 +296,7 @@ def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EM
 
 
 # The kinds whose hand-out mints a change's link, and which link each mints.
-_LINKS = {"address_change_link": "token", "address_change_notice": "stopp_token"}
+_LINKS = {"address_change_link": "token", "address_change_notice": "stop_token"}
 
 
 @dataclass(frozen=True)
@@ -308,7 +308,7 @@ class Minted:
 
     answer: Any
     token: str | None
-    stopp_token: str | None
+    stop_token: str | None
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.answer, name)
@@ -335,7 +335,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
             {"_id": {"$in": others}}, {"$set": {"lease": None, "leased_until": None}, "$inc": {"attempts": -1}}
         )
 
-    return Minted(answer=answer, token=links.get("token"), stopp_token=links.get("stopp_token"))
+    return Minted(answer=answer, token=links.get("token"), stop_token=links.get("stop_token"))
 
 
 async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, released: bool = True, **given: Any) -> Minted:
@@ -354,10 +354,10 @@ async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str
     if not released:
         return started
 
-    await answer(database, client, started.stopp_token, germany_now=now)
+    await answer(database, client, started.stop_token, germany_now=now)
     confirmed = await handed_out(database, client, started.answer, now=now)
 
-    return Minted(answer=started.answer, token=confirmed.token, stopp_token=started.stopp_token)
+    return Minted(answer=started.answer, token=confirmed.token, stop_token=started.stop_token)
 
 
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
@@ -451,8 +451,8 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     return [
         {
             "kind": row["kind"].removeprefix("address_change_"),
-            "an": row["an"],
-            **({"vorname": row["data"]["vorname"]} if "vorname" in row["data"] else {}),
+            "to": row["to"],
+            **({"first_name": row["data"]["first_name"]} if "first_name" in row["data"] else {}),
         }
         async for row in rows
     ]

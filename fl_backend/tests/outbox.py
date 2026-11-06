@@ -42,7 +42,7 @@ async def drained(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
 
         for mail in answer.mails:
             await post_result(
-                result_data=FLOutboxResultPayload(lease=answer.lease, id=mail.id, result="sent", message_id=None, grund=None),
+                result_data=FLOutboxResultPayload(lease=answer.lease, id=mail.id, result="sent", message_id=None, delivery_reason=None),
                 outbox_collection=database[Collection.OUTBOX],
                 now=now,
             )

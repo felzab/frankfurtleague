@@ -16,12 +16,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_decline_update
-from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.tokens import hash_token
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
@@ -37,7 +34,7 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
+from tests.team_writes import save_the_team, write_the_block
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
 
@@ -54,20 +51,20 @@ TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = sign_in_identifier(TYPED)
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607e10001")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607e10002")
-EINLADUNG_TOKEN = "einladung-erasure-isolation"
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607e10002")
+INVITATION_TOKEN = "einladung-erasure-isolation"
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
 PUPIL_EMAIL = "wraxlington@example.com"
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
 
-OPEN_WINDOW = {"start": "2026-03-01", "end": "2026-04-30"}
-# The registration window's own shape: it stores its start as `von`.
-OPEN_REGISTRATION_WINDOW = {"offen": True, "end": "2026-04-30"}
+OPEN_WINDOW = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
+# The registration window's own shape: it stores its start as `by`.
+OPEN_REGISTRATION_WINDOW = {"open": True, "end": "2026-04-30"}
 
 REFEREE_NAME = "Bernd Kraus"
-TELEFON = "+49 69 5550202"
+PHONE = "+49 69 5550202"
 
 Rival = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -94,10 +91,10 @@ async def a_league(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LSX", kontakte=None))
     await database[Collection.INVITATIONS].insert_one(
         {
-            "_id": EINLADUNG_OID,
+            "_id": INVITATION_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
+            "token_hashes": [hash_token(INVITATION_TOKEN)],
             "created_at": "2026-03-15",
             "created_by": "admin@frankfurtleague.de",
             "revoked_at": None,
@@ -115,7 +112,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=new_schule_document("Neue", "NEX"),
+            schule=new_schule_document("Neue"),
         )
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -130,7 +127,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=new_schule_document("Ander", "ANX"),
+            schule=new_schule_document("Ander"),
         )
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
@@ -155,13 +152,13 @@ def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
 # The erased person in the club's trainer seat, and somebody a save seats beside them, each as the editor sends a seat.
 SEATED = {
-    "vorname": "Zorbanax",
-    "nachname": "Quillfeather",
+    "first_name": "Zorbanax",
+    "last_name": "Quillfeather",
     "email": TYPED,
-    "telefon": TELEFON,
-    "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
+    "phone": PHONE,
+    "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
 }
-BESIDE = {**SEATED, "vorname": "Ottilie", "nachname": "Andere", "email": "ottilie.andere@example.com", "telefon": "+49 69 5550404"}
+BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 5550404"}
 
 
 async def club_row(database: AsyncDatabase) -> dict[str, Any]:
@@ -170,54 +167,32 @@ async def club_row(database: AsyncDatabase) -> dict[str, Any]:
     return found
 
 
-async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, stand: str) -> Any:
-    return await patch_saison_team_kontakte(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
-        db=client,
-        actor=fresh_admin_actor(),
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, version: int) -> Any:
+    return await write_the_block(database, kontakte, team_id=TEAM_OID, saison_id=SAISON_ID, version=version, today=TODAY, germany_now=MAIL_NOW)
 
 
 async def junction_patched(database: AsyncDatabase, client: AsyncMongoClient, values: dict[str, Any]) -> Any:
-    return await patch_saison_team(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        saison_team_data=FLPatchSaisonTeamPayload.model_validate(values),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        db=client,
-        today=TODAY,
-    )
+    return await save_the_team(database, team_id=TEAM_OID, saison_id=SAISON_ID, **values)
 
 
 def junction_values(row: dict[str, Any], **changed: Any) -> dict[str, Any]:
-    return {"gruppe": row["gruppe"], "austritt": row.get("austritt"), "trikot_farbe": row.get("trikot_farbe"), **changed}
+    return {"gruppe": row["gruppe"], "trikot_farbe": row.get("trikot_farbe"), **changed}
 
 
 async def the_block_it_was_served(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    stand = kontakte_stand_of((await club_row(database))["kontakte"])
+    version = (await club_row(database))["version"]
 
-    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED), stand)
+    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED), version)
 
 
 async def another_seat_filled(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    stand = kontakte_stand_of((await club_row(database))["kontakte"])
+    version = (await club_row(database))["version"]
 
-    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED, ansprechperson=BESIDE), stand)
+    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED, ansprechperson=BESIDE), version)
 
 
 async def the_row_as_it_stands(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    # Sent once ahead, so the row already holds what the same PATCH writes.
+    # Sent once ahead, so the row already holds what the same save writes.
     await junction_patched(database, client, junction_values(await club_row(database)))
     values = junction_values(await club_row(database))
 
@@ -234,8 +209,8 @@ async def another_kit_colour(database: AsyncDatabase, client: AsyncMongoClient) 
 KEEPING_WRITES: dict[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Rival]], int]] = {
     "a contacts save sending the block it was served": (the_block_it_was_served, 0),
     "a contacts save filling another seat": (another_seat_filled, 1),
-    "a junction PATCH sending the row as it stands": (the_row_as_it_stands, 0),
-    "a junction PATCH changing the kit colour": (another_kit_colour, 1),
+    "a team save sending the row as it stands": (the_row_as_it_stands, 0),
+    "a team save changing the kit colour": (another_kit_colour, 1),
 }
 
 
@@ -253,8 +228,8 @@ class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Saved twice, the first minting the person's link, so the stored block is what a later send of it composes.
-            await contacts_saved(database, client, kontakte_document(trainer=SEATED), kontakte_stand_of(None))
-            await contacts_saved(database, client, kontakte_document(trainer=SEATED), kontakte_stand_of((await club_row(database))["kontakte"]))
+            await contacts_saved(database, client, kontakte_document(trainer=SEATED), 0)
+            await contacts_saved(database, client, kontakte_document(trainer=SEATED), (await club_row(database))["version"])
             keeping = await prepare(database, client)
             on_the_row = {"collection": str(Collection.SAISON_TEAMS)}
             written: list[str] = []

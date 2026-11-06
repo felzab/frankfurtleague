@@ -52,7 +52,7 @@ const MESSAGE_AT = "2026-09-08T10:14:59.000Z";
 
 function eventFor(type: string, data: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    type: type,
+    type,
     created_at: EVENT_AT,
     data: {
       email_id: "56761188-7520-42d8-8898-ff6fc54ce618",
@@ -88,11 +88,11 @@ async function statusFor(event: Record<string, unknown>): Promise<number> {
 }
 
 /** The state and reason the route forwarded for one event, or `undefined` where it forwarded nothing. */
-async function forwardedFor(event: Record<string, unknown>): Promise<Pick<FLOutboxEventPayload, "state" | "grund"> | undefined> {
+async function forwardedFor(event: Record<string, unknown>): Promise<Pick<FLOutboxEventPayload, "state" | "reason"> | undefined> {
   forwarded.length = 0;
   await statusFor(event);
   const [payload] = forwarded;
-  return payload === undefined ? undefined : { state: payload.state, grund: payload.grund };
+  return payload === undefined ? undefined : { state: payload.state, reason: payload.reason };
 }
 
 const NETWORK_FAILURE = () =>
@@ -126,7 +126,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
       ),
     );
 
-    const expected: FLOutboxEventPayload = { id: ROW_ID, state: "undeliverable", grund: "Suppressed", at: EVENT_AT };
+    const expected: FLOutboxEventPayload = { id: ROW_ID, state: "undeliverable", reason: "Suppressed", at: EVENT_AT };
     expect(res.status).toBe(200);
     expect(forwarded).toStrictEqual([expected]);
   });
@@ -148,13 +148,13 @@ describe("what one delivery event leaves on its Postausgang row", () => {
     }
 
     expect(readBack).toStrictEqual([
-      { state: "delivered", grund: null },
-      { state: "undeliverable", grund: "Suppressed" },
-      { state: "delayed", grund: "MailboxFull" },
-      { state: "suppressed", grund: "OnAccountSuppressionList" },
-      { state: "complaint", grund: null },
-      { state: "delayed", grund: null },
-      { state: "delayed", grund: "reached_daily_quota" },
+      { state: "delivered", reason: null },
+      { state: "undeliverable", reason: "Suppressed" },
+      { state: "delayed", reason: "MailboxFull" },
+      { state: "suppressed", reason: "OnAccountSuppressionList" },
+      { state: "complaint", reason: null },
+      { state: "delayed", reason: null },
+      { state: "delayed", reason: "reached_daily_quota" },
     ]);
   });
 
@@ -163,11 +163,11 @@ describe("what one delivery event leaves on its Postausgang row", () => {
   it("keeps the state and drops a reason the endpoint would refuse, never the provider's prose", async () => {
     expect(await forwardedFor(eventFor("email.failed", { failed: { reason: "Q".repeat(129) } }))).toStrictEqual({
       state: "delayed",
-      grund: null,
+      reason: null,
     });
     expect(await forwardedFor(eventFor("email.failed", { failed: { reason: "quota\nexceeded" } }))).toStrictEqual({
       state: "delayed",
-      grund: null,
+      reason: null,
     });
 
     await forwardedFor(

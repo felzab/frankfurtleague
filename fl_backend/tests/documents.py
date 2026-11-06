@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 from bson import ObjectId
 
 from app.api.address_change.services import compose_record
-from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
+from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung
@@ -32,11 +32,11 @@ from app.shared.tokens import hash_token
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
+    "street": "Hanauer Landstraße",
+    "house_number": "12a",
+    "postcode": "60314",
+    "district": "Ostend",
+    "city": "Frankfurt am Main",
 }
 
 _GERMANY: Final = ZoneInfo("Europe/Berlin")
@@ -67,7 +67,7 @@ def confirmed_instant(tag: str) -> str:
 # publishing the name and no media.
 EINWILLIGUNG: Final[Mapping[str, Any]] = compose_initial(
     block={
-        "scope": "kader_oeffentlich",
+        "scope": "kader_public",
         "date": "2026-01-20",
         "confirmed_at": "2026-01-20",
         "media": False,
@@ -86,7 +86,7 @@ _RULES: Final[Mapping[str, Any]] = {
     "number_of_gruppen": 4,
     "teams_per_gruppe": 4,
     "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
+    "max_kader_size": 18,
     "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
     "allowed_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
 }
@@ -143,12 +143,13 @@ def saison_team_document(saison_id: str, team_id: Any, name: str, shorthand: str
         "kontakte": None,
         "name": name,
         "shorthand": shorthand,
+        "version": 0,
         **fields,
     }
 
 
 def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id: Any, **fields: Any) -> dict[str, Any]:
-    """Every nullable key written null rather than omitted, as a save writes them, `notiz` among them, which `FLSpiel` defaults.
+    """Every nullable key written null rather than omitted, as a save writes them, `note` among them, which `FLSpiel` defaults.
 
     `spiel_nr` has no default: `uniq_saison_id_spiel_nr` refuses a second fixture reusing one.
     """
@@ -163,14 +164,14 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
         "team2": None,
         "team1_quelle": None,
         "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
+        "date": None,
+        "time": None,
+        "spielort": None,
         "schiedsrichter": None,
         "ergebnis": None,
         "elfmeterschiessen": None,
         "sonderereignis": None,
-        "notiz": None,
+        "note": None,
         "version": 0,
         **fields,
     }
@@ -179,17 +180,25 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
 def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
     """`spiel` as `build_spiele_pipeline` serves it, for a report judging joined fixtures without the database.
 
-    Each side's club still in its season, nobody asked to confirm, no match for third place. The names are whatever
-    `spiel` carries where a read would join them.
+    Each side's club still in its season, nobody asked to confirm, no match for third place. A stored document holds no
+    name, so each joined name is a stand-in unless `spiel` states the one a case reads.
     """
 
     def side(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        return None if stored is None else {"austritt": None, "austritt_type": None, **stored}
+        return None if stored is None else {"name": "Carl-Schurz", "shorthand": "CSX", "austritt": None, "austritt_type": None, **stored}
+
+    def ground(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        return None if stored is None else {"name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", **stored}
+
+    def referee(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        return None if stored is None else {"name": "A. Referee", **stored}
 
     return {
         **spiel,
         "team1": side(spiel.get("team1")),
         "team2": side(spiel.get("team2")),
+        "spielort": ground(spiel.get("spielort")),
+        "schiedsrichter": referee(spiel.get("schiedsrichter")),
         "ansetzung_confirmed": None,
         "for_third_place": False,
     }
@@ -207,11 +216,11 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, 
         "spiel_id": spiel["_id"],
         "party": dict(party),
         "ansetzung": compose_ansetzung(spiel),
-        "frist": "2026-04-25",
+        "deadline": "2026-04-25",
         "asked_at": None,
         "reminded_at": None,
         "kontakte": dict.fromkeys(KONTAKT_ROLLEN),
-        "antwort": None,
+        "answer": None,
         "closed": None,
         **fields,
     }
@@ -224,12 +233,12 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
 
     return {
         "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
-        "torschuetzen": [{"seite": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
-        "karten": [{"seite": "team2", "spieler_id": ObjectId(), "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"}],
-        "bemerkungen": None,
-        "seiten": {"team1": None, "team2": None},
+        "scorers": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
+        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
+        "remarks": None,
+        "sides": {"team1": None, "team2": None},
         "submitted_at": at,
-        "submitted_by": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+        "submitted_by": {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
         "changed_at": at,
         "version": 1,
         "adopted_at": None,
@@ -239,10 +248,10 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
     }
 
 
-def spielbericht_seiten(spiel: Mapping[str, Any]) -> dict[str, Any]:
+def spielbericht_sides(spiel: Mapping[str, Any]) -> dict[str, Any]:
     """The clubs `spiel` fields, as a report written on it stamps them."""
 
-    return {seite: (spiel.get(seite) or {}).get("team_id") for seite in ("team1", "team2")}
+    return {side: (spiel.get(side) or {}).get("team_id") for side in ("team1", "team2")}
 
 
 def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
@@ -250,48 +259,46 @@ def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, 
         "_id": ObjectId(),
         "saison_id": spiel["saison_id"],
         "spiel_id": spiel["_id"],
-        "bericht": bericht_document(seiten=spielbericht_seiten(spiel)),
+        "bericht": bericht_document(sides=spielbericht_sides(spiel)),
         "version": 0,
         **fields,
     }
 
 
-def kontakt_antwort_document(rolle: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
+def kontakt_answer_document(rolle: str, *, reason: str | None, at: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
     """A seat's decline as its link stores it, proposing another date."""
 
     return {
-        "art": "declined",
-        "am": am,
-        "von": {"art": "kontakt", "rolle": rolle},
-        "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
-        "begruendung": begruendung,
+        "kind": "declined",
+        "at": at,
+        "by": {"kind": "kontakt", "rolle": rolle},
+        "vorschlag": {"date": "2026-04-25", "time": "14:00:00"},
+        "reason": reason,
         **fields,
     }
 
 
-def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fields: Any) -> dict[str, Any]:
+def spieler_document(spieler_id: Any, first_name: str, last_name: str | None, **fields: Any) -> dict[str, Any]:
     """A person as their admission writes them, the record and the date their registration carried."""
 
     return {
         "_id": spieler_id,
-        "vorname": vorname,
-        "nachname": nachname,
+        "first_name": first_name,
+        "last_name": last_name,
         # One per id, folded as the admission stores it, so two seeded persons never meet on `uniq_spieler_email`.
         "email": f"{spieler_id}@schule.example".lower(),
-        "geburtsdatum": "2009-05-04",
+        "birth_date": "2009-05-04",
         "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
-        "inactive_since": None,
         **fields,
     }
 
 
-def new_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
+def new_schule_document(team_name: str, **fields: Any) -> dict[str, Any]:
     """The school block of an application naming a school the league does not hold yet, named as `team_document` names one."""
 
     return {
         "team_name": team_name,
         "full_name": f"{team_name}-Schule",
-        "shorthand": shorthand,
         "schulform": None,
         "address": dict(ADDRESS),
         "website_url": None,
@@ -302,7 +309,7 @@ def new_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[s
 def minted_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
     """An application's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
 
-    return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_bestaetigungen(today=today).items()}
+    return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_confirmations(today=today).items()}
 
 
 def bewerbung_document(
@@ -327,22 +334,33 @@ def bewerbung_document(
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
     minted = sent_at or submitted_at
+    confirmations = (
+        fields.pop("confirmations")
+        if "confirmations" in fields
+        else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted)
+    )
 
     return {
         "_id": bewerbung_id,
+        "version": 0,
         "saison_id": saison_id,
         "submitted_at": submitted_at,
         "status": status,
         "team_id": team_id,
         "schule": None if schule is None else dict(schule),
         "kontakte": dict(kontakte),
-        "trikot": {"existing_satz": "keiner", "wunschfarbe": "rot"},
+        "trikot": {"existing_set": "keiner", "wunschfarbe": "rot"},
         "kader": {"expected_size": 14, "good_spieler": 3},
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": confirmation_deadline if confirmation_deadline is not None else bestaetigungsfrist_from(today=minted),
-        "confirmations": minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted),
+        # `confirmation_deadline` every seat's day at once, each seat's own otherwise, as the mint gave it.
+        "confirmations": {
+            seat: {**entry, "deadline": confirmation_deadline or entry.get("deadline") or confirmation_deadline_from(today=minted)}
+            if isinstance(entry, Mapping)
+            else entry
+            for seat, entry in confirmations.items()
+        },
         **fields,
     }
 
@@ -353,11 +371,11 @@ def registrierung_document(
     *,
     saison_id: str,
     team_id: Any,
-    vorname: str,
-    nachname: str,
+    first_name: str,
+    last_name: str,
     token: str,
     submitted_at: str,
-    frist: str,
+    deadline: str,
     position: str | None = None,
     nummer: str | None = None,
     stufe: str | None = None,
@@ -375,13 +393,13 @@ def registrierung_document(
             saison_id=saison_id,
             team_id=team_id,
             invitation_id=ObjectId(),
-            vorname=vorname,
-            nachname=nachname,
+            first_name=first_name,
+            last_name=last_name,
             email=email,
             position=position,
             nummer=nummer,
             stufe=stufe,
-            confirmation={**compose_bestaetigung(today=submitted_at, frist=frist), "token_hashes": [hash_token(token)]},
+            confirmation={**compose_bestaetigung(today=submitted_at, deadline=deadline), "token_hashes": [hash_token(token)]},
             today=submitted_at,
         ),
         "idempotency_key": str(registrierung_id),
@@ -394,7 +412,7 @@ def registrierung_document(
 
 
 def kontaktperson_document(
-    vorname: str,
+    first_name: str,
     *,
     confirmed_at: str | None = None,
     einwilligung: Mapping[str, Any] | None = None,
@@ -427,11 +445,11 @@ def kontaktperson_document(
             }
 
     return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None if confirmed_at is None else "1984-05-09",
+        "first_name": first_name,
+        "last_name": f"{first_name}-Mustermann",
+        "email": f"{first_name.lower()}@example.com",
+        "phone": "+49 170 1234567",
+        "birth_date": None if confirmed_at is None else "1984-05-09",
         "einwilligung": block,
         **fields,
     }
@@ -492,7 +510,7 @@ def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str,
 
     born = compose_initial(
         block={
-            "scope": "kader_oeffentlich",
+            "scope": "kader_public",
             "date": confirmed_at,
             "confirmed_at": confirmed_at,
             "media": False,
@@ -514,9 +532,9 @@ def schiedsrichter_document(
         "name": name,
         "schule": None,
         "default_payment": default_payment,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
+        "kontakt": {"phone": "+49 69 5550202", "email": email},
         "inactive_since": None,
-        "geburtsdatum": None,
+        "birth_date": None,
         "einwilligung": None if einwilligung is None else dict(einwilligung),
         **fields,
     }
@@ -528,11 +546,11 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, geburtsdatum: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
+def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
     """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
 
     return {
-        "geburtsdatum": geburtsdatum,
+        "birth_date": birth_date,
         "scope": scope,
         "media": media,
         "text_versions": None if scope is None and media is None else SPIELER_TEXT_VERSIONS,

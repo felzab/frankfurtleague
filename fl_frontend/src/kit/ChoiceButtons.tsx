@@ -12,6 +12,7 @@ import { MessageLine, RequiredMark } from "./FieldParts";
 import { choiceButton, choiceGroup, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { Tooltip } from "./Tooltip";
 
 import type { Copy } from "@/core/copy";
@@ -158,6 +159,49 @@ export function Segmented({
         id={descriptionId}
         description={description}
       />
+    </div>
+  );
+}
+
+/** The segments of a glyph-only `Segmented` while it waits: the frame, and each segment's glyph as a bar in its place. */
+export function SegmentedPlaceholder({ count }: { count: number }) {
+  return (
+    <span className={choiceGroup({ kind: "segmented" })}>
+      {Array.from({ length: count }, (_, index) => (
+        <span
+          key={index}
+          className={choiceButton({ kind: "segmented", content: "glyph" })}>
+          <span className={placeholderBar("size-4")} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * `ToggleBoxes` while its record is read: the label's line, each box at its own edge around a bar for its word, wrapping
+ * as the boxes wrap, and the message line.
+ */
+export function ToggleBoxesPlaceholder({ count }: { count: number }) {
+  return (
+    <div className={fieldRoot()}>
+      <PlaceholderLine
+        text={fieldLabel()}
+        width="w-24"
+      />
+      <span className={choiceGroup({ kind: "boxes" })}>
+        {Array.from({ length: count }, (_, index) => (
+          <span
+            key={index}
+            className={choiceButton({ kind: "boxes" })}>
+            <PlaceholderLine
+              text=""
+              width="w-5"
+            />
+          </span>
+        ))}
+      </span>
+      <span className={messageLine()} />
     </div>
   );
 }

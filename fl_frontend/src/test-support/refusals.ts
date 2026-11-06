@@ -4,7 +4,6 @@ import { APIBadStatusError } from "@/core/errors.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import type { Code } from "@/core/generated/client/types.ts";
-import type { FieldErrors } from "@/shared/utils/validation.ts";
 
 /** The unique index's refusal, and the one code the shared reader's fallback words. */
 export const DUPLICATE_KEY = "duplicate_key" satisfies Code;
@@ -70,63 +69,4 @@ export function answerShown(code: Code | undefined, mapper: (error: unknown) => 
   expect(shownFrom(moved, mapper(moved)), `${String(code)} is answered by its status`).toStrictEqual(shown);
 
   return shown;
-}
-
-/** `answerShown` for a mapper that answers once a read it makes has settled. */
-export async function answerSettled(code: Code | undefined, mapper: (error: unknown) => unknown): Promise<unknown> {
-  const refusal = refused(code);
-  const moved = atAnotherStatus(refusal);
-  const shown = shownFrom(refusal, await mapper(refusal));
-  expect(shownFrom(moved, await mapper(moved)), `${String(code)} is answered by its status`).toStrictEqual(shown);
-
-  return shown;
-}
-
-/** A failure as the form reads it back, where a key left `undefined` and a key left out read alike. */
-const asRead = (result: unknown): unknown => JSON.parse(JSON.stringify(result)) as unknown;
-
-/**
- * What an action returns for `refusal` where its mapper answers `mapped`: a sentence as the failure, a
- * field map through `refusalResult`, or for `null` the shared reader's words a rethrow reaches.
- */
-async function actionAnswer(
-  refusal: APIBadStatusError,
-  mapped: string | { error?: string; fieldErrors?: FieldErrors } | null,
-  readOnly = false,
-): Promise<unknown> {
-  // Imported late: `adminMutation.ts` reaches the logger, which the caller's
-  // `fl_frontend/src/test-support/actionDoubles.ts :: doubleActionRequest` stands in for first.
-  const { refusalResult } = await import("@/shared/utils/adminMutation.ts");
-
-  if (mapped === null) return asRead(toActionErrorResult(refusal, { method: "POST", readOnly }));
-  return asRead(typeof mapped === "string" ? { success: false, error: mapped } : refusalResult(mapped));
-}
-
-/**
- * Calls a real action per code, its doubled write refusing at two statuses, against `actionAnswer` over the mapper it
- * should consult: an action asking another mapper, or none, or reading the status, fails by some code.
- */
-export async function assertEachAnswered({
-  codes,
-  refuseWith,
-  act,
-  mapped,
-  readOnly = false,
-}: {
-  codes: readonly Code[];
-  /** The doubled write's `answerWith`. */
-  refuseWith: (next: () => Promise<unknown>) => void;
-  act: () => Promise<unknown>;
-  mapped: (refusal: APIBadStatusError) => string | { error?: string; fieldErrors?: FieldErrors } | null;
-  readOnly?: boolean;
-}): Promise<void> {
-  for (const code of codes) {
-    const refusal = refused(code);
-    const expected = await actionAnswer(refusal, mapped(refusal), readOnly);
-
-    for (const sent of [refusal, atAnotherStatus(refusal)]) {
-      refuseWith(() => Promise.reject(sent));
-      expect(asRead(await act()), `${code} at ${String(sent.statusCode)}`).toStrictEqual(expected);
-    }
-  }
 }

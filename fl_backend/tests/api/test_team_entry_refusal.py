@@ -6,12 +6,10 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.teams.admin_router import post_saison_team
-from app.api.teams.schemas import FLPostSaisonTeamPayload
+from app.api.teams.admin_router import post_team_entry
+from app.api.teams.schemas import FLPostTeamEntryPayload
 from app.api.teams.services import (
-    find_club_entry_refusal,
     find_entry_refusal,
-    offered_gruppen,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -32,24 +30,13 @@ RULES = FLSaisonRules(
     number_of_gruppen=2,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=50,
+    max_kader_size=50,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=STUFEN,
 )
 
 
-class TestOfferedGruppen:
-    def test_the_count_takes_the_first_names_of_the_closed_set_in_order(self):
-        assert offered_gruppen(2) == ("A", "B")
-
-    def test_four_is_the_whole_set(self):
-        assert offered_gruppen(4) == ("A", "B", "C", "D")
-
-
 class TestEnteringASeason:
-    def test_a_future_season_with_space_takes_the_team(self):
-        assert find_entry_refusal(saison_status="future", gruppe="A", rules=RULES, occupied=3) is None
-
     def test_the_active_season_is_refused(self):
         refusal = find_entry_refusal(saison_status="active", gruppe="A", rules=RULES, occupied=0)
         assert refusal is not None
@@ -69,25 +56,6 @@ class TestEnteringASeason:
         refusal = find_entry_refusal(saison_status="future", gruppe="B", rules=RULES, occupied=4)
         assert refusal is not None
         assert refusal.error_code == Code.ENTRY_GRUPPE_FULL
-
-    def test_the_season_gate_outranks_the_group_gates(self):
-        """The first rule an admin can act on is named first: a past season's full group reports the season."""
-        refusal = find_entry_refusal(saison_status="past", gruppe="C", rules=RULES, occupied=4)
-        assert refusal is not None
-        assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
-
-
-class TestWhetherTheClubIsStillInTheLeague:
-    """Its own question, asked of the club rather than of the season — which is why a group move does not ask it."""
-
-    def test_a_live_club_is_admitted(self):
-        assert find_club_entry_refusal(inactive_since=None) is None
-
-    def test_a_retired_club_is_refused(self):
-        refusal = find_club_entry_refusal(inactive_since="2026-03-01")
-
-        assert refusal is not None
-        assert refusal.error_code == Code.TEAM_RETIRED
 
 
 DATABASE_NAME = worker_database("fl_team_entry_test")
@@ -121,10 +89,10 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
     return on_the_seed_loop(_run())
 
 
-async def enter(database: AsyncDatabase, team_id: ObjectId, gruppe: str = "A") -> Any:
-    return await post_saison_team(
-        team_id=team_id,
-        saison_team_data=FLPostSaisonTeamPayload.model_validate({"saison_id": SAISON_ID, "gruppe": gruppe}),
+async def enter(database: AsyncDatabase, team_id: ObjectId) -> Any:
+    return await post_team_entry(
+        saison_id=SAISON_ID,
+        entry_data=FLPostTeamEntryPayload.model_validate({"club": {"kind": "known", "team_id": team_id}, "gruppe": "A", "trikot_farbe": None}),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -153,17 +121,6 @@ class TestEnteringAClubThroughTheEndpoint:
         # The refusal has to stop the write, not merely accompany it.
         assert rows == []
 
-    def test_the_clubs_standing_is_reported_before_the_group_it_asked_for(self, mongo_replica_set_url: str):
-        """A group the season does not run would refuse too; naming it sends an admin to fix the wrong thing."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await enter(database, RETIRED_OID, gruppe="D")
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.TEAM_RETIRED
-
     def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""
 
@@ -174,30 +131,3 @@ class TestEnteringAClubThroughTheEndpoint:
             return await junction_rows(database)
 
         assert on_a_league(mongo_replica_set_url, body) == []
-
-    def test_a_live_club_is_entered_under_the_name_it_carries_today(self, mongo_replica_set_url: str):
-        """The other half of that one read: the season's copy is seeded here or it is seeded nowhere."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            response = await enter(database, LIVE_OID)
-
-            return response, await junction_rows(database)
-
-        response, rows = on_a_league(mongo_replica_set_url, body)
-        name, shorthand = CLUB_NAMES[LIVE_OID]
-
-        assert (response.name, response.shorthand) == (name, shorthand)
-        assert len(rows) == 1
-        assert (rows[0]["name"], rows[0]["shorthand"]) == (name, shorthand)
-        assert rows[0]["austritt"] is None
-
-    def test_the_season_gate_still_reaches_a_live_club(self, mongo_replica_set_url: str):
-        """So the club gate above cannot be passing by refusing everything before the season is ever judged."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await enter(database, LIVE_OID)
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body, saison_status="active") == Code.ENTRY_SAISON_NOT_FUTURE

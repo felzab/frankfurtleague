@@ -1,8 +1,11 @@
 import { Suspense } from "react";
 
+import { COPY } from "@/core/copy";
+
 import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
+import { Callout } from "./Callout";
 import { Card, CardActRow, CardPlaceholder, CardRowsPlaceholder } from "./Card";
 import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
@@ -10,13 +13,13 @@ import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
-import { StatusLine } from "./FieldParts";
 import { Filters } from "./Filters";
+import { Icon } from "./Icon";
+import { Link } from "./Link";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
-import { lockedLine } from "./lockedLine";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { Placeholder, Waiting } from "./Skeleton";
+import { Placeholder, SAISON_WORDS, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
@@ -24,6 +27,7 @@ import { Tabs, TabsPlaceholder } from "./Tabs";
 import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
+import type { Route } from "next";
 import type { ComponentProps, ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
 import type { DialogAct } from "./dialogAct";
@@ -91,29 +95,62 @@ type ListContent =
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
       /** The table's head, which its placeholder draws while the rows are read. */
       head: TableHead;
+      /** How many rows its wait draws. */
+      wait: number;
       content: Promise<TableContent>;
     }
   | {
       kind: "spieltage";
       /** Each matchday's panel opens with its dates and its act, as the administrator's „Spiele“ list's do. */
       dated?: true;
+      /** How many matchday tabs its wait draws, and how many matches under them. */
+      wait: { tabs: number; matches: number };
       content: Promise<SpieltageContent>;
     }
   | {
       kind: "groups";
       /** Every group's table's head, one for all, which their placeholder draws while the rows are read. */
       head: TableHead;
+      /** How many group cards its wait draws, and how many rows in each. */
+      wait: { groups: number; rows: number };
       content: Promise<GroupsContent>;
     }
-  | { kind: "cards"; content: Promise<CardsContent> }
-  | { kind: "tree"; content: Promise<TreeContent> }
-  | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> }
-  | { kind: "tiles"; /** The search field's name. */ search: ListSearch; content: Promise<TilesContent> };
+  | {
+      kind: "cards";
+      /**
+       * Each card while it waits, in their order, its title and the acts its rows carry, which a phone sets on a line of
+       * their own, and how many rows each draws.
+       */
+      wait: { rows: number; cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }> };
+      content: Promise<CardsContent>;
+    }
+  | {
+      kind: "tree";
+      /** How many teams its wait draws the tree for, which is the tree's shape. */
+      wait: ComponentProps<typeof BracketTreePlaceholder>["qualifiers"];
+      content: Promise<TreeContent>;
+    }
+  | {
+      kind: "spiele";
+      /** The search field's name. */
+      search: ListSearch;
+      /** How many match cards its wait draws. */
+      wait: number;
+      content: Promise<SpieleContent>;
+    }
+  | {
+      kind: "tiles";
+      /** The search field's name. */
+      search: ListSearch;
+      /** How many tiles its wait draws. */
+      wait: number;
+      content: Promise<TilesContent>;
+    };
 
 /**
  * What each kind waits in: the placeholders of the blocks its content is drawn with, laid out as the content lays them,
- * so the wait stands as tall as the first screen of the content will. How many rows, cards or tiles it draws is a
- * typical first screen's, since how many there are is what the read tells.
+ * as many as the page states beside its list (`Skeleton.tsx` has the rule), since how many there are is what the read
+ * tells.
  */
 function ListPlaceholder({ list }: { list: ListContent }) {
   switch (list.kind) {
@@ -121,17 +158,17 @@ function ListPlaceholder({ list }: { list: ListContent }) {
       return (
         <TablePlaceholder
           head={list.head}
-          rows={8}
+          rows={list.wait}
         />
       );
     case "groups":
-      return [0, 1].map((index) => (
+      return Array.from({ length: list.wait.groups }, (_, index) => (
         <CardPlaceholder
           key={index}
           count>
           <TablePlaceholder
             head={list.head}
-            rows={4}
+            rows={list.wait.rows}
             plaques
             bare
           />
@@ -140,36 +177,40 @@ function ListPlaceholder({ list }: { list: ListContent }) {
     case "cards":
       return (
         <CardGrid>
-          {[0, 1, 2, 3].map((index) => (
+          {list.wait.cards.map(({ title, acts }) => (
             <CardPlaceholder
-              key={index}
+              key={title}
+              title={title}
               count>
-              <CardRowsPlaceholder rows={3} />
+              <CardRowsPlaceholder
+                rows={list.wait.rows}
+                {...(acts === undefined ? {} : { acts })}
+              />
             </CardPlaceholder>
           ))}
         </CardGrid>
       );
     case "spieltage":
       return (
-        <TabsPlaceholder count={6}>
+        <TabsPlaceholder count={list.wait.tabs}>
           {list.dated === true && <SpieltagHeadPlaceholder />}
           <SpielListPlaceholder
-            count={6}
+            count={list.wait.matches}
             layout="cards"
           />
         </TabsPlaceholder>
       );
     case "tree":
-      return <BracketTreePlaceholder />;
+      return <BracketTreePlaceholder qualifiers={list.wait} />;
     case "spiele":
       return (
         <SpielListPlaceholder
-          count={6}
+          count={list.wait}
           layout="cards"
         />
       );
     case "tiles":
-      return <SchoolTilesPlaceholder count={8} />;
+      return <SchoolTilesPlaceholder count={list.wait} />;
   }
 }
 
@@ -196,14 +237,26 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
 
 /**
  * The filter block while its choices are read, at the height it will stand at, so nothing under the toolbar moves when
- * it arrives: on a phone the „Filter“ button, on desktop a labelled select, its label, its field and the line under it.
+ * it arrives: on a phone the „Filter“ button, on desktop its labelled selects, each its label, its field and the line
+ * under it.
  */
-function FiltersPlaceholder() {
+function FiltersPlaceholder({ count }: { count: number }) {
   return (
     <Placeholder>
-      <span className={buttonPlaceholder("w-24 lg:hidden")} />
-      <span className="max-lg:hidden">
-        <FieldPlaceholder width="C10" />
+      <span className={buttonPlaceholder("lg:hidden")}>
+        <Icon
+          glyph="filter"
+          size={16}
+        />
+        {COPY.shared.filter}
+      </span>
+      <span className="flex items-start gap-3 max-lg:hidden">
+        {Array.from({ length: count }, (_, index) => (
+          <FieldPlaceholder
+            key={index}
+            width="fit"
+          />
+        ))}
       </span>
     </Placeholder>
   );
@@ -216,55 +269,86 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
 
 /**
  * A record created where its list shows: the dialog's act, and why it cannot run on the list as it stands, which the
- * page read, the button disabled and the reason in the line under it.
+ * page read, the button saying why (`Button`).
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
-/** The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. */
+/**
+ * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
+ * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide.
+ */
 function CreatePlaceholder() {
   return (
     <Placeholder>
-      <span className={buttonPlaceholder("w-36")} />
+      <span className={buttonPlaceholder()}>
+        <Icon
+          glyph="create"
+          size={16}
+        />
+        {actLabel({ verb: "create", object: SAISON_WORDS })}
+      </span>
     </Placeholder>
   );
 }
 
-/**
- * The create act at the toolbar row's end, its button opening the dialog over the list. Its reason, where it cannot
- * run, stands under the button in the gap between the toolbar and the list, outside the toolbar's flow, so a create
- * closing the act, as a new season closes the next, moves neither the toolbar nor the list, and the toolbar's parts
- * stay centred on one line. It is placed against the toolbar, the act's own box being only as wide as its button.
- */
+/** The create act at the toolbar row's end, its button opening the dialog over the list. */
 function CreateAct({ create }: { create: ListCreate }) {
   const { locked, ...act } = create;
-  return (
-    <>
-      <Dialog
-        {...act}
-        trigger={
-          <Button
-            variant="primary"
-            leadingIcon="create"
-            label={actLabel(act.act)}
-            isDisabled={locked !== undefined}
-          />
-        }
-      />
-      {locked !== undefined && (
-        <div className="absolute end-0 top-full mt-1 text-end">
-          <StatusLine
-            status={lockedLine(locked)}
-            placement="column"
-          />
-        </div>
-      )}
-    </>
+  const button = (
+    <Button
+      variant="primary"
+      leadingIcon="create"
+      label={actLabel(act.act)}
+      locked={locked}
+    />
+  );
+  return locked === undefined ? (
+    <Dialog
+      {...act}
+      trigger={button}
+    />
+  ) : (
+    button
   );
 }
 
 /** The create act once what it makes is read. */
 async function CreateOnceRead({ create }: { create: Promise<ListCreate> }) {
   return <CreateAct create={await create} />;
+}
+
+/**
+ * A page acting on the list as a whole, such as the Sammel-Zusage: a secondary link at the toolbar row's end, its words
+ * stated with the list and its address read with it, `null` where the list holds nothing it could act on.
+ */
+export type ListLink = { label: Copy; href: Promise<Route | null> };
+
+/** That link once the list says whether it stands. */
+async function LinkOnceRead({ link }: { link: ListLink }) {
+  const href = await link.href;
+  return (
+    href !== null && (
+      <Link
+        href={href}
+        placement="button"
+        look="secondary"
+        label={link.label}
+      />
+    )
+  );
+}
+
+/** The standing word over a list read short, once the list says so. */
+async function NoticeOnceRead({ notice }: { notice: Promise<Copy | null> }) {
+  const text = await notice;
+  return (
+    text !== null && (
+      <Callout
+        tone="warn"
+        text={text}
+      />
+    )
+  );
 }
 
 /** The list once its content is read, in the boundary's place. */
@@ -369,7 +453,10 @@ async function ListBody({ list }: { list: ListContent }) {
 export function ListPage({
   head,
   filters,
+  filterCount = 1,
   create,
+  link,
+  notice,
   list,
 }: {
   head: RailPageHead;
@@ -378,16 +465,21 @@ export function ListPage({
    * are, so it waits in a boundary of its own and stands in the toolbar once read.
    */
   filters?: Promise<ReadonlyArray<Filter>>;
+  /** How many selects the filter block holds, which the page knows before the read and its wait draws. */
+  filterCount?: number;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
    * where what it makes is the list's to say, as the Saisons list names the next season, so it waits in a boundary of
    * its own and stands in the toolbar once read.
    */
   create?: ListCreate | Promise<ListCreate>;
+  link?: ListLink;
+  /** What holds of the list as read and no row says, standing between the toolbar and the list. */
+  notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
   const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
-  const hasToolbar = search !== undefined || filters !== undefined || create !== undefined;
+  const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || link !== undefined;
 
   return (
     <RailPage {...head}>
@@ -395,11 +487,10 @@ export function ListPage({
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
-          // Positioned, so the create act's reason stands under the toolbar's end, in the gap above the list.
-          <div className="relative flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {search !== undefined && <ListSearchField label={search.label} />}
             {filters !== undefined && (
-              <Suspense fallback={<FiltersPlaceholder />}>
+              <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}
@@ -414,7 +505,24 @@ export function ListPage({
                 )}
               </div>
             )}
+            {link !== undefined && (
+              <div className="ms-auto">
+                <Suspense
+                  fallback={
+                    <Placeholder>
+                      <span className={buttonPlaceholder()}>{link.label}</span>
+                    </Placeholder>
+                  }>
+                  <LinkOnceRead link={link} />
+                </Suspense>
+              </div>
+            )}
           </div>
+        )}
+        {notice !== undefined && (
+          <Suspense fallback={null}>
+            <NoticeOnceRead notice={notice} />
+          </Suspense>
         )}
         <PageWait
           fallback={

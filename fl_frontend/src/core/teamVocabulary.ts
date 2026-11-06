@@ -4,7 +4,7 @@ import { FLTrikotFarbe } from "./generated/client/types";
 import type { FLKontaktRolle } from "./generated/client/types";
 
 /**
- * Each seat's name in a sentence to the public, in the seats' order. Here, in `core`, because the mail builders name a
+ * Each seat's name in a sentence to the public, in the order `rollenText` joins them. Here, in `core`, because the mail builders name a
  * reader's seats and may reach no feature; `fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN` builds its
  * long form from this table.
  */
@@ -28,8 +28,7 @@ export function rollenText(rollen: readonly FLKontaktRolle[]): string {
  * The league's kit palette in its colour sheet's order, neutrals first, then round the colour wheel. The hex is copied
  * from the league's colour sheet and authoritative over any eyeballed match: a changed one recolours every row stored
  * under its slug, and contradicts every acceptance mail already sent, which states the hex to the school.
- * `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS` is this table. Total over the generated
- * `FLTrikotFarbe`, so a colour the backend adds fails here; the list reads it in the client's order, which is the sheet's.
+ * Total over the generated `FLTrikotFarbe`, so a colour the backend adds fails here; the list reads it in the client's order, which is the sheet's.
  */
 const TRIKOT_FARBE = {
   schwarz: { label: "Schwarz", hex: "#111111" },
@@ -60,4 +59,4 @@ const TRIKOT_FARBE = {
 
 export const TRIKOT_FARBEN: readonly { readonly value: FLTrikotFarbe; readonly label: string; readonly hex: string }[] = Object.values(
   FLTrikotFarbe,
-).map((value) => ({ value: value, ...TRIKOT_FARBE[value] }));
+).map((value) => ({ value, ...TRIKOT_FARBE[value] }));

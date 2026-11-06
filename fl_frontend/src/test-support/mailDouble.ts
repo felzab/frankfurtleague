@@ -43,9 +43,9 @@ export function doubleOutbox(): {
       import("@/core/emailShell.ts"),
     ]);
     const secret = payload.secret === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.secret });
-    const message = mailFor(payload.data.kind, payload.data, { token: null, secret: secret, origin: frontend_config.AUTH_URL });
+    const message = mailFor(payload.data.kind, payload.data, { token: null, secret, origin: frontend_config.AUTH_URL });
     assert(message !== undefined, `no builder renders the sign-in kind ${payload.data.kind}`);
-    const mail = { to: payload.an, ...renderMail(message) };
+    const mail = { to: payload.to, ...renderMail(message) };
 
     if ((await answering(mail)) === "lost") {
       throw new APINetworkError({ message: "Request failed.", url: BACKEND, method: "POST", readOnly: false, traceId: "0", isTimeout: false });
@@ -58,7 +58,7 @@ export function doubleOutbox(): {
   // Imported after this call by the suite, so the modules it loads owe through the double.
   vi.doMock("@/core/generated/client/sdk.ts", async () => ({
     ...(await vi.importActual<object>("@/core/generated/client/sdk.ts")),
-    outboxPostSignIn: outboxPostSignIn,
+    outboxPostSignIn,
   }));
 
   // Back to accepted before every case: a case that named `lost` would hand it to the next case's mail.

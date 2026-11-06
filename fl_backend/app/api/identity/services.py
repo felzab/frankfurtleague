@@ -13,7 +13,7 @@ from typing import Any, Final, Literal, get_args
 from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, admin_tier_of, holds_an_owners_power
-from app.api.bewerbungen.services import build_eigene_bewerbung_filter
+from app.api.bewerbungen.services import build_own_bewerbung_filter
 from app.api.identity.schemas import FLAccountErasureView, FLErasureView, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
@@ -101,7 +101,7 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 # preview and the erasure name one set and the narrowing above takes nothing out of either.
 
 # What a seat is named by in the preview, beside the address the fold judges it on.
-ERASURE_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+ERASURE_SEAT_FIELDS: tuple[str, ...] = ("email", "first_name", "last_name")
 
 
 def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -120,6 +120,9 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "team_id": 1,
                 "name": 1,
                 "confirmations": 1,
+                # What the clearing judges a deletion notice's day by (`leaving_moves_the_deletion_day`).
+                "erasure_announced_at": 1,
+                **{f"kontakte.{slot}.einwilligung.confirmed_at": 1 for slot in KONTAKT_ROLLEN},
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ERASURE_SEAT_FIELDS},
             }
         },
@@ -136,13 +139,13 @@ def build_erasure_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    return [{"$match": build_self_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
+    return [{"$match": build_self_pupil_filter(identifier)}, {"$project": {"first_name": 1, "last_name": 1}}, {"$sort": {"_id": 1}}]
 
 
 def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
         {"$match": build_erasure_registrierung_filter(identifier)},
-        {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "vorname": 1, "nachname": 1}},
+        {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "first_name": 1, "last_name": 1}},
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
 
@@ -195,7 +198,7 @@ def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str
 
 
 def _pupil_entry(row: Mapping[str, Any]) -> dict[str, Any]:
-    return {"vorname": row.get("vorname"), "nachname": row.get("nachname")}
+    return {"first_name": row.get("first_name"), "last_name": row.get("last_name")}
 
 
 def _referee_entry(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -205,15 +208,15 @@ def _referee_entry(row: Mapping[str, Any]) -> dict[str, Any]:
 def _seat_entry(row: Mapping[str, Any], slot: str) -> dict[str, Any]:
     person = (row.get("kontakte") or {}).get(slot) or {}
 
-    return {"saison_id": row.get("saison_id"), "rolle": slot, "vorname": person.get("vorname"), "nachname": person.get("nachname")}
+    return {"saison_id": row.get("saison_id"), "rolle": slot, "first_name": person.get("first_name"), "last_name": person.get("last_name")}
 
 
 def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
     return {
         "saison_id": row["saison_id"],
         "team_name": team_names.get((row["saison_id"], row["team_id"])),
-        "vorname": row.get("vorname"),
-        "nachname": row.get("nachname"),
+        "first_name": row.get("first_name"),
+        "last_name": row.get("last_name"),
     }
 
 
@@ -332,7 +335,7 @@ def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"einwilligung.confirmed_at": 1, "inactive_since": 1}},
+        {"$project": {"einwilligung.confirmed_at": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -341,7 +344,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending application one of whose seats names the address; read for the sign-in alone, no panel standing on one."""
 
     return [
-        {"$match": build_eigene_bewerbung_filter(identifier)},
+        {"$match": build_own_bewerbung_filter(identifier)},
         {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")}},
     ]
 
@@ -447,7 +450,7 @@ def own_entries(
 
 
 def is_live(row: Mapping[str, Any]) -> bool:
-    """A pupil or referee row not retired: only such a row grants its Funktion."""
+    """A referee row not retired: only such a row grants its Funktion."""
 
     return row.get("inactive_since") is None
 
@@ -455,7 +458,7 @@ def is_live(row: Mapping[str, Any]) -> bool:
 def not_exited(row: Mapping[str, Any]) -> bool:
     """A season row its team has not withdrawn from: only such a row's seats grant.
 
-    The record's presence is the test and never its `datum`: a seat grants nothing from the day its team's exit is recorded.
+    The record's presence is the test and never its `date`: a seat grants nothing from the day its team's exit is recorded.
     """
 
     return row.get("austritt") is None
@@ -487,14 +490,7 @@ def holds_a_seat(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id
     return any(seat.team_id == team_id and seat.saison_id == saison_id for seat in seats)
 
 
-# The grant predicates, one per kind of own record: each consent PATCH grants by its record's, and each
-# read's `givable` is that same predicate.
-
-
-def may_grant_on_spieler(subject: FLSubject, spieler_id: ObjectId) -> bool:
-    return any(entry.spieler_id == spieler_id for entry in subject.spieler)
-
-
+# A retired referee's record takes withdrawals alone: the consent PATCH grants by this, and the read's `givable` is the same predicate.
 def may_grant_on_schiedsrichter(subject: FLSubject, schiedsrichter_id: ObjectId) -> bool:
     return any(entry.schiedsrichter_id == schiedsrichter_id for entry in subject.schiedsrichter)
 
@@ -667,7 +663,7 @@ def build_seat_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[s
 
 
 def build_bewerbung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    return [{"$match": build_eigene_bewerbung_filter(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
+    return [{"$match": build_own_bewerbung_filter(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
 
 
 def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:

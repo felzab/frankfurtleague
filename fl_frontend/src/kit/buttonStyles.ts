@@ -1,4 +1,4 @@
-import { placeholderBar } from "./Skeleton";
+import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
 /**
@@ -18,32 +18,42 @@ export const buttonLook = tv({
       // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“: words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
       icon: "w-8 border-transparent bg-transparent text-fg pointer-coarse:w-10",
+      // A labelled button while what it acts on is read (`buttonPlaceholder`): a placeholder's bar in the button's box, its
+      // words unseen.
+      placeholder: "skeleton-bar border-transparent px-3.5 text-transparent",
     },
-    // React Aria's button marks its own hover, which a touch never sets; a plain anchor takes the pointer's
-    // `:hover`, which Tailwind applies only where the device can hover.
+    // The control that marks the state, as `hoverLook` reads it.
     host: {
       aria: "",
       link: "",
     },
+    // A locked act (`Button`'s `locked`) dims as a disabled one does and takes no layer, keeping the pointing hand, since
+    // a press opens its reason. Read from the recipe rather than `aria-disabled:`, which React Aria sets on a busy button too.
+    locked: {
+      true: "opacity-50",
+      false: "",
+    },
   },
   // Under the pointer every look but the quiet one lays the one hover layer over its fill (`bg-layer`, 12 % of its own
   // words' colour), so the step shows on the page, a card, a card's head and an overlay alike, and over a row's own
-  // layer. A press takes the hover's look, so under a mouse the two are one state and a touch, which never hovers,
-  // still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
+  // layer.
   compoundVariants: [
-    { look: ["primary", "secondary", "danger", "icon"], host: "aria", class: "data-hovered:bg-layer data-pressed:bg-layer" },
-    { look: ["primary", "secondary", "icon"], host: "link", class: "hover:bg-layer active:bg-layer" },
+    { look: ["primary", "secondary", "danger", "icon"], host: "aria", locked: false, class: hoverLook({ host: "aria" }) },
+    { look: ["primary", "secondary", "icon"], host: "link", class: hoverLook({ host: "link" }) },
     // A quiet act is a button, so it takes no underline, which marks a link alone, and its words alone answer: they
     // take their full colour, as a plain button and a text button do (Apple's HIG, Material).
-    { look: "quiet", host: "aria", class: "data-hovered:text-fg data-pressed:text-fg" },
-    { look: "quiet", host: "link", class: "hover:text-fg active:text-fg" },
+    { look: "quiet", host: "aria", locked: false, class: hoverLook({ host: "aria", answer: "words" }) },
+    { look: "quiet", host: "link", class: hoverLook({ host: "link", answer: "words" }) },
   ],
+  defaultVariants: { locked: false },
 });
 
 /**
- * A button while what it acts on is read: a bar of the button's height and corners, `width` wide, such as a label's
- * width or the full width of a column whose buttons fill it.
+ * A button while what it acts on is read, the class of a `span` holding what the button will hold: its label, and its
+ * leading glyph where it has one. The recipe is the button's, so the bar is exactly as wide as the button will be, or as
+ * wide as its column makes it where its column stretches its buttons. `width` is for a place that sets a button's
+ * width itself.
  */
-export function buttonPlaceholder(width: string) {
-  return placeholderBar(`h-8 rounded-lg pointer-coarse:h-10 ${width}`);
+export function buttonPlaceholder(width?: string) {
+  return buttonLook({ look: "placeholder", class: width });
 }

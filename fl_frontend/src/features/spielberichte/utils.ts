@@ -1,4 +1,4 @@
-import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
+import { kaderName, NUMMER_NOT_ON_FILE, SPIELER_ANONYMOUS_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
@@ -7,21 +7,21 @@ import type { FieldErrors } from "@/shared/utils/validation";
 
 /** A pupil as a report's reader sees them: shirt number and name, and a pupil an erasure took as „anonym“. */
 export function spielerLabel(spieler: FLSpielberichtSpieler): string {
-  if (spieler.vorname === null) return SPIELER_ANONYM_LABEL;
+  if (spieler.first_name === null) return SPIELER_ANONYMOUS_LABEL;
 
-  return `${spieler.nummer ?? NUMMER_NICHT_HINTERLEGT} · ${kaderName({ vorname: spieler.vorname, nachname: spieler.nachname })}`;
+  return `${spieler.nummer ?? NUMMER_NOT_ON_FILE} · ${kaderName({ first_name: spieler.first_name, last_name: spieler.last_name })}`;
 }
 
-/** Why a fixture takes no report today, `null` where it takes one, as `bericht_not_played` and `bericht_abgesagt` judge a write. */
-export type BerichtSperre = "abgesagt" | "undatiert" | "kuenftig";
+/** Why a fixture takes no report today, `null` where it takes one, as `bericht_not_played` and `bericht_cancelled` judge a write. */
+export type BerichtSperre = "cancelled" | "undatiert" | "kuenftig";
 
-export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonderereignis">, today: string): BerichtSperre | null {
-  if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") return "abgesagt";
-  if (spiel.datum === null) return "undatiert";
-  return spiel.datum > today ? "kuenftig" : null;
+export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "date" | "sonderereignis">, today: string): BerichtSperre | null {
+  if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") return "cancelled";
+  if (spiel.date === null) return "undatiert";
+  return spiel.date > today ? "kuenftig" : null;
 }
 
-export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
+export const BEMERKUNGEN_PATH = "bericht.remarks";
 
 // The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.
 const ELFMETER_IN_DER_GRUPPE = buildRefusal({ reason: "Ein Spiel der Gruppenphase hat kein Elfmeterschießen", repair: LADE_DIE_SEITE_NEU });
@@ -48,11 +48,11 @@ const SAETZE: Readonly<Record<string, string>> = {
     reason: "Eine gewählte Person steht nicht mehr im Kader ihres Teams",
     repair: "Lade die Seite neu und wähle neu",
   }),
-  bericht_abgesagt: buildRefusal({
+  bericht_cancelled: buildRefusal({
     reason: "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an",
     repair: LADE_DIE_SEITE_NEU,
   }),
-  bericht_grund_missing: GRUND_FEHLT,
+  card_reason_missing: GRUND_FEHLT,
   bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
   saison_past: buildRefusal({
     reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",

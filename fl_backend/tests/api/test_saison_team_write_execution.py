@@ -5,13 +5,15 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.teams.admin_router import patch_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamPayload
+from app.api.teams.admin_router import put_austritt
+from app.api.teams.schemas import FLAustrittPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
+from tests.outbox import MAIL_NOW
+from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -24,22 +26,16 @@ SAISON_ID = "2026"
 ADLER = ObjectId("6890a1b2c3d4e5f607250001")
 BIEBER = ObjectId("6890a1b2c3d4e5f607250002")
 CRONBERG = ObjectId("6890a1b2c3d4e5f607250003")
-ABSENT = ObjectId("6890a1b2c3d4e5f607250009")
 
-CLUB_NAMES = {ADLER: ("Adler", "ADX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
-
-# Two groups of two: "C" is a group the season does not run, and one extra row fills a group.
+# Two groups of two, so one extra row fills a group.
 NUMBER_OF_GROUPS = 2
 TEAMS_PER_GROUP = 2
-UNOFFERED_GRUPPE = "C"
 
 RULES = rules_document(number_of_gruppen=NUMBER_OF_GROUPS, teams_per_gruppe=TEAMS_PER_GROUP, allowed_stufen=["E1", "Q1"])
 
-# The season's copy of the identity is deliberately NOT the club's current one: the echo reads the
-# junction row, so a value taken from `teams` instead would show up as the club's name here.
 PLAYED_AS = {ADLER: ("Adler-Schule", "ASX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
-EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
+EXIT = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-04-01"}
 
 # The German day every write here is judged on, past the season's start, which `saison_document` sets to 2026-01-01.
 TODAY = "2026-04-15"
@@ -55,15 +51,7 @@ def junction_document(team_id: ObjectId, gruppe: str, kontakte: dict[str, Any] |
     return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe, kontakte=kontakte)
 
 
-def club_document(team_id: ObjectId) -> dict[str, Any]:
-    """Under the club's CURRENT name, which differs from what the season was played under."""
-
-    name, shorthand = CLUB_NAMES[team_id]
-
-    return team_document(team_id, name, shorthand, website_url="https://example.com")
-
-
-def fixture_document(team_id: ObjectId) -> dict[str, Any]:
+def team_spiel_document(team_id: ObjectId, side: str) -> dict[str, Any]:
     """What the move gate counts is one drawn side; every other field is null, so no other rule can answer for the refusal."""
 
     return spiel_document(
@@ -71,7 +59,7 @@ def fixture_document(team_id: ObjectId) -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_OID,
-        team1={"team_id": team_id, "name": "Adler-Schule", "shorthand": "ASX", "tore": None},
+        **{side: {"team_id": team_id, "tore": None}},
     )
 
 
@@ -95,7 +83,7 @@ def on_a_season(
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=dict(RULES)))
-            await database[Collection.TEAMS].insert_many([club_document(team_id) for team_id in CLUB_NAMES])
+            await database[Collection.TEAMS].insert_one(team_document(ADLER, "Adler", "ADL"))
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction_document(ADLER, "A", kontakte=seeded_kontakte), junction_document(BIEBER, "B"), *junctions]
             )
@@ -107,31 +95,18 @@ def on_a_season(
     return on_the_seed_loop(_run())
 
 
-async def call_patch(
-    database: AsyncDatabase,
-    team_id: ObjectId = ADLER,
-    *,
-    gruppe: str = "A",
-    austritt: dict[str, Any] | None = None,
-    trikot_farbe: str | None = None,
-    saison_id: str = SAISON_ID,
-    today: str = TODAY,
-) -> Any:
-    """`gruppe` defaults to `ADLER`'s own group, so the default call moves nobody.
-
-    Every key the payload takes is sent on every call: it replaces them wholesale and defaults none.
-    No `kontakte` is among them.
-    """
-
-    return await patch_saison_team(
-        team_id=team_id,
-        saison_id=saison_id,
-        saison_team_data=FLPatchSaisonTeamPayload.model_validate({"gruppe": gruppe, "austritt": austritt, "trikot_farbe": trikot_farbe}),
+async def call_put(database: AsyncDatabase, austritt: dict[str, Any], *, today: str = TODAY) -> None:
+    await put_austritt(
+        team_id=ADLER,
+        saison_id=SAISON_ID,
+        austritt_data=FLAustrittPayload.model_validate(austritt),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
+        outbox_collection=database[Collection.OUTBOX],
         db=database.client,
         today=today,
+        germany_now=MAIL_NOW,
     )
 
 
@@ -145,56 +120,40 @@ async def stored_row(database: AsyncDatabase, team_id: ObjectId = ADLER) -> dict
 class TestRecordingAnExitFromTheSeason:
     """An austritt is the only way out of a season -- there is no delete -- and it writes the record without moving anyone."""
 
-    def test_the_record_is_stored_and_echoed(self, mongo_replica_set_url: str):
-        def go(database: AsyncDatabase) -> Awaitable[Any]:
-            return _both(database, austritt=dict(EXIT))
-
-        response, row = on_a_season(mongo_replica_set_url, go)
-
-        assert row["austritt"] == EXIT
-        assert response.austritt is not None
-        assert (response.austritt.type, response.austritt.datum) == ("rueckzug", "2026-04-01")
-
-    def test_the_group_is_left_where_it_was(self, mongo_replica_set_url: str):
-        """The two writable fields travel together in one `$set`, so recording an exit must not reshuffle the groups."""
-
-        _, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, austritt=dict(EXIT)))
-
-        assert row["gruppe"] == "A"
-
-    def test_a_started_season_with_fixtures_drawn_still_takes_one(self, mongo_replica_set_url: str):
-        """The asymmetry the endpoint turns on: only a CHANGE of group is gated, and a club withdraws mid-season by definition."""
-
-        _, row = on_a_season(
-            mongo_replica_set_url,
-            lambda database: _both(database, austritt=dict(EXIT)),
-            saison_status="active",
-            spiele=[fixture_document(ADLER)],
-        )
-
-        assert row["austritt"] == EXIT
-
     def test_a_padded_reason_reaches_the_row_stripped(self, mongo_replica_set_url: str):
         """The reason is FREE TEXT and PUBLIC, and `min_length` counts CHARACTERS: spaces alone would stand on the team's page as a blank."""
 
-        padded = f"  {EXIT['grund']}  "
-
-        response, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, austritt={**EXIT, "grund": padded}))
-
-        assert row["austritt"]["grund"] == EXIT["grund"]
-        assert response.austritt is not None
-        assert response.austritt.grund == EXIT["grund"]
-
-    def test_clearing_it_reinstates_the_club(self, mongo_replica_set_url: str):
-        """`austritt` has no default, so a payload omitting it is a 422; sending null is how the record is deliberately withdrawn."""
+        padded = f"  {EXIT['reason']}  "
 
         async def body(database: AsyncDatabase) -> Any:
-            await call_patch(database, austritt=dict(EXIT))
-            await call_patch(database, austritt=None)
+            await call_put(database, {**EXIT, "reason": padded})
 
             return await stored_row(database)
 
-        assert on_a_season(mongo_replica_set_url, body)["austritt"] is None
+        assert on_a_season(mongo_replica_set_url, body)["austritt"] == EXIT
+
+    @pytest.mark.parametrize(
+        "second",
+        [
+            pytest.param(EXIT, id="the same exit pressed again"),
+            pytest.param({"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-05-01"}, id="another exit"),
+        ],
+    )
+    def test_a_write_on_a_row_whose_exit_stands_is_a_stale_page_and_changes_nothing(self, mongo_replica_set_url: str, second: dict[str, Any]):
+        """Told opponents and closed confirmations stay told and closed, so no later press may rewrite the record they answered."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await call_put(database, dict(EXIT))
+            before = await stored_row(database)
+            with pytest.raises(APIError) as refused:
+                await call_put(database, second)
+
+            return refused.value.error_code, before, await stored_row(database)
+
+        code, before, after = on_a_season(mongo_replica_set_url, body)
+
+        assert code == Code.VERSION_STALE
+        assert after == before, "a refused write changed the row"
 
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`saison_past`: an exit recorded on a finished season would move its table and podium after the fact."""
@@ -202,7 +161,7 @@ class TestRecordingAnExitFromTheSeason:
         async def body(database: AsyncDatabase) -> Any:
             before = await stored_row(database)
             with pytest.raises(APIError) as refused:
-                await call_patch(database, austritt=dict(EXIT))
+                await call_put(database, dict(EXIT))
 
             return refused.value.error_code, before, await stored_row(database)
 
@@ -220,7 +179,7 @@ class TestRecordingAnExitFromTheSeason:
         async def body(database: AsyncDatabase) -> Any:
             before = await stored_row(database)
             with pytest.raises(APIError) as refused:
-                await call_patch(database, austritt=dict(EXIT), today=BEFORE_THE_START)
+                await call_put(database, dict(EXIT), today=BEFORE_THE_START)
 
             return refused.value, before, await stored_row(database)
 
@@ -228,41 +187,24 @@ class TestRecordingAnExitFromTheSeason:
 
         assert (refusal.error_code, refusal.fields, refusal.bounds) == (
             Code.AUSTRITT_BEFORE_SAISON_START,
-            (("austritt",),),
+            (("date",),),
             {"earliest": "2026-01-01"},
         )
         assert after == before, "a refused write changed the row"
 
-    def test_a_stored_exit_is_resubmitted_unchanged_before_the_start(self, mongo_replica_set_url: str):
-        """Every save replaces the exit wholesale, so refusing a stored one unchanged would bar the row's kit colour and group for good."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": ADLER}, {"$set": {"austritt": dict(EXIT)}})
-            await call_patch(database, austritt=dict(EXIT), trikot_farbe="rot", today=BEFORE_THE_START)
-
-            return await stored_row(database)
-
-        row = on_a_season(mongo_replica_set_url, body)
-
-        assert (row["austritt"], row["trikot_farbe"]) == (EXIT, "rot")
-
 
 class TestMovingAClubBetweenGroups:
-    def test_the_move_lands_on_the_row(self, mongo_replica_set_url: str):
-        _, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, gruppe="B"))
-
-        assert row["gruppe"] == "B"
-
-    def test_a_started_season_with_a_fixture_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize("side", ["team1", "team2"])
+    def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str, side: str):
         """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as conflict:
-                await call_patch(database, gruppe="B")
+                await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[fixture_document(ADLER)])
+        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER, side)])
 
         assert code == Code.ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"
@@ -272,7 +214,7 @@ class TestMovingAClubBetweenGroups:
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as conflict:
-                await call_patch(database, gruppe="B")
+                await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
 
@@ -281,67 +223,15 @@ class TestMovingAClubBetweenGroups:
         assert code == Code.ENTRY_GRUPPE_FULL
         assert row["gruppe"] == "A"
 
-    def test_a_group_the_season_does_not_run_refuses_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await call_patch(database, gruppe=UNOFFERED_GRUPPE)
-
-            return conflict.value.error_code
-
-        assert on_a_season(mongo_replica_set_url, body) == Code.ENTRY_GRUPPE_NOT_OFFERED
-
-    def test_a_row_no_document_names_is_a_404(self, mongo_replica_set_url: str):
-        """Read before anything is judged, so an unknown club is a missing row rather than a refusal about a group."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await call_patch(database, ABSENT, gruppe="B")
-
-            return await database[Collection.SAISON_TEAMS].count_documents({})
-
-        assert on_a_season(mongo_replica_set_url, body) == 2
-
-
-class TestTheEchoCarriesTheSeasonsOwnIdentity:
-    """The season's copy of the club's name, which is on no payload -- so it can only come from the stored row."""
-
-    @pytest.mark.parametrize(
-        ("gruppe", "austritt"),
-        [pytest.param("B", None, id="a group move"), pytest.param("A", EXIT, id="an austritt")],
-    )
-    def test_both_operations_answer_with_the_stored_name(self, mongo_replica_set_url: str, gruppe: str, austritt: dict[str, Any] | None):
-        """Both, because the group change takes a branch the austritt skips and either could answer from the wrong place."""
-
-        response, _ = on_a_season(
-            mongo_replica_set_url, lambda database: _both(database, gruppe=gruppe, austritt=None if austritt is None else dict(austritt))
-        )
-
-        assert (response.name, response.shorthand) == PLAYED_AS[ADLER]
-
-    def test_the_answer_is_not_the_clubs_current_name(self, mongo_replica_set_url: str):
-        """The floor under the case above: `teams` holds a different name, so an echo reading the club would show it here."""
-
-        response, _ = on_a_season(mongo_replica_set_url, lambda database: _both(database, gruppe="B"))
-
-        assert (response.name, response.shorthand) != CLUB_NAMES[ADLER]
-
-
-async def _both(database: AsyncDatabase, **overrides: Any) -> Any:
-    """The response and the row it wrote: an echo agreeing with a document nobody updated proves nothing."""
-
-    response = await call_patch(database, **overrides)
-
-    return response, await stored_row(database)
-
 
 # One filled-in block, reused: the shape is the payload's, so a field added to it fails here rather
 # than at the first real write.
 KONTAKTPERSON = {
-    "vorname": "Anke",
-    "nachname": "Koerner",
+    "first_name": "Anke",
+    "last_name": "Koerner",
     "email": "a.koerner@example.de",
-    "telefon": "+49 170 1234567",
-    "geburtsdatum": "1984-05-09",
+    "phone": "+49 170 1234567",
+    "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }
 
@@ -353,59 +243,26 @@ KONTAKTE = {
 }
 
 
-class TestTheSeasonsKit:
-    """Written by this PATCH alone, and stored on the junction rather than on the club."""
+class TestTheContactBlockTheseWritesDoNotOwn:
+    """A seat's write stores it. No `$set` here names a `kontakte` key, so the stored block stands."""
 
-    def test_it_lands_on_the_row_and_comes_back_on_the_echo(self, mongo_replica_set_url: str):
-        response, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, trikot_farbe="bordeaux"))
-
-        assert row["trikot_farbe"] == "bordeaux"
-        assert response.trikot_farbe == "bordeaux"
-
-    def test_a_second_write_sending_null_clears_it(self, mongo_replica_set_url: str):
-        """The wholesale replace, from the direction that removes data: unassigning a colour is one PATCH."""
-
+    def test_a_stored_block_survives_a_group_move(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            await call_patch(database, trikot_farbe="bordeaux")
-            await call_patch(database)
+            await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
 
             return await stored_row(database)
 
-        assert on_a_season(mongo_replica_set_url, body)["trikot_farbe"] is None
-
-
-class TestTheContactBlockThisPatchDoesNotOwn:
-    """`PATCH .../kontakte` writes it. The `$set` here names no `kontakte` key, so the stored block stands."""
-
-    def test_a_stored_block_survives_a_group_move(self, mongo_replica_set_url: str):
-        _, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
+        row = on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
 
         assert row["gruppe"] == "B"
         assert row["kontakte"] == KONTAKTE
 
-    def test_a_stored_block_survives_an_austritt(self, mongo_replica_set_url: str):
-        _, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, austritt=dict(EXIT)), seeded_kontakte=dict(KONTAKTE))
+    def test_a_stored_block_survives_an_exit(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            await call_put(database, dict(EXIT))
+
+            return await stored_row(database)
+
+        row = on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
 
         assert row["kontakte"] == KONTAKTE
-
-    def test_the_echo_reports_the_stored_block_rather_than_a_null(self, mongo_replica_set_url: str):
-        """The AFTER image, so a client is told what the row holds instead of reading silence as an empty block."""
-
-        response, _ = on_a_season(mongo_replica_set_url, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
-
-        assert response.kontakte is not None
-        assert response.kontakte.trainer is not None and response.kontakte.trainer.email == KONTAKTPERSON["email"]
-
-    def test_a_contact_value_the_write_side_refuses_does_not_block_the_row(self, mongo_replica_set_url: str):
-        """Why no `kontakte` here: a contact is shapeless on read, bounded on write.
-
-        A round-tripped block would 422 every save this page can make, on `kontakte.*` paths it
-        renders no field for.
-        """
-
-        unwritable = {**KONTAKTE, "trainer": {**KONTAKTPERSON, "telefon": "nicht bekannt"}}
-
-        _, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, gruppe="B"), seeded_kontakte=unwritable)
-
-        assert row["gruppe"] == "B"
-        assert row["kontakte"]["trainer"]["telefon"] == "nicht bekannt"

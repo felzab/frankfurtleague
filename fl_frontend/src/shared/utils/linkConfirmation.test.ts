@@ -14,10 +14,10 @@ afterEach(() => {
 });
 
 /** What each arm was handed, in the order the helper handed it. */
-function drive(antwort: Parameters<typeof reportRefusedConfirmation<string>>[0]): string[] {
+function drive(response: Parameters<typeof reportRefusedConfirmation<string>>[0]): string[] {
   const seen: string[] = [];
-  reportRefusedConfirmation(antwort, {
-    onState: (state) => seen.push(`zustand:${state}`),
+  reportRefusedConfirmation(response, {
+    onState: (state) => seen.push(`state:${state}`),
     onRefusal: () => seen.push("refusal"),
   });
 
@@ -27,7 +27,7 @@ function drive(antwort: Parameters<typeof reportRefusedConfirmation<string>>[0])
 describe("reportRefusedConfirmation", () => {
   /* The envelope's own sentence is an administrator's repair; the visitor's is to reopen the link. */
   it("titles an answer of unknown outcome as unread, over the reopen sentence, and hands neither arm", () => {
-    const seen = drive({ success: false, outcome: "unknown", error: "Ob es gespeichert wurde, ist unklar.", zustand: "verbraucht" });
+    const seen = drive({ success: false, outcome: "unknown", error: "Ob es gespeichert wurde, ist unklar.", state: "verbraucht" });
 
     expect(seen).toStrictEqual([]);
     expect(raised.map(({ variant, title, description }) => [variant, title, description])).toStrictEqual([
@@ -36,9 +36,9 @@ describe("reportRefusedConfirmation", () => {
   });
 
   it("hands a link that died between the open and the press to its panel, raising nothing", () => {
-    const seen = drive({ success: false, error: "Der Link ist abgelaufen.", zustand: "abgelaufen" });
+    const seen = drive({ success: false, error: "Der Link ist abgelaufen.", state: "abgelaufen" });
 
-    expect(seen).toStrictEqual(["zustand:abgelaufen"]);
+    expect(seen).toStrictEqual(["state:abgelaufen"]);
     expect(raised).toStrictEqual([]);
   });
 

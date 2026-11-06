@@ -4,28 +4,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-const LAUF = "/identity/erasure/sweep";
+const RUN = "/identity/erasure/sweep";
 
 /** Each deletion call's answer, handed the place the call carried, null on a pass's first. */
-let laufAnswer: (after: string | null) => unknown = () => gelaufen(0, 0);
+let runAnswer: (after: string | null) => unknown = () => ran(0, 0);
 
 /** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
-const gelaufen = (spieler: number, verbleibend: number, after: string | null = null) => ({
+const ran = (spieler: number, verbleibend: number, after: string | null = null) => ({
   completed_saison_id: "2526",
-  spieler: spieler,
+  spieler,
   saison_spieler: spieler,
   registrierungen: 0,
   skipped: 0,
   failed: 0,
   remaining: verbleibend,
-  after: after,
+  after,
 });
 
 /** The grants' claim with nothing to announce. */
-const NOTHING_CLAIMED = { lease: null, beansprucht_bis: null, changes: [], recipient: [], skipped: 0 };
+const NOTHING_CLAIMED = { lease: null, leased_until: null, changes: [], recipient: [], skipped: 0 };
 
 /** Every deletion call, with the place it carried. */
-const laufCalls: { params: Record<string, string> }[] = [];
+const runCalls: { params: Record<string, string> }[] = [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
 doubleApiClient(async ({ endpoint }) => {
@@ -34,10 +34,10 @@ doubleApiClient(async ({ endpoint }) => {
   if (endpoint.startsWith("/grants")) return NOTHING_CLAIMED;
   // The generated call carries its query in the endpoint.
   const sent = new URL(endpoint, "http://backend");
-  expect(sent.pathname, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
+  expect(sent.pathname, `the pass reached a route nothing here answers: ${endpoint}`).toBe(RUN);
   const carried = Object.fromEntries(sent.searchParams);
-  laufCalls.push({ params: carried });
-  return laufAnswer(carried.after ?? null);
+  runCalls.push({ params: carried });
+  return runAnswer(carried.after ?? null);
 });
 
 const LOGGING_DOUBLE = {
@@ -67,8 +67,8 @@ const passLines = () => lines.filter(({ event }) => event.startsWith("erasure.")
 
 beforeEach(() => {
   lines.length = 0;
-  laufCalls.length = 0;
-  laufAnswer = () => gelaufen(0, 0);
+  runCalls.length = 0;
+  runAnswer = () => ran(0, 0);
 });
 
 describe("one pass of the pupils' deletion", () => {
@@ -76,25 +76,25 @@ describe("one pass of the pupils' deletion", () => {
      naming none ends it, whatever `verbleibend` still counts. */
   it("hands each call the place the last answer named, and calls no further once one names none", async () => {
     // The list closes on an answer naming no place, so a loop that ignores the end fails on its count rather than hanging.
-    laufAnswer = inTurn([gelaufen(3, 2, ORT), gelaufen(2, 1), gelaufen(4, 4)]);
+    runAnswer = inTurn([ran(3, 2, ORT), ran(2, 1), ran(4, 4)]);
 
     await runErasureSweep();
 
     // A first call carrying no `after` at all, never a null one: present, the server reads it as an id.
-    expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { after: ORT }]);
+    expect(runCalls.map(({ params }) => params)).toStrictEqual([{}, { after: ORT }]);
   });
 
   /** Answers a call carrying no place with the failing front, and the call carrying `ORT` with the due pupil behind it. */
-  const vorneDann = <T>(vorne: T, dahinter: T, ende: T) => {
+  const frontThen = <T>(front: T, dahinter: T, end: T) => {
     let ohneOrt = 0;
     // Bounded: a loop dropping the place ends on its fourth call rather than hanging.
-    return (after: string | null): T => (after === ORT ? dahinter : ++ohneOrt <= 3 ? vorne : ende);
+    return (after: string | null): T => (after === ORT ? dahinter : ++ohneOrt <= 3 ? front : end);
   };
 
   /* A share's worth of failing pupils fills the front, so the call reaching them deletes nobody while a due pupil stands
      behind them: a pass ending on that call, or reading the front again, never reaches that pupil. */
   it("goes on past a call that deleted nobody to the due pupils behind it, answering the pupils it failed as left", async () => {
-    laufAnswer = vorneDann({ ...gelaufen(0, 11, ORT), failed: 10 }, gelaufen(1, 10), gelaufen(0, 11));
+    runAnswer = frontThen({ ...ran(0, 11, ORT), failed: 10 }, ran(1, 10), ran(0, 11));
 
     expect(await runErasureSweep()).toStrictEqual({
       count: {
@@ -113,8 +113,8 @@ describe("one pass of the pupils' deletion", () => {
   /* A pass cut short knows no remainder, so its failures alone are what it left, and the call's failure goes with the
      counts of what the calls before it erased. */
   it("answers a pass cut short with what it erased, the pupils it failed and the call's failure", async () => {
-    laufAnswer = (after) => {
-      if (after === null) return { ...gelaufen(3, 5, ORT), failed: 2 };
+    runAnswer = (after) => {
+      if (after === null) return { ...ran(3, 5, ORT), failed: 2 };
       throw new Error("the deletion was refused");
     };
 
@@ -127,17 +127,17 @@ describe("one pass of the pupils' deletion", () => {
 
   /* A place not past the one sent holds the pass, and every tick behind it, for ever. Each double ends on its third
      answer, so a loop lacking the guard fails on its calls rather than hanging. */
-  for (const [wie, ort] of [
+  for (const [how, spielort] of [
     ["the same place", ORT],
     ["a place before it", `${"e".repeat(23)}4`],
   ] as const) {
-    it(`stops where a call answers ${wie}, the deletions counted and the pass failing`, async () => {
-      laufAnswer = inTurn([gelaufen(3, 5, ORT), gelaufen(1, 4, ort), gelaufen(0, 0)]);
+    it(`stops where a call answers ${how}, the deletions counted and the pass failing`, async () => {
+      runAnswer = inTurn([ran(3, 5, ORT), ran(1, 4, spielort), ran(0, 0)]);
 
-      const lauf = await runErasureSweep();
+      const run = await runErasureSweep();
 
-      expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { after: ORT }]);
-      expect(lauf.count).toStrictEqual({
+      expect(runCalls.map(({ params }) => params)).toStrictEqual([{}, { after: ORT }]);
+      expect(run.count).toStrictEqual({
         completed_saison_id: "2526",
         spieler: 4,
         saison_spieler: 4,
@@ -145,14 +145,14 @@ describe("one pass of the pupils' deletion", () => {
         skipped: 0,
         failed: 0,
       });
-      expect(String("error" in lauf ? lauf.error : undefined)).toContain("The deletion answered a place not past the one it was sent.");
+      expect(String("error" in run ? run.error : undefined)).toContain("The deletion answered a place not past the one it was sent.");
     });
   }
 
   /* What an operator reads on the scheduler's pass line to learn what the pass did: counts and the season the rule kept,
      never a person, an address or an id; and the pass writes no line of its own. */
   it("answers its counts and nothing else, writing no line", async () => {
-    laufAnswer = inTurn([gelaufen(3, 1, ORT), gelaufen(1, 0)]);
+    runAnswer = inTurn([ran(3, 1, ORT), ran(1, 0)]);
 
     expect(await runErasureSweep()).toStrictEqual({
       count: {

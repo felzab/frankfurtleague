@@ -10,6 +10,13 @@ import type { ReactNode } from "react";
  * text's line height and every glyph, plaque or control by a `placeholderBar` of its size, so the placeholder stands
  * as tall and as wide as the block will and cannot drift from it. A template's wait is its blocks' placeholders,
  * laid out as the blocks are, inside `Waiting`.
+ *
+ * A wait is the page at its real size, since the browser restores a reload against it. Every part above a streamed
+ * hole stands at exactly its landed height. A list draws its own usual size, at most 30 rows or cards, the number its
+ * page states beside it, a list that fits a screen included, so a list landing short does not shrink. A part whose
+ * state the read decides draws, on a rail page, its taller state: nothing stands under `main` there, so a taller wait
+ * collapses unseen where a shorter one loses a reload's place for good. On a classic page, whose footer a collapse
+ * would lift into view, it draws the state that lands most often. A placeholder never shows a state's words.
  */
 const placeholder = tv({
   slots: {
@@ -20,26 +27,15 @@ const placeholder = tv({
     // so nothing in it answers the pointer: a placeholder drawn with a control's or a row's recipe borrows its box, never
     // its hover or its hand, and `pointer-events` is inherited, so this holds for every part inside.
     root: "pointer-events-none opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
-    // The base fill, one step off the ground the bar stands on (`--bg-hover`), so a bar shows on the page, a card and
-    // a card's head alike, the head redeclaring the step as its own (`cardStyles.ts :: headGround`); with a lighter
-    // band sweeping across it every two seconds, under reduced motion too: a loading indicator that stops reads as stuck.
-    bar: "relative block shrink-0 overflow-hidden rounded-md bg-bg-hover after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",
+    // The one recipe on every ground (`tokens.css`). Its pulse runs under reduced motion too: a loading indicator that
+    // stops reads as stuck.
+    bar: "skeleton-bar",
     // One line of text: as tall as the line the text's own size sets (`1lh`), the bar inside it a little taller than
     // the letters' height, so a line of placeholders stands where the line of words will.
     line: "flex h-lh min-w-0 items-center",
     words: "h-[0.75em]",
   },
-  variants: {
-    // On the dark-green band, the band's white, faint, as the band's words are white.
-    ground: {
-      page: {},
-      band: { bar: "bg-on-brand/20" },
-    },
-  },
 });
-
-/** Where a placeholder stands: on a ground that sets its own step, the page's, a card's or a card's head, or on the dark-green band. */
-export type Ground = "page" | "band";
 
 /**
  * A season's name while the season is read, as words for a placeholder's width alone: every season is named by its
@@ -47,9 +43,9 @@ export type Ground = "page" | "band";
  */
 export const SAISON_WORDS = COPY.shared.saisonName("2027");
 
-/** A shimmering box of its own size, for what is not a line of text: a plaque, a glyph, a control, an avatar. */
-export function placeholderBar(size: string, ground: Ground = "page") {
-  return placeholder({ ground }).bar({ class: size });
+/** A pulsing box of its own size, for what is not a line of text: a plaque, a glyph, a control, an avatar. */
+export function placeholderBar(size: string) {
+  return placeholder().bar({ class: size });
 }
 
 /**
@@ -62,13 +58,45 @@ export function PlaceholderLine({
   text,
   width = "",
   words,
-  ground = "page",
-}: { text: string; ground?: Ground } & ({ width: string; words?: never } | { words: string; width?: never })) {
-  const slots = placeholder({ ground });
+}: { text: string } & ({ width: string; words?: never } | { words: string; width?: never })) {
+  const slots = placeholder();
   return (
     <span className={slots.line({ class: text })}>
       <span className={slots.bar({ class: `${slots.words()} ${width} ${words === undefined ? "" : "whitespace-nowrap text-transparent"}` })}>
         {words}
+      </span>
+    </span>
+  );
+}
+
+/** The fewest characters a line of a sentence holds, on the narrowest phone, so a sentence never runs out of bars. */
+const CHARACTERS_PER_LINE = 30;
+
+/**
+ * A sentence whose words are known before the read, in a box that wraps it: `text` is the size it will be set at. The
+ * words wrap unseen, so the sentence stands as many lines as it will at every width, and cut the bars laid over them
+ * to the lines they hold. `lines` is the most lines they can take, for a narrower box than a sentence's.
+ */
+export function PlaceholderSentence({
+  text,
+  words,
+  lines = Math.ceil(words.length / CHARACTERS_PER_LINE),
+}: {
+  text: string;
+  words: string;
+  lines?: number;
+}) {
+  return (
+    <span className={`relative block overflow-hidden ${text}`}>
+      <span className="invisible">{words}</span>
+      <span className="absolute inset-0">
+        {Array.from({ length: lines }, (_, line) => (
+          <PlaceholderLine
+            key={line}
+            text=""
+            width="w-full"
+          />
+        ))}
       </span>
     </span>
   );

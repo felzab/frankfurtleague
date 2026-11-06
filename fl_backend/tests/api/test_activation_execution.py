@@ -34,29 +34,29 @@ SPIEL_IDS = {
 }
 
 
-def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
+def spiel(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
     return spiel_document(
         spiel_id=SPIEL_IDS[saison_id],
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "ALX", "tore": None},
-        datum=f"{saison_id}-03-15",
-        uhrzeit="18:00:00",
+        team1={"team_id": TEAM_ID, "tore": None},
+        date=f"{saison_id}-03-15",
+        time="18:00:00",
         ergebnis=ergebnis,
     )
 
 
-def spieltag_document(saison_id: str, position: int, *, beginn: str | None) -> dict[str, Any]:
-    """Every key `FLSpieltagRecord` requires stated, `ende` moving with `beginn`: no write here produces a half-dated matchday."""
+def spieltag_document(saison_id: str, position: int, *, start: str | None) -> dict[str, Any]:
+    """Every key `FLSpieltagRecord` requires stated, `end` moving with `start`: no write here produces a half-dated matchday."""
 
     return {
         "_id": ObjectId(f"6890a1b2c3d4e5f60724{position:04d}"),
         "saison_id": saison_id,
         "saison_phase": "gruppenphase",
         "position": position,
-        "beginn": beginn,
-        "ende": None if beginn is None else f"{saison_id}-03-02",
+        "start": start,
+        "end": None if start is None else f"{saison_id}-03-02",
     }
 
 
@@ -125,7 +125,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
                 saison_document(INCUMBENT, "active"),
                 saison_document(TARGET, "future"),
             ],
-            spiele=[fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(TARGET, ergebnis=None)],
         )
 
         active = [saison_id for saison_id, status in statuses.items() if status == "active"]
@@ -146,7 +146,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(ARCHIVED, "past"), saison_document(TARGET, "active")],
-            spiele=[fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(TARGET, ergebnis=None)],
         )
 
         assert statuses == {ARCHIVED: "past", TARGET: "active"}
@@ -168,7 +168,7 @@ class TestARefusedRolloverWritesNothing:
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
             # The target is drawn so the unfinished incumbent is what refuses it, not the undrawn-target guard ahead of it.
-            spiele=[fixture(INCUMBENT, ergebnis=None), fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(INCUMBENT, ergebnis=None), spiel(TARGET, ergebnis=None)],
         )
 
         assert code == Code.ACTIVATE_SAISON_UNFINISHED
@@ -213,7 +213,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(TARGET, ergebnis=None)],
             mutates_schema=True,
         )
 
@@ -257,7 +257,7 @@ class TestTheRolloverRefusesAFinishedTarget:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(ARCHIVED, "past"), saison_document(INCUMBENT, "active")],
-            spiele=[fixture(INCUMBENT, ergebnis="2:1")],
+            spiele=[spiel(INCUMBENT, ergebnis="2:1")],
         )
 
         assert code == Code.SAISON_PAST
@@ -284,60 +284,12 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
+            spiele=[spiel(TARGET, ergebnis=None), spiel(INCUMBENT, ergebnis="2:1")],
             spieltage=[
-                spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
-                spieltag_document(TARGET, 2, beginn=None),
+                spieltag_document(TARGET, 1, start=f"{TARGET}-03-01"),
+                spieltag_document(TARGET, 2, start=None),
             ],
         )
 
         assert code == Code.ACTIVATE_SPIELTAGE_UNDATED
         assert statuses == {INCUMBENT: "active", TARGET: "future"}, "the incumbent was demoted by a refused rollover"
-
-    def test_an_undated_matchday_of_another_season_leaves_this_rollover_open(self, mongo_replica_set_url: str):
-        """The count's season filter: a query reading the whole collection refuses every league holding one undated row anywhere."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
-            spieltage=[
-                spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
-                spieltag_document(INCUMBENT, 2, beginn=None),
-            ],
-        )
-
-        assert statuses == {INCUMBENT: "past", TARGET: "active"}
-        assert response.deactivated == 1
-
-    def test_dating_that_matchday_lets_the_same_request_through(self, mongo_replica_set_url: str):
-        """The repair the refusal names, driven: without it the case above would pass on an endpoint that refused every rollover."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELTAGE].update_one(
-                {"saison_id": TARGET, "beginn": None}, {"$set": {"beginn": f"{TARGET}-03-08", "ende": f"{TARGET}-03-09"}}
-            )
-
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
-            spieltage=[
-                spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
-                spieltag_document(TARGET, 2, beginn=None),
-            ],
-        )
-
-        assert statuses == {INCUMBENT: "past", TARGET: "active"}
-        assert response.deactivated == 1

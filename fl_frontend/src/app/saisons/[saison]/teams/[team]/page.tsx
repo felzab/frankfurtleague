@@ -13,7 +13,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
-import { austrittChip, austrittZustand } from "@/features/teams/constants";
+import { austrittChip, austrittState } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -72,9 +72,9 @@ export default function TeamPage({ params }: Props) {
 
 /** A pupil of the squad as the public read names them: a name the consent publishes, else „anonym“. */
 const personOf = (spieler: FLSpielerPublic): Words =>
-  spieler.vorname === null
+  spieler.first_name === null
     ? SERVER_COPY.season.spiel.anonymous
-    : { record: [spieler.vorname, spieler.nachname].filter((name) => name !== null).join(" ") };
+    : { record: [spieler.first_name, spieler.last_name].filter((name) => name !== null).join(" ") };
 
 /** A pupil's number and position, each left out while the record holds none. */
 const cellsOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">) => ({
@@ -99,13 +99,13 @@ function tilesOf({ team, standing }: FLTeamPageResponse): readonly [StatTile, St
     { label: words.punkte, value: { record: formatNumber(statistik.punkte) } },
     {
       label: words.spiele,
-      value: { record: formatNumber(statistik.count_gespielte_spiele) },
+      value: { record: formatNumber(statistik.count_played_spiele) },
       line: { counts: [statistik.siege, statistik.unentschieden, statistik.niederlagen] },
     },
     {
       label: words.tore,
-      value: { record: formatErgebnis({ team1: statistik.tore_geschossen, team2: statistik.tore_kassiert }) },
-      line: words.differenz(statistik.tore_geschossen - statistik.tore_kassiert),
+      value: { record: formatErgebnis({ team1: statistik.tore_scored, team2: statistik.tore_conceded }) },
+      line: words.differenz(statistik.tore_scored - statistik.tore_conceded),
     },
   ];
 }
@@ -116,9 +116,9 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const { column } = SERVER_COPY.season;
   const { spielort } = COPY.admin;
   const address = spielort.addressLine(
-    spielort.strasseWithHausnummer(team.address.strasse, team.address.hausnummer),
-    team.address.plz,
-    team.address.stadt,
+    spielort.streetWithHouseNumber(team.address.street, team.address.house_number),
+    team.address.postcode,
+    team.address.city,
   );
   return {
     title: { record: team.name },
@@ -139,8 +139,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         team.austritt === null
           ? null
           : {
-              title: COPY.shared.austrittSince(austrittZustand(team.austritt.type), dayOf(team.austritt.datum)),
-              text: { record: team.austritt.grund },
+              title: COPY.shared.austrittSince(austrittState(team.austritt.type), dayOf(team.austritt.date)),
+              text: { record: team.austritt.reason },
             },
     },
     groups: [

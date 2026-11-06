@@ -3,22 +3,19 @@
 import { createContext, startTransition, useContext, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "react-aria-components/Form";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
+import { buttonLook, buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, headGround, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
-import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
-import { lockedLine } from "./lockedLine";
+import { HeldForm } from "./HeldForm";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
-import { PlaceholderLine } from "./Skeleton";
+import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -50,10 +47,8 @@ export type AccountAct = {
   carry?: Readonly<Record<string, string>>;
   /** The toast once it is done, for an act that leaves nothing in the box to change. */
   done?: Copy;
-  /** Why the act cannot run on the box's present state: the button closed, the line saying it (`useLocked`). */
+  /** Why the act cannot run on the box's present state, the button saying why (`Button`). */
   locked?: Copy;
-  /** What the line says while nothing has answered: why a row's act is closed, which the row's button cannot say. */
-  line?: Copy;
   /** The act saves the box's fields, which the line then says beside its button, „Gespeichert“. */
   saves?: true;
 } & (
@@ -117,20 +112,28 @@ const box = tv({
 });
 
 /**
- * A Konto box while the person's records are read: the box's own shape, its title's and its sentence's lines, then
- * `fields` fields or `rows` of `AccountRows`' rows, and the footer band with its button where the box has an act; or,
- * `inline`, the one row of words beside a control that acts at once.
+ * A Konto box while the person's records are read: the box's own shape, its title's line and its sentence, then its
+ * content, the placeholders `children` names or `rows` of `AccountRows`' rows, and the footer band with its button
+ * where the box has an act; or, with `control`, the one row of words beside a control that acts at once.
  */
 export function AccountBoxPlaceholder({
-  fields = 0,
+  description,
   rows = 0,
-  foot = false,
-  inline = false,
+  foot,
+  danger = false,
+  control,
+  children,
 }: {
-  fields?: number;
+  /** The box's sentence, or the commonest form of one the read words, which wraps as the sentence will. */
+  description: Copy;
   rows?: number;
-  foot?: boolean;
-  inline?: boolean;
+  /** The footer band's button's label, where the box has an act. */
+  foot?: Copy;
+  /** The box is a danger box, its edge in the danger hue before it lands. */
+  danger?: boolean;
+  /** The placeholder of the control that acts at once. */
+  control?: ReactElement;
+  children?: ReactNode;
 }) {
   const slots = box();
   const words = (
@@ -139,34 +142,30 @@ export function AccountBoxPlaceholder({
         text="text-base font-semibold"
         width="w-1/3"
       />
-      <PlaceholderLine
+      <PlaceholderSentence
         text={slots.description()}
-        width="w-2/3"
+        words={description}
       />
     </>
   );
-  if (inline)
+  if (control !== undefined)
     return (
       <div className={slots.root()}>
         <div className={slots.inline()}>
-          <div className={slots.words({ class: "min-w-0 flex-1" })}>{words}</div>
-          <span className={buttonPlaceholder("w-28")} />
+          <div className={slots.words()}>{words}</div>
+          {control}
         </div>
       </div>
     );
   const row = rowLook();
-  const held = boxHead({ ruled: fields > 0 || rows > 0 });
+  const hasContent = children !== undefined || rows > 0;
+  const held = boxHead({ ruled: hasContent });
   return (
-    <div className={slots.root()}>
+    <div className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <div className={held.head()}>{words}</div>
-      {(fields > 0 || rows > 0) && (
+      {hasContent && (
         <div className={held.content({ class: "gap-4" })}>
-          {Array.from({ length: fields }, (_, index) => (
-            <FieldPlaceholder
-              key={index}
-              width="W3"
-            />
-          ))}
+          {children}
           {rows > 0 && (
             <div className={row.list()}>
               {Array.from({ length: rows }, (_, index) => (
@@ -183,16 +182,23 @@ export function AccountBoxPlaceholder({
                       width="w-1/3"
                     />
                   </span>
+                  {[0, 1].map((act) => (
+                    <span
+                      key={act}
+                      className={buttonLook({ look: "icon", host: "aria" })}>
+                      <span className={placeholderBar("size-4")} />
+                    </span>
+                  ))}
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
-      {foot && (
+      {foot !== undefined && (
         <div className={slots.foot()}>
           <span className="min-h-5 min-w-0 flex-1" />
-          <span className={buttonPlaceholder("w-28")} />
+          <span className={buttonPlaceholder()}>{foot}</span>
         </div>
       )}
     </div>
@@ -269,25 +275,17 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   const [rowStatus, setRowStatus] = useState<FormStatus>(null);
   const form = useRef<HTMLFormElement>(null);
   const locked = useLocked(act.locked);
-  // A locked act's line stands whatever its act would say, since it cannot run; the resting line gives way to any answer.
-  const shown = rowStatus ?? (locked !== undefined ? lockedLine(locked) : (status ?? (act.line === undefined ? null : lockedLine(act.line))));
 
-  const posted = () => {
-    const formData = new FormData(form.current ?? undefined);
+  const carried = (formData: FormData) => {
     for (const [name, value] of Object.entries(act.carry ?? {})) formData.set(name, value);
     return formData;
-  };
-
-  const press = () => {
-    setRowStatus(null);
-    send(posted());
   };
 
   // A question's act runs inside the question, which shows its refusal and words a throw; the line says what a done one
   // moved beyond the box, as `lineOf` words a done act.
   const confirmed = async () => {
     setRowStatus(null);
-    const answered = await act.run(posted());
+    const answered = await act.run(carried(new FormData(form.current ?? undefined)));
     if (answered.ok && act.done !== undefined) appToast("success", act.done);
     const { note } = answered.ok ? answered : { note: undefined };
     // An update after the `await` lands outside the press's transition unless it opens one of its own.
@@ -295,15 +293,28 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
     return answered;
   };
 
+  const question = "confirm" in act.button ? act.button.confirm : undefined;
+  const button = (
+    <Button
+      variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : question.tone === "danger" ? "danger" : "secondary"}
+      type={question === undefined ? "submit" : "button"}
+      label={"label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb)}
+      isBusy={isBusy}
+      locked={locked}
+    />
+  );
+
   return (
     <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
-      <Form
+      <HeldForm
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
         onInvalid={block}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!isBusy) press();
+        onSend={(formData) => {
+          // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
+          if (isBusy || locked !== undefined) return;
+          setRowStatus(null);
+          send(carried(formData));
         }}>
         <div className={held.head()}>{words}</div>
         {children !== undefined && (
@@ -313,33 +324,20 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
         )}
         <div className={slots.foot()}>
           <StatusLine
-            status={shown}
+            status={rowStatus ?? status}
             placement="row"
           />
-          {"label" in act.button ? (
-            <Button
-              variant={act.saves === true ? "primary" : "secondary"}
-              type="submit"
-              label={act.button.label}
-              isBusy={isBusy}
-              isDisabled={locked !== undefined}
-            />
+          {question === undefined || locked !== undefined ? (
+            button
           ) : (
             <ConfirmDialog
-              {...act.button.confirm}
+              {...question}
               onConfirm={confirmed}
-              trigger={
-                <Button
-                  variant={act.button.confirm.tone === "danger" ? "danger" : "secondary"}
-                  label={COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb)}
-                  isBusy={isBusy}
-                  isDisabled={locked !== undefined}
-                />
-              }
+              trigger={button}
             />
           )}
         </div>
-      </Form>
+      </HeldForm>
     </section>
   );
 }
@@ -359,7 +357,7 @@ type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>;
 /**
  * A row's removal: the passkey touch first where the person holds one, then the question, worded from the session
  * the touch made, then the act. `locked` keeps the button shut where the page knows at render that the act would be
- * refused; the box's `line` says why.
+ * refused, the button saying why (`Button`).
  */
 type Remove = {
   verb: Verb;
@@ -475,7 +473,7 @@ function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: strin
         label={COPY.shared.verb[remove.verb]}
         aria-describedby={describedBy}
         isBusy={isTouching || isRefreshing}
-        isDisabled={remove.locked !== undefined}
+        locked={remove.locked}
         onPress={() => void ask()}
       />
       <ConfirmDialog

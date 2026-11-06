@@ -6,6 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
+from app.api.bewerbungen.services import deletion_was_announced, leaving_moves_the_deletion_day
 from app.api.kontakte.services import (
     PersonName,
     build_clearing_update,
@@ -19,7 +20,7 @@ from app.api.spielbestaetigungen.services import (
     HeldSeats,
     build_seat_reason_images_filter,
     build_seat_reasons_filter,
-    kontakte_ohne,
+    kontakte_without,
     seat_reason_image_edits,
     seat_void_of,
 )
@@ -52,7 +53,13 @@ async def clear_seats(
         if not slots:
             continue
 
-        update = build_clearing_update(slots, confirmations=isinstance(row.get("confirmations"), Mapping))
+        update = build_clearing_update(
+            slots,
+            confirmations=isinstance(row.get("confirmations"), Mapping),
+            # The seat a notice named may be the one going: the application then falls on a later day nobody was told.
+            takes_the_notice_back=deletion_was_announced(bewerbung_raw=row)
+            and leaving_moves_the_deletion_day(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seats=slots),
+        )
         await patch_one_in_db(
             collection=collection,
             db_filter={"_id": row["_id"]},
@@ -88,7 +95,7 @@ async def remove_the_seats_reasons(
     await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_seat_reasons_filter(held),
-        update={"$set": {"antwort.begruendung": None}},
+        update={"$set": {"answer.reason": None}},
         session=session,
     )
 
@@ -104,7 +111,7 @@ async def remove_the_seats_reasons(
 
 class SeatsCleared(NamedTuple):
     kontakt_slots: int
-    redacted_aktionen: int
+    redacted_action_log: int
 
 
 async def erase_kontaktperson_in_session(
@@ -141,7 +148,7 @@ async def erase_kontaktperson_in_session(
                 saison_id=row["saison_id"],
                 team_id=row["team_id"],
                 stored_kontakte=row.get("kontakte"),
-                kontakte=kontakte_ohne(row.get("kontakte"), slots),
+                kontakte=kontakte_without(row.get("kontakte"), slots),
             )
             for row, slots in held
         ]
@@ -174,7 +181,7 @@ async def erase_kontaktperson_in_session(
         session=session,
     )
 
-    return SeatsCleared(kontakt_slots=cleared_slots, redacted_aktionen=redacted)
+    return SeatsCleared(kontakt_slots=cleared_slots, redacted_action_log=redacted)
 
 
 async def redact_the_decliner(

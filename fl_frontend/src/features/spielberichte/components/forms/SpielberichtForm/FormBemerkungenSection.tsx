@@ -11,18 +11,18 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import { SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH } from "../../../constants";
+import { SPIELBERICHT_REMARKS_MAX_LENGTH } from "../../../constants";
 import { BEMERKUNGEN_PATH } from "../../../utils";
 
 import type { SpielberichtFieldPath } from "./spielberichtDraft";
 
 /** The one free text of a report, for what no field holds. */
 export function FormBemerkungenSection({
-  bemerkungen,
+  remarks,
   onChange,
   onValidateFields,
 }: {
-  bemerkungen: string;
+  remarks: string;
   onChange: (next: string) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
@@ -41,10 +41,10 @@ export function FormBemerkungenSection({
       <div className={panel.body()}>
         <TextField
           name={BEMERKUNGEN_PATH}
-          value={bemerkungen}
+          value={remarks}
           onChange={onChange}
           onBlur={() => onValidateFields([BEMERKUNGEN_PATH])}
-          maxLength={SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH}
+          maxLength={SPIELBERICHT_REMARKS_MAX_LENGTH}
           isInvalid={status?.error ? true : undefined}>
           <FieldLabel<SpielberichtFieldPath> path={BEMERKUNGEN_PATH}>Bemerkungen zum Spiel</FieldLabel>
           <TextArea

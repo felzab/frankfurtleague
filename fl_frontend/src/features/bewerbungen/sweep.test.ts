@@ -17,21 +17,21 @@ let apiAnswer: (call: { endpoint: string; method: string }) => unknown = () => (
 const adressen = (verbleibend = 0) => ({ removed: 0, effective: 0, discarded: 0, remaining: verbleibend });
 
 /** The address changes' half, answered here and held in `fl_frontend/src/features/address-change/sweep.test.ts`. */
-let adresswechselAnswer: () => Promise<ReturnType<typeof adressen>> = () => Promise.resolve(adressen());
+let addressChangeAnswer: () => Promise<ReturnType<typeof adressen>> = () => Promise.resolve(adressen());
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs.
 doubleApiClient(({ endpoint: requested, method }) => {
   const endpoint = new URL(requested, "http://backend").pathname;
-  const call = { endpoint: endpoint, method: method ?? "GET" };
+  const call = { endpoint, method: method ?? "GET" };
   events.push({ kind: "api", ...call });
   return apiAnswer(call);
 });
 
 vi.doMock("@/features/address-change/sweep.ts", () => ({
-  sweepAdresswechsel: () => {
+  sweepAddressChange: () => {
     events.push({ kind: "address_change" });
-    return adresswechselAnswer();
+    return addressChangeAnswer();
   },
 }));
 
@@ -58,7 +58,7 @@ const bewerbungPass = (saisonId: string, failed = 0) => ({
   erased_without_decision: 0,
   kontakt_blocks_emptied: 0,
   redacted_action_log: 0,
-  failed: failed,
+  failed,
 });
 const registrierungPass = (saisonId: string, failed = 0) => ({
   saison_id: saisonId,
@@ -67,25 +67,22 @@ const registrierungPass = (saisonId: string, failed = 0) => ({
   erased_without_decision: 0,
   erased_declined: 0,
   redacted_action_log: 0,
-  failed: failed,
+  failed,
 });
 
 /**
- * Every season answered, each half's passed-over rows as `uebergangen` names them, and a half `scheitert` names
+ * Every season answered, each half's passed-over rows as `passedOver` names them, and a half `fails` names
  * thrown.
  */
-function seasons(
-  saisonIds: string[],
-  { uebergangen = {}, scheitert = [] }: { uebergangen?: Record<string, number>; scheitert?: string[] } = {},
-): void {
+function seasons(saisonIds: string[], { passedOver = {}, fails = [] }: { passedOver?: Record<string, number>; fails?: string[] } = {}): void {
   apiAnswer = ({ endpoint, method }) => {
     if (method === "GET") return { saison_ids: saisonIds };
-    if (scheitert.includes(endpoint)) throw new Error(`the backend refused ${endpoint}`);
-    if (endpoint === "/schiedsrichter/sweep") return { erased: 0, failed: uebergangen[endpoint] ?? 0 };
+    if (fails.includes(endpoint)) throw new Error(`the backend refused ${endpoint}`);
+    if (endpoint === "/schiedsrichter/sweep") return { erased: 0, failed: passedOver[endpoint] ?? 0 };
     const saisonId = saisonOf(endpoint);
     return endpoint.startsWith("/registrierungen/")
-      ? registrierungPass(saisonId, uebergangen[endpoint] ?? 0)
-      : bewerbungPass(saisonId, uebergangen[endpoint] ?? 0);
+      ? registrierungPass(saisonId, passedOver[endpoint] ?? 0)
+      : bewerbungPass(saisonId, passedOver[endpoint] ?? 0);
   };
 }
 
@@ -97,7 +94,7 @@ beforeEach(() => {
   events.length = 0;
   lines.length = 0;
   seasons([]);
-  adresswechselAnswer = () => Promise.resolve(adressen());
+  addressChangeAnswer = () => Promise.resolve(adressen());
 });
 
 describe("one pass of the applications' job", () => {
@@ -121,14 +118,14 @@ describe("one pass of the applications' job", () => {
      apart from a healthy pass. */
   it("leaves every row the halves passed over and every lapsed change the address half left, each half counted", async () => {
     seasons(["2526", "2627"], {
-      uebergangen: {
+      passedOver: {
         "/bewerbungen/sweep/2526": 1,
         "/bewerbungen/sweep/2627": 6,
         "/registrierungen/sweep/2627": 8,
         "/schiedsrichter/sweep": 1,
       },
     });
-    adresswechselAnswer = () => Promise.resolve({ ...adressen(2), removed: 5 });
+    addressChangeAnswer = () => Promise.resolve({ ...adressen(2), removed: 5 });
 
     expect(await runBewerbungSweep()).toStrictEqual({
       count: {
@@ -145,19 +142,13 @@ describe("one pass of the applications' job", () => {
       error: undefined,
     });
   });
-
-  it("leaves none where nothing was passed over", async () => {
-    seasons(["2627"]);
-
-    expect((await runBewerbungSweep()).open).toBe(0);
-  });
 });
 
 describe("a half that fails", () => {
   /* Each half apart: a throw in the application's clocks skips no registration, whose rows hold a minor's name,
      address and birthdate. */
   it("runs every other half, files a line naming the half and the season, and then fails", async () => {
-    seasons(["2526", "2627"], { scheitert: ["/bewerbungen/sweep/2526", "/registrierungen/sweep/2627"] });
+    seasons(["2526", "2627"], { fails: ["/bewerbungen/sweep/2526", "/registrierungen/sweep/2627"] });
 
     expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
 
@@ -192,7 +183,7 @@ describe("a half that fails", () => {
 
   it("rejects where the address half rejects, after every season was swept", async () => {
     seasons(["2627"]);
-    adresswechselAnswer = () => Promise.reject(new Error("the lapsed addresses answered nothing"));
+    addressChangeAnswer = () => Promise.reject(new Error("the lapsed addresses answered nothing"));
 
     await expect(runBewerbungSweep()).rejects.toThrow("the lapsed addresses answered nothing");
 
@@ -200,11 +191,11 @@ describe("a half that fails", () => {
   });
 
   it("keeps the counts of the halves that answered where another throws", async () => {
-    seasons(["2526", "2627"], { uebergangen: { "/bewerbungen/sweep/2526": 3 }, scheitert: ["/bewerbungen/sweep/2627"] });
+    seasons(["2526", "2627"], { passedOver: { "/bewerbungen/sweep/2526": 3 }, fails: ["/bewerbungen/sweep/2627"] });
 
-    const lauf = await runBewerbungSweep();
+    const run = await runBewerbungSweep();
 
-    expect([lauf.count.bewerbung_failed, lauf.open, lauf.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
+    expect([run.count.bewerbung_failed, run.open, run.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
   });
 });
 

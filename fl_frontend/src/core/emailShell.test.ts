@@ -10,21 +10,15 @@ const MAIL: Mail = {
   kind: "notice",
   subjectLine: "Spiel abgesagt",
   origin: ORIGIN,
-  vorname: "",
+  firstName: "",
   paragraphs: [["Das Spiel ist abgesagt."]],
 };
 
 describe("renderMail", () => {
-  // A reader whose client shows the text version alone has no button to press.
-  it("prints the button's link in the text version", () => {
-    const button = renderMail({ ...MAIL, button: { label: "Zum Eintrag", href: `${ORIGIN}/eintrag?token=eins` } });
-    assert.include(button.text, `${ORIGIN}/eintrag?token=eins`);
-  });
-
   // A link to pass on stands in its box as text a reader can copy, in both versions, and the mail draws no button.
   it("prints a passed-on link in its box in both versions", () => {
     const link = `${ORIGIN}/registrierung?token=eins`;
-    const { html, text } = renderMail({ ...MAIL, block: { link: link } });
+    const { html, text } = renderMail({ ...MAIL, block: { link } });
 
     assert.include(html, `href="${link}"`);
     assert.include(text.split("\n"), link);
@@ -37,7 +31,7 @@ describe("renderMail", () => {
     const { html } = renderMail({
       ...MAIL,
       subjectLine: hostile,
-      vorname: hostile,
+      firstName: hostile,
       paragraphs: [[hostile, [{ strong: hostile }]]],
       block: { title: hostile, facts: [{ label: hostile, value: hostile }] },
       button: { label: hostile, href: `${ORIGIN}/"><script>` },

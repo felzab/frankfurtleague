@@ -1,7 +1,13 @@
-import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { cache } from "react";
+
+import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
+import { FieldPlaceholder } from "@/kit/FieldPair";
+import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { requires } from "@/core/action";
 import { now } from "@/core/clock";
+import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { bornAfter, bornBy, dayIn, dayOf } from "@/core/format";
@@ -20,22 +26,25 @@ import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.schiedsrichterConfirmation;
-  return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
-}
-
 type Props = PageProps<"/confirm/schiedsrichter">;
+
+/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
+export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.schiedsrichterConfirmation;
+  const title = mailedTitle(await readState(searchParams), row.title);
+  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+}
 
 const WORDS = SERVER_COPY.schiedsrichterConfirmation;
 
-const INVALID: MailedState = { state: "ungueltig", next: TO_HOME };
+const INVALID: MailedState = { state: "invalid", next: TO_HOME };
+
+const { scope } = SCHIEDSRICHTER_WORDINGS;
 
 const { shape } = SchiedsrichterPostConfirmationBody;
 
 /** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
-const REQUIRED = { geburtsdatum: requires(shape.geburtsdatum, null), scope: requires(shape.scope, null) };
+const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires(shape.scope, null) };
 
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
@@ -44,27 +53,47 @@ const REQUIRED = { geburtsdatum: requires(shape.geburtsdatum, null), scope: requ
  * address alike.
  */
 export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
-  return <MailedPage page={readState(searchParams)} />;
+  return (
+    <MailedPage
+      page={readState(searchParams)}
+      facts={0}
+      act={COPY.page.entryConfirmation}
+      second={COPY.shared.verb.oppose}
+      // Any day's words are about as long, set unseen, so the paragraph stands as many lines as it will at every width.
+      sentence={WORDS.question("2027-01-31")}
+      fields={
+        <>
+          <FieldPlaceholder width="C10" />
+          <RadioGroupPlaceholder
+            label={scope.question}
+            choices={[scope.options.kader_public, scope.options.internal]}
+          />
+          <ConsentLinePlaceholder line={scope.line} />
+        </>
+      }
+    />
+  );
 }
 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */
-async function readView(token: string): Promise<FLSchiedsrichterConfirmationViewResponse | null> {
-  return runWithIncomingTrace(() =>
-    schiedsrichterGetConfirmationView({ token: token }).catch((error: unknown) => {
+// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+const readView = cache(async (token: string): Promise<FLSchiedsrichterConfirmationViewResponse | null> =>
+  runWithIncomingTrace(() =>
+    schiedsrichterGetConfirmationView({ token }).catch((error: unknown) => {
       // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
       if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
         return null;
       }
       throw error;
     }),
-  );
-}
+  ),
+);
 
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
 function alreadyDone(view: FLSchiedsrichterConfirmationViewResponse, kind: "confirmed" | "objected"): MailedState {
   // The view serves the answer's day on these two states alone; one missing is a backend older than this page.
-  if (view.answered_on === null) return INVALID;
-  const day = dayOf(view.answered_on);
+  if (view.answered_at === null) return INVALID;
+  const day = dayOf(view.answered_at);
   const { title } = END[kind];
   return kind === "confirmed"
     ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
@@ -94,10 +123,10 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
       return {
         state: "question",
         title: COPY.page.entryConfirmation,
-        sentence: WORDS.question(dayOf(view.frist)),
+        sentence: WORDS.question(dayOf(view.deadline)),
         action: answerSchiedsrichter,
         acts: { primary: COPY.page.entryConfirmation, secondary: COPY.shared.verb.oppose },
-        carry: { token: token },
+        carry: { token },
         children: (
           <ConfirmationFields
             // The range the write judges, as the link's view serves it.

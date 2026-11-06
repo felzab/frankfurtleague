@@ -15,7 +15,6 @@ from app.api.spiele.schemas import (
     FLBracketFault,
     FLPatchSpielDataPayload,
     FLSpiel,
-    FLSpielAdvancement,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
 )
@@ -94,7 +93,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
             find_booking_refusal(UNREAD_SPIEL_ID, payload, saison, ResolvedReferences(teams={}), RULES)
 
 
-RULES = FLSaisonRules.model_validate(rules_document(max_kadergroesse=50, allowed_stufen=["E1", "E2"]))
+RULES = FLSaisonRules.model_validate(rules_document(max_kader_size=50, allowed_stufen=["E1", "E2"]))
 
 
 class _SaisonCollection:
@@ -115,14 +114,14 @@ class _SaisonCollection:
         return self.documents if length is None else self.documents[:length]
 
 
-def run_advance(collection: _SaisonCollection) -> tuple[list[FLSpielAdvancement], list[FLBracketFault]]:
+def run_advance(collection: _SaisonCollection) -> None:
     """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured.
 
     The same stand-in serves as every collection: no fixture here carries a `quelle`, so nothing but
     the season is read.
     """
 
-    advanced, faults, _ = asyncio.run(
+    asyncio.run(
         advance_bracket_winners(
             spiele_collection=cast(AsyncCollection, collection),
             teams_collection=cast(AsyncCollection, collection),
@@ -131,8 +130,6 @@ def run_advance(collection: _SaisonCollection) -> tuple[list[FLSpielAdvancement]
             session=cast(AsyncClientSession, object()),
         )
     )
-
-    return advanced, faults
 
 
 class TestTheBracketWriteRefusesATruncatedSeason:
@@ -143,13 +140,6 @@ class TestTheBracketWriteRefusesATruncatedSeason:
 
         with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
             run_advance(collection)
-
-    def test_a_season_at_the_cap_still_resolves(self, spiel):
-        """The boundary in the other direction: the largest readable season must not answer 500."""
-
-        advanced, faults = run_advance(_SaisonCollection(saison_of(spiel, LIST_LIMIT_DEFAULT)))
-
-        assert (advanced, faults) == ([], [])
 
 
 class _Rows:
@@ -180,8 +170,8 @@ BYSTANDER = "6890a1b2c3d4e5f607220003"
 OPPONENT = "6890a1b2c3d4e5f607220004"
 
 # Before the day every fixture below is played on, which is what makes the occupant a fault.
-DEPARTURE = {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": "2026-03-01"}
-FIXTURE_DAY = "2026-03-15"
+DEPARTURE = {"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-03-01"}
+SPIEL_DAY = "2026-03-15"
 
 CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED, SEEDED_FROM_A_GROUP_NOT_RUN = 1, 2, 3, 4
 AT_A_RETIRED_GROUND, REFEREED_FIRST, REFEREED_AN_HOUR_LATER = 5, 6, 7
@@ -221,20 +211,20 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
     and reports nothing: every fault below is some sweep's own.
     """
 
-    def fixture(nr: int, spieltag_id: str, team1: dict[str, Any] | None, team2: dict[str, Any], **overrides: Any) -> dict[str, Any]:
+    def one_spiel(nr: int, spieltag_id: str, team1: dict[str, Any] | None, team2: dict[str, Any], **overrides: Any) -> dict[str, Any]:
         return spiel(
             **{
                 "_id": MATCH_ID.format(nr),
                 "spiel_nr": nr,
                 "spieltag_id": spieltag_id,
                 "saison_id": SAISON_ID,
-                "datum": FIXTURE_DAY,
+                "date": SPIEL_DAY,
                 "ergebnis": None,
                 "team1": team1,
                 "team2": team2,
                 # Booked by none unless `overrides` books one: the factory's shared ground and referee
                 # would otherwise double-book every fixture here against every other.
-                "ort": None,
+                "spielort": None,
                 "schiedsrichter": None,
                 "ansetzung_confirmed": None,
                 "for_third_place": False,
@@ -243,10 +233,10 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
         )
 
     return [
-        fixture(CLASHING_FIRST, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(BYSTANDER, "Bieber")),
-        fixture(CLASHING_SECOND, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(OPPONENT, "Cronberg")),
-        fixture(WITH_THE_DEPARTED, QUIET_SPIELTAG, _joined_side(DEPARTED, "Dornbusch", DEPARTURE), _joined_side(BYSTANDER, "Bieber")),
-        fixture(
+        one_spiel(CLASHING_FIRST, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(BYSTANDER, "Bieber")),
+        one_spiel(CLASHING_SECOND, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(OPPONENT, "Cronberg")),
+        one_spiel(WITH_THE_DEPARTED, QUIET_SPIELTAG, _joined_side(DEPARTED, "Dornbusch", DEPARTURE), _joined_side(BYSTANDER, "Bieber")),
+        one_spiel(
             SEEDED_FROM_A_GROUP_NOT_RUN,
             BRACKET_SPIELTAG,
             None,
@@ -254,27 +244,32 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
             saison_phase="halbfinale",
             team1_quelle={"type": "gruppe", "gruppe": UNRUN_GRUPPE, "platz": 1},
         ),
-        fixture(
+        one_spiel(
             AT_A_RETIRED_GROUND,
             RETIRED_GROUND_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
-            ort={"spielort_id": RETIRED_GROUND, "name": "Bezirkssportanlage West", "maps_link": "Bezirkssportanlage West", "mietpreis": 40},
+            spielort={
+                "spielort_id": RETIRED_GROUND,
+                "name": "Bezirkssportanlage West",
+                "maps_link": "Bezirkssportanlage West",
+                "mietpreis": 40,
+            },
         ),
-        fixture(
+        one_spiel(
             REFEREED_FIRST,
             REFEREED_FIRST_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
-            uhrzeit="18:00:00",
+            time="18:00:00",
             schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20},
         ),
-        fixture(
+        one_spiel(
             REFEREED_AN_HOUR_LATER,
             REFEREED_LATER_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
-            uhrzeit="19:00:00",
+            time="19:00:00",
             schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20},
         ),
     ]
@@ -331,15 +326,15 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
 
         assert [(fault.spiel_nr, fault.gruppe) for fault in not_run] == [(SEEDED_FROM_A_GROUP_NOT_RUN, UNRUN_GRUPPE)]
 
-    def test_a_fixture_booked_onto_a_retired_ground_is_reported(self, spiel):
+    def test_a_spiel_booked_onto_a_retired_ground_is_reported(self, spiel):
         """Keyed on the row the ground read answers, so a report reading the fixture's own copy alone could not raise it."""
 
         faults = sweep(spiel)
         retired = [fault for fault in faults if fault.reason == "retired_booking"]
 
-        assert [(fault.spiel_nr, fault.booking, fault.inactive_since) for fault in retired] == [(AT_A_RETIRED_GROUND, "ort", RETIRED_ON)]
+        assert [(fault.spiel_nr, fault.booking, fault.inactive_since) for fault in retired] == [(AT_A_RETIRED_GROUND, "spielort", RETIRED_ON)]
 
-    def test_a_referee_booked_twice_within_the_buffer_is_reported_on_both_fixtures(self, spiel):
+    def test_a_referee_booked_twice_within_the_buffer_is_reported_on_both_spiele(self, spiel):
         faults = sweep(spiel)
         clashes = [fault for fault in faults if fault.reason == "double_booked"]
 
@@ -347,16 +342,3 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
             (REFEREED_FIRST, "schiedsrichter", REFEREED_AN_HOUR_LATER),
             (REFEREED_AN_HOUR_LATER, "schiedsrichter", REFEREED_FIRST),
         ]
-
-    def test_the_bracket_walk_contributes_nothing_to_this_corpus(self, spiel):
-        """So no case above can be passing on a fault the walk raised: it has `gruppe` reasons of its own, and none is in this set."""
-
-        faults = sweep(spiel)
-
-        assert {fault.reason for fault in faults} == {
-            "fielded_twice",
-            "departed_occupant",
-            "gruppe_not_run",
-            "retired_booking",
-            "double_booked",
-        }

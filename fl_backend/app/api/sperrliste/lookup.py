@@ -15,7 +15,7 @@ from fastapi import Depends
 from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.saisons.crud import pull_governing_saison_id
 from app.api.sperrliste.crud import address_is_barred, read_barred_addresses, read_barred_hashes
 from app.api.sperrliste.services import address_hash
 from app.core.config import BackendConfig, get_app_config
@@ -48,7 +48,7 @@ class BanList:
 async def ban_list_saison(ban_list: BanList, *, session: AsyncClientSession | None = None) -> str | None:
     """The season a ban is judged against, for a caller reading it once ahead of several questions."""
 
-    return await pull_massgebliche_saison_id(ban_list.saisons_collection, session=session)
+    return await pull_governing_saison_id(ban_list.saisons_collection, session=session)
 
 
 async def _saison(ban_list: BanList, saison: Saison, *, session: AsyncClientSession | None) -> str | None:

@@ -4,6 +4,7 @@ import { SearchField as AriaSearchField, Button, Input } from "react-aria-compon
 
 import { fieldFrame, searchClear, searchGlyph, searchInput } from "./fieldStyles";
 import { Icon } from "./Icon";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 
@@ -13,8 +14,10 @@ import type { Copy } from "@/core/copy";
  * enters the address.
  */
 export function SearchField({ label, value, onChange }: { label: Copy; value?: string; onChange: (text: string) => void }) {
+  const root = useEarlyEdit();
   return (
     <AriaSearchField
+      ref={root}
       aria-label={label}
       value={value}
       onChange={onChange}

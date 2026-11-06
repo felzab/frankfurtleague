@@ -1,6 +1,6 @@
 import Pencil from "@gravity-ui/icons/Pencil";
 
-import { ausgetragenSeit, kaderName, NUMMER_DOPPELT, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "@/features/spieler/constants";
+import { kaderName, NUMMER_DOUBLE, NUMMER_NOT_ON_FILE, retiredSince, rolleLabel } from "@/features/spieler/constants";
 import {
   IDENTITY_HEAD_CLASSES,
   IDENTITY_LINE_CLASSES,
@@ -20,34 +20,34 @@ import type { FLKaderRow } from "@/core/generated/client/types";
  * brings it back.
  */
 export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderRow[]; kaderHref: string }) {
-  /** EMPTY rather than absent where the row has none, for `fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx`' reason. */
-  const renderNummer = (zeile: FLKaderRow) => (
+  /** EMPTY rather than absent where the row has none: a missing chip reads as a rendering fault, not as „not filled in“. */
+  const renderNummer = (row: FLKaderRow) => (
     <span
-      // A fixed height, as the admin list's chip: an empty span has no line box to size it.
+      // A fixed height: an empty span has no line box to size it.
       className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
-        zeile.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
+        row.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
       }`}>
       {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
-      {zeile.nummer ?? <span className="sr-only">{NUMMER_NICHT_HINTERLEGT}</span>}
+      {row.nummer ?? <span className="sr-only">{NUMMER_NOT_ON_FILE}</span>}
     </span>
   );
 
-  const renderBadges = (zeile: FLKaderRow) => {
-    if (zeile.inactive_since !== null) return <span className={labelBadge("warning")}>{ausgetragenSeit(zeile.inactive_since)}</span>;
+  const renderBadges = (row: FLKaderRow) => {
+    if (row.inactive_since !== null) return <span className={labelBadge("warning")}>{retiredSince(row.inactive_since)}</span>;
 
     return (
       <>
-        {zeile.rolle !== null && <span className={`${labelBadge("brandSolid")} shrink-0`}>{rolleLabel(zeile.rolle)}</span>}
-        {zeile.is_nachnominiert && <span className={labelBadge("info")}>Nachnominiert</span>}
+        {row.rolle !== null && <span className={`${labelBadge("brandSolid")} shrink-0`}>{rolleLabel(row.rolle)}</span>}
+        {row.is_nachnominiert && <span className={labelBadge("info")}>Nachnominiert</span>}
         {/* On both rows of the pair, the backend having composed it for each: either is where it is repaired. */}
-        {zeile.nummer_double && <span className={labelBadge("warning")}>{NUMMER_DOPPELT}</span>}
+        {row.nummer_double && <span className={labelBadge("warning")}>{NUMMER_DOUBLE}</span>}
       </>
     );
   };
 
   // Absent rather than punctuated where the row holds neither, so no card carries a stray separator.
-  const renderMeta = (zeile: FLKaderRow) => {
-    const parts = [zeile.position, zeile.stufe].filter((part) => part !== null);
+  const renderMeta = (row: FLKaderRow) => {
+    const parts = [row.position, row.stufe].filter((part) => part !== null);
 
     return parts.length === 0 ? null : <span className={IDENTITY_LINE_CLASSES}>{parts.join(" · ")}</span>;
   };
@@ -57,27 +57,27 @@ export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderRow[]; 
     <ul
       aria-label="Liste aller Kadereinträge"
       className="flex w-full flex-col gap-3">
-      {kader.map((zeile) => (
+      {kader.map((row) => (
         <li
-          key={zeile.spieler_id}
+          key={row.spieler_id}
           className={`${card()} flex w-full flex-row items-center gap-3 p-4`}>
           <div className={`${IDENTITY_ROW_CLASSES} flex-1`}>
-            {renderNummer(zeile)}
+            {renderNummer(row)}
             <div className={IDENTITY_STACK_CLASSES}>
               <div className={IDENTITY_HEAD_CLASSES}>
-                <span className={identityName(zeile.inactive_since !== null)}>{kaderName(zeile)}</span>
-                {renderBadges(zeile)}
+                <span className={identityName(row.inactive_since !== null)}>{kaderName(row)}</span>
+                {renderBadges(row)}
               </div>
-              {renderMeta(zeile)}
+              {renderMeta(row)}
             </div>
           </div>
 
-          {zeile.inactive_since === null && (
+          {row.inactive_since === null && (
             <RowActions>
               <RowActionLink
-                href={`${kaderHref}/${zeile.spieler_id}`}
+                href={`${kaderHref}/${row.spieler_id}`}
                 label="Bearbeiten"
-                subject={`Kadereintrag von ${kaderName(zeile)}`}>
+                subject={`Kadereintrag von ${kaderName(row)}`}>
                 <Pencil
                   className="size-4.5"
                   aria-hidden="true"

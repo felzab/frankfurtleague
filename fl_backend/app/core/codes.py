@@ -48,9 +48,8 @@ class Code(StrEnum):
     # tells a stranger's guess from a spent link, and naming which would say more than the guess knew.
     LINK_INVALID = auto()
     ADDRESS_CHANGE_ENDED = auto()
-    # A link whose deadline passed, or whose application was decided: either spends it for good. An
-    # application's deadline a re-send restarts is no such link, so it keeps its own code at the state's
-    # status (`bewerbung_token_past_deadline`).
+    # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
+    # another token.
     LINK_EXPIRED = auto()
     # 403 where `address_change_barred` is 409: this caller is the barred person, and nothing they change lifts it.
     LINK_BARRED = auto()
@@ -75,7 +74,7 @@ class Code(StrEnum):
     ADDRESS_CHANGE_APPROVAL_YOUNGER = auto()
     ADDRESS_CHANGE_OCCUPIED = auto()
     ANSETZUNG_ANSWERED = auto()
-    ANSETZUNG_FRIST_PAST = auto()
+    ANSETZUNG_DEADLINE_PAST = auto()
     ANSETZUNG_CHANGED = auto()
     ANSETZUNG_DECIDED = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
@@ -115,10 +114,10 @@ class Code(StrEnum):
     BERICHT_NOT_PLAYED = auto()
     BERICHT_NOT_OFFICIATED = auto()
     BERICHT_NOT_IN_KADER = auto()
-    BERICHT_ABGESAGT = auto()
+    BERICHT_CANCELLED = auto()
     # Both writes replace the whole block, so a form opened before another write would put back what that write changed.
     BERICHT_MEANWHILE_CHANGED = auto()
-    BERICHT_GRUND_MISSING = auto()
+    CARD_REASON_MISSING = auto()
     BERICHT_ELFMETER_IN_THE_GRUPPE = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
     BEWERBUNG_SUBJECT_UNRESOLVED = auto()
@@ -127,16 +126,16 @@ class Code(StrEnum):
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_PICKED_TEAM_UNUSABLE = auto()
     BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED = auto()
-    BEWERBUNG_SHORTHAND_TAKEN = auto()
     BEWERBUNG_SEAT_ALREADY_ANSWERED = auto()
     CONFIRMATION_AGE = auto()
     BEWERBUNG_KONTAKTE_UNCONFIRMED = auto()
     BEWERBUNG_KONTAKT_EMAIL_TAKEN = auto()
+    BEWERBUNG_KONTAKT_PHONE_TAKEN = auto()
+    BEWERBUNG_KONTAKT_REPEATED = auto()
+    TRIKOT_FARBE_TAKEN = auto()
     BEWERBUNG_KEY_DIFFERING = auto()
-    BEWERBUNG_TOKEN_PAST_DEADLINE = auto()
     BEWERBUNG_ADDRESS_BARRED = auto()
     BEWERBUNG_KONTAKT_BARRED = auto()
-    BEWERBUNG_SEAT_DIFFERENTLY_SEATED = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
     # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
     BOOKING_UNKNOWN_RESOURCE = auto()
@@ -155,10 +154,10 @@ class Code(StrEnum):
     SAISON_SPAN_BELOW_SPIELTAGE = auto()
     # DERIVED, never an arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal.
     SAISON_SPAN_BELOW_SPIELPLAN = auto()
-    # `position` and `beginn` order a phase independently, so nothing else stops a season from showing
-    # its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
+    # `position` and `start` order a phase independently, so nothing else stops a season from showing
+    # its matchdays in one order and dating them in another. `end` is left free: it is the escape a
     # postponement takes.
-    SPIELTAG_BEGINN_OUT_OF_ORDER = auto()
+    SPIELTAG_START_OUT_OF_ORDER = auto()
     SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED = auto()
     # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
     # reopen the rules, the swap and the replacement on a season somebody already played.
@@ -190,9 +189,10 @@ class Code(StrEnum):
     # The first refusal every person endpoint on a team's panel raises: who the caller is, so a 403
     # rather than a 409, whatever the team's own state.
     ROLE_NOT_HELD = auto()
-    KONTAKTE_MOVED_UNDER_THE_SAVE = auto()
     KONTAKT_SEAT_WITHOUT_CONFIRMATION = auto()
     KONTAKT_SEAT_BARRED = auto()
+    KONTAKT_EMAIL_TAKEN = auto()
+    KONTAKT_PHONE_TAKEN = auto()
     KONTAKT_ROW_WITHOUT_SAISON = auto()
     KONTAKT_SAISON_PAST = auto()
     # 403 and not 409, `grant_only_owner`'s precedent: the refusal is about who asks. An administrator's
@@ -240,7 +240,7 @@ class Code(StrEnum):
     REPLACE_SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
-    # A played fixture never blocks: its `ort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
+    # A played fixture never blocks: its `spielort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
     # and `count`, on the path's `spielort_id`.
     SPIELORT_STILL_BOOKED = auto()
     # A played fixture never blocks: its `schiedsrichter` is a record of who officiated. Bounded as the venue's is, on
@@ -345,14 +345,12 @@ type Rule = Literal[
     "ergebnis_missing_tore",
     "good_spieler_exceed_kader",
     "grant_wording_stale",
-    "kontakt_email_twice",
-    "kontakt_telefon_twice",
     "nichtantreten_with_tore",
-    "nichtantreten_with_torschuetzen",
+    "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
     "spieltag_ends_before_start",
     "text_version_of_another_wording",
-    "torschuetzen_not_matching_tore",
+    "scorers_not_matching_tore",
     "url_not_accepted",
 ]

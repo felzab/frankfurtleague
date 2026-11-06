@@ -9,10 +9,8 @@ from app.api.teams.schemas import FLAustritt
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import (
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
-    SPIEL_NOTIZ_MAX_LENGTH,
+    SPIEL_NOTE_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -31,25 +29,17 @@ from app.shared.schemas.literals import (
     FLGruppenNames,
     FLSaisonPhase,
     FLSonderereignis,
-    FLSortOrder,
-    FLSpielSeite,
+    FLSpielSide,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
-
-type FLSpielStatus = Literal["from_today", "past", "today", "abgesagt", "unknown"]
 
 # Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
 # boolean would make independent consumers agree by accident, and a field telling five events apart
 # has a different right answer per consumer.
 
-# Two sides of ONE partition -- did the fixture use up its slot, or does it record a non-event?
+# The fixtures that used up their slot: an abandoned match used the ground and the referee, and every other event
+# records a non-event.
 SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "abgebrochen")
-SONDEREREIGNIS_RECORDING_AN_ABSENCE: tuple[FLSonderereignis, ...] = (
-    "ausgefallen",
-    "nichtantreten_team1",
-    "nichtantreten_team2",
-    "annulliert",
-)
 
 # `state_ergebnis_on_a_non_event`'s subject, and by construction also the fixtures that can never award a point: a
 # state barred from carrying a result reaches no figure the table is scored on.
@@ -64,16 +54,16 @@ SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
 )
 
 # What a fixture's confirmations read as a call-off once entered before the fixture's day: nobody is
-# due at the ground, though the event decides the fixture (`app/api/spielbestaetigungen/services.py :: grund_to_close`).
+# due at the ground, though the event decides the fixture (`app/api/spielbestaetigungen/services.py :: reason_to_close`).
 SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY: tuple[FLSonderereignis, ...] = (
     "nichtantreten_team1",
     "nichtantreten_team2",
 )
 
-# `count_abgesagte_spiele` counts fixtures that did not take place, so an annulment is in it and
+# `count_cancelled_spiele` counts fixtures that did not take place, so an annulment is in it and
 # only an abandonment -- played until it stopped -- is out. Equal to the absence half above by
 # accident, never by derivation: the questions differ.
-SONDEREREIGNIS_COUNTED_AS_ABSAGE: tuple[FLSonderereignis, ...] = (
+SONDEREREIGNIS_COUNTED_AS_CANCELLED: tuple[FLSonderereignis, ...] = (
     "ausgefallen",
     "nichtantreten_team1",
     "nichtantreten_team2",
@@ -81,7 +71,7 @@ SONDEREREIGNIS_COUNTED_AS_ABSAGE: tuple[FLSonderereignis, ...] = (
 )
 
 # The side that failed to appear, so the award goes the other way.
-SONDEREREIGNIS_NO_SHOW: Mapping[str, FLSpielSeite] = {
+SONDEREREIGNIS_NO_SHOW: Mapping[str, FLSpielSide] = {
     "nichtantreten_team1": "team1",
     "nichtantreten_team2": "team2",
 }
@@ -90,8 +80,7 @@ SONDEREREIGNIS_NO_SHOW: Mapping[str, FLSpielSeite] = {
 def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, saison_phase: FLSaisonPhase) -> bool:
     """Whether this state accounts for the named side's absence -- `eligibility_disqualified`'s carve-out.
 
-    ONE question with three askers -- the refusal, its report and `swap_fields_disqualified` -- so the state clearing the 409 clears the other
-    two.
+    ONE question with two askers -- the refusal and its report -- so the state clearing the 409 clears the other.
     """
 
     # Directional, because a no-show COMPOSES a result the table scores: exempting the side that
@@ -190,11 +179,11 @@ class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
 # Private, so the stored, the sent and the served shapes state the booked id once and publish no
 # component of their own. Each extends THIS rather than one extending another: the stored one holds
 # no name, which only the read joins.
-class _SpielOrtBooking(BaseModel):
+class _SpielortBooking(BaseModel):
     spielort_id: CustomObjectId
 
 
-class FLSpielOrtFieldPayload(_SpielOrtBooking):
+class FLSpielortFieldPayload(_SpielortBooking):
     """The venue as the save sends it: which ground, and what this fixture pays for it."""
 
     model_config = ConfigDict(extra="forbid")
@@ -204,13 +193,13 @@ class FLSpielOrtFieldPayload(_SpielOrtBooking):
     mietpreis: int = Field(ge=0)
 
 
-class FLSpielOrtFieldRecord(_SpielOrtBooking):
+class FLSpielortFieldRecord(_SpielortBooking):
     """The venue as a fixture stores it: which ground, and what this fixture pays for it."""
 
     mietpreis: int = Field(ge=0)
 
 
-class FLSpielOrtFieldPublic(_SpielOrtBooking):
+class FLSpielortFieldPublic(_SpielortBooking):
     """The venue as the public reads serve it: which ground, its current name and where to find it, without the rent."""
 
     name: str = Field(min_length=1)
@@ -218,7 +207,7 @@ class FLSpielOrtFieldPublic(_SpielOrtBooking):
     maps_link: str = Field(min_length=1)
 
 
-class FLSpielOrtField(FLSpielOrtFieldPublic):
+class FLSpielortField(FLSpielortFieldPublic):
     """The venue as the admin reads serve it, the rent included."""
 
     mietpreis: int = Field(ge=0)
@@ -235,7 +224,7 @@ def public_referee_name(name: str | None) -> str | None:
     if name is None:
         return None
 
-    vorname, separator, nachname = name.partition(" ")
+    first_name, separator, last_name = name.partition(" ")
 
     if not separator:
         return name
@@ -244,7 +233,7 @@ def public_referee_name(name: str | None) -> str | None:
     # indistinguishable on the public page deliberately: a disambiguator would undo it.
 
     # Sliced on a `str`, which is by code point as `$substrCP` is: a byte slice halves `Öztürk`.
-    return f"{vorname} {nachname[:1]}."
+    return f"{first_name} {last_name[:1]}."
 
 
 # The venue booking's twin, and private for its reason.
@@ -257,7 +246,7 @@ class _SpielSchiedsrichterBooking(BaseModel):
 class _SpielSchiedsrichterNamed(BaseModel):
     # Joined from the referee's row, and nullable, unlike the venue's: a referee is a person, so an
     # erasure repoints the booking at the nameless ghost. The word a reader is shown instead is the
-    # frontend's (`fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`).
+    # frontend's.
     name: CustomNonEmptyString | None
 
 
@@ -341,7 +330,7 @@ class FLSpielElfmeterschiessen(BaseModel):
 
 
 # A fixture's two bookings: its venue and its referee.
-type FLBookingResource = Literal["ort", "schiedsrichter"]
+type FLBookingResource = Literal["spielort", "schiedsrichter"]
 
 
 # Private, so the variants name the faulted fixture once: a base no endpoint names publishes no
@@ -379,8 +368,8 @@ class FLBracketFaultSlot(_BracketFault):
     # The reference travels whole rather than decomposed: it groups the entries of a shared source, and
     # a toast arrives with no fixture to read it off.
 
-    reason: Literal["gruppenphase_fixture_wired", "source_feeds_another_fixture"]
-    side: FLSpielSeite
+    reason: Literal["gruppenphase_spiel_wired", "source_feeds_another_spiel"]
+    side: FLSpielSide
     quelle: FLSpielQuelle
 
 
@@ -400,15 +389,15 @@ class FLBracketFaultOccupant(_BracketFault):
     """
 
     reason: Literal["departed_occupant"]
-    side: FLSpielSeite
+    side: FLSpielSide
     team_id: CustomObjectId
     team_name: str = Field(min_length=1)
     # Carried so the surface can name the route out: a withdrawal reported as a disqualification is
     # the untruth the neutral record exists to prevent.
     austritt_type: FLAustrittType
     # Both dates, so a reader sees the ordering that makes it a fault without opening a document.
-    ausgeschieden_seit: CustomDateString
-    spiel_datum: CustomOptionalDateString
+    exited_since: CustomDateString
+    spiel_date: CustomOptionalDateString
 
 
 class FLBracketFaultSpieltag(_BracketFault):
@@ -420,7 +409,7 @@ class FLBracketFaultSpieltag(_BracketFault):
     # Carried because it is what GROUPS the entries: one clash is every appearance sharing this id
     # and a club, and the entries reach a reader as one flat list.
     spieltag_id: CustomObjectId
-    side: FLSpielSeite
+    side: FLSpielSide
     team_id: CustomObjectId
     team_name: str = Field(min_length=1)
 
@@ -457,8 +446,8 @@ class FLBracketFaultClash(_BracketFault):
     other_spiel_id: CustomObjectId
     other_saison_id: str
     other_spiel_nr: CustomSpielNr
-    other_datum: CustomDateString
-    other_uhrzeit: CustomTimeString
+    other_date: CustomDateString
+    other_time: CustomTimeString
 
 
 # Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`.
@@ -483,9 +472,9 @@ class FLSpielBooking(BaseModel):
     """
 
     spiel_nr: CustomSpielNr
-    datum: CustomDateString
+    date: CustomDateString
     # Validated, not raw: `find_clash_refusal` splits this.
-    uhrzeit: CustomTimeString
+    time: CustomTimeString
 
 
 class FLSpielSlotHolder(FLSpielBooking):
@@ -495,7 +484,7 @@ class FLSpielSlotHolder(FLSpielBooking):
     # Unbounded, as a model echoing a stored id is: this read spans every
     # season, so one malformed id would answer 500 for a save in another.
     saison_id: str
-    ort: _SpielOrtBooking | None
+    spielort: _SpielortBooking | None
     schiedsrichter: _SpielSchiedsrichterBooking | None
 
 
@@ -539,14 +528,14 @@ class FLPatchSpielDataPayload(BaseModel):
     # Here for the same `$set` reason; the handler discards it unless the goals are level.
     elfmeterschiessen: FLSpielElfmeterschiessen | None
 
-    datum: CustomOptionalDateString
-    uhrzeit: CustomOptionalTimeString
-    ort: FLSpielOrtFieldPayload | None
+    date: CustomOptionalDateString
+    time: CustomOptionalTimeString
+    spielort: FLSpielortFieldPayload | None
     schiedsrichter: FLSpielSchiedsrichterFieldPayload | None
 
     # Here for the same `$set` reason; "" becomes None below, which is how a note is removed.
     # The bound is the log row's ceiling (`app/shared/schemas/bounds.py`), no read model's business.
-    notiz: str | None = Field(max_length=SPIEL_NOTIZ_MAX_LENGTH)
+    note: str | None = Field(max_length=SPIEL_NOTE_MAX_LENGTH)
 
     # The `version` the editor was served, with no default: the save is refused once another write has raised it
     # (`version_stale`), a referee's decline emptying the slot among them.
@@ -584,10 +573,10 @@ class FLSpielCommon(BaseReadModel):
     team1_quelle: FLSpielQuelle | None
     team2_quelle: FLSpielQuelle | None
 
-    datum: CustomDateString | None
-    uhrzeit: CustomTimeString | None
+    date: CustomDateString | None
+    time: CustomTimeString | None
 
-    ort: FLSpielOrtFieldPublic | None
+    spielort: FLSpielortFieldPublic | None
     schiedsrichter: FLSpielSchiedsrichterFieldPublic | None
 
     ergebnis: CustomErgebnisString | None
@@ -604,7 +593,7 @@ class FLSpielCommon(BaseReadModel):
 
     # DEFAULTED, unlike `elfmeterschiessen`: nothing tells a missing key from a stored null.
     # Public BY DECISION, and a name typed into it outlives an erasure (`READ-FREETEXT-001`).
-    notiz: str | None = None
+    note: str | None = None
 
 
 class FLSpiel(FLSpielCommon, Anchored):
@@ -615,7 +604,7 @@ class FLSpiel(FLSpielCommon, Anchored):
     shape without it would erase `mietpreis` and `payment` on the next edit of anything else.
     """
 
-    ort: FLSpielOrtFieldRecord | None
+    spielort: FLSpielortFieldRecord | None
     schiedsrichter: FLSpielSchiedsrichterFieldRecord | None
     # 0 until a write raises it, as the create stamps it: a fixture composed before its insert, such as a draw's, has none yet.
     version: int = 0
@@ -669,7 +658,7 @@ class FLSpielJoinedAdmin(FLSpielJoined):
     `version` counts the fixture's writes; a save sending it back is refused once another write has raised it.
     """
 
-    ort: FLSpielOrtField | None
+    spielort: FLSpielortField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
     version: int = 0
 
@@ -691,27 +680,6 @@ FLSpielJoinedAdminListAdapter = TypeAdapter(list[FLSpielJoinedAdmin])
 FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 
-class FLSpieleFilterParams(BaseModel):
-    # None and never the current season: which season is current is a database read, which only the
-    # route can make (`get_spiele_verwaltung`).
-    saison_id: str | None = None
-    saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
-    spiel_status: FLSpielStatus | None = None
-    team_id: CustomObjectId | None = None
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
-    order: FLSortOrder = Field(default="asc")
-
-
-# The base tier reduces a referee's surname to an initial and the admin fixture search matches on
-# that name, so a surname typed there would find nothing.
-class FLSpieleAdminListResponse(BaseAPIResponse):
-    """The admin surfaces' fixture list, each referee's whole name and the money included."""
-
-    spiele: list[FLSpielJoinedAdmin]
-
-
 class FLSpieleSingleResponse(BaseAPIResponse):
     spiel: FLSpielJoined
 
@@ -729,25 +697,25 @@ class FLSpielReleasedSide(FLSpielVoidedResult):
     """One side another fixture gave up so a team can play this Spieltag, and the result that destroyed."""
 
     # English, like `type` on a quelle: it names a document field.
-    side: FLSpielSeite
+    side: FLSpielSide
     team_name: str = Field(min_length=1)
 
 
 # One party a fixture's Ansetzung asks to confirm it: a side, or the booked referee. Beside the fixture, since the
 # confirmation rows store it and the save's dry run names it.
 class FLSpielbestaetigungPartyTeam(BaseModel):
-    art: Literal["team"]
+    kind: Literal["team"]
     team_id: CustomObjectId
 
 
 class FLSpielbestaetigungPartySchiedsrichter(BaseModel):
-    art: Literal["schiedsrichter"]
+    kind: Literal["schiedsrichter"]
     schiedsrichter_id: CustomObjectId
 
 
-FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter, Field(discriminator="art")]
+FLSpielbestaetigungParty = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter, Field(discriminator="kind")]
 
-FLSpielbestaetigungParteiListAdapter: TypeAdapter[list[FLSpielbestaetigungPartei]] = TypeAdapter(list[FLSpielbestaetigungPartei])
+FLSpielbestaetigungPartyListAdapter: TypeAdapter[list[FLSpielbestaetigungParty]] = TypeAdapter(list[FLSpielbestaetigungParty])
 
 
 # A party an act mails, by the name the record holding it gives: a club's season row, a referee's own. Named where it is
@@ -761,18 +729,17 @@ class FLSpielRecipientSchiedsrichter(FLSpielbestaetigungPartySchiedsrichter):
     name: CustomNonEmptyString
 
 
-FLSpielRecipient = Annotated[FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter, Field(discriminator="art")]
+FLSpielRecipient = Annotated[FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter, Field(discriminator="kind")]
 
 FLSpielRecipientListAdapter: TypeAdapter[list[FLSpielRecipient]] = TypeAdapter(list[FLSpielRecipient])
 
 
 class FLPatchSpielDataResponse(BaseAPIResponse):
-    """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
+    """Every fixture the save moved beyond its own edit, each with the result it destroyed.
 
-    `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
-    adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
-    `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
-    so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
+    `version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and
+    null on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as
+    it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
     `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
     the set a save names in its body to delete them.
     """
@@ -780,7 +747,5 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
     voided_results: list[FLSpielVoidedResult]
-    bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     version: int
-    bericht_adopted: bool | None
     recipients: list[FLSpielRecipient] | None

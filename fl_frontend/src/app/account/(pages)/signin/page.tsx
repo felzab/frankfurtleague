@@ -1,5 +1,7 @@
 import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
+import { EMAIL_WORDS, FactsPlaceholder } from "@/kit/Facts";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { requires } from "@/core/action";
 import { passkeysOf } from "@/core/auth/passkeys";
@@ -63,10 +65,20 @@ export default function AccountSignInPage() {
       wait={
         <>
           <AccountBoxPlaceholder
-            fields={1}
-            foot
+            description={COPY.account.address.description}
+            foot={COPY.shared.withObject(COPY.account.address.link, "send")}>
+            <FactsPlaceholder
+              pairs={1}
+              look="free"
+              wraps={{ pair: 0, words: EMAIL_WORDS }}
+            />
+            <FieldPlaceholder width="W3" />
+          </AccountBoxPlaceholder>
+          <AccountBoxPlaceholder
+            description={COPY.account.erasure.description}
+            foot={COPY.shared.withObject(COPY.template.account, "delete")}
+            danger
           />
-          <AccountBoxPlaceholder foot />
         </>
       }>
       <SignInContent />

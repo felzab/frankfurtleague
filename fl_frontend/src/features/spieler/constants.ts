@@ -1,11 +1,11 @@
 import { FLSpielerPosition, FLSpielerStufe } from "@/core/generated/client/types";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
-import { buildRefusal } from "@/shared/utils/refusal";
 
-import type { FLEinwilligungScope, FLSpielerRolle } from "@/core/generated/client/types";
+import type { FLSpielerRolle } from "@/core/generated/client/types";
 
 type RolleOption = { value: FLSpielerRolle; label: string };
 
+// Redesign: goes with its last readers, the old squad views and `rolleLabel`; `COPY.admin.spieler.rolleOption` replaces it.
 /** The German for each squad role. Every surface reads this rather than writing its own, so no two can name a role differently. */
 export const ROLLE_OPTIONS: readonly RolleOption[] = [
   { value: "kapitaen", label: "Kapitän" },
@@ -19,17 +19,6 @@ export function rolleLabel(rolle: FLSpielerRolle): string {
   return rolleOption(rolle)?.label ?? "";
 }
 
-export const SPIELER_CRUD_COPY = {
-  searchLabel: "Spieler suchen",
-  searchPlaceholder: "z.B. Lena Meier oder 7",
-  /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
-  emptyForQuery: "Keine Spieler für diese Suche.",
-  emptyForFilters: "Keine Spieler für diese Filter.",
-  // A registration can stand unadmitted, so „registriert“ is a claim about a collection this page
-  // never shows; „angelegt“ would point a reader at a create control it has not got.
-  emptyOverall: "Es steht noch niemand in einem Kader.",
-} as const;
-
 /** Ordered from the goal outwards, as a squad sheet reads and the backend declares `FLSpielerPosition`. */
 export const POSITION_OPTIONS: readonly FLSpielerPosition[] = Object.values(FLSpielerPosition);
 
@@ -37,35 +26,12 @@ export const POSITION_OPTIONS: readonly FLSpielerPosition[] = Object.values(FLSp
  * **A form offers a SEASON's `rules.allowed_stufen`, not this.** This is the vocabulary, and the
  * ordering authority a season's list is sorted against so no two seasons order alike.
  */
-export const STUFE_OPTIONS: readonly FLSpielerStufe[] = Object.values(FLSpielerStufe);
+const STUFE_OPTIONS: readonly FLSpielerStufe[] = Object.values(FLSpielerStufe);
 
 /** A season's allowed levels in the league's own order, so the picker never reads out of sequence. */
-export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[] {
-  return STUFE_OPTIONS.filter((stufe) => erlaubt.includes(stufe));
+export function orderStufen(allowed: readonly FLSpielerStufe[]): FLSpielerStufe[] {
+  return STUFE_OPTIONS.filter((stufe) => allowed.includes(stufe));
 }
-
-/**
- * What a pupil agreed may be PUBLISHED, never what a contact seat's identically named block records:
- * the two share every field name and no value (`docs/glossary.md :: Einwilligung`).
- */
-export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligungScope, string> = {
-  kader_oeffentlich: "Name im öffentlichen Kader",
-  intern: "Nur innerhalb der Liga",
-};
-
-/**
- * `false` is read as nobody having agreed rather than as a refusal: it stands on a seat the applicant
- * entered until its person answers, and a word naming a decision would put one in that person's mouth.
- */
-export const EINWILLIGUNG_MEDIEN_LABELS = {
-  given: "Fotos, Videos und Interviews zugesagt",
-  nicht_erteilt: "Nicht zugesagt",
-} as const;
-
-// One wording for the one consent on every admin readout, the pupil's, the
-// referee's and a contact seat's: three wordings read as three different answers.
-/** What every admin readout labels the media consent with; its two values are `EINWILLIGUNG_MEDIEN_LABELS`. */
-export const EINWILLIGUNG_MEDIEN_FRAGE = "Medien";
 
 /**
  * The input carries the bound so the browser refuses a further keystroke; the sentence a value
@@ -80,54 +46,6 @@ export const NUMMER_MAX_LENGTH = 4;
  */
 export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern.`;
 
-/**
- * Neutral throughout, as every sentence naming a pupil is: half the league's squads are girls, and a
- * masculine demonstrative or pronoun here names the wrong person for them.
- */
-export const RETIREMENT_CONSEQUENCE =
-  "Die Kadereinträge dieser Person bleiben in jeder Saison erhalten. Für neue Kader steht sie nicht mehr zur Auswahl.";
-
-/** The pupil editor's squad panel, named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
-export const KADER_ABSCHNITT = "Kader";
-
-/**
- * The state after a retirement, which the editor's banner shows for as long as it lasts and the
- * action toasts once. Two readers meeting different words would read them as two different states.
- */
-export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person bleiben erhalten.";
-
-/**
- * `kader_team_not_in_saison` in German for a reader standing where it is repaired — the REPAIR rather than the
- * state, which the banner beside the control carries. `actions.ts` words it for a reader elsewhere,
- * and one sentence cannot point both ways.
- */
-export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON = `Reaktivieren lässt sich der Eintrag erst, wenn Du ihn oben im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zuweist und speicherst.`;
-
-/**
- * The same refusal for a reader standing on the player LIST, where the repair is a page away and no
- * badge beside the row reports the state. The sibling above points within the editor's own page, so
- * one sentence cannot serve both readers.
- */
-export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
-  "Das Team dieses Kadereintrags ist in dieser Saison nicht mehr dabei. Bearbeite den Spieler und weise den Eintrag " +
-  `im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zu.`;
-
-// One sentence for both readers, where the club refusal above needed one each: the repair is another
-// player's page or the season's rules, so neither the list nor the editor could point within itself.
-/**
- * `kader_full` in German, word for word the sentence `actions.ts` toasts for the code, so a
- * press that got past a stale gate reads as the state this control already showed.
- */
-export const REACTIVATION_NEEDS_ROOM_IN_SQUAD =
-  "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln oder trage " +
-  "zuerst einen anderen Spieler aus.";
-
-// The index spans retired rows and creating never revives, so the message names the one path that does.
-export const ALREADY_IN_SAISON = buildRefusal({
-  reason: "Diese Person hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
-  repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
-});
-
 // Its own constant: the referee slice's names a row an erasure emptied, and this one a row still
 // stored with its name withheld at read time.
 
@@ -135,49 +53,40 @@ export const ALREADY_IN_SAISON = buildRefusal({
  * What a reader is shown where the publication gate withholds a name. The same word as an erased
  * referee's by decision, so a copy edit to either is a decision about both.
  */
-export const SPIELER_ANONYM_LABEL = "anonym";
-
-/**
- * What the consent panel closes with, on both of its branches. The two words the public page really
- * shows are interpolated, so a reword of either reaches this sentence rather than leaving it
- * describing a squad list of its own.
- */
-export const EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS =
-  "Der Eintrag steuert die Veröffentlichung: Im öffentlichen Kader stehen Vorname und erster Buchstabe des Nachnamens nur, wenn hier " +
-  `„${EINWILLIGUNG_UMFANG_LABELS.kader_oeffentlich}“ steht und ein Bestätigungsdatum eingetragen ist. Sonst steht die Person als ` +
-  `„${SPIELER_ANONYM_LABEL}“ im Kader, mit Nummer und Position.`;
+export const SPIELER_ANONYMOUS_LABEL = "anonym";
 
 /**
  * A pupil as everyone but the public reads them: the surname whole, never the public initial, and the
  * first name alone where the record holds no surname.
  */
-export function kaderName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
-  return nachname === null ? vorname : `${vorname} ${nachname}`;
+export function kaderName({ first_name, last_name }: { first_name: string; last_name: string | null }): string {
+  return last_name === null ? first_name : `${first_name} ${last_name}`;
 }
 
 /**
  * `kader_stufe_not_allowed` in German. The form offers only the season's levels, so a seat holder meets it where
  * the season was narrowed under the open page, and the picker is where it is repaired.
  */
-export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zugelassen.";
+export const STUFE_NOT_ALLOWED = "Diese Stufe ist in dieser Saison nicht zugelassen.";
 
 /** What a squad nobody has filled yet says on the team panel's squad page. */
-export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
+export const KADER_EMPTY = "Für dieses Team ist noch kein Kader eingetragen.";
 
+// Redesign: goes with its last importers, the old `KaderList` and `KaderRowEditForm`; `COPY.admin.spieler.nummerDouble` replaces it.
 /**
- * The shared-shirt marker, in `fl_frontend/src/features/bewerbungen/duplicates.ts`' voice for a pair
- * that collides. A state rather than a refusal: two pupils may wear one number until somebody repairs it.
+ * The shared-shirt marker, for a pair that collides. A state rather than a refusal: two pupils may
+ * wear one number until somebody repairs it.
  */
-export const NUMMER_DOPPELT = "Nummer doppelt";
+export const NUMMER_DOUBLE = "Nummer doppelt";
 
 /** An empty shirt number where no label stands beside it: a chip, a screen-reader text, a line of facts. */
-export const NUMMER_NICHT_HINTERLEGT = nichtHinterlegt("Nummer");
+export const NUMMER_NOT_ON_FILE = nichtHinterlegt("Nummer");
 
 /**
  * The day a squad row was taken out, in the one sentence the admin editor's banner, a seat holder's
  * squad and the pupil's own page (`SpielerSelfView`) all state it in.
  */
-export function ausgetragenSeit(inactiveSince: string): string {
+export function retiredSince(inactiveSince: string): string {
   return `Ausgetragen seit ${formatSpielDatum(inactiveSince)}`;
 }
 
@@ -185,9 +94,9 @@ export function ausgetragenSeit(inactiveSince: string): string {
  * The seat holder's austragen, which they cannot undo: the panel says who can before the press, so the
  * one-way write is never a surprise.
  */
-export const KADER_AUSTRAGEN_FOLGE = "Der Kadereintrag bleibt gespeichert. Zurückholen kann ihn nur die Verwaltung.";
+export const KADER_RETIRE_CONSEQUENCE = "Der Kadereintrag bleibt gespeichert. Zurückholen kann ihn nur die Verwaltung.";
 
 /** The panel's body above the austragen control, naming the season the row leaves. */
-export function kaderAustragenHinweis(saisonId: string): string {
-  return `Der Spieler verschwindet aus dem Kader der Saison ${saisonId}. ${KADER_AUSTRAGEN_FOLGE}`;
+export function kaderRetireNotice(saisonId: string): string {
+  return `Der Spieler verschwindet aus dem Kader der Saison ${saisonId}. ${KADER_RETIRE_CONSEQUENCE}`;
 }

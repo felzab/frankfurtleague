@@ -1,5 +1,6 @@
 import { textOf } from "@/core/copy";
 
+import { buttonPlaceholder } from "./buttonStyles";
 import { card, cardHover, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -65,20 +66,25 @@ export function Card({ title, count, chip, action, body = "rows", children, line
 /**
  * A card while its records are read: its own box and head, the title where the page knows it and a bar where the
  * record names it, a bar where the count will stand, and over its body the placeholders the page's rows draw, such
- * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place at the head's end, where the card carries one.
+ * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place at the head's end, where the card carries one,
+ * `line` the line under the title's, and `body` is the body's kind, as `Card`'s.
  */
 export function CardPlaceholder({
   title,
   count = false,
   chip = false,
+  line = false,
+  body = "rows",
   children,
 }: {
   title?: Words;
   count?: boolean;
   chip?: boolean;
+  line?: boolean;
+  body?: "rows" | "fields";
   children?: ReactNode;
 }) {
-  const s = card();
+  const s = card({ body });
   const name =
     title === undefined ? (
       <PlaceholderLine
@@ -102,6 +108,12 @@ export function CardPlaceholder({
             <span className={placeholderBar("h-3 w-4")} />
           </span>
         )}
+        {line && (
+          <PlaceholderLine
+            text={s.line()}
+            width="w-1/4"
+          />
+        )}
       </div>
       {children !== undefined && <div className={s.body()}>{children}</div>}
     </div>
@@ -110,10 +122,11 @@ export function CardPlaceholder({
 
 /**
  * A card's rows while they are read: `rows` of `CardActRow`'s rows at its height, each its name over its one line as
- * bars, the chevron at its end where a row leads on.
+ * bars, its `acts` as buttons' placeholders by their labels where the card's rows carry acts, which on a phone stand
+ * under the words and make the row taller, and the chevron at its end where a row leads on.
  */
-export function CardRowsPlaceholder({ rows }: { rows: number }) {
-  const s = actRow({ acts: false });
+export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: ReadonlyArray<Copy> }) {
+  const s = actRow({ acts: acts !== undefined });
   return Array.from({ length: rows }, (_, index) => (
     <div
       key={index}
@@ -128,6 +141,17 @@ export function CardRowsPlaceholder({ rows }: { rows: number }) {
           width="w-1/3"
         />
       </span>
+      {acts !== undefined && (
+        <span className={s.acts()}>
+          {acts.map((label) => (
+            <span
+              key={label}
+              className={buttonPlaceholder()}>
+              {label}
+            </span>
+          ))}
+        </span>
+      )}
       <span className={s.end()}>
         <RowEnd />
       </span>

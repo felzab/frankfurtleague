@@ -55,7 +55,7 @@ from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
 from app.api.schiedsrichter.services import compose_decline_update as compose_referee_decline_update
 from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
-from app.api.spielbestaetigungen.services import HeldSeats, kontakte_ohne, seat_void_of
+from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.core import clock
 from app.core.clock import german_day
@@ -90,13 +90,17 @@ _PERSON_ADDRESS: Final[Mapping[Collection, Callable[[Mapping[str, Any]], Any]]] 
 }
 
 
-def _objection_update(home: Collection, *, kontakte: Mapping[str, Any], seats: Sequence[str], today: str) -> Mapping[str, Any]:
+def _objection_update(
+    home: Collection, *, kontakte: Mapping[str, Any], confirmations: Any, seats: Sequence[str], today: str
+) -> Mapping[str, Any]:
     """Each home's own update emptying the seats a Widerspruch names, as the link's answer writes it, its deletion notice included."""
 
     if home == Collection.SAISON_TEAMS:
         return compose_saison_decline_update(seats=seats, today=today)
 
-    return compose_decline_update(seats=seats, today=today, announced=objection_is_announced(kontakte=kontakte, seats=seats))
+    return compose_decline_update(
+        seats=seats, today=today, announced=objection_is_announced(kontakte=kontakte, confirmations=confirmations, seats=seats)
+    )
 
 
 # The ending each ending line replays, as its press ended the change.
@@ -325,7 +329,7 @@ async def _plan_objection(
         await patch_one_in_db(
             collection=collection,
             db_filter={"_id": row["_id"]},
-            update=_objection_update(home, kontakte=kontakte, seats=open, today=declined_on),
+            update=_objection_update(home, kontakte=kontakte, confirmations=confirmations, seats=open, today=declined_on),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -338,7 +342,7 @@ async def _plan_objection(
                     saison_id=row["saison_id"],
                     team_id=row["team_id"],
                     stored_kontakte=row.get("kontakte"),
-                    kontakte=kontakte_ohne(row.get("kontakte"), open),
+                    kontakte=kontakte_without(row.get("kontakte"), open),
                 )
             ]
             await void_moved_seats(spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN], voids=voids, session=session)

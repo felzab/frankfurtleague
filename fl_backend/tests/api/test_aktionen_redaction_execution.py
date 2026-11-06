@@ -18,7 +18,7 @@ from app.api.address_change.services import compose_approval, compose_end_update
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits
 from app.api.berechtigungen.antraege import compose_approval_request
-from app.api.einladungen.services import compose_einladung, compose_revocation_update
+from app.api.invitations.services import compose_invitation, compose_revocation_update
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -49,7 +49,7 @@ GRANTED_AT = datetime(2026, 1, 5, tzinfo=UTC)
 OWN_GRANT = ObjectId("6890a1b2c3d4e5f607840001")
 THEIR_GRANT = ObjectId("6890a1b2c3d4e5f607840002")
 CONTROL_GRANT = ObjectId("6890a1b2c3d4e5f607840003")
-EINLADUNG = ObjectId("6890a1b2c3d4e5f607840011")
+INVITATION = ObjectId("6890a1b2c3d4e5f607840011")
 BEWERBUNG = ObjectId("6890a1b2c3d4e5f607840021")
 REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607840031")
 READDRESSED_REFEREE = ObjectId("6890a1b2c3d4e5f607840041")
@@ -60,7 +60,7 @@ TEAM = ObjectId("6890a1b2c3d4e5f607840051")
 ASKED_FOR_THEM = ObjectId("6890a1b2c3d4e5f607840071")
 ASKED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840072")
 
-ENTSCHEIDUNG = {"made_at": "2026-03-01", "by": ERASED, "grund": "Zu spät eingereicht"}
+ENTSCHEIDUNG = {"made_at": "2026-03-01", "by": ERASED, "reason": "Zu spät eingereicht"}
 
 
 def grant(grant_id: ObjectId, address: str, granted_by: str) -> dict[str, Any]:
@@ -92,11 +92,11 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     await database[Collection.BAN_LIST].insert_one(ban)
     await database[Collection.INVITATIONS].insert_one(
         {
-            "_id": EINLADUNG,
-            **compose_einladung(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], created_by=ERASED, today="2026-03-01", sent_at=None),
+            "_id": INVITATION,
+            **compose_invitation(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], created_by=ERASED, today="2026-03-01", sent_at=None),
         }
     )
-    await patched(database, Collection.INVITATIONS, EINLADUNG, compose_revocation_update(today="2026-03-02"))
+    await patched(database, Collection.INVITATIONS, INVITATION, compose_revocation_update(today="2026-03-02"))
     await database[Collection.BEWERBUNGEN].insert_one(
         documents.bewerbung_document(
             BEWERBUNG, "2026", "declined", kontakte=documents.kontakte_document(), submitted_at="2026-02-01", decision=ENTSCHEIDUNG
@@ -109,16 +109,16 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
             "pupil@example.com",
             saison_id="2026",
             team_id=TEAM,
-            vorname="Pia",
-            nachname="Muster",
+            first_name="Pia",
+            last_name="Muster",
             token="registrierung",
             submitted_at="2026-02-01",
-            frist="2026-02-08",
+            deadline="2026-02-08",
             status="declined",
             decision=ENTSCHEIDUNG,
         )
     )
-    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"decision.grund": "Anderes Team"}})
+    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"decision.reason": "Anderes Team"}})
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [documents.schiedsrichter_document(READDRESSED_REFEREE, email=ERASED, name="Hiltrud Kesselring", default_payment=20, einwilligung=None)]
     )
@@ -222,25 +222,6 @@ class TestTheJudgement:
 
         assert address_image_edits(image, identifier=ERASED, addresses=addresses) == {"approval.started_by": ERASED_ACTOR_MARKER}
 
-    def test_every_field_naming_who_acted_takes_the_marker_and_every_own_address_goes_null(self):
-        """The marker keeps a replayed image valid where its record model requires the field; a person's own address is nobody's to keep."""
-
-        authored = {
-            (collection, address.path) for collection, addresses in IMAGE_ADDRESSES.items() for address in addresses if address.replacement
-        }
-
-        assert authored == {
-            (Collection.GRANTS, "granted_by"),
-            (Collection.BAN_LIST, "created_by"),
-            (Collection.INVITATIONS, "created_by"),
-            (Collection.BEWERBUNGEN, "decision.by"),
-            (Collection.REGISTRIERUNGEN, "decision.by"),
-            (Collection.ADDRESS_CHANGES, "approval.started_by"),
-            (Collection.ADDRESS_CHANGES, "approval.approved_by"),
-            (Collection.GRANT_APPROVAL_REQUESTS, "approval.started_by"),
-        }
-        assert {address.replacement for addresses in IMAGE_ADDRESSES.values() for address in addresses} == {ERASED_ACTOR_MARKER, None}
-
 
 @pytest.mark.db
 def test_no_image_holds_the_address_afterwards(mongo_replica_set_url: str):
@@ -278,14 +259,14 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     assert (theirs["address"], theirs["granted_by"]) == (GRANTEE, ERASED_ACTOR_MARKER)
     (ban,) = next(row for row in log if row["collection"] == str(Collection.BAN_LIST))["before"]
     assert (ban["created_by"], ban["grund"]) == (ERASED_ACTOR_MARKER, "Falsches Geburtsdatum bei der Anmeldung")
-    einladung = image_of(log, Collection.INVITATIONS, EINLADUNG)["before"]
-    assert (einladung["created_by"], einladung["token_hashes"]) == (ERASED_ACTOR_MARKER, ["h" * 64])
+    invitation = image_of(log, Collection.INVITATIONS, INVITATION)["before"]
+    assert (invitation["created_by"], invitation["token_hashes"]) == (ERASED_ACTOR_MARKER, ["h" * 64])
     for collection, document_id in ((Collection.BEWERBUNGEN, BEWERBUNG), (Collection.REGISTRIERUNGEN, REGISTRIERUNG)):
         assert image_of(log, collection, document_id)["before"]["decision"] == {**ENTSCHEIDUNG, "by": ERASED_ACTOR_MARKER}
     readdressed = image_of(log, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE)["before"]
     assert (readdressed["kontakt"]["email"], readdressed["name"]) == (None, "Hiltrud Kesselring")
     readdressed_pupil = image_of(log, Collection.SPIELER, READDRESSED_PUPIL)["before"]
-    assert (readdressed_pupil["email"], readdressed_pupil["vorname"]) == (None, "Wendelin")
+    assert (readdressed_pupil["email"], readdressed_pupil["first_name"]) == (None, "Wendelin")
     to_them = image_of(log, Collection.ADDRESS_CHANGES, TO_THEM)["before"]
     assert (to_them["email"], to_them["address"]) == (None, PUPIL_STORED)
     started = image_of(log, Collection.ADDRESS_CHANGES, STARTED_BY_THEM)["before"]

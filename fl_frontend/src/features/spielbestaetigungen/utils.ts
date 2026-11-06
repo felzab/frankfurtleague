@@ -5,18 +5,18 @@ import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/util
 import { buildRefusal } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import type { FLSpielbestaetigungAppointment, FLSpielbestaetigungViewResponse, FLSpielbestaetigungVon } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungAppointment, FLSpielbestaetigungBy, FLSpielbestaetigungViewResponse } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
-export function beantwortetVon(von: FLSpielbestaetigungVon): string {
-  if (von.art === "admin") return "Verwaltung der Liga";
-  if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
-  return KONTAKT_ROLLEN.find((entry) => entry.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
+export function answeredBy(by: FLSpielbestaetigungBy): string {
+  if (by.kind === "admin") return "Verwaltung der Liga";
+  if (by.kind === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
+  return KONTAKT_ROLLEN.find((entry) => entry.value === by.rolle)?.langform ?? NICHT_HINTERLEGT;
 }
 
-export const terminText = (termin: FLSpielbestaetigungAppointment): string =>
-  `${formatSpielDatum(termin.datum)} um ${formatUhrzeit(termin.uhrzeit)} Uhr`;
+export const terminText = (appointment: FLSpielbestaetigungAppointment): string =>
+  `${formatSpielDatum(appointment.date)} um ${formatUhrzeit(appointment.time)} Uhr`;
 
 /**
  * What one link opens, narrowed before the page: an answerable link carries the whole view, an
@@ -24,24 +24,24 @@ export const terminText = (termin: FLSpielbestaetigungAppointment): string =>
  */
 export type SpielbestaetigungAnsicht =
   // A member per state, never one for the pair: a union keyed on a union of literals narrows on neither.
-  | { zustand: "valid"; ansicht: FLSpielbestaetigungViewResponse }
-  | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungVon }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungVon }
+  | { state: "valid"; ansicht: FLSpielbestaetigungViewResponse }
+  | { state: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse }
+  | { state: "zugesagt"; answered_by: FLSpielbestaetigungBy }
+  | { state: "declined"; answered_by: FLSpielbestaetigungBy }
   // The date the league kept, which its sentence points at: the link's mail named it already.
-  | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
+  | { state: "discarded"; appointment: FLSpielbestaetigungAppointment }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
-  | { zustand: "expired" | "termin-vorbei" | "invalid" | "abgesagt" | "barred" };
+  | { state: "expired" | "termin-vorbei" | "invalid" | "cancelled" | "barred" };
 
 /** Every state a link opens on once no press can spend it. */
-export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["zustand"], "valid" | "vorschlag">;
+export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["state"], "valid" | "vorschlag">;
 
 /** A press the backend refused, as the route answers it: a link's state, a box's message, or a sentence. */
 export type SpielbestaetigungRefusal = {
   error?: string;
   fieldErrors?: FieldErrors;
   unplacedError?: string;
-  zustand?: SpielbestaetigungLinkZustand;
+  state?: SpielbestaetigungLinkZustand;
   /** The route's instruction to read the link back, never a key the page receives. */
   nachlesen?: true;
 };
@@ -57,7 +57,7 @@ export function mapAnsetzungAnsichtRefusal(error: unknown): "invalid" | null {
 
   if (error.serverErrorCode === "payload_refused") return "invalid";
 
-  // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
+  // Every rule's refusal alike: a spent link answers its own `state` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.
   return isRuleRefusal(error) ? "invalid" : null;
 }
@@ -79,29 +79,29 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
     // which tells a guessed link nothing about a row.
     case "link_invalid":
     case "ansetzung_changed":
-      return { zustand: "invalid" };
+      return { state: "invalid" };
     // Each covers several states the read tells apart: `ansetzung_answered` both answers, where „zugesagt“ would tell a
     // club that declined in another window it confirmed; `ansetzung_closed` every closing reason, so the press shows
     // the panel a reload would.
     case "ansetzung_answered":
     case "ansetzung_closed":
     // Spent either way, but only the read carries whether the fixture's day has gone by, which has a panel of its own.
-    case "ansetzung_frist_past":
+    case "ansetzung_deadline_past":
     case "ansetzung_decided":
       return { nachlesen: true };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "link_barred":
-      return { zustand: "barred" };
+      return { state: "barred" };
     // The proposal's refusals spend nothing: each lands on the box that caused it, and the typed
     // proposal survives it.
     case "ansetzung_vorschlag_past":
-      return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt in der Vergangenheit." } };
+      return { fieldErrors: { "vorschlag.date": "Dieses Datum liegt in der Vergangenheit." } };
     case "ansetzung_vorschlag_unchanged":
-      return { fieldErrors: { "vorschlag.datum": "Das ist schon der angesetzte Termin." } };
+      return { fieldErrors: { "vorschlag.date": "Das ist schon der angesetzte Termin." } };
     case "spiel_outside_spieltag":
-      return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt außerhalb des Spieltags." } };
+      return { fieldErrors: { "vorschlag.date": "Dieses Datum liegt außerhalb des Spieltags." } };
     case "eligibility_disqualified":
-      return { fieldErrors: { "vorschlag.datum": "An diesem Datum spielt eines der beiden Teams nicht mehr in der Saison." } };
+      return { fieldErrors: { "vorschlag.date": "An diesem Datum spielt eines der beiden Teams nicht mehr in der Saison." } };
     // The failure names neither the venue nor the referee, and either moves with the date as much as
     // with the time, so no one box takes it.
     case "spiel_double_booked":
@@ -129,7 +129,7 @@ const NEU_LADEN = "Lade die Seite neu.";
  * A referee's answer's refusals, as their own panel words them: the link page's column reads a club's link, which a
  * referee holds none of. `null` where the code is none of these, which the person spine answers.
  */
-export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string } | null {
+export function mapSchiedsrichterAnswerRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string } | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
@@ -152,7 +152,7 @@ export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: strin
     case "ansetzung_changed":
       return { error: `Das Spiel hat einen neuen Termin, oder Du bist nicht mehr eingeteilt. ${NEU_LADEN}` };
     // A referee's answer keeps no deadline, so the day alone spends it.
-    case "ansetzung_frist_past":
+    case "ansetzung_deadline_past":
       return { error: `Das Spiel liegt schon in der Vergangenheit. ${NEU_LADEN}` };
     default:
       return null;

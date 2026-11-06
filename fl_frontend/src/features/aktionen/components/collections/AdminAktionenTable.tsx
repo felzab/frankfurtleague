@@ -75,7 +75,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   emptiness: CrudEmptiness;
 }) {
   // The shell's season rides along on the history link, so narrowing the log keeps the selector's
-  // season -- `AdminTeamsTable.tsx`'s row links carry it the same way.
+  // season.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const router = useRouter();
@@ -147,7 +147,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    * key. One source for both layouts, so the table's cells and the phone cards cannot disagree.
    */
   const renderZeitpunkt = (aktion: FLActionLogEntry) => {
-    const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
+    const { date: datum, time: uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return (
       <div className={IDENTITY_STACK_CLASSES}>
@@ -193,12 +193,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
     return (
       <div className="flex flex-col gap-0.5">
-        {datensatz.filterPaare.map(([feld, wert]) => (
+        {datensatz.filterPaare.map(([field, value]) => (
           <span
-            key={feld}
+            key={field}
             className="flex flex-row flex-wrap gap-x-1 font-mono fluid-xs break-all">
-            <span className="text-foreground-muted">{feld}</span>
-            <span className="text-foreground">{wert}</span>
+            <span className="text-foreground-muted">{field}</span>
+            <span className="text-foreground">{value}</span>
           </span>
         ))}
         {/* A readout rather than a sentence: "12 Datensätze" would have to agree with a count of one. */}
@@ -217,7 +217,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    */
   const renderStandBadge = (aktion: FLActionLogEntry) => {
     if (aktion.redacted_at !== null) {
-      const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
+      const datum = formatAktionZeitpunkt(aktion.redacted_at).date;
 
       // A copy still standing kept all the redaction did not reach: the record's own state, and anybody it left.
       return aktion.stand_secured ? (
@@ -256,7 +256,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
   // The row has no name to be announced by, so the moment it happened is what tells two of them apart.
   const zeitpunktLabel = (aktion: FLActionLogEntry) => {
-    const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
+    const { date: datum, time: uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return uhrzeit === null ? datum : `${datum} um ${uhrzeit} Uhr`;
   };

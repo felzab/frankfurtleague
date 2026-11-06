@@ -1,10 +1,16 @@
 import { notFound } from "next/navigation";
 
+import { CheckboxPlaceholder } from "@/kit/Checkbox";
+import { ToggleBoxesPlaceholder } from "@/kit/ChoiceButtons";
 import { EditorShell } from "@/kit/EditorShell";
+import { FactsPlaceholder } from "@/kit/Facts";
+import { FieldPlaceholder } from "@/kit/FieldPair";
+import { TablePlaceholder } from "@/kit/Table";
 
 import { judgeAdminRequest } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
+import { FLSpielerStufe } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
@@ -28,11 +34,24 @@ import { saveSaison } from "./saveSaison";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Code, FLInvitationLinkRow, FLSaisonAdminTeam, FLSaisonStatus } from "@/core/generated/client/types";
+import type { TableHead } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
 
 const WORDS = COPY.admin.saison;
+const TEAM = COPY.shared.facts.team;
+
+/** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
+const LINKS_HEAD: TableHead = { nameLabel: TEAM, columns: [{ key: "link", label: COPY.account.address.link }] };
+
+/** One of the editor's selects of a few short choices while it is read. */
+const SELECT = (
+  <FieldPlaceholder
+    key="select"
+    width="fit"
+  />
+);
 
 /** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
@@ -80,7 +99,7 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
 function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): Words {
   if (team?.austritt != null) return COPY.shared.austritt[team.austritt.type].state;
   if (row.skipped === "kontakte_barred") return WORDS.addressBarred;
-  if (row.skipped === "no_kontaktblock" || row.skipped === "no_confirmed_kontaktperson") return WORDS.noConfirmedAddress;
+  if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") return WORDS.noConfirmedAddress;
   if (!row.has_link) return WORDS.noLinkYet;
   return row.sent_at === null ? WORDS.linkNotSent : WORDS.linkSentOn(dayOf(row.sent_at));
 }
@@ -89,18 +108,71 @@ function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): 
 export default function SaisonSettingsPage({ params }: Props) {
   return (
     <EditorShell
+      // Each section in its fullest state, which no one season holds all at once: a running season's closed boxes, its draw
+      // standing, and the rows of a season not yet the site's. Only the read says which one it is.
       wait={{
         sections: [
-          [{ columns: 2, width: "C10" }],
-          ["subhead", { columns: 3, width: "C2" }, "field", "subhead", { columns: 2, width: "C2" }],
-          [{ columns: 2, width: "C2" }, "field"],
-          ["field", "field"],
-          [{ columns: 2, width: "C10" }],
-          ["field", "field"],
-          ["field"],
-          ["pair"],
-          ["pair"],
-          ["field"],
+          { note: WORDS.startFixed, rows: [{ rows: 2, width: "C10" }] },
+          { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, width: "C2" }, SELECT, "subhead", { rows: 2, width: "C2" }] },
+          { note: WORDS.lockedByDraw, rows: [{ rows: 2, width: "C2" }, SELECT] },
+          [
+            <FieldPlaceholder
+              key="maxKader"
+              width="C2"
+            />,
+            <ToggleBoxesPlaceholder
+              key="stufen"
+              count={Object.values(FLSpielerStufe).length}
+            />,
+          ],
+          [
+            { rows: 2, width: "C10" },
+            <CheckboxPlaceholder
+              key="paused"
+              label={WORDS.bewerbungPaused}
+            />,
+          ],
+          [
+            <FieldPlaceholder
+              key="end"
+              width="C10"
+            />,
+            <CheckboxPlaceholder
+              key="paused"
+              label={WORDS.registrierungPaused}
+            />,
+          ],
+          [
+            <FactsPlaceholder
+              key="spielplan"
+              pairs={3}
+            />,
+          ],
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(WORDS.gruppen, "swap") }] },
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(TEAM, "replace") }] },
+          [
+            <TablePlaceholder
+              key="links"
+              head={LINKS_HEAD}
+              rows={24}
+              bare
+              linked={false}
+            />,
+            { act: COPY.shared.withObject(WORDS.registrierungslinks, "send") },
+          ],
+        ],
+        danger: [
+          {
+            name: COPY.shared.withObject(COPY.page.spielplan, "recreate"),
+            consequence: WORDS.recreateConsequence,
+            act: COPY.shared.verb.recreate,
+          },
+          { name: COPY.shared.withObject(COPY.page.spielplan, "delete"), consequence: WORDS.deleteConsequence, act: COPY.shared.verb.delete },
+          {
+            name: COPY.shared.withObject(WORDS.onto("2027"), "activate"),
+            consequence: WORDS.activateConsequence("2027"),
+            act: COPY.shared.verb.activate,
+          },
         ],
       }}
       editor={readEditor(params)}
@@ -110,7 +182,7 @@ export default function SaisonSettingsPage({ params }: Props) {
 
 async function readEditor(params: Props["params"]) {
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_clubs, shapes, spielplan, refusals, invitations }, { saisons }, judged] = await Promise.all([
+  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, judged] = await Promise.all([
     readSaison(params),
     getAdminSaisons(),
     judgeAdminRequest(),
@@ -148,11 +220,12 @@ async function readEditor(params: Props["params"]) {
         id: team.team_id,
         name: team.name,
         gruppe: team.gruppe,
-        groupTakenPlace: team.group_fixture_taken_place,
-        takenPlace: team.fixture_taken_place,
+        groupTakenPlace: team.group_spiel_taken_place,
+        takenPlace: team.spiel_taken_place,
       }))}
-      incoming={incoming_clubs.map((club) => ({ id: club.id, name: club.name }))}
+      incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
       links={{
+        head: LINKS_HEAD,
         rows: invitations.map((row) => ({
           id: row.team_id,
           name: { record: row.team_name },

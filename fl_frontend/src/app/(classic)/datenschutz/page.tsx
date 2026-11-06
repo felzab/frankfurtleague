@@ -10,11 +10,10 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import { DAY_MS } from "@/core/timeUnits";
-import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
 import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
-import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsrichter/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
@@ -49,12 +48,12 @@ export default function PrivacyNoticePage() {
     paragraph(words.website.requests),
     paragraph(words.website.browser),
     heading(words.bewerbung.heading),
-    paragraph(words.bewerbung.form(KONTAKT_ROLLEN.length)),
-    paragraph(words.bewerbung.confirmation(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER)),
+    paragraph(words.bewerbung.form),
+    paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE)),
     heading(words.kader.heading),
     paragraph(words.kader.text(REGISTRIERUNG_MIN_ALTER)),
     heading(words.schiedsrichter.heading),
-    paragraph(words.schiedsrichter.text(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)),
+    paragraph(words.schiedsrichter.text(SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS)),
     heading(words.spiele.heading),
     paragraph(words.spiele.text),
     heading(words.account.heading),
@@ -98,8 +97,8 @@ export default function PrivacyNoticePage() {
               typeof row.period === "string"
                 ? row.period
                 : row.period({
-                    bewerbungDays: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
-                    schiedsrichterDays: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+                    bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
+                    schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
                     addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
                     code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
                     person: { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },

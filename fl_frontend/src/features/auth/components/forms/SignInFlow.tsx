@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { SignInPage } from "@/kit/SignInPage";
+import { useBotCheck } from "@/kit/useBotCheck";
 import { useFormAction } from "@/kit/useFormAction";
 
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
-import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { handleSignIn } from "../../actions";
@@ -29,7 +29,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   const [email, setEmail] = useState("");
   // The address a mailed link asked for, carried to the landing only where the allowlist holds it.
   const landing = withReturnAddress(next, useSearchParams().get(RETURN_PARAMETER));
-  const humanCheck = useTurnstile(siteKey);
+  const humanCheck = useBotCheck({ siteKey, size: "compact" });
 
   usePreloadedAuthClient();
 
@@ -99,7 +99,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
         code={{
           label: COPY.signIn.code,
           error: inField ? codeError : null,
-          attempt: attempt,
+          attempt,
           isDisabled: checking,
           onComplete: (code) => void check(code),
         }}
@@ -147,12 +147,12 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       send={{
         label: COPY.signIn.sendCode,
         isBusy: send.isPending,
-        onPress: () => {
+        onPress: (address) => {
           // The busy button is not the whole guard: `Enter` in the field submits too, and a second send mid-flight
           // would mail a second code.
           if (send.isPending) return;
           setPasskeyError(null);
-          send.submit(email);
+          send.submit(address);
         },
       }}
       or={COPY.signIn.or}

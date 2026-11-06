@@ -83,7 +83,7 @@ class OwedMail:
     """
 
     key: str
-    an: str
+    to: str
     data: FLOutboxData
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
@@ -145,13 +145,13 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     if mail.link is not None and mail.reference is None:
         raise ValueError("a link is minted on the record a mail is about, and this mail names none")
 
-    frist = valid_until if valid_until is not None else now + DELIVERY_DEADLINE
+    deadline = valid_until if valid_until is not None else now + DELIVERY_DEADLINE
     reference = mail.reference
 
     return {
         "key": mail.key,
         "kind": mail.data.kind,
-        "an": mail.an,
+        "to": mail.to,
         # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
         "data": mail.data.model_dump(mode="json"),
         "secret": secret,
@@ -160,15 +160,15 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "link": None if mail.link is None else mail.link.model_dump(),
         "state": "open",
         "recorded_at": now,
-        "frist": frist,
+        "deadline": deadline,
         # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
         # state brings forward (`final_update`).
-        "erase_at": frist if secret is not None else frist + RETENTION,
+        "erase_at": deadline if secret is not None else deadline + RETENTION,
         "lease": None,
         "leased_until": None,
         "attempts": 0,
         "message_id": None,
-        "grund": None,
+        "delivery_reason": None,
         "delivery": None,
     }
 

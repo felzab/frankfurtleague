@@ -25,30 +25,30 @@ export const getEigeneSpielbestaetigungen = cache(async (): Promise<FLSpielbesta
  * One link's standing, read on every open and stored nowhere: a GET records nothing, not even a
  * visit, because mail scanners fetch every link in a message.
  */
-export async function getSpielbestaetigungAnsicht(token: string): Promise<SpielbestaetigungAnsicht> {
+export async function getSpielbestaetigungView(token: string): Promise<SpielbestaetigungAnsicht> {
   return runWithIncomingTrace(() =>
-    postSpielbestaetigungAnsicht({ token: token }).then(
+    postSpielbestaetigungAnsicht({ token }).then(
       // Narrowed here and never at the page, which would carry the clubs, the date and the proposal
       // regardless: a dead link's panel names nothing of the fixture, an answered one the seat alone.
       (view): SpielbestaetigungAnsicht => {
         const { state } = view;
-        if (state === "valid" || state === "vorschlag") return { zustand: state, ansicht: view };
+        if (state === "valid" || state === "vorschlag") return { state, ansicht: view };
         // The view serves no close reason, so the day the link asked about decides, on Berlin's calendar as the
         // backend's: a link to a match already due must not say the league will still set its date.
-        if (state === "expired" && view.ansetzung.datum < getGermanTodayStr()) return { zustand: "termin-vorbei" };
-        if (state === "discarded") return { zustand: state, appointment: { datum: view.ansetzung.datum, uhrzeit: view.ansetzung.uhrzeit } };
-        if (state !== "zugesagt" && state !== "declined") return { zustand: state };
+        if (state === "expired" && view.ansetzung.date < getGermanTodayStr()) return { state: "termin-vorbei" };
+        if (state === "discarded") return { state, appointment: { date: view.ansetzung.date, time: view.ansetzung.time } };
+        if (state !== "zugesagt" && state !== "declined") return { state };
 
         // The role is a seat and never a person, and it is what tells the club's other two seats who
         // answered. An answered view naming none breaks the contract, which the error boundary logs.
         if (view.answered_by === null) throw new ContractBreakError(`the ${state} view names no answering role`);
-        return { zustand: state, answered_by: view.answered_by };
+        return { state, answered_by: view.answered_by };
       },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.
         const state = mapAnsetzungAnsichtRefusal(error);
-        if (state !== null) return { zustand: state };
+        if (state !== null) return { state };
         throw error;
       },
     ),

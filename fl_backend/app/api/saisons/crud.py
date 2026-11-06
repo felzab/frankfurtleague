@@ -4,9 +4,9 @@ from typing import Any, NamedTuple
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
+from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, form_window_state, saison_takes_bewerbungen
 from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
-from app.api.saisons.services import has_started, next_saison_id
+from app.api.saisons.services import next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
@@ -55,7 +55,7 @@ async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:
     return str(saison_raw["_id"])
 
 
-async def pull_massgebliche_saison_id(saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> str | None:
+async def pull_governing_saison_id(saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> str | None:
     """The season a count of seasons is reckoned from: the running one.
 
     `None` rather than a 404 where none runs, so the caller decides what that means.
@@ -72,26 +72,49 @@ async def pull_massgebliche_saison_id(saisons_collection: ReadCollection, sessio
     return str(running["_id"])
 
 
-async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today: str) -> Mapping[str, Any] | None:
-    """The season taking applications today, its window and status alone; `None` where none is.
+class LandingWindows(NamedTuple):
+    """The landing's three facts of the application windows, read off one list of seasons."""
 
-    Judged by `saison_nimmt_bewerbungen_an`, the rule the submission refuses on, over every season not yet ended, and
-    never by a filter restating it, so the landing cannot offer a window the submission refuses. Newest season id
-    first, ids being years: two open windows is a state an administrator can create, and an arbitrary pick would move
-    between reads.
+    # The season taking applications today, its window and status alone.
+    open: Mapping[str, Any] | None
+    # The day the next window opens.
+    opens_on: str | None
+    # Whether a season not yet ended holds a window, in any state. False, nothing can reopen today: a pause can.
+    held: bool
+
+
+async def pull_landing_windows(*, saisons_collection: AsyncCollection, today: str) -> LandingWindows:
+    """The season taking applications today, the day the next window opens, each `None` where there is none, and whether any window stands.
+
+    Judged over every season not yet ended by the rules the submission refuses on and the form's page reads, and never
+    by a filter restating them, so the landing cannot offer a window the submission refuses, nor word one otherwise
+    than the form. Newest season id first, ids being years: two open windows is a state an administrator can create, and
+    an arbitrary pick would move between reads.
     """
 
     candidates = await pull_many_from_db(
         collection=saisons_collection, db_filter=SAISON_NOT_ENDED_FILTER, sort_by=[("_id", -1)], projection=["bewerbung", "status"]
     )
+    windowed = [raw for raw in candidates if raw.get("bewerbung") is not None]
 
-    return next(
-        (raw for raw in candidates if saison_nimmt_bewerbungen_an(saison_status=raw["status"], bewerbung=raw.get("bewerbung"), today=today)),
-        None,
+    return LandingWindows(
+        open=next(
+            (raw for raw in windowed if saison_takes_bewerbungen(saison_status=raw["status"], bewerbung=raw["bewerbung"], today=today)),
+            None,
+        ),
+        opens_on=min(
+            (
+                str(raw["bewerbung"]["start"])
+                for raw in windowed
+                if form_window_state(saison_status=raw["status"], bewerbung=raw["bewerbung"], today=today) == "upcoming"
+            ),
+            default=None,
+        ),
+        held=bool(windowed),
     )
 
 
-async def saisons_with_a_fixture_taken_place(
+async def saisons_with_a_spiel_taken_place(
     *,
     spiele_collection: ReadCollection,
     saison_ids: Collection[str],
@@ -106,10 +129,8 @@ async def saisons_with_a_fixture_taken_place(
     """
 
     found: set[str] = set()
-    async with spiele_collection.find(
-        {"saison_id": {"$in": list(saison_ids)}}, ["saison_id", *TAKEN_PLACE_FIELDS], session=session
-    ) as fixtures:
-        async for spiel in fixtures:
+    async with spiele_collection.find({"saison_id": {"$in": list(saison_ids)}}, ["saison_id", *TAKEN_PLACE_FIELDS], session=session) as spiele:
+        async for spiel in spiele:
             if has_taken_place(spiel):
                 found.add(spiel["saison_id"])
                 if found.issuperset(saison_ids):
@@ -163,18 +184,6 @@ async def count_spiele_by_saison(*, spiele_collection: ReadCollection, saison_id
     )
 
     return {str(row["_id"]): int(row["spiele"]) for row in rows}
-
-
-async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:
-    """Whether an entry into this season's squads on `today` is a Nachnominierung: one made once the season has started.
-
-    The start every start lock reads (`app/api/saisons/services.py :: has_started`), so the marker and the locks
-    cannot disagree about when the season began. 404 where no season has this id.
-    """
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["start_date"])
-
-    return has_started(start_date=saison_raw["start_date"], today=today)
 
 
 async def pull_saison_id_and_rules(

@@ -74,32 +74,32 @@ def assert_rejects() -> RejectsAssertion:
 def address() -> PayloadFactory:
     return _factory(
         {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
+            "street": "Hanauer Landstraße",
+            "house_number": "12a",
+            "postcode": "60314",
+            "district": "Ostend",
+            "city": "Frankfurt am Main",
         }
     )
 
 
 @pytest.fixture
 def kontakt() -> PayloadFactory:
-    return _factory({"telefon": "+49 69 1234567", "email": "kontakt@example.com"})
+    return _factory({"phone": "+49 69 1234567", "email": "kontakt@example.com"})
 
 
 @pytest.fixture
 def statistik() -> PayloadFactory:
     return _factory(
         {
-            "count_gespielte_spiele": 3,
+            "count_played_spiele": 3,
             "siege": 2,
             "niederlagen": 1,
             "unentschieden": 0,
-            "tore_geschossen": 7,
-            "tore_kassiert": 4,
+            "tore_scored": 7,
+            "tore_conceded": 4,
             "punkte": 6,
-            "count_abgesagte_spiele": 1,
+            "count_cancelled_spiele": 1,
         }
     )
 
@@ -126,36 +126,36 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
 
 @pytest.fixture
 def spiel_team_field() -> PayloadFactory:
-    return _factory({"team_id": TEAM_ID, "name": "Carl-Schurz", "tore": 2, "shorthand": "CSX"})
+    return _factory({"team_id": TEAM_ID, "tore": 2})
 
 
 @pytest.fixture
-def spiel_ort_field() -> PayloadFactory:
-    return _factory({"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80})
+def spielort_field() -> PayloadFactory:
+    return _factory({"spielort_id": SPIELORT_ID, "mietpreis": 80})
 
 
 @pytest.fixture
 def spiel_schiedsrichter_field() -> PayloadFactory:
-    return _factory({"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "A. Referee", "payment": 20})
+    return _factory({"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": 20})
 
 
 @pytest.fixture
 def spiel(
     spiel_team_field: PayloadFactory,
-    spiel_ort_field: PayloadFactory,
+    spielort_field: PayloadFactory,
     spiel_schiedsrichter_field: PayloadFactory,
 ) -> PayloadFactory:
     return _factory(
         {
             "_id": SPIEL_ID,
             "team1": spiel_team_field(),
-            "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LEX", tore=1),
+            "team2": spiel_team_field(team_id=SPIELER_ID, tore=1),
             # A group-phase fixture: both sides are drawn by the schedule, so neither has a source.
             "team1_quelle": None,
             "team2_quelle": None,
-            "datum": "2026-03-15",
-            "uhrzeit": "18:00:00",
-            "ort": spiel_ort_field(),
+            "date": "2026-03-15",
+            "time": "18:00:00",
+            "spielort": spielort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
             "elfmeterschiessen": None,
@@ -226,8 +226,8 @@ def spieler() -> PayloadFactory:
     return _factory(
         {
             "_id": SPIELER_ID,
-            "vorname": "Max",
-            "nachname": "Mustermann",
+            "first_name": "Max",
+            "last_name": "Mustermann",
             "stufe": "Q2",
             "nummer": "10",
             # `Angriff`, not `Sturm`: the enum closed on this spelling.
@@ -236,7 +236,7 @@ def spieler() -> PayloadFactory:
             "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
-            "geburtsdatum": "2009-05-04",
+            "birth_date": "2009-05-04",
             "einwilligung": dict(EINWILLIGUNG),
         }
     )
@@ -248,8 +248,8 @@ def spieltag() -> PayloadFactory:
         {
             "_id": SPIELTAG_ID,
             # No `name`: a matchday's label is composed by the reader, from `position` and the phase.
-            "beginn": "2026-03-15",
-            "ende": "2026-03-15",
+            "start": "2026-03-15",
+            "end": "2026-03-15",
             "count_spiele": 4,
             "position": 1,
             "saison_phase": "gruppenphase",
@@ -741,10 +741,9 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 
 @pytest.fixture(scope="session")
 def mongo_database(mongo_url: str) -> Iterator[Database]:
-    """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumers are why.
+    """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumer is why.
 
-    `tests/api/test_spieler_saisons_read.py :: squads` and `tests/api/conftest.py :: league` both
-    drop their collections, taking any validator with them.
+    `tests/api/conftest.py :: league` drops its collections, taking any validator with them.
     """
 
     client = MongoClient(mongo_url)

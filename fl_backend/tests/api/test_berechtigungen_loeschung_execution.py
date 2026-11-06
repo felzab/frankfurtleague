@@ -19,7 +19,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.berechtigungen.loeschung import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import FLGrantSnapshot
 from app.api.berechtigungen.services import compose_notice
-from app.api.einladungen.services import compose_einladung
+from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -118,14 +118,14 @@ def notice(
         "_id": row_id,
         "key": f"grant/{grant_id}/{kind}/anwendung/{QUEUED.isoformat()}/{DORA}",
         "kind": "grant",
-        "an": DORA,
+        "to": DORA,
         "data": FLGrantData.model_validate(notice.data).model_dump(mode="json"),
         "secret": None,
         "reference": None,
         "link": None,
         "state": "open",
         "recorded_at": QUEUED,
-        "frist": QUEUED + DELIVERY_DEADLINE,
+        "deadline": QUEUED + DELIVERY_DEADLINE,
         "erase_at": QUEUED + DELIVERY_DEADLINE + RETENTION,
         "lease": None,
         "leased_until": None,
@@ -142,7 +142,7 @@ def decided(bewerbung_id: ObjectId, by: str) -> dict[str, Any]:
         "declined",
         kontakte=kontakte_document(),
         submitted_at="2026-03-01",
-        decision={"made_at": "2026-03-10", "by": by, "grund": "Keine Halle"},
+        decision={"made_at": "2026-03-10", "by": by, "reason": "Keine Halle"},
     )
 
 
@@ -152,14 +152,14 @@ def declined(registrierung_id: ObjectId, by: str) -> dict[str, Any]:
         f"pupil-{registrierung_id}@beispiel.de",
         saison_id=RUNNING,
         team_id=ObjectId(),
-        vorname="Rita",
-        nachname="Registriert",
+        first_name="Rita",
+        last_name="Registriert",
         token=str(registrierung_id),
         submitted_at="2026-03-20",
-        frist="2026-03-27",
+        deadline="2026-03-27",
     )
 
-    return {**stored, **compose_ablehnung_update(by=by, grund="Nicht in der Stufe", today="2026-03-22")["$set"]}
+    return {**stored, **compose_ablehnung_update(by=by, reason="Nicht in der Stufe", today="2026-03-22")["$set"]}
 
 
 async def a_league_she_administered(database: AsyncDatabase) -> None:
@@ -208,7 +208,7 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
         [
             {
                 "_id": invite_id,
-                **compose_einladung(
+                **compose_invitation(
                     saison_id=RUNNING, team_id=ObjectId(), token_hashes=[f"hash-{invite_id}"], created_by=by, today=TODAY, sent_at=None
                 ),
             }

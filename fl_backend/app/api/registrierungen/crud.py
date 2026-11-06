@@ -24,13 +24,13 @@ from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
-PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "email")
+PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "birth_date", "email")
 
 # What a confirmation link reads of a person: who they are and whether they confirmed, for the page,
 # and the birthdate the returning page takes as given. Never a choice: no link read serves one.
 PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
     *PERSON_IDENTITY_FIELDS,
-    "geburtsdatum",
+    "birth_date",
     "einwilligung.confirmed_at",
 )
 
@@ -69,14 +69,14 @@ async def pull_offene_registrierungen(
         collection=registrierungen_collection,
         pipeline=[
             {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort(sort_by="submitted_at", order=order))},
+            {"$sort": dict(build_registrierungen_sort(order=order))},
             {"$limit": limit + 1},
             # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
             # the join runs on reaches this handler, let alone the wire.
             {
                 "$project": {
                     **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
-                    **{field: 1 for field in ("email", "geburtsdatum", "einwilligung.confirmed_at")},
+                    **{field: 1 for field in ("email", "birth_date", "einwilligung.confirmed_at")},
                 }
             },
         ],
@@ -102,7 +102,7 @@ async def persons_at(
 async def nummern_rows(
     *, saison_spieler_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
-    """The live squad's shirt numbers, as `app/api/spieler/services.py :: build_live_squad_filter` counts the squad."""
+    """The live squad's shirt numbers, a nominee's among them: the cap's filter leaves those out, and a nominee wears one too."""
 
     return await aggregate_many_from_db(
         collection=saison_spieler_collection,

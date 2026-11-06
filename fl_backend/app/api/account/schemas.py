@@ -35,8 +35,6 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     evidence_state: FLEinwilligungState
-    # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
-    givable: bool
     media_offered: bool
     # The media floor, which the page names where the record is short of it.
     media_minimum_age: int = Field(gt=0)
@@ -106,9 +104,9 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     media: bool | None
     evidence_state: FLEinwilligungState
     # As the registration stores them: the facts the account page's box names its pupil by.
-    vorname: str
-    nachname: str
-    geburtsdatum: CustomOptionalDateString
+    first_name: str
+    last_name: str
+    birth_date: CustomOptionalDateString
 
 
 class FLAccountAddressChangeOpen(BaseModel):

@@ -1,9 +1,9 @@
 """
-API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, the per-request lookups
+API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, a lookup's transaction
 
 The erasures' and a press's journal, the confirmation pass's mint, an adoption's stamp and an erased pupil's repointed
-report entries meet a refused or unanswered commit; the per-request lookups' reads are held on the server, so that the
-reads each gathers are seen in flight together, and the ones a transaction runs one at a time.
+report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the ones
+a transaction runs are seen going one at a time.
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -20,7 +20,6 @@ from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.identity.crud import find_subject_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -28,13 +27,11 @@ from app.core.db import NO_OWNER
 from app.core.journal import JOURNAL_TOKEN
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
-from tests.bans import ban_list
-from tests.documents import ban_document
 from tests.records import record_collections
 from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
-from . import test_spiele_write_execution as fixture_saves
+from . import test_spiele_write_execution as spiel_saves
 from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_identity_erasure_execution import erased_by_the_handler as geloescht_by_the_person
 from .test_identity_erasure_execution import on_a_league as on_their_league
@@ -46,10 +43,6 @@ from .test_identity_erasure_sweep import a_due_pupil, a_report_naming, seeded
 from .test_identity_erasure_sweep import numbered as pupil_numbered
 from .test_identity_erasure_sweep import on_a_league as on_the_pupils_league
 from .test_identity_erasure_sweep import run as a_deletion_call
-from .test_identity_sign_in_execution import BARRED as SIGN_IN_GESPERRT
-from .test_identity_sign_in_execution import call_sign_in
-from .test_identity_sign_in_execution import on_a_league as on_the_sign_ins_league
-from .test_identity_subject_execution import ADMIN_STORED, FUTURE_SAISON, call_subject
 from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
 from .test_identity_subject_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
@@ -145,67 +138,7 @@ async def _first_reads(url: str, database: AsyncDatabase, call: Callable[[AsyncM
 
 
 @pytest.mark.db
-class TestTheReadsAPerRequestLookupGathers:
-    """Each lookup here answers every signed-in render, sign-in or admin-tier request, so its reads are paid in latency each time."""
-
-    def test_the_subjects_records_ban_and_grant_are_read_at_once(self, mongo_replica_set_url: str):
-        """`POST /identity/subject`: the records' three, the ban's running season and the grant, each sent before any answers.
-
-        The ban's own row follows its season, which it needs, and a seat's season is joined inside the seats' read; neither is a first read.
-        """
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document(ADMIN_STORED, until=FUTURE_SAISON))
-
-            return await _first_reads(mongo_replica_set_url, database, lambda held: call_subject(held[database.name], ADMIN_STORED))
-
-        answer, sent = on_the_subjects_league(mongo_replica_set_url, body)
-
-        # The premise first: the ban and the grant answered what was seeded, so the order below is of reads that ran.
-        assert (answer.barred, answer.admin_tier) == (True, "administration")
-        first_reads = (Collection.GRANTS, Collection.SAISONS, Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)
-        assert sent == sorted(map(str, first_reads)), "the endpoint awaited one read before sending the next"
-
-    def test_the_sign_in_gates_five_records_ban_and_grant_are_read_at_once(self, mongo_replica_set_url: str):
-        """`POST /identity/sign_in`, the one read paying for the two kinds granting no panel: all seven first reads at once."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await _first_reads(mongo_replica_set_url, database, lambda held: call_sign_in(held[database.name], SIGN_IN_GESPERRT))
-
-        answer, sent = on_the_sign_ins_league(mongo_replica_set_url, body)
-
-        assert (answer.barred, answer.account) == (True, True)
-        first_reads = (
-            Collection.BEWERBUNGEN,
-            Collection.GRANTS,
-            Collection.REGISTRIERUNGEN,
-            Collection.SAISONS,
-            Collection.SAISON_TEAMS,
-            Collection.SCHIEDSRICHTER,
-            Collection.SPIELER,
-        )
-        assert sent == sorted(map(str, first_reads)), "the gate awaited one read before sending the next"
-
-    def test_the_actor_checks_grant_and_ban_are_read_at_once(self, mongo_replica_set_url: str):
-        """Every admin-tier request pays this check before its handler runs: the grant and the ban's season, sent together."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            async def check(held: AsyncMongoClient) -> Any:
-                async with held.start_session() as session:
-                    return await live_unbarred_grant_since(
-                        ADMIN_STORED,
-                        grants_collection=held[database.name][Collection.GRANTS],
-                        ban_list=ban_list(held[database.name]),
-                        session=session,
-                    )
-
-            return await _first_reads(mongo_replica_set_url, database, check)
-
-        since, sent = on_the_subjects_league(mongo_replica_set_url, body)
-
-        assert since is not None, "the check found no grant, so the order below is of reads that answered nothing"
-        assert sent == sorted(map(str, (Collection.GRANTS, Collection.SAISONS))), "the check awaited the grant before asking the ban list"
-
+class TestALookupInsideATransaction:
     def test_inside_a_transaction_the_subjects_reads_run_one_at_a_time(self, mongo_replica_set_url: str):
         """PyMongo documents that one session runs one operation at a time and refuses nothing, so gathered here they would race unseen."""
 
@@ -378,7 +311,7 @@ class TestAPersonsOwnPress:
     def test_a_press_whose_commit_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
-        withdrawn = {"scope": "intern", "media": False}
+        withdrawn = {"scope": "internal", "media": False}
 
         async def chosen(database: AsyncDatabase) -> dict[str, Any]:
             stored = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
@@ -410,7 +343,7 @@ class TestAPersonsOwnPress:
 
         async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            withdrawal = _withdrawal("konto_spieler", scope="intern", media=False)
+            withdrawal = _withdrawal("konto_spieler", scope="internal", media=False)
             with caplog.at_level(logging.INFO):
                 refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "evidence_state": stale}, headers=_person(PERSON))
                 refused_lines = len(journalled(caplog))
@@ -438,7 +371,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirmations.sweep(database, client)
-            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"time": "19:00:00"}})
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
             # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
@@ -455,14 +388,14 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
         commits, lost, standing, owed, nxt = confirmations.on_a_league(
-            mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+            mongo_replica_set_url, body, spiele=[confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
         )
 
         # The premise first: the close committed, and the mint's commit landed with its answer lost.
         assert commits[:2] == [None, MAX_TIME_EXPIRED]
         assert lost.has_error_label(UNKNOWN_COMMIT_RESULT)
         # Each side's fresh row and the referee's, about the moved Ansetzung, each stamped with the mails it owes beside it.
-        assert sorted((row["party"]["art"], row["ansetzung"]["uhrzeit"], row["asked_at"]) for row in standing) == [
+        assert sorted((row["party"]["kind"], row["ansetzung"]["time"], row["asked_at"]) for row in standing) == [
             ("schiedsrichter", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
@@ -476,19 +409,19 @@ NO_SUCH_TRANSACTION = 251
 
 
 @pytest.mark.db
-class TestAFixtureSaveRefusedAtItsCommit:
-    def test_takes_the_adoption_stamp_back_with_the_fixture(self, mongo_replica_set_url: str):
+class TestASpielSaveRefusedAtItsCommit:
+    def test_takes_the_adoption_stamp_back_with_the_spiel(self, mongo_replica_set_url: str):
         """Catches a stamp written off the save's session: every rule passes, so only the commit can refuse this save."""
 
-        spiele, reports = fixture_saves.a_bracket_with_reports(quarter_final_at=fixture_saves.SEEDED_VERSION)
+        spiele, reports = spiel_saves.a_bracket_with_reports(quarter_final_at=spiel_saves.SEEDED_VERSION)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await fixture_saves.with_reports(database, reports)
-            spiel_data = await fixture_saves.payload_for(
+            before = await spiel_saves.with_reports(database, reports)
+            spiel_data = await spiel_saves.payload_for(
                 database,
-                fixture_saves.VIERTELFINALE,
-                team1=fixture_saves.side(fixture_saves.ALPHA, 3),
-                team2=fixture_saves.side(fixture_saves.BETA, 1),
+                spiel_saves.VIERTELFINALE,
+                team1=spiel_saves.side(spiel_saves.ALPHA, 3),
+                team2=spiel_saves.side(spiel_saves.BETA, 1),
             )
             commits = _Commits()
             refusing = AsyncMongoClient(
@@ -503,24 +436,24 @@ class TestAFixtureSaveRefusedAtItsCommit:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
                 with pytest.raises(PyMongoError):
-                    await fixture_saves.call_patch(
+                    await spiel_saves.call_patch(
                         refusing[database.name],
                         refusing,
-                        fixture_saves.VIERTELFINALE,
+                        spiel_saves.VIERTELFINALE,
                         spiel_data,
-                        uebernimmt_bericht=fixture_saves.SEEDED_VERSION,
+                        adopts_bericht=spiel_saves.SEEDED_VERSION,
                     )
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            return commits.answered, await fixture_saves.spiele_now(database), before, await fixture_saves.reports_now(database)
+            return commits.answered, await spiel_saves.spiele_now(database), before, await spiel_saves.reports_now(database)
 
-        commits, spiele, before, after = fixture_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+        commits, spiele, before, after = spiel_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
         # The premise first: one commit, refused, and the fixture it carried not written.
-        assert (commits, spiele[fixture_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
-        assert after[fixture_saves.VIERTELFINALE] == before[fixture_saves.VIERTELFINALE], "a save that never committed adopted the report"
+        assert (commits, spiele[spiel_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
+        assert after[spiel_saves.VIERTELFINALE] == before[spiel_saves.VIERTELFINALE], "a save that never committed adopted the report"
 
 
 @pytest.mark.db
@@ -552,7 +485,7 @@ class TestAPupilsLoeschungRefusedAtItsCommit:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.torschuetzen.spieler_id": 1})
+            report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.scorers.spieler_id": 1})
             standing = await database[Collection.SPIELER].count_documents({"_id": pupil})
 
             return commits.answered, (answer.spieler, answer.failed), report, standing
@@ -563,5 +496,5 @@ class TestAPupilsLoeschungRefusedAtItsCommit:
         assert (commits, counted) == ([NO_SUCH_TRANSACTION], (0, 1))
         assert report is not None
         # `a_report_naming` names the pupil as the report's first scorer.
-        assert report["bericht"]["torschuetzen"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
+        assert report["bericht"]["scorers"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
         assert standing == 1

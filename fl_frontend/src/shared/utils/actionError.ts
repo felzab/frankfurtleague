@@ -125,21 +125,15 @@ export function refusedFailure(error: APIBadStatusError, sentence: string): Acti
     : { success: false, error: VALIDATION_FAILED, fieldErrors, unplacedError: sentence };
 }
 
-/**
- * The Spiel refusals `fl_frontend/src/features/spiele/refusals.ts :: mapSpielRefusal` does not map.
- * Three name an OCCUPANT, which the form places at fault; the two `state_*` codes name the event, a
- * field this form does not mark, so their code rides back unused and the message lands as a toast.
- */
+/** The Spiel refusals no field maps: three name an OCCUPANT, and the two `state_*` codes name the event. */
 const OCCUPANT_REFUSALS: Readonly<Partial<Record<Code, string>>> = {
-  // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. Its
-  // remedies ride the match editor's rail, from
-  // `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts`.
+  // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does.
   eligibility_disqualified: "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
 
   eligibility_team_not_in_saison: "Dieses Team nimmt nicht an dieser Saison teil.",
   state_ergebnis_on_a_non_event: "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
   state_nichtantreten_without_two_sides: "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
-  // The repair is on the OTHER fixture, so it rides the same rail rather than this field.
+  // The repair is on the OTHER fixture.
   spieltag_occupied: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
@@ -194,13 +188,6 @@ export function rejectedWrite(router: { refresh: () => void }, repair?: string):
   };
 }
 
-/**
- * `rejectedWrite`'s repair on a control sending a confirmation link from a page its reload shows again. A rejection says
- * nothing of whether the link left, and a new link replaces the earlier one; the reload comes first.
- */
-export const LINK_ERNEUT_OHNE_ANTWORT =
-  "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
-
 /** The toast title of a link send whose outcome is unknown: a send saves nothing, so the title saves nothing either. */
 export const LINK_UNKLAR = "Unklar, ob der Link verschickt wurde";
 
@@ -252,8 +239,7 @@ function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
     // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
     const occupantRefusal = Object.hasOwn(OCCUPANT_REFUSALS, error.serverErrorCode) ? OCCUPANT_REFUSALS[error.serverErrorCode] : undefined;
     if (occupantRefusal !== undefined) {
-      // Unlike the stale-form refusal above, reloading fixes none of these. The code rides back out
-      // so the form can put the message on the side that caused it.
+      // Unlike the stale-form refusal above, reloading fixes none of these.
       return { success: false, error: occupantRefusal, errorCode: error.serverErrorCode };
     }
   }

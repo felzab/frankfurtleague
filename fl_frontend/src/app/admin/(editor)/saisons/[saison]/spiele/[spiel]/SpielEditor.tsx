@@ -3,13 +3,13 @@
 import { useState } from "react";
 
 import { AdoptLine } from "@/kit/AdoptLine";
+import { AnswerRows } from "@/kit/AnswerRows";
 import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldPair } from "@/kit/FieldPair";
-import { GroupHead } from "@/kit/GroupHead";
-import { ScorePair } from "@/kit/ScorePair";
+import { ScoreRows } from "@/kit/ScoreRows";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
 import { Table } from "@/kit/Table";
@@ -26,11 +26,12 @@ import { adoptsBerichtOf, holdsProposal, isNoShow, NO_SONDEREREIGNIS, takesNoRes
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
+import type { AnswerRow } from "@/kit/AnswerRows";
 import type { EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
-import type { ScoreOutcome, ScoreSide } from "@/kit/ScorePair";
-import type { TableRow } from "@/kit/Table";
+import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
@@ -54,14 +55,14 @@ const goals = (text: string) => (text === "" ? null : Number(text));
 
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
- * result, entered by the switch the board drew, its goals as one score, a shoot-out's pair appearing by itself on
- * level knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
- * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar;
- * a save that would delete a later match's result the server holds back with its question, which the bar asks.
+ * result, entered by the switch the board drew, a side per row, a shoot-out's column appearing by itself on level
+ * knockout goals, and the referee's proposal carried over by „Übernehmen“; the note; the Sonderereignis, in a box of
+ * its own; and the report's goals and every party's answer, read-only. Saved together from the editor's bar; a save
+ * that would delete a later match's result the server holds back with its question, which the bar asks.
  */
 export function SpielEditor({
   title,
-  vorschau,
+  preview,
   record,
   save,
   phase,
@@ -71,7 +72,7 @@ export function SpielEditor({
   spielorte,
   schiedsrichter,
   sonderereignisse,
-  notizMax,
+  noteMax,
   required,
   report,
   adoption,
@@ -82,7 +83,7 @@ export function SpielEditor({
 }: {
   title: PageTitle;
   /** The line under the title: the match as it is stored, read on the server. */
-  vorschau: Copy;
+  preview: Copy;
   record: EditorRecord<SpielValues>;
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
   phase: FLSaisonPhase;
@@ -96,14 +97,14 @@ export function SpielEditor({
   schiedsrichter: readonly Booking[];
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
   sonderereignisse: readonly Option[];
-  notizMax: number;
+  noteMax: number;
   /** Whether a booking's money is required beside it, read from the write on the server. */
-  required: { mietpreis: boolean; honorar: boolean };
-  /** The report's goals as rows, read-only; none while no report stands. */
-  report: readonly TableRow[];
+  required: { mietpreis: boolean; payment: boolean };
+  /** The report's goals as rows, read-only, none while no report stands, under the head the page's wait draws too. */
+  report: { head: TableHead; rows: readonly TableRow[] };
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
-  answers: readonly TableRow[];
+  answers: readonly AnswerRow[];
   createSpielort: (formData: FormData) => Promise<ActionAnswer>;
   spielortRules: SpielortRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
@@ -199,7 +200,7 @@ export function SpielEditor({
   return (
     <EditorPage
       title={title}
-      lead={vorschau}
+      lead={preview}
       editor={editor}
       closed={closed}
       sections={withBegegnung([
@@ -213,16 +214,16 @@ export function SpielEditor({
                 short="both"
                 phone="pair">
                 <DateField
-                  label={WORDS.datum}
-                  name="datum"
-                  value={draft.datum}
-                  onChange={(datum) => set("datum", datum)}
+                  label={WORDS.date}
+                  name="date"
+                  value={draft.date}
+                  onChange={(date) => set("date", date)}
                 />
                 <TimeField
-                  label={WORDS.uhrzeit}
-                  name="uhrzeit"
-                  value={draft.uhrzeit}
-                  onChange={(uhrzeit) => set("uhrzeit", uhrzeit)}
+                  label={WORDS.time}
+                  name="time"
+                  value={draft.time}
+                  onChange={(time) => set("time", time)}
                 />
               </FieldPair>
               <FieldPair
@@ -274,19 +275,19 @@ export function SpielEditor({
                     set("schiedsrichter", id);
                     // A referee chosen brings their own fee, which the person may still change for this match.
                     const chosen = schiedsrichter.find((each) => each.option.id === id);
-                    if (chosen !== undefined) set("honorar", String(chosen.price));
+                    if (chosen !== undefined) set("payment", String(chosen.price));
                   }}
                 />
                 {draft.schiedsrichter !== null && (
                   <TextField
-                    label={COPY.admin.honorar}
-                    name="honorar"
+                    label={COPY.admin.payment}
+                    name="payment"
                     width="C5"
                     kind="digits"
                     unit={COPY.shared.unit.euro}
-                    isRequired={required.honorar}
-                    value={draft.honorar}
-                    onChange={(honorar) => set("honorar", honorar)}
+                    isRequired={required.payment}
+                    value={draft.payment}
+                    onChange={(payment) => set("payment", payment)}
                   />
                 )}
               </FieldPair>
@@ -319,30 +320,30 @@ export function SpielEditor({
                 {...(!resultShown ? { description: WORDS.byEvent } : bothSides ? {} : { description: WORDS.needsBothSides })}
               />
               {scored && (
-                <ScorePair
-                  label={COPY.shared.tore}
+                <ScoreRows
                   sides={scoreSides}
-                  names={["tore1", "tore2"]}
-                  values={[draft.tore1, draft.tore2]}
-                  onChange={(side, value) => set(side === 0 ? "tore1" : "tore2", value)}
-                  // Level knockout goals decide nothing: the shoot-out's pair below says what they come to.
-                  outcome={shootOut ? null : outcomeOf([draft.tore1, draft.tore2], null)}
-                  isRequired={scored}
-                />
-              )}
-              {/* By itself on level knockout goals, and optional: left empty, the match and the bracket after it wait. */}
-              {shootOut && (
-                <ScorePair
-                  label={WORDS.elfmeterschiessen}
-                  // Its caption tells it from the goals' pair above, which reads the same clubs over the same fields.
-                  captioned
-                  sides={scoreSides}
-                  names={["shootOut1", "shootOut2"]}
-                  values={[draft.shootOut1, draft.shootOut2]}
-                  onChange={(side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value)}
-                  outcome={outcomeOf([draft.tore1, draft.tore2], [draft.shootOut1, draft.shootOut2])}
-                  isRequired={shootOutTyped}
-                  {...(shootOutTyped ? {} : { consequence: WORDS.shootOutMissing })}
+                  tore={{
+                    label: COPY.shared.tore,
+                    names: ["tore1", "tore2"],
+                    values: [draft.tore1, draft.tore2],
+                    onChange: (side, value) => set(side === 0 ? "tore1" : "tore2", value),
+                    isRequired: true,
+                  }}
+                  // By itself on level knockout goals, and optional: left empty, the match and the bracket after it wait.
+                  shootOut={
+                    shootOut
+                      ? {
+                          label: WORDS.elfmeterschiessen,
+                          head: WORDS.afterElfmeterschiessen,
+                          names: ["shootOut1", "shootOut2"],
+                          values: [draft.shootOut1, draft.shootOut2],
+                          onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
+                          isRequired: shootOutTyped,
+                        }
+                      : null
+                  }
+                  outcome={outcomeOf([draft.tore1, draft.tore2], shootOut ? [draft.shootOut1, draft.shootOut2] : null)}
+                  {...(shootOut && !shootOutTyped ? { consequence: WORDS.shootOutMissing } : {})}
                 />
               )}
               {adoption !== null && !holdsProposal(adoption, draft) && (
@@ -359,13 +360,30 @@ export function SpielEditor({
             </>
           ),
         },
-        // What happened beyond the play, which decides whether the box above takes a result at all.
+        {
+          id: "note",
+          title: WORDS.note,
+          fields: (
+            <TextField
+              label={WORDS.note}
+              labelHidden
+              name="note"
+              width="W4"
+              kind="text"
+              maxLength={noteMax}
+              value={draft.note}
+              onChange={(note) => set("note", note)}
+            />
+          ),
+        },
+        // What happened beyond the play, which decides whether the Ergebnis box takes a result at all.
         {
           id: "sonderereignis",
           title: WORDS.sonderereignis,
           fields: (
             <Select
               label={WORDS.sonderereignis}
+              labelHidden
               name="sonderereignis"
               options={sonderereignisse}
               width="fit"
@@ -378,54 +396,28 @@ export function SpielEditor({
           ),
         },
         {
-          id: "notiz",
-          title: WORDS.notiz,
+          id: "spielbericht",
+          title: WORDS.spielbericht,
           fields: (
-            <TextField
-              label={WORDS.notiz}
-              name="notiz"
-              width="W4"
-              kind="text"
-              maxLength={notizMax}
-              value={draft.notiz}
-              onChange={(notiz) => set("notiz", notiz)}
+            <Table
+              label={WORDS.spielbericht}
+              {...report.head}
+              rows={report.rows}
+              empty={{ kind: "none", plural: COPY.shared.tore }}
+              bare
+              stack
             />
           ),
         },
         {
-          id: "spielbericht",
-          title: WORDS.spielberichtUndBestaetigungen,
+          id: "confirmations",
+          title: WORDS.confirmations,
           fields: (
-            <>
-              <GroupHead text={WORDS.spielbericht} />
-              <Table
-                label={WORDS.spielbericht}
-                nameLabel={COPY.shared.spieler}
-                columns={[
-                  { key: "event", label: WORDS.event },
-                  { key: "minute", label: WORDS.minute, figures: true },
-                  { key: "stand", label: WORDS.ergebnis, figures: true },
-                ]}
-                rows={report}
-                empty={{ kind: "none", plural: COPY.shared.tore }}
-                bare
-                stack
-              />
-              <GroupHead text={WORDS.bestaetigungen} />
-              <Table
-                label={WORDS.bestaetigungen}
-                nameLabel={WORDS.party}
-                columns={[
-                  { key: "answer", label: WORDS.answer },
-                  { key: "proposal", label: COPY.admin.overview.vorschlag },
-                  { key: "reason", label: WORDS.reason, written: true },
-                ]}
-                rows={answers}
-                empty={{ kind: "none", plural: WORDS.bestaetigungen }}
-                bare
-                stack
-              />
-            </>
+            <AnswerRows
+              label={WORDS.confirmations}
+              rows={answers}
+              empty={{ kind: "none", plural: WORDS.confirmations }}
+            />
           ),
         },
       ])}

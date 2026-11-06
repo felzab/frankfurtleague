@@ -10,27 +10,28 @@ import { buildCodeEmail } from "./authEmail";
 import { buildBerechtigungEmail } from "./berechtigungEmail";
 import {
   buildBewerbungAbsageEmail,
-  buildBewerbungBestaetigungEmail,
-  buildBewerbungEingangEmail,
-  buildBewerbungErinnerungEmail,
-  buildBewerbungGeloeschtEmail,
-  buildBewerbungWiderspruchEmail,
+  buildBewerbungConfirmationEmail,
+  buildBewerbungErasureEmail,
+  buildBewerbungObjectionEmail,
+  buildBewerbungReceivedEmail,
+  buildBewerbungReminderEmail,
   buildBewerbungZusageEmail,
 } from "./bewerbungEmail";
-import { buildEinladungEmail } from "./einladungEmail";
 import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
-import { buildKontaktBestaetigungEmail } from "./kontaktEmail";
+import { buildInvitationEmail } from "./invitationEmail";
+import { buildKontaktConfirmationEmail } from "./kontaktEmail";
 import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
-import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
+import { buildSchiedsrichterConfirmationEmail } from "./schiedsrichterEmail";
 import { buildSperreEmail } from "./sperrlisteEmail";
 import {
-  buildSpielAnfrageEmail,
-  buildSpielEinteilungAufgehobenEmail,
+  buildAustrittNoticeEmail,
   buildSpielEinteilungEmail,
-  buildSpielHinweisEmail,
-  buildSpielVorschlagVerworfenEmail,
+  buildSpielEinteilungLiftedEmail,
+  buildSpielNoticeEmail,
+  buildSpielRequestEmail,
+  buildSpielVorschlagDiscardedEmail,
 } from "./spielEmail";
 
 import type { Mail } from "./emailShell";
@@ -79,7 +80,7 @@ export interface MailLink extends MailOrigin {
 function minted({ token, origin }: Handout): MailLink {
   if (token === null) throw new ContractBreakError("A mail carrying a link was handed out without one.");
 
-  return { token: token, origin: origin };
+  return { token, origin };
 }
 
 /**
@@ -89,23 +90,23 @@ function minted({ token, origin }: Handout): MailLink {
  */
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
-  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin: origin, account: account }),
-  passkey_erased: ({ instant, account }, { origin }) =>
-    buildPasskeyErasedEmail({ instant: new Date(instant), origin: origin, account: account }),
-  account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin: origin, token: secretOf(secret) }),
-  schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterBestaetigungEmail(data, minted(handout)),
-  spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
-  spiel_reminder: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
+  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin, account }),
+  passkey_erased: ({ instant, account }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin, account }),
+  account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin, token: secretOf(secret) }),
+  schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterConfirmationEmail(data, minted(handout)),
+  spiel_request: (data, handout) => buildSpielRequestEmail(data, minted(handout)),
+  spiel_reminder: (data, handout) => buildSpielRequestEmail(data, minted(handout)),
   spiel_einteilung: buildSpielEinteilungEmail,
-  spiel_new_scheduled: buildSpielHinweisEmail,
-  spiel_abgesagt: buildSpielHinweisEmail,
-  spiel_einteilung_lifted: buildSpielEinteilungAufgehobenEmail,
-  spiel_vorschlag_discarded: buildSpielVorschlagVerworfenEmail,
+  spiel_moved: buildSpielNoticeEmail,
+  spiel_cancelled: buildSpielNoticeEmail,
+  spiel_einteilung_lifted: buildSpielEinteilungLiftedEmail,
+  spiel_vorschlag_discarded: buildSpielVorschlagDiscardedEmail,
+  austritt_notice: buildAustrittNoticeEmail,
   registrierung_confirmation: (data, handout) => buildRegistrierungBestaetigungEmail(data, minted(handout)),
   registrierung_reminder: (data, handout) => buildRegistrierungErinnerungEmail(data, minted(handout)),
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
-  invitation: (data, handout) => buildEinladungEmail(data, minted(handout)),
-  kontakt_confirmation: (data, handout) => buildKontaktBestaetigungEmail(data, minted(handout)),
+  invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
+  kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),
   ban: buildSperreEmail,
   grant: buildBerechtigungEmail,
   address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
@@ -113,13 +114,13 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   address_change_notice: (data, handout) => buildAddressChangeNoticeEmail(data, minted(handout)),
   address_change_effective: buildAddressChangeEffectiveEmail,
   address_change_discarded: buildAddressChangeDiscardedEmail,
-  bewerbung_received: (data, handout) => buildBewerbungEingangEmail(data, minted(handout)),
-  bewerbung_confirmation: (data, handout) => buildBewerbungBestaetigungEmail(data, minted(handout)),
-  bewerbung_reminder: (data, handout) => buildBewerbungErinnerungEmail(data, minted(handout)),
+  bewerbung_received: (data, handout) => buildBewerbungReceivedEmail(data, minted(handout)),
+  bewerbung_confirmation: (data, handout) => buildBewerbungConfirmationEmail(data, minted(handout)),
+  bewerbung_reminder: (data, handout) => buildBewerbungReminderEmail(data, minted(handout)),
   bewerbung_zusage: buildBewerbungZusageEmail,
   bewerbung_absage: buildBewerbungAbsageEmail,
-  bewerbung_erasure: buildBewerbungGeloeschtEmail,
-  bewerbung_objection: buildBewerbungWiderspruchEmail,
+  bewerbung_erasure: buildBewerbungErasureEmail,
+  bewerbung_objection: buildBewerbungObjectionEmail,
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`). */

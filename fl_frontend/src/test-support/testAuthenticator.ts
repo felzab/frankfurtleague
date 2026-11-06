@@ -76,7 +76,7 @@ function attestationObject(userVerified: boolean, rawId: Buffer): Buffer {
 
 /** One enrolment as a browser would post it, over the challenge the options call minted. */
 export function registrationFor(challenge: string, userVerified: boolean, rawId: Buffer = CREDENTIAL_RAW_ID) {
-  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.create", challenge: challenge, origin: LOCAL_ORIGIN, crossOrigin: false }));
+  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.create", challenge, origin: LOCAL_ORIGIN, crossOrigin: false }));
 
   return {
     id: rawId.toString("base64url"),
@@ -93,7 +93,7 @@ export function registrationFor(challenge: string, userVerified: boolean, rawId:
 
 /** One assertion as a browser would post it, signed over the challenge the options call minted. */
 export function assertionFor(challenge: string, userVerified: boolean, origin = LOCAL_ORIGIN, credentialId = CREDENTIAL_ID) {
-  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: challenge, origin: origin, crossOrigin: false }));
+  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge, origin, crossOrigin: false }));
   const signed = Buffer.concat([authenticatorData(userVerified), createHash("sha256").update(clientData).digest()]);
 
   return {

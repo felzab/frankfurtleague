@@ -2,9 +2,9 @@ import Link from "next/link";
 
 import { formatList } from "@/core/format";
 import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
-import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
+import { ACTION_REQUIRED_ENTRY } from "@/features/admin/constants";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
-import { rollenLangform } from "@/features/bewerbungen/constants";
+import { rollenLongForm } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -47,7 +47,7 @@ function zeilenOf(
   saisonHref: (path: string) => string,
 ): Zeile[] {
   return [
-    ...spieler.map(({ vorname, nachname, kader }) => {
+    ...spieler.map(({ first_name: vorname, last_name: nachname, kader }) => {
       const kaderTeile = kader.map(({ team_name, saison_id }) =>
         team_name === null ? `im Kader der Saison ${saison_id}` : `im Kader von ${team_name}, Saison ${saison_id}`,
       );
@@ -58,13 +58,13 @@ function zeilenOf(
     ...schiedsrichter.map(({ name }) => ({
       text: name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`,
     })),
-    ...seats.map(({ rolle, team_name, saison_id, vorname, nachname }) => ({
-      text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
+    ...seats.map(({ rolle, team_name, saison_id, first_name: vorname, last_name: nachname }) => ({
+      text: `${rollenLongForm([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
-    ...bewerbungen.map(({ rolle, saison_id, vorname, nachname }) => ({
-      text: `${rollenLangform([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
+    ...bewerbungen.map(({ rolle, saison_id, first_name: vorname, last_name: nachname }) => ({
+      text: `${rollenLongForm([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
-    ...registrierungen.map(({ team_name, saison_id, vorname, nachname }) => ({
+    ...registrierungen.map(({ team_name, saison_id, first_name: vorname, last_name: nachname }) => ({
       text:
         team_name === null
           ? `Registrierung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
@@ -113,22 +113,22 @@ const IMMER: readonly Zeile[] = [
  * The one consequence an administrator acts on afterwards: the erased referee's unplayed fixtures stand unassigned.
  * Said only where the reveal found one, the referee's played fixtures moving onto the ghost too.
  */
-const NEUE_EINTEILUNG = `Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „${HANDLUNGSBEDARF_EINTRAG.label}“.`;
+const NEUE_EINTEILUNG = `Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „${ACTION_REQUIRED_ENTRY.label}“.`;
 
 /** What the erasure of one address reaches, inside its armed reveal: the claim the confirmation rests on. */
 export function FormLoeschungAnsicht({ ansicht }: { ansicht: FLErasureViewResponse }) {
   const saisonHref = useSaisonHref();
-  const zeilen = zeilenOf(ansicht, saisonHref);
+  const rows = zeilenOf(ansicht, saisonHref);
 
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex w-full flex-col gap-y-1">
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei gelöscht wird</h3>
 
-        {zeilen.length === 0 && <p className={ZEILE_CLASSES}>Unter dieser Adresse ist kein Eintrag gespeichert.</p>}
+        {rows.length === 0 && <p className={ZEILE_CLASSES}>Unter dieser Adresse ist kein Eintrag gespeichert.</p>}
         <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-1 pl-5`}>
           {/* Derived per press and never reordered, which is what makes the index a key: two seats can read alike. */}
-          {[...zeilen, ...IMMER].map(({ text, href }, stelle) => (
+          {[...rows, ...IMMER].map(({ text, href }, stelle) => (
             <li key={stelle}>
               {href === undefined ? (
                 text

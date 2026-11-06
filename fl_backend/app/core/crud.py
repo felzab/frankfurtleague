@@ -14,12 +14,13 @@ and a write shaped like one of those would escape the log.
 
 import re
 from collections.abc import Mapping, Sequence, Set
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
 
 import bson
 from pydantic import BaseModel, Field
-from pymongo import ReturnDocument
+from pymongo import ReturnDocument, UpdateOne
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
@@ -118,6 +119,25 @@ async def pull_whole_from_db(
 # MongoDB's documented pattern, "include the expected current value in the update filter" (the manual's
 # write-operations atomicity page), Mongoose's `optimisticConcurrency`.
 VERSION_FIELD: Final = "version"
+
+
+def composite_version(*documents: Mapping[str, Any]) -> int:
+    """The one count an editor saving two documents reads and saves on: theirs added.
+
+    Each only ever rises, so their sum stands exactly where none has moved, and a page holds one number for its one
+    save (`fl_frontend/src/kit/useEditor.ts :: EditorRecord`).
+    """
+
+    return sum(int(document.get(VERSION_FIELD) or 0) for document in documents)
+
+
+def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> WriteRefusal | None:
+    """`version_stale`: one of the documents an editor saves together has moved since it read them."""
+
+    if composite_version(*documents) == version:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
 
 
 def _versioned(collection: AsyncCollection, update: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -298,6 +318,26 @@ async def anchor_in_db(
 
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
+
+
+async def anchor_mailboxes_in_db(
+    *,
+    collection: AsyncCollection,
+    ids: Sequence[str],
+    at: datetime,
+    # REQUIRED, as `anchor_in_db`'s is.
+    session: AsyncClientSession,
+) -> None:
+    """`anchor_in_db` over documents nothing else creates: a press makes its own, and each lapses by the `at` last written."""
+
+    if not ids:
+        return
+
+    # One command, so a press naming three mailboxes pays one round trip.
+    await collection.bulk_write(
+        [UpdateOne({"_id": anchor_id}, {"$inc": {ANCHOR_FIELD: 1}, "$set": {"anchored_at": at}}, upsert=True) for anchor_id in ids],
+        session=session,
+    )
 
 
 async def stamp_in_db(

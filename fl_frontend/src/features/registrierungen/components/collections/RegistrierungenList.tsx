@@ -9,7 +9,7 @@ import { Button } from "@heroui/react/button";
 
 import { ablehnenRegistrierungAction, aufnehmenRegistrierungAction } from "@/features/registrierungen/personActions";
 import { ANGABEN_WEICHEN_AB, dieselbePerson, NOCH_NICHT_BESTAETIGT } from "@/features/registrierungen/utils";
-import { kaderName, NUMMER_NICHT_HINTERLEGT } from "@/features/spieler/constants";
+import { kaderName, NUMMER_NOT_ON_FILE } from "@/features/spieler/constants";
 import {
   IDENTITY_HEAD_CLASSES,
   IDENTITY_LINE_CLASSES,
@@ -71,7 +71,7 @@ export function RegistrierungenList({ registrierungen, adresse }: { registrierun
 function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenRegistrierung; adresse: Adresse }) {
   const aufnahme = useTwoPressConfirm();
   const ablehnung = useTwoPressConfirm();
-  const name = `${registrierung.vorname} ${registrierung.nachname}`;
+  const name = `${registrierung.first_name} ${registrierung.last_name}`;
   const { person } = registrierung;
   const ziel = { ...adresse, registrierung_id: registrierung.registrierung_id };
 
@@ -102,9 +102,9 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenR
     });
   };
 
-  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungDeclinePayload["grund"]) => {
+  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungDeclinePayload["reason"]) => {
     ablehnungZuletzt.current = confirm === ablehnung;
-    entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, grund: grund }), {
+    entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, reason: grund }), {
       erfolg: "Registrierung abgelehnt",
       fehler: "Registrierung nicht abgelehnt",
     });
@@ -140,7 +140,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenR
             registrierung.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
           }`}>
           {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
-          {registrierung.nummer ?? <span className="sr-only">{NUMMER_NICHT_HINTERLEGT}</span>}
+          {registrierung.nummer ?? <span className="sr-only">{NUMMER_NOT_ON_FILE}</span>}
         </span>
         <div className={IDENTITY_STACK_CLASSES}>
           <div className={IDENTITY_HEAD_CLASSES}>
@@ -171,7 +171,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenR
               registrieren.
             </p>
           )}
-          {!gefragt && <p className="fluid-sm text-pretty text-foreground">{registrierung.vorname} kommt in den Kader dieser Saison.</p>}
+          {!gefragt && <p className="fluid-sm text-pretty text-foreground">{registrierung.first_name} kommt in den Kader dieser Saison.</p>}
         </ConfirmReveal>
       )}
       {ablehnung.isConfirming && (

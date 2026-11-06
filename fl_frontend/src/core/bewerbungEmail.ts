@@ -1,12 +1,14 @@
 import "server-only";
 
-import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { dayOf, formatDatum, formatList } from "./format";
-import { kontaktBestaetigungsLink } from "./kontaktLink";
+import { COPY } from "./copy";
+import { mailOrigin } from "./emailShell";
+import { dayOf, formatDateLong, formatList } from "./format";
+import { kontaktConfirmationLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
-import { KONTAKT_ROLLE_LONG_FORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
+import { SERVER_COPY } from "./serverCopy";
+import { rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 
-import type { Mail, Paragraph } from "./emailShell";
+import type { Mail, Sentence } from "./emailShell";
 import type {
   FLBewerbungAbsageData,
   FLBewerbungErasureData,
@@ -18,75 +20,27 @@ import type {
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
-/**
- * Future tense because it has to be: a club is entered only while its season is `future`
- * (`entry_saison_not_future`), and `future` is the one status the public tier is refused
- * (`fl_backend/app/api/saisons/services.py :: WITHHELD_FROM_BASE_TIER`).
- */
-const websiteSatz = (site: string): Paragraph => [
-  ["Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ", { url: site }, ", sobald die Saison startet."],
-];
-
-/**
- * A wish answered as one. The Spielplan is drawn after the decision, so nothing here knows whether it
- * can be met, and „wir versuchen“ would promise a result of a draw that has not run.
- */
-const wunschgegnerAbsatz = (opponent: string): Paragraph => [
-  `Als Wunschgegner für den ersten Spieltag haben wir ${opponent} notiert.`,
-  "Über die Paarungen entscheidet der Spielplan.",
-];
-
-/**
- * The league's dictated wording and its policy towards schools, kept over the rule
- * against calling a performed operation impossible: an administrator's group swap and colour edit are the
- * league's own corrections.
- */
-const einteilungAbsatz = (gruppe: string, farbe: string | null): Paragraph =>
-  farbe === null
-    ? [
-        `Wir haben Euch in Gruppe ${gruppe} untergebracht.`,
-        "Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar.",
-        "Eure Trikotfarbe teilen wir Euch noch mit.",
-      ]
-    : [
-        `Wir haben Euch in Gruppe ${gruppe} untergebracht und Euch die Trikotfarbe ${farbe} zugewiesen.`,
-        "Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.",
-      ];
-
-/**
- * The one page every reader who is waiting on the league can use, named as
- * `BewerbungView.tsx :: KOPF_LINKS` names it.
- */
-const ligaAktion = (origin: string) => ({ label: "Laufende Saison", href: `${origin}${ROUTES.saisons.path()}` });
+const WORDS = SERVER_COPY.mail.bewerbung;
 
 /**
  * Where a school starts again. The id is percent-encoded rather than interpolated raw: it lands in
  * an href, and `escapeHtml` guards an HTML context rather than a URL's own syntax.
  */
-const neuBewerbenAktion = (origin: string, saisonId: string) => ({
-  label: "Neu bewerben",
+const toBewerbung = (origin: string, saisonId: string) => ({
+  label: SERVER_COPY.landing.toBewerbung,
   href: `${origin}${ROUTES.bewerbung.path(encodeURIComponent(saisonId))}`,
 });
 
-/** A deadline as the mails state it; the backend sends the day, and the one German spelling of it is here. */
-const fristText = (frist: string): string => formatDatum(dayOf(frist));
+/** A seat's own last day set semibold, in the words of the page's `applicationDeadline`: each seat holds its own day. */
+const deadlineSentence = (deadline: string): Sentence => [
+  `${WORDS.deadline.before} `,
+  { strong: formatDateLong(dayOf(deadline)) },
+  WORDS.deadline.after,
+];
 
-/** What a mail calls a seat whose person is gone — declined or erased, and outstanding either way. */
-const SEAT_OHNE_NAMEN = "Ohne Namen";
-
-/** „{vorname} ({Rollen})“, which is how every mail naming somebody else's seats names them. */
-function personName({ vorname, rollen }: FLBewerbungPerson): string {
-  return `${vorname ?? SEAT_OHNE_NAMEN} (${rollenText(rollen)})`;
-}
-
-/**
- * The reader's own floor, one of the two the confirmation page asks against: a person holding a seat besides the
- * Trainer's is asked the higher one (`fl_backend/app/api/bewerbungen/services.py :: mindestalter_for`).
- */
-function altersSatz(rollen: readonly FLBewerbungLinkData["rollen"][number][]): string {
-  return rollen.every((rolle) => rolle === "trainer")
-    ? `${KONTAKT_ROLLE_LONG_FORM.trainer} kann sein, wer mindestens 16 Jahre alt ist.`
-    : `${KONTAKT_ROLLE_LONG_FORM.ansprechperson} oder ${KONTAKT_ROLLE_LONG_FORM.stellvertretung} kann sein, wer mindestens 18 Jahre alt ist.`;
+/** „{first_name} ({Rollen})“, which is how every mail naming somebody else's seats names them. */
+function personName({ first_name: firstName, rollen }: FLBewerbungPerson): string {
+  return `${firstName ?? WORDS.unnamed} (${rollenText(rollen)})`;
 }
 
 /** A fill named by its hex, in this shape alone: no supplier could match any other. */
@@ -94,7 +48,7 @@ const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
-  { team, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageData,
+  { team, shorthand, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
@@ -105,258 +59,176 @@ export function buildBewerbungZusageEmail(
 
   return {
     kind: "notice",
-    subjectLine: `Willkommen in der Saison ${saison_id}`,
+    subjectLine: WORDS.zusage.subject(saison_id),
     origin: site,
-    vorname: "",
-    paragraphs: [
-      [
-        `Vielen Dank für Eure Bewerbung für die Saison ${saison_id} der ${BRAND_NAME}.`,
-        "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
-        [{ strong: team }, ` ist für die Saison ${saison_id} aufgenommen. Herzlich willkommen!`],
-      ],
-    ],
-    // No row for the decision or the season: the heading states both.
+    firstName: "",
+    paragraphs: [[[{ strong: team }, WORDS.zusage.lead.after(saison_id)], WORDS.zusage.lead.welcome]],
     block: {
-      title: `In der Saison ${saison_id}`,
+      title: COPY.shared.saisonName(saison_id),
       facts: [
-        { label: "Team", value: team },
-        { label: "Gruppe", value: gruppe },
-        // Stated rather than guessed, and stated as a row either way: an absent colour is a fact the
-        // reader has to be able to find in the same place as a named one. The hex beside the name: the name
-        // alone leaves neighbours such as Grün and Smaragd for a supplier to guess between.
-        { label: "Trikotfarbe", value: farbe === undefined ? "noch nicht festgelegt" : hex === null ? farbe.label : `${farbe.label} (${hex})` },
+        { label: COPY.shared.facts.team, value: team },
+        { label: COPY.team.shorthand, value: shorthand },
+        { label: COPY.team.gruppe, value: gruppe },
+        // A row either way: an absent colour is a fact the reader has to be able to find where a named one stands. The
+        // hex beside the name: the name alone leaves neighbours such as Grün and Smaragd for a supplier to guess between.
+        {
+          label: COPY.team.trikotFarbe,
+          value: farbe === undefined ? COPY.shared.notProvided : hex === null ? farbe.label : `${farbe.label} (${hex})`,
+        },
         // The one row that differs per reader: each person is told the seats they were entered for.
-        { label: "Eingetragen als", value: rollenText(rollen) },
+        { label: WORDS.registeredAs, value: rollenText(rollen) },
       ],
     },
-    afterBlock: [einteilungAbsatz(gruppe, farbe?.label ?? null), ...(opponent === "" ? [] : [wunschgegnerAbsatz(opponent)]), websiteSatz(site)],
-    button: ligaAktion(site),
+    afterBlock: [
+      [farbe === undefined ? WORDS.zusage.fixedNoColour : WORDS.zusage.fixed],
+      ...(opponent === "" ? [] : [[WORDS.zusage.wunschgegner(opponent)] as const]),
+      [WORDS.zusage.signIn],
+    ],
+    button: { label: COPY.shared.verb.signIn, href: `${site}${ROUTES.signIn.path()}` },
   };
 }
 
-/** The mail states the decision and the reason it was given, and says that it covers this application rather than the school. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
+/** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
-    subjectLine: `Absage für die Saison ${saison_id}`,
+    subjectLine: WORDS.absage.subject(saison_id),
     origin: mailOrigin(origin),
-    vorname: "",
-    paragraphs: [
-      [
-        ["Danke, dass ", { strong: team }, ` sich für die Saison ${saison_id} der ${BRAND_NAME} beworben hat.`],
-        "Für diese Saison können wir das Team nicht aufnehmen.",
-      ],
-      ["Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."],
-    ],
+    firstName: "",
+    paragraphs: [[[WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)], WORDS.absage.decision]],
     block: {
-      title: "Die Absage",
+      title: WORDS.absage.title,
       facts: [
-        { label: "Team", value: team },
-        { label: "Saison", value: saison_id },
         // Identification rather than a verdict: it says why the mail reached this reader.
-        { label: "Eingetragen als", value: rollenText(rollen) },
-        // Unabridged and last: it is the one thing the mail exists to hand over.
-        { label: "Angegebener Grund", value: grund },
+        { label: WORDS.registeredAs, value: rollenText(rollen) },
+        { label: COPY.admin.spiel.reason, value: reason },
       ],
     },
   };
 }
 
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
-export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
-  const site = mailOrigin(origin);
-  const until = fristText(frist);
-
-  return {
-    kind: "firstContact",
-    subjectLine: `Dein Eintrag für die Saison ${saison_id}`,
-    origin: site,
-    vorname: "",
-    paragraphs: [
-      [
-        ["Für die Schule ", { strong: schule }, ` wurde eine Bewerbung zur Saison ${saison_id} der ${BRAND_NAME} eingereicht.`],
-        `Darin bist Du als ${rollenText(rollen)} eingetragen.`,
-        [{ strong: "Bitte bestätige, dass das stimmt" }, ": Erst dann führt die Liga Dich als Kontaktperson."],
-      ],
-      [
-        `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${altersSatz(rollen)}`,
-        "Du kannst dem Eintrag auch widersprechen.",
-        ["Der Link ist bis zum ", { strong: until }, " gültig und funktioniert nur einmal."],
-      ],
-      [
-        "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
-        "Nach drei Tagen erinnern wir Dich einmal.",
-        "Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
-        "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn.",
-        "Eine Erinnerung verschiebt sie nicht.",
-      ],
-    ],
-    block: {
-      title: "Dein Eintrag",
-      facts: [
-        // Named here and in no mail to the submitter: a contact who never heard of the application
-        // has nothing else to tell whose it is, and cannot answer a link they cannot place.
-        { label: "Schule", value: schule },
-        { label: "Saison", value: saison_id },
-        { label: "Eingetragen als", value: rollenText(rollen) },
-        { label: "Link gültig bis", value: until },
-      ],
-    },
-    button: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
-  };
-}
-
-export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
-  const site = mailOrigin(origin);
-  const until = fristText(frist);
-
-  return {
-    kind: "firstContact",
-    subjectLine: `Erinnerung: Dein Eintrag für die Saison ${saison_id}`,
-    origin: site,
-    vorname: "",
-    paragraphs: [
-      [
-        "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
-        ["In der Bewerbung der Schule ", { strong: schule }, ` zur Saison ${saison_id} bist Du als ${rollenText(rollen)} eingetragen.`],
-        [{ strong: "Bis jetzt fehlt Deine Antwort." }],
-      ],
-      [
-        "Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm.",
-        ["Ist die Bewerbung am ", { strong: until }, " noch unvollständig, löschen wir sie mit allen Angaben."],
-      ],
-    ],
-    block: {
-      title: "Dein Eintrag",
-      facts: [
-        { label: "Schule", value: schule },
-        { label: "Saison", value: saison_id },
-        { label: "Eingetragen als", value: rollenText(rollen) },
-        // The deadline the first mail gave. The erasure runs the day AFTER it
-        // (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), so a label naming a
-        // deletion date would name a day the clock does not act on.
-        { label: "Bestätigen bis", value: until },
-      ],
-    },
-    // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
-    // the link somebody is still looking at would punish the reader it is chasing.
-    button: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
-  };
-}
-
-/**
- * What the submitter is told at submission. `ausstehend` names the people still to answer, because the submitter
- * is the one person who can ask a colleague in the corridor; the mail carries the submitter's own link.
- */
-export function buildBewerbungEingangEmail(
-  { saison_id, rollen, pending: ausstehend, frist }: FLBewerbungReceivedData,
+export function buildBewerbungConfirmationEmail(
+  { saison_id, schule, rollen, deadline }: FLBewerbungLinkData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
-  const until = fristText(frist);
 
   return {
-    kind: "notice",
-    subjectLine: `Bewerbung eingegangen: Saison ${saison_id}`,
+    kind: "firstContact",
+    subjectLine: WORDS.link.subject(saison_id),
     origin: site,
-    vorname: "",
-    paragraphs: [
-      [
-        [`Deine Bewerbung für die Saison ${saison_id} der ${BRAND_NAME} ist `, { strong: "bei uns eingegangen" }, "."],
-        "Danke für die Anmeldung Deines Teams.",
-      ],
-      [
-        "Vollständig ist sie, sobald jede Kontaktperson ihren Eintrag selbst bestätigt hat.",
-        ["Dazu hat jede von ihnen einen eigenen Link per E-Mail bekommen, Du auch: ", { strong: "Deinen findest Du unten." }],
-      ],
-      [
-        "Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben.",
-        ["Ist die Bewerbung am ", { strong: until }, " noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid."],
-        "Sag den anderen am besten selbst Bescheid, dann geht es schneller.",
-      ],
-    ],
-    // The other contacts by first name and role, and no school: a mistyped submitter address then
-    // hands a stranger two first names and two roles with nothing to attach them to.
+    firstName: "",
+    paragraphs: [[WORDS.link.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     block: {
-      title: "Stand der Bewerbung",
+      title: WORDS.entry,
       facts: [
-        { label: "Status", value: "Eingegangen, Bestätigungen offen" },
-        { label: "Saison", value: saison_id },
-        { label: "Eingetragen als", value: rollenText(rollen) },
-        { label: "Noch offen", value: formatList(ausstehend.map(personName)) },
-        { label: "Frist", value: until },
+        { label: COPY.shared.saison, value: saison_id },
+        { label: WORDS.registeredAs, value: rollenText(rollen) },
       ],
     },
-    button: { label: "Meinen Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
+  };
+}
+
+export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
+  const site = mailOrigin(origin);
+
+  return {
+    kind: "firstContact",
+    subjectLine: WORDS.reminder.subject(saison_id),
+    origin: site,
+    firstName: "",
+    paragraphs: [[WORDS.reminder.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
+    // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
+    // the link somebody is still looking at would punish the reader it is chasing.
+    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
   };
 }
 
 /**
- * What the submitter is told as the application is deleted. Owed in the erasure's own write and worded in the present,
- * `ausstehend` naming the people the deleted application still held.
+ * The Ansprechperson's link mail, a first contact as every seat's is: the address was typed into a form, and nothing
+ * says its reader typed it. `pending` names who else is to answer and the mail names no school, so a mistyped address
+ * hands a stranger names with nothing to attach them to.
  */
-export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausstehend }: FLBewerbungErasureData, { origin }: MailOrigin): Mail {
+export function buildBewerbungReceivedEmail(
+  { saison_id, rollen, pending, deadline }: FLBewerbungReceivedData,
+  { origin, token }: MailLink,
+): Mail {
   const site = mailOrigin(origin);
 
   return {
-    kind: "notice",
-    subjectLine: `Bewerbung wird gelöscht: Saison ${saison_id}`,
+    kind: "firstContact",
+    subjectLine: WORDS.received.subject(saison_id),
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
-      [
-        "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
-        [`Deshalb löschen wir Deine Bewerbung für die Saison ${saison_id} jetzt `, { strong: "mit allen Angaben" }, ", wie angekündigt."],
-      ],
-      [
-        "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
-        "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
-      ],
+      [WORDS.received.lead(saison_id), WORDS.received.named(rollen), WORDS.confirmOrOppose],
+      [WORDS.received.others],
+      [deadlineSentence(deadline)],
     ],
     block: {
-      title: "Stand der Bewerbung",
+      title: WORDS.status,
       facts: [
-        { label: "Status", value: "Wird gelöscht, nicht vollständig geworden" },
-        { label: "Saison", value: saison_id },
-        { label: "Eingetragen als", value: rollenText(rollen) },
-        // The one thing a school needs before applying again: told only that the application lapsed,
-        // they collect the same people and land here a second time.
-        { label: "Nicht bestätigt", value: formatList(ausstehend.map(personName)) },
+        { label: COPY.shared.saison, value: saison_id },
+        { label: WORDS.received.pending, value: formatList(pending.map(personName)) },
       ],
     },
-    button: neuBewerbenAktion(site, saison_id),
+    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
   };
 }
 
-/** What the submitter is told when a person refuses their entry; `declined` was read before the decline emptied it. */
-export function buildBewerbungWiderspruchEmail({ saison_id, rollen, declined, frist }: FLBewerbungObjectionData, { origin }: MailOrigin): Mail {
+/**
+ * What the Ansprechperson is told as the application goes: owed in the erasure's own write and worded in the present.
+ * `pending` names the people it still held, the one thing a school needs before applying again.
+ */
+export function buildBewerbungErasureEmail({ saison_id, rollen, pending }: FLBewerbungErasureData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
-  const wer = personName(declined);
 
   return {
     kind: "notice",
-    subjectLine: `Widerspruch zum Eintrag: Saison ${saison_id}`,
+    subjectLine: WORDS.erasure.subject(saison_id),
     origin: site,
-    vorname: "",
-    paragraphs: [
-      // No pronoun, and „Diese Angaben“ where „seine“ or „ihre“ would stand: both read correctly for every name.
-      [[{ strong: `${wer} hat dem Eintrag als Kontaktperson widersprochen.` }], "Diese Angaben haben wir aus der Bewerbung entfernt."],
-      [
-        "So kann die Bewerbung nicht vollständig werden.",
-        ["Am ", { strong: fristText(frist) }, " löschen wir sie."],
-        "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle.",
-        "Frag sie vorher.",
-      ],
-    ],
+    firstName: "",
+    paragraphs: [[WORDS.erasure.lead, WORDS.erasure.deleted], [WORDS.erasure.again]],
     block: {
-      title: "Stand der Bewerbung",
+      title: WORDS.status,
       facts: [
-        { label: "Status", value: "Nicht vollständig, eine Bestätigung fehlt" },
-        { label: "Saison", value: saison_id },
-        { label: "Eingetragen als", value: rollenText(rollen) },
-        { label: "Widerspruch von", value: wer },
+        { label: COPY.shared.saison, value: saison_id },
+        { label: WORDS.registeredAs, value: rollenText(rollen) },
+        { label: WORDS.erasure.pending, value: formatList(pending.map(personName)) },
       ],
     },
-    button: neuBewerbenAktion(site, saison_id),
+    button: toBewerbung(site, saison_id),
+  };
+}
+
+/**
+ * What the Ansprechperson is told when a person refuses their entry; `declined` was read before the decline emptied it.
+ * No button: the next step is „Sitz bearbeiten“, the league's, and a reply reaches its mailbox.
+ */
+export function buildBewerbungObjectionEmail(
+  { saison_id, rollen, declined, deadline }: FLBewerbungObjectionData,
+  { origin }: MailOrigin,
+): Mail {
+  const person = personName(declined);
+
+  return {
+    kind: "notice",
+    subjectLine: WORDS.objection.subject(saison_id),
+    origin: mailOrigin(origin),
+    firstName: "",
+    paragraphs: [
+      [[{ strong: person }, WORDS.objection.lead.after], WORDS.objection.removed],
+      [WORDS.objection.replace, [WORDS.objection.until.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.objection.until.after]],
+    ],
+    block: {
+      title: WORDS.status,
+      facts: [
+        { label: COPY.shared.saison, value: saison_id },
+        { label: WORDS.registeredAs, value: rollenText(rollen) },
+        { label: WORDS.objection.from, value: person },
+      ],
+    },
   };
 }
