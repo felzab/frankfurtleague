@@ -19,6 +19,7 @@ VACATED_DATABASE_NAME = worker_database("fl_saisons_landing_view_vacated_test")
 SAISON = "2026"
 TODAY = "2026-03-05"
 ALPHA, BETA = ObjectId("6890a1b2c3d4e5f607440001"), ObjectId("6890a1b2c3d4e5f607440002")
+DORA = ObjectId("6890a1b2c3d4e5f607440005")
 FINALE_DAY = ObjectId("6890a1b2c3d4e5f607440013")
 
 
@@ -37,7 +38,7 @@ def match(
 ) -> dict[str, Any]:
     """Alpha against Beta unless `names` says otherwise, any other name a club of its own."""
 
-    ids = {"Alpha": ALPHA, "Beta": BETA}
+    ids = {"Alpha": ALPHA, "Beta": BETA, "Dora": DORA}
     home, away = (side(ids.get(name) or ObjectId(), None if tore is None else tore[index]) for index, name in enumerate(names))
 
     return documents.spiel_document(
@@ -94,9 +95,13 @@ def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_dec
         VACATED_DATABASE_NAME,
         {
             Collection.SAISON_TEAMS: [
+                *(
+                    documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
+                    for team_id, name in ((ALPHA, "Alpha"), (BETA, "Beta"), (DORA, "Dora"))
+                ),
                 documents.saison_team_document(
                     SAISON, cara, "Cara", "CAR", austritt={"type": "disqualifikation", "exit_reason": "Ausgeschlossen", "date": "2026-02-28"}
-                )
+                ),
             ],
             Collection.SPIELTAGE: [spieltag(FINALE_DAY, 1, "finale")],
             Collection.SPIELE: [

@@ -61,6 +61,12 @@ def junction_row(saison_id: str) -> dict[str, Any]:
     return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe=GRUPPE_OF[saison_id])
 
 
+def opponent_row() -> dict[str, Any]:
+    """Every fielded club holds its season's row: a read joins a side's name from it, and a fixture stores none."""
+
+    return documents.saison_team_document(ARCHIVED, OPPONENT_OID, "Lessing", "LSX", gruppe=GRUPPE_OF[ARCHIVED])
+
+
 def spieler_document(spieler_id: ObjectId, first_name: str) -> dict[str, Any]:
     """A player of that club, holding a row in all three seasons.
 
@@ -115,7 +121,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.TEAMS].insert_one(team_document())
-            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
+            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF] + [opponent_row()])
             await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))

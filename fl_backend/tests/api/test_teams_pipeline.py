@@ -189,12 +189,12 @@ class TestTheCancelledLookup:
     def test_it_selects_the_same_matches_the_figures_are_derived_from(self, scope, expected):
         """Cancellations over every phase beside a match count over one would badge games the table never counted."""
         counting = statistik_stage(build(scope=scope))["pipeline"][0]["$match"]
-        absage = cancelled_stage(build(scope=scope))["pipeline"][0]["$match"]
+        cancelled = cancelled_stage(build(scope=scope))["pipeline"][0]["$match"]
 
         assert counting.get("saison_phase") == expected
-        assert absage.get("saison_phase") == expected
-        assert absage["saison_id"] == counting["saison_id"]
-        assert absage["$expr"] == counting["$expr"]
+        assert cancelled.get("saison_phase") == expected
+        assert cancelled["saison_id"] == counting["saison_id"]
+        assert cancelled["$expr"] == counting["$expr"]
 
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
