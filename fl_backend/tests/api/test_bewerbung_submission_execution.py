@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import bestaetigungsfrist_from, build_schluessel_filter, compose_decline_update, compose_kontakte
+from app.api.bewerbungen.services import build_schluessel_filter, compose_decline_update, compose_kontakte, confirmation_deadline_from
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -66,23 +66,23 @@ NEW_SCHOOL_SHORTHAND = "ZXX"
 OPEN_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
 
 
-def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str, Any]:
+def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str, Any]:
     """One contact person as the PUBLIC form submits them: a consent of two fields, no stored scope or date, and no birthdate."""
 
     return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": email or f"{vorname.lower()}@example.com",
-        "telefon": telefon,
+        "first_name": first_name,
+        "last_name": f"{first_name}-Mustermann",
+        "email": email or f"{first_name.lower()}@example.com",
+        "phone": phone,
         "einwilligung": {"given": True},
     }
 
 
 # Distinct on every field a rule compares, so a case moving one of them is the only thing under test.
 KONTAKTE: Mapping[str, Any] = {
-    "trainer": person("Wraxlington", telefon="+49 170 1111111"),
-    "ansprechperson": person("Quillhilde", telefon="+49 170 2222222"),
-    "stellvertretung": person("Bramblewick", telefon="+49 170 3333333"),
+    "trainer": person("Wraxlington", phone="+49 170 1111111"),
+    "ansprechperson": person("Quillhilde", phone="+49 170 2222222"),
+    "stellvertretung": person("Bramblewick", phone="+49 170 3333333"),
     "trainer_is_also": None,
 }
 
@@ -249,7 +249,7 @@ class TestWhatASubmissionStores:
                 "entered_by": "bewerbung",
             }
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
-            assert "geburtsdatum" in stored["kontakte"][seat] and stored["kontakte"][seat]["geburtsdatum"] is None
+            assert "birth_date" in stored["kontakte"][seat] and stored["kontakte"][seat]["birth_date"] is None
 
     def test_the_named_opponent_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
         """A free string and never a reference: nothing resolves it against a club, at the write or afterwards."""
@@ -305,7 +305,7 @@ async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return sorted(rows, key=lambda row: str(row["key"]))
 
 
-def frist_from_today() -> str:
+def deadline_from_today() -> str:
     return (date.fromisoformat(TODAY) + timedelta(days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)).isoformat()
 
 
@@ -322,7 +322,7 @@ class TestWhatTheCreateOwes:
 
         created_id, document, mails = on_a_league(mongo_replica_set_url, body)
 
-        frist = frist_from_today()
+        deadline = deadline_from_today()
         stamm = f"{Collection.BEWERBUNGEN}/{created_id}"
         assert mails == [
             {
@@ -333,7 +333,7 @@ class TestWhatTheCreateOwes:
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["stellvertretung"],
-                    "frist": frist,
+                    "deadline": deadline,
                 },
             },
             {
@@ -344,7 +344,7 @@ class TestWhatTheCreateOwes:
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
                     "rollen": ["trainer"],
-                    "frist": frist,
+                    "deadline": deadline,
                 },
             },
             {
@@ -355,10 +355,10 @@ class TestWhatTheCreateOwes:
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
                     "pending": [
-                        {"vorname": "Wraxlington", "rollen": ["trainer"]},
-                        {"vorname": "Bramblewick", "rollen": ["stellvertretung"]},
+                        {"first_name": "Wraxlington", "rollen": ["trainer"]},
+                        {"first_name": "Bramblewick", "rollen": ["stellvertretung"]},
                     ],
-                    "frist": frist,
+                    "deadline": deadline,
                 },
             },
         ]
@@ -392,11 +392,11 @@ class TestWhatTheCreateOwes:
             document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
             assert document is not None
-            return document["confirmation_deadline"], {mail["data"]["frist"] for mail in await owed(database)}
+            return document["confirmation_deadline"], {mail["data"]["deadline"] for mail in await owed(database)}
 
         written, mailed = on_a_league(mongo_replica_set_url, body)
 
-        assert {written} == mailed == {frist_from_today()}
+        assert {written} == mailed == {deadline_from_today()}
 
     def test_no_raw_token_reaches_the_log(self, mongo_replica_set_url: str):
         """The insert files no image, and the row is searched as text so a token carried in under any key would show."""
@@ -441,7 +441,7 @@ class TestWhatTheLogRecords:
 
         rendered = on_a_league(mongo_replica_set_url, body)
 
-        for submitted in (KONTAKTE["trainer"]["vorname"], KONTAKTE["ansprechperson"]["email"], KONTAKTE["trainer"]["telefon"]):
+        for submitted in (KONTAKTE["trainer"]["first_name"], KONTAKTE["ansprechperson"]["email"], KONTAKTE["trainer"]["phone"]):
             assert submitted not in rendered
 
 
@@ -803,7 +803,7 @@ class TestASubmissionMadeOverTheWire:
     def test_a_body_breaking_a_shape_rule_is_refused_as_a_payload(self, mongo_replica_set_url: str):
         """The distinctness rule is about the BODY, not a judgement against the database, so it reaches no refusal code."""
 
-        shared = dict(KONTAKTE["ansprechperson"], telefon=KONTAKTE["trainer"]["telefon"])
+        shared = dict(KONTAKTE["ansprechperson"], phone=KONTAKTE["trainer"]["phone"])
         submitted = through_the_app(mongo_replica_set_url, payload(kontakte={**KONTAKTE, "ansprechperson": shared}))
 
         assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
@@ -867,7 +867,7 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": bestaetigungsfrist_from(today=TODAY),
+        "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         "confirmations": minted_confirmations(
             hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today=TODAY
         ),

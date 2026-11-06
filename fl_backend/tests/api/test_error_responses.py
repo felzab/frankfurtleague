@@ -57,7 +57,7 @@ REJECTED_NAME = f"Maximilian{REJECTED_MARKUP}"
 class NamePayload(BaseModel):
     """A write payload's name field, carrying the pattern every real one carries."""
 
-    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+    first_name: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
 
 
 class NestedKontakt(BaseModel):
@@ -102,7 +102,7 @@ async def read_the_query(filters: FLSpieleFilterParams = Depends()) -> dict[str,
 
 def rejected_name_error() -> ValidationError:
     with pytest.raises(ValidationError) as refused:
-        NamePayload(vorname=REJECTED_NAME)
+        NamePayload(first_name=REJECTED_NAME)
 
     return refused.value
 
@@ -140,7 +140,7 @@ class TestTheRefusedFieldsReachTheCaller:
     """A 422 names where each refusal sits and what kind it is, and nothing the caller sent."""
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
-        body = refused({"kontakt": {"email": "a@b"}, "names": [{"vorname": REJECTED_NAME}]})
+        body = refused({"kontakt": {"email": "a@b"}, "names": [{"first_name": REJECTED_NAME}]})
 
         # The exact key sets, so a value or a message under any name moves this.
         assert set(body) == {"error_code", "trace_id", "fields"}
@@ -167,7 +167,7 @@ class TestAMalformedQueryIdIsARefusedPayload:
 
 # The values the report below carries. Distinctive, so absence from a whole log document is
 # evidence rather than coincidence.
-REFUSED_VORNAME = "Quillfeather"
+REFUSED_FIRST_NAME = "Quillfeather"
 REFUSED_SPIELER_OID = "6890a1b2c3d4e5f60fff0016"
 
 # A unique index refusing one document of a batch: the server's message and `keyValue` quote the
@@ -183,7 +183,7 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
             ),
             "keyPattern": {"_id": 1},
             "keyValue": {"_id": ObjectId(REFUSED_SPIELER_OID)},
-            "op": {"_id": ObjectId(REFUSED_SPIELER_OID), "vorname": REFUSED_VORNAME, "inactive_since": None},
+            "op": {"_id": ObjectId(REFUSED_SPIELER_OID), "first_name": REFUSED_FIRST_NAME, "inactive_since": None},
         }
     ],
     "writeConcernErrors": [],
@@ -221,12 +221,12 @@ class TestAServerFaultsLineWithholdsTheValue:
 
         document = logged_document(caplog)
         assert REJECTED_NAME not in document and REJECTED_MARKUP not in document
-        assert "vorname" in document and "string_pattern_mismatch" in document and Code.STORED_DATA_INVALID in document
+        assert "first_name" in document and "string_pattern_mismatch" in document and Code.STORED_DATA_INVALID in document
 
     def test_a_bulk_write_s_refused_document_never_reaches_the_line(self, caplog):
         document = database_crash_document(caplog, BulkWriteError(REFUSED_BULK_INSERT_REPORT))
 
-        assert REFUSED_SPIELER_OID not in document and REFUSED_VORNAME not in document
+        assert REFUSED_SPIELER_OID not in document and REFUSED_FIRST_NAME not in document
         # Still the handler's own line, so this cannot pass by no line having been written.
         assert Code.DATABASE_FAILED in document and "BulkWriteError" in document
 

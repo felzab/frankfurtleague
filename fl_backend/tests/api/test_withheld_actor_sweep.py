@@ -115,11 +115,11 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/saisons/{saison_id}/overview": "fixtures, their open confirmation rows, report states and applications by school",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
-    "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{art: "admin"}` with no address',
-    "/api/v0/spiele/list/verwaltung": "fixtures",
+    "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{kind: "admin"}` with no address',
+    "/api/v0/spiele/list/admin": "fixtures",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
     "/api/v0/spiele/spielplan": "a season's fixtures by matchday",
-    "/api/v0/spiele/{spiel_id:objectid}/verwaltung": "one fixture, what its editor offers, and its report and rows naming an admin by kind",
+    "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture, what its editor offers, and its report and rows naming an admin by kind",
     "/api/v0/spieler/kader/{team_id:objectid}/{saison_id}": "one team's squad as its seat holders read it, which carries nobody's address",
     "/api/v0/spieler/saisons": f"players and their squad rows, {_PERSON_RECORDS}",
     "/api/v0/spieler/self": "the signed-in pupil's own record, which carries no address",
@@ -129,8 +129,8 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/account/address_change": "the signed-in person's own pending address change, served to that person alone",
     "/api/v0/identity/account/erasure/view": "the signed-in person's own records an erasure would remove, by name and with no address",
     "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
-    "/api/v0/spieltage/list/verwaltung": "spieltage",
-    "/api/v0/spieltage/{spieltag_id:objectid}/verwaltung": "one matchday",
+    "/api/v0/spieltage/list/admin": "spieltage",
+    "/api/v0/spieltage/{spieltag_id:objectid}/admin": "one matchday",
     "/api/v0/spielorte": "venues",
     "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
     "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
@@ -191,13 +191,13 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             )
         )
         database[Collection.BEWERBUNGEN].insert_one(
-            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "grund": "Kein Platz"}}
+            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "decision_reason": "Kein Platz"}}
         )
         database[Collection.REGISTRIERUNGEN].insert_one(
             {
-                **registrierung_document(REGISTRIERUNG_OID, vorname="Thessaly"),
+                **registrierung_document(REGISTRIERUNG_OID, first_name="Thessaly"),
                 "status": "declined",
-                "decision": {"made_at": "2026-04-03", "by": BARRED, "grund": None},
+                "decision": {"made_at": "2026-04-03", "by": BARRED, "decision_reason": None},
             }
         )
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a

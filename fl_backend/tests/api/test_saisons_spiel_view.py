@@ -46,14 +46,14 @@ def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
         bericht=documents.bericht_document(
             ergebnis_vorschlag={"team1_tore": 2, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
             torschuetzen=[
-                {"seite": "team1", "spieler_id": None, "minute": "80", "eigentor": False},
-                {"seite": "team1", "spieler_id": NAMED, "minute": "45+2", "eigentor": False},
+                {"side": "team1", "spieler_id": None, "minute": "80", "eigentor": False},
+                {"side": "team1", "spieler_id": NAMED, "minute": "45+2", "eigentor": False},
             ],
             karten=[
-                {"seite": "team2", "spieler_id": INTERN, "minute": "60", "farbe": "gelb", "grund": "foulspiel"},
-                {"seite": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "farbe": "rot", "grund": None},
+                {"side": "team2", "spieler_id": INTERN, "minute": "60", "colour": "gelb", "card_reason": "foulspiel"},
+                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot", "card_reason": None},
             ],
-            seiten=documents.spielbericht_seiten(spiel),
+            sides=documents.spielbericht_sides(spiel),
             **{"version": 1, "adopted_version": 1, **bericht},
         ),
     )
@@ -83,7 +83,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
             await database[Collection.SPIELTAGE].insert_one(
-                {"_id": spiel["spieltag_id"], "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON}
+                {"_id": spiel["spieltag_id"], "start": None, "end": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON}
             )
             await database[Collection.SPIELE].insert_one(spiel)
             await database[Collection.SPIELBERICHTE].insert_one(report_of(spiel))
@@ -135,7 +135,7 @@ def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
 
     bericht = the_page(seeded_url).bericht
     entries = [*bericht.torschuetzen, *bericht.karten]
-    served = [(entry.minute, entry.spieler.type, entry.spieler.vorname, entry.spieler.nachname, entry.spieler.nummer) for entry in entries]
+    served = [(entry.minute, entry.spieler.type, entry.spieler.first_name, entry.spieler.last_name, entry.spieler.nummer) for entry in entries]
 
     assert served == [
         ("45+2", "named", "Maxim", "M.", "7"),
@@ -143,4 +143,6 @@ def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
         ("60", "anonymous", None, None, "4"),
         ("70", "anonymous", None, None, None),
     ]
-    assert not {"Gerber", "Nadja", "Müller", "grund", "foulspiel"} & set(json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split())
+    assert not {"Gerber", "Nadja", "Müller", "card_reason", "foulspiel"} & set(
+        json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split()
+    )

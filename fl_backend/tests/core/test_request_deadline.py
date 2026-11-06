@@ -319,7 +319,7 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
 
 
 def _junction_row(team_id: ObjectId) -> dict[str, Any]:
-    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
+    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", last_name="Mustermann", phone="+49 69 1234567")
 
     return saison_team_document(
         SAISON_ID,
@@ -399,8 +399,8 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
                 saison_document(
                     SAISON_ID,
                     "active",
-                    rules=rules_document(number_of_gruppen=2, max_kadergroesse=50, allowed_stufen=["E1"]),
-                    registrierung={"offen": True, "end": "2026-04-30"},
+                    rules=rules_document(number_of_gruppen=2, max_kader_size=50, allowed_stufen=["E1"]),
+                    registrierung={"open": True, "end": "2026-04-30"},
                 )
             )
             await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])

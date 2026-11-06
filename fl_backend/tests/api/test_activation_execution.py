@@ -41,22 +41,22 @@ def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
         team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "ALX", "tore": None},
-        datum=f"{saison_id}-03-15",
-        uhrzeit="18:00:00",
+        date=f"{saison_id}-03-15",
+        time="18:00:00",
         ergebnis=ergebnis,
     )
 
 
-def spieltag_document(saison_id: str, position: int, *, beginn: str | None) -> dict[str, Any]:
-    """Every key `FLSpieltagRecord` requires stated, `ende` moving with `beginn`: no write here produces a half-dated matchday."""
+def spieltag_document(saison_id: str, position: int, *, start: str | None) -> dict[str, Any]:
+    """Every key `FLSpieltagRecord` requires stated, `end` moving with `start`: no write here produces a half-dated matchday."""
 
     return {
         "_id": ObjectId(f"6890a1b2c3d4e5f60724{position:04d}"),
         "saison_id": saison_id,
         "saison_phase": "gruppenphase",
         "position": position,
-        "beginn": beginn,
-        "ende": None if beginn is None else f"{saison_id}-03-02",
+        "start": start,
+        "end": None if start is None else f"{saison_id}-03-02",
     }
 
 
@@ -286,8 +286,8 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
             spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
             spieltage=[
-                spieltag_document(TARGET, 1, beginn=f"{TARGET}-03-01"),
-                spieltag_document(TARGET, 2, beginn=None),
+                spieltag_document(TARGET, 1, start=f"{TARGET}-03-01"),
+                spieltag_document(TARGET, 2, start=None),
             ],
         )
 

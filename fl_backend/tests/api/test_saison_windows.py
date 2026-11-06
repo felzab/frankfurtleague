@@ -48,7 +48,7 @@ class TestTheRegistrationWindow:
     on, its link not paused, today up to the window's `end`, both included.
     """
 
-    WINDOW: dict[str, Any] = {"offen": True, "end": END}
+    WINDOW: dict[str, Any] = {"open": True, "end": END}
 
     def runs(self, *, registrierung: Any = WINDOW, today: str = INSIDE, saison_status: str = "active") -> bool:
         return saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung, today=today)
@@ -69,7 +69,7 @@ class TestTheRegistrationWindow:
     def test_a_paused_link_takes_none_inside_the_window(self):
         """The window still runs, and the pause is the whole answer."""
 
-        assert self.runs(registrierung={**self.WINDOW, "offen": False}) is False
+        assert self.runs(registrierung={**self.WINDOW, "open": False}) is False
 
     def test_a_season_recording_no_window_takes_none(self):
         assert self.runs(registrierung=None) is False

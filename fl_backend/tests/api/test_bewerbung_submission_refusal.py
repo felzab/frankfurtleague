@@ -20,11 +20,11 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     assigned_trikot_farben,
-    bestaetigungsfrist_from,
     compose_einwilligung,
     compose_kontakte,
+    confirmation_deadline_from,
 )
-from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_telefon
+from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_phone
 from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
@@ -69,10 +69,10 @@ def person(**overrides: Any) -> dict[str, Any]:
     """One contact person as the public form submits them."""
 
     return {
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
+        "first_name": "Quillhilde",
+        "last_name": "Brackenmoor",
         "email": "quillhilde@example.com",
-        "telefon": "+49 170 1234567",
+        "phone": "+49 170 1234567",
         "einwilligung": {"given": True},
         **overrides,
     }
@@ -83,8 +83,8 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
 
     return {
         "trainer": person(),
-        "ansprechperson": person(vorname="Ansgar", email="ansgar@example.com", telefon="+49 170 7654321"),
-        "stellvertretung": person(vorname="Stellan", email="stellan@example.com", telefon="0171 5555555"),
+        "ansprechperson": person(first_name="Ansgar", email="ansgar@example.com", phone="+49 170 7654321"),
+        "stellvertretung": person(first_name="Stellan", email="stellan@example.com", phone="0171 5555555"),
         "trainer_is_also": None,
         **overrides,
     }
@@ -146,48 +146,48 @@ class TestNoBirthdateOnAnyPayload:
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_submission_naming_a_birthdate_on_any_seat_is_refused_outright(self, seat: str):
-        block = kontakte(**{seat: person(geburtsdatum="1984-05-09")})
+        block = kontakte(**{seat: person(birth_date="1984-05-09")})
 
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kontakte=block))
 
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "geburtsdatum")]
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "birth_date")]
 
     def test_a_null_birthdate_is_refused_rather_than_accepted_as_absent(self):
-        """The rejected shape: a `geburtsdatum: None` override would take the key as an explicit null, where the form asks nothing."""
+        """The rejected shape: a `birth_date: None` override would take the key as an explicit null, where the form asks nothing."""
 
         with pytest.raises(ValidationError) as failure:
-            FLBewerbungKontaktpersonPayload.model_validate(person(geburtsdatum=None))
+            FLBewerbungKontaktpersonPayload.model_validate(person(birth_date=None))
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
 
     def test_the_junction_payload_refuses_the_key_as_the_public_one_does(self):
         """Refused rather than bounded: an age floor on this payload would still let an administrator name a date only its subject may give."""
 
-        junction_person = {**person(), "geburtsdatum": A_CHILDS_BIRTHDATE, "einwilligung": dict(JUNCTION_EINWILLIGUNG)}
+        junction_person = {**person(), "birth_date": A_CHILDS_BIRTHDATE, "einwilligung": dict(JUNCTION_EINWILLIGUNG)}
 
         with pytest.raises(ValidationError) as failure:
             FLKontaktpersonPayload.model_validate(junction_person)
 
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "geburtsdatum")]
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "birth_date")]
 
     def test_the_junction_payload_takes_a_whole_person_without_one(self):
         """The floor under the case above: required, every save composed before that seat's person answers would be refused."""
 
         composed = FLKontaktpersonPayload.model_validate({**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)})
 
-        assert "geburtsdatum" not in composed.model_dump(mode="json")
+        assert "birth_date" not in composed.model_dump(mode="json")
 
     def test_a_stored_contact_with_no_date_still_reads(self):
         """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""
 
-        record = {**person(), "geburtsdatum": None, "einwilligung": kontaktperson_document("Quillhilde")["einwilligung"]}
+        record = {**person(), "birth_date": None, "einwilligung": kontaktperson_document("Quillhilde")["einwilligung"]}
 
-        assert FLKontaktperson.model_validate(record).geburtsdatum is None
+        assert FLKontaktperson.model_validate(record).birth_date is None
 
 
 class TestOneNumberHasOneSpelling:
-    """What `normalise_telefon` folds, which is the whole of what makes the distinctness rule work on a free-form field."""
+    """What `normalise_phone` folds, which is the whole of what makes the distinctness rule work on a free-form field."""
 
     @pytest.mark.parametrize(
         ("written", "normalised"),
@@ -208,17 +208,17 @@ class TestOneNumberHasOneSpelling:
         ],
     )
     def test_two_spellings_of_one_number_compare_equal(self, written: str, normalised: str):
-        assert normalise_telefon(written) == normalised
+        assert normalise_phone(written) == normalised
 
     def test_two_different_numbers_stay_different(self):
         """The control: a normaliser that returned a constant would satisfy every case above."""
 
-        assert normalise_telefon("+49 170 1234567") != normalise_telefon("+49 170 7654321")
+        assert normalise_phone("+49 170 1234567") != normalise_phone("+49 170 7654321")
 
     def test_a_national_number_is_not_folded_onto_an_international_one_of_another_line(self):
         """The other control: an over-eager fold would collapse `0491…` onto `+49 1…`."""
 
-        assert normalise_telefon("0491 234567") != normalise_telefon("+49 1 234567")
+        assert normalise_phone("0491 234567") != normalise_phone("+49 1 234567")
 
 
 # The spellings that must reach the distinctness rule as ONE number. `PHONE_REGEX` admits every one.
@@ -235,7 +235,7 @@ ONE_LINE_TWO_WAYS = [
 SHARED_CONTACT_DETAILS = [
     (seat, field, value)
     for seat in ("ansprechperson", "stellvertretung")
-    for field, value in (("email", "quillhilde@example.com"), ("telefon", "+49 170 1234567"))
+    for field, value in (("email", "quillhilde@example.com"), ("phone", "+49 170 1234567"))
 ]
 
 
@@ -259,7 +259,7 @@ class TestTheThreeSeatsAreThreePeople:
     def test_a_seat_declared_identical_and_filled_differently_is_refused(self, seat: str):
         """The form fills the second seat from the first, so a mismatch is a client that has drifted."""
 
-        block = kontakte(**{seat: person(vorname="Andere"), "trainer_is_also": seat})
+        block = kontakte(**{seat: person(first_name="Andere"), "trainer_is_also": seat})
 
         with pytest.raises(ValidationError) as failure:
             FLBewerbungKontaktePayload.model_validate(block)
@@ -270,7 +270,7 @@ class TestTheThreeSeatsAreThreePeople:
     def test_two_distinct_people_may_share_neither_an_email_nor_a_number(self, seat: str, field: str, value: str):
         """Every other detail the seat's own: a seat sharing both, either rule would hide the other's removal."""
 
-        other = {**person(vorname="Andere", email="andere@example.com", telefon="+49 170 9999999"), field: value}
+        other = {**person(first_name="Andere", email="andere@example.com", phone="+49 170 9999999"), field: value}
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: other}))
@@ -281,21 +281,21 @@ class TestTheThreeSeatsAreThreePeople:
         Its own telephone, or the number rule would fire here and this would prove nothing about case.
         """
 
-        other = person(vorname="Andere", email="QUILLHILDE@Example.com", telefon="+49 170 9999999")
+        other = person(first_name="Andere", email="QUILLHILDE@Example.com", phone="+49 170 9999999")
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
 
     @pytest.mark.parametrize("written", ONE_LINE_TWO_WAYS)
     def test_one_number_written_two_ways_is_still_one_number(self, written: str):
-        """The whole reason `normalise_telefon` exists: `PHONE_REGEX` admits many spellings of one line.
+        """The whole reason `normalise_phone` exists: `PHONE_REGEX` admits many spellings of one line.
 
         The trainer holds `0170 1234567`; each spelling here is that same line, so a second person
         writing one of them is not a second telephone.
         """
 
-        trainer = person(telefon="0170 1234567")
-        other = person(vorname="Andere", telefon=written, email="andere@example.com")
+        trainer = person(phone="0170 1234567")
+        other = person(first_name="Andere", phone=written, email="andere@example.com")
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other))
@@ -303,8 +303,8 @@ class TestTheThreeSeatsAreThreePeople:
     def test_two_people_on_genuinely_different_lines_still_pass(self):
         """The control for the parametrisation above: a rule refusing every pair would satisfy it."""
 
-        trainer = person(telefon="0170 1234567")
-        other = person(vorname="Andere", telefon="+49 (0)171 7654321", email="andere@example.com")
+        trainer = person(phone="0170 1234567")
+        other = person(first_name="Andere", phone="+49 (0)171 7654321", email="andere@example.com")
 
         assert FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other)) is not None
 
@@ -313,7 +313,7 @@ class TestTheThreeSeatsAreThreePeople:
 
         block = kontakte(
             ansprechperson=person(),
-            stellvertretung=person(vorname="Stellan", email="quillhilde@example.com", telefon="0171 5555555"),
+            stellvertretung=person(first_name="Stellan", email="quillhilde@example.com", phone="0171 5555555"),
             trainer_is_also="ansprechperson",
         )
 
@@ -357,7 +357,7 @@ class TestWhatTheServerComposes:
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
         assert "confirmed_at" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["confirmed_at"] is None
-        assert "geburtsdatum" in composed[seat] and composed[seat]["geburtsdatum"] is None
+        assert "birth_date" in composed[seat] and composed[seat]["birth_date"] is None
 
     def test_every_seat_and_the_flag_survive_the_composition(self):
         """The control for the case above: a composer dropping a seat would satisfy it and store two people."""
@@ -367,7 +367,7 @@ class TestWhatTheServerComposes:
 
         assert set(composed) == {"trainer", "ansprechperson", "stellvertretung", "trainer_is_also"}
         assert composed["trainer_is_also"] == "ansprechperson"
-        assert composed["stellvertretung"]["vorname"] == "Stellan"
+        assert composed["stellvertretung"]["first_name"] == "Stellan"
 
     def test_a_consent_the_applicant_did_not_give_is_refused_rather_than_stored(self):
         """`given: Literal[True]`: an unticked box is a 422, never a stored record saying somebody declined."""
@@ -495,7 +495,7 @@ PUBLIC_CEILINGS = [
     pytest.param("schule.full_name", "full_name", TEAM_FULL_NAME_MAX_LENGTH, id="the school's full name"),
 ]
 
-NAME_SEATS = [(seat, part) for seat in ("trainer", "ansprechperson", "stellvertretung") for part in ("vorname", "nachname")]
+NAME_SEATS = [(seat, part) for seat in ("trainer", "ansprechperson", "stellvertretung") for part in ("first_name", "last_name")]
 
 
 class TestTheCeilingsOnWhatAStrangerMayType:
@@ -530,13 +530,13 @@ class TestTheCeilingsOnWhatAStrangerMayType:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: person(**{part: long_name})}))
 
-    @pytest.mark.parametrize("part", ["vorname", "nachname"])
+    @pytest.mark.parametrize("part", ["first_name", "last_name"])
     def test_a_contact_name_at_its_ceiling_is_accepted(self, part: str):
         at_the_bound = person(**{part: "A" * KONTAKT_NAME_MAX_LENGTH})
 
         assert len(getattr(FLBewerbungKontaktpersonPayload.model_validate(at_the_bound), part)) == KONTAKT_NAME_MAX_LENGTH
 
-    @pytest.mark.parametrize("part", ["vorname", "nachname"])
+    @pytest.mark.parametrize("part", ["first_name", "last_name"])
     def test_redeclaring_the_name_kept_its_pattern_and_its_strip(self, part: str):
         """A redeclaration REPLACES the field, so the alphabet and the strip had to be restated with the ceiling."""
 
@@ -693,7 +693,7 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": bestaetigungsfrist_from(today=TODAY),
+        "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
         "confirmations": {
             seat: {**entry, "delivery": None}

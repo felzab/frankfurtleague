@@ -93,29 +93,31 @@ def address_of(position: int) -> str:
     return f"schuelerin.{position}@beispielschule.de"
 
 
-def pupil(spieler_id: ObjectId, email: str, *, nachname: str = "Muster", **fields: Any) -> dict[str, Any]:
-    return spieler_document(spieler_id, "Quintessa", nachname, email=email, **fields)
+def pupil(spieler_id: ObjectId, email: str, *, last_name: str = "Muster", **fields: Any) -> dict[str, Any]:
+    return spieler_document(spieler_id, "Quintessa", last_name, email=email, **fields)
 
 
 def squad_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
     return saison_spieler_document(spieler_id, saison_id, TEAM_OID, **fields)
 
 
-def registration(registrierung_id: ObjectId, email: str, *, declined: bool = False, nachname: str = "Muster") -> dict[str, Any]:
+def registration(registrierung_id: ObjectId, email: str, *, declined: bool = False, last_name: str = "Muster") -> dict[str, Any]:
     document = registrierung_document(
         registrierung_id,
         email,
         saison_id="2026",
         team_id=TEAM_OID,
-        vorname="Quintessa",
-        nachname=nachname,
+        first_name="Quintessa",
+        last_name=last_name,
         token=f"token-{registrierung_id}",
         submitted_at="2026-03-02",
-        frist="2026-03-09",
+        deadline="2026-03-09",
     )
 
     return (
-        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", grund=None, today="2026-03-05")["$set"]} if declined else document
+        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", decision_reason=None, today="2026-03-05")["$set"]}
+        if declined
+        else document
     )
 
 
@@ -354,11 +356,11 @@ GRANT = numbered(17)
 async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     """A due pupil, and a contact seat, a referee row and a grant held at the same address, each with its log images."""
 
-    await database[Collection.SPIELER].insert_one(pupil(REACHED, ADDRESS, nachname="Pupillensloot"))
+    await database[Collection.SPIELER].insert_one(pupil(REACHED, ADDRESS, last_name="Pupillensloot"))
     await database[Collection.SAISON_SPIELER].insert_many(
         [squad_row(REACHED, saison_id, _id=row_id) for saison_id, row_id in zip(("2023", "2024"), REACHED_ROWS, strict=True)]
     )
-    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, ADDRESS, declined=True, nachname="Pupillensloot"))
+    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, ADDRESS, declined=True, last_name="Pupillensloot"))
     await database[Collection.SAISON_TEAMS].insert_one(
         {
             "_id": SEAT_ROW,
@@ -368,7 +370,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
                 "Lindenschule",
                 "LSX",
                 kontakte=kontakte_document(
-                    ansprechperson=kontaktperson_document("Quirinus", confirmed_at="2026-03-01", nachname="Sitzsloot", email=ADDRESS)
+                    ansprechperson=kontaktperson_document("Quirinus", confirmed_at="2026-03-01", last_name="Sitzsloot", email=ADDRESS)
                 ),
             ),
         }
@@ -386,7 +388,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
         }
     )
 
-    await edited(database, Collection.SPIELER, REACHED, {"$set": {"geburtsdatum": "2008-04-04"}})
+    await edited(database, Collection.SPIELER, REACHED, {"$set": {"birth_date": "2008-04-04"}})
     for row_id in REACHED_ROWS:
         await edited(database, Collection.SAISON_SPIELER, row_id, {"$set": {"nummer": "7"}})
     await edited(database, Collection.REGISTRIERUNGEN, REACHED_REGISTRATION, {"$set": {"nummer": "7"}})
@@ -470,7 +472,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
             # Another person's, at the address the pupil held when the run read them.
-            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, nachname="Fremd"))
+            await database[Collection.REGISTRIERUNGEN].insert_one(registration(stranger, address_of(1), declined=True, last_name="Fremd"))
             await database[Collection.REGISTRIERUNGEN].update_one({"_id": numbered(5001)}, {"$set": {"email": corrected}})
 
             async def correct_it() -> None:
@@ -545,7 +547,7 @@ async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient,
 async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
     """The team entered in 2026, its registration window open today and its link live, so nothing but the race decides."""
 
-    await database[Collection.SAISONS].update_one({"_id": "2026"}, {"$set": {"registrierung": {"offen": True, "end": "2026-04-30"}}})
+    await database[Collection.SAISONS].update_one({"_id": "2026"}, {"$set": {"registrierung": {"open": True, "end": "2026-04-30"}}})
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LSX"))
     await database[Collection.INVITATIONS].insert_one(
         {

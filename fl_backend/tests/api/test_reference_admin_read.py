@@ -59,7 +59,7 @@ HIGHER_PAYMENT = 45
 STRASSE = "Hanauer Landstrasse"
 MAPS_LINK = f"Sportplatz Ost, {STRASSE} 12a, 60314 Ostend Frankfurt am Main, Deutschland"
 SCHULE = "Carl-Schurz-Schule"
-TELEFON = "+49 69 1234567"
+PHONE = "+49 69 1234567"
 
 # A second venue, CREATED through the write path rather than seeded: a `maps_link` this file wrote
 # would read back whatever `_maps_link` composed, the seeded one included.
@@ -124,7 +124,7 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
             "name": "Ada Kern",
             "schule": SCHULE,
             "default_payment": LOWER_PAYMENT,
-            "kontakt": {"telefon": TELEFON, "email": "ada@example.com"},
+            "kontakt": {"phone": PHONE, "email": "ada@example.com"},
             "inactive_since": None,
         },
         {
@@ -132,7 +132,7 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
             "name": "Bea Lang",
             "schule": None,
             "default_payment": HIGHER_PAYMENT,
-            "kontakt": {"telefon": None, "email": None},
+            "kontakt": {"phone": None, "email": None},
             "inactive_since": None,
         },
     ]
@@ -280,7 +280,7 @@ def test_the_admin_read_carries_what_the_match_editor_prefills_a_fixture_from(se
 
     assert (spielort["default_mietpreis"], spielort["maps_link"]) == (MIETPREIS, MAPS_LINK)
     assert (schiedsrichter[0]["default_payment"], schiedsrichter[0]["schule"]) == (LOWER_PAYMENT, SCHULE)
-    assert schiedsrichter[0]["kontakt"]["telefon"] == TELEFON
+    assert schiedsrichter[0]["kontakt"]["phone"] == PHONE
 
 
 @pytest.mark.db

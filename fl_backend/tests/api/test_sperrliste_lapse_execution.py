@@ -15,7 +15,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.saisons.crud import pull_governing_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_barred
 from app.api.sperrliste.services import address_hash
@@ -160,7 +160,7 @@ class TestTheSeasonTheBanIsCountedFrom:
         """The ordinary state, and the control under the two cases answering nothing: a helper always answering `None` passes both."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
-            return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
+            return await pull_governing_saison_id(saisons_collection=database[Collection.SAISONS])
 
         seasons = [saison_document("2025", "past"), saison_document(ENTERED_UNDER, "active"), saison_document("2027", "future")]
 
@@ -173,7 +173,7 @@ class TestTheSeasonTheBanIsCountedFrom:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
-            return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
+            return await pull_governing_saison_id(saisons_collection=database[Collection.SAISONS])
 
         seasons = [saison_document("2025", "past"), saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
 
@@ -183,7 +183,7 @@ class TestTheSeasonTheBanIsCountedFrom:
         """A planned season has been played under by nobody, so counting five from it would bar a person five seasons early."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
-            return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
+            return await pull_governing_saison_id(saisons_collection=database[Collection.SAISONS])
 
         assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is None
 
@@ -197,8 +197,8 @@ class TestTheSeasonTheBanIsCountedFrom:
                 await saisons.insert_one(saison_document("2028", "active"), session=session)
 
                 return (
-                    await pull_massgebliche_saison_id(saisons_collection=saisons, session=session),
-                    await pull_massgebliche_saison_id(saisons_collection=saisons),
+                    await pull_governing_saison_id(saisons_collection=saisons, session=session),
+                    await pull_governing_saison_id(saisons_collection=saisons),
                 )
 
             async with client.start_session() as session:

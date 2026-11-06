@@ -61,7 +61,7 @@ def junction_row(saison_id: str) -> dict[str, Any]:
     return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe=GRUPPE_OF[saison_id])
 
 
-def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
+def spieler_document(spieler_id: ObjectId, first_name: str) -> dict[str, Any]:
     """A player of that club, holding a row in all three seasons.
 
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
@@ -69,7 +69,7 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
 
     published = documents.own_einwilligung_document(text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20")
 
-    return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
+    return documents.spieler_document(spieler_id, first_name, "Müller", einwilligung=published)
 
 
 def squad_row(saison_id: str) -> dict[str, Any]:
@@ -89,16 +89,16 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
         team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": 2 if won else None},
         team2={"team_id": OPPONENT_OID, "name": "Lessing", "shorthand": "LSX", "tore": 0} if won else None,
         ergebnis="2:0" if won else None,
-        datum=f"{saison_id}-03-15",
-        uhrzeit="14:00:00",
+        date=f"{saison_id}-03-15",
+        time="14:00:00",
     )
 
 
 def spieltag_document(saison_id: str) -> dict[str, Any]:
     return {
         "_id": an_id("3", saison_id),
-        "beginn": f"{saison_id}-03-15",
-        "ende": f"{saison_id}-03-15",
+        "start": f"{saison_id}-03-15",
+        "end": f"{saison_id}-03-15",
         "position": 1,
         "saison_phase": "gruppenphase",
         "saison_id": saison_id,

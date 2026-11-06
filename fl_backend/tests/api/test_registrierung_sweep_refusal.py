@@ -16,7 +16,7 @@ from app.api.registrierungen.services import (
     erinnerung_is_due,
 )
 from app.core.middlewares import REQUEST_DEADLINE_S
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_REMINDER_DAYS
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
 
@@ -43,7 +43,7 @@ def bestaetigung(**overrides: Any) -> dict[str, Any]:
         "token_hashes": [FIRST_HASH],
         "sent_at": MAILED_ON_THE_MARK,
         "reminded_at": None,
-        "frist": "2026-04-05",
+        "deadline": "2026-04-05",
         **overrides,
     }
 
@@ -54,7 +54,7 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
     return {
         "status": "submitted",
         "saison_id": "2026",
-        "vorname": "Quillhilde",
+        "first_name": "Quillhilde",
         "email": "quillhilde@example.com",
         "einwilligung": None,
         "confirmation": bestaetigung(),
@@ -81,7 +81,7 @@ class TestTheReminderMark:
         stored = registrierung(confirmation=bestaetigung(sent_at=sent_at))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
-        assert (REGISTRIERUNG_REMINDER_DAYS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS) == (3, 7)
+        assert (REGISTRIERUNG_REMINDER_DAYS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS) == (3, 7)
 
     @pytest.mark.parametrize(
         ("stored", "why"),
@@ -97,24 +97,24 @@ class TestTheReminderMark:
         assert not erinnerung_is_due(registrierung_raw=stored, today=TODAY), why
 
     @pytest.mark.parametrize(
-        ("frist", "due"),
+        ("deadline", "due"),
         [
             pytest.param(TOMORROW, True, id="the day before the deadline"),
             pytest.param(TODAY, True, id="the deadline's own day, when the link still answers"),
             pytest.param(YESTERDAY, False, id="the day after, when the erasure clock has it"),
         ],
     )
-    def test_nothing_past_its_deadline_is_chased(self, frist: str, due: bool):
+    def test_nothing_past_its_deadline_is_chased(self, deadline: str, due: bool):
         """A link minted on the way out is one nobody can spend: the erasure below takes the row the same day."""
 
-        stored = registrierung(confirmation=bestaetigung(frist=frist))
+        stored = registrierung(confirmation=bestaetigung(deadline=deadline))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
 
 
 class TestTheDeadlineClock:
     @pytest.mark.parametrize(
-        ("frist", "due"),
+        ("deadline", "due"),
         [
             pytest.param(TOMORROW, False, id="the day before the deadline"),
             pytest.param(TODAY, False, id="the deadline's own day, when the link still answers"),
@@ -122,20 +122,20 @@ class TestTheDeadlineClock:
             pytest.param(None, False, id="no deadline recorded"),
         ],
     )
-    def test_each_boundary_falls_where_the_bound_says(self, frist: str | None, due: bool):
-        stored = registrierung(confirmation=bestaetigung(frist=frist))
+    def test_each_boundary_falls_where_the_bound_says(self, deadline: str | None, due: bool):
+        stored = registrierung(confirmation=bestaetigung(deadline=deadline))
 
         assert bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY) == due
 
     def test_a_confirmed_registration_waits_for_the_seasons_end_instead(self):
         """The clock's whole reach: a row nobody confirmed leaves at its deadline, and a confirmed one leaves with its season."""
 
-        stored = registrierung(confirmation=bestaetigung(frist=YESTERDAY), einwilligung=einwilligung())
+        stored = registrierung(confirmation=bestaetigung(deadline=YESTERDAY), einwilligung=einwilligung())
 
         assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_declined_registration_is_the_one_month_clocks(self):
-        stored = registrierung(status="declined", confirmation=bestaetigung(frist=YESTERDAY))
+        stored = registrierung(status="declined", confirmation=bestaetigung(deadline=YESTERDAY))
 
         assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
@@ -156,7 +156,7 @@ class TestTheOneMonthClock:
         ],
     )
     def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
-        declined = registrierung(status="declined", decision={"made_at": made_at, "by": "admin", "grund": "kein Platz"})
+        declined = registrierung(status="declined", decision={"made_at": made_at, "by": "admin", "decision_reason": "kein Platz"})
 
         assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
 
@@ -200,7 +200,7 @@ class TestWhatEachClockReads:
             "saison_id": SAISON_ID,
             "status": "submitted",
             "einwilligung.confirmed_at": None,
-            "confirmation.frist": {"$lt": TODAY},
+            "confirmation.deadline": {"$lt": TODAY},
         }
 
     def test_the_reminder_reads_the_unchased_at_their_mark(self):
@@ -209,7 +209,7 @@ class TestWhatEachClockReads:
             "status": "submitted",
             "einwilligung.confirmed_at": None,
             "confirmation.reminded_at": None,
-            "confirmation.frist": {"$gte": TODAY},
+            "confirmation.deadline": {"$gte": TODAY},
             "confirmation.sent_at": {"$lte": THE_MARK},
         }
 

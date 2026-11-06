@@ -5,7 +5,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungAntwortPayload,
+    FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungEinwilligungDeclined,
     FLBewerbungEinwilligungGiven,
 )
@@ -100,11 +100,11 @@ class TestThePairedSeat:
         assert paired_seat(kontakte=block, confirmations=BESTAETIGUNGEN, seat="stellvertretung") is None
 
 
-def antwort(**overrides: Any) -> dict[str, Any]:
+def answer(**overrides: Any) -> dict[str, Any]:
     return {
         "token": "raw-trainer",
-        "antwort": "given",
-        "geburtsdatum": "1984-05-09",
+        "answer": "given",
+        "birth_date": "1984-05-09",
         "whatsapp": False,
         "media": False,
         "text_versions": dict(SEAT_TEXT_VERSIONS),
@@ -112,28 +112,28 @@ def antwort(**overrides: Any) -> dict[str, Any]:
     }
 
 
-ANTWORT: TypeAdapter[FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined] = TypeAdapter(FLBewerbungEinwilligungAntwortPayload)
+ANSWER: TypeAdapter[FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined] = TypeAdapter(FLBewerbungEinwilligungAnswerPayload)
 
 
 def refusals(body: dict[str, Any]) -> list[tuple[tuple[Any, ...], str]]:
     with pytest.raises(ValidationError) as failure:
-        ANTWORT.validate_python(body)
+        ANSWER.validate_python(body)
 
     return [(error["loc"], error["type"]) for error in failure.value.errors()]
 
 
 class TestWhatTheAnswerPayloadRefuses:
-    """The answer's two shapes, told apart by `antwort`: each refusal is 422, at the tag and the field it names."""
+    """The answer's two shapes, told apart by `answer`: each refusal is 422, at the tag and the field it names."""
 
     def test_a_consent_without_a_date_is_refused(self):
-        body = antwort()
-        del body["geburtsdatum"]
+        body = answer()
+        del body["birth_date"]
 
-        assert refusals(body) == [(("given", "geburtsdatum"), "missing")]
+        assert refusals(body) == [(("given", "birth_date"), "missing")]
 
-    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "media", "text_versions", "antwort"])
+    @pytest.mark.parametrize("field", ["birth_date", "whatsapp", "media", "text_versions", "answer"])
     def test_every_field_is_required(self, field: str, assert_rejects):
-        body = antwort()
+        body = answer()
         del body[field]
 
         assert_rejects(FLBewerbungEinwilligungGiven, body, field)

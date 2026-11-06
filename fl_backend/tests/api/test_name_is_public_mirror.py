@@ -32,8 +32,8 @@ CONFIRMED = "2026-01-20"
 
 # One pair of names for every row: what a case here decides is whether the pair is served at all,
 # and distinct names would only make two failures look different.
-VORNAME = "Maxim"
-NACHNAME = "Müller"
+FIRST_NAME = "Maxim"
+LAST_NAME = "Müller"
 INITIAL = "M."
 
 # Outside `FLEinwilligung`'s Literal, and stored anyway: the predicate is read against documents, so
@@ -118,7 +118,7 @@ class TestTheSquadPipelineAnswersTheSameTable:
     def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
         served = self._served(seeded_url)[_nummer_for(case)]
 
-        assert (served["vorname"], served["nachname"]) == ((VORNAME, INITIAL) if case.published else (None, None))
+        assert (served["first_name"], served["last_name"]) == ((FIRST_NAME, INITIAL) if case.published else (None, None))
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_a_withheld_row_keeps_its_number_and_its_position(self, seeded_url: str, case: EinwilligungCase):
@@ -164,7 +164,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
             await database.spieler.insert_many(
-                [spieler_document(_oid_for(case), VORNAME, NACHNAME, einwilligung=case.einwilligung) for case in NAME_IS_PUBLIC]
+                [spieler_document(_oid_for(case), FIRST_NAME, LAST_NAME, einwilligung=case.einwilligung) for case in NAME_IS_PUBLIC]
             )
             await database.saison_spieler.insert_many(
                 [

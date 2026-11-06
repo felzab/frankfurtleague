@@ -63,12 +63,12 @@ def einwilligung(*, confirmed_at: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
     return {**stored, "confirmed_at": confirmed_at}
 
 
-def bestaetigung(registrierung_id: ObjectId, *, frist: str = "2026-04-05", **overrides: Any) -> dict[str, Any]:
+def bestaetigung(registrierung_id: ObjectId, *, deadline: str = "2026-04-05", **overrides: Any) -> dict[str, Any]:
     return {
         "token_hashes": [hash_token(f"first-{registrierung_id}")],
         "sent_at": MAILED_ON_THE_MARK,
         "reminded_at": None,
-        "frist": frist,
+        "deadline": deadline,
         **overrides,
     }
 
@@ -83,13 +83,13 @@ def registrierung(registrierung_id: ObjectId, *, saison_id: str = SAISON_ID, **o
         "invitation_id": EINLADUNG_OID,
         "submitted_at": MAILED_ON_THE_MARK,
         "status": "submitted",
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
+        "first_name": "Quillhilde",
+        "last_name": "Brackenmoor",
         "email": f"{registrierung_id}@example.com",
         "position": None,
         "nummer": None,
         "stufe": "Q1",
-        "geburtsdatum": None,
+        "birth_date": None,
         "einwilligung": None,
         "confirmation": bestaetigung(registrierung_id),
         "decision": None,
@@ -102,16 +102,16 @@ def the_corpus() -> list[dict[str, Any]]:
 
     return [
         registrierung(REMIND_OID),
-        registrierung(EXPIRED_OID, confirmation=bestaetigung(EXPIRED_OID, frist=YESTERDAY)),
+        registrierung(EXPIRED_OID, confirmation=bestaetigung(EXPIRED_OID, deadline=YESTERDAY)),
         # Its deadline is today, which the link still answers: the pair pins the clock's own boundary.
-        registrierung(INSIDE_OID, confirmation=bestaetigung(INSIDE_OID, frist=TODAY)),
-        registrierung(CONFIRMED_OID, geburtsdatum="2008-05-09", einwilligung=einwilligung()),
+        registrierung(INSIDE_OID, confirmation=bestaetigung(INSIDE_OID, deadline=TODAY)),
+        registrierung(CONFIRMED_OID, birth_date="2008-05-09", einwilligung=einwilligung()),
         registrierung(
             DECLINED_OID,
             status="declined",
-            decision={"made_at": "2026-02-15", "by": "admin", "grund": "kein Platz"},
+            decision={"made_at": "2026-02-15", "by": "admin", "decision_reason": "kein Platz"},
         ),
-        registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=bestaetigung(OTHER_SEASON_OID, frist=YESTERDAY)),
+        registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=bestaetigung(OTHER_SEASON_OID, deadline=YESTERDAY)),
     ]
 
 
@@ -206,7 +206,7 @@ class TestTheReminderClock:
         bookkeeping = document["confirmation"]
         assert bookkeeping["token_hashes"] == [hash_token(f"first-{REMIND_OID}")]
         assert (bookkeeping["reminded_at"], bookkeeping["sent_at"]) == (TODAY, MAILED_ON_THE_MARK)
-        assert bookkeeping["frist"] == "2026-04-05"
+        assert bookkeeping["deadline"] == "2026-04-05"
 
     def test_the_days_second_pass_reminds_nobody_again(self, mongo_replica_set_url: str):
         """One chase per registration, whatever the mail did after the stamp: the stamp is what spends it."""
@@ -376,7 +376,7 @@ class TestOneRowHoldsBackNoOther:
     def test_a_refused_loeschung_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].insert_one(
-                registrierung(SECOND_OID, status="declined", decision={"made_at": "2026-02-15", "by": "admin", "grund": None})
+                registrierung(SECOND_OID, status="declined", decision={"made_at": "2026-02-15", "by": "admin", "decision_reason": None})
             )
             await refuse_the_redaction_of(database, DECLINED_OID)
             answer = await sweep(database, client)
@@ -420,7 +420,7 @@ class TestOneRowHoldsBackNoOther:
     def test_a_refused_loeschung_by_the_deadline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].insert_one(
-                registrierung(SECOND_OID, confirmation=bestaetigung(SECOND_OID, frist=YESTERDAY))
+                registrierung(SECOND_OID, confirmation=bestaetigung(SECOND_OID, deadline=YESTERDAY))
             )
             await refuse_the_redaction_of(database, EXPIRED_OID)
             answer = await sweep(database, client)
@@ -491,12 +491,12 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
         ("clock", "overrides", "status", "counted"),
         [
             pytest.param(
-                "deadline", {"confirmation": bestaetigung(EXPIRED_OID, frist=YESTERDAY)}, "active", "erased_unconfirmed", id="deadline"
+                "deadline", {"confirmation": bestaetigung(EXPIRED_OID, deadline=YESTERDAY)}, "active", "erased_unconfirmed", id="deadline"
             ),
             pytest.param("season's end", {}, "past", "erased_without_decision", id="season's end"),
             pytest.param(
                 "one month",
-                {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "grund": None}},
+                {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "decision_reason": None}},
                 "active",
                 "erased_declined",
                 id="one month",
@@ -561,7 +561,7 @@ class TestTheReminderClockTakesAShareEachCall:
     def test_the_share_goes_to_the_earliest_deadlines(self, mongo_replica_set_url: str):
         """The later deadlines are seeded FIRST, so natural order would remind the pupils the deadline clock takes last."""
 
-        later = [registrierung(row["_id"], confirmation=bestaetigung(row["_id"], frist="2026-04-06")) for row in overflowing()[:5]]
+        later = [registrierung(row["_id"], confirmation=bestaetigung(row["_id"], deadline="2026-04-06")) for row in overflowing()[:5]]
         earlier = overflowing()[5:]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> set[str]:
@@ -570,8 +570,8 @@ class TestTheReminderClockTakesAShareEachCall:
             await sweep(database, client)
             chased = await reminded_ids(database)
 
-            rows = await database[Collection.REGISTRIERUNGEN].find({"_id": {"$in": chased}}, {"confirmation.frist": 1}).to_list(None)
-            return {row["confirmation"]["frist"] for row in rows}
+            rows = await database[Collection.REGISTRIERUNGEN].find({"_id": {"$in": chased}}, {"confirmation.deadline": 1}).to_list(None)
+            return {row["confirmation"]["deadline"] for row in rows}
 
         assert on_a_league(mongo_replica_set_url, body) == {"2026-04-05"}
 
@@ -654,7 +654,7 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
     try:
         database = a_clean_database_sync(client, url, database_name)
         database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
-        database[Collection.REGISTRIERUNGEN].insert_one(registrierung(EXPIRED_OID, confirmation=bestaetigung(EXPIRED_OID, frist=YESTERDAY)))
+        database[Collection.REGISTRIERUNGEN].insert_one(registrierung(EXPIRED_OID, confirmation=bestaetigung(EXPIRED_OID, deadline=YESTERDAY)))
 
         async def _called() -> int:
             async with app_client(url, app=_served(), now=NOW) as http:

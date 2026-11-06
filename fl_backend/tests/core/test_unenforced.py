@@ -78,7 +78,7 @@ def _side(team_id: str, name: str, **overrides: Any) -> dict[str, Any]:
 def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = None, **overrides: Any) -> dict[str, Any]:
     """One side as the fault walk reads it: the whole exit record, which is what a fault names its effective day from."""
 
-    record = None if disqualified_from is None else {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": disqualified_from}
+    record = None if disqualified_from is None else {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": disqualified_from}
 
     return _side(team_id, name, austritt=record, austritt_type=None if record is None else record["type"], **overrides)
 
@@ -110,7 +110,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
                 spiel_nr=FEEDER_NR,
                 spieltag_id=SPIELTAG_ONE,
                 saison_phase="viertelfinale",
-                datum=FEEDER_DATE,
+                date=FEEDER_DATE,
                 team1=_joined_side(ADLER, "Adler", disqualified_from=EXIT_BEFORE_THE_FIXTURE, tore=2),
                 team2=_joined_side(BIEBER, "Bieber", tore=1),
                 ergebnis="2:1",
@@ -158,18 +158,18 @@ def _resubmit(saison_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
             "team1_quelle": stored["team1_quelle"],
             "team2_quelle": stored["team2_quelle"],
             "elfmeterschiessen": stored["elfmeterschiessen"],
-            "datum": stored["datum"],
-            "uhrzeit": stored["uhrzeit"],
+            "date": stored["date"],
+            "time": stored["time"],
             "ort": _submitted(stored["ort"], keeping=("spielort_id", "mietpreis")),
             "schiedsrichter": _submitted(stored["schiedsrichter"], keeping=("schiedsrichter_id", "payment")),
-            "notiz": stored.get("notiz"),
+            "note": stored.get("note"),
             "version": stored.get("version", 0),
         }
     )
 
 
 def _rules(**overrides: Any) -> FLSaisonRules:
-    return FLSaisonRules.model_validate(rules_document(**{"max_kadergroesse": 50, "allowed_stufen": ["E1", "E2", "Q1", "Q2"], **overrides}))
+    return FLSaisonRules.model_validate(rules_document(**{"max_kader_size": 50, "allowed_stufen": ["E1", "E2", "Q1", "Q2"], **overrides}))
 
 
 def _on_create(proposed: FLSaisonRules):
@@ -341,11 +341,11 @@ def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpi
                     team1=None,
                     team2=None,
                     ergebnis=None,
-                    uhrzeit=uhrzeit,
+                    time=time,
                     schiedsrichter=None,
                 )
             )
-            for nr, uhrzeit in ((LIFTED_NO_SHOW_NR, "18:00:00"), (BOOKED_AN_HOUR_LATER_NR, "19:00:00"))
+            for nr, time in ((LIFTED_NO_SHOW_NR, "18:00:00"), (BOOKED_AN_HOUR_LATER_NR, "19:00:00"))
         ]
     )
 
@@ -363,8 +363,8 @@ def _clash_refusal_of(stored: FLSpielJoinedAdmin, holders: list[FLSpielSlotHolde
     claims = find_claims_made(stored, payload)
 
     return find_clash_refusal(
-        datum=payload.datum,
-        uhrzeit=payload.uhrzeit,
+        date=payload.date,
+        time=payload.time,
         booked=[slot for claim in claims for slot in slots_booked_against(claim, holders, spiel_id=stored.id)],
     )
 
@@ -392,12 +392,12 @@ class TestADoubleBookingALiftedNoShowLeaves:
         lifted, later = a_lifted_no_show_beside_a_later_booking
         holders = _holders_of([lifted, later])
 
-        assert _clash_refusal_of(lifted, holders, notiz="Nur eine Notiz") is None
-        assert _clash_refusal_of(later, holders, notiz="Nur eine Notiz") is None
+        assert _clash_refusal_of(lifted, holders, note="Nur eine Notiz") is None
+        assert _clash_refusal_of(later, holders, note="Nur eine Notiz") is None
 
-        moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
+        moved_inside = _clash_refusal_of(lifted, holders, time="17:30:00")
         assert moved_inside is not None and moved_inside.error_code == Code.SPIEL_DOUBLE_BOOKED
-        assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
+        assert _clash_refusal_of(lifted, holders, time="13:00:00") is None
 
 
 A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_link": "Sportplatz Nord", "mietpreis": 40}
@@ -413,7 +413,7 @@ class TestARefereeDoubleBookedAtTwoGrounds:
                 joined_spiel_document(spiel(_id=MATCH_ID.format(nr), spiel_nr=nr, ergebnis=None, **booking))
                 for nr, booking in (
                     (AT_THE_FIRST_GROUND_NR, {}),
-                    (AN_HOUR_LATER_AT_THE_SECOND_NR, {"uhrzeit": "19:00:00", "ort": A_SECOND_GROUND}),
+                    (AN_HOUR_LATER_AT_THE_SECOND_NR, {"time": "19:00:00", "ort": A_SECOND_GROUND}),
                 )
             ]
         )
@@ -471,7 +471,7 @@ class TestADisqualifiedClubKeepsItsFixtures:
         """The half `eligibility_disqualified` gained: the tolerated state is a fixture STANDING, never one moved past the exit."""
 
         stored = FLSpielListAdapter.validate_python(one_fixture)
-        re_dated = _resubmit(one_fixture, 1).model_copy(update={"datum": "2026-04-01"})
+        re_dated = _resubmit(one_fixture, 1).model_copy(update={"date": "2026-04-01"})
 
         assert re_dated.team1 is not None and stored[0].team1 is not None
         assert re_dated.team1.team_id == stored[0].team1.team_id, "both sides must be unchanged, or this proves the other half"
@@ -499,15 +499,15 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
     """That the order rule is handed one phase at a time."""
 
     def test_the_refusal_is_handed_no_phase_at_all(self):
-        """Its whole input: the `beginn` this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
+        """Its whole input: the `start` this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
 
         assert set(inspect.signature(find_spieltag_order_refusal).parameters) == {
-            "beginn",
-            "stored_beginn",
+            "start",
+            "stored_start",
             "previous",
             "following",
         }
-        assert set(DatedNeighbour.__dataclass_fields__) == {"position", "beginn"}
+        assert set(DatedNeighbour.__dataclass_fields__) == {"position", "start"}
 
 
 # Every refusal `PATCH /spiele/{spiel_id}` runs, which is the whole of what could gate a result on

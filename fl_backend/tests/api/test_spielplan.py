@@ -563,9 +563,9 @@ class TestTheEmittedDocumentsReadBack:
         """A drawn season states no date, no venue, no referee and no result: each is a later decision, and a placeholder would read as one."""
 
         for spiel in draw(*shape).spiele:
-            assert [
-                spiel[field] for field in ("datum", "uhrzeit", "ort", "schiedsrichter", "ergebnis", "elfmeterschiessen", "sonderereignis")
-            ] == [None] * 7
+            assert [spiel[field] for field in ("date", "time", "ort", "schiedsrichter", "ergebnis", "elfmeterschiessen", "sonderereignis")] == [
+                None
+            ] * 7
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_an_identifier_stays_an_objectid_and_a_number_a_plain_int(self, shape: tuple[int, int, int]):
@@ -608,7 +608,7 @@ class TestTheEmittedDocumentsReadBack:
     def test_no_matchday_arrives_dated(self, shape: tuple[int, int, int]):
         """Dating a matchday is a separate operation, and any span written here would be a claim nobody made."""
 
-        assert all((spieltag["beginn"], spieltag["ende"]) == (None, None) for spieltag in draw(*shape).spieltage)
+        assert all((spieltag["start"], spieltag["end"]) == (None, None) for spieltag in draw(*shape).spieltage)
 
 
 class TestAFixtureIsEitherDrawnOrWired:
@@ -761,7 +761,7 @@ RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=6,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=20,
+    max_kader_size=20,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=["Q1"],
 )
@@ -879,7 +879,7 @@ SCHIEDSRICHTER = "68f0a1b2c3d4e5f607600002"
 BRACKET_PHASE: FLSaisonPhase = next(phase for phase in PHASE_ORDER if phase != DRAWN_HOLDING_ITS_SIDES)
 
 # A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
-# could land in empty. No `notiz` key at all, which is the shape
+# could land in empty. No `note` key at all, which is the shape
 # `app/api/saisons/spielplan.py :: _spiel` leaves.
 UNTOUCHED_FIXTURE: Mapping[str, Any] = {
     "saison_phase": DRAWN_HOLDING_ITS_SIDES,
@@ -971,7 +971,7 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
     "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
     "ort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"ort": {"spielort_id": SPIELORT}}),
     "schiedsrichter.schiedsrichter_id": RecordedEdit(why="a booked referee", gruppe={"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER}}),
-    "notiz": RecordedEdit(why="an admin's note, which only `PATCH /spiele/{spiel_id}` writes", gruppe={"notiz": "Platz gesperrt"}),
+    "note": RecordedEdit(why="an admin's note, which only `PATCH /spiele/{spiel_id}` writes", gruppe={"note": "Platz gesperrt"}),
 }
 
 # The projected paths the two drawn shapes disagree about -- the sides half, which

@@ -58,13 +58,14 @@ from .test_identity_erasure_execution import (
     APPROVAL_REQUEST_BY_THEM_OID,
     APPROVAL_REQUEST_FOR_THEM_OID,
     BEWERBUNG_OID,
+    BIRTH_DATE,
     BLOCKLESS_BEWERBUNG_OID,
     DECLINED_OID,
-    GEBURTSDATUM,
+    FIRST_NAME,
     HOME_TEAM_OID,
     IDENTIFIER,
+    LAST_NAME,
     MOVING_PUPIL_CHANGE_OID,
-    NACHNAME,
     NOW,
     OTHER_REFEREE_CHANGE_OID,
     OTHER_TEAM_OID,
@@ -76,7 +77,6 @@ from .test_identity_erasure_execution import (
     THEIR_GRANT_OID,
     THEIR_VALUES,
     TYPED,
-    VORNAME,
     a_grant,
     a_person_holding_everything,
     acting,
@@ -265,8 +265,8 @@ def registration(registrierung_id: ObjectId, status: str) -> dict[str, str]:
         "team_id": str(HOME_TEAM_OID),
         "team_name": "Heim-Schule",
         "status": status,
-        "vorname": VORNAME,
-        "nachname": NACHNAME,
+        "first_name": FIRST_NAME,
+        "last_name": LAST_NAME,
     }
 
 
@@ -282,8 +282,8 @@ EXPECTED_ANSICHT = {
     "spieler": [
         {
             "spieler_id": str(PUPIL_OID),
-            "vorname": VORNAME,
-            "nachname": NACHNAME,
+            "first_name": FIRST_NAME,
+            "last_name": LAST_NAME,
             "kader": [{"saison_id": SAISON_ID, "team_id": str(HOME_TEAM_OID), "team_name": "Heim-Schule", "inactive_since": None}],
         }
     ],
@@ -297,18 +297,18 @@ EXPECTED_ANSICHT = {
             "team_id": str(HOME_TEAM_OID),
             "team_name": "Heim-Schule",
             "rolle": "ansprechperson",
-            "vorname": VORNAME,
-            "nachname": NACHNAME,
+            "first_name": FIRST_NAME,
+            "last_name": LAST_NAME,
         }
     ],
     "bewerbungen": [
-        {"bewerbung_id": str(BEWERBUNG_OID), "saison_id": SAISON_ID, "rolle": "trainer", "vorname": VORNAME, "nachname": NACHNAME},
+        {"bewerbung_id": str(BEWERBUNG_OID), "saison_id": SAISON_ID, "rolle": "trainer", "first_name": FIRST_NAME, "last_name": LAST_NAME},
         {
             "bewerbung_id": str(BLOCKLESS_BEWERBUNG_OID),
             "saison_id": SAISON_ID,
             "rolle": "ansprechperson",
-            "vorname": VORNAME,
-            "nachname": NACHNAME,
+            "first_name": FIRST_NAME,
+            "last_name": LAST_NAME,
         },
     ],
     "registrierungen": [registration(PENDING_OID, "submitted"), registration(DECLINED_OID, "declined")],
@@ -510,8 +510,8 @@ class TestTheReveal:
 
         assert response.status_code == 200, answer
         assert answer == EXPECTED_ANSICHT
-        assert keys_anywhere(answer) & {"email", "geburtsdatum"} == set()
-        assert "@" not in response.text and GEBURTSDATUM not in response.text
+        assert keys_anywhere(answer) & {"email", "birth_date"} == set()
+        assert "@" not in response.text and BIRTH_DATE not in response.text
         assert untouched
 
     def test_it_names_as_many_of_each_kind_as_the_loeschung_then_removes(self, mongo_replica_set_url: str):

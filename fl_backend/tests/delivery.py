@@ -26,7 +26,7 @@ async def a_mail_that_bounced(
                     key=key,
                     an=an,
                     data=FLBewerbungReceivedData(
-                        kind="bewerbung_received", saison_id="2026", rollen=["ansprechperson"], pending=[], frist="2026-04-15"
+                        kind="bewerbung_received", saison_id="2026", rollen=["ansprechperson"], pending=[], deadline="2026-04-15"
                     ),
                     reference=FLOutboxReference(collection=Collection.BEWERBUNGEN, id=bewerbung_id, seat=seat),
                 )
@@ -35,5 +35,5 @@ async def a_mail_that_bounced(
         )
     await database[Collection.OUTBOX].update_one(
         {"key": key},
-        {"$set": {"state": "sent", "delivery": {"state": "undeliverable", "grund": "NoEmail", "at": now}}},
+        {"$set": {"state": "sent", "delivery": {"state": "undeliverable", "delivery_reason": "NoEmail", "at": now}}},
     )

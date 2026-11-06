@@ -484,7 +484,7 @@ class TestAnLoeschungLeavesTheListStanding:
             # Seeded rather than admitted: this case needs a stored pupil at the barred address, not a
             # route that made one.
             await database[Collection.SPIELER].insert_one(
-                spieler_document(ObjectId(), "Zorbanax", "Mustermann", email=BANNED_RETYPED, geburtsdatum="2009-05-09")
+                spieler_document(ObjectId(), "Zorbanax", "Mustermann", email=BANNED_RETYPED, birth_date="2009-05-09")
             )
             gone = await erased(database, client, BANNED, germany_now=NOW)
 

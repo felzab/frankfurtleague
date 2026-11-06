@@ -60,7 +60,7 @@ TEAM = ObjectId("6890a1b2c3d4e5f607840051")
 ASKED_FOR_THEM = ObjectId("6890a1b2c3d4e5f607840071")
 ASKED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840072")
 
-ENTSCHEIDUNG = {"made_at": "2026-03-01", "by": ERASED, "grund": "Zu spät eingereicht"}
+ENTSCHEIDUNG = {"made_at": "2026-03-01", "by": ERASED, "decision_reason": "Zu spät eingereicht"}
 
 
 def grant(grant_id: ObjectId, address: str, granted_by: str) -> dict[str, Any]:
@@ -109,16 +109,16 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
             "pupil@example.com",
             saison_id="2026",
             team_id=TEAM,
-            vorname="Pia",
-            nachname="Muster",
+            first_name="Pia",
+            last_name="Muster",
             token="registrierung",
             submitted_at="2026-02-01",
-            frist="2026-02-08",
+            deadline="2026-02-08",
             status="declined",
             decision=ENTSCHEIDUNG,
         )
     )
-    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"decision.grund": "Anderes Team"}})
+    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"decision.decision_reason": "Anderes Team"}})
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [documents.schiedsrichter_document(READDRESSED_REFEREE, email=ERASED, name="Hiltrud Kesselring", default_payment=20, einwilligung=None)]
     )
@@ -285,7 +285,7 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     readdressed = image_of(log, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE)["before"]
     assert (readdressed["kontakt"]["email"], readdressed["name"]) == (None, "Hiltrud Kesselring")
     readdressed_pupil = image_of(log, Collection.SPIELER, READDRESSED_PUPIL)["before"]
-    assert (readdressed_pupil["email"], readdressed_pupil["vorname"]) == (None, "Wendelin")
+    assert (readdressed_pupil["email"], readdressed_pupil["first_name"]) == (None, "Wendelin")
     to_them = image_of(log, Collection.ADDRESS_CHANGES, TO_THEM)["before"]
     assert (to_them["email"], to_them["address"]) == (None, PUPIL_STORED)
     started = image_of(log, Collection.ADDRESS_CHANGES, STARTED_BY_THEM)["before"]

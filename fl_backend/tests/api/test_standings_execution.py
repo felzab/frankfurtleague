@@ -32,7 +32,7 @@ RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=18,
+    max_kader_size=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=STUFEN,
 )
@@ -88,8 +88,8 @@ def spiel_document(
         saison_phase=saison_phase,
         team1=None if team1 is None else side(team1, tore1),
         team2=None if team2 is None else side(team2, tore2),
-        datum="2026-03-15",
-        uhrzeit="18:00:00",
+        date="2026-03-15",
+        time="18:00:00",
         ergebnis=ergebnis,
         sonderereignis=sonderereignis,
     )

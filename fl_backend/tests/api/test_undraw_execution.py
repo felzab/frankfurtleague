@@ -60,7 +60,7 @@ A_KICKOFF = "18:00:00"
 RECORDS_CLOSING_THE_WINDOW = (
     pytest.param({"sonderereignis": "abgebrochen"}, id="an abandonment"),
     pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
-    pytest.param({"notiz": "Platz gesperrt"}, id="an admin's note, for which the draw writes no key at all"),
+    pytest.param({"note": "Platz gesperrt"}, id="an admin's note, for which the draw writes no key at all"),
 )
 
 # `spielplan` moved into `required`, so the `$unset` that clears the watermark is the write the
@@ -214,7 +214,7 @@ def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> UndrawnSeason:
         drawn = await call_draw(database, client)
         if dated:
-            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": {"datum": A_DATE, "uhrzeit": A_KICKOFF}})
+            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": {"date": A_DATE, "time": A_KICKOFF}})
 
         await call_undraw(database, client)
         spieltage, spiele = await counts_now(database)
@@ -281,7 +281,7 @@ class TestTheRemovalKeepsEveryImage:
         undrawn = an_undrawn_season(mongo_replica_set_url, dated=True)
         removed = next(row for row in undrawn.log if row["operation"] == "delete_many" and row["collection"] == str(Collection.SPIELE))
 
-        assert [(image["datum"], image["uhrzeit"]) for image in removed["before"] if image["datum"] is not None] == [(A_DATE, A_KICKOFF)]
+        assert [(image["date"], image["time"]) for image in removed["before"] if image["date"] is not None] == [(A_DATE, A_KICKOFF)]
 
 
 @dataclass(frozen=True)
@@ -455,11 +455,11 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         spieltag_id=ObjectId(),
         team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
         team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
-        datum="2026-05-01",
-        uhrzeit="18:00:00",
+        date="2026-05-01",
+        time="18:00:00",
     )
 
-    return documents.spielbestaetigung_document(fixture, party={"art": "team", "team_id": home})
+    return documents.spielbestaetigung_document(fixture, party={"kind": "team", "team_id": home})
 
 
 class TestAnUndrawTakesTheSeasonsConfirmations:
@@ -607,7 +607,7 @@ class TestTheWindowIsReachedThroughTheRoute:
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
     def test_a_single_recorded_fixture_keeps_the_whole_spielplan(self, mongo_replica_set_url: str, record: dict[str, Any]):
-        """Count these off anything but the stored rows and this fails; drop `notiz` from the projection and the last one does."""
+        """Count these off anything but the stored rows and this fails; drop `note` from the projection and the last one does."""
 
         refused = an_undraw_refused_on(mongo_replica_set_url, record=record)
 
@@ -647,11 +647,11 @@ def seeding_payload(stored: dict[str, Any], team_id: ObjectId) -> FLPatchSpielDa
             "team1_quelle": None,
             "team2_quelle": stored["team2_quelle"],
             "elfmeterschiessen": None,
-            "datum": None,
-            "uhrzeit": None,
+            "date": None,
+            "time": None,
             "ort": None,
             "schiedsrichter": None,
-            "notiz": None,
+            "note": None,
             "version": stored["version"],
         }
     )

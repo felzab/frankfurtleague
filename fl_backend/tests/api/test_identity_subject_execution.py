@@ -113,7 +113,7 @@ def _person(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
     Stamped by default: the lookup answers a seat only once its own person has confirmed it.
     """
 
-    return kontaktperson_document("Anna", confirmed_at=confirmed_at, nachname="Müller", email=email, telefon="+49 69 5550101")
+    return kontaktperson_document("Anna", confirmed_at=confirmed_at, last_name="Müller", email=email, phone="+49 69 5550101")
 
 
 def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str | dict[str, Any]) -> dict[str, Any]:
@@ -165,7 +165,7 @@ def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict
         "name": name,
         "schule": None,
         "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
+        "kontakt": {"phone": "+49 69 5550202", "email": email},
         "inactive_since": None,
         "einwilligung": {**EINWILLIGUNG, "confirmed_at": STAMP},
         **fields,

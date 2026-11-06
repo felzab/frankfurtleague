@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.registrierungen.schemas import FLRegistrierungSeite
+from app.api.registrierungen.schemas import FLRegistrierungPage
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -115,7 +115,7 @@ def _einwilligung(*, text_versions: TextVersions = SCHIEDSRICHTER_TEXT_VERSIONS,
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     # A name per referee: `app/core/constraints.py :: uniq_schiedsrichter_name` indexes it.
     return schiedsrichter_document(
-        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "geburtsdatum": ADULT_BIRTHDATE, **fields}
+        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "birth_date": ADULT_BIRTHDATE, **fields}
     )
 
 
@@ -178,8 +178,8 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03", **einwilligung
         confirmed_at=confirmed_at,
         at=SEAT_ANSWERED_AT,
         email=email,
-        telefon="+49 69 5550101",
-        geburtsdatum=ADULT_BIRTHDATE,
+        phone="+49 69 5550101",
+        birth_date=ADULT_BIRTHDATE,
         einwilligung={"date": "2026-09-01", **einwilligung},
     )
 
@@ -228,16 +228,16 @@ async def _seed(database: AsyncDatabase) -> None:
             "Ortrud",
             "Zwiebelmayer",
             email=IDENTIFIER,
-            geburtsdatum=ADULT_BIRTHDATE,
+            birth_date=ADULT_BIRTHDATE,
             einwilligung=_einwilligung(text_versions=SPIELER_TEXT_VERSIONS),
         )
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             _referee(REFEREE_OID, REFEREE_STORED, "Ortrud Zwiebelmayer"),
-            _referee(YOUNG_OID, YOUNG, "Jonas Jungspund", geburtsdatum=SEVENTEEN_BIRTHDATE),
+            _referee(YOUNG_OID, YOUNG, "Jonas Jungspund", birth_date=SEVENTEEN_BIRTHDATE),
             _referee(RETIRED_OID, RETIRED, "Rudolf Ruhestand", inactive_since="2026-07-01", einwilligung=_einwilligung(media=True)),
-            _referee(UNCONFIRMED_OID, UNCONFIRMED, "Ottilie Wartezeit", geburtsdatum=None, einwilligung=None),
+            _referee(UNCONFIRMED_OID, UNCONFIRMED, "Ottilie Wartezeit", birth_date=None, einwilligung=None),
             _referee(BYSTANDER_OID, BYSTANDER, "Baldur Krautzberger"),
             # Confirmed, at the asked address's local part: every read narrowed by that local part reaches it, and the fold
             # after the read alone keeps it from the asker's page, list and press.
@@ -295,7 +295,7 @@ class TestTheOwnRecords:
         )
         # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is, nor the
         # consent, which is the account page's.
-        assert (record["honorar"], "default_payment" in record, "confirmation" in record, "einwilligung" in record) == (
+        assert (record["payment"], "default_payment" in record, "confirmation" in record, "einwilligung" in record) == (
             20,
             False,
             False,
@@ -684,7 +684,7 @@ class TestTheSeatsMediaChoice:
         async def young_and_off(database: AsyncDatabase) -> None:
             await database[Collection.SAISON_TEAMS].update_one(
                 {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
-                {"$set": {"kontakte.stellvertretung.geburtsdatum": SEVENTEEN_BIRTHDATE, "kontakte.stellvertretung.einwilligung.media": False}},
+                {"$set": {"kontakte.stellvertretung.birth_date": SEVENTEEN_BIRTHDATE, "kontakte.stellvertretung.einwilligung.media": False}},
             )
 
         response, before, after = served(
@@ -1017,14 +1017,14 @@ REGISTRIERUNG_BYSTANDER = ObjectId("6890a1b2c3d4e5f607850065")
 REGISTRIERUNG_GRANT = {"at": "2026-09-21T08:00:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["scope"]}
 
 
-def _registrierung(oid: ObjectId, email: str, *, seite: FLRegistrierungSeite | None = "bestaetigung_spieler", **choices: Any) -> dict[str, Any]:
-    """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
+def _registrierung(oid: ObjectId, email: str, *, page: FLRegistrierungPage | None = "bestaetigung_spieler", **choices: Any) -> dict[str, Any]:
+    """A registration as its composers leave it; `page` the confirmation page its pupil answered, `None` for none yet."""
 
-    chosen = {"scope": "kader_oeffentlich", "media": True, **choices} if seite == "bestaetigung_spieler" else {}
+    chosen = {"scope": "kader_oeffentlich", "media": True, **choices} if page == "bestaetigung_spieler" else {}
     confirmed = (
         None
-        if seite is None
-        else registrierung_confirmed(geburtsdatum=SEVENTEEN_BIRTHDATE, today="2026-09-21", at=REGISTRIERUNG_GRANT["at"], **chosen)
+        if page is None
+        else registrierung_confirmed(birth_date=SEVENTEEN_BIRTHDATE, today="2026-09-21", at=REGISTRIERUNG_GRANT["at"], **chosen)
     )
 
     return registrierung_document(
@@ -1032,11 +1032,11 @@ def _registrierung(oid: ObjectId, email: str, *, seite: FLRegistrierungSeite | N
         email,
         saison_id=ACTIVE_SAISON,
         team_id=TEAM_A_OID,
-        vorname="Ortrud",
-        nachname="Zwiebelmayer",
+        first_name="Ortrud",
+        last_name="Zwiebelmayer",
         token=str(oid),
         submitted_at="2026-09-20",
-        frist="2026-09-27",
+        deadline="2026-09-27",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
@@ -1048,13 +1048,13 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
     """The person's own registration; one of theirs in each state that leaves nothing to change; a stranger's."""
 
     declined = _registrierung(REGISTRIERUNG_DECLINED, REFEREE_STORED)
-    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
+    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", decision_reason=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_OWN, REFEREE_STORED, **choices),
-            _registrierung(REGISTRIERUNG_UNCONFIRMED, IDENTIFIER, seite=None),
+            _registrierung(REGISTRIERUNG_UNCONFIRMED, IDENTIFIER, page=None),
             declined,
-            _registrierung(REGISTRIERUNG_RETURNING, IDENTIFIER, seite="bestaetigung_spieler_wiederkehrend"),
+            _registrierung(REGISTRIERUNG_RETURNING, IDENTIFIER, page="bestaetigung_spieler_wiederkehrend"),
             _registrierung(REGISTRIERUNG_BYSTANDER, BYSTANDER),
         ]
     )

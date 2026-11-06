@@ -24,13 +24,13 @@ from app.api.bewerbungen.admin_router import (
 from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
-    FLBewerbungEinwilligungAntwortPayload,
+    FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungenFilterParams,
     FLBewerbungKontaktEmailPayload,
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
-from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_new_club
+from app.api.bewerbungen.services import compose_new_club, confirmation_deadline_from
 from app.api.outbox.crud import states_of
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import post_team
@@ -41,7 +41,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
-from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
+from app.shared.schemas.bounds import BEWERBUNG_DECISION_REASON_MAX_LENGTH
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
@@ -113,10 +113,10 @@ RULES: Mapping[str, Any] = rules_document(number_of_gruppen=2, teams_per_gruppe=
 SEATED: Final = {"date": "2026-01-15"}
 
 
-def kontaktperson(vorname: str) -> dict[str, Any]:
+def kontaktperson(first_name: str) -> dict[str, Any]:
     """One of the three people an application is filled in by, in the shape the junction stores them."""
 
-    return kontaktperson_document(vorname, confirmed_at="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
 
 
 # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
@@ -235,20 +235,22 @@ async def accept(
     )
 
 
-GRUND = "Die Gruppen sind für diese Saison bereits besetzt."
+DECISION_REASON = "Die Gruppen sind für diese Saison bereits besetzt."
 
-_GRUND_SENTENCE = "Grün-weiß gestreifte Trikots gehören leider nicht in die Saisonordnung. "
+_DECISION_REASON_SENTENCE = "Grün-weiß gestreifte Trikots gehören leider nicht in die Saisonordnung. "
 
 # Exactly the bound, multibyte with it, and closed with a character no strip takes: a truncation
 # counting BYTES cuts the last one off, and a bound the repetition happened to cut on a space would
 # fail the same comparison over the trim instead.
-GRUND_AT_THE_BOUND = (_GRUND_SENTENCE * (BEWERBUNG_GRUND_MAX_LENGTH // len(_GRUND_SENTENCE) + 1))[: BEWERBUNG_GRUND_MAX_LENGTH - 1] + "."
+DECISION_REASON_AT_THE_BOUND = (_DECISION_REASON_SENTENCE * (BEWERBUNG_DECISION_REASON_MAX_LENGTH // len(_DECISION_REASON_SENTENCE) + 1))[
+    : BEWERBUNG_DECISION_REASON_MAX_LENGTH - 1
+] + "."
 
 
-async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, grund: str = GRUND) -> Any:
+async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, decision_reason: str = DECISION_REASON) -> Any:
     return await decline_bewerbung(
         bewerbung_id=bewerbung_id,
-        ablehnung_data=FLDeclineBewerbungPayload(grund=grund),
+        ablehnung_data=FLDeclineBewerbungPayload(decision_reason=decision_reason),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
@@ -328,7 +330,7 @@ class TestAnAcceptanceEntersTheSchool:
 
         # The write the acceptance owes the application: without it a new school's row names no club.
         assert (stored["status"], stored["team_id"]) == ("accepted", created["_id"])
-        assert stored["decision"] == {"made_at": TODAY, "by": ADMIN_EMAIL, "grund": None}
+        assert stored["decision"] == {"made_at": TODAY, "by": ADMIN_EMAIL, "decision_reason": None}
         assert (response.team_id, response.created_team, response.gruppe) == (created["_id"], True, "A")
 
     def test_an_application_naming_an_existing_club_creates_none(self, mongo_replica_set_url: str):
@@ -567,11 +569,11 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
     for slot in ("trainer", "ansprechperson", "stellvertretung"):
         stamped = slot != open_seat
         block[slot] = kontaktperson_document(
-            KONTAKTE[slot]["vorname"],
+            KONTAKTE[slot]["first_name"],
             confirmed_at="2026-02-10" if stamped else None,
             einwilligung=SEATED,
-            telefon="+49 69 1234567",
-            geburtsdatum="1980-05-04" if stamped else None,
+            phone="+49 69 1234567",
+            birth_date="1980-05-04" if stamped else None,
         )
 
     return block
@@ -628,7 +630,7 @@ class TestAcceptanceWaitsForEverySeat:
         assert len(rows) == 1
         for slot in ("trainer", "ansprechperson", "stellvertretung"):
             assert rows[0]["kontakte"][slot]["einwilligung"]["confirmed_at"] == "2026-02-10"
-            assert rows[0]["kontakte"][slot]["geburtsdatum"] == "1980-05-04"
+            assert rows[0]["kontakte"][slot]["birth_date"] == "1980-05-04"
         # The bookkeeping block stays on the application: a hash copied into the junction would live there for a season.
         assert "confirmations" not in rows[0]
 
@@ -776,7 +778,7 @@ class TestWhoTheDecisionNames:
         assert entscheidung["by"] == ADMIN_EMAIL
         assert entscheidung["by"] != SYSTEM_ACTOR_EMAIL
         # The injected clock reached it too, so the date is the request's rather than the wall's.
-        assert (entscheidung["made_at"], entscheidung["grund"]) == (TODAY, None)
+        assert (entscheidung["made_at"], entscheidung["decision_reason"]) == (TODAY, None)
 
     def test_the_log_row_for_that_write_names_the_same_person(self, mongo_replica_set_url: str):
         """The pairing the field exists for: two sources for one name is two names waiting to disagree."""
@@ -795,12 +797,12 @@ class TestWhoTheDecisionNames:
     def test_a_served_decline_names_the_administrator_as_well(self, mongo_replica_set_url: str):
         """The decline is a second endpoint writing a block of its own, so the acceptance's proof says nothing about it.
 
-        Its block also carries a `grund` the acceptance's does not, which is what makes the two
+        Its block also carries a `decision_reason` the acceptance's does not, which is what makes the two
         different objects rather than one shape.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": GRUND})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": DECISION_REASON})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
 
@@ -857,22 +859,25 @@ class TestADeclineTouchesNothingElse:
         status, entscheidung, team_id, rows = on_a_league(mongo_replica_set_url, body)
 
         assert status == "declined"
-        assert entscheidung == {"made_at": TODAY, "by": ADMIN_EMAIL, "grund": GRUND}
+        assert entscheidung == {"made_at": TODAY, "by": ADMIN_EMAIL, "decision_reason": DECISION_REASON}
         # Left as the applicant picked it: a decline creates no reference and clears none.
         assert (team_id, rows) == (EXISTING_OID, [])
 
     def test_the_bounded_reason_is_the_case_it_claims_to_be(self):
         """A floor under the constant: one that drifted off the bound, or lost its umlauts, would test nothing in particular."""
 
-        assert len(GRUND_AT_THE_BOUND) == BEWERBUNG_GRUND_MAX_LENGTH
-        assert len(GRUND_AT_THE_BOUND.encode("utf-8")) > BEWERBUNG_GRUND_MAX_LENGTH
+        assert len(DECISION_REASON_AT_THE_BOUND) == BEWERBUNG_DECISION_REASON_MAX_LENGTH
+        assert len(DECISION_REASON_AT_THE_BOUND.encode("utf-8")) > BEWERBUNG_DECISION_REASON_MAX_LENGTH
         # The strip runs before the length is compared, so a reason ending in a space comes back
         # shorter than it was sent and fails that comparison for no reason of its own.
-        assert GRUND_AT_THE_BOUND.strip() == GRUND_AT_THE_BOUND
+        assert DECISION_REASON_AT_THE_BOUND.strip() == DECISION_REASON_AT_THE_BOUND
 
     @pytest.mark.db
-    @pytest.mark.parametrize("grund", [pytest.param(GRUND, id="an ordinary reason"), pytest.param(GRUND_AT_THE_BOUND, id="at the bound")])
-    def test_the_served_reason_reaches_the_document_byte_identical(self, mongo_replica_set_url: str, grund: str):
+    @pytest.mark.parametrize(
+        "decision_reason",
+        [pytest.param(DECISION_REASON, id="an ordinary reason"), pytest.param(DECISION_REASON_AT_THE_BOUND, id="at the bound")],
+    )
+    def test_the_served_reason_reaches_the_document_byte_identical(self, mongo_replica_set_url: str, decision_reason: str):
         """The reason is stored AND emailed to the applicants: one lost on the way is a decline nobody can act on.
 
         Served rather than called, so the JSON decode is in the path: every other decline in this file
@@ -880,21 +885,21 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": grund})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": decision_reason})
 
-            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["grund"]
+            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["decision_reason"]
 
-        status_code, stored_grund = on_a_league(mongo_replica_set_url, body)
+        status_code, stored_decision_reason = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
         # Encoded on both sides, so a re-encoding fails here as a truncation does; the length is
         # asserted separately, which is what says WHICH of the two happened.
-        assert stored_grund.encode("utf-8") == grund.encode("utf-8")
-        assert len(stored_grund) == len(grund)
+        assert stored_decision_reason.encode("utf-8") == decision_reason.encode("utf-8")
+        assert len(stored_decision_reason) == len(decision_reason)
 
     @pytest.mark.db
-    @pytest.mark.parametrize("grund", [pytest.param("   ", id="spaces"), pytest.param("\t\n ", id="tab and newline")])
-    def test_a_reason_of_whitespace_alone_is_refused(self, mongo_replica_set_url: str, grund: str):
+    @pytest.mark.parametrize("decision_reason", [pytest.param("   ", id="spaces"), pytest.param("\t\n ", id="tab and newline")])
+    def test_a_reason_of_whitespace_alone_is_refused(self, mongo_replica_set_url: str, decision_reason: str):
         """Drop `strip_whitespace` and this passes as a 200: `min_length` counts CHARACTERS.
 
         A decline is irreversible, so a reason of spaces stands on the application for good and
@@ -902,7 +907,7 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": grund})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": decision_reason})
 
             return response.status_code, await stored_bewerbung(database, PICKED_BEWERBUNG)
 
@@ -920,14 +925,14 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": f"  {GRUND}\n"})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": f"  {DECISION_REASON}\n"})
 
-            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["grund"]
+            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["decision_reason"]
 
-        status_code, stored_grund = on_a_league(mongo_replica_set_url, body)
+        status_code, stored_decision_reason = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200
-        assert stored_grund == GRUND
+        assert stored_decision_reason == DECISION_REASON
 
 
 async def take_decision(kind: str, database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> Any:
@@ -976,7 +981,7 @@ class TestADecisionIsNotTakenTwice:
 # The second administrator: a different address and a different reason, so a decline that overwrote
 # the first one's is visible in the stored block rather than only in a timestamp.
 OTHER_ADMIN_EMAIL = "triage.bramblewick@example.com"
-OTHER_GRUND = "Die Anmeldefrist für diese Saison ist verstrichen."
+OTHER_DECISION_REASON = "Die Anmeldefrist für diese Saison ist verstrichen."
 
 
 class ApplicationsRunningARivalBeforeTheirWrite(InterleavedCollection):
@@ -989,9 +994,9 @@ class ApplicationsRunningARivalBeforeTheirWrite(InterleavedCollection):
 
 @pytest.mark.db
 class TestTwoDeclinesAtOnce:
-    """The loser of the race mails the applicants nothing, and the winner's `grund` and name stand.
+    """The loser of the race mails the applicants nothing, and the winner's `decision_reason` and name stand.
 
-    Both administrators otherwise send the three people a rejection letter, and one `grund` and one
+    Both administrators otherwise send the three people a rejection letter, and one `decision_reason` and one
     name survive.
     """
 
@@ -1012,7 +1017,7 @@ class TestTwoDeclinesAtOnce:
             with pytest.raises(APIError) as conflict:
                 await decline_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
-                    ablehnung_data=FLDeclineBewerbungPayload(grund=OTHER_GRUND),
+                    ablehnung_data=FLDeclineBewerbungPayload(decision_reason=OTHER_DECISION_REASON),
                     bewerbungen_collection=cast(AsyncCollection, racing),
                     teams_collection=database[Collection.TEAMS],
                     outbox_collection=database[Collection.OUTBOX],
@@ -1030,7 +1035,7 @@ class TestTwoDeclinesAtOnce:
 
         assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the losing decline overwrote the reason and the name the first one stored"
-        assert after_first["decision"]["grund"] == GRUND
+        assert after_first["decision"]["decision_reason"] == DECISION_REASON
 
     def test_an_application_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1039,7 +1044,7 @@ class TestTwoDeclinesAtOnce:
             with pytest.raises(DocumentNotFoundError) as missing:
                 await decline_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
-                    ablehnung_data=FLDeclineBewerbungPayload(grund=OTHER_GRUND),
+                    ablehnung_data=FLDeclineBewerbungPayload(decision_reason=OTHER_DECISION_REASON),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
                     outbox_collection=database[Collection.OUTBOX],
@@ -1352,7 +1357,7 @@ class TestCorrectingOneContactAddress:
         response, mail, stored = on_a_league(mongo_replica_set_url, body)
 
         assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
-        assert response.confirmation_deadline == bestaetigungsfrist_from(today=TODAY)
+        assert response.confirmation_deadline == confirmation_deadline_from(today=TODAY)
         assert stored["kontakte"]["ansprechperson"]["email"] == CORRECTED_EMAIL
         assert stored["confirmation_deadline"] == response.confirmation_deadline
         # The raw token exists in the mail alone; the document keeps its hash, minted by the hand-out.
@@ -1590,7 +1595,7 @@ class MissesTheFirstWrite:
 
 
 async def answer_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await answer_for(database, client, "ansprechperson", antwort="given", geburtsdatum="1980-05-04", text_versions=dict(SEAT_TEXT_VERSIONS))
+    await answer_for(database, client, "ansprechperson", answer="given", birth_date="1980-05-04", text_versions=dict(SEAT_TEXT_VERSIONS))
 
 
 async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -1749,10 +1754,10 @@ RESEAT_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000b")
 
 # Distinct from every seeded person, so a slot this write never reached cannot compare equal to one it did.
 RESEAT_PERSON: Mapping[str, Any] = {
-    "vorname": "Wilburga",
-    "nachname": "Dringenhoff",
+    "first_name": "Wilburga",
+    "last_name": "Dringenhoff",
     "email": "wilburga.dringenhoff@example.de",
-    "telefon": "+49 69 7654321",
+    "phone": "+49 69 7654321",
 }
 
 # The address the seeded Ansprechperson held before their Widerspruch emptied the seat.
@@ -1789,8 +1794,8 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
 
     return await post_einwilligung(
         # A Widerspruch unless the case answers otherwise, and then a consent naming its own date and labels.
-        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
-            {"token": token, **({"whatsapp": False, "media": False, **answer} if answer else {"antwort": "declined"})}
+        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
+            {"token": token, **({"whatsapp": False, "media": False, **answer} if answer else {"answer": "declined"})}
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -1822,7 +1827,7 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
             kontakte=kontakte,
             confirmations=BESTAETIGUNGEN,
             # After `TODAY`, so the seat's own link still opens and the Widerspruch below is taken,
-            # and off `bestaetigungsfrist_from`'s answer, which a kept deadline would compare equal to.
+            # and off `confirmation_deadline_from`'s answer, which a kept deadline would compare equal to.
             confirmation_deadline="2026-04-20",
         )
     )
@@ -1857,7 +1862,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert response.rollen == ["ansprechperson"]
         assert stored["kontakte"]["ansprechperson"] == {
             **RESEAT_PERSON,
-            "geburtsdatum": None,
+            "birth_date": None,
             # Born afresh, the league named as who seated them: nothing of the person who stepped out
             # of the seat travels to the one seated, their evidence included.
             "einwilligung": {
@@ -1872,7 +1877,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert [mail.an for mail in mails] == [RESEAT_PERSON["email"]]
         assert linked["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mails[0].token or "")]
         assert stored["confirmations"]["ansprechperson"]["declined_at"] is None
-        assert stored["confirmation_deadline"] == bestaetigungsfrist_from(today=TODAY)
+        assert stored["confirmation_deadline"] == confirmation_deadline_from(today=TODAY)
         assert response.confirmation_deadline == stored["confirmation_deadline"]
         # Two would leave the new person standing in the seat beside the link its last holder was sent.
         assert rows_written == 1
@@ -2055,7 +2060,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored["confirmation_deadline"] == bestaetigungsfrist_from(today=TODAY)
+        assert stored["confirmation_deadline"] == confirmation_deadline_from(today=TODAY)
         assert stored["confirmation_deadline"] > TODAY, "the new person is seated behind a link that already opens nothing"
 
 

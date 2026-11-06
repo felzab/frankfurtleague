@@ -85,7 +85,7 @@ def address() -> PayloadFactory:
 
 @pytest.fixture
 def kontakt() -> PayloadFactory:
-    return _factory({"telefon": "+49 69 1234567", "email": "kontakt@example.com"})
+    return _factory({"phone": "+49 69 1234567", "email": "kontakt@example.com"})
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ def statistik() -> PayloadFactory:
             "tore_geschossen": 7,
             "tore_kassiert": 4,
             "punkte": 6,
-            "count_abgesagte_spiele": 1,
+            "count_cancelled_spiele": 1,
         }
     )
 
@@ -153,8 +153,8 @@ def spiel(
             # A group-phase fixture: both sides are drawn by the schedule, so neither has a source.
             "team1_quelle": None,
             "team2_quelle": None,
-            "datum": "2026-03-15",
-            "uhrzeit": "18:00:00",
+            "date": "2026-03-15",
+            "time": "18:00:00",
             "ort": spiel_ort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
@@ -226,8 +226,8 @@ def spieler() -> PayloadFactory:
     return _factory(
         {
             "_id": SPIELER_ID,
-            "vorname": "Max",
-            "nachname": "Mustermann",
+            "first_name": "Max",
+            "last_name": "Mustermann",
             "stufe": "Q2",
             "nummer": "10",
             # `Angriff`, not `Sturm`: the enum closed on this spelling.
@@ -236,7 +236,7 @@ def spieler() -> PayloadFactory:
             "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
-            "geburtsdatum": "2009-05-04",
+            "birth_date": "2009-05-04",
             "einwilligung": dict(EINWILLIGUNG),
         }
     )
@@ -248,8 +248,8 @@ def spieltag() -> PayloadFactory:
         {
             "_id": SPIELTAG_ID,
             # No `name`: a matchday's label is composed by the reader, from `position` and the phase.
-            "beginn": "2026-03-15",
-            "ende": "2026-03-15",
+            "start": "2026-03-15",
+            "end": "2026-03-15",
             "count_spiele": 4,
             "position": 1,
             "saison_phase": "gruppenphase",

@@ -26,10 +26,10 @@ MONEY_KEYS = frozenset({MIETPREIS_KEY, PAYMENT_KEY})
 
 # What the backend keeps off a served fixture side: the free text naming a school and the day it took
 # effect. Spelled as a DOCUMENT spells them, for `MONEY_KEYS`' reason.
-AUSTRITT_DETAIL_KEYS = frozenset({"grund", "datum"})
+AUSTRITT_DETAIL_KEYS = frozenset({"exit_reason", "date"})
 AUSTRITT_TYPE_KEY = "austritt_type"
 
-# Searched per SIDE rather than over the whole body: a fixture's own `datum` shares its name with a
+# Searched per SIDE rather than over the whole body: a fixture's own `date` shares its name with a
 # withdrawal's, so a body-wide search for that key could never fail.
 SIDES = ("team1", "team2")
 
@@ -54,7 +54,7 @@ SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
-AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def stored_document() -> dict[str, Any]:
@@ -67,8 +67,8 @@ def stored_document() -> dict[str, Any]:
         spieltag_id=SPIELTAG_ID,
         team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALX", "tore": 2},
         team2={"team_id": AWAY, "name": "Beta", "shorthand": "BEX", "tore": 1},
-        datum="2026-03-15",
-        uhrzeit="14:00:00",
+        date="2026-03-15",
+        time="14:00:00",
         ort={"spielort_id": SPIELORT_ID, "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": SCHIEDSRICHTER_NAME, "payment": PAYMENT},
         ergebnis="2:1",
@@ -78,7 +78,7 @@ def stored_document() -> dict[str, Any]:
 def spieltag_document() -> dict[str, Any]:
     """The fixture's matchday, which the Spielplan lists it under."""
 
-    return {"_id": SPIELTAG_ID, "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
+    return {"_id": SPIELTAG_ID, "start": None, "end": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
 
 
 def joined_document() -> dict[str, Any]:
@@ -120,7 +120,7 @@ def keys_anywhere(payload: Any) -> set[str]:
 def keys_under(payload: Any, field: str) -> set[str]:
     """Every mapping key at every depth BENEATH any `field` key, wherever one is nested.
 
-    Scoped where `keys_anywhere` is not: a fixture's own `datum` shares its name with a
+    Scoped where `keys_anywhere` is not: a fixture's own `date` shares its name with a
     withdrawal's, so a body-wide search for that key could never fail.
     """
 
@@ -152,8 +152,8 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         "team2",
         "team1_quelle",
         "team2_quelle",
-        "datum",
-        "uhrzeit",
+        "date",
+        "time",
         "ort",
         "schiedsrichter",
         "ergebnis",
@@ -164,7 +164,7 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         "saison_phase",
         "saison_id",
         # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
-        "notiz",
+        "note",
         # A verdict and never a row: no seat, no answer's reason.
         "ansetzung_confirmed",
         # The one rule for the match for third place, which the join composes.

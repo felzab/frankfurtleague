@@ -256,13 +256,13 @@ class TestADueChangeTakesEffect:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_due_person(database, 1)
             answer = await sweep(database, client)
-            return answer, await database[Collection.SPIELER].distinct("email", {"vorname": "Quintessa"}), await owed(database)
+            return answer, await database[Collection.SPIELER].distinct("email", {"first_name": "Quintessa"}), await owed(database)
 
         answer, addresses, notices = on_a_league(mongo_replica_set_url, body)
 
         assert answer.effective == 1
         # The lost-mailbox way greets nobody.
-        assert notices == [{"kind": "effective", "an": on_file(1), "vorname": None}]
+        assert notices == [{"kind": "effective", "an": on_file(1), "first_name": None}]
         assert addresses == [pending(1)]
 
     @pytest.mark.parametrize("barred", ["on_file", "pending"])
@@ -517,11 +517,11 @@ class TestTheDeadlineStopsTheCall:
                 on_file(2),
                 saison_id="2026",
                 team_id=ObjectId(),
-                vorname="Quintessa",
-                nachname="Muster 2",
+                first_name="Quintessa",
+                last_name="Muster 2",
                 token=f"registration-{number}",
                 submitted_at="2126-04-14",
-                frist="2126-04-21",
+                deadline="2126-04-21",
             )
             for number in range(3)
         ]
@@ -536,7 +536,7 @@ class TestTheDeadlineStopsTheCall:
 
             return (
                 answer,
-                await database[Collection.SPIELER].distinct("email", {"nachname": "Muster 2"}),
+                await database[Collection.SPIELER].distinct("email", {"last_name": "Muster 2"}),
                 await database[Collection.REGISTRIERUNGEN].distinct("email", {"_id": {"$in": [row["_id"] for row in registrations]}}),
             )
 

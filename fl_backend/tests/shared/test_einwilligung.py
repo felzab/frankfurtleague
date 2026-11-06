@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload, FLRegistrierungEinwilligung
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationPayload, FLSchiedsrichterRecord
 from app.api.spieler.schemas import FLSpielerRecord
@@ -126,11 +126,11 @@ def _replaced(kind: type[FLSeatTextVersions] | type[FLSpielerTextVersions] | typ
 
 
 def _seat_answer(*, scope: str, media: bool, text_versions: Any) -> Any:
-    return TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
+    return TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
         {
-            "antwort": "given",
+            "answer": "given",
             "token": "raw-trainer",
-            "geburtsdatum": "1984-05-09",
+            "birth_date": "1984-05-09",
             "whatsapp": scope == "kontaktdaten_whatsapp",
             "media": media,
             "text_versions": text_versions,
@@ -141,7 +141,7 @@ def _seat_answer(*, scope: str, media: bool, text_versions: Any) -> Any:
 def _confirmation(model: type[BaseModel]) -> Callable[..., Any]:
     def validate(*, scope: str, media: bool, text_versions: Any) -> Any:
         return model.model_validate(
-            {"token": "raw-link", "geburtsdatum": "1984-05-09", "scope": scope, "media": media, "text_versions": text_versions}
+            {"token": "raw-link", "birth_date": "1984-05-09", "scope": scope, "media": media, "text_versions": text_versions}
         )
 
     return validate

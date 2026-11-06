@@ -31,7 +31,7 @@ RULES = FLSaisonRules(
     number_of_gruppen=2,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=50,
+    max_kader_size=50,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=STUFEN,
 )

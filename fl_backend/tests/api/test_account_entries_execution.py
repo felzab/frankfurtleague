@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import find_own_entries
-from app.api.registrierungen.schemas import FLRegistrierungSeite
+from app.api.registrierungen.schemas import FLRegistrierungPage
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -126,7 +126,7 @@ def _einwilligung(**fields: Any) -> dict[str, Any]:
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     return schiedsrichter_document(
-        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "geburtsdatum": "2000-05-09", **fields}
+        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "birth_date": "2000-05-09", **fields}
     )
 
 
@@ -135,8 +135,8 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03") -> dict[str, A
         "Wiltrudis",
         confirmed_at=confirmed_at,
         email=email,
-        telefon="+49 69 5550101",
-        geburtsdatum="2000-05-09",
+        phone="+49 69 5550101",
+        birth_date="2000-05-09",
         einwilligung={"date": "2026-09-01", "media": True},
     )
 
@@ -158,15 +158,13 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
 
 
 def _registrierung(
-    oid: ObjectId, email: str, *, seite: FLRegistrierungSeite | None = "bestaetigung_spieler", vorname: str = "Wiltrudis"
+    oid: ObjectId, email: str, *, page: FLRegistrierungPage | None = "bestaetigung_spieler", first_name: str = "Wiltrudis"
 ) -> dict[str, Any]:
-    """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
+    """A registration as its composers leave it; `page` the confirmation page its pupil answered, `None` for none yet."""
 
-    chosen: dict[str, Any] = {"scope": "kader_oeffentlich", "media": True} if seite == "bestaetigung_spieler" else {}
+    chosen: dict[str, Any] = {"scope": "kader_oeffentlich", "media": True} if page == "bestaetigung_spieler" else {}
     confirmed = (
-        None
-        if seite is None
-        else registrierung_confirmed(geburtsdatum="2008-05-09", today="2026-09-21", at="2026-09-21T08:00:00+00:00", **chosen)
+        None if page is None else registrierung_confirmed(birth_date="2008-05-09", today="2026-09-21", at="2026-09-21T08:00:00+00:00", **chosen)
     )
 
     return registrierung_document(
@@ -174,11 +172,11 @@ def _registrierung(
         email,
         saison_id=ACTIVE,
         team_id=TEAMS[3],
-        vorname=vorname,
-        nachname="Ehrenpreis",
+        first_name=first_name,
+        last_name="Ehrenpreis",
         token=str(oid),
         submitted_at="2026-09-20",
-        frist="2026-09-27",
+        deadline="2026-09-27",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
@@ -190,7 +188,7 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.TEAMS].insert_many([team_document(team_id, f"Schule{n}", f"S{chr(65 + n)}N") for n, team_id in enumerate(TEAMS)])
     await database[Collection.SAISONS].insert_many([saison_document(PAST, "past"), saison_document(ACTIVE, "active")])
     await database[Collection.SPIELER].insert_one(
-        spieler_document(PUPIL, "Wiltrudis", "Ehrenpreis", email=WILTRUDIS, geburtsdatum="2008-05-09", einwilligung=_einwilligung())
+        spieler_document(PUPIL, "Wiltrudis", "Ehrenpreis", email=WILTRUDIS, birth_date="2008-05-09", einwilligung=_einwilligung())
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
@@ -225,15 +223,15 @@ async def _seed(database: AsyncDatabase) -> None:
         ]
     )
     declined = _registrierung(REGISTRIERUNG_DECLINED, WILTRUDIS)
-    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
+    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", decision_reason=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),
-            _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, seite=None),
+            _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, page=None),
             declined,
             # A returning pupil's: no choice on it, their own record standing.
-            _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, seite="bestaetigung_spieler_wiederkehrend"),
-            _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.de", vorname="Käthe"),
+            _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, page="bestaetigung_spieler_wiederkehrend"),
+            _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.de", first_name="Käthe"),
         ]
     )
 
@@ -295,9 +293,9 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "saison_id": ACTIVE,
         "scope": "kader_oeffentlich",
         "media": True,
-        "vorname": "Wiltrudis",
-        "nachname": "Ehrenpreis",
-        "geburtsdatum": "2008-05-09",
+        "first_name": "Wiltrudis",
+        "last_name": "Ehrenpreis",
+        "birth_date": "2008-05-09",
     }
     assert set(entry["evidence_state"]) == {"scope", "media"}
     assert all(isinstance(value, str) for value in entry["evidence_state"].values())

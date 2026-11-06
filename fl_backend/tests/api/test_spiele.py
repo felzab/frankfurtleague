@@ -34,13 +34,13 @@ def test_rejects_a_malformed_result(spiel, ergebnis):
 def test_rejects_a_date_that_does_not_exist(spiel):
     """A calendar check behind the regex: the value matches the pattern and is not a real day."""
     with pytest.raises(ValidationError):
-        FLSpiel.model_validate(spiel(datum="2026-02-31"))
+        FLSpiel.model_validate(spiel(date="2026-02-31"))
 
 
 def test_rejects_a_time_without_seconds(spiel):
     """Seconds are mandatory: a frontend sending `14:30` gets a 422."""
     with pytest.raises(ValidationError):
-        FLSpiel.model_validate(spiel(uhrzeit="14:30"))
+        FLSpiel.model_validate(spiel(time="14:30"))
 
 
 def test_the_slot_partition_is_exhaustive():
@@ -128,7 +128,7 @@ class TestPatchPayload:
     def test_rejects_a_time_without_seconds(self, spiel):
         """The write path enforces the read path's format rather than relaxing it."""
         with pytest.raises(ValidationError):
-            FLPatchSpielDataPayload.model_validate(self._payload(spiel, uhrzeit="14:30"))
+            FLPatchSpielDataPayload.model_validate(self._payload(spiel, time="14:30"))
 
     def test_requires_the_shootout_field(self, spiel):
         """An omitted key is written as an overwrite, so this would retract a recorded shoot-out on the next kick-off edit."""

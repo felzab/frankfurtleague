@@ -43,7 +43,7 @@ SAISON = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607390001")
 
 # What the base tier serves, and the whole of it.
-PUBLIC_FIELDS = {"vorname", "nachname", "nummer", "position"}
+PUBLIC_FIELDS = {"first_name", "last_name", "nummer", "position"}
 
 # `stufe`, `einwilligung`, `email` and `id` are the confidentiality rules; the rest fails the allow-list,
 # which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
@@ -54,7 +54,7 @@ WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "id", "team_id", "is_nachno
 TEAM_NAME, TEAM_SHORTHAND = "Helmholtz", "HGX"
 
 # The one person whose squad row is retired, searched for as an absence.
-RETIRED_ROW_VORNAME = "Nils"
+RETIRED_ROW_FIRST_NAME = "Nils"
 
 SPIELER_OIDS = {
     "Mueller": ObjectId("6890a1b2c3d4e5f607390011"),
@@ -80,13 +80,13 @@ def _consent(scope: str, **fields: Any) -> dict[str, Any]:
     return {**own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20", scope=scope), **fields}
 
 
-def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
+def _spieler(key: str, first_name: str, last_name: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
     """A person as `POST /spieler` writes them -- consent record included, which is the point of the corpus.
 
     A confirmed, published record passed rather than defaulted: the initials this corpus serves are the mask's published arm.
     """
 
-    return spieler_document(SPIELER_OIDS[key], vorname, nachname, einwilligung=_consent("kader_oeffentlich"), inactive_since=inactive_since)
+    return spieler_document(SPIELER_OIDS[key], first_name, last_name, einwilligung=_consent("kader_oeffentlich"), inactive_since=inactive_since)
 
 
 def _squad_row(
@@ -178,17 +178,17 @@ class TestTheBaseTierShape:
 
     def test_the_squad_fields_default_where_the_join_supplies_neither(self):
         """An unnarrowed read joins loosely, and `$project` omits both keys rather than nulling them: required fields would 500 the list."""
-        served = FLSpielerPublic.model_validate({"_id": SPIELER_OIDS["Kraus"], "vorname": "Nils", "nachname": "K."})
+        served = FLSpielerPublic.model_validate({"_id": SPIELER_OIDS["Kraus"], "first_name": "Nils", "last_name": "K."})
 
         assert (served.nummer, served.position) == (None, None)
 
     def test_the_read_model_accepts_the_initial_it_is_served(self):
         """The backend keeps `PERSON_NAME_PATTERN` off read models, and a trailing dot is what that pattern refuses."""
         served = FLSpielerPublic.model_validate(
-            {"_id": SPIELER_OIDS["Mueller"], "vorname": "Max", "nachname": "M.", "nummer": "7", "position": "Angriff"}
+            {"_id": SPIELER_OIDS["Mueller"], "first_name": "Max", "last_name": "M.", "nummer": "7", "position": "Angriff"}
         )
 
-        assert served.nachname == "M."
+        assert served.last_name == "M."
 
 
 class TestTheSinglePlayerShape:
@@ -196,7 +196,7 @@ class TestTheSinglePlayerShape:
 
     def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
-        assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "vorname", "nachname"}
+        assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "first_name", "last_name"}
 
     def test_the_leaving_date_is_not_on_it(self):
         """Nothing public renders a pupil's leaving date, and a field no surface needs is a field no surface is given."""
@@ -215,7 +215,7 @@ class TestTheSinglePlayerShape:
 
 # A body per echo rather than one shared: the two answer different writes and share no field but this one.
 RETIREMENT_ECHOES = {
-    "the person": (FLSpielerAdminSingleResponse, {"spieler_id": SPIELER_OIDS["Mueller"], "vorname": "Max", "nachname": "Mueller"}),
+    "the person": (FLSpielerAdminSingleResponse, {"spieler_id": SPIELER_OIDS["Mueller"], "first_name": "Max", "last_name": "Mueller"}),
     "the squad row": (
         FLSaisonSpielerResponse,
         {
@@ -259,7 +259,7 @@ class TestTheProjection:
         """`_id` is named only to be dropped: `$project` keeps it unless told otherwise (`READ-PUPIL-005`)."""
         projected = _project()
 
-        assert {key for key, value in projected.items() if value != 0} == {"vorname", "nachname", "nummer", "position"}
+        assert {key for key, value in projected.items() if value != 0} == {"first_name", "last_name", "nummer", "position"}
         assert projected["_id"] == 0
 
     def test_the_consent_record_is_read_and_projected_nowhere(self):
@@ -283,12 +283,12 @@ class TestTheProjection:
 
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
         """A tie-break is the last place an ordering could still depend on a field the response withholds."""
-        assert "nachname" not in _sort()
-        assert "vorname" in _sort()
+        assert "last_name" not in _sort()
+        assert "first_name" in _sort()
 
     def test_only_the_admin_read_tiebreaks_on_the_surname(self):
         """The contrast is the assertion: the admin list orders people by full name and is entitled to."""
-        assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"vorname": 1, "nachname": 1}
+        assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"first_name": 1, "last_name": 1}
 
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
         """With no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
@@ -317,8 +317,8 @@ class TestTheBaseTierReadExecuted:
 
         return on_a_database(url, body)
 
-    def _by_vorname(self, url: str) -> dict[str, dict[str, Any]]:
-        return {row["vorname"]: row for row in self._read(url)["kader"]}
+    def _by_first_name(self, url: str) -> dict[str, dict[str, Any]]:
+        return {row["first_name"]: row for row in self._read(url)["kader"]}
 
     def _rows(self, url: str) -> list[Mapping[str, Any]]:
         """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
@@ -339,7 +339,7 @@ class TestTheBaseTierReadExecuted:
 
         person, row = on_a_database(seeded_url, body)
 
-        assert person["nachname"] == "Müller"
+        assert person["last_name"] == "Müller"
         assert person["einwilligung"]["scope"] == "kader_oeffentlich"
         assert (row["stufe"], row["rolle"]) == ("Q3", "kapitaen")
 
@@ -360,14 +360,14 @@ class TestTheBaseTierReadExecuted:
 
     def test_a_retired_person_keeps_the_squad_rows_they_played(self, seeded_url: str):
         """`READ-SQUAD-001`, which the admin sidemenu already promises: Stilllegen empties the pickers and leaves the Kadereintrag standing."""
-        assert "Jonas" in self._by_vorname(seeded_url)
+        assert "Jonas" in self._by_first_name(seeded_url)
 
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
-        assert RETIRED_ROW_VORNAME not in self._by_vorname(seeded_url)
+        assert RETIRED_ROW_FIRST_NAME not in self._by_first_name(seeded_url)
 
     def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
-        assert self._by_vorname(seeded_url)["Maxim"]["nachname"] == "M."
+        assert self._by_first_name(seeded_url)["Maxim"]["last_name"] == "M."
 
     @pytest.mark.parametrize("surname", STORED_SURNAMES)
     def test_no_stored_surname_appears_anywhere_in_the_response(self, seeded_url: str, surname: str):
@@ -376,11 +376,11 @@ class TestTheBaseTierReadExecuted:
 
     def test_a_surname_starting_with_a_multibyte_letter_is_not_halved(self, seeded_url: str):
         """`$substrBytes` would cut an `Ö` in two, and only a real mongod tells the two operators apart."""
-        assert self._by_vorname(seeded_url)["Timo"]["nachname"] == "Ö."
+        assert self._by_first_name(seeded_url)["Timo"]["last_name"] == "Ö."
 
     def test_a_player_with_no_surname_reads_back_with_none(self, seeded_url: str):
         """Absent is not withheld: an initial invented here would read as a name nobody holds."""
-        assert self._by_vorname(seeded_url)["Lena"]["nachname"] is None
+        assert self._by_first_name(seeded_url)["Lena"]["last_name"] is None
 
     @pytest.mark.parametrize("field", WITHHELD_FIELDS)
     def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, seeded_url: str, field: str):
@@ -393,16 +393,16 @@ class TestTheBaseTierReadExecuted:
 
     def test_the_squad_facts_the_table_renders_survive(self, seeded_url: str):
         """The allow-list is not a blanket refusal: a shirt and a position are columns on the page."""
-        served = self._by_vorname(seeded_url)["Maxim"]
+        served = self._by_first_name(seeded_url)["Maxim"]
 
         assert (served["nummer"], served["position"]) == ("7", "Angriff")
 
     def test_the_rendered_name_is_the_forename_and_an_initial(self, seeded_url: str):
         """The frontend's join and its avatar letter, spelled out: emitting the dot here is what keeps both unchanged."""
-        served = self._by_vorname(seeded_url)["Maxim"]
+        served = self._by_first_name(seeded_url)["Maxim"]
 
-        assert " ".join(part for part in (served["vorname"], served["nachname"]) if part) == "Maxim M."
-        assert served["nachname"][0] == "M"
+        assert " ".join(part for part in (served["first_name"], served["last_name"]) if part) == "Maxim M."
+        assert served["last_name"][0] == "M"
 
     def test_the_order_is_by_position_then_forename(self, seeded_url: str):
         """The default sort, unchanged by the redaction -- and MongoDB puts the null position first."""
@@ -420,14 +420,14 @@ class TestTheBaseTierReadExecuted:
 
     def test_the_one_player_read_serves_the_same_initial(self, seeded_url: str):
         """The second base-tier path, redacted by `public_initial` where the squad is redacted by the pipeline."""
-        assert self._read_one(seeded_url, "Mueller")["nachname"] == "M."
+        assert self._read_one(seeded_url, "Mueller")["last_name"] == "M."
 
     def test_the_one_player_read_carries_no_leaving_date(self, seeded_url: str):
         """Against the RETIRED person, so a date really is stored and its absence from the wire is the redaction."""
         assert self._read_one(seeded_url, "Weber") == {
             "spieler_id": str(SPIELER_OIDS["Weber"]),
-            "vorname": "Jonas",
-            "nachname": "W.",
+            "first_name": "Jonas",
+            "last_name": "W.",
         }
 
     def test_the_stored_row_is_byte_identical_after_both_base_tier_reads(self, seeded_url: str):
@@ -479,7 +479,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     _spieler("Ohne", "Lena", None),
                     _spieler("Oeztuerk", "Timo", "Öztürk"),
                     _spieler("Weber", "Jonas", "Weber", inactive_since="2026-05-01"),
-                    _spieler("Kraus", RETIRED_ROW_VORNAME, "Kraus"),
+                    _spieler("Kraus", RETIRED_ROW_FIRST_NAME, "Kraus"),
                 ]
             )
             await database.saison_spieler.insert_many(
@@ -508,18 +508,18 @@ SQUAD_OIDS = {"Beide": ObjectId("6890a1b2c3d4e5f607390021"), "Ehemalig": ObjectI
 class TestTheClubPageReadsOneSeasonsSquad:
     """The club page in the running season, against a club that played two seasons."""
 
-    def _vornamen(self, url: str, saison_id: str) -> list[str]:
+    def _first_names(self, url: str, saison_id: str) -> list[str]:
         async def body(database: AsyncDatabase) -> Any:
-            return [row.vorname for row in (await club_page(database, saison_id)).kader]
+            return [row.first_name for row in (await club_page(database, saison_id)).kader]
 
         return on_the_seed_loop(body(shared_client(url)[SQUAD_DATABASE_NAME]))
 
     def test_a_player_of_both_seasons_is_listed_once_and_one_of_the_past_season_alone_not_at_all(self, squad_url: str):
-        assert self._vornamen(squad_url, SAISON) == ["Paula"]
+        assert self._first_names(squad_url, SAISON) == ["Paula"]
 
     def test_the_past_season_s_page_still_lists_its_own_squad(self, squad_url: str):
         """The control: the corpus really holds the past season's second player and the row the running season leaves out."""
-        assert sorted(self._vornamen(squad_url, PAST_SAISON)) == ["Paula", "Theo"]
+        assert sorted(self._first_names(squad_url, PAST_SAISON)) == ["Paula", "Theo"]
 
 
 @pytest.fixture(scope="module")
@@ -565,11 +565,11 @@ class MaskedRow(NamedTuple):
     """One seeded person, their consent record, and the two names the base tier must answer for them."""
 
     oid: ObjectId
-    vorname: str
-    nachname: str
+    first_name: str
+    last_name: str
     einwilligung: dict[str, Any]
-    served_vorname: str | None
-    served_nachname: str | None
+    served_first_name: str | None
+    served_last_name: str | None
 
 
 # Each served pair is written out rather than composed from `public_initial`, which would compare the
@@ -610,7 +610,7 @@ class TestThePublicationGate:
 
         assert len(stored) == len(MASKED_SQUAD)
         for row in MASKED_SQUAD.values():
-            assert (stored[row.oid]["vorname"], stored[row.oid]["nachname"]) == (row.vorname, row.nachname)
+            assert (stored[row.oid]["first_name"], stored[row.oid]["last_name"]) == (row.first_name, row.last_name)
             assert stored[row.oid]["einwilligung"] == row.einwilligung
 
     def test_the_squad_serves_a_row_for_every_seeded_person(self, masked_url: str):
@@ -622,7 +622,7 @@ class TestThePublicationGate:
         row = MASKED_SQUAD[case]
         served = self._by_nummer(masked_url)[MASK_NUMMERN[case]]
 
-        assert (served["vorname"], served["nachname"]) == (row.served_vorname, row.served_nachname)
+        assert (served["first_name"], served["last_name"]) == (row.served_first_name, row.served_last_name)
 
     @pytest.mark.parametrize("case", MASKED_SQUAD)
     def test_a_withheld_row_keeps_its_number_and_its_position(self, masked_url: str, case: str):
@@ -664,8 +664,8 @@ class TestThePublicationGate:
 
         assert self._read_one(masked_url, case) == {
             "spieler_id": str(row.oid),
-            "vorname": row.served_vorname,
-            "nachname": row.served_nachname,
+            "first_name": row.served_first_name,
+            "last_name": row.served_last_name,
         }
 
 
@@ -675,25 +675,25 @@ class TestTheAdminEchoIsServedNoMask:
     def test_the_echo_carries_a_withheld_person_s_whole_name(self):
         """Composed by the handler from the stored document, over the row whose public reads serve neither name."""
         row = MASKED_SQUAD["Intern"]
-        echoed = _as_single({"_id": row.oid, "vorname": row.vorname, "nachname": row.nachname, "inactive_since": None})
+        echoed = _as_single({"_id": row.oid, "first_name": row.first_name, "last_name": row.last_name, "inactive_since": None})
 
-        assert (echoed.vorname, echoed.nachname) == (row.vorname, row.nachname)
+        assert (echoed.first_name, echoed.last_name) == (row.first_name, row.last_name)
 
     def test_the_echo_refuses_a_withheld_forename(self, assert_rejects):
         """A `null` forename here is the mask having reached the admin editor, and this declaration is what fails first."""
-        body = {"spieler_id": MASKED_SQUAD["Intern"].oid, "nachname": "Gerber", "inactive_since": None}
+        body = {"spieler_id": MASKED_SQUAD["Intern"].oid, "last_name": "Gerber", "inactive_since": None}
 
-        assert_rejects(FLSpielerAdminSingleResponse, {**body, "vorname": None}, "vorname")
+        assert_rejects(FLSpielerAdminSingleResponse, {**body, "first_name": None}, "first_name")
 
     def test_the_public_single_read_takes_the_forename_the_echo_refuses(self):
         """The contrast is the assertion: the two shapes differ on exactly this field, and the echo extends the public one."""
-        assert FLSpielerSingleResponse(spieler_id=MASKED_SQUAD["Intern"].oid, vorname=None, nachname=None).vorname is None
+        assert FLSpielerSingleResponse(spieler_id=MASKED_SQUAD["Intern"].oid, first_name=None, last_name=None).first_name is None
 
     def test_the_squad_row_takes_it_too(self):
         """A required forename on the squad's shape would 500 the whole club page over one withheld row."""
-        served = FLSpielerPublic.model_validate({"_id": MASKED_SQUAD["Intern"].oid, "vorname": None, "nachname": None})
+        served = FLSpielerPublic.model_validate({"_id": MASKED_SQUAD["Intern"].oid, "first_name": None, "last_name": None})
 
-        assert (served.vorname, served.nachname) == (None, None)
+        assert (served.first_name, served.last_name) == (None, None)
 
 
 @pytest.fixture(scope="module")
@@ -708,8 +708,8 @@ def masked_url(mongo_url: str) -> Iterator[str]:
                 [
                     {
                         "_id": row.oid,
-                        "vorname": row.vorname,
-                        "nachname": row.nachname,
+                        "first_name": row.first_name,
+                        "last_name": row.last_name,
                         "inactive_since": None,
                         "einwilligung": row.einwilligung,
                     }
@@ -745,7 +745,7 @@ SORT_ORACLE_OIDS = {
 }
 
 # Equal across the three rows, so the club page's order, position first, falls through to the
-# chain's `vorname`.
+# chain's `first_name`.
 SORT_ORACLE_NUMMER = "7"
 SORT_ORACLE_POSITION = "Angriff"
 
@@ -758,7 +758,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
         """Each row's served forename, in the club page's order: `None` is the withheld row, the corpus holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return [row.vorname for row in (await club_page(database)).kader]
+            return [row.first_name for row in (await club_page(database)).kader]
 
         return on_the_seed_loop(body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]]))
 
@@ -799,22 +799,22 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
                     [
                         {
                             "_id": SORT_ORACLE_OIDS["Zurueckgehalten"],
-                            "vorname": withheld_forename,
-                            "nachname": "Kessler",
+                            "first_name": withheld_forename,
+                            "last_name": "Kessler",
                             "inactive_since": None,
                             "einwilligung": _consent("intern"),
                         },
                         {
                             "_id": SORT_ORACLE_OIDS["Berger"],
-                            "vorname": "Bea",
-                            "nachname": "Berger",
+                            "first_name": "Bea",
+                            "last_name": "Berger",
                             "inactive_since": None,
                             "einwilligung": _consent("kader_oeffentlich"),
                         },
                         {
                             "_id": SORT_ORACLE_OIDS["Yilmaz"],
-                            "vorname": "Yara",
-                            "nachname": "Yilmaz",
+                            "first_name": "Yara",
+                            "last_name": "Yilmaz",
                             "inactive_since": None,
                             "einwilligung": _consent("kader_oeffentlich"),
                         },

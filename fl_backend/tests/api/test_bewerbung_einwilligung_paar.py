@@ -10,7 +10,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -90,19 +90,19 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
     body = {
         "token": token,
-        "antwort": "given",
-        "geburtsdatum": AN_ADULTS_BIRTHDATE,
+        "answer": "given",
+        "birth_date": AN_ADULTS_BIRTHDATE,
         "whatsapp": False,
         "media": False,
         "text_versions": dict(SEAT_TEXT_VERSIONS),
         **overrides,
     }
 
-    if overrides.get("antwort") == "declined":
+    if overrides.get("answer") == "declined":
         body = {"token": token, **overrides}
 
     return await post_einwilligung(
-        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
+        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -133,7 +133,7 @@ class TestAPairedDecline:
         """One person, two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], antwort="declined")
+            response = await answer(database, client, RAW["ansprechperson"], answer="declined")
 
             return response, await stored(database), await log_rows(database)
 
@@ -159,7 +159,7 @@ class TestAPairedDecline:
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], antwort="declined")
+            response = await answer(database, client, RAW["ansprechperson"], answer="declined")
 
             return response, await stored(database)
 
@@ -187,7 +187,7 @@ class TestTheFloorIsThePersons:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
+                await answer(database, client, RAW["trainer"], birth_date=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)
 

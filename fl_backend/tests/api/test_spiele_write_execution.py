@@ -131,13 +131,13 @@ def spieltag_documents() -> list[dict[str, Any]]:
     return [
         {
             "_id": spieltag_id,
-            "beginn": beginn,
-            "ende": ende,
+            "start": start,
+            "end": end,
             "position": 1,
             "saison_id": SAISON_ID,
             "saison_phase": saison_phase,
         }
-        for spieltag_id, (saison_phase, beginn, ende) in SPIELTAGE.items()
+        for spieltag_id, (saison_phase, start, end) in SPIELTAGE.items()
     ]
 
 
@@ -152,7 +152,7 @@ def spiel_document(
     elfmeterschiessen: dict[str, int] | None = None,
     team1_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    saison_phase, datum, _ = SPIELTAGE[spieltag_id]
+    saison_phase, date, _ = SPIELTAGE[spieltag_id]
 
     # `ort` and `schiedsrichter` stay null, so a payload built from this document claims neither, and
     # the double-booking read is never the thing a failure here is about.
@@ -165,8 +165,8 @@ def spiel_document(
         team1=team1,
         team2=team2,
         team1_quelle=team1_quelle,
-        datum=datum,
-        uhrzeit="18:00:00",
+        date=date,
+        time="18:00:00",
         ergebnis=ergebnis,
         elfmeterschiessen=elfmeterschiessen,
     )
@@ -374,7 +374,7 @@ def referee_documents() -> list[dict[str, Any]]:
             "name": name,
             "schule": None,
             "default_payment": DEFAULT_PAYMENT,
-            "kontakt": {"telefon": None, "email": None},
+            "kontakt": {"phone": None, "email": None},
             "inactive_since": inactive_since,
             # Every named row confirmed by its person but the one a case books unconfirmed; the ghost holds no record.
             "einwilligung": (
@@ -521,7 +521,7 @@ class TestTheBookingReadAsksWhoUsedTheGround:
     def test_only_a_fixture_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # At 18:30, off the hour both are seeded at: a claim the fixture already made is judged by nobody.
-            spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="18:30:00")
+            spiel_data = await payload_for(database, GRUPPE_FILLING, time="18:30:00")
 
             try:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
@@ -734,11 +734,11 @@ class TestAFinishedSeasonsFixtureIsRefused:
 
 
 # The day Gamma is out of the season, which is also the day a fixture is moved onto below: the rule
-# reads `datum < departed_from`, so the boundary is the value an off-by-one comparison gets wrong.
+# reads `date < departed_from`, so the boundary is the value an off-by-one comparison gets wrong.
 GAMMA_DEPARTED_FROM = "2026-03-20"
 A_DAY_SHORT_OF_THE_EXIT = "2026-03-19"
 
-GAMMA_AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": GAMMA_DEPARTED_FROM}
+GAMMA_AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": GAMMA_DEPARTED_FROM}
 
 
 class TestTheEligibilityRefusalIsReachedThroughTheRoute:
@@ -749,7 +749,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
     """
 
     @pytest.mark.parametrize(
-        ("datum", "error_code"),
+        ("date", "error_code"),
         [
             pytest.param(GAMMA_DEPARTED_FROM, Code.ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
             # The control: one day earlier the same save clears this rule and is refused by the NEXT
@@ -758,13 +758,13 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
         ],
     )
     def test_a_fixture_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
-        self, mongo_replica_set_url: str, datum: str, error_code: str
+        self, mongo_replica_set_url: str, date: str, error_code: str
     ):
-        """The WIDENED case: both sides stay exactly as stored and only `datum` moves, which is the save `stays` would otherwise skip."""
+        """The WIDENED case: both sides stay exactly as stored and only `date` moves, which is the save `stays` would otherwise skip."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT}})
-            spiel_data = await payload_for(database, GRUPPE_FILLING, datum=datum)
+            spiel_data = await payload_for(database, GRUPPE_FILLING, date=date)
 
             with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
@@ -775,7 +775,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
 
         assert refused.error_code == error_code
         # Nothing written under either refusal: the judgement runs inside the transaction's callback.
-        assert spiele[GRUPPE_FILLING_NR]["datum"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
+        assert spiele[GRUPPE_FILLING_NR]["date"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
 
 
 class TestASavedResultCarriesThroughTheBracket:
@@ -857,7 +857,7 @@ class TestASaveOpenedOnAnOlderVersionIsRefused:
             opened = await payload_for(database, VIERTELFINALE, version=0)
             first = await call_patch(database, client, VIERTELFINALE, opened)
             with pytest.raises(APIError) as refused:
-                await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"notiz": "veraltet"}))
+                await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"note": "veraltet"}))
 
             return first, refused.value, await spiele_now(database)
 
@@ -865,7 +865,7 @@ class TestASaveOpenedOnAnOlderVersionIsRefused:
 
         assert first.version == 1
         assert (refusal.status_code, refusal.error_code) == (409, Code.VERSION_STALE)
-        assert (spiele[VIERTELFINALE_NR]["notiz"], spiele[VIERTELFINALE_NR]["version"]) == (None, 1)
+        assert (spiele[VIERTELFINALE_NR]["note"], spiele[VIERTELFINALE_NR]["version"]) == (None, 1)
 
 
 class TestAMidFlightFailureTakesTheWholeSaveBack:
@@ -1296,7 +1296,7 @@ def a_lifted_no_show_beside_a_later_booking() -> list[dict[str, Any]]:
     quarter, semi = a_semi_final_recorded_as("nichtantreten_team2")
     later = spiel_document(spiel_id=GRUPPE_BESIDE, spiel_nr=GRUPPE_BESIDE_NR, spieltag_id=SPIELTAG_HALBFINALE, team1=None, team2=None)
 
-    return [quarter, {**semi, "ort": booking(SPIELORT)}, {**later, "uhrzeit": "19:00:00", "ort": booking(SPIELORT)}]
+    return [quarter, {**semi, "ort": booking(SPIELORT)}, {**later, "time": "19:00:00", "ort": booking(SPIELORT)}]
 
 
 class TestALiftedNoShowDoubleBooksAndTheQueueNamesBoth:
@@ -1307,7 +1307,7 @@ class TestALiftedNoShowDoubleBooksAndTheQueueNamesBoth:
             run = await reopened_by_the_overturn(database, client)
 
             # The repair the fault points at: five hours earlier is past the buffer.
-            moved = await payload_for(database, HALBFINALE, uhrzeit="13:00:00")
+            moved = await payload_for(database, HALBFINALE, time="13:00:00")
             await call_patch(database, client, HALBFINALE, moved)
 
             return run, await faults_now(database)
@@ -1331,10 +1331,10 @@ HOLDER_THAT_NEVER_TURNED_UP = ObjectId("6890a1b2c3d4e5f607220053")
 ANOTHER_SAISON_ID = "2025"
 
 
-def claimed(spiel_id: ObjectId, spiel_nr: int, datum: str, uhrzeit: str, *, saison_id: str = SAISON_ID, **overrides: Any) -> dict[str, Any]:
+def claimed(spiel_id: ObjectId, spiel_nr: int, date: str, time: str, *, saison_id: str = SAISON_ID, **overrides: Any) -> dict[str, Any]:
     fixture = spiel_document(spiel_id=spiel_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_GRUPPE, team1=None, team2=None)
 
-    return {**fixture, "saison_id": saison_id, "datum": datum, "uhrzeit": uhrzeit, "ort": booking(SPIELORT), **overrides}
+    return {**fixture, "saison_id": saison_id, "date": date, "time": time, "ort": booking(SPIELORT), **overrides}
 
 
 def holders_at_every_arm() -> list[dict[str, Any]]:
@@ -1382,7 +1382,7 @@ SEEDED_VERSION = 2
 
 def a_report_on(spiel: dict[str, Any], *, version: int) -> dict[str, Any]:
     return documents.spielbericht_document(
-        spiel, bericht=documents.bericht_document(version=version, seiten=documents.spielbericht_seiten(spiel))
+        spiel, bericht=documents.bericht_document(version=version, sides=documents.spielbericht_sides(spiel))
     )
 
 
@@ -1431,7 +1431,7 @@ class TestOnlyALandedSaveStamps:
         assert (stamped["adopted_version"], stamped["version"], stamped["adopted_by"]) == (
             SEEDED_VERSION,
             SEEDED_VERSION,
-            {"art": "admin"},
+            {"kind": "admin"},
         )
         assert stamped["adopted_at"].replace(tzinfo=UTC) == ADOPTED_AT
         assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
@@ -1445,9 +1445,9 @@ class TestOnlyALandedSaveStamps:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, reports)
             # A day off its matchday's span on the save, so the refusal is `spiel_outside_spieltag`; the preview carries the result alone.
-            datum = None if dry_run else "2026-05-02"
+            date = None if dry_run else "2026-05-02"
             spiel_data = await payload_for(
-                database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1), **({} if datum is None else {"datum": datum})
+                database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1), **({} if date is None else {"date": date})
             )
             refusal = None
             try:
@@ -1484,12 +1484,12 @@ class TestAStaleSeedIsNotAdopted:
 
 
 class TestAReportAboutOtherClubsIsNotAdopted:
-    @pytest.mark.parametrize("seite", ["team1", "team2"])
-    def test_it_stays_unstamped_at_the_seeded_version_and_the_save_lands(self, mongo_replica_set_url: str, seite: str):
+    @pytest.mark.parametrize("changed_side", ["team1", "team2"])
+    def test_it_stays_unstamped_at_the_seeded_version_and_the_save_lands(self, mongo_replica_set_url: str, changed_side: str):
         """Written while another club held one side: stamped, its 3:1 would read as the clubs the save leaves."""
 
         spiele, (quarter_report, semi_report) = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
-        quarter_report["bericht"]["seiten"][seite] = ObjectId()
+        quarter_report["bericht"]["sides"][side] = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, [quarter_report, semi_report])

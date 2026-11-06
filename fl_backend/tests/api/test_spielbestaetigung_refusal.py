@@ -7,9 +7,9 @@ from pydantic import BaseModel, ValidationError
 
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAntwortPayload,
+    FLSpielbestaetigungAnswerPayload,
     FLSpielbestaetigungAppointment,
-    FLSpielbestaetigungSchiedsrichterAntwortPayload,
+    FLSpielbestaetigungSchiedsrichterAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
     AnsetzungLage,
@@ -30,8 +30,8 @@ SCHIEDSRICHTER = ObjectId("650000000000000000000104")
 SPIELTAG = ObjectId("650000000000000000000105")
 
 TODAY = "2027-05-01"
-FRIST = "2027-05-07"
-DATUM = "2027-05-14"
+DEADLINE = "2027-05-07"
+DATE = "2027-05-14"
 
 SEATS = {
     TEAM1: {"trainer": ("Ida", "Albers"), "ansprechperson": ("Jonas", "Brandt"), "stellvertretung": ("Klara", "Cordes")},
@@ -49,8 +49,8 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "saison_id": "2027",
         "saison_phase": "gruppenphase",
         "spieltag_id": SPIELTAG,
-        "datum": DATUM,
-        "uhrzeit": "18:30:00",
+        "date": DATE,
+        "time": "18:30:00",
         "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
         "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
@@ -60,21 +60,21 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "ergebnis": None,
         "elfmeterschiessen": None,
         "sonderereignis": None,
-        "notiz": "Flutlicht",
+        "note": "Flutlicht",
         **overrides,
     }
 
 
 def verein(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
     kontakte = {
-        seat: {"vorname": vorname, "nachname": nachname, "email": f"{vorname.lower()}@example.com"}
-        for seat, (vorname, nachname) in SEATS[team_id].items()
+        seat: {"first_name": first_name, "last_name": last_name, "email": f"{first_name.lower()}@example.com"}
+        for seat, (first_name, last_name) in SEATS[team_id].items()
     }
 
     return {
         "team_id": team_id,
         "name": "Adler" if team_id == TEAM1 else "Biber",
-        "austritt": None if austritt is None else {"datum": austritt},
+        "austritt": None if austritt is None else {"date": austritt},
         "kontakte": kontakte,
     }
 
@@ -90,10 +90,10 @@ def zeile(**overrides: Any) -> dict[str, Any]:
         "_id": ObjectId("650000000000000000000110"),
         "saison_id": "2027",
         "spiel_id": spiel()["_id"],
-        "party": {"art": "team", "team_id": TEAM1},
+        "party": {"kind": "team", "team_id": TEAM1},
         "ansetzung": compose_ansetzung(spiel()),
-        "frist": FRIST,
-        "antwort": None,
+        "deadline": DEADLINE,
+        "answer": None,
         "closed": None,
         **overrides,
     }
@@ -107,7 +107,7 @@ class TestADecidedFixtureTakesNoAnswer:
         [
             pytest.param({"spiel_overrides": {"ergebnis": "2:1"}}, id="a-result"),
             pytest.param({"spiel_overrides": {"sonderereignis": "ausgefallen"}}, id="called-off"),
-            pytest.param({"austritt": DATUM}, id="a-club-left-by-the-day"),
+            pytest.param({"austritt": DATE}, id="a-club-left-by-the-day"),
         ],
     )
     def test_the_answer_is_refused(self, situation: dict[str, Any]):
@@ -163,7 +163,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         # The premise: `entscheidung_of` read the fixture to its last test.
-        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
+        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(ANSICHT_SPIEL_FIELDS, path)] == []
         projection = verein_fields(team_id=TEAM1, seat="trainer")
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
@@ -179,7 +179,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         assert find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY) is None
         seat_address(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
-        assert {"austritt.datum", "kontakte.trainer.email"} <= vereine_seen
+        assert {"austritt.date", "kontakte.trainer.email"} <= vereine_seen
         projection = verein_fields(team_id=TEAM1, seat="trainer")
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
 
@@ -193,44 +193,44 @@ class TestTheProposalIsTheFixtureOnItsNewDate:
         """
 
         stored = FLSpiel.model_validate(spiel())
-        proposed = proposal_payload(stored, FLSpielbestaetigungAppointment(datum="2027-05-15", uhrzeit="17:00:00"))
-        kept = set(SPIEL_PATCH_WRITTEN_FIELDS - {"datum", "uhrzeit"})
+        proposed = proposal_payload(stored, FLSpielbestaetigungAppointment(date="2027-05-15", time="17:00:00"))
+        kept = set(SPIEL_PATCH_WRITTEN_FIELDS - {"date", "time"})
 
-        assert (proposed.datum, proposed.uhrzeit) == ("2027-05-15", "17:00:00")
+        assert (proposed.date, proposed.time) == ("2027-05-15", "17:00:00")
         assert proposed.model_dump(include=kept) == stored.model_dump(include=kept)
         assert proposed.version == stored.version
 
 
-PROPOSED = {"datum": DATUM, "uhrzeit": "18:00:00"}
+PROPOSED = {"date": DATE, "time": "18:00:00"}
 
 
 @pytest.mark.parametrize(
     ("model", "body", "refused"),
     [
         (
-            FLSpielbestaetigungAntwortPayload,
-            {"antwort": "declined", "vorschlag": None, "begruendung": None},
+            FLSpielbestaetigungAnswerPayload,
+            {"answer": "declined", "vorschlag": None, "reason": None},
             ("vorschlag", "decline_without_proposal"),
         ),
         (
-            FLSpielbestaetigungAntwortPayload,
-            {"antwort": "zugesagt", "vorschlag": PROPOSED, "begruendung": None},
+            FLSpielbestaetigungAnswerPayload,
+            {"answer": "zugesagt", "vorschlag": PROPOSED, "reason": None},
             ("vorschlag", "acceptance_with_proposal"),
         ),
         (
-            FLSpielbestaetigungAntwortPayload,
-            {"antwort": "zugesagt", "vorschlag": None, "begruendung": "Halle"},
-            ("begruendung", "acceptance_with_reason"),
+            FLSpielbestaetigungAnswerPayload,
+            {"answer": "zugesagt", "vorschlag": None, "reason": "Halle"},
+            ("reason", "acceptance_with_reason"),
         ),
         (
-            FLSpielbestaetigungSchiedsrichterAntwortPayload,
-            {"antwort": "declined", "begruendung": None},
-            ("begruendung", "decline_without_reason"),
+            FLSpielbestaetigungSchiedsrichterAnswerPayload,
+            {"answer": "declined", "reason": None},
+            ("reason", "decline_without_reason"),
         ),
         (
-            FLSpielbestaetigungSchiedsrichterAntwortPayload,
-            {"antwort": "zugesagt", "begruendung": "Krank"},
-            ("begruendung", "acceptance_with_reason"),
+            FLSpielbestaetigungSchiedsrichterAnswerPayload,
+            {"answer": "zugesagt", "reason": "Krank"},
+            ("reason", "acceptance_with_reason"),
         ),
     ],
     ids=[
@@ -247,7 +247,7 @@ def test_an_answers_shape_rule_is_refused_on_the_box_it_names(model: type[BaseMo
     At the body root, or as a bare `ValueError`, the page can place the refusal on no box and words no reason.
     """
 
-    token = {"token": "a-link"} if model is FLSpielbestaetigungAntwortPayload else {}
+    token = {"token": "a-link"} if model is FLSpielbestaetigungAnswerPayload else {}
     with pytest.raises(ValidationError) as failure:
         model.model_validate({**token, **body})
 

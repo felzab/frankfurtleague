@@ -145,15 +145,15 @@ async def _seed(database: AsyncDatabase) -> None:
         ]
     )
 
-    def pupil(oid: ObjectId, vorname: str, nachname: str, email: str, **fields: Any) -> dict[str, Any]:
+    def pupil(oid: ObjectId, first_name: str, last_name: str, email: str, **fields: Any) -> dict[str, Any]:
         return spieler_document(
-            oid, vorname, nachname, email=email, **{"geburtsdatum": ADULT_BIRTHDATE, "einwilligung": _einwilligung(), **fields}
+            oid, first_name, last_name, email=email, **{"birth_date": ADULT_BIRTHDATE, "einwilligung": _einwilligung(), **fields}
         )
 
     await database[Collection.SPIELER].insert_many(
         [
             pupil(PUPIL_OID, "Ortrud", "Zwiebelmayer", IDENTIFIER),
-            pupil(YOUNG_OID, "Jonas", "Jungspund", YOUNG, geburtsdatum=SEVENTEEN_BIRTHDATE),
+            pupil(YOUNG_OID, "Jonas", "Jungspund", YOUNG, birth_date=SEVENTEEN_BIRTHDATE),
             pupil(RETIRED_OID, "Rudolf", "Ruhestand", RETIRED, inactive_since="2026-07-01", einwilligung=_einwilligung(media=True)),
             pupil(BYSTANDER_OID, "Baldur", "Krautzberger", BYSTANDER),
         ]
@@ -225,7 +225,7 @@ class TestTheOwnRecord:
 
         assert response.status_code == 200, response.text
         record = response.json()["spieler"]
-        assert (record["spieler_id"], record["vorname"], record["nachname"], record["geburtsdatum"]) == (
+        assert (record["spieler_id"], record["first_name"], record["last_name"], record["birth_date"]) == (
             str(PUPIL_OID),
             "Ortrud",
             "Zwiebelmayer",

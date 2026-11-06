@@ -34,30 +34,30 @@ SAISON_RULES = FLSaisonRules(
     draw_points=1,
     loss_points=0,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=18,
+    max_kader_size=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=["E1"],
 )
 
 
 class TestAFixtureSitsInsideItsMatchday:
-    @pytest.mark.parametrize("datum", ["2026-03-06", "2026-03-20"])
-    def test_a_date_outside_is_refused(self, datum):
-        refusal = find_fixture_date_refusal(datum=datum, spieltag_beginn="2026-03-07", spieltag_ende="2026-03-08")
+    @pytest.mark.parametrize("date", ["2026-03-06", "2026-03-20"])
+    def test_a_date_outside_is_refused(self, date):
+        refusal = find_fixture_date_refusal(date=date, spieltag_start="2026-03-07", spieltag_end="2026-03-08")
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.SPIEL_OUTSIDE_SPIELTAG, (("datum",),))
+        assert (refusal.error_code, refusal.fields) == (Code.SPIEL_OUTSIDE_SPIELTAG, (("date",),))
 
 
 class TestAMatchdaySitsInsideItsSeason:
     def test_a_start_before_the_season_is_refused(self):
-        refusal = find_spieltag_span_refusal(beginn="2026-02-28", ende="2026-03-08", fixture_dates=[], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-02-28", end="2026-03-08", fixture_dates=[], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
     def test_an_end_after_the_season_is_refused(self):
-        refusal = find_spieltag_span_refusal(beginn="2026-09-29", ende="2026-10-01", fixture_dates=[], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-09-29", end="2026-10-01", fixture_dates=[], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
@@ -65,7 +65,7 @@ class TestAMatchdaySitsInsideItsSeason:
     def test_it_applies_to_a_matchday_with_no_fixtures(self):
         """A property of the two documents alone, so a create is held to it before any fixture exists."""
 
-        refusal = find_spieltag_span_refusal(beginn="2026-01-01", ende="2026-01-02", fixture_dates=[], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-01-01", end="2026-01-02", fixture_dates=[], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
@@ -129,7 +129,7 @@ class TestASeasonIsLongEnoughForItsSchedule:
             draw_points=1,
             loss_points=0,
             tiebreak_order="tordifferenz",
-            max_kadergroesse=18,
+            max_kader_size=18,
             forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
             allowed_stufen=["E1"],
         )
@@ -145,7 +145,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
     def test_shrinking_below_a_fixture_is_refused(self):
         """The mirror of `spiel_outside_spieltag`: the same containment, broken from the container's side."""
 
-        refusal = find_spieltag_span_refusal(beginn="2026-03-07", ende="2026-03-08", fixture_dates=["2026-03-20"], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-03-07", end="2026-03-08", fixture_dates=["2026-03-20"], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_SPIELE
@@ -158,16 +158,16 @@ class TestOneVenueAndOneRefereeAtATime:
     # Annotated rather than inferred: a plain `str` default widens the parameter and `BookedSlot` refuses it.
     def slot(
         self,
-        uhrzeit: str,
+        time: str,
         resource: Literal["Spielort", "Schiedsrichter"] = "Spielort",
         nr: int = 3,
-        datum: str = "2026-03-07",
+        date: str = "2026-03-07",
     ) -> BookedSlot:
-        return BookedSlot(spiel_id=ObjectId(), saison_id=OTHER_SAISON, spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource=resource)
+        return BookedSlot(spiel_id=ObjectId(), saison_id=OTHER_SAISON, spiel_nr=nr, date=date, time=time, resource=resource)
 
-    @pytest.mark.parametrize("uhrzeit", ["18:00:00", "19:30:00", "21:59:00"])
-    def test_inside_the_buffer_is_refused(self, uhrzeit):
-        refusal = find_clash_refusal(datum="2026-03-07", uhrzeit=uhrzeit, booked=[self.slot("18:00:00")])
+    @pytest.mark.parametrize("time", ["18:00:00", "19:30:00", "21:59:00"])
+    def test_inside_the_buffer_is_refused(self, time):
+        refusal = find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")])
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
@@ -175,7 +175,7 @@ class TestOneVenueAndOneRefereeAtATime:
     def test_it_works_in_both_directions(self):
         """A booking earlier and a booking later are the same clash — the comparison is absolute."""
 
-        refusal = find_clash_refusal(datum="2026-03-07", uhrzeit="16:00:00", booked=[self.slot("18:00:00")])
+        refusal = find_clash_refusal(date="2026-03-07", time="16:00:00", booked=[self.slot("18:00:00")])
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
@@ -218,12 +218,12 @@ class TestASquadEntry:
 
 
 class TestASquadCap:
-    """`max_kadergroesse` is a season's rule, so the same club may run a larger squad in the next one."""
+    """`max_kader_size` is a season's rule, so the same club may run a larger squad in the next one."""
 
     def test_a_squad_at_the_cap_is_refused(self):
         """`>=`, not `>`: the row being written is the one that would take the place beyond it."""
 
-        refusal = find_squad_capacity_refusal(squad_size=18, max_kadergroesse=18)
+        refusal = find_squad_capacity_refusal(squad_size=18, max_kader_size=18)
 
         assert refusal is not None
         assert refusal.error_code == Code.KADER_FULL
@@ -231,7 +231,7 @@ class TestASquadCap:
     def test_a_squad_over_the_cap_is_refused(self):
         """Reachable without a bug: narrowing a season's rules leaves the squads already entered under the old bound."""
 
-        refusal = find_squad_capacity_refusal(squad_size=25, max_kadergroesse=18)
+        refusal = find_squad_capacity_refusal(squad_size=25, max_kader_size=18)
 
         assert refusal is not None
         assert refusal.error_code == Code.KADER_FULL

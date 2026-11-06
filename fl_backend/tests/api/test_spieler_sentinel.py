@@ -69,7 +69,7 @@ def test_the_sentinel_is_stored_nameless_and_without_a_consent_record(mongo_repl
 
     sentinel = on_a_league(mongo_replica_set_url, body)
 
-    assert (sentinel["vorname"], sentinel["nachname"], sentinel["einwilligung"]) == (None, None, None)
+    assert (sentinel["first_name"], sentinel["last_name"], sentinel["einwilligung"]) == (None, None, None)
     assert sentinel["inactive_since"] == GHOST_INACTIVE_SINCE
 
 
@@ -83,7 +83,7 @@ async def press(database: AsyncDatabase, client: AsyncMongoClient, route: str, s
     if route == "patch":
         return await patch_spieler(
             spieler_id=spieler_id,
-            spieler_data=FLPatchSpielerPayload(vorname="Lysander", nachname="Quell", geburtsdatum="2009-05-04"),
+            spieler_data=FLPatchSpielerPayload(first_name="Lysander", last_name="Quell", birth_date="2009-05-04"),
             spieler_collection=collection,
             db=client,
         )
@@ -184,7 +184,7 @@ def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_
 
         # By forename, the public squad serving no record id (`READ-PUPIL-005`): the person's record publishes theirs,
         # and the sentinel stores none.
-        return [row.vorname for row in page.kader]
+        return [row.first_name for row in page.kader]
 
     assert on_a_league(mongo_replica_set_url, body) == ["Quillhilde"]
 

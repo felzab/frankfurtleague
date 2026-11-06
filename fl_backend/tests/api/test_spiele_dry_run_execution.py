@@ -77,8 +77,8 @@ def bracket() -> list[dict[str, Any]]:
         team1=side(ALPHA, 1),
         team2=side(BETA, 3),
         ergebnis="1:3",
-        datum="2026-05-01",
-        uhrzeit="18:00:00",
+        date="2026-05-01",
+        time="18:00:00",
         ort={"spielort_id": SPIELORT, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER, "name": "Ada Kern", "payment": 20},
     )
@@ -91,8 +91,8 @@ def bracket() -> list[dict[str, Any]]:
         team1=side(BETA),
         team2=side(GAMMA),
         team1_quelle={"type": "spiel", "spiel_nr": 1, "ausgang": "sieger"},
-        datum="2026-05-08",
-        uhrzeit="18:00:00",
+        date="2026-05-08",
+        time="18:00:00",
     )
 
     return [viertelfinale, halbfinale]
@@ -122,7 +122,7 @@ def seeded_url(mongo_replica_set_url: str) -> str:
         # Position 1 in each: the two sit in different phases, where the positions restart.
         database[Collection.SPIELTAGE].insert_many(
             [
-                {"_id": spieltag_id, "beginn": tag, "ende": tag, "position": 1, "saison_id": SAISON_ID, "saison_phase": saison_phase}
+                {"_id": spieltag_id, "start": tag, "end": tag, "position": 1, "saison_id": SAISON_ID, "saison_phase": saison_phase}
                 for spieltag_id, saison_phase, tag in (
                     (SPIELTAG_VIERTELFINALE, "viertelfinale", "2026-05-01"),
                     (SPIELTAG_HALBFINALE, "halbfinale", "2026-05-08"),
@@ -154,7 +154,7 @@ def seeded_url(mongo_replica_set_url: str) -> str:
         database[Collection.SPIELE].insert_many(spiele)
         database[Collection.SPIELBERICHTE].insert_one(
             documents.spielbericht_document(
-                spiele[0], bericht=documents.bericht_document(version=BERICHT_VERSION, seiten=documents.spielbericht_seiten(spiele[0]))
+                spiele[0], bericht=documents.bericht_document(version=BERICHT_VERSION, sides=documents.spielbericht_sides(spiele[0]))
             )
         )
 

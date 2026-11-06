@@ -33,7 +33,7 @@ RULES = rules_document(number_of_gruppen=NUMBER_OF_GROUPS, teams_per_gruppe=TEAM
 
 PLAYED_AS = {ADLER: ("Adler-Schule", "ASX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
-EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
+EXIT = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-04-01"}
 
 # The German day every write here is judged on, past the season's start, which `saison_document` sets to 2026-01-01.
 TODAY = "2026-04-15"
@@ -133,13 +133,13 @@ class TestRecordingAnExitFromTheSeason:
     def test_a_padded_reason_reaches_the_row_stripped(self, mongo_replica_set_url: str):
         """The reason is FREE TEXT and PUBLIC, and `min_length` counts CHARACTERS: spaces alone would stand on the team's page as a blank."""
 
-        padded = f"  {EXIT['grund']}  "
+        padded = f"  {EXIT['exit_reason']}  "
 
-        response, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, austritt={**EXIT, "grund": padded}))
+        response, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, austritt={**EXIT, "exit_reason": padded}))
 
         assert row["austritt"] == EXIT
         assert response.austritt is not None
-        assert response.austritt.grund == EXIT["grund"]
+        assert response.austritt.exit_reason == EXIT["exit_reason"]
 
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`saison_past`: an exit recorded on a finished season would move its table and podium after the fact."""
@@ -220,11 +220,11 @@ async def _both(database: AsyncDatabase, **overrides: Any) -> Any:
 # One filled-in block, reused: the shape is the payload's, so a field added to it fails here rather
 # than at the first real write.
 KONTAKTPERSON = {
-    "vorname": "Anke",
-    "nachname": "Koerner",
+    "first_name": "Anke",
+    "last_name": "Koerner",
     "email": "a.koerner@example.de",
-    "telefon": "+49 170 1234567",
-    "geburtsdatum": "1984-05-09",
+    "phone": "+49 170 1234567",
+    "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }
 

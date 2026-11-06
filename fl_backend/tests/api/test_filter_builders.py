@@ -12,18 +12,18 @@ TODAY = "2026-07-31"
 
 
 class TestSpieleFilter:
-    def test_the_abgesagt_status_selects_every_fixture_recording_an_absence(self):
+    def test_the_cancelled_status_selects_every_fixture_recording_an_absence(self):
         """The only `spiel_status` branch that is not about time, and the only one nothing pinned."""
 
-        compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "abgesagt"}), today=TODAY)
+        compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "cancelled"}), today=TODAY)
 
         assert compiled["sonderereignis"] == {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}
-        assert "datum" not in compiled
+        assert "date" not in compiled
 
-    def test_an_abandoned_fixture_is_not_abgesagt(self):
+    def test_an_abandoned_fixture_is_not_cancelled(self):
         """The distinction the branch exists to draw: an abandonment took place, so its date still decides its status."""
 
-        compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "abgesagt"}), today=TODAY)
+        compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "cancelled"}), today=TODAY)
 
         assert "abgebrochen" in get_args(FLSonderereignis.__value__)
         assert "abgebrochen" not in compiled["sonderereignis"]["$in"]
@@ -52,9 +52,9 @@ class TestSpieleFilter:
         from_today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "from_today"}), today=TODAY)
         today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "today"}), today=TODAY)
 
-        assert past["datum"] == {"$lt": TODAY}
-        assert from_today["datum"] == {"$gte": TODAY}
-        assert today["datum"] == TODAY
+        assert past["date"] == {"$lt": TODAY}
+        assert from_today["date"] == {"$gte": TODAY}
+        assert today["date"] == TODAY
 
     def test_team_id_matches_either_side_of_the_fixture_as_an_objectid(self):
         """Both sides via `$or`, and as a real `ObjectId`: a string here would match nothing and return empty."""
@@ -95,18 +95,18 @@ class TestSpieltageSort:
 
     def test_a_date_sort_is_tie_broken_by_the_position(self):
         """Ascending whichever way the dates run: this chain exists to make a page reproducible, not to be reversed with it."""
-        assert build_spieltage_sort(sort_by="ende", order="desc") == [("ende", -1), ("position", 1), ("_id", 1)]
+        assert build_spieltage_sort(sort_by="end", order="desc") == [("end", -1), ("position", 1), ("_id", 1)]
 
 
 class TestSpieltageOrder:
     """The played order, which the displayed name is composed from; a matchday carries no name, so cases identify one by `_id`."""
 
-    def _spieltag(self, *, oid: str, phase: str, position: int, beginn: str = "2026-03-07") -> FLSpieltag:
+    def _spieltag(self, *, oid: str, phase: str, position: int, start: str = "2026-03-07") -> FLSpieltag:
         return FLSpieltag.model_validate(
             {
                 "_id": ObjectId(oid),
-                "beginn": beginn,
-                "ende": beginn,
+                "start": start,
+                "end": start,
                 "count_spiele": 4,
                 "position": position,
                 "saison_phase": phase,
@@ -153,11 +153,11 @@ class TestSpieltageOrder:
         assert self._ids(order_spieltage(rounds)) == [self.A, self.B, self.C]
 
     def test_the_dates_do_not_disturb_the_stored_order(self):
-        """THE POINT OF STORING IT: `beginn` is free to be missing, equal or backwards and the order a person chose stands."""
+        """THE POINT OF STORING IT: `start` is free to be missing, equal or backwards and the order a person chose stands."""
         against_the_calendar = [
-            self._spieltag(oid=self.B, phase="gruppenphase", position=2, beginn="2026-01-04"),
-            self._spieltag(oid=self.A, phase="gruppenphase", position=1, beginn="2026-09-30"),
-            self._spieltag(oid=self.C, phase="gruppenphase", position=3, beginn="2026-01-04"),
+            self._spieltag(oid=self.B, phase="gruppenphase", position=2, start="2026-01-04"),
+            self._spieltag(oid=self.A, phase="gruppenphase", position=1, start="2026-09-30"),
+            self._spieltag(oid=self.C, phase="gruppenphase", position=3, start="2026-01-04"),
         ]
 
         assert self._ids(order_spieltage(against_the_calendar)) == [self.A, self.B, self.C]
