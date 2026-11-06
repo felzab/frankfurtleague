@@ -526,9 +526,9 @@ class TestTheFourteenDayClock:
 
 
 class TestAnApplicationWhoseNoticeCannotArrive:
-    """Held past the deadline for an administrator, never erased on a notice that cannot reach the submitter."""
+    """The stated day holds: the people named were promised it, and a mail to the Ansprechperson that bounced changes nothing of it."""
 
-    def test_the_pass_holds_it_and_owes_no_notice(self, mongo_replica_set_url: str):
+    def test_the_pass_takes_it_and_owes_the_notice_as_for_any_address(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await refuse_the_submitters_address(database, client, DELETE_OID)
             response = await sweep(database, client, now=MAIL_NOW)
@@ -537,9 +537,8 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
         erased_count, document, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert erased_count == 0
-        assert document is not None, "an application whose deletion notice cannot be delivered was erased anyway"
-        assert notices == []
+        assert (erased_count, document) == (1, None)
+        assert [notice["an"] for notice in notices] == ["wraxlington@example.com"]
 
     def test_a_seat_the_provider_refuses_is_not_reminded(self, mongo_replica_set_url: str):
         """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
@@ -760,19 +759,6 @@ class TestTheSeasonsOwnEndClock:
 
         assert (response.reminded, response.erased, mails) == (0, 0, 0)
         assert response.erased_without_decision == 2
-
-    def test_an_application_whose_notice_the_provider_refuses_goes_with_the_season(self, mongo_replica_set_url: str):
-        """The hold that has no other end: `deletion_is_due` drops a refused address, so nothing else ever reaches this row."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await refuse_the_submitters_address(database, client, DELETE_OID)
-            response = await sweep(database, client)
-
-            return response, await stored(database, DELETE_OID)
-
-        response, document = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
-
-        assert (response.erased_without_decision, document) == (2, None)
 
     def test_a_second_pass_the_same_day_finds_nothing_left(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

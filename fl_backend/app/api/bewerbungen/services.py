@@ -1181,26 +1181,21 @@ def deletion_day(*, kontakte: Any, confirmations: Any) -> str | None:
     return min((day for day in days if isinstance(day, str)), default=None)
 
 
-def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, undeliverable: bool) -> bool:
-    """Whether the fourteen-day clock takes this application: submitted, an outstanding seat past its own deadline, the notice deliverable.
+def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
+    """Whether the fourteen-day clock takes this application: submitted, an outstanding seat past its own deadline.
 
     A seat's 14 days are that person's: past them the application goes, however long another seat's fresh link still
     runs, or a re-send of one seat would keep the others' details past their own (`build_deletion_filter`). A seat an
     erasure emptied holds no deadline and takes nobody else, so that application goes once no seat's link runs.
 
-    `undeliverable` is `app/api/outbox/schemas.py :: FLOutboxStatus.undeliverable` of the last mail owed the Ansprechperson: the
-    deletion notice could not reach the submitter. An EMPTY Ansprechperson slot is not this case: no mailbox is left to
-    tell, and the deadline takes the application unannounced.
+    Nothing about the Ansprechperson's mail holds the day up: the people named were promised it, and `owed_loeschung`
+    owes the notice as for any address, an empty slot leaving nobody to tell.
 
     STRICTLY past: the link answers on the deadline's own day, so the deletion waits a day. An
     emptied seat is outstanding.
     """
 
     if bewerbung_raw.get("status") != "submitted":
-        return False
-
-    # HELD rather than erased: an administrator edits the seat, and that write's mail makes it due again.
-    if undeliverable:
         return False
 
     kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
@@ -1258,9 +1253,8 @@ def _lapsed_seat_term(*, seat: str, today: str) -> Mapping[str, Any]:
 def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     """Every application the fourteen-day clock may take, as a query: a confirmed one would otherwise fill the page ahead of a due one.
 
-    A held one stays in it, its delivery being the Postausgang's, so `deletion_is_due` judges each row read. Each seat's
-    two terms are that function's two arms: its own deadline passed unconfirmed, or the entry an erasure emptied with no
-    other seat's link running.
+    Each seat's two terms are `deletion_is_due`'s two arms: its own deadline passed unconfirmed, or the entry an erasure
+    emptied with no other seat's link running.
     """
 
     passed = [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN]
@@ -1355,8 +1349,7 @@ def acceptance_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], later_saiso
 def undecided_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
     """Whether the season's own end takes this application: undecided, and its season is over.
 
-    Nothing else is asked: a confirmed seat and a refused notice each drop an application out of the
-    fourteen-day clock.
+    Nothing else is asked: a confirmed seat drops an application out of the fourteen-day clock.
     """
 
     return bewerbung_raw.get("status") == "submitted" and season_has_ended(saison_status=saison_status)
@@ -1504,7 +1497,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
 
 
 def owed_loeschung(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedMail | None:
-    """The fourteen-day clock's notice to the submitter, naming who never confirmed.
+    """The fourteen-day clock's notice to the Ansprechperson, naming who never confirmed.
 
     `None` where the Ansprechperson slot is empty, which leaves nobody to tell, or where a Widerspruch's notice already named
     the deletion.

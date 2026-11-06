@@ -70,7 +70,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other 70: 247 commands at 36 ms plus 1.38 ms take 9.23 s
+# Both shares at three commands a row beside the worst call's other 69: 246 commands at 36 ms plus 1.38 ms take 9.20 s
 # of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 36
 
@@ -309,7 +309,7 @@ async def sweep_saison(
         return len(taken)
 
     async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The fourteen-day clock: owe the submitter the notice, erase, then redact, in one transaction.
+        """The fourteen-day clock: owe the Ansprechperson the notice, erase, then redact, in one transaction.
 
         Read in-session, so a retry re-judges.
         """
@@ -322,15 +322,9 @@ async def sweep_saison(
                 session=session,
             )
         )
-        # The submitter's last mail, read in the same transaction: a bounce it reports holds the application for the
-        # administrator to correct the address.
-        lagen = await states_of(
-            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
-        )
 
         def due(row: Mapping[str, Any]) -> bool:
-            unzustellbar = "ansprechperson" in unerreichbare_seats(row=row, lagen=lagen)
-            return deletion_is_due(bewerbung_raw=row, today=today, undeliverable=unzustellbar)
+            return deletion_is_due(bewerbung_raw=row, today=today)
 
         # Each notice built before anything is written, so a row whose stored data refuses one is passed over whole.
         owed = batch.judged(
