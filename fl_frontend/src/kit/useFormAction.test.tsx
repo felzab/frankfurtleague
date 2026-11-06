@@ -11,8 +11,11 @@ import { SERVER_COPY } from "@/core/serverCopy";
 
 import { AccountBox } from "./AccountBox";
 import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
+import { EditorPage } from "./EditorPage";
 import { OneShotForm } from "./OneShot";
 import { SignInPage } from "./SignInPage";
+import { TextField } from "./TextField";
+import { useEditor } from "./useEditor";
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
@@ -23,6 +26,32 @@ vi.mock("next/navigation", async (original) => ({ ...(await original<object>()),
 
 const WORDS = COPY.signIn;
 const refused = async () => ({ ok: false, reason: COPY.shared.failure.stale }) as const;
+
+/** An editor of one text box, which Enter submits with no submit button on the form. */
+function HeldEditor() {
+  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, refused);
+  return (
+    <EditorPage
+      title={{ record: "Riedberg" }}
+      editor={editor}
+      sections={[
+        {
+          id: "ort",
+          title: WORDS.address,
+          fields: (
+            <TextField
+              label={WORDS.address}
+              name="name"
+              width="W3"
+              kind="text"
+              value={editor.draft.name}
+            />
+          ),
+        },
+      ]}
+    />
+  );
+}
 
 // A press before hydration is the browser's own: without React's holding action, a GET with every field in the URL,
 // which nothing on the page shows until a person reads the address bar or a log keeps the query.
@@ -60,6 +89,7 @@ describe("a form a visitor reaches before hydration", () => {
         acts={{ primary: WORDS.sendCode }}
       />,
     ],
+    ["an editor", <HeldEditor key="editor" />],
   ])("hands %s to React, never the browser", (_, form) => {
     const held = document.createElement("div");
     held.innerHTML = renderToString(form);
