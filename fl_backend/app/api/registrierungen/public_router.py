@@ -112,13 +112,16 @@ WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 async def _club_departed(
     *, saison_teams_collection: ReadCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None = None
 ) -> bool:
-    """Whether this registration's club has left the season, on the record's presence as `find_team_departed_refusal` reads it."""
+    """Whether this registration's club has left the season: by an exit, on the record's presence, or by a replacement, which leaves it no row.
+
+    A registration is taken only from a club holding a row, so a missing one is that club replaced, and it admits nobody.
+    """
 
     junction_raw = await saison_teams_collection.find_one(
         {"saison_id": registrierung_raw["saison_id"], "team_id": registrierung_raw["team_id"]}, JUNCTION_PROJECTION, session=session
     )
 
-    return (junction_raw or {}).get("austritt") is not None
+    return junction_raw is None or junction_raw.get("austritt") is not None
 
 
 async def _open_invitation(*, invitations_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
