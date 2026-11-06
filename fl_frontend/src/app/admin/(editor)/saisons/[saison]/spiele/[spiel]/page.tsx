@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { AnswerRowsPlaceholder } from "@/kit/AnswerRows";
 import { EditorShell } from "@/kit/EditorShell";
+import { FieldPair, FieldPlaceholder } from "@/kit/FieldPair";
+import { SwitchPlaceholder } from "@/kit/Switch";
 import { TablePlaceholder } from "@/kit/Table";
 
 import { requires } from "@/core/action";
@@ -101,6 +103,18 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
+/** A booking and its money while the match is read, at their widths, stacking on a phone as the editor's pair does. */
+function BookingPlaceholder() {
+  return (
+    <FieldPair
+      short="second"
+      phone="stack">
+      <FieldPlaceholder width="W3" />
+      <FieldPlaceholder width="C5" />
+    </FieldPair>
+  );
+}
+
 /** The match editor, on its one view read. */
 export default function SpielEditorPage({ params }: Props) {
   return (
@@ -108,8 +122,24 @@ export default function SpielEditorPage({ params }: Props) {
       wait={{
         lead: true,
         sections: [
-          ["pair", "pair", "pair"],
-          ["field", "score"],
+          [
+            <FieldPair
+              key="when"
+              short="both"
+              phone="pair">
+              <FieldPlaceholder width="C10" />
+              <FieldPlaceholder width="C5" />
+            </FieldPair>,
+            <BookingPlaceholder key="spielort" />,
+            <BookingPlaceholder key="schiedsrichter" />,
+          ],
+          [
+            <SwitchPlaceholder
+              key="result"
+              label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
+            />,
+            "score",
+          ],
           [{ titled: "W4" }],
           [{ titled: "fit" }],
           [
