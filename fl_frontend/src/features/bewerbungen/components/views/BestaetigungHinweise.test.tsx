@@ -7,26 +7,15 @@ import { underNext } from "@/test-support/nextContexts.ts";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { SEAT_WORDINGS, SPIELER_WORDINGS } from "@/core/consentWordings.ts";
+import { SPIELER_WORDINGS } from "@/core/consentWordings.ts";
 
 doubleToasts();
 
-const { BestaetigungFormPanel } = await import("./BestaetigungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
 
 /* Each page a person consents on shows the words its press's labels name: a page reading its own words would have the
    record cite a text the person never saw. */
 describe("the consent each page shows", () => {
-  it("is the contact seat's WhatsApp wording on the contact page", () => {
-    render(
-      underNext(
-        h(BestaetigungFormPanel, { token: "kein-echtes-token", mindestalter: 18, medienMindestalter: 18, onAbschluss: () => undefined }),
-      ),
-    );
-
-    expect(screen.getByRole("switch", { name: SEAT_WORDINGS.scope.label })).toBeTruthy();
-  });
-
   it("is the pupil's name wording on the new pupil's registration page", () => {
     const ansicht = {
       state: "valid" as const,

@@ -6,6 +6,7 @@ import { ROUTES } from "@/core/routes";
 import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { Facts, FactsPlaceholder } from "./Facts";
+import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { PlaceholderLine, Waiting } from "./Skeleton";
 import { StatusPage } from "./StatusPage";
@@ -59,6 +60,8 @@ export type MailedState =
       title: Copy;
       facts?: ReadonlyArray<Fact>;
       sentence: Copy;
+      /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
+      more?: { before: Copy; after: Copy };
       action: OneShotAction;
       acts: { primary: Copy; secondary?: Copy };
       /** What the form posts unseen beside its fields: the link's token. */
@@ -117,7 +120,21 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
             <>
               <ClassicTitle text={props.title} />
               {props.facts !== undefined && props.facts.length > 0 && <Facts facts={props.facts} />}
-              <p className="text-base">{props.sentence}</p>
+              <p className="text-base">
+                {props.sentence}
+                {props.more !== undefined && (
+                  <>
+                    {" "}
+                    {props.more.before}
+                    <Link
+                      href={ROUTES.privacyNotice.path()}
+                      placement="text"
+                      label={COPY.page.privacyNotice}
+                    />
+                    {props.more.after}
+                  </>
+                )}
+              </p>
             </>
           }>
           {props.children}

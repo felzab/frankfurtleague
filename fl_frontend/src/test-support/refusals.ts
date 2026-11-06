@@ -72,16 +72,6 @@ export function answerShown(code: Code | undefined, mapper: (error: unknown) => 
   return shown;
 }
 
-/** `answerShown` for a mapper that answers once a read it makes has settled. */
-export async function answerSettled(code: Code | undefined, mapper: (error: unknown) => unknown): Promise<unknown> {
-  const refusal = refused(code);
-  const moved = atAnotherStatus(refusal);
-  const shown = shownFrom(refusal, await mapper(refusal));
-  expect(shownFrom(moved, await mapper(moved)), `${String(code)} is answered by its status`).toStrictEqual(shown);
-
-  return shown;
-}
-
 /** A failure as the form reads it back, where a key left `undefined` and a key left out read alike. */
 const asRead = (result: unknown): unknown => JSON.parse(JSON.stringify(result)) as unknown;
 

@@ -101,12 +101,6 @@ export const BEWERBUNG_MIN_ALTER = 16 satisfies FLBewerbungKontaktMinAgeYears;
 export const BEWERBUNG_MAX_ALTER = 120;
 
 /**
- * The contact page's objection control, which the stamped wording names in a paragraph of its own
- * (its `{ablehnen}` slot): the label and that sentence say the same words wherever either renders.
- */
-export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
-
-/**
  * Every seat a contact person holds on one row, as the one phrase the contact page, the account page and the mails
  * name them by (`fl_frontend/src/core/teamVocabulary.ts :: rollenText`); an emptied seat names nobody.
  */
@@ -120,23 +114,12 @@ export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string
  */
 export const VERTRETUNG_MIN_ALTER = 18 satisfies FLSignatoryMinAgeYears;
 
-// Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
-// 190-year-old date with „mindestens 16“, which is a different fault.
-export const alterAusserhalb = (mindestalter: number): string =>
-  `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
-
 /**
  * The deadline a confirmation link runs on, so the page states the day the sweep deletes on; checked against
  * `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so the backend moving it fails
  * the type check here.
  */
 export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLBewerbungConfirmationDeadlineDays;
-/**
- * The reminder's clock, mirrored from `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_REMINDER_DAYS`, which
- * the mails' day-count test holds them to.
- * @internal
- */
-export const BEWERBUNG_ERINNERUNG_TAGE = 3;
 
 /**
  * The raw token's ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound at the two

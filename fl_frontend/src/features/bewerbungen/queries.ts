@@ -12,8 +12,6 @@ import { runWithIncomingTrace } from "@/core/traceScope";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { bewerbungenQueueTerms } from "./facets";
-import { postEinwilligungAnsicht } from "./mutations";
-import { mapEinwilligungAnsichtRefusal } from "./utils";
 
 import type {
   BewerbungenGetBewerbungenParams,
@@ -23,7 +21,6 @@ import type {
   FLBewerbungTrikotFarbenResponse,
   FLBewerbungWindowResponse,
 } from "@/core/generated/client/types";
-import type { EinwilligungAnsicht } from "./types";
 
 /**
  * Every application, newest first, narrowable by season and by any number of statuses.
@@ -91,31 +88,4 @@ export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse>
  */
 export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewerbungTrikotFarbenResponse> {
   return runWithIncomingTrace(() => bewerbungenGetTrikotfarben(saisonId));
-}
-
-/**
- * One link's standing, read on every open and stored nowhere: a GET records nothing, not even a
- * visit, because mail scanners fetch every link in a message.
- */
-export async function getEinwilligungAnsicht(token: string): Promise<EinwilligungAnsicht> {
-  return runWithIncomingTrace(() =>
-    postEinwilligungAnsicht({ token: token }).then(
-      // Narrowed here and never at the page, which would carry the school and the season regardless: a
-      // dead link's panel names nothing of the seat. An emptied seat arrives as an unknown token.
-      (view): EinwilligungAnsicht => {
-        const { state } = view;
-        // A closed season row's link still takes a Widerspruch, so it keeps its read as an open one does.
-        if (state !== "valid" && state !== "saison_past") return { zustand: state, quelle: view.quelle };
-
-        return { zustand: state, ansicht: view };
-      },
-      (error: unknown) => {
-        // Anything but a refusal is a failed read, which is the page's own state rather than a panel
-        // calling a live link void.
-        const state = mapEinwilligungAnsichtRefusal(error);
-        if (state !== null) return { zustand: state };
-        throw error;
-      },
-    ),
-  );
 }

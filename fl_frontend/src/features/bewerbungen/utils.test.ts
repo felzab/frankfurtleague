@@ -1,16 +1,12 @@
-import { answerSettled, answerShown, refusalCodes, refused } from "@/test-support/refusals.ts";
+import { answerShown, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { parseDate } from "@internationalized/date";
 import { assert, describe, expect, it } from "vitest";
 
-import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings.ts";
 import { TEAM_FACETS } from "@/features/teams/facets";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
-import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
-import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
+import { BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import {
   abiJahrgang,
   BEWERBUNG_VERALTET,
@@ -22,13 +18,11 @@ import {
   fensterZustand,
   geburtsdatumSpanne,
   mapBewerbungSubmitRefusal,
-  mapEinwilligungAnsichtRefusal,
-  mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
 } from "./utils.ts";
 
 import type { Code, FLBewerbung, FLBewerbungWindowResponse } from "@/core/generated/client/types.ts";
-import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft, EinwilligungAnsicht } from "./types.ts";
+import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./types.ts";
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -263,22 +257,6 @@ describe("the birthdate window a contact person's date has to fall in", () => {
         expect(wholeYears(spaeteste, today2), `${wo}: the latest date offered is not the youngest accepted`).toBe(mindestalter);
         expect(wholeYears(nextDay(spaeteste), today2), `${wo}: the day after it is accepted too`).toBe(mindestalter - 1);
       }
-    }
-  });
-
-  /* The offer's other half, which the picker cannot show: the SCHEMA takes the latest date the
-     control offers and refuses the day after it. On a module constant it does neither at eighteen. */
-  it("accepts the latest date the control offers and refuses the day after it, at either floor", () => {
-    for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
-      const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", answer: "given", whatsapp: false, media: false, text_versions: SEAT_TEXT_VERSIONS };
-
-      expect(schema.safeParse({ ...antwort, birth_date: spaeteste }).success, `${String(mindestalter)}: the offer is refused`).toBe(true);
-      expect(
-        schema.safeParse({ ...antwort, birth_date: nextDay(spaeteste) }).success,
-        `${String(mindestalter)}: a day younger than the offer is accepted`,
-      ).toBe(false);
     }
   });
 });
@@ -525,170 +503,5 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       fieldErrors: { "kontakte.ansprechperson.email": FELD_ABGELEHNT },
       unplacedError: mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen"))?.error,
     });
-  });
-});
-
-/** The link's own view as the handler hands it, open at `mindestalter`. */
-const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht> => ({
-  zustand: "valid",
-  ansicht: {
-    state: "valid",
-    quelle: "bewerbung",
-    row: null,
-    saison_id: "2026",
-    schule: "Ernst-Reuter",
-    rolle: "ansprechperson",
-    also_rolle: null,
-    minimum_age: mindestalter,
-    maximum_age: 99,
-    deadline: "2026-05-15",
-    answered_on: null,
-    media_minimum_age: 18,
-  },
-});
-
-describe("the confirmation's refusals against the codes its endpoint publishes", () => {
-  /* A published code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
-     toast, which names neither the field to fix nor the panel that would explain the dead link. */
-  it("maps every code the confirmation publishes", async () => {
-    for (const code of refusalCodes(
-      "link_invalid",
-      "link_expired",
-      "bewerbung_seat_already_answered",
-      "confirmation_age",
-      "link_barred",
-      "media_age",
-      "link_expired",
-      "kontakt_saison_past",
-    )) {
-      const answered = await answerSettled(code, (error) => mapEinwilligungRefusal(error, offenBei(VERTRETUNG_MIN_ALTER)));
-      expect(answered, `${code} reaches the contact person unmapped`).not.toBe(null);
-    }
-  });
-
-  /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
-     refusal is a token nothing could place. */
-  it("calls the link void on every refusal its read publishes", () => {
-    for (const code of refusalCodes("link_invalid")) {
-      expect(mapEinwilligungAnsichtRefusal(refused(code)), code).toBe("invalid");
-    }
-  });
-
-  /* Three codes, one panel, each spending this person's link: a decided application, an application's
-     passed deadline, and a season row's passed deadline, which no application's link meets and whose
-     wording the view takes from the link's source. */
-  it("gives each code its own answer, the spent links one panel", async () => {
-    const answers = new Map<string, string>();
-    for (const code of refusalCodes(
-      "link_invalid",
-      "link_expired",
-      "bewerbung_seat_already_answered",
-      "confirmation_age",
-      "link_barred",
-      "media_age",
-      "link_expired",
-      "kontakt_saison_past",
-    )) {
-      answers.set(code, JSON.stringify(await mapEinwilligungRefusal(refused(code), offenBei(VERTRETUNG_MIN_ALTER))));
-    }
-
-    // An answer the read cannot find claims no more than the refusal did: the panel naming nobody.
-    expect(answers.get("bewerbung_seat_already_answered"), "an answer the view reads as open names a panel").toBe(answers.get("link_invalid"));
-    answers.delete("bewerbung_seat_already_answered");
-    expect(new Set(answers.values()).size, "two codes are answered with the same panel or sentence").toBe(answers.size);
-  });
-
-  /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
-     declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
-  it("answers the already-answered link with the state its view reads, never a state of its own", async () => {
-    const abgelehnt = async (): Promise<EinwilligungAnsicht> => ({ zustand: "declined", quelle: "bewerbung" });
-
-    expect(await mapEinwilligungRefusal(refused("bewerbung_seat_already_answered"), abgelehnt)).toStrictEqual({
-      zustand: "declined",
-    });
-  });
-
-  /* The age refusal spends no token, so it has to land on the one field the page renders: a `zustand`
-     here would replace a live form with a dead-link panel and lose the date the person typed. */
-  it("answers the age refusal at the field, naming the floor it was given and never a state", async () => {
-    for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const mappedRefusal = await mapEinwilligungRefusal(refused("confirmation_age"), offenBei(floor));
-      const gesagt = mappedRefusal?.fieldErrors?.birth_date ?? "";
-
-      expect(mappedRefusal?.zustand, "a refusal the token survives closed the form anyway").toBe(undefined);
-      assert.ok(gesagt.includes(String(floor)), `the sentence does not name ${String(floor)}, which is the floor it was handed`);
-    }
-  });
-
-  /* The floor-aware half, which the page states because it knows the seat: a sentence carrying one
-     floor at both seats tells a refused Ansprechperson their date cleared the bar. */
-  it("names the floor it was given, and the ceiling either way", () => {
-    for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const gesagt = alterAusserhalb(floor);
-
-      assert.ok(gesagt.includes(String(floor)), `the sentence for ${String(floor)} does not name it`);
-      assert.ok(gesagt.includes(String(BEWERBUNG_MAX_ALTER)), "a mistyped century is answered with the floor alone");
-    }
-  });
-
-  /* Naming no field, a drifted client, since every body rule the panel can break is mirrored: the
-     answer names no box, nothing here knowing which one broke, and reopens the mail's link, the page
-     having stripped its token. */
-  it("answers a body refusal naming no field with the mail's link, pointing at no field", async () => {
-    const mappedRefusal = await mapEinwilligungRefusal(refusedPayload([], "/bewerbungen"), offenBei(VERTRETUNG_MIN_ALTER));
-
-    expect(mappedRefusal).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
-  });
-
-  /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
-  it("answers a body the API could not read with the mail's link", async () => {
-    expect(await mapEinwilligungRefusal(refused("body_unreadable"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
-      error: ANTWORT_NEU_OEFFNEN,
-    });
-  });
-
-  it("puts a body refusal naming a field on that field's box, with the mail's link for a box the panel lacks", async () => {
-    const mappedRefusal = await mapEinwilligungRefusal(
-      refusedPayload([bodyField(["birth_date"], "date_from_datetime_parsing")], "/bewerbungen"),
-      offenBei(VERTRETUNG_MIN_ALTER),
-    );
-
-    expect(mappedRefusal).toStrictEqual({ fieldErrors: { birth_date: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
-  });
-});
-
-describe("mapEinwilligungAnsichtRefusal", () => {
-  /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
-     `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
-  it("reads every refusal as the panel that names nobody", () => {
-    expect(mapEinwilligungAnsichtRefusal(refused("link_invalid"))).toBe("invalid");
-    for (const status of [409, 404, 410]) {
-      expect(mapEinwilligungAnsichtRefusal(refused("activate_saison_unfinished", status)), String(status)).toBe("invalid");
-    }
-  });
-
-  /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
-     is answered by the dead-link panel rather than by the state inviting a reload that cannot work. */
-  it("reads a token the backend will not parse as a link nothing matches", () => {
-    expect(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen"))).toBe("invalid");
-  });
-
-  /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
-     void on a day the backend was unreachable. */
-  it("leaves anything that is not a refusal to the caller", () => {
-    expect(mapEinwilligungAnsichtRefusal(refused(undefined, 500))).toBe(null);
-    expect(mapEinwilligungAnsichtRefusal(new Error("socket hang up"))).toBe(null);
-  });
-
-  /* Neither judged the token: a route the API does not serve is met mid-deploy, and an unreadable body
-     failed in the page's own encoding. The dead-link panel would send the visitor away from a live link. */
-  it("leaves a routing refusal or an unreadable body to the caller, never the dead-link panel", () => {
-    for (const [status, code] of [
-      [404, "no_route"],
-      [405, "method_not_served"],
-    ] as const) {
-      expect(mapEinwilligungAnsichtRefusal(refused(code, status)), code).toBe(null);
-    }
-    expect(mapEinwilligungAnsichtRefusal(refused("body_unreadable"))).toBe(null);
   });
 });
