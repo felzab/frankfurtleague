@@ -338,6 +338,11 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built over a read of `spiele` by `fl_backend/app/api/teams/services.py :: build_team_pipeline`, and over fixtures a caller already holds by `fl_backend/app/api/teams/services.py :: build_statistik_by_team` — the bracket resolution's preview.\
 **Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and `statistik_scope` decides which table you get, defaulting to the narrow `gruppenphase` one.
 
+### `Sieg` · `Unentschieden` · `Niederlage` — what a played match gives a club
+
+**Is:** a win, a draw and a loss, each worth the points the season's rules set.\
+**In code:** counted as `siege`, `unentschieden` and `niederlagen` on `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, worth `win_points`, `draw_points` and `loss_points` on `fl_backend/app/api/saisons/schemas.py :: FLSaisonRules`, and held in order by `rules_unentschieden_outvalues_win` and `rules_niederlage_outvalues_unentschieden` in `fl_backend/app/core/codes.py :: Code`.
+
 ### `mietpreis` · `default_mietpreis` — rental price
 
 **Is:** two fields and never one copy — `mietpreis` is what one fixture paid for its venue, carried on the copy a match embeds; `default_mietpreis` is the venue's own current price — „Mietpreis“ on screen, which the venue list's column shows from `default_mietpreis`. Both are an `int` with `ge=0`.\
