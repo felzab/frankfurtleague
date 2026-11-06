@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { KONTAKT_EMAIL } from "@/core/brand";
 
 import { buildRefusal } from "./refusal";

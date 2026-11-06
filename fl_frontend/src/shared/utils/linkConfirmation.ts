@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import "client-only";
 
 import { appToast } from "./appToast";

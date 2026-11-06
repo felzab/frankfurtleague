@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 /**
  * What a refusal carries, so a weak one cannot ship shorter than its own way out. The two sentences
  * are the FORM register `validation.ts :: VALIDATION_FAILED` declares, the action second.

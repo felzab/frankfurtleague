@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { z } from "zod";
 
 import { hasAsciiLocalPart, isDeliverableAddress, isSpecialUseAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
