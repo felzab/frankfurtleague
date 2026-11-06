@@ -767,6 +767,7 @@ export const COPY = catalogue({
       undeliverable: "Unzustellbar",
       suppressed: "Zustellung blockiert",
       complaint: "Als Spam gemeldet",
+      held: "Nur abgelegt",
     },
 
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
