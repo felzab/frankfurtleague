@@ -28,7 +28,7 @@ import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
-import type { TableRow } from "@/kit/Table";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SaisonValues } from "./saisonValues";
 
@@ -73,8 +73,8 @@ export type SaisonFacts = {
   locked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
 };
 
-/** The registration links: each team's row, and how many teams the press would mail. */
-export type SaisonLinks = { rows: readonly TableRow[]; mailed: number };
+/** The registration links: their table's head and each team's row, and how many teams the press would mail. */
+export type SaisonLinks = { head: TableHead; rows: readonly TableRow[]; mailed: number };
 
 /** The acts the editor's sections and its danger rows press, each a server action naming its season. */
 export type SaisonActs = {
@@ -523,9 +523,8 @@ export function SaisonEditor({
           }}
           run={() => acts.sendLinks({ saison_id: saison })}>
           <Table
+            {...links.head}
             label={WORDS.registrierungslinks}
-            nameLabel={TEAM}
-            columns={[{ key: "link", label: COPY.account.address.link }]}
             rows={links.rows}
             empty={{ kind: "none", plural: COPY.page.teams, glyph: "teams" }}
             bare
