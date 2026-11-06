@@ -52,7 +52,7 @@ const karte = <T extends z.ZodType<string>>(spieler: T) =>
     spieler_id: spieler,
     minute: minute,
     colour: FLCardColourSchema,
-    card_reason: FLCardReasonSchema.nullable(),
+    reason: FLCardReasonSchema.nullable(),
   });
 
 /** A card as the caution rule matches it: by side, person and colour, a card having no id. */
@@ -60,7 +60,7 @@ export type KartenSchluessel = {
   readonly side: string | null;
   readonly spieler_id: string;
   readonly colour: string | null;
-  readonly card_reason: string | null;
+  readonly reason: string | null;
 };
 
 /**
@@ -70,7 +70,7 @@ export type KartenSchluessel = {
 export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
   const gleich = (eine: KartenSchluessel, andere: KartenSchluessel) =>
     eine.side === andere.side && eine.spieler_id === andere.spieler_id && eine.colour === andere.colour;
-  const ohneGrund = (karte: KartenSchluessel) => karte.colour !== "rot" && karte.card_reason === null;
+  const ohneGrund = (karte: KartenSchluessel) => karte.colour !== "rot" && karte.reason === null;
 
   return karten.map(
     (karte, index) =>
@@ -166,8 +166,8 @@ export function spielberichtFormSchema(bestand: readonly KartenSchluessel[]) {
       karten: kartenListe(karte(z.string().nonempty({ error: "Bitte wähle die Person." }))).superRefine((karten, context) => {
         const erlassen = gruendeErlassen(bestand, karten);
         karten.forEach((eintrag, index) => {
-          if (eintrag.colour !== "rot" && eintrag.card_reason === null && !erlassen[index]) {
-            context.addIssue({ code: "custom", message: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.", path: [index, "card_reason"] });
+          if (eintrag.colour !== "rot" && eintrag.reason === null && !erlassen[index]) {
+            context.addIssue({ code: "custom", message: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.", path: [index, "reason"] });
           }
         });
       }),

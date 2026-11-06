@@ -1726,7 +1726,7 @@ class TestTheAdministratorFollowsTheirMove:
                     "declined",
                     kontakte=documents.kontakte_document(),
                     submitted_at="2126-02-01",
-                    decision={"made_at": "2126-02-15", "by": EMAIL, "decision_reason": "kein Platz"},
+                    decision={"made_at": "2126-02-15", "by": EMAIL, "reason": "kein Platz"},
                 )
             )
             minted = await start(database, client)
@@ -2191,7 +2191,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             declined = registration(DECLINED_REG_OID, SECOND_TEAM_OID, confirmed=False, token="the-declined-registrations-link")
-            declined.update(compose_ablehnung_update(by="admin@frankfurtleague.de", decision_reason=None, today=TODAY)["$set"])
+            declined.update(compose_ablehnung_update(by="admin@frankfurtleague.de", reason=None, today=TODAY)["$set"])
             await database[Collection.REGISTRIERUNGEN].insert_one(declined)
             await confirmed_and_moved(database, client)
             return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
@@ -2264,7 +2264,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
             await patch_one_in_db(
                 collection=database[Collection.REGISTRIERUNGEN],
                 db_filter={"_id": DECLINED_REG_OID},
-                update=compose_ablehnung_update(by=EMAIL, decision_reason=None, today=TODAY),
+                update=compose_ablehnung_update(by=EMAIL, reason=None, today=TODAY),
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )

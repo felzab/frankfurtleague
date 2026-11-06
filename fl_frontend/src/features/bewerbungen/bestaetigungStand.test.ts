@@ -50,7 +50,7 @@ const ABGELEHNT: FLBewerbungConfirmation = { ...OFFEN, declined_at: "2026-09-04"
 /** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row and the read judges it. */
 const zugestellt = (state: FLOutboxDeliveryState, undeliverable: boolean): FLBewerbungConfirmation => ({
   ...OFFEN,
-  delivery: { state: "sent", delivery: { state, delivery_reason: null, at: "2026-09-01T10:15:00.000Z" }, undeliverable },
+  delivery: { state: "sent", delivery: { state, reason: null, at: "2026-09-01T10:15:00.000Z" }, undeliverable },
 });
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */

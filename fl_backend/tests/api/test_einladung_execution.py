@@ -52,7 +52,7 @@ REGISTRIERUNG: Mapping[str, Any] = {"open": True, "end": "2026-04-30"}
 
 TEAM_NAMES = {TWO_SEATS: "Adler", UNCONFIRMED: "Bieber", NO_BLOCK: "Cronberg", ALREADY_MAILED: "Dornbusch", WITHDRAWN: "Eschborn"}
 
-AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-03-25"}
+AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-25"}
 
 
 def kontaktperson(first_name: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:

@@ -57,8 +57,8 @@ class TestTheTabellesGroups:
         ]
 
     def test_a_row_names_only_the_type_of_an_austritt(self, team):
-        """`exit_reason` is free text written for publication, and the club's own page is where it is published."""
-        austritt = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-03-14"}
+        """`reason` is free text written for publication, and the club's own page is where it is published."""
+        austritt = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-14"}
         rows = build_tabelle([FLTeam.model_validate(team(gruppe="A", austritt=austritt))], spiele=[], rules=RULES).root["A"]
 
         assert rows[0].austritt_type == "rueckzug"

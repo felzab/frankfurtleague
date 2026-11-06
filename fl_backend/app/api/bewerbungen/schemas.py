@@ -141,7 +141,7 @@ class FLBewerbungEntscheidung(BaseModel):
     by: str
     # Null on an acceptance: what an acceptance did is the club and the junction row it wrote, and a
     # reason field filled in with "angenommen" would be a second, weaker record of that.
-    decision_reason: str | None
+    reason: str | None
 
 
 class FLBewerbungDecisionRow(FLBewerbungEntscheidung):
@@ -258,7 +258,7 @@ class FLDeclineBewerbungPayload(BaseModel):
 
     # The ceiling counts what arrives and the floor what is left after the strip, so the published `maxLength` is what the
     # write accepts and spaces alone are no reason.
-    decision_reason: Annotated[
+    reason: Annotated[
         str,
         StringConstraints(max_length=BEWERBUNG_DECISION_REASON_MAX_LENGTH, pattern=PARAGRAPH_PATTERN),
         AfterValidator(str.strip),
@@ -399,7 +399,7 @@ class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
 class FLBewerbungAddressPayload(FLAddressPayload):
     """The school's address, with the Stadtteil required."""
 
-    # The ceiling on what arrives, the floor after the strip, as `decision_reason`'s.
+    # The ceiling on what arrives, the floor after the strip, as `reason`'s.
     stadtteil: Annotated[
         str, StringConstraints(max_length=ADDRESS_STADTTEIL_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
     ]

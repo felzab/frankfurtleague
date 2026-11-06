@@ -476,7 +476,7 @@ const running = season({
 // departed club does (`docs/domain.md`, "A departed club holding drawn fixtures").
 running.saisonTeams.find((row) => row.name === "Weide").austritt = {
   type: "disqualifikation",
-  exit_reason: "Nicht zum Spiel angetreten",
+  reason: "Nicht zum Spiel angetreten",
   date: day(-12),
 };
 
@@ -618,8 +618,8 @@ const REPORTS = [
         { side: "team1", spieler_id: null, minute: "45+2", eigentor: false },
       ],
       karten: [
-        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", card_reason: "foulspiel" },
-        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", card_reason: null },
+        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", reason: "foulspiel" },
+        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", reason: null },
       ],
       remarks: null,
       sides: { team1: REPORTED.team1.team_id, team2: REPORTED.team2.team_id },

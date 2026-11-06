@@ -113,5 +113,5 @@ export const FLRegistrierungAufnehmenPayloadSchema = z.object({
 const FLRegistrierungDecisionReasonSchema = z.enum(["other_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
 
 export const FLRegistrierungAblehnenPayloadSchema = z.object({
-  decision_reason: FLRegistrierungDecisionReasonSchema.nullable(),
+  reason: FLRegistrierungDecisionReasonSchema.nullable(),
 });

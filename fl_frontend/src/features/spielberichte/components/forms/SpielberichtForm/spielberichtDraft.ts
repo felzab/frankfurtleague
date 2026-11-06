@@ -55,7 +55,7 @@ export type KarteDraft = {
   readonly spieler: string;
   readonly minute: string;
   readonly colour: FLCardColour | null;
-  readonly card_reason: FLCardReason | null;
+  readonly reason: FLCardReason | null;
 };
 
 export type SpielberichtDraft = {
@@ -105,7 +105,7 @@ function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft
       spieler: karte.spieler_id,
       minute: karte.minute,
       colour: karte.colour,
-      card_reason: karte.card_reason,
+      reason: karte.reason,
     })),
     remarks: stored.remarks ?? "",
     fuerTeams: "spiel",
@@ -165,12 +165,12 @@ export function formPayloadOf(draft: SpielberichtDraft) {
         sonderereignis: draft.sonderereignis,
       },
       torschuetzen: draft.torschuetzen.map(({ side, spieler, minute, eigentor }) => ({ side, spieler_id: spieler, minute, eigentor })),
-      karten: draft.karten.map(({ side, spieler, minute, colour, card_reason }) => ({
+      karten: draft.karten.map(({ side, spieler, minute, colour, reason }) => ({
         side,
         spieler_id: spieler,
         minute,
         colour,
-        card_reason,
+        reason,
       })),
       remarks: emptyAsNull(draft.remarks),
     },
@@ -297,7 +297,7 @@ function descriptorsFor(
         listText(
           karten.map(
             (karte) =>
-              `${teamName(karte.side)}: ${personName(karte.side, karte.spieler)}, ${minuteText(karte.minute)}, ${karte.colour === null ? OFFEN : CARD_COLOUR_LABELS[karte.colour]}${karte.card_reason === null ? "" : `, ${CARD_REASON_LABELS[karte.card_reason]}`}`,
+              `${teamName(karte.side)}: ${personName(karte.side, karte.spieler)}, ${minuteText(karte.minute)}, ${karte.colour === null ? OFFEN : CARD_COLOUR_LABELS[karte.colour]}${karte.reason === null ? "" : `, ${CARD_REASON_LABELS[karte.reason]}`}`,
           ),
         ),
     },

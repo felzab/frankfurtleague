@@ -78,7 +78,7 @@ def _side(team_id: str, name: str, **overrides: Any) -> dict[str, Any]:
 def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = None, **overrides: Any) -> dict[str, Any]:
     """One side as the fault walk reads it: the whole exit record, which is what a fault names its effective day from."""
 
-    record = None if disqualified_from is None else {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": disqualified_from}
+    record = None if disqualified_from is None else {"type": "disqualifikation", "reason": "Nicht angetreten", "date": disqualified_from}
 
     return _side(team_id, name, austritt=record, austritt_type=None if record is None else record["type"], **overrides)
 

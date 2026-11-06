@@ -42,7 +42,7 @@ RULES = FLSaisonRules(
 
 # The day before every fixture the factory dates (2026-03-15), so every case using it reads an exit before the group
 # was decided; the cases on the date itself spell theirs out.
-AUSGETRETEN = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
+AUSGETRETEN = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 # One member serves for the same reason: the walk reads the SET a fixture's `sonderereignis` falls in.
 CALLED_OFF, *_ = SONDEREREIGNIS_WITHOUT_A_RESULT
@@ -986,7 +986,7 @@ class TestSeedingTheSlot:
 
 
 def austritt_on(date: str, route: str = "disqualifikation") -> dict[str, Any]:
-    return {"type": route, "exit_reason": "Ausgeschieden", "date": date}
+    return {"type": route, "reason": "Ausgeschieden", "date": date}
 
 
 class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:

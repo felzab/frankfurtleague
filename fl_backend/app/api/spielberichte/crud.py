@@ -254,7 +254,7 @@ async def strip_the_seasons_reports(
         collection=spielberichte_collection,
         db_filter=build_season_report_texts_filter(saison_id),
         # Every card's reason by `$[]`: the cards stand.
-        update={"$set": {"bericht.remarks": None, "bericht.karten.$[].card_reason": None}},
+        update={"$set": {"bericht.remarks": None, "bericht.karten.$[].reason": None}},
         session=session,
     )
 

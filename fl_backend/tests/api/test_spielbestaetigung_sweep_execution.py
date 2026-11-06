@@ -540,7 +540,7 @@ async def a_bounce_on(database: AsyncDatabase, *, team_id: ObjectId, seat: str) 
     (row,) = await rows(database, **{"party.team_id": team_id})
     await database[Collection.OUTBOX].update_many(
         {"reference.id": row["_id"], "reference.seat": seat},
-        {"$set": {"delivery": FLOutboxDelivery(state="undeliverable", delivery_reason="NoEmail", at=MAIL_NOW).model_dump()}},
+        {"$set": {"delivery": FLOutboxDelivery(state="undeliverable", reason="NoEmail", at=MAIL_NOW).model_dump()}},
     )
 
 
@@ -652,7 +652,7 @@ class TestTheMintNeverAsksWhatTheCloseShuts:
         ],
     )
     def test_two_passes_mint_nothing(self, mongo_replica_set_url: str, spiel_fields: dict[str, Any], austritt_tag: str | None):
-        austritt = None if austritt_tag is None else {"type": "rueckzug", "exit_reason": "Schulwechsel", "date": austritt_tag}
+        austritt = None if austritt_tag is None else {"type": "rueckzug", "reason": "Schulwechsel", "date": austritt_tag}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first, second = await sweep(database, client), await sweep(database, client)
@@ -668,7 +668,7 @@ class TestTheMintNeverAsksWhatTheCloseShuts:
         assert (stored, first.anfragen, second.anfragen, first.closed + second.closed) == ([], [], [], 0)
 
     def test_a_club_gone_after_the_fixture_is_still_asked(self, mongo_replica_set_url: str):
-        austritt = {"type": "rueckzug", "exit_reason": "Schulwechsel", "date": days_after(day=NEXT_WEEK, days=1)}
+        austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": days_after(day=NEXT_WEEK, days=1)}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
@@ -782,7 +782,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
         assert [(request.side, request.moved_from is not None) for request in back.anfragen] == [("team1", True)]
 
 
-AUSTRITT_ON_THE_DAY = {"austritt": {"type": "rueckzug", "exit_reason": "Schulwechsel", "date": NEXT_WEEK}}
+AUSTRITT_ON_THE_DAY = {"austritt": {"type": "rueckzug", "reason": "Schulwechsel", "date": NEXT_WEEK}}
 
 
 class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:

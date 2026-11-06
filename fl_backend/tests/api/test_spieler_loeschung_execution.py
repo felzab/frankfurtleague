@@ -336,7 +336,7 @@ def a_report_naming(*, scorers: list[ObjectId | None], carded: list[ObjectId]) -
         {"side": "team1", "spieler_id": scorer, "minute": str(10 + index), "eigentor": False} for index, scorer in enumerate(scorers)
     ]
     bericht["karten"] = [
-        {"side": "team2", "spieler_id": pupil, "minute": str(60 + index), "colour": "gelb", "card_reason": "foulspiel"}
+        {"side": "team2", "spieler_id": pupil, "minute": str(60 + index), "colour": "gelb", "reason": "foulspiel"}
         for index, pupil in enumerate(carded)
     ]
     bericht["ergebnis_vorschlag"] = {"team1_tore": len(scorers), "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None}

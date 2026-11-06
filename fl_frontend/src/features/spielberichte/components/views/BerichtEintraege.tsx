@@ -57,7 +57,7 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
               <span className="min-w-0 flex-1 fluid-sm">{person(karte.spieler_id)}</span>
               <span className="muted-meta">{team(karte.side)}</span>
               <span className={labelBadge(karte.colour === "gelb" ? "warning" : "danger")}>{CARD_COLOUR_LABELS[karte.colour]}</span>
-              {karte.card_reason !== null && <span className="muted-meta">{`Grund: ${CARD_REASON_LABELS[karte.card_reason]}`}</span>}
+              {karte.reason !== null && <span className="muted-meta">{`Grund: ${CARD_REASON_LABELS[karte.reason]}`}</span>}
             </li>
           ))}
         </ul>

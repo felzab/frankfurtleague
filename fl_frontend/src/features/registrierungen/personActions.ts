@@ -59,10 +59,10 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
     const validated = AblehnenAktion.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    const { registrierung_id, decision_reason } = validated.data;
+    const { registrierung_id, reason } = validated.data;
     let ablehnung;
     try {
-      ablehnung = await postRegistrierungAblehnen(registrierung_id, { decision_reason });
+      ablehnung = await postRegistrierungAblehnen(registrierung_id, { reason });
     } catch (error) {
       const refusal = mapAblehnungRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };

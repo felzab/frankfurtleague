@@ -143,14 +143,14 @@ export function FormKartenSection({
                     </div>
 
                     <AuswahlSelect<FLCardReason | typeof KEIN_GRUND>
-                      name={`${pfad}.card_reason`}
+                      name={`${pfad}.reason`}
                       label="Grund"
                       placeholder="Grund wählen"
-                      value={karte.card_reason ?? (karte.colour === "rot" ? KEIN_GRUND : null)}
+                      value={karte.reason ?? (karte.colour === "rot" ? KEIN_GRUND : null)}
                       // Red alone may stand without a reason, so only it offers the way back to none.
                       options={karte.colour === "rot" ? [{ id: KEIN_GRUND, label: "Kein Grund" }, ...GRUND_OPTIONEN] : GRUND_OPTIONEN}
-                      onChange={(grund) => update(karte.key, { card_reason: grund === KEIN_GRUND ? null : grund })}
-                      error={fieldErrors[`${pfad}.card_reason`]}
+                      onChange={(grund) => update(karte.key, { reason: grund === KEIN_GRUND ? null : grund })}
+                      error={fieldErrors[`${pfad}.reason`]}
                       // Marked by hand: a caution's reason is refused empty over the whole list
                       // (`fl_frontend/src/features/spielberichte/schemas.ts :: spielberichtFormSchema`), the leaf taking `null`
                       // for a red and for a caution a stripped card of the stored report excuses.

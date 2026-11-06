@@ -31,7 +31,7 @@ TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 # document ceiling by construction rather than by luck.
 SPIEL_NOTE_MAX_LENGTH: Final = 4096
 
-# Why an application was declined, bounded where an `austritt`'s `exit_reason` is not: this one is composed
+# Why an application was declined, bounded where an `austritt`'s `reason` is not: this one is composed
 # into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
 BEWERBUNG_DECISION_REASON_MAX_LENGTH: Final = 1000
 
@@ -124,7 +124,7 @@ BAN_LIST_REASON_MAX_LENGTH: Final = 500
 
 # Why a team is out of a season, in an administrator's words on the team's public page: a sentence,
 # `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason.
-AUSTRITT_EXIT_REASON_MAX_LENGTH: Final = 500
+AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 # The request an administrator's erasure answers, written onto every log row it files: a mail's date
 # and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.

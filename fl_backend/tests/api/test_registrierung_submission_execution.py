@@ -201,7 +201,7 @@ async def leave(database: AsyncDatabase) -> None:
 
     await database[Collection.SAISON_TEAMS].update_one(
         {"saison_id": SAISON_ID, "team_id": TEAM_OID},
-        {"$set": {"austritt": {"type": "rueckzug", "exit_reason": "Mannschaft zurückgezogen", "date": TODAY}}},
+        {"$set": {"austritt": {"type": "rueckzug", "reason": "Mannschaft zurückgezogen", "date": TODAY}}},
     )
 
 

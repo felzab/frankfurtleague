@@ -306,7 +306,7 @@ def find_card_reason_missing_refusal(*, payload: FLSpielberichtBerichtPayload) -
     writes a report, and only while its season runs (`saison_past`).
     """
 
-    if all(karte.colour == "rot" or karte.card_reason is not None for karte in payload.karten):
+    if all(karte.colour == "rot" or karte.reason is not None for karte in payload.karten):
         return None
 
     return WriteRefusal(
@@ -483,7 +483,7 @@ def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
     """This season's reports still holding remarks or a card's reason, so a season stripped already is written nothing."""
 
     # `$type` and never `$ne: null`, which a list of cards matches only where no card holds a null reason.
-    return {"saison_id": saison_id, "$or": [{"bericht.remarks": {"$type": "string"}}, {"bericht.karten.card_reason": {"$type": "string"}}]}
+    return {"saison_id": saison_id, "$or": [{"bericht.remarks": {"$type": "string"}}, {"bericht.karten.reason": {"$type": "string"}}]}
 
 
 def build_season_report_images_filter(saison_id: str) -> Mapping[str, Any]:
@@ -492,7 +492,7 @@ def build_season_report_images_filter(saison_id: str) -> Mapping[str, Any]:
     return {
         "collection": str(Collection.SPIELBERICHTE),
         "before.saison_id": saison_id,
-        "$or": [{"before.bericht.remarks": {"$type": "string"}}, {"before.bericht.karten.card_reason": {"$type": "string"}}],
+        "$or": [{"before.bericht.remarks": {"$type": "string"}}, {"before.bericht.karten.reason": {"$type": "string"}}],
     }
 
 
@@ -503,13 +503,13 @@ def season_end_report_image_edits(image: Mapping[str, Any], saison_id: str) -> d
     if image.get("saison_id") != saison_id or not isinstance(bericht, Mapping):
         return {}
 
-    holds_a_reason = any(isinstance(karte, Mapping) and karte.get("card_reason") is not None for karte in bericht.get("karten") or [])
+    holds_a_reason = any(isinstance(karte, Mapping) and karte.get("reason") is not None for karte in bericht.get("karten") or [])
     if bericht.get("remarks") is None and not holds_a_reason:
         return {}
 
     # Both paths whatever the image holds, every reason by `$[]`: one update then serves every single image, where a
     # set per card index would cost the sweep's worst call a command each against its deadline.
-    return {"bericht.remarks": None, "bericht.karten.$[].card_reason": None}
+    return {"bericht.remarks": None, "bericht.karten.$[].reason": None}
 
 
 # --- The REFEREE'S ERASURE: the reports they sent, and the log images of them.

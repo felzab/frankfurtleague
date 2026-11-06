@@ -112,9 +112,7 @@ def registration(registrierung_id: ObjectId, email: str, *, declined: bool = Fal
     )
 
     return (
-        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", decision_reason=None, today="2026-03-05")["$set"]}
-        if declined
-        else document
+        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", reason=None, today="2026-03-05")["$set"]} if declined else document
     )
 
 

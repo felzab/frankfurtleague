@@ -228,7 +228,7 @@ class TestTheStartMovesNoLaterPastAStoredExit:
         which no page shows. An earlier start reopens nothing, so it is saved.
         """
 
-        exit_record = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": SAISON_START}
+        exit_record = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": SAISON_START}
         an_earlier_start = "2026-03-08"
 
         async def body(database: AsyncDatabase) -> tuple[APIError, str, str]:

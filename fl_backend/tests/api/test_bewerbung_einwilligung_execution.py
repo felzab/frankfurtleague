@@ -659,7 +659,7 @@ class TestAResend:
         assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
 
     def test_a_decided_application_gets_no_new_link(self, mongo_replica_set_url: str):
-        decided = bewerbung_document(status="declined", decision={"made_at": YESTERDAY, "by": "admin", "decision_reason": "kein Platz"})
+        decided = bewerbung_document(status="declined", decision={"made_at": YESTERDAY, "by": "admin", "reason": "kein Platz"})
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as conflict:

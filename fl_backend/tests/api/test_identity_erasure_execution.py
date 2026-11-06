@@ -467,7 +467,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             a_registration(
                 DECLINED_OID,
                 IDENTIFIER,
-                **compose_ablehnung_update(by="quillhilde@example.com", decision_reason=None, today="2126-03-28")["$set"],
+                **compose_ablehnung_update(by="quillhilde@example.com", reason=None, today="2126-03-28")["$set"],
             ),
         ]
     )
@@ -727,7 +727,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(),
             submitted_at="2126-03-01",
             schule=new_schule_document("Abgelehnt"),
-            decision={"made_at": "2126-03-10", "by": IDENTIFIER, "decision_reason": "Keine Halle"},
+            decision={"made_at": "2126-03-10", "by": IDENTIFIER, "reason": "Keine Halle"},
         )
     )
     declined = registrierung_document(
@@ -742,7 +742,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         deadline="2126-03-27",
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
-        {**declined, **compose_ablehnung_update(by=IDENTIFIER, decision_reason=None, today="2126-03-22")["$set"]}
+        {**declined, **compose_ablehnung_update(by=IDENTIFIER, reason=None, today="2126-03-22")["$set"]}
     )
 
 

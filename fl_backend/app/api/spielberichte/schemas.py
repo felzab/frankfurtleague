@@ -85,7 +85,7 @@ class FLSpielberichtKarte(BaseModel):
     spieler_id: CustomObjectId
     minute: CustomSpielberichtMinute
     colour: FLCardColour
-    card_reason: FLCardReason | None
+    reason: FLCardReason | None
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
@@ -335,7 +335,7 @@ class FLSpielberichtTorPublic(BaseReadModel):
 
 
 class FLSpielberichtKartePublic(BaseReadModel):
-    """One card, `side` its player's club, its `card_reason` never served: a characterisation of a named pupil's conduct."""
+    """One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct."""
 
     side: FLSpielSide
     minute: CustomSpielberichtMinute

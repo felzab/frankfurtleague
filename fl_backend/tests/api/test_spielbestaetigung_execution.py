@@ -384,7 +384,7 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
                     fixture(NEIGHBOUR, spiel_nr=2, date=neighbour[0], time=neighbour[1], ort=None, team1=None, team2=None)
                 )
             if austritt is not None:
-                exit_record = {"type": "rueckzug", "exit_reason": "Schule zieht zurück", "date": austritt}
+                exit_record = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": austritt}
                 await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
 
             outcome = await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), vorschlag))
@@ -505,7 +505,7 @@ async def book_the_ground_beside_it(database: AsyncDatabase) -> None:
 
 
 async def let_a_club_leave_before_the_proposal(database: AsyncDatabase) -> None:
-    exit_record = {"type": "rueckzug", "exit_reason": "Schule zieht zurück", "date": PROPOSAL[0]}
+    exit_record = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": PROPOSAL[0]}
     await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
 
 

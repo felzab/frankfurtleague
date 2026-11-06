@@ -59,7 +59,7 @@ def club(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
 
 def clubs() -> list[dict[str, Any]]:
     # An exit on the fixture's day takes the fixture from this opponent as much as from the departed club.
-    gone = {"type": "rueckzug", "exit_reason": "Schulwechsel", "date": LATER}
+    gone = {"type": "rueckzug", "reason": "Schulwechsel", "date": LATER}
 
     return [{**club(DEPARTED), "_id": DEPARTED_ROW}, club(OPPONENT), club(EARLIER_OPPONENT), club(GONE_TOO, austritt=gone)]
 
@@ -116,7 +116,7 @@ async def save_the_exit(database: AsyncDatabase, client: AsyncMongoClient, *, st
             saison_id=SAISON_ID,
             team_id=DEPARTED,
             stored=None if stored is None else {"date": stored},
-            proposed=FLAustritt(type="disqualifikation", exit_reason="Nicht angetreten", date=proposed),
+            proposed=FLAustritt(type="disqualifikation", reason="Nicht angetreten", date=proposed),
             now=MAIL_NOW,
             session=session,
         )

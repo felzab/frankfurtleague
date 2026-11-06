@@ -450,7 +450,7 @@ class TestTheLinkIsSpentByTheStamp:
     def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
         """One code for both: a pupil whose registration was declined while their link stood open is told the link is over, not why."""
 
-        entscheidung = {"made_at": YESTERDAY, "by": "admin", "decision_reason": "kein Platz"}
+        entscheidung = {"made_at": YESTERDAY, "by": "admin", "reason": "kein Platz"}
         declined = registrierung_document(status="declined", decision=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:

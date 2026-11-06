@@ -60,7 +60,7 @@ TEAM = ObjectId("6890a1b2c3d4e5f607840051")
 ASKED_FOR_THEM = ObjectId("6890a1b2c3d4e5f607840071")
 ASKED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840072")
 
-ENTSCHEIDUNG = {"made_at": "2026-03-01", "by": ERASED, "decision_reason": "Zu spät eingereicht"}
+ENTSCHEIDUNG = {"made_at": "2026-03-01", "by": ERASED, "reason": "Zu spät eingereicht"}
 
 
 def grant(grant_id: ObjectId, address: str, granted_by: str) -> dict[str, Any]:
@@ -118,7 +118,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
             decision=ENTSCHEIDUNG,
         )
     )
-    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"decision.decision_reason": "Anderes Team"}})
+    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"decision.reason": "Anderes Team"}})
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [documents.schiedsrichter_document(READDRESSED_REFEREE, email=ERASED, name="Hiltrud Kesselring", default_payment=20, einwilligung=None)]
     )

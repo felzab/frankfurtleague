@@ -1039,14 +1039,14 @@ class TestARowNoLongerInTheSeason:
             pytest.param("past", {}, "saison_past", id="a season that has ended"),
             pytest.param(
                 "active",
-                {"austritt": {"type": "rueckzug", "exit_reason": "Keine Mannschaft mehr", "date": "2026-03-01"}},
+                {"austritt": {"type": "rueckzug", "reason": "Keine Mannschaft mehr", "date": "2026-03-01"}},
                 "ausgetreten",
                 id="a team that left",
             ),
             # Past as well as left: the season's end is what the mail names.
             pytest.param(
                 "past",
-                {"austritt": {"type": "rueckzug", "exit_reason": "Keine Mannschaft mehr", "date": "2026-03-01"}},
+                {"austritt": {"type": "rueckzug", "reason": "Keine Mannschaft mehr", "date": "2026-03-01"}},
                 "saison_past",
                 id="a team that left a season that has ended",
             ),
@@ -1081,7 +1081,7 @@ class TestARowNoLongerInTheSeason:
             pytest.param("past", {}, id="a season that has ended"),
             pytest.param(
                 "active",
-                {"austritt": {"type": "rueckzug", "exit_reason": "Keine Mannschaft mehr", "date": "2026-03-01"}},
+                {"austritt": {"type": "rueckzug", "reason": "Keine Mannschaft mehr", "date": "2026-03-01"}},
                 id="a team that left",
             ),
         ],
@@ -1100,7 +1100,7 @@ class TestARowNoLongerInTheSeason:
         assert after == before
 
 
-ITS_TEAM_LEFT: dict[str, Any] = {"$set": {"austritt": {"type": "rueckzug", "exit_reason": "Keine Mannschaft mehr", "date": "2026-04-01"}}}
+ITS_TEAM_LEFT: dict[str, Any] = {"$set": {"austritt": {"type": "rueckzug", "reason": "Keine Mannschaft mehr", "date": "2026-04-01"}}}
 
 
 class TestALinkOutlivingItsSeason:
@@ -1293,7 +1293,7 @@ def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:
         kontakte=dict(kontakte),
         submitted_at="2026-03-01",
         team_id=TEAM_OID,
-        decision={"made_at": "2026-03-25", "by": ADMIN, "decision_reason": None},
+        decision={"made_at": "2026-03-25", "by": ADMIN, "reason": None},
     )
 
 

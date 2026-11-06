@@ -33,7 +33,7 @@ RULES = rules_document(number_of_gruppen=NUMBER_OF_GROUPS, teams_per_gruppe=TEAM
 
 PLAYED_AS = {ADLER: ("Adler-Schule", "ASX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
-EXIT = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-04-01"}
+EXIT = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-04-01"}
 
 # The German day every write here is judged on, past the season's start, which `saison_document` sets to 2026-01-01.
 TODAY = "2026-04-15"
@@ -145,10 +145,10 @@ class TestRecordingAnExitFromTheSeason:
     def test_a_padded_reason_reaches_the_row_stripped(self, mongo_replica_set_url: str):
         """The reason is FREE TEXT and PUBLIC, and `min_length` counts CHARACTERS: spaces alone would stand on the team's page as a blank."""
 
-        padded = f"  {EXIT['exit_reason']}  "
+        padded = f"  {EXIT['reason']}  "
 
         async def body(database: AsyncDatabase) -> Any:
-            await call_put(database, {**EXIT, "exit_reason": padded})
+            await call_put(database, {**EXIT, "reason": padded})
 
             return await stored_row(database)
 

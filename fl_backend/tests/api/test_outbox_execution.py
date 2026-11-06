@@ -392,7 +392,7 @@ class TestTheDeliveryEvent:
             answer = await claimed(database, client)
 
             async def event(state: FLOutboxDeliveryState, row: ObjectId = row_id) -> bool:
-                payload = FLOutboxEventPayload(id=row, state=state, delivery_reason=None, at=NOW)
+                payload = FLOutboxEventPayload(id=row, state=state, reason=None, at=NOW)
                 return (await post_event(event_data=payload, outbox_collection=database[Collection.OUTBOX])).applied
 
             # The provider's event can outrun the send's own report, which has then recorded nothing of the message.

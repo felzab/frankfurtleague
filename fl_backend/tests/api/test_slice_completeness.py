@@ -170,7 +170,7 @@ BYSTANDER = "6890a1b2c3d4e5f607220003"
 OPPONENT = "6890a1b2c3d4e5f607220004"
 
 # Before the day every fixture below is played on, which is what makes the occupant a fault.
-DEPARTURE = {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": "2026-03-01"}
+DEPARTURE = {"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-03-01"}
 FIXTURE_DAY = "2026-03-15"
 
 CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED, SEEDED_FROM_A_GROUP_NOT_RUN = 1, 2, 3, 4

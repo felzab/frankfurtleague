@@ -43,7 +43,7 @@ class FLRegistrierungEntscheidung(BaseModel):
 
     made_at: CustomDateString
     by: CustomNonEmptyString
-    decision_reason: str | None
+    reason: str | None
 
 
 class FLRegistrierungDecisionRow(FLRegistrierungEntscheidung):
@@ -369,7 +369,7 @@ class FLRegistrierungDeclinePayload(BaseModel):
 
     # Required, for `FLRegistrierungAdmitPayload.spieler_id`'s reason: the reason picks the
     # sentence the pupil is mailed.
-    decision_reason: FLRegistrierungDecisionReason | None
+    reason: FLRegistrierungDecisionReason | None
 
 
 class FLRegistrierungDeclineResponse(BaseAPIResponse):

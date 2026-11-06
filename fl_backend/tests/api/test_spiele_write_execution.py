@@ -738,7 +738,7 @@ class TestAFinishedSeasonsFixtureIsRefused:
 GAMMA_DEPARTED_FROM = "2026-03-20"
 A_DAY_SHORT_OF_THE_EXIT = "2026-03-19"
 
-GAMMA_AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": GAMMA_DEPARTED_FROM}
+GAMMA_AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": GAMMA_DEPARTED_FROM}
 
 
 class TestTheEligibilityRefusalIsReachedThroughTheRoute:

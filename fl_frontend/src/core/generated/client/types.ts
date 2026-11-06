@@ -781,7 +781,7 @@ export const FLOutboxDeliveryState = {
 
 export interface FLOutboxDelivery {
   at: string;
-  delivery_reason: string | null;
+  reason: string | null;
   state: FLOutboxDeliveryState;
 }
 
@@ -1164,14 +1164,14 @@ export const FLAustrittType = {
 /**
  * How a team came to be out of one season, why, and from when.
  *
- * `exit_reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
+ * `reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
  * disciplinary code an enum could cite.
  */
 export interface FLAustritt {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
   /** @minLength 1 */
-  exit_reason: string;
+  reason: string;
   type: FLAustrittType;
 }
 
@@ -1209,7 +1209,7 @@ export interface FLAustrittPayload {
    * @maxLength 500
    * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
-  exit_reason: string;
+  reason: string;
   type: FLAustrittType;
 }
 
@@ -1251,9 +1251,9 @@ export interface FLBewerbungConfirmations {
 export interface FLBewerbungDecisionRow {
   by: string | null;
   by_barred: boolean;
-  decision_reason: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
+  reason: string | null;
 }
 
 /**
@@ -1422,8 +1422,8 @@ export interface FLBewerbung {
  * A decline, to one person of the application, with the administrator's reason verbatim.
  */
 export interface FLBewerbungAbsageData {
-  decision_reason: string;
   kind: "bewerbung_absage";
+  reason: string;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
@@ -2282,7 +2282,7 @@ export interface FLDeclineBewerbungPayload {
    * @maxLength 1000
    * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
-  decision_reason: string;
+  reason: string;
   /** @minimum 0 */
   version: number;
 }
@@ -3323,9 +3323,9 @@ export interface FLOpenRegistrierungenResponse {
  */
 export interface FLOutboxEventPayload {
   at: string;
-  delivery_reason: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+  reason: string | null;
   state: FLOutboxDeliveryState;
 }
 
@@ -3496,9 +3496,9 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
-  decision_reason: "other_person" | null;
   first_name: string;
   kind: "registrierung_absage";
+  reason: "other_person" | null;
   saison_id: string;
   team: string;
 }
@@ -4473,9 +4473,9 @@ export interface FLReferencesResponse {
 export interface FLRegistrierungDecisionRow {
   by: string | null;
   by_barred: boolean;
-  decision_reason: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
+  reason: string | null;
 }
 
 /**
@@ -4606,7 +4606,7 @@ export interface FLRegistrierungConfirmationViewResponse {
  * Why the team declines, from a closed set or not at all.
  */
 export interface FLRegistrierungDeclinePayload {
-  decision_reason: "other_person" | null;
+  reason: "other_person" | null;
 }
 
 /**
@@ -5351,7 +5351,7 @@ export interface FLSpielberichtSpielerPublic {
 }
 
 /**
- * One card, `side` its player's club, its `card_reason` never served: a characterisation of a named pupil's conduct.
+ * One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct.
  */
 export interface FLSpielberichtKartePublic {
   colour: FLCardColour;
@@ -5423,10 +5423,10 @@ export interface FLSpielPageResponse {
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
 export interface FLSpielberichtKarte {
-  card_reason: FLCardReason | null;
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
+  reason: FLCardReason | null;
   side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
@@ -5463,10 +5463,10 @@ export interface FLSpielberichtBericht {
  * One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).
  */
 export interface FLSpielberichtKartePayload {
-  card_reason: FLCardReason | null;
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
+  reason: FLCardReason | null;
   side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;

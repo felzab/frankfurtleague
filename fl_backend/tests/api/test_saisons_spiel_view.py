@@ -50,8 +50,8 @@ def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
                 {"side": "team1", "spieler_id": NAMED, "minute": "45+2", "eigentor": False},
             ],
             karten=[
-                {"side": "team2", "spieler_id": INTERN, "minute": "60", "colour": "gelb", "card_reason": "foulspiel"},
-                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot", "card_reason": None},
+                {"side": "team2", "spieler_id": INTERN, "minute": "60", "colour": "gelb", "reason": "foulspiel"},
+                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot", "reason": None},
             ],
             sides=documents.spielbericht_sides(spiel),
             **{"version": 1, "adopted_version": 1, **bericht},
@@ -146,6 +146,4 @@ def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
         ("60", "anonymous", None, None, "4"),
         ("70", "anonymous", None, None, None),
     ]
-    assert not {"Gerber", "Nadja", "Müller", "card_reason", "foulspiel"} & set(
-        json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split()
-    )
+    assert not {"Gerber", "Nadja", "Müller", "reason", "foulspiel"} & set(json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split())

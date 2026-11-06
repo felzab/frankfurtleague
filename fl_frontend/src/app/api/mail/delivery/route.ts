@@ -46,24 +46,24 @@ const OutboxEventSchema = z.object({
 type OutboxEvent = z.infer<typeof OutboxEventSchema>;
 
 /** The state one event leaves on the row, or `null` for an event that leaves none, `email.sent` among them. */
-function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "state" | "delivery_reason"> | null {
+function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "state" | "reason"> | null {
   switch (type) {
     case "email.delivered":
-      return { state: "delivered", delivery_reason: null };
+      return { state: "delivered", reason: null };
     // A temporary bounce is the receiving server asking for later, not the mailbox refusing: reading it as permanent
     // would mark a full mailbox unreachable.
     case "email.bounced":
-      return { state: data.bounce?.type === "Permanent" ? "undeliverable" : "delayed", delivery_reason: data.bounce?.subType ?? null };
+      return { state: data.bounce?.type === "Permanent" ? "undeliverable" : "delayed", reason: data.bounce?.subType ?? null };
     case "email.suppressed":
-      return { state: "suppressed", delivery_reason: data.suppressed?.type ?? null };
+      return { state: "suppressed", reason: data.suppressed?.type ?? null };
     case "email.complained":
-      return { state: "complaint", delivery_reason: null };
+      return { state: "complaint", reason: null };
     case "email.delivery_delayed":
-      return { state: "delayed", delivery_reason: null };
+      return { state: "delayed", reason: null };
     // The documented reason is the league's own daily quota, which says nothing about the address: a permanent state
     // here would mark the address unreachable for the sender's fault.
     case "email.failed":
-      return { state: "delayed", delivery_reason: data.failed?.reason ?? null };
+      return { state: "delayed", reason: data.failed?.reason ?? null };
     default:
       return null;
   }
@@ -84,7 +84,7 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
 
   const event = { id: id, at: read.data.created_at, ...state };
   // The provider's reason is its own token, kept only where the endpoint takes it: the state stands without one.
-  const payload = OutboxPostEventBody.safeParse(event).data ?? OutboxPostEventBody.safeParse({ ...event, delivery_reason: null }).data;
+  const payload = OutboxPostEventBody.safeParse(event).data ?? OutboxPostEventBody.safeParse({ ...event, reason: null }).data;
   if (payload !== undefined) return payload;
 
   // 200 because no retry repairs it, and a line because the alternative is a drop nobody sees.

@@ -142,7 +142,7 @@ def decided(bewerbung_id: ObjectId, by: str) -> dict[str, Any]:
         "declined",
         kontakte=kontakte_document(),
         submitted_at="2026-03-01",
-        decision={"made_at": "2026-03-10", "by": by, "decision_reason": "Keine Halle"},
+        decision={"made_at": "2026-03-10", "by": by, "reason": "Keine Halle"},
     )
 
 
@@ -159,7 +159,7 @@ def declined(registrierung_id: ObjectId, by: str) -> dict[str, Any]:
         deadline="2026-03-27",
     )
 
-    return {**stored, **compose_ablehnung_update(by=by, decision_reason="Nicht in der Stufe", today="2026-03-22")["$set"]}
+    return {**stored, **compose_ablehnung_update(by=by, reason="Nicht in der Stufe", today="2026-03-22")["$set"]}
 
 
 async def a_league_she_administered(database: AsyncDatabase) -> None:

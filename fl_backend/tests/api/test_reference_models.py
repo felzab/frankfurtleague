@@ -213,7 +213,7 @@ STRIPPED_WRITE_FIELDS = [
     "saison_team.saison_id",
     "kontaktperson.last_name",
     "kontaktperson.first_name",
-    "saison_team.austritt.exit_reason",
+    "saison_team.austritt.reason",
 ]
 
 # A run of spaces at every width up to the widest floor the table carries. An exact-width field is
@@ -255,7 +255,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         }
         saison_team = {
             "gruppe": "A",
-            "austritt": {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-03-01"},
+            "austritt": {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-01"},
             "trikot_farbe": None,
         }
         # The stored rows minus what only storage carries, which is what each create payload takes.
@@ -277,7 +277,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
             "kontaktperson.last_name": (FLKontaktpersonPayload, kontaktperson, ("last_name",)),
             "kontaktperson.first_name": (FLKontaktpersonPayload, kontaktperson, ("first_name",)),
-            "saison_team.austritt.exit_reason": (FLPatchSaisonTeamPayload, saison_team, ("austritt", "exit_reason")),
+            "saison_team.austritt.reason": (FLPatchSaisonTeamPayload, saison_team, ("austritt", "reason")),
         }
 
     @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])

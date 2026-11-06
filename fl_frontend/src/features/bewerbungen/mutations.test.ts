@@ -36,12 +36,12 @@ describe("how each triage endpoint is addressed", () => {
   });
 
   it("posts the decline to its own endpoint, the id in the path and out of the body", async () => {
-    await ablehnenBewerbung({ id: ID, decision_reason: "Die Liga ist voll.", version: 0 });
+    await ablehnenBewerbung({ id: ID, reason: "Die Liga ist voll.", version: 0 });
 
     expect(lastSent()).toStrictEqual({
       endpoint: `/bewerbungen/${ID}/decline`,
       method: "POST",
-      body: { decision_reason: "Die Liga ist voll.", version: 0 },
+      body: { reason: "Die Liga ist voll.", version: 0 },
     });
   });
 });

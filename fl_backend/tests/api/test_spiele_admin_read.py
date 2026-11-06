@@ -50,7 +50,7 @@ ADMIN_PATH = f"{PUBLIC_PATH}/admin"
 
 # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
 # than through a plain `find`.
-AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def spiel_document() -> dict[str, Any]:

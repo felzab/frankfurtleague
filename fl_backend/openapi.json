@@ -2917,16 +2917,16 @@
         "type": "object"
       },
       "FLAustritt": {
-        "description": "How a team came to be out of one season, why, and from when.\n\n`exit_reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
+        "description": "How a team came to be out of one season, why, and from when.\n\n`reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Date",
             "type": "string"
           },
-          "exit_reason": {
+          "reason": {
             "minLength": 1,
-            "title": "Exit Reason",
+            "title": "Reason",
             "type": "string"
           },
           "type": {
@@ -2935,7 +2935,7 @@
         },
         "required": [
           "type",
-          "exit_reason",
+          "reason",
           "date"
         ],
         "title": "FLAustritt",
@@ -2984,11 +2984,11 @@
             "title": "Date",
             "type": "string"
           },
-          "exit_reason": {
+          "reason": {
             "maxLength": 500,
             "minLength": 1,
             "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
-            "title": "Exit Reason",
+            "title": "Reason",
             "type": "string"
           },
           "type": {
@@ -2997,7 +2997,7 @@
         },
         "required": [
           "type",
-          "exit_reason",
+          "reason",
           "date"
         ],
         "title": "FLAustrittPayload",
@@ -3142,13 +3142,13 @@
       "FLBewerbungAbsageData": {
         "description": "A decline, to one person of the application, with the administrator's reason verbatim.",
         "properties": {
-          "decision_reason": {
-            "title": "Decision Reason",
-            "type": "string"
-          },
           "kind": {
             "const": "bewerbung_absage",
             "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
             "type": "string"
           },
           "rollen": {
@@ -3173,7 +3173,7 @@
           "team",
           "saison_id",
           "rollen",
-          "decision_reason"
+          "reason"
         ],
         "title": "FLBewerbungAbsageData",
         "type": "object"
@@ -3349,7 +3349,12 @@
             "title": "By Barred",
             "type": "boolean"
           },
-          "decision_reason": {
+          "made_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Made At",
+            "type": "string"
+          },
+          "reason": {
             "anyOf": [
               {
                 "type": "string"
@@ -3358,18 +3363,13 @@
                 "type": "null"
               }
             ],
-            "title": "Decision Reason"
-          },
-          "made_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Made At",
-            "type": "string"
+            "title": "Reason"
           }
         },
         "required": [
           "made_at",
           "by",
-          "decision_reason",
+          "reason",
           "by_barred"
         ],
         "title": "FLBewerbungDecisionRow",
@@ -5268,11 +5268,11 @@
         "additionalProperties": false,
         "description": "Why the application was declined.",
         "properties": {
-          "decision_reason": {
+          "reason": {
             "maxLength": 1000,
             "minLength": 1,
             "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
-            "title": "Decision Reason",
+            "title": "Reason",
             "type": "string"
           },
           "version": {
@@ -5282,7 +5282,7 @@
           }
         },
         "required": [
-          "decision_reason",
+          "reason",
           "version"
         ],
         "title": "FLDeclineBewerbungPayload",
@@ -8200,7 +8200,7 @@
             "title": "At",
             "type": "string"
           },
-          "delivery_reason": {
+          "reason": {
             "anyOf": [
               {
                 "type": "string"
@@ -8209,7 +8209,7 @@
                 "type": "null"
               }
             ],
-            "title": "Delivery Reason"
+            "title": "Reason"
           },
           "state": {
             "$ref": "#/components/schemas/FLOutboxDeliveryState"
@@ -8217,7 +8217,7 @@
         },
         "required": [
           "state",
-          "delivery_reason",
+          "reason",
           "at"
         ],
         "title": "FLOutboxDelivery",
@@ -8242,7 +8242,12 @@
             "title": "At",
             "type": "string"
           },
-          "delivery_reason": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
             "anyOf": [
               {
                 "maxLength": 128,
@@ -8253,12 +8258,7 @@
                 "type": "null"
               }
             ],
-            "title": "Delivery Reason"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
+            "title": "Reason"
           },
           "state": {
             "$ref": "#/components/schemas/FLOutboxDeliveryState"
@@ -8267,7 +8267,7 @@
         "required": [
           "id",
           "state",
-          "delivery_reason",
+          "reason",
           "at"
         ],
         "title": "FLOutboxEventPayload",
@@ -10705,7 +10705,16 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
-          "decision_reason": {
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "kind": {
+            "const": "registrierung_absage",
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
             "anyOf": [
               {
                 "const": "other_person",
@@ -10715,16 +10724,7 @@
                 "type": "null"
               }
             ],
-            "title": "Decision Reason"
-          },
-          "first_name": {
-            "title": "First Name",
-            "type": "string"
-          },
-          "kind": {
-            "const": "registrierung_absage",
-            "title": "Kind",
-            "type": "string"
+            "title": "Reason"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -10740,7 +10740,7 @@
           "first_name",
           "team",
           "saison_id",
-          "decision_reason"
+          "reason"
         ],
         "title": "FLRegistrierungAbsageData",
         "type": "object"
@@ -11040,7 +11040,12 @@
             "title": "By Barred",
             "type": "boolean"
           },
-          "decision_reason": {
+          "made_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Made At",
+            "type": "string"
+          },
+          "reason": {
             "anyOf": [
               {
                 "type": "string"
@@ -11049,18 +11054,13 @@
                 "type": "null"
               }
             ],
-            "title": "Decision Reason"
-          },
-          "made_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Made At",
-            "type": "string"
+            "title": "Reason"
           }
         },
         "required": [
           "made_at",
           "by",
-          "decision_reason",
+          "reason",
           "by_barred"
         ],
         "title": "FLRegistrierungDecisionRow",
@@ -11070,7 +11070,7 @@
         "additionalProperties": false,
         "description": "Why the team declines, from a closed set or not at all.",
         "properties": {
-          "decision_reason": {
+          "reason": {
             "anyOf": [
               {
                 "const": "other_person",
@@ -11080,11 +11080,11 @@
                 "type": "null"
               }
             ],
-            "title": "Decision Reason"
+            "title": "Reason"
           }
         },
         "required": [
-          "decision_reason"
+          "reason"
         ],
         "title": "FLRegistrierungDeclinePayload",
         "type": "object"
@@ -15323,7 +15323,15 @@
       "FLSpielberichtKarte": {
         "description": "One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.",
         "properties": {
-          "card_reason": {
+          "colour": {
+            "$ref": "#/components/schemas/FLCardColour"
+          },
+          "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute",
+            "type": "string"
+          },
+          "reason": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLCardReason"
@@ -15332,14 +15340,6 @@
                 "type": "null"
               }
             ]
-          },
-          "colour": {
-            "$ref": "#/components/schemas/FLCardColour"
-          },
-          "minute": {
-            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
-            "title": "Minute",
-            "type": "string"
           },
           "side": {
             "$ref": "#/components/schemas/FLSpielSide"
@@ -15355,7 +15355,7 @@
           "spieler_id",
           "minute",
           "colour",
-          "card_reason"
+          "reason"
         ],
         "title": "FLSpielberichtKarte",
         "type": "object"
@@ -15364,7 +15364,15 @@
         "additionalProperties": false,
         "description": "One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).",
         "properties": {
-          "card_reason": {
+          "colour": {
+            "$ref": "#/components/schemas/FLCardColour"
+          },
+          "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute",
+            "type": "string"
+          },
+          "reason": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLCardReason"
@@ -15373,14 +15381,6 @@
                 "type": "null"
               }
             ]
-          },
-          "colour": {
-            "$ref": "#/components/schemas/FLCardColour"
-          },
-          "minute": {
-            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
-            "title": "Minute",
-            "type": "string"
           },
           "side": {
             "$ref": "#/components/schemas/FLSpielSide"
@@ -15396,13 +15396,13 @@
           "spieler_id",
           "minute",
           "colour",
-          "card_reason"
+          "reason"
         ],
         "title": "FLSpielberichtKartePayload",
         "type": "object"
       },
       "FLSpielberichtKartePublic": {
-        "description": "One card, `side` its player's club, its `card_reason` never served: a characterisation of a named pupil's conduct.",
+        "description": "One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct.",
         "properties": {
           "colour": {
             "$ref": "#/components/schemas/FLCardColour"

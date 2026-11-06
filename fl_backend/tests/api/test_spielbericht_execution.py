@@ -182,7 +182,7 @@ def bericht(
         "bericht": {
             "ergebnis_vorschlag": {"team1_tore": team1, "team2_tore": team2, "elfmeterschiessen": None, "sonderereignis": None},
             "torschuetzen": [tor("team1", LINA)] if torschuetzen is None else torschuetzen,
-            "karten": [{"side": "team2", "spieler_id": MIA, "minute": "45+2", "colour": "gelb", "card_reason": "foulspiel"}],
+            "karten": [{"side": "team2", "spieler_id": MIA, "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
             "remarks": None,
             **fields,
         },

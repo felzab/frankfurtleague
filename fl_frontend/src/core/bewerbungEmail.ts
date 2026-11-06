@@ -135,7 +135,7 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The mail states the decision and the reason it was given, and says that it covers this application rather than the school. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, decision_reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: `Absage für die Saison ${saison_id}`,
@@ -156,7 +156,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, decision_re
         // Identification rather than a verdict: it says why the mail reached this reader.
         { label: "Eingetragen als", value: rollenText(rollen) },
         // Unabridged and last: it is the one thing the mail exists to hand over.
-        { label: "Angegebener Grund", value: decision_reason },
+        { label: "Angegebener Grund", value: reason },
       ],
     },
   };

@@ -86,7 +86,7 @@ CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
 
-A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "grund": "NoEmail", "at": "2126-03-21T10:00:00.000000+00:00"}
+A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "reason": "NoEmail", "at": "2126-03-21T10:00:00.000000+00:00"}
 
 
 def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:

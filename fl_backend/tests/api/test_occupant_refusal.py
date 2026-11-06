@@ -894,9 +894,7 @@ def joined(
     def occupant(team_id: str, name: str, disqualified_from: str | None) -> dict[str, Any]:
         # `type` is set and never varied: the rule reads the DATE, so a `rueckzug` would exercise
         # the same branch with a different word in it.
-        record = (
-            None if disqualified_from is None else {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": disqualified_from}
-        )
+        record = None if disqualified_from is None else {"type": "disqualifikation", "reason": "Nicht angetreten", "date": disqualified_from}
 
         return {**team(team_id, name), "austritt": record, "austritt_type": None if record is None else record["type"]}
 

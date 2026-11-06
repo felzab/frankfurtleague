@@ -40,33 +40,33 @@ describe("what a report's mirror refuses before the backend does", () => {
   /* The form's own rule, the backend judging the wire against the stored report (`card_reason_missing`): the strip once
      the season after the match ends takes every reason, and a correction after it resends those cautions without one. */
   it("asks a new yellow for its reason, and neither a red nor a caution stored stripped of it", () => {
-    const karte = { side: "team1", spieler_id: SPIELER, minute: "30", colour: "gelb", card_reason: null };
+    const karte = { side: "team1", spieler_id: SPIELER, minute: "30", colour: "gelb", reason: null };
     const formFehler = (bestand: (typeof karte)[], karten: unknown[]) => {
       const parsed = spielberichtFormSchema(bestand).safeParse(bericht({ team1_tore: 0, team2_tore: 0 }, [], karten));
       return parsed.success ? {} : toFieldErrors(parsed.error);
     };
 
-    expect(formFehler([], [karte])["bericht.karten.0.card_reason"]).toBe("Bei Gelb und Gelb-Rot gehört ein Grund dazu.");
+    expect(formFehler([], [karte])["bericht.karten.0.reason"]).toBe("Bei Gelb und Gelb-Rot gehört ein Grund dazu.");
     expect(formFehler([], [{ ...karte, colour: "rot" }])).toStrictEqual({});
     expect(formFehler([karte], [{ ...karte, minute: "31" }]), "a stripped caution owes its reason again").toStrictEqual({});
-    assert.ok(formFehler([karte], [{ ...karte, colour: "gelb_rot" }])["bericht.karten.0.card_reason"], "another colour is a new card");
+    assert.ok(formFehler([karte], [{ ...karte, colour: "gelb_rot" }])["bericht.karten.0.reason"], "another colour is a new card");
   });
 
   /* Counted as the backend counts: one stored card excuses one caution, so the second equal one owes its reason, and a
      reason on the first leaves the stored card to the second. */
   it("lets one stripped caution excuse one equal caution and no more", () => {
-    const karte = { side: "team1", spieler_id: SPIELER, minute: "30", colour: "gelb", card_reason: null };
+    const karte = { side: "team1", spieler_id: SPIELER, minute: "30", colour: "gelb", reason: null };
     const formFehler = (karten: unknown[]) => {
       const parsed = spielberichtFormSchema([karte]).safeParse(bericht({ team1_tore: 0, team2_tore: 0 }, [], karten));
       return parsed.success ? {} : toFieldErrors(parsed.error);
     };
 
     expect(formFehler([karte, { ...karte, minute: "70" }])).toStrictEqual({
-      "bericht.karten.1.card_reason": "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
+      "bericht.karten.1.reason": "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
     });
     expect(
       formFehler([
-        { ...karte, card_reason: "foulspiel" },
+        { ...karte, reason: "foulspiel" },
         { ...karte, minute: "70" },
       ]),
     ).toStrictEqual({});
@@ -74,11 +74,11 @@ describe("what a report's mirror refuses before the backend does", () => {
     expect(
       Object.keys(
         formFehler([
-          { ...karte, spieler_id: "", card_reason: "foulspiel" },
+          { ...karte, spieler_id: "", reason: "foulspiel" },
           { ...karte, side: "team2" },
         ]),
       ).sort(),
-    ).toStrictEqual(["bericht.karten.0.spieler_id", "bericht.karten.1.card_reason"]);
+    ).toStrictEqual(["bericht.karten.0.spieler_id", "bericht.karten.1.reason"]);
   });
 
   it("refuses a minute outside the report's vocabulary", () => {

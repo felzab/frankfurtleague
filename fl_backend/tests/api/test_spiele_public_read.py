@@ -26,7 +26,7 @@ MONEY_KEYS = frozenset({MIETPREIS_KEY, PAYMENT_KEY})
 
 # What the backend keeps off a served fixture side: the free text naming a school and the day it took
 # effect. Spelled as a DOCUMENT spells them, for `MONEY_KEYS`' reason.
-AUSTRITT_DETAIL_KEYS = frozenset({"exit_reason", "date"})
+AUSTRITT_DETAIL_KEYS = frozenset({"reason", "date"})
 AUSTRITT_TYPE_KEY = "austritt_type"
 
 # Searched per SIDE rather than over the whole body: a fixture's own `date` shares its name with a
@@ -54,7 +54,7 @@ SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
-AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def stored_document() -> dict[str, Any]:

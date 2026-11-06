@@ -277,13 +277,13 @@ async def decline(
     client: AsyncMongoClient,
     registrierung_id: Any,
     *,
-    decision_reason: Any = None,
+    reason: Any = None,
     identifier: str = ANNA,
     registrierungen: Any = None,
 ) -> Any:
     return await person_router.decline(
         registrierung_id=registrierung_id,
-        ablehnung_data=FLRegistrierungDeclinePayload(decision_reason=decision_reason),
+        ablehnung_data=FLRegistrierungDeclinePayload(reason=reason),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -1166,7 +1166,7 @@ class TestTheDecline:
             registrierung_id = await seed(database, registrierung_document())
 
             async def the_rival_declines() -> None:
-                await decline(database, client, registrierung_id, decision_reason="other_person", identifier=THEO)
+                await decline(database, client, registrierung_id, reason="other_person", identifier=THEO)
 
             registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
             with pytest.raises(DocumentNotFoundError):
@@ -1176,25 +1176,23 @@ class TestTheDecline:
 
         passes, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored is not None and stored["decision"] == {"made_at": TODAY, "by": THEO, "decision_reason": "other_person"}
+        assert stored is not None and stored["decision"] == {"made_at": TODAY, "by": THEO, "reason": "other_person"}
         assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
 
-    @pytest.mark.parametrize("decision_reason", [None, "other_person"])
-    def test_it_writes_the_state_and_the_decision_and_nothing_else(self, mongo_replica_set_url: str, decision_reason: str | None):
+    @pytest.mark.parametrize("reason", [None, "other_person"])
+    def test_it_writes_the_state_and_the_decision_and_nothing_else(self, mongo_replica_set_url: str, reason: str | None):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             before = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
-            await decline(database, client, registrierung_id, decision_reason=decision_reason, identifier=THEO)
+            await decline(database, client, registrierung_id, reason=reason, identifier=THEO)
 
             return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), await notes_owed(database)
 
         before, after, owed = on_a_league(mongo_replica_set_url, body)
 
-        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "decision_reason": decision_reason}}
+        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "reason": reason}}
         # The confirmed pupil's note, owed in the decline's own transaction.
-        assert [(row["an"], row["data"]["team"], row["data"]["decision_reason"]) for row in owed] == [
-            (FOLDED_EMAIL, "Zorbanax", decision_reason)
-        ]
+        assert [(row["an"], row["data"]["team"], row["data"]["reason"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", reason)]
 
     def test_a_decided_registration_answers_404_to_either_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

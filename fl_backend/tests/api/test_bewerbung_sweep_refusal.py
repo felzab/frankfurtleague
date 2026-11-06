@@ -61,7 +61,7 @@ def refusing(seat: str, *, stand: str = "undeliverable") -> set[str]:
 
     lage = FLOutboxStatus(
         state="sent",
-        delivery=FLOutboxDelivery(state=cast(FLOutboxDeliveryState, stand), delivery_reason=None, at=datetime(2026, 3, 29, tzinfo=UTC)),
+        delivery=FLOutboxDelivery(state=cast(FLOutboxDeliveryState, stand), reason=None, at=datetime(2026, 3, 29, tzinfo=UTC)),
     )
 
     return unerreichbare_seats(row=application(), lagen={(APPLICATION_ID, seat): lage})
@@ -339,7 +339,7 @@ class TestTheOneMonthClock:
         ],
     )
     def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
-        declined = application(status="declined", decision={"made_at": made_at, "by": "admin", "decision_reason": "kein Platz"})
+        declined = application(status="declined", decision={"made_at": made_at, "by": "admin", "reason": "kein Platz"})
 
         assert decline_loeschung_is_due(bewerbung_raw=declined, today=TODAY) == due
 

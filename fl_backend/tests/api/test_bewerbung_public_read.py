@@ -48,7 +48,7 @@ CLUBS = (
 # The season taking applications today, the one whose window has passed, and the one carrying none.
 # A club that has left, which the picker may not offer; its row still holds the season it left.
 RETIRED_CLUB = ("Verlassen", "VEX", RETIRED_OID)
-AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "exit_reason": "keine Mannschaft", "date": "2026-03-15"}
+AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "reason": "keine Mannschaft", "date": "2026-03-15"}
 
 OPEN_SAISON = "2026"
 SHUT_SAISON = "2025"

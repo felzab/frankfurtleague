@@ -41,7 +41,7 @@ export const FLGruppenNamesSchema = z.enum(FLGruppenNames, { error: "Bitte wähl
 const FLAustrittPayloadSchema = z.object({
   type: z.enum(FLAustrittType, { error: "Bitte wähle, wie das Team ausgeschieden ist." }),
   // Free text written for publication: rendered as authored, never truncated to a label.
-  exit_reason: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
+  reason: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
   date: CustomDateStringSchema,
 });
 

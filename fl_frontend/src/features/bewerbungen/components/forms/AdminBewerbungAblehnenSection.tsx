@@ -37,7 +37,7 @@ import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
  * judges it: a second spelling here is a bound the two tiers can disagree about.
  */
 const zuLangSatz = (grund: string): string | null => {
-  const geprueft = FLAblehnenBewerbungPayloadSchema.shape.decision_reason.safeParse(grund);
+  const geprueft = FLAblehnenBewerbungPayloadSchema.shape.reason.safeParse(grund);
 
   return geprueft.success ? null : (geprueft.error.issues[0]?.message ?? null);
 };
@@ -94,13 +94,13 @@ export function AdminBewerbungAblehnenSection({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await ablehnenBewerbungAction({ id: bewerbungId, decision_reason: grund, version: version }).catch(unansweredAction);
+      const res = await ablehnenBewerbungAction({ id: bewerbungId, reason: grund, version: version }).catch(unansweredAction);
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
       startTransition(() => {
         if (!res.success) {
-          const fieldError = res.fieldErrors?.decision_reason ?? null;
+          const fieldError = res.fieldErrors?.reason ?? null;
           setGrundError(fieldError);
 
           if (fieldError === null) appToast.failure("Bewerbung nicht abgelehnt", res);
@@ -140,7 +140,7 @@ export function AdminBewerbungAblehnenSection({
         <p className="muted-hint">Die Entscheidung wird mit Deinem Namen und dem heutigen Datum bei der Bewerbung gespeichert.</p>
 
         <TextField
-          name="decision_reason"
+          name="reason"
           value={grund}
           onChange={(next) => {
             setGrundError(null);

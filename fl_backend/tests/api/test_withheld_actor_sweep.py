@@ -194,13 +194,13 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             )
         )
         database[Collection.BEWERBUNGEN].insert_one(
-            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "decision_reason": "Kein Platz"}}
+            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "reason": "Kein Platz"}}
         )
         database[Collection.REGISTRIERUNGEN].insert_one(
             {
                 **registrierung_document(REGISTRIERUNG_OID, first_name="Thessaly"),
                 "status": "declined",
-                "decision": {"made_at": "2026-04-03", "by": BARRED, "decision_reason": None},
+                "decision": {"made_at": "2026-04-03", "by": BARRED, "reason": None},
             }
         )
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a

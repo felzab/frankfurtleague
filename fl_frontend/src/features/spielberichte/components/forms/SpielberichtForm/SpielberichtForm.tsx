@@ -175,7 +175,7 @@ export function SpielberichtForm({
               eintraege={draft.karten}
               onChange={(karten) => change({ karten })}
               onAdd={() =>
-                change({ karten: [...draft.karten, { key: neuerKey(), side: null, spieler: "", minute: "", colour: null, card_reason: null }] })
+                change({ karten: [...draft.karten, { key: neuerKey(), side: null, spieler: "", minute: "", colour: null, reason: null }] })
               }
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}

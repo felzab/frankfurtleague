@@ -52,10 +52,10 @@ export async function annehmenBewerbung({
 // decision was taken against.
 export async function ablehnenBewerbung({
   id,
-  decision_reason,
+  reason,
   version,
 }: { id: string } & FLDeclineBewerbungPayload): Promise<FLDeclineBewerbungResponse> {
-  return bewerbungenDeclineBewerbung(id, { decision_reason, version });
+  return bewerbungenDeclineBewerbung(id, { reason, version });
 }
 
 /** Records one school's application. */
