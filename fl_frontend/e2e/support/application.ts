@@ -73,10 +73,14 @@ export async function fillSeat(scope: Locator, person: Person): Promise<void> {
   await typeInto(scope.getByRole("textbox", { name: /^Telefon/ }), person.phone);
 }
 
-/** The new school's fields, behind the switch a school the list lacks turns on. */
+/**
+ * The new school's fields, behind the switch a school the list lacks turns on. Pressed on its words, as a person presses it:
+ * React Aria clips the switch's own input to nothing, so a pointer aimed at it lands on whatever stands there, and `check`
+ * follows the words' label to that input to read it turned on.
+ */
 async function fillNewSchool(page: Page, school: string): Promise<void> {
   const fields = box(page, "Schule");
-  await fields.getByRole("switch", { name: "Meine Schule ist nicht in der Liste" }).click();
+  await fields.getByText("Meine Schule ist nicht in der Liste", { exact: true }).check();
   await typeInto(fields.getByRole("textbox", { name: /^Teamname/ }), school);
   await typeInto(fields.getByRole("textbox", { name: /^Vollständiger Name/ }), `${school}-Gymnasium`);
   await choose(page, fields, /^Schulform/, "Gesamtschule");
@@ -118,12 +122,10 @@ export async function confirmSeat(page: Page, link: string): Promise<void> {
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: "Eintrag bestätigen" })).toBeVisible();
 
-  // The day, the month and the year in their segments, each moving on by itself once full.
-  await main
-    .getByRole("group", { name: /^Geburtsdatum/ })
-    .getByRole("spinbutton")
-    .first()
-    .click();
+  // The day, the month and the year in their segments, each moving on by itself once full. React Aria makes a segment a
+  // text box where the browser says it is an iPhone, and a spin button everywhere else (`useDateSegment`).
+  const birthDate = main.getByRole("group", { name: /^Geburtsdatum/ });
+  await birthDate.getByRole("spinbutton").or(birthDate.getByRole("textbox")).first().click();
   await page.keyboard.type("01011990");
   await main.getByRole("button", { name: "Eintrag bestätigen" }).click();
   // By its exact title: the same link read again is titled with the day.
