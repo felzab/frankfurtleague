@@ -80,7 +80,6 @@ from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
     build_team_saisons_pipeline,
     build_team_spiele_filter,
-    compose_confirmations_after,
     compose_confirmations_with,
     compose_kontakt_confirmation,
     compose_kontakte_herkunft,
@@ -307,9 +306,7 @@ async def write_the_contact_block(
             for seats in owed
         ]
 
-    confirmations = compose_confirmations_after(
-        kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_confirmations=stored.get("confirmations"), minted=minted
-    )
+    confirmations = compose_confirmations_with(stored_confirmations=stored.get("confirmations"), minted=minted)
 
     await patch_one_in_db(
         collection=saison_teams_collection,
