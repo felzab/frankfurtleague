@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -46,12 +47,6 @@ const ORIGIN_OPTIONS = [
   { id: "existing", label: WORDS.existingTeam },
 ] as const;
 
-/** The address's value of a filter, where its options hold it. */
-function chosen<Id extends string>(value: string | string[] | undefined, options: ReadonlyArray<{ id: Id }>): Id | null {
-  const named = Array.isArray(value) ? value[0] : value;
-  return options.find((option) => option.id === named)?.id ?? null;
-}
-
 /** One application's row, opening its review page: an open Dublette's chip stands in its standing's place. */
 function rowOf(row: FLBewerbungListRow, saison: string): TableRow {
   return {
@@ -75,8 +70,8 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   const read = await getBewerbungenOfSaison(saison);
   if (read === null) notFound();
   const { stand: named, herkunft } = await searchParams;
-  const stand = chosen(named, STAND_OPTIONS);
-  const origin = chosen(herkunft, ORIGIN_OPTIONS);
+  const stand = filterValue(named, STAND_OPTIONS);
+  const origin = filterValue(herkunft, ORIGIN_OPTIONS);
   const filters: Filter[] = [
     { name: "stand", label: COPY.admin.schiedsrichter.state, all: ALL, options: STAND_OPTIONS, value: stand },
     { name: "herkunft", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
