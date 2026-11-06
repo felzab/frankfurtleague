@@ -1827,8 +1827,8 @@ export const SaisonsSwapGruppenBody = zod
  * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
  * being a deliberate act rather than a bulk one.
  *
- * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an
- * empty list.
+ * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
+ * counts.
  *
  * **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
  * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
@@ -3580,31 +3580,126 @@ export const TeamsPostTeamBody = zod.object({
 });
 
 /**
- * List a season's teams for the admin surfaces, a `future` season's included.
+ * The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.
  *
- * No base-tier season gate: a club is entered while its season is still planned, so an admin who
- * cannot see one cannot enter it.
- * @summary Teams for a Saison, for the admin surfaces
+ * No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
+ * the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
+ * retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
+ * each group with whether it is full, and `closed` where the season is not `future`, which the entry refuses. 404
+ * where no season holds that id.
+ * @summary One season's Teams list and what its create dialog offers
  */
-export const teamsGetTeamsAdminQueryStatistikScopeDefault = `gruppenphase`;
-export const teamsGetTeamsAdminQueryLimitDefault = 1024;
-export const teamsGetTeamsAdminQueryLimitMax = 1024;
-
-export const teamsGetTeamsAdminQuerySortByDefault = `name`;
-export const teamsGetTeamsAdminQueryOrderDefault = `asc`;
-export const teamsGetTeamsAdminQueryIncludeInactiveDefault = false;
-
 export const TeamsGetTeamsAdminQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
+  saison_id: zod.string(),
   gruppe: zod.union([zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]), zod.null()]).optional(),
-  has_austritt: zod.union([zod.boolean(), zod.null()]).optional(),
-  austritt_type: zod.union([zod.enum(["disqualifikation", "rueckzug"]), zod.null()]).optional(),
-  statistik_scope: zod.enum(["gruppenphase", "total"]).default(teamsGetTeamsAdminQueryStatistikScopeDefault),
-  limit: zod.int().min(1).max(teamsGetTeamsAdminQueryLimitMax).default(teamsGetTeamsAdminQueryLimitDefault),
-  sort_by: zod.literal("name").default(teamsGetTeamsAdminQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(teamsGetTeamsAdminQueryOrderDefault),
-  include_inactive: zod.boolean().default(teamsGetTeamsAdminQueryIncludeInactiveDefault),
+  state: zod.union([zod.enum(["active", "departed", "retired"]), zod.null()]).optional(),
 });
+
+/**
+ * Enter a club into a `future` season in a group and a colour, founding it first where it is new.
+ *
+ * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
+ * naming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.
+ * @summary Enter a club into a season, one the league holds or a new one
+ */
+export const TeamsPostTeamEntryParams = zod.object({
+  saison_id: zod.string(),
+});
+
+export const teamsPostTeamEntryBodyClubOneTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax = 16;
+
+export const teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPostTeamEntryBodyClubTwoTeamAddressPlzRegExp = new RegExp("^[0-9]{5}$");
+export const teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax = 80;
+
+export const teamsPostTeamEntryBodyClubTwoTeamAddressStadtteilMax = 80;
+
+export const teamsPostTeamEntryBodyClubTwoTeamAddressStrasseMax = 120;
+
+export const teamsPostTeamEntryBodyClubTwoTeamDescriptionMax = 4096;
+
+export const teamsPostTeamEntryBodyClubTwoTeamFullNameMax = 120;
+
+export const teamsPostTeamEntryBodyClubTwoTeamFullNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const teamsPostTeamEntryBodyClubTwoTeamNameMax = 60;
+
+export const teamsPostTeamEntryBodyClubTwoTeamNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const teamsPostTeamEntryBodyClubTwoTeamShorthandRegExp = new RegExp("^\\s*[A-Za-z]{3}\\s*$");
+export const teamsPostTeamEntryBodyClubTwoTeamWebsiteUrlOneMax = 300;
+
+export const TeamsPostTeamEntryBody = zod
+  .object({
+    club: zod.union([
+      zod
+        .object({
+          kind: zod.literal("known").meta({ title: "Kind" }),
+          team_id: zod.string().regex(teamsPostTeamEntryBodyClubOneTeamIdRegExp),
+        })
+        .describe("A club the league holds, picked from the list's create dialog."),
+      zod
+        .object({
+          kind: zod.literal("new").meta({ title: "Kind" }),
+          team: zod.object({
+            address: zod.object({
+              hausnummer: zod
+                .string()
+                .max(teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax)
+                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerRegExp),
+              plz: zod.string().regex(teamsPostTeamEntryBodyClubTwoTeamAddressPlzRegExp),
+              stadt: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax),
+              stadtteil: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamAddressStadtteilMax),
+              strasse: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStrasseMax),
+            }),
+            description: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamDescriptionMax),
+            full_name: zod
+              .string()
+              .min(1)
+              .max(teamsPostTeamEntryBodyClubTwoTeamFullNameMax)
+              .regex(teamsPostTeamEntryBodyClubTwoTeamFullNameRegExp),
+            name: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamNameMax).regex(teamsPostTeamEntryBodyClubTwoTeamNameRegExp),
+            schulform: zod.union([
+              zod.enum(["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]),
+              zod.null(),
+            ]),
+            shorthand: zod.string().regex(teamsPostTeamEntryBodyClubTwoTeamShorthandRegExp),
+            website_url: zod.union([zod.string().max(teamsPostTeamEntryBodyClubTwoTeamWebsiteUrlOneMax), zod.null()]),
+          }),
+        })
+        .describe("A club the entry founds, in the transaction that enters it."),
+    ]),
+    gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
+    trikot_farbe: zod.union([
+      zod.enum([
+        "schwarz",
+        "weiss",
+        "grau",
+        "braun",
+        "bordeaux",
+        "rot",
+        "koralle",
+        "orange",
+        "gold",
+        "gelb",
+        "limette",
+        "hellgruen",
+        "gruen",
+        "smaragd",
+        "tuerkis",
+        "cyan",
+        "hellblau",
+        "meerblau",
+        "blau",
+        "dunkelblau",
+        "flieder",
+        "violett",
+        "magenta",
+        "rosa",
+      ]),
+      zod.null(),
+    ]),
+  })
+  .describe("One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.");
 
 /**
  * Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.
@@ -3734,7 +3829,8 @@ export const TeamsPostSaisonTeamBody = zod
 /**
  * Rewrite a team's row for one season: group, exit record and kit colour.
  *
- * All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
+ * All three are required: an omitted key is a 422. The group and the colour are replaced; a null `austritt` leaves a
+ * stored exit standing, since no write clears one.
  * The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
  * refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
  * (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
@@ -3750,13 +3846,19 @@ export const TeamsPatchSaisonTeamParams = zod.object({
 export const teamsPatchSaisonTeamBodyAustrittOneDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const teamsPatchSaisonTeamBodyAustrittOneExitReasonMax = 500;
 
+export const teamsPatchSaisonTeamBodyAustrittOneExitReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+
 export const TeamsPatchSaisonTeamBody = zod
   .object({
     austritt: zod.union([
       zod
         .object({
           date: zod.string().regex(teamsPatchSaisonTeamBodyAustrittOneDateRegExp),
-          exit_reason: zod.string().min(1).max(teamsPatchSaisonTeamBodyAustrittOneExitReasonMax),
+          exit_reason: zod
+            .string()
+            .min(1)
+            .max(teamsPatchSaisonTeamBodyAustrittOneExitReasonMax)
+            .regex(teamsPatchSaisonTeamBodyAustrittOneExitReasonRegExp),
           type: zod.enum(["disqualifikation", "rueckzug"]),
         })
         .describe(
@@ -3845,6 +3947,148 @@ export const TeamsPatchEinwilligungBody = zod
   );
 
 /**
+ * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
+ *
+ * `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
+ * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
+ * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
+ * `entry_gruppe_locked`, and `retire_blocked_by` the season `retire_blocked` refuses over, by each write's own judgement.
+ * `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
+ * over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
+ * season holds that id.
+ * @summary One team in one season for the admin editor
+ */
+export const teamsGetTeamSaisonAdminPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsGetTeamSaisonAdminParams = zod.object({
+  team_id: zod.string().regex(teamsGetTeamSaisonAdminPathTeamIdRegExp),
+  saison_id: zod.string(),
+});
+
+/**
+ * Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.
+ *
+ * Refused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per
+ * part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
+ * changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
+ * included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
+ * `entry_gruppe_full` refuse it. 404 where the club holds no row of the season.
+ * @summary Save the team editor: the club and its row of the season, in one transaction
+ */
+export const teamsPatchTeamSaisonPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsPatchTeamSaisonParams = zod.object({
+  team_id: zod.string().regex(teamsPatchTeamSaisonPathTeamIdRegExp),
+  saison_id: zod.string(),
+});
+
+export const teamsPatchTeamSaisonBodyAddressHausnummerMax = 16;
+
+export const teamsPatchTeamSaisonBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPatchTeamSaisonBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
+export const teamsPatchTeamSaisonBodyAddressStadtMax = 80;
+
+export const teamsPatchTeamSaisonBodyAddressStadtteilMax = 80;
+
+export const teamsPatchTeamSaisonBodyAddressStrasseMax = 120;
+
+export const teamsPatchTeamSaisonBodyDescriptionMax = 4096;
+
+export const teamsPatchTeamSaisonBodyFullNameMax = 120;
+
+export const teamsPatchTeamSaisonBodyFullNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const teamsPatchTeamSaisonBodyNameMax = 60;
+
+export const teamsPatchTeamSaisonBodyNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const teamsPatchTeamSaisonBodyShorthandRegExp = new RegExp("^\\s*[A-Za-z]{3}\\s*$");
+export const teamsPatchTeamSaisonBodyVersionMin = 0;
+
+export const teamsPatchTeamSaisonBodyWebsiteUrlOneMax = 300;
+
+export const TeamsPatchTeamSaisonBody = zod
+  .object({
+    address: zod.object({
+      hausnummer: zod.string().max(teamsPatchTeamSaisonBodyAddressHausnummerMax).regex(teamsPatchTeamSaisonBodyAddressHausnummerRegExp),
+      plz: zod.string().regex(teamsPatchTeamSaisonBodyAddressPlzRegExp),
+      stadt: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressStadtMax),
+      stadtteil: zod.string().max(teamsPatchTeamSaisonBodyAddressStadtteilMax),
+      strasse: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressStrasseMax),
+    }),
+    description: zod.string().max(teamsPatchTeamSaisonBodyDescriptionMax),
+    full_name: zod.string().min(1).max(teamsPatchTeamSaisonBodyFullNameMax).regex(teamsPatchTeamSaisonBodyFullNameRegExp),
+    gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
+    name: zod.string().min(1).max(teamsPatchTeamSaisonBodyNameMax).regex(teamsPatchTeamSaisonBodyNameRegExp),
+    schulform: zod.union([
+      zod.enum(["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]),
+      zod.null(),
+    ]),
+    shorthand: zod.string().regex(teamsPatchTeamSaisonBodyShorthandRegExp),
+    trikot_farbe: zod.union([
+      zod.enum([
+        "schwarz",
+        "weiss",
+        "grau",
+        "braun",
+        "bordeaux",
+        "rot",
+        "koralle",
+        "orange",
+        "gold",
+        "gelb",
+        "limette",
+        "hellgruen",
+        "gruen",
+        "smaragd",
+        "tuerkis",
+        "cyan",
+        "hellblau",
+        "meerblau",
+        "blau",
+        "dunkelblau",
+        "flieder",
+        "violett",
+        "magenta",
+        "rosa",
+      ]),
+      zod.null(),
+    ]),
+    version: zod.int().min(teamsPatchTeamSaisonBodyVersionMin),
+    website_url: zod.union([zod.string().max(teamsPatchTeamSaisonBodyWebsiteUrlOneMax), zod.null()]),
+  })
+  .describe(
+    "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale, as `FLPatchTeamPayload` is. No seat and no `austritt`: a seat is its dialog's, and an exit is the\ndanger box's own write, which owes mail.",
+  );
+
+/**
+ * Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
+ *
+ * Refused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its
+ * `earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+ * @summary Record a team's exit from a season
+ */
+export const teamsPutAustrittPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsPutAustrittParams = zod.object({
+  team_id: zod.string().regex(teamsPutAustrittPathTeamIdRegExp),
+  saison_id: zod.string(),
+});
+
+export const teamsPutAustrittBodyDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const teamsPutAustrittBodyExitReasonMax = 500;
+
+export const teamsPutAustrittBodyExitReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+
+export const TeamsPutAustrittBody = zod
+  .object({
+    date: zod.string().regex(teamsPutAustrittBodyDateRegExp),
+    exit_reason: zod.string().min(1).max(teamsPutAustrittBodyExitReasonMax).regex(teamsPutAustrittBodyExitReasonRegExp),
+    type: zod.enum(["disqualifikation", "rueckzug"]),
+  })
+  .describe(
+    "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
+  );
+
+/**
  * Stamp this team's live registration link revoked, so it opens nothing from here on.
  *
  * The row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says
@@ -3892,9 +4136,6 @@ export const TeamsGetInvitationParams = zod.object({
  *
  * **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
  * administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
- *
- * A mint voiding a live link is refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
- * writes nothing; a team's first link is not.
  * @summary Mint this team's registration link for a season
  */
 export const teamsPostInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3935,12 +4176,10 @@ export const TeamsPostInvitationDispatchBody = zod
 /**
  * Rewrite the three people this team is reached through for one season. Null clears the block.
  *
- * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
- * rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
- * beside the block, and a row whose block answers to another token is refused rather than
- * overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
- * which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
+ * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
+ * its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
+ * an erasure between the caller's read and this write being what moves it. A `past` season's contacts stay correctable.
+ * Each seat's `entered_by` and
  * `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.
  *
@@ -3950,9 +4189,7 @@ export const TeamsPostInvitationDispatchBody = zod
  * handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
  * holds nothing live. A save newly seating an address the ban list holds is
  * refused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
- * link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
- * or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
- * is; a save doing none of these is not.
+ * link is how its person learns of the entry, and it takes their Widerspruch alone.
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
@@ -4002,6 +4239,7 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneLastNameMax = 
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneLastNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOnePhoneRegExp = new RegExp("^([+]?[ 0-9\\-().]{2,19}[0-9])$");
+export const teamsPatchSaisonTeamKontakteBodyVersionMin = 0;
 
 export const TeamsPatchSaisonTeamKontakteBody = zod
   .object({
@@ -4078,11 +4316,10 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
         ),
       zod.null(),
     ]),
-    kontakte_stand: zod.string(),
-    version: zod.union([zod.int(), zod.null()]).optional(),
+    version: zod.int().min(teamsPatchSaisonTeamKontakteBodyVersionMin),
   })
   .describe(
-    'The contact block alone, plus the token naming which block it was composed against.\n\n`extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.',
+    'The contact block alone, on the row\'s `version` it was composed against.\n\n`extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.',
   );
 
 /**
@@ -4094,8 +4331,7 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
  *
  * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), where the seat holds nobody or its
  * person has already confirmed it (`kontakt_seat_without_confirmation`), and where its address is on the ban list (`kontakt_seat_barred`).
- * 404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * 404 for a team and season holding no row, and for a path naming no seat.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsInviteKontaktPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

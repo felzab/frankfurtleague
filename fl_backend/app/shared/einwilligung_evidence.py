@@ -109,7 +109,7 @@ def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
         if all(receipt is None for _, receipt in values_and_evidence):
             stand[choice] = None
             continue
-        # Sorted keys and `sha256`, as `app/api/teams/schemas.py :: kontakte_stand_of` digests a block.
+        # Sorted keys and `sha256`, never `hash()`, whose seed changes per process.
         canonical = json.dumps(values_and_evidence, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
         stand[choice] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

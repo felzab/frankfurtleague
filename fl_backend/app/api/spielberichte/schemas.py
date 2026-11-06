@@ -198,7 +198,7 @@ class FLSpielberichtPayload(BaseModel):
 
     bericht: FLSpielberichtBerichtPayload
     # A precondition, written nowhere: the version of the report the form was served, null where none stood. Required
-    # with no default, as `kontakte_stand` is: an omitted one would judge nothing
+    # with no default: an omitted one would judge nothing
     # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`).
     bericht_stand: int | None
     # The document's `version` the form was served; absent, the save is checked against nothing.

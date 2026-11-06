@@ -190,7 +190,6 @@ class Code(StrEnum):
     # The first refusal every person endpoint on a team's panel raises: who the caller is, so a 403
     # rather than a 409, whatever the team's own state.
     ROLE_NOT_HELD = auto()
-    KONTAKTE_MOVED_UNDER_THE_SAVE = auto()
     KONTAKT_SEAT_WITHOUT_CONFIRMATION = auto()
     KONTAKT_SEAT_BARRED = auto()
     KONTAKT_ROW_WITHOUT_SAISON = auto()

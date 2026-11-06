@@ -18,7 +18,6 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import (
     compose_kontakte_herkunft,
-    kontakte_stand_of,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -29,7 +28,6 @@ from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_d
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
@@ -205,22 +203,20 @@ async def write_kontakte(
     database: AsyncDatabase,
     kontakte: dict[str, Any],
     *,
-    # The token for what the caller last read off the row. Defaulted to the seed's rather than to the
-    # payload's: taken from `kontakte` it would agree with the row by construction and judge nothing.
-    stand: str = kontakte_stand_of(SEEDED_KONTAKTE),
+    # The version the caller last read off the row, the seed's unless a case names another.
+    version: int = 0,
     saison_teams_collection: Any = None,
 ) -> Any:
     return await patch_saison_team_kontakte(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
+        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "version": version}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=database.client,
-        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )
@@ -292,7 +288,7 @@ class TestTheProvenanceIsTheServers:
         edited["stellvertretung"] = person("Klara")
 
         async def body(database: AsyncDatabase) -> Any:
-            response = await write_kontakte(database, edited, stand=kontakte_stand_of(PARTLY_CONFIRMED))
+            response = await write_kontakte(database, edited)
 
             return response, await row_now(database)
 
@@ -324,7 +320,7 @@ class TestTheProvenanceIsTheServers:
         renamed = {**RESAVED_AS_RENDERED, "trainer": successor}
 
         async def body(database: AsyncDatabase) -> Any:
-            return await write_kontakte(database, renamed, stand=kontakte_stand_of(whatsapp)), await row_now(database)
+            return await write_kontakte(database, renamed), await row_now(database)
 
         response, stored = on_a_league(mongo_replica_set_url, body, seeded=whatsapp)
 
@@ -343,7 +339,7 @@ class TestTheProvenanceIsTheServers:
         replaced["stellvertretung"] = person("Klara")
 
         async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, replaced, stand=kontakte_stand_of(PARTLY_CONFIRMED))
+            await write_kontakte(database, replaced)
 
             return await row_now(database)
 
@@ -431,7 +427,7 @@ class TestAnLoeschungLandingMidSaveIsNotUndone:
         erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
         assert erasure.kontakt_seats == 1, "the interference emptied no seat, so the save had nothing to undo"
-        assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
+        assert refusal.error_code == Code.VERSION_STALE
         assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
 
@@ -442,13 +438,13 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as refused:
-                await write_kontakte(database, NEW_KONTAKTE, stand=kontakte_stand_of(PARTLY_CONFIRMED))
+                await write_kontakte(database, NEW_KONTAKTE, version=1)
 
             return refused.value, await row_now(database), await junction_log(database)
 
         refusal, stored, log = on_a_league(mongo_replica_set_url, body)
 
-        assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
+        assert refusal.error_code == Code.VERSION_STALE
         assert stored["kontakte"] == SEEDED_KONTAKTE
         assert log == []
 
@@ -478,7 +474,7 @@ class TestWhatThePayloadRefuses:
         block = {**NEW_KONTAKTE, "trainer": stored_person("Lea", confirmed_at=CONFIRMED_ON)}
 
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": block, "kontakte_stand": kontakte_stand_of(SEEDED_KONTAKTE)})
+            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": block, "version": 0})
 
         assert {entry["type"] for entry in failure.value.errors()} == {"extra_forbidden"}
 
@@ -488,7 +484,7 @@ class TestWhatThePayloadRefuses:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": NEW_KONTAKTE})
 
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("missing", "kontakte_stand")]
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("missing", "version")]
 
 
 class TestTheTwoContactRules:
@@ -499,7 +495,7 @@ class TestTheTwoContactRules:
     """
 
     def block(self, **seats: Any) -> dict[str, Any]:
-        return {"kontakte": {**RESAVED_AS_RENDERED, **seats}, "kontakte_stand": kontakte_stand_of(SEEDED_KONTAKTE)}
+        return {"kontakte": {**RESAVED_AS_RENDERED, **seats}, "version": 0}
 
     def test_a_trainer_holding_a_seat_whose_block_differs_is_refused(self):
         """Two records of one person the erasure cannot pair up, each mailed a link of its own."""
@@ -604,24 +600,6 @@ class TestTheDateRidesWithThePerson:
         assert composed["trainer"]["birth_date"] is None
 
 
-class TestTheTokenNamesWhatTheEditorWasServed:
-    """The pure half of the refusal."""
-
-    @pytest.mark.parametrize(
-        ("moved", "id_of"),
-        [
-            pytest.param(PARTLY_CONFIRMED, "a seat confirmed since", id="a stamp arriving"),
-            pytest.param({**SEEDED_KONTAKTE, ERASED_SEAT: None}, "a seat emptied since", id="an erasure"),
-            pytest.param({**SEEDED_KONTAKTE, "trainer_is_also": "stellvertretung"}, "a claim made since", id="the shared seat"),
-            pytest.param(None, "a block cleared since", id="a cleared block"),
-        ],
-    )
-    def test_a_block_that_moved_answers_a_different_token(self, moved: Any, id_of: str):
-        """A projection flattening everything would refuse nothing."""
-
-        assert kontakte_stand_of(moved) != kontakte_stand_of(SEEDED_KONTAKTE), id_of
-
-
 @pytest.mark.db
 class TestAKeptRecordKeepsItsEvidence:
     """An unchanged person keeps their record whole: the payload spells none of its evidence, its media answer or its scope."""
@@ -645,7 +623,7 @@ class TestAKeptRecordKeepsItsEvidence:
         sent = {**RESAVED_AS_RENDERED, "trainer": {**person("Ida"), "phone": OTHER_PHONE}}
 
         async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, sent, stand=kontakte_stand_of(seeded))
+            await write_kontakte(database, sent)
 
             return await row_now(database)
 
@@ -661,7 +639,7 @@ class TestAKeptRecordKeepsItsEvidence:
         seeded = {**PARTLY_CONFIRMED, "ansprechperson": {**held, "einwilligung": {**held["einwilligung"], "entered_by": "bewerbung"}}}
 
         async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, RESAVED_AS_RENDERED, stand=kontakte_stand_of(seeded))
+            await write_kontakte(database, RESAVED_AS_RENDERED)
 
             return await row_now(database)
 
@@ -675,7 +653,7 @@ class TestAKeptRecordKeepsItsEvidence:
         handed = {**RESAVED_AS_RENDERED, "trainer": person("Lea")}
 
         async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, handed, stand=kontakte_stand_of(PARTLY_CONFIRMED))
+            await write_kontakte(database, handed)
 
             return await row_now(database)
 

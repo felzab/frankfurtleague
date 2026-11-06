@@ -1,8 +1,8 @@
 """
 API · a write stepped up on some calls alone asks the step-up window on exactly those calls
 
-Each of these handlers decides whether this call destroys what nothing restores, or mints or voids a
-link to an address, and refuses `confirmation_required` there from a sign-in older than the step-up window.
+Each of these handlers decides whether this call destroys what nothing restores, and refuses
+`confirmation_required` there from a sign-in older than the step-up window.
 Served over HTTP against the shipped indexes, so each refusal is
 shown to leave the stored state as it was, and each call of the other kind to pass the same sign-in.
 """
@@ -18,18 +18,15 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.teams.schemas import kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import ENROLMENT_WINDOW_S, STEP_UP_WINDOW_S
 from app.main import create_app
-from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    kontaktperson_document,
     rules_document,
     saison_document,
     saison_team_document,
@@ -88,111 +85,6 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
 
 def refused(response: Any) -> bool:
     return (response.status_code, response.json().get("error_code")) == (401, Code.CONFIRMATION_REQUIRED)
-
-
-async def a_live_link(database: AsyncDatabase) -> None:
-    await database[Collection.INVITATIONS].insert_one(
-        {
-            "saison_id": SAISON_ID,
-            "team_id": TEAM_ID,
-            "token_hashes": [hash_token("seeded")],
-            "created_at": "2026-03-15",
-            "created_by": ADMIN,
-            "revoked_at": None,
-        }
-    )
-
-
-class TestTheClubsLink:
-    URL = f"/api/v{API_VERSION}/teams/{TEAM_ID}/saisons/{SAISON_ID}/invitation"
-
-    def test_a_mint_voiding_a_live_link_from_an_older_sign_in_is_refused_and_voids_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, list[Any]]:
-            response = await http.post(self.URL, headers=OLDER)
-            live = await database[Collection.INVITATIONS].find({"revoked_at": None}, {"token_hashes": 1, "_id": 0}).to_list()
-            return refused(response), live
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_live_link) == (True, [{"token_hashes": [hash_token("seeded")]}])
-
-    def test_a_club_s_first_link_takes_the_older_sign_in(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            return (await http.post(self.URL, headers=OLDER)).status_code
-
-        assert on_a_season(mongo_replica_set_url, body) == 201
-
-    def test_a_mint_voiding_a_live_link_from_a_fresh_sign_in_is_made(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            return (await http.post(self.URL, headers=FRESH)).status_code
-
-        assert on_a_season(mongo_replica_set_url, body, seed=a_live_link) == 201
-
-
-class TestTheClubsContacts:
-    URL = f"/api/v{API_VERSION}/teams/{TEAM_ID}/saisons/{SAISON_ID}/kontakte"
-    NOBODY: dict[str, Any] = {"trainer": None, "ansprechperson": None, "stellvertretung": None, "trainer_is_also": None}
-
-    async def seed_the_block(self, database: AsyncDatabase) -> None:
-        await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM_ID}, {"$set": {"kontakte": dict(self.NOBODY)}})
-
-    def test_a_clearing_from_an_older_sign_in_is_refused_and_clears_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            payload = {"kontakte": None, "kontakte_stand": kontakte_stand_of(self.NOBODY)}
-            response = await http.patch(self.URL, headers=OLDER, json=payload)
-            stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
-            return refused(response), stored and stored["kontakte"]
-
-        assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == (True, self.NOBODY)
-
-    def test_a_rewrite_takes_the_older_sign_in(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            payload = {"kontakte": dict(self.NOBODY), "kontakte_stand": kontakte_stand_of(self.NOBODY)}
-            return (await http.patch(self.URL, headers=OLDER, json=payload)).status_code
-
-        assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == 200
-
-    def test_a_rewrite_seating_a_new_person_from_an_older_sign_in_is_refused_and_seats_nobody(self, mongo_replica_set_url: str):
-        """Seating somebody new mints them a link, which is a step-up write whatever else the save does."""
-
-        newcomer = {
-            "first_name": "Ida",
-            "last_name": "Musterfrau",
-            "email": "ida@example.com",
-            "phone": "+4917010000001",
-            # A seat the applicant's form would store, so the step-up alone refuses.
-            "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
-        }
-
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            payload = {"kontakte": {**self.NOBODY, "trainer": newcomer}, "kontakte_stand": kontakte_stand_of(self.NOBODY)}
-            response = await http.patch(self.URL, headers=OLDER, json=payload)
-            stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
-            return refused(response), stored and (stored["kontakte"], stored.get("confirmations"))
-
-        assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == (True, (self.NOBODY, None))
-
-    def test_emptying_a_confirmed_seat_from_an_older_sign_in_is_refused_and_empties_nothing(self, mongo_replica_set_url: str):
-        """Its own link is spent, but its links on the team's open match confirmations die with it, which no read here rules out."""
-
-        confirmed = kontaktperson_document(
-            "Ida",
-            confirmed_at="2026-03-02",
-            einwilligung={"date": "2026-03-01"},
-            last_name="Musterfrau",
-            email="ida@example.com",
-            phone="+4917010000001",
-        )
-        seated = {**self.NOBODY, "trainer": confirmed}
-
-        async def seed(database: AsyncDatabase) -> None:
-            await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM_ID}, {"$set": {"kontakte": seated}})
-
-        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            payload = {"kontakte": dict(self.NOBODY), "kontakte_stand": kontakte_stand_of(seated)}
-            response = await http.patch(self.URL, headers=OLDER, json=payload)
-            stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
-            return refused(response), stored and stored["kontakte"]
-
-        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, seated)
 
 
 # An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.

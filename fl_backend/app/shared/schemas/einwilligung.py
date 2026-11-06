@@ -80,7 +80,7 @@ class FLEinwilligungState(BaseModel):
     A consent PATCH's precondition, echoed back as served, never a secret.
     """
 
-    # Required with no default, as `kontakte_stand` is: an omitted precondition judges nothing.
+    # Required with no default: an omitted precondition judges nothing.
     scope: str | None
     media: str | None
 

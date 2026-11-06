@@ -143,6 +143,7 @@ def saison_team_document(saison_id: str, team_id: Any, name: str, shorthand: str
         "kontakte": None,
         "name": name,
         "shorthand": shorthand,
+        "version": 0,
         **fields,
     }
 

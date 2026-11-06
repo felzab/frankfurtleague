@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -21,19 +22,21 @@ from app.api.teams.schemas import (
     FLTabelle,
     FLTabelleRow,
     FLTeam,
+    FLTeamGruppeOffer,
+    FLTeamListState,
+    FLTeamsAdminRow,
     FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
-    kontakte_stand_of,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_query
+from app.core.crud import VERSION_FIELD
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktRow
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
@@ -189,24 +192,10 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
     if not filters.include_inactive:
         pipeline.extend(build_retirement_stages(filters.saison_id))
 
-    # Translated, not dumped: the row stores a record, never a boolean.
-    # Two independent terms, so "left the season" and "left it THIS way" compose into one match.
-    austritt_terms: dict[str, Any] = {}
-    if filters.has_austritt is not None:
-        austritt_terms["austritt"] = {"$ne": None} if filters.has_austritt else None
-    if filters.austritt_type is not None:
-        austritt_terms["austritt.type"] = filters.austritt_type
-
-    lookup_filters = build_query(
-        filters,
-        terms={"saison_id", "gruppe"},
-        compiled=austritt_terms or None,
-    )
-
-    lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}]
-
-    if lookup_filters:
-        lookup_pipeline.append({"$match": lookup_filters})
+    lookup_pipeline: list[Mapping[str, Any]] = [
+        {"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}},
+        {"$match": {"saison_id": filters.saison_id}},
+    ]
 
     # Withheld at the JOIN rather than downstream: the outer `$project` is an allow-list too, so this
     # is DEPTH -- two of this pipeline's callers are base-tier and the row carries contact records.
@@ -1107,9 +1096,8 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     if held is None:
         return None
 
-    # A stored blank is a date every read already answers as none
-    # (`app/api/teams/schemas.py :: _project_seat`), so writing it back would keep a value no reader
-    # can see and no token can tell from null.
+    # A stored blank is a date every read already answers as none, so writing it back would keep a
+    # value no reader can see.
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
@@ -1230,27 +1218,8 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
     return block
 
 
-def _live_link(*, kontakte: Mapping[str, Any], confirmations: Mapping[str, Any], slot: str, today: str) -> list[str] | None:
-    """The hashes of the link this seat's person can still answer, or `None`: answered, declined, lapsed and unminted links open nothing."""
-
-    entry = confirmations.get(slot)
-    seat = kontakte.get(slot)
-    if not isinstance(entry, Mapping) or not isinstance(seat, Mapping) or _seat_is_stamped(seat):
-        return None
-
-    if entry.get("declined_at") is not None or str(entry.get("deadline") or "") < today:
-        return None
-
-    token_hashes = entry.get("token_hashes")
-
-    return list(token_hashes) if isinstance(token_hashes, list) and token_hashes else None
-
-
 def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle, ...]:
-    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody.
-
-    The void and the step-up both read it: two answers would let a link die unasked.
-    """
+    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody."""
 
     stored_block = stored if isinstance(stored, Mapping) else {}
     block = kontakte if isinstance(kontakte, Mapping) else {}
@@ -1261,29 +1230,6 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
         if isinstance(held := stored_block.get(slot), Mapping)
         and (not isinstance(seat := block.get(slot), Mapping) or _seat_held_by(held, seat=seat) is None)
     )
-
-
-def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, confirmations: Any, today: str) -> bool:
-    """Whether a save drops a link somebody can still answer: a bearer credential voided, as a mint is one handed out.
-
-    Any seat emptied or handed on counts, a confirmed one too: its Spielbestätigung links die with it, unread here.
-    """
-
-    if seats_changing_holder(stored=stored_kontakte, kontakte=kontakte):
-        return True
-
-    stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
-    stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
-    left = confirmations if isinstance(confirmations, Mapping) else {}
-
-    for slot in KONTAKT_ROLLEN:
-        live = _live_link(kontakte=stored_slots, confirmations=stored_links, slot=slot, today=today)
-        kept = left.get(slot)
-        # Still reached: a kept person's seat re-minted beside a newly seated pair ends the link it held.
-        if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hashes") != live):
-            return True
-
-    return False
 
 
 def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
@@ -1409,20 +1355,116 @@ def find_kontakt_seat_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_kontakte_precondition_refusal(*, expected: str, stored: Any) -> WriteRefusal | None:
-    """Why this save may not land on the block the row now holds, or `None`.
+def build_team_fixtures_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+    """This club's fixtures of one season. Both sides, because a fixture fields a team on either."""
 
-    Refused whole rather than merged into the changed paths: an erasure clearing one seat leaves the
-    whole open editor stale.
+    return {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
+
+
+def compose_saison_team(
+    *, saison_id: str, team_id: Any, gruppe: FLGruppenNames, trikot_farbe: FLTrikotFarbe | None, name: str, shorthand: str
+) -> dict[str, Any]:
+    """One club's row of a season as an entry writes it: no departure and no people yet."""
+
+    return {
+        "saison_id": saison_id,
+        "team_id": team_id,
+        "gruppe": gruppe,
+        # These two required by `FLTeamMembership`, so a row without one is unreadable.
+        "austritt": None,
+        "trikot_farbe": trikot_farbe,
+        "kontakte": None,
+        # Copied rather than joined on read: once the season is `past` this is the name it was played under, which makes
+        # the copy in its fixtures true rather than merely old.
+        "name": name,
+        "shorthand": shorthand,
+    }
+
+
+def gruppe_offer(*, rules: FLSaisonRules, gruppen: Iterable[str]) -> list[FLTeamGruppeOffer]:
+    """Every group the season offers and whether it is full, by `find_entry_refusal`'s count: a row carrying an `austritt` keeps its place."""
+
+    occupied = Counter(gruppen)
+    offered = offered_gruppen(rules.number_of_gruppen)
+
+    return [FLTeamGruppeOffer(gruppe=gruppe, full=occupied[gruppe] >= rules.teams_per_gruppe) for gruppe in offered]
+
+
+def composite_version(*, team: Mapping[str, Any], row: Mapping[str, Any]) -> int:
+    """The one count the team editor reads and saves on: the club's and its season row's added.
+
+    Each only ever rises, so their sum stands exactly where neither has moved, and a page holds one number for its one
+    save (`fl_frontend/src/kit/useEditor.ts :: EditorRecord`).
     """
 
-    if kontakte_stand_of(stored) == expected:
+    return int(team.get(VERSION_FIELD) or 0) + int(row.get(VERSION_FIELD) or 0)
+
+
+def find_stale_team_save_refusal(*, version: int, team: Mapping[str, Any], row: Mapping[str, Any]) -> WriteRefusal | None:
+    """`version_stale`: the club or its season row has moved since the editor read them."""
+
+    if composite_version(team=team, row=row) == version:
         return None
 
-    return WriteRefusal(
-        error_code=Code.KONTAKTE_MOVED_UNDER_THE_SAVE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
+def teams_admin_rows(
+    *,
+    rows: Sequence[Mapping[str, Any]],
+    clubs: Sequence[Mapping[str, Any]],
+    state: FLTeamListState | None,
+    gruppe: FLGruppenNames | None,
+) -> list[FLTeamsAdminRow]:
+    """The Teams list: the season's rows, or under `retired` the league's retired clubs, each club in no season row with no group.
+
+    A club is retired from the league rather than from a season, so that one filter reads past the season's rows: it is
+    the way back to a club no season list holds. `rows` and `clubs` arrive sorted by name.
+    """
+
+    retired = {club["_id"]: club["inactive_since"] for club in clubs if club.get("inactive_since") is not None}
+    entered = {row["team_id"]: row for row in rows}
+
+    def listed(row: Mapping[str, Any]) -> FLTeamsAdminRow:
+        kontakte = row.get("kontakte") or {}
+        seats = [seat for slot in KONTAKT_ROLLEN if isinstance(seat := kontakte.get(slot), Mapping)]
+
+        return FLTeamsAdminRow(
+            id=row["team_id"],
+            name=row["name"],
+            shorthand=row["shorthand"],
+            gruppe=row["gruppe"],
+            seats_filled=len(seats),
+            seats_confirmed=sum(1 for seat in seats if _seat_is_stamped(seat)),
+            austritt_type=(row.get("austritt") or {}).get("type"),
+            inactive_since=retired.get(row["team_id"]),
+        )
+
+    if state == "retired":
+        chosen = [
+            listed(entered[club["_id"]])
+            if club["_id"] in entered
+            else FLTeamsAdminRow(
+                id=club["_id"],
+                name=club["name"],
+                shorthand=club["shorthand"],
+                gruppe=None,
+                seats_filled=0,
+                seats_confirmed=0,
+                austritt_type=None,
+                inactive_since=club["inactive_since"],
+            )
+            for club in clubs
+            if club["_id"] in retired
+        ]
+    else:
+        chosen = [listed(row) for row in rows]
+        if state == "active":
+            chosen = [row for row in chosen if row.austritt_type is None and row.inactive_since is None]
+        if state == "departed":
+            chosen = [row for row in chosen if row.austritt_type is not None]
+
+    return [row for row in chosen if gruppe is None or row.gruppe == gruppe]
 
 
 def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
@@ -1676,11 +1718,20 @@ def find_replacement_refusal(
     return None
 
 
+# A club standing in one of these is still in the league's programme, so `retire_blocked` refuses retiring it.
+_RETIRE_BLOCKING_STATUSES: tuple[str, ...] = ("active", "future")
+
+
+def saison_blocking_retirement(saisons: Iterable[Mapping[str, Any]]) -> str | None:
+    """The newest of these seasons `retire_blocked` refuses over, which the editor names, or `None`."""
+
+    return max((str(saison["_id"]) for saison in saisons if saison["status"] in _RETIRE_BLOCKING_STATUSES), default=None)
+
+
 def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:
     """Why retiring this club must be refused, or `None`; a club whose seasons are all `past` may be retired."""
 
-    blocking = sorted({saison_status for saison_status in saison_statuses if saison_status in ("active", "future")})
-    if not blocking:
+    if not any(saison_status in _RETIRE_BLOCKING_STATUSES for saison_status in saison_statuses):
         return None
 
     return WriteRefusal(

@@ -2238,7 +2238,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 8
+      "count": 7
     }
   },
   "src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.test.ts": {

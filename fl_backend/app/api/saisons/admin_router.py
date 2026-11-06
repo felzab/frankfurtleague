@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any, NamedTuple
+from typing import Annotated, Any, Literal, NamedTuple
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import AsyncMongoClient, ReturnDocument
@@ -16,7 +16,6 @@ from app.api.einladungen.schemas import (
     FLEinladung,
     FLInvitationDispatchPayload,
     FLInvitationDispatchResponse,
-    FLInvitationDispatchRow,
     FLInvitationLinkRow,
 )
 from app.api.einladungen.services import (
@@ -1310,6 +1309,10 @@ async def _plan_the_dispatch(
     return planned
 
 
+# What one team's share of the press came to, which the press's answer counts.
+type _PressOutcome = Literal["mailed", "skipped", "failed"]
+
+
 async def _mail_one_team(
     *,
     invitations_collection: AsyncCollection,
@@ -1322,7 +1325,7 @@ async def _mail_one_team(
     created_by: str,
     today: str,
     now: datetime,
-) -> FLInvitationDispatchRow:
+) -> _PressOutcome:
     """One team's whole share of the press, its revoke, its fresh row and the mails it owes, in a transaction of its own.
 
     Per team rather than one for all: a season's worth of mints in one transaction would take back
@@ -1330,21 +1333,12 @@ async def _mail_one_team(
     owed about it together, so no team is left holding a link nobody is owed.
     """
 
-    # What the callback's last run read, kept for a transaction that raises: whether the team held a
-    # link is what its row then tells the admin.
-    hatte_link: bool | None = None
-
-    async def mint_where_the_team_qualifies(session: AsyncClientSession) -> FLInvitationDispatchRow:
+    async def mint_where_the_team_qualifies(session: AsyncClientSession) -> _PressOutcome:
         """Plan this team, then revoke, insert and owe where the plan says to.
 
         The INVITE and its mails alone are read in-session: the withdrawal and the contacts come from
         the read before the loop, so a retry re-decides on those as they stood then.
         """
-
-        nonlocal hatte_link
-        # Reset before the read: a retry raising ahead of it would otherwise report the previous
-        # attempt's link, which a rival's press may have revoked since.
-        hatte_link = None
 
         live = await pull_many_from_db(
             collection=invitations_collection,
@@ -1360,16 +1354,9 @@ async def _mail_one_team(
             resend=resend,
             barred=barred,
         )
-        hatte_link = bool(live)
 
         if plan.skipped is not None:
-            return FLInvitationDispatchRow(
-                team_id=team["team_id"],
-                team_name=team["name"],
-                recipient=[],
-                skipped=plan.skipped,
-                had_link=bool(live),
-            )
+            return "skipped"
 
         # Only where the read above found one: a team holding no link is spared the command.
         if live:
@@ -1401,13 +1388,7 @@ async def _mail_one_team(
             now=now,
         )
 
-        return FLInvitationDispatchRow(
-            team_id=team["team_id"],
-            team_name=team["name"],
-            recipient=plan.recipient,
-            skipped=None,
-            had_link=bool(live),
-        )
+        return "mailed"
 
     # Caught outside the session: a failure the session never sees leaves the transaction open on the
     # server.
@@ -1416,7 +1397,7 @@ async def _mail_one_team(
             return await session.with_transaction(mint_where_the_team_qualifies)
     except PyMongoError as failure:
         # Per TEAM: every team already done is committed with its mails. A commit sent and never answered may have revoked
-        # this team's link and owed its mails too, so its row says unknown rather than failed.
+        # this team's link and owed its mails too, so its line says unknown rather than failed.
         uncertain = failure.has_error_label("UnknownTransactionCommitResult")
         fl_logger.error(
             "saisons.invitation_unminted",
@@ -1428,13 +1409,7 @@ async def _mail_one_team(
             },
         )
 
-        return FLInvitationDispatchRow(
-            team_id=team["team_id"],
-            team_name=team["name"],
-            recipient=[],
-            skipped="mint_uncertain" if uncertain else "mint_failed",
-            had_link=hatte_link,
-        )
+        return "failed"
 
 
 @router.get(
@@ -1504,8 +1479,8 @@ async def post_invitations_dispatch(
     `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
     being a deliberate act rather than a bulk one.
 
-    Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an
-    empty list.
+    Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
+    counts.
 
     **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
     that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
@@ -1521,7 +1496,7 @@ async def post_invitations_dispatch(
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
-    zeilen = [
+    outcomes = [
         await _mail_one_team(
             invitations_collection=invitations_collection,
             outbox_collection=outbox_collection,
@@ -1537,4 +1512,9 @@ async def post_invitations_dispatch(
         for team in entered
     ]
 
-    return FLInvitationDispatchResponse(saison_id=saison_id, rows=zeilen)
+    return FLInvitationDispatchResponse(
+        saison_id=saison_id,
+        mailed=outcomes.count("mailed"),
+        skipped=outcomes.count("skipped"),
+        failed=outcomes.count("failed"),
+    )

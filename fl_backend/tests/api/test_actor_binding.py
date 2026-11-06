@@ -164,7 +164,6 @@ STEP_UP_WRITES = [
     pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
     pytest.param("delete", "/api/v0/grants/approval_requests/{approval_request_id}", id="a request for a grant refused or withdrawn"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
-    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/invite", id="a contact seat's fresh link"),
 ]
 
 

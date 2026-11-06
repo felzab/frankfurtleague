@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -9,11 +10,32 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import FLTabelle, FLTeamListAdapter, FLTeamsFilterParams
-from app.api.teams.services import build_tabelle, build_team_pipeline, find_entry_refusal
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.api.teams.services import (
+    build_tabelle,
+    build_team_fixtures_filter,
+    build_team_pipeline,
+    compose_saison_team,
+    find_club_entry_refusal,
+    find_entry_refusal,
+    find_gruppe_move_refusal,
+    find_shorthand_refusal,
+)
+from app.core.crud import (
+    GERMAN_COLLATION,
+    aggregate_many_from_db,
+    anchor_in_db,
+    insert_live,
+    is_held_elsewhere,
+    patch_many_in_db,
+    patch_one_in_db,
+    post_one_to_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+)
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
-from app.shared.schemas.literals import FLGruppenNames
+from app.shared.schemas.literals import FLGruppenNames, FLTrikotFarbe
 
 
 async def refuse_a_full_gruppe(
@@ -81,6 +103,135 @@ async def pull_a_club_to_enter(
     )
 
     return club
+
+
+async def found_a_club(*, teams_collection: AsyncCollection, club: Mapping[str, Any], session: AsyncClientSession) -> Any:
+    """Write a new club, its `shorthand` judged against every other, a retired one included; its id."""
+
+    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=club["shorthand"], own_id=None, session=session)
+    refuse(find_shorthand_refusal(taken=taken))
+
+    return (await insert_live(collection=teams_collection, document=dict(club), session=session)).inserted_id
+
+
+async def enter_a_club(
+    *,
+    teams_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    team_id: Any,
+    saison_id: str,
+    gruppe: FLGruppenNames,
+    trikot_farbe: FLTrikotFarbe | None,
+    session: AsyncClientSession,
+) -> Mapping[str, Any]:
+    """Judge this club's entry into the season and write its row, in the caller's transaction; everything judged is read in-session."""
+
+    # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than inserting
+    # a row pointing at no club, and the season's own copy of the name and shorthand is seeded from it.
+    team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+    # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another group, so nobody should
+    # be handed a capacity figure to act on first.
+    refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+
+    await refuse_a_full_gruppe(
+        saison_teams_collection=saison_teams_collection,
+        saisons_collection=saisons_collection,
+        saison_id=saison_id,
+        gruppe=gruppe,
+        saison_status=str(saison_raw["status"]),
+        # Validated, not read raw: a season missing the capacity keys fails here rather than admitting a team against a
+        # bound nobody chose.
+        rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+        session=session,
+    )
+
+    document = compose_saison_team(
+        saison_id=saison_id, team_id=team_id, gruppe=gruppe, trikot_farbe=trikot_farbe, name=team_raw["name"], shorthand=team_raw["shorthand"]
+    )
+    await post_one_to_db(collection=saison_teams_collection, document=document, session=session)
+
+    return document
+
+
+async def refuse_a_gruppe_move(
+    *,
+    spiele_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    team_id: Any,
+    saison_id: str,
+    gruppe: FLGruppenNames,
+    rules: FLSaisonRules,
+    session: AsyncClientSession,
+) -> None:
+    """Refuse moving this club into `gruppe` while its fixtures are drawn or the group is full, its status gate aside."""
+
+    fixtures_drawn = await spiele_collection.count_documents(build_team_fixtures_filter(saison_id=saison_id, team_id=team_id), session=session)
+    refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
+
+    await refuse_a_full_gruppe(
+        saison_teams_collection=saison_teams_collection,
+        saisons_collection=saisons_collection,
+        saison_id=saison_id,
+        gruppe=gruppe,
+        # A MOVE is not an entry -- the club already holds a row -- so the status gate on entering does not judge it, and
+        # only its two group gates apply.
+        saison_status="future",
+        rules=rules,
+        session=session,
+    )
+
+
+async def write_the_club(
+    *,
+    teams_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    team_id: Any,
+    club: Mapping[str, Any],
+    expected_version: int | None,
+    session: AsyncClientSession,
+) -> tuple[Mapping[str, Any], int]:
+    """Write a club and rewrite the name and shorthand its unfinished seasons' rows carry; the stored club and how many rows moved.
+
+    Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
+    rewrites; a `past` season keeps the name it was played under.
+    """
+
+    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=club["shorthand"], own_id=team_id, session=session)
+    refuse(find_shorthand_refusal(taken=taken))
+    stored = await patch_one_in_db(
+        collection=teams_collection,
+        db_filter={"_id": team_id},
+        update={"$set": dict(club)},
+        expected_version=expected_version,
+        session=session,
+        return_document=ReturnDocument.AFTER,
+    )
+
+    # Read through the session, so a season closed by a concurrent write cannot leave the junction rewritten and its
+    # fixtures not, or the reverse.
+    open_saisons = await pull_many_from_db(
+        collection=saisons_collection, db_filter={"status": {"$ne": "past"}}, projection=["_id"], session=session
+    )
+    # One season per year against a 1024-row read: the list cannot truncate this century.
+    open_saison_ids = [row["_id"] for row in open_saisons]
+    # A read alone joins no write set, and the rollover writes no club row, so without this a season closed under the
+    # rename would have its rows renamed after it closed; anchored, the rollover's demotion conflicts with the rename and
+    # the retry reads the season `past`.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": open_saison_ids}}, session=session)
+
+    junction = await patch_many_in_db(
+        collection=saison_teams_collection,
+        db_filter={"team_id": team_id, "saison_id": {"$in": open_saison_ids}},
+        update={"$set": {"name": club["name"], "shorthand": club["shorthand"]}},
+        session=session,
+    )
+
+    return stored, junction.modified_count
 
 
 async def pull_tabelle(

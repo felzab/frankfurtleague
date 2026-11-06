@@ -64,9 +64,9 @@ export function AdminKontakteEditForm({
   // Read ONCE, so the seed and the change list's stored half cannot disagree about what the season
   // holds.
   const storedKontakte = storedMembership?.kontakte ?? null;
-  // The token the read served, echoed and never rebuilt here. A club outside the season has no row
-  // and so no token, and the save that would carry the empty string is a 404 before it is judged.
-  const kontakteStand = storedMembership?.kontakte_stand ?? "";
+  // The version the read served, echoed and never rebuilt here. A club outside the season has no row
+  // and so no version, and the save that would carry the zero is a 404 before it is judged.
+  const kontakteVersion = storedMembership?.version ?? 0;
   // Nobody on file opens as a block nobody has entered, whichever shape stores it: seeded raw, a block
   // an erasure emptied opens with every seat switched off where an absent one opens with all three on.
   const seed = holdsNobody(storedKontakte) ? null : storedKontakte;
@@ -89,7 +89,7 @@ export function AdminKontakteEditForm({
     // (`fl_frontend/src/features/kontakte/utils.ts :: mirrorKontakte`), and the write shape composed
     // with it: the guard refuses whatever body it is handed, at paths no control renders.
     kontakte: toKontaktePayload(kontakte === null ? null : mirrorKontakte(kontakte)),
-    kontakte_stand: kontakteStand,
+    version: kontakteVersion,
   });
 
   const status = deriveKontakteDraftStatus({ stored: { kontakte: storedKontakte }, draft: { kontakte }, fieldErrors });
@@ -219,7 +219,7 @@ export function AdminKontakteEditForm({
               teamId={teamId}
               saisonId={saison.saisonId}
               hasStored={!holdsNobody(storedKontakte)}
-              stand={kontakteStand}
+              version={kontakteVersion}
               isDirty={isDirty}
             />
           )}

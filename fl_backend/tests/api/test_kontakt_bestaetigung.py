@@ -25,7 +25,7 @@ from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, confirmation_deadli
 from app.api.identity.crud import roles_of
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import invite_kontakt, patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload
 from app.api.teams.services import (
     compose_kontakt_bestaetigung,
 )
@@ -34,7 +34,6 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import log_stamp
-from app.core.security import STEP_UP_WINDOW_S, SessionActor
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -46,7 +45,6 @@ from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
-from tests.session_headers import fresh_admin_actor, verified_actor
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -76,7 +74,6 @@ AN_ADULTS_BIRTHDATE = "1984-05-09"
 ADMIN = "admin@frankfurtleague.de"
 
 # Past the step-up window by a minute.
-STALE_ADMIN_ACTOR = verified_actor("admin@example.com", signed_in_before_s=STEP_UP_WINDOW_S + 60)
 
 PHONE = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
 
@@ -224,7 +221,6 @@ async def save(
     database: AsyncDatabase,
     kontakte: Any,
     *,
-    actor: SessionActor | None = None,
     saison_teams: Any = None,
     today: str = TODAY,
 ) -> Mailed:
@@ -236,16 +232,13 @@ async def save(
     answer = await patch_saison_team_kontakte(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-            {"kontakte": kontakte, "kontakte_stand": kontakte_stand_of(row.get("kontakte"))}
-        ),
+        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "version": row["version"]}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=database.client,
-        actor=actor or fresh_admin_actor(),
         today=today,
         germany_now=MAIL_NOW,
     )
@@ -988,57 +981,6 @@ class TestARowsPeopleLeavingTakeTheirLinks:
             return await refused(read_view(database, response.confirmations[1].token))
 
         assert on_a_league(mongo_replica_set_url, body) == Code.LINK_INVALID
-
-
-class TestTheStepUp:
-    def test_a_save_emptying_a_seat_whose_link_is_live_from_an_old_sign_in_is_refused(self, mongo_replica_set_url: str):
-        """Voiding a bearer link is a step-up write as minting one is: the person holding it loses their way to answer."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await save(database, THREE)
-            before = await row_now(database)
-
-            return (
-                await refused(save(database, {**THREE, "stellvertretung": None}, actor=STALE_ADMIN_ACTOR)),
-                before,
-                await row_now(database),
-            )
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.CONFIRMATION_REQUIRED
-        assert after == before
-
-    def test_a_save_emptying_a_seat_whose_link_was_answered_from_an_old_sign_in_is_refused(self, mongo_replica_set_url: str):
-        """An answered link opens nothing, but the seat's links on the team's open match confirmations die with it, unread here."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            first = await save(database, THREE)
-            await answer(database, first.confirmations[0].token)
-            before = await row_now(database)
-
-            return (
-                await refused(save(database, {**THREE, "trainer": None}, actor=STALE_ADMIN_ACTOR)),
-                before,
-                await row_now(database),
-            )
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.CONFIRMATION_REQUIRED
-        assert after == before
-        assert after["kontakte"]["trainer"] is not None
-
-    def test_a_save_minting_nothing_takes_the_old_sign_in(self, mongo_replica_set_url: str):
-        """The control, and what keeps an edit's undo: a telephone number moved seats nobody new."""
-
-        edited = {**{seat: person(name) for seat, name in zip(SEATS, ("Ida", "Jonas", "Klara"), strict=True)}, "trainer_is_also": None}
-        edited["trainer"] = {**edited["trainer"], "phone": "+4917099999999"}
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await save(database, edited, actor=STALE_ADMIN_ACTOR)
-
-        assert on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED).confirmations == []
 
 
 class TestAnApplicationsLinkIsAnsweredAsBefore:

@@ -27,12 +27,12 @@ import type { TeamBanner } from "./banners";
 const ART_LABEL_ID = "austritt-art";
 
 /**
- * `austritt` is required with no default: lifting one sends an explicit `null`, not a quiet
- * reinstatement. The route starts on NEITHER Art — a default Disqualifikation would file
+ * A stored exit stands for good, so its switch is closed. The route starts on NEITHER Art — a default Disqualifikation would file
  * withdrawals as sanctions; unpicked is a field error instead.
  */
 export function FormAustrittSection({
   hasAustritt,
+  isStored,
   onHasAustrittChange,
   banners,
   art,
@@ -44,6 +44,7 @@ export function FormAustrittSection({
   onValidateFields,
 }: {
   hasAustritt: boolean;
+  isStored: boolean;
   onHasAustrittChange: (next: boolean) => void;
   banners: readonly TeamBanner[];
   art: FLAustrittType | null;
@@ -76,6 +77,7 @@ export function FormAustrittSection({
       <div className={styles.body()}>
         <Switch
           isSelected={hasAustritt}
+          isDisabled={isStored}
           onChange={onHasAustrittChange}>
           <Switch.Content className={styles.switchContent()}>
             Team ist ausgeschieden
@@ -168,12 +170,6 @@ export function FormAustrittSection({
           banners={banners}
           spot="austritt-entry"
           isAnnounced
-        />
-
-        {/* Standing rather than announced: it describes the pending lift, not the flip itself. */}
-        <InlineBanners
-          banners={banners}
-          spot="austritt-aufhebung"
         />
       </div>
     </section>

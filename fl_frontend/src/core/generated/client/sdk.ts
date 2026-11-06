@@ -42,6 +42,7 @@ import type {
   FLAddressChangeStopResponse,
   FLAddressChangeSweepResponse,
   FLAddressChangeViewResponse,
+  FLAustrittPayload,
   FLBewerbungEinwilligungAnswerResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
@@ -112,6 +113,8 @@ import type {
   FLPatchSpieltagPayload,
   FLPatchTeamPayload,
   FLPatchTeamResponse,
+  FLPatchTeamSaisonPayload,
+  FLPatchTeamSaisonResponse,
   FLPostBewerbungPayload,
   FLPostGrantPayload,
   FLPostGrantResponse,
@@ -126,6 +129,8 @@ import type {
   FLPostSperrlistePayload,
   FLPostSperrlisteResponse,
   FLPostSpielortPayload,
+  FLPostTeamEntryPayload,
+  FLPostTeamEntryResponse,
   FLPostTeamPayload,
   FLReferencesPayload,
   FLReferencesResponse,
@@ -201,8 +206,9 @@ import type {
   FLSweepSaisonsResponse,
   FLTabelleResponse,
   FLTeamPageResponse,
+  FLTeamsAdminListResponse,
+  FLTeamSaisonAdminResponse,
   FLTeamSeatsResponse,
-  FLTeamsListResponse,
   FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
   FLTokenPayload,
@@ -2742,8 +2748,8 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
  * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
  * being a deliberate act rather than a bulk one.
  *
- * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an
- * empty list.
+ * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
+ * counts.
  *
  * **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
  * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
@@ -4873,24 +4879,27 @@ export const teamsPostTeam = async (
   });
 };
 
-export const getTeamsGetTeamsAdminUrl = (params?: TeamsGetTeamsAdminParams) => {
+export const getTeamsGetTeamsAdminUrl = (params: TeamsGetTeamsAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0 ? `/api/v0/teams/list/admin?${stringifiedParams}` : `/api/v0/teams/list/admin`;
 };
 
 /**
- * List a season's teams for the admin surfaces, a `future` season's included.
+ * The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.
  *
- * No base-tier season gate: a club is entered while its season is still planned, so an admin who
- * cannot see one cannot enter it.
- * @summary Teams for a Saison, for the admin surfaces
+ * No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
+ * the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
+ * retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
+ * each group with whether it is full, and `closed` where the season is not `future`, which the entry refuses. 404
+ * where no season holds that id.
+ * @summary One season's Teams list and what its create dialog offers
  */
 export const teamsGetTeamsAdmin = async (
-  params?: TeamsGetTeamsAdminParams,
+  params: TeamsGetTeamsAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLTeamsListResponse> => {
-  return adminKeyTransport<FLTeamsListResponse>(getTeamsGetTeamsAdminUrl(params), {
+): Promise<FLTeamsAdminListResponse> => {
+  return adminKeyTransport<FLTeamsAdminListResponse>(getTeamsGetTeamsAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4903,16 +4912,51 @@ export const getTeamsGetTeamSaisonsUrl = () => {
 /**
  * Every team, retired ones included, each with every season membership it holds. Sorted by name.
  *
- * `GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
- * change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
- * administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
- * ever owed.
+ * Each membership names the live change of each seat's address, which the address tool shows, and per seat why the
+ * tool refuses that change this administrator. Each seat's link names what became of the last mail carrying it,
+ * `delivery` null where none was ever owed.
  * @summary Every team with its season memberships
  */
 export const teamsGetTeamSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsSaisonsResponse> => {
   return adminKeyTransport<FLTeamsSaisonsResponse>(getTeamsGetTeamSaisonsUrl(), {
     ...options,
     method: "GET",
+  });
+};
+
+export const getTeamsPostTeamEntryUrl = (saisonId: string) => {
+  return `/api/v0/teams/saisons/${encodeURIComponent(String(saisonId))}/entry`;
+};
+
+/**
+ * Enter a club into a `future` season in a group and a colour, founding it first where it is new.
+ *
+ * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
+ * naming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.
+ * @summary Enter a club into a season, one the league holds or a new one
+ */
+export const teamsPostTeamEntry = async (
+  saisonId: string,
+  fLPostTeamEntryPayload: FLPostTeamEntryPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostTeamEntryResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLPostTeamEntryResponse>(getTeamsPostTeamEntryUrl(saisonId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostTeamEntryPayload),
   });
 };
 
@@ -5053,7 +5097,8 @@ export const getTeamsPatchSaisonTeamUrl = (teamId: string, saisonId: string) => 
 /**
  * Rewrite a team's row for one season: group, exit record and kit colour.
  *
- * All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
+ * All three are required: an omitted key is a 422. The group and the colour are replaced; a null `austritt` leaves a
+ * stored exit standing, since no write clears one.
  * The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
  * refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
  * (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
@@ -5133,6 +5178,110 @@ export const teamsPatchEinwilligung = async (
   });
 };
 
+export const getTeamsGetTeamSaisonAdminUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+};
+
+/**
+ * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
+ *
+ * `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
+ * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
+ * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
+ * `entry_gruppe_locked`, and `retire_blocked_by` the season `retire_blocked` refuses over, by each write's own judgement.
+ * `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
+ * over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
+ * season holds that id.
+ * @summary One team in one season for the admin editor
+ */
+export const teamsGetTeamSaisonAdmin = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamSaisonAdminResponse> => {
+  return adminKeyTransport<FLTeamSaisonAdminResponse>(getTeamsGetTeamSaisonAdminUrl(teamId, saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getTeamsPatchTeamSaisonUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+};
+
+/**
+ * Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.
+ *
+ * Refused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per
+ * part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
+ * changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
+ * included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
+ * `entry_gruppe_full` refuse it. 404 where the club holds no row of the season.
+ * @summary Save the team editor: the club and its row of the season, in one transaction
+ */
+export const teamsPatchTeamSaison = async (
+  teamId: string,
+  saisonId: string,
+  fLPatchTeamSaisonPayload: FLPatchTeamSaisonPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchTeamSaisonResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLPatchTeamSaisonResponse>(getTeamsPatchTeamSaisonUrl(teamId, saisonId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchTeamSaisonPayload),
+  });
+};
+
+export const getTeamsPutAustrittUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/austritt`;
+};
+
+/**
+ * Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
+ *
+ * Refused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its
+ * `earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+ * @summary Record a team's exit from a season
+ */
+export const teamsPutAustritt = async (
+  teamId: string,
+  saisonId: string,
+  fLAustrittPayload: FLAustrittPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<void>(getTeamsPutAustrittUrl(teamId, saisonId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAustrittPayload),
+  });
+};
+
 export const getTeamsDeleteInvitationUrl = (teamId: string, saisonId: string) => {
   return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation`;
 };
@@ -5201,9 +5350,6 @@ export const getTeamsPostInvitationUrl = (teamId: string, saisonId: string) => {
  *
  * **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
  * administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
- *
- * A mint voiding a live link is refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
- * writes nothing; a team's first link is not.
  * @summary Mint this team's registration link for a season
  */
 export const teamsPostInvitation = async (
@@ -5267,12 +5413,10 @@ export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: str
 /**
  * Rewrite the three people this team is reached through for one season. Null clears the block.
  *
- * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
- * rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
- * beside the block, and a row whose block answers to another token is refused rather than
- * overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
- * which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
+ * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
+ * its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
+ * an erasure between the caller's read and this write being what moves it. A `past` season's contacts stay correctable.
+ * Each seat's `entered_by` and
  * `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.
  *
@@ -5282,9 +5426,7 @@ export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: str
  * handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
  * holds nothing live. A save newly seating an address the ban list holds is
  * refused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
- * link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
- * or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
- * is; a save doing none of these is not.
+ * link is how its person learns of the entry, and it takes their Widerspruch alone.
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
@@ -5330,8 +5472,7 @@ export const getTeamsInviteKontaktUrl = (teamId: string, saisonId: string, seat:
  *
  * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), where the seat holds nobody or its
  * person has already confirmed it (`kontakt_seat_without_confirmation`), and where its address is on the ban list (`kontakt_seat_barred`).
- * 404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * 404 for a team and season holding no row, and for a path naming no seat.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsInviteKontakt = async (
