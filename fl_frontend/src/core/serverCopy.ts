@@ -316,6 +316,13 @@ export const SERVER_COPY = catalogue({
       keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
     },
 
+    /** An opponent's word that a club left the season. The lead follows the club's name, set semibold. */
+    austrittNotice: {
+      subject: (team: string) => `${team} spielt nicht mehr mit`,
+      lead: { after: (saison: string) => ` ist aus der ${COPY.shared.saisonName(saison)} ausgeschieden.` },
+      fixtures: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
+    },
+
     /** The sign-in code: no button, since a link carrying the code would sign in whoever opened a forwarded mail. */
     signInCode: {
       subject: "Dein Anmeldecode",
@@ -934,5 +941,6 @@ export const SERVER_COPY = catalogue({
     sponsors: `Die Sponsoren der ${COPY.brand.name}, und wie du die Liga unterstützen kannst.`,
     legalNotice: `Anbieterkennzeichnung der ${COPY.brand.name} nach § 5 DDG.`,
     privacyNotice: `Welche Daten die ${COPY.brand.name} verarbeitet, auf welcher Grundlage und wie lange.`,
+    sitemap: `Alle Seiten der ${COPY.brand.name} auf einen Blick.`,
   } satisfies Record<ListedRoute, string | ((...names: never) => string)>,
 });

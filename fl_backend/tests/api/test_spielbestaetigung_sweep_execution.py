@@ -41,7 +41,7 @@ from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielDataResponse
 from app.api.spiele.services import ANSETZUNG_CONFIRMED, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -59,7 +59,6 @@ from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
-from tests.session_headers import fresh_admin_actor
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -857,7 +856,9 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
         # Both clubs' rows and the referee's, the discard among them.
         assert (len(stored), {row["closed"]["reason"] for row in stored}) == (3, {reason})
         # The referee's notice among them: a club's ended discard is neither a move nor a referee change.
-        assert (answer.neue_ansetzungen, answer.schiedsrichter_neue_ansetzungen, answer.schiedsrichter_gewechselt) == ([], [], [])
+        assert (answer.neue_ansetzungen, answer.schiedsrichter_neue_ansetzungen) == ([], [])
+        # An exit lifts the booked referee's Einteilung, and owes neither club a thing here: the opponents heard at its write.
+        assert [notice.address for notice in answer.schiedsrichter_gewechselt] == ([REFEREE_EMAIL] if reason == "austritt" else [])
         told = {notice.spielbestaetigung_id for notice in [*answer.spiel_cancelled, *answer.schiedsrichter_spiel_cancelled]}
         # By row, the discarded club's named: the call-off's notices go to every party it closed a mailed row of.
         assert told == ({row["_id"] for row in stored} if reason == "cancelled" else set())
@@ -1179,7 +1180,7 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         team_id=ALPHA,
         saison_id=SAISON_ID,
         kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-            {"kontakte": {**kept, "trainer": trainer, "trainer_is_also": None}, "kontakte_stand": kontakte_stand_of(stored["kontakte"])}
+            {"kontakte": {**kept, "trainer": trainer, "trainer_is_also": None}, "version": stored["version"]}
         ),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -1187,7 +1188,6 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,
-        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )

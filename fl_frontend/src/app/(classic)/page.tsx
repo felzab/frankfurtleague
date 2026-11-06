@@ -17,7 +17,7 @@ import { SchoolTiles, SchoolTilesPlaceholder, SponsorTiles } from "@/kit/TileGri
 import { INSTAGRAM_URL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { dayOf, formatNumber } from "@/core/format";
-import { ROUTES } from "@/core/routes";
+import { JOIN_SECTION, ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
@@ -184,7 +184,8 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
       </LandingSection>
       <LandingSection
         eyebrow={words.join.eyebrow}
-        title={words.join.title}>
+        title={words.join.title}
+        anchor={JOIN_SECTION}>
         <Steps
           items={[
             words.join.apply,

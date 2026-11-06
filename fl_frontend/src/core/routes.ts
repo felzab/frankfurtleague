@@ -65,6 +65,7 @@ export const ADDRESS_WORDS = [
   "security",
   "settings",
   "signin",
+  "sitemap",
   "sponsors",
   // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
   // `/impressum` and `/datenschutz` are where a German visitor looks for it and for the privacy notice.
@@ -83,6 +84,11 @@ export const ROUTES = {
   home: { path: () => "/" as const, title: COPY.template.oberstufenliga, crawl: "index" },
   /** The season the site is on, for a link that cannot know which: its page sends the reader on to that season's Spielplan. */
   saisons: { path: () => "/saisons" as const, title: COPY.page.spielplan, crawl: "noindex" },
+  // The same for the season's other pages, a fixed segment taking the address before `[saison]`.
+  saisonsKORunde: { path: () => "/saisons/ko-runde" as const, title: COPY.shared.kORunde, crawl: "noindex" },
+  saisonsTabelle: { path: () => "/saisons/tabelle" as const, title: COPY.page.tabelle, crawl: "noindex" },
+  saisonsTeams: { path: () => "/saisons/teams" as const, title: COPY.page.teams, crawl: "noindex" },
+  saisonsSpielSearch: { path: () => "/saisons/search" as const, title: COPY.page.spielSearch, crawl: "noindex" },
   spielplan: {
     path: (saison: string) => `/saisons/${saison}` as const,
     title: COPY.page.spielplan,
@@ -125,6 +131,8 @@ export const ROUTES = {
   sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsors, crawl: "index" },
   legalNotice: { path: () => "/impressum" as const, title: COPY.page.legalNotice, crawl: "index" },
   privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.privacyNotice, crawl: "index" },
+  /** The site's pages for a person; `/sitemap.xml` is the crawler's list (`fl_frontend/src/app/sitemap.ts`). */
+  sitemap: { path: () => "/sitemap" as const, title: COPY.page.sitemap, crawl: "index" },
   /**
    * A coming season's application form, which the landing and a mail lead to. Never in the sitemap, whose one
    * season is the season the site is on and not the one taking applications; the page names its own canonical
@@ -132,7 +140,7 @@ export const ROUTES = {
    */
   // Session 6: its page is built.
   bewerbung: { path: (saison: string) => `/bewerbung/${saison}` as const, title: COPY.page.bewerbung, crawl: "noindex" },
-  /** Signing in, which every page signed out offers as „Anmelden“. */
+  /** Signing in, which every page signed out offers as „Konto“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
   signInPasskey: { path: () => "/signin/passkey" as const, title: COPY.signIn.passkeyTitle, crawl: "noindex" },
@@ -329,7 +337,27 @@ export const ROUTES = {
 } as const satisfies Record<string, RouteEntry>;
 
 /**
- * A season's public pages in the one order every frame lists them: the rail and the phone bar on a season page,
- * and the classic footer's „Saison“ group. Each is named by its route's title.
+ * A season's public pages in the one order every frame lists them, the rail and the phone bar on a season page.
+ * Each is named by its route's title.
  */
 export const SAISON_PAGES = ["spielplan", "kORunde", "tabelle", "teams"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
+
+/**
+ * Each address naming no season, with the page of the season the site is on it leads to: the classic footer's „Saison“
+ * group, which reads nothing, so it never waits and never goes stale. `page` is also what the sitemap page lists of
+ * each season.
+ */
+export const SAISONLESS_PAGES = [
+  { route: "saisons", page: "spielplan" },
+  { route: "saisonsKORunde", page: "kORunde" },
+  { route: "saisonsTabelle", page: "tabelle" },
+  { route: "saisonsTeams", page: "teams" },
+  { route: "saisonsSpielSearch", page: "spielSearch" },
+] as const satisfies ReadonlyArray<{ route: keyof typeof ROUTES; page: keyof typeof ROUTES }>;
+
+/** The league's own pages and its legal pages, in the order the classic footer lists them. */
+export const LIGA_PAGES = ["about", "contact", "sponsors"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
+export const LEGAL_PAGES = ["legalNotice", "privacyNotice"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
+
+/** The landing's section on how a school joins the league, which a link reaches as the fragment of `ROUTES.home`. */
+export const JOIN_SECTION = "bewerbung";

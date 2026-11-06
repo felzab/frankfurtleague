@@ -5,7 +5,6 @@ from pydantic import ValidationError
 
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
-    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielOrtFieldPayload,
@@ -43,31 +42,11 @@ def test_rejects_a_time_without_seconds(spiel):
         FLSpiel.model_validate(spiel(time="14:30"))
 
 
-def test_the_slot_partition_is_exhaustive():
-    """The two halves must stay complements, and nothing else in the suite compares them.
-
-    Whoever adds a sixth `FLSonderereignis` will put it in the tuple their own consumer reads and
-    never look at the other, leaving it claimed by both halves or by neither.
-    """
-
-    keeping = set(SONDEREREIGNIS_KEEPING_ITS_SLOT)
-    absence = set(SONDEREREIGNIS_RECORDING_AN_ABSENCE)
-    # `None` is a member of the universe, not the lack of one: an ordinary fixture keeps its slot.
-    universe = set(get_args(FLSonderereignis.__value__)) | {None}
-
-    assert keeping & absence == set()
-    assert keeping | absence == universe
-    assert keeping and absence
-
-
 def test_an_abandoned_fixture_keeps_its_slot_and_a_called_off_one_frees_it():
-    """The booking read's own question, which the partition above cannot answer: which half each member falls in.
-
-    An abandoned match used the ground and the referee; a match called off freed both.
-    """
+    """The booking read's own question: an abandoned match used the ground and the referee; a match called off freed both."""
 
     assert "abgebrochen" in SONDEREREIGNIS_KEEPING_ITS_SLOT
-    assert "ausgefallen" in SONDEREREIGNIS_RECORDING_AN_ABSENCE
+    assert "ausgefallen" not in SONDEREREIGNIS_KEEPING_ITS_SLOT
 
 
 @pytest.mark.db

@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { dayOf, formatDateWithWeekday, formatTime, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekdayAndYear, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -34,7 +34,7 @@ type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_que
 type Played = Pick<FLSpielJoined, "ergebnis" | "elfmeterschiessen" | "team1" | "team2">;
 
 /** What a match's row is built from: the public read's and the admin read's alike. */
-type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "date" | "time">;
+type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "date" | "time" | "sonderereignis">;
 
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
@@ -119,6 +119,24 @@ export function vorschauOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | 
 }
 
 /**
+ * What befell a match, as every list shows it: the event's chip over a muted row. A no-show's chip leaves the club
+ * to the struck side and says it to a screen reader, which hears no strike.
+ */
+function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<SpielRowProps, "chip" | "muted" | "absent"> {
+  const { sonderereignis } = spiel;
+  if (sonderereignis === null) return {};
+  const label = sonderereignisOf(sonderereignis, spiel);
+  if (sonderereignis !== "nichtantreten_team1" && sonderereignis !== "nichtantreten_team2") {
+    return { chip: { tone: "danger", label }, muted: true };
+  }
+  return {
+    chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtAngetretenChip, spoken: label },
+    muted: true,
+    absent: sonderereignis === "nichtantreten_team1" ? "team1" : "team2",
+  };
+}
+
+/**
  * A match as a row or a card of a match list, the whole of it a link to the match, which opens as the pop-up
  * over the page. The third-place match says so before its date, the one line every form of the row shows.
  */
@@ -130,6 +148,7 @@ export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
     when: spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
     ...sidesOf(spiel),
     ...resultOf(spiel),
+    ...befellOf(spiel),
   };
 }
 
@@ -165,29 +184,31 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
 }
 
 /**
- * The pop-up's facts under its head, each led by its glyph and each only where it holds a value: when and
- * where the match is played, and who referees it. The matchday stands in the head and the result in its
- * score, so neither is repeated here.
+ * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when and where the
+ * match is played, and who referees it. The matchday stands in the head and the result in its score, so
+ * neither is repeated here.
  */
 export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const { fact } = COPY.spielplan;
+  const { noValue } = COPY.shared;
   const day = dayOf(spiel.date);
   const time = timeOf(spiel.time);
-  const facts: (Fact | null)[] = [
-    day === null ? null : { label: fact.date, glyph: "calendar", value: { record: formatDateWithWeekday(day) }, figures: true },
-    time === null ? null : { label: fact.time, glyph: "time", value: { record: formatTime(time) }, figures: true },
+  return [
+    { label: fact.date, glyph: "calendar", value: day === null ? noValue : { record: formatDateWithWeekdayAndYear(day) }, figures: true },
+    { label: fact.time, glyph: "time", value: time === null ? noValue : { record: formatTime(time) }, figures: true },
     spiel.ort === null
-      ? null
+      ? { label: fact.spielort, glyph: "spielorte", value: noValue }
       : {
           label: fact.spielort,
           glyph: "spielorte",
           elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), label: { record: spiel.ort.name } },
         },
-    spiel.schiedsrichter?.name == null
-      ? null
-      : { label: fact.schiedsrichter, glyph: "schiedsrichter", value: { record: spiel.schiedsrichter.name } },
+    {
+      label: fact.schiedsrichter,
+      glyph: "schiedsrichter",
+      value: spiel.schiedsrichter?.name == null ? noValue : { record: spiel.schiedsrichter.name },
+    },
   ];
-  return facts.filter((each) => each !== null);
 }
 
 /** What befell a match in a visitor's words: a no-show names the side that did not turn up. */

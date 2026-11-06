@@ -2,7 +2,7 @@
 
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
-import { FieldColumns } from "@/kit/FieldColumns";
+import { FieldRows } from "@/kit/FieldRows";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
@@ -47,8 +47,7 @@ export function SpieltagEditor({
           id: "zeitraum",
           title: WORDS.zeitraum,
           fields: (
-            // A span's two ends, sharing their row at every width.
-            <FieldColumns>
+            <FieldRows>
               <DateField
                 label={WORDS.start}
                 name="start"
@@ -65,7 +64,7 @@ export function SpieltagEditor({
                 // A span ending before it begins is refused here, before the write sees it.
                 {...(draft.start === null ? {} : { minValue: draft.start })}
               />
-            </FieldColumns>
+            </FieldRows>
           ),
         },
       ]}

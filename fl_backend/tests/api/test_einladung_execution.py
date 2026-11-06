@@ -27,7 +27,6 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -162,7 +161,6 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, einladungen: Any =
         db=database.client,
         created_by=ADMIN,
         today=TODAY,
-        actor=fresh_admin_actor(),
     )
 
 
@@ -594,31 +592,30 @@ class TestTheSeasonWidePress:
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.OUTBOX].delete_many({})
-            done = await press(database)
+            await press(database)
             live = await database[Collection.INVITATIONS].find_one({"team_id": ALREADY_MAILED, "revoked_at": None}, {"_id": 1})
 
-            return {str(zeile.team_id): zeile.skipped for zeile in done.rows}[str(ALREADY_MAILED)], live
+            return live
 
-        skipped, live = on_a_league(mongo_replica_set_url, body)
+        live = on_a_league(mongo_replica_set_url, body)
 
-        assert skipped == "already_sent"
         assert live is not None and live["_id"] == SEEDED_EINLADUNG
 
     def test_it_mails_the_confirmed_seats_of_the_team_it_reaches(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             done = await press(database)
 
-            return {str(zeile.team_id): tuple(entry.email for entry in zeile.recipient) for zeile in done.rows}
+            return done, {str(team_id): await owed_for(database, team_id) for team_id in (TWO_SEATS, UNCONFIRMED, NO_BLOCK, WITHDRAWN)}
 
-        addressed = on_a_league(mongo_replica_set_url, body)
+        done, owed = on_a_league(mongo_replica_set_url, body)
 
-        assert addressed[str(TWO_SEATS)] == ("bramblewick@example.com", "quillhilde@example.com")
-        # Empty exactly where a skip is set, so a caller mails nobody for a team the answer skipped.
-        assert addressed[str(UNCONFIRMED)] == ()
-        assert addressed[str(NO_BLOCK)] == ()
-        assert addressed[str(ALREADY_MAILED)] == ()
+        assert owed[str(TWO_SEATS)] == ["bramblewick@example.com", "quillhilde@example.com"]
+        # Nobody is owed a mail for a team the press skipped.
+        assert owed[str(UNCONFIRMED)] == []
+        assert owed[str(NO_BLOCK)] == []
         # The withdrawn team's own seat IS confirmed, so an empty list here is the withdrawal's doing.
-        assert addressed[str(WITHDRAWN)] == ()
+        assert owed[str(WITHDRAWN)] == []
+        assert (done.mailed, done.skipped, done.failed) == (1, 4, 0)
 
     def test_a_team_whose_every_confirmed_address_is_barred_keeps_the_link_it_holds_at_every_press(self, mongo_replica_set_url: str):
         """A link nobody sent stands, as the mailer leaves a barred team's.
@@ -637,13 +634,12 @@ class TestTheSeasonWidePress:
             first = await press(database)
             second = await press(database)
 
-            return decided(shown.invitations), [decided(done.rows) for done in (first, second)], await live_count(database, TWO_SEATS)
+            return decided(shown.invitations), [done.mailed for done in (first, second)], await live_count(database, TWO_SEATS)
 
-        shown, presses, live = on_a_league(mongo_replica_set_url, body)
+        shown, mailed, live = on_a_league(mongo_replica_set_url, body)
 
-        row = (str(TWO_SEATS), (), "kontakte_barred")
-        assert row in shown
-        assert all(row in done for done in presses)
+        assert (str(TWO_SEATS), (), "kontakte_barred") in shown
+        assert mailed == [0, 0]
         assert live == 1
 
     def test_it_mints_for_the_team_it_mails_and_owes_its_confirmed_seats_in_the_same_write(self, mongo_replica_set_url: str):
@@ -694,16 +690,14 @@ class TestTheSeasonWidePress:
         """The raw value is recoverable from nothing, so a link to be mailed again is one that has just been minted."""
 
         async def body(database: AsyncDatabase) -> Any:
-            done = await press(database, resend=True)
-            zeile = next(zeile for zeile in done.rows if zeile.team_id == ALREADY_MAILED)
+            await press(database, resend=True)
             replaced = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_EINLADUNG})
 
             assert replaced is not None
-            return zeile, replaced["revoked_at"], await live_count(database, ALREADY_MAILED)
+            return replaced["revoked_at"], await live_count(database, ALREADY_MAILED)
 
-        zeile, revoked_at, live = on_a_league(mongo_replica_set_url, body)
+        revoked_at, live = on_a_league(mongo_replica_set_url, body)
 
-        assert zeile.skipped is None
         assert revoked_at == TODAY
         assert live == 1
 
@@ -714,15 +708,11 @@ class TestTheSeasonWidePress:
             await press(database)
             second = await press(database)
 
-            return (
-                {str(zeile.team_id): zeile.skipped for zeile in second.rows},
-                await live_count(database, TWO_SEATS),
-                await owed_for(database, TWO_SEATS),
-            )
+            return second.mailed, await live_count(database, TWO_SEATS), await owed_for(database, TWO_SEATS)
 
-        skips, live, owed = on_a_league(mongo_replica_set_url, body)
+        mailed, live, owed = on_a_league(mongo_replica_set_url, body)
 
-        assert skips[str(TWO_SEATS)] == "already_sent"
+        assert mailed == 0
         assert live == 1
         assert len(owed) == 2
 
@@ -739,8 +729,8 @@ class TestTheSeasonWidePress:
         # The seeded invitation is untouched, so the refusal stopped the whole press rather than part of it.
         assert live == 1
 
-    def test_one_team_s_transaction_failing_leaves_every_other_row_in_the_answer(self, mongo_replica_set_url: str):
-        """The press answers a complete list or the teams already done hold links whose raw values died with the exception."""
+    def test_one_team_s_transaction_failing_leaves_every_other_team_answered(self, mongo_replica_set_url: str):
+        """The press answers for every team, or the teams already done hold mails nobody is told were owed."""
 
         async def body(database: AsyncDatabase) -> Any:
             collection = as_collection(_InsertFailsForOneTeam(database[Collection.INVITATIONS], ALREADY_MAILED))
@@ -760,19 +750,14 @@ class TestTheSeasonWidePress:
             seeded = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_EINLADUNG})
 
             assert seeded is not None
-            return (
-                {str(zeile.team_id): (zeile.skipped, bool(zeile.recipient)) for zeile in done.rows},
-                seeded["revoked_at"],
-                await live_count(database, TWO_SEATS),
-            )
+            return done, seeded["revoked_at"], await live_count(database, TWO_SEATS), await owed_for(database, TWO_SEATS)
 
-        rows, revoked_at, live = on_a_league(mongo_replica_set_url, body)
+        done, revoked_at, live, owed = on_a_league(mongo_replica_set_url, body)
 
-        # The failed team: a row of its own, and nobody owed.
-        assert rows[str(ALREADY_MAILED)] == ("mint_failed", False)
+        # The failed team, counted, and the three teams the plan skips: no block, no confirmed seat, withdrawn.
+        assert (done.mailed, done.skipped, done.failed) == (1, 3, 1)
         # Its transaction aborted, so the link somebody already holds is untouched and still opens.
         assert revoked_at is None
-        # Every other team is answered as though nothing had gone wrong, its seats owed.
-        assert rows[str(TWO_SEATS)] == (None, True)
-        assert rows[str(WITHDRAWN)] == ("austritt_entered", False)
+        # Every other team is served as though nothing had gone wrong, its seats owed.
+        assert owed == ["bramblewick@example.com", "quillhilde@example.com"]
         assert live == 1

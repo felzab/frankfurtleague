@@ -117,7 +117,6 @@ export const Code = {
   entry_gruppe_locked: "entry_gruppe_locked",
   team_retired: "team_retired",
   role_not_held: "role_not_held",
-  kontakte_moved_under_the_save: "kontakte_moved_under_the_save",
   kontakt_seat_without_confirmation: "kontakt_seat_without_confirmation",
   kontakt_seat_barred: "kontakt_seat_barred",
   kontakt_row_without_saison: "kontakt_row_without_saison",
@@ -1177,6 +1176,27 @@ export interface FLAustritt {
 }
 
 /**
+ * A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them.
+ */
+export interface FLSpielMailFixture {
+  date: string | null;
+  team1: string;
+  team2: string;
+  time: string | null;
+}
+
+/**
+ * An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them.
+ */
+export interface FLAustrittNoticeData {
+  /** @minItems 1 */
+  fixtures: FLSpielMailFixture[];
+  kind: "austritt_notice";
+  saison_id: string;
+  team: string;
+}
+
+/**
  * The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
  *
  * On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
@@ -1187,6 +1207,7 @@ export interface FLAustrittPayload {
   /**
    * @minLength 1
    * @maxLength 500
+   * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
   exit_reason: string;
   type: FLAustrittType;
@@ -2223,6 +2244,45 @@ export interface FLEinwilligung {
 }
 
 /**
+ * A club the league holds, picked from the list's create dialog.
+ */
+export interface FLEntryKnownClub {
+  kind: "known";
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export interface FLPostTeamPayload {
+  address: FLAddressPayload;
+  /** @maxLength 4096 */
+  description: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  full_name: string;
+  /**
+   * @minLength 1
+   * @maxLength 60
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
+  shorthand: string;
+  website_url: string | null;
+}
+
+/**
+ * A club the entry founds, in the transaction that enters it.
+ */
+export interface FLEntryNewClub {
+  kind: "new";
+  team: FLPostTeamPayload;
+}
+
+/**
  * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
  */
 export interface FLErasureAddressPayload {
@@ -2643,6 +2703,20 @@ export interface FLInvitationDispatchPayload {
 }
 
 /**
+ * How the press's teams came out: the season editor's rows then read what each team holds.
+ */
+export interface FLInvitationDispatchResponse {
+  /** @minimum 0 */
+  failed: number;
+  /** @minimum 0 */
+  mailed: number;
+  /** @minLength 1 */
+  saison_id: string;
+  /** @minimum 0 */
+  skipped: number;
+}
+
+/**
  * One mailbox a link goes to, and the seat it is addressed as.
  */
 export interface FLInvitationRecipient {
@@ -2657,35 +2731,11 @@ export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeo
 
 export const FLInvitationSkipReason = {
   austritt_entered: "austritt_entered",
-  mint_failed: "mint_failed",
-  mint_uncertain: "mint_uncertain",
   no_kontaktblock: "no_kontaktblock",
   no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
   kontakte_barred: "kontakte_barred",
   already_sent: "already_sent",
 } as const;
-
-/**
- * One team as the press left it: `recipient` are owed the team's link, which each mail's hand-out mints.
- */
-export interface FLInvitationDispatchRow {
-  had_link: boolean | null;
-  recipient: FLInvitationRecipient[];
-  skipped: FLInvitationSkipReason | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
-/**
- * What the press did, per admitted team of the season.
- */
-export interface FLInvitationDispatchResponse {
-  rows: FLInvitationDispatchRow[];
-  /** @minLength 1 */
-  saison_id: string;
-}
 
 /**
  * One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
@@ -3417,6 +3467,7 @@ export interface FLOutboxHandout {
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
     | FLInvitationData
@@ -3878,15 +3929,15 @@ export interface FLSaisonTeamKontaktePayload {
 }
 
 /**
- * The contact block alone, plus the token naming which block it was composed against.
+ * The contact block alone, on the row's `version` it was composed against.
  *
  * `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this
  * endpoint was never asked to decide.
  */
 export interface FLPatchSaisonTeamKontaktePayload {
   kontakte: FLSaisonTeamKontaktePayload | null;
-  kontakte_stand: string;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -4039,19 +4090,16 @@ export interface FLSpielReleasedSide {
 }
 
 /**
- * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
+ * Every fixture the save moved beyond its own edit, each with the result it destroyed.
  *
- * `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
- * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
- * `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
- * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
+ * `version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and
+ * null on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as
+ * it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
  * `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
  * the set a save names in its body to delete them.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
-  bericht_adopted: boolean | null;
-  bracket_faults: FLBracketFault[];
   recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
@@ -4128,6 +4176,46 @@ export interface FLPatchTeamPayload {
 
 export interface FLPatchTeamResponse {
   fanned_out_to_saison_teams: number;
+}
+
+/**
+ * The team editor's one save: the club, and its colour and group in the season the page stands under.
+ *
+ * Replaced wholesale, as `FLPatchTeamPayload` is. No seat and no `austritt`: a seat is its dialog's, and an exit is the
+ * danger box's own write, which owes mail.
+ */
+export interface FLPatchTeamSaisonPayload {
+  address: FLAddressPayload;
+  /** @maxLength 4096 */
+  description: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  full_name: string;
+  gruppe: FLGruppenNames;
+  /**
+   * @minLength 1
+   * @maxLength 60
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
+  shorthand: string;
+  trikot_farbe: FLTrikotFarbe | null;
+  /** @minimum 0 */
+  version: number;
+  website_url: string | null;
+}
+
+/**
+ * The count the editor's next save sends.
+ */
+export interface FLPatchTeamSaisonResponse {
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -4283,26 +4371,21 @@ export interface FLPostSpielortPayload {
   name: string;
 }
 
-export interface FLPostTeamPayload {
-  address: FLAddressPayload;
-  /** @maxLength 4096 */
-  description: string;
-  /**
-   * @minLength 1
-   * @maxLength 120
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  full_name: string;
-  /**
-   * @minLength 1
-   * @maxLength 60
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
-  shorthand: string;
-  website_url: string | null;
+/**
+ * One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.
+ */
+export interface FLPostTeamEntryPayload {
+  club: FLEntryKnownClub | FLEntryNewClub;
+  gruppe: FLGruppenNames;
+  trikot_farbe: FLTrikotFarbe | null;
+}
+
+/**
+ * The club the entry wrote a row for, whose editor the list opens.
+ */
+export interface FLPostTeamEntryResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
 }
 
 /**
@@ -5274,16 +5357,6 @@ export interface FLSpielPageResponse {
   standings: FLSpielSideStandings;
 }
 
-export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
-
-export const FLSpielStatus = {
-  from_today: "from_today",
-  past: "past",
-  today: "today",
-  cancelled: "cancelled",
-  unknown: "unknown",
-} as const;
-
 /**
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
@@ -6183,6 +6256,51 @@ export interface FLTeam {
 }
 
 /**
+ * A club the entry's picker offers: one still in the league that holds no row of the season.
+ */
+export interface FLTeamEntryClub {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  name: string;
+  shorthand: string;
+}
+
+/**
+ * One group a season offers, closed where it is full.
+ */
+export interface FLTeamGruppeOffer {
+  full: boolean;
+  gruppe: FLGruppenNames;
+}
+
+/**
+ * What the list's create dialog offers, and why the entry would be refused now.
+ */
+export interface FLTeamEntryOffer {
+  closed: boolean;
+  clubs: FLTeamEntryClub[];
+  gruppen: FLTeamGruppeOffer[];
+}
+
+/**
+ * The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team.
+ */
+export interface FLTeamLinkState {
+  invitation: FLInvitationRow | null;
+  paused: boolean;
+  running: boolean;
+  skipped: FLInvitationSkipReason | null;
+}
+
+export type FLTeamListState = (typeof FLTeamListState)[keyof typeof FLTeamListState];
+
+export const FLTeamListState = {
+  active: "active",
+  departed: "departed",
+  retired: "retired",
+} as const;
+
+/**
  * One junction row as seen from its club: which season, which group, and the record if any.
  */
 export interface FLTeamMembership {
@@ -6191,8 +6309,6 @@ export interface FLTeamMembership {
   confirmations: FLSaisonTeamConfirmationsView | null;
   gruppe: FLGruppenNames;
   kontakte: FLSaisonTeamKontakte | null;
-  /** The token a save against this contact block has to echo back. */
-  readonly kontakte_stand: string;
   saison_id: string;
   trikot_farbe: FLTrikotFarbe | null;
   version: number;
@@ -6272,6 +6388,56 @@ export interface FLTeamPageResponse {
 }
 
 /**
+ * The club document as it is STORED, and what the write endpoints echo.
+ *
+ * The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
+ * -- and a club being created holds no row yet.
+ */
+export interface FLTeamRecord {
+  address: FLAddress;
+  /** @maxLength 4096 */
+  description: string;
+  /** @minLength 1 */
+  full_name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  /** @minLength 1 */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+  version: number;
+  website_url: string | null;
+}
+
+/**
+ * The season a team editor stands under, as far as the editor's locks read it.
+ */
+export interface FLTeamSaisonFacts {
+  begun: boolean;
+  id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start_date: string;
+  status: FLSaisonStatus;
+}
+
+/**
+ * What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet.
+ */
+export interface FLTeamSaisonAdminResponse {
+  gruppe_locked: boolean;
+  gruppen: FLTeamGruppeOffer[];
+  link: FLTeamLinkState | null;
+  membership: FLTeamMembership | null;
+  retire_blocked_by: string | null;
+  saison: FLTeamSaisonFacts;
+  team: FLTeamRecord;
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
  * One seat as the people beside it see it: who holds it and whether they answered their link.
  *
  * No address, telephone number or birthdate: only administrators see those.
@@ -6317,9 +6483,30 @@ export interface FLTeamWithMemberships {
   website_url: string | null;
 }
 
-export interface FLTeamsListResponse {
+/**
+ * One club as the Teams list shows it: the name it plays this season under, or today's for a club holding no row of it.
+ */
+export interface FLTeamsAdminRow {
+  austritt_type: FLAustrittType | null;
+  gruppe: FLGruppenNames | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  name: string;
+  /** @minimum 0 */
+  seats_confirmed: number;
+  /** @minimum 0 */
+  seats_filled: number;
+  shorthand: string;
+}
+
+/**
+ * One season's Teams list, and what its create dialog offers.
+ */
+export interface FLTeamsAdminListResponse {
+  entry: FLTeamEntryOffer;
   format: "list";
-  teams: FLTeam[];
+  teams: FLTeamsAdminRow[];
 }
 
 /**
@@ -6576,7 +6763,6 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
 export type SpieleGetSpieleAdminParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | FLSaisonPhase | null;
-  spiel_status?: FLSpielStatus | null;
   team_id?: string | null;
   /**
    * @minimum 1
@@ -6667,34 +6853,10 @@ export const SpieltageGetSpieltageAdminOrder = {
 } as const;
 
 export type TeamsGetTeamsAdminParams = {
-  saison_id?: string | null;
+  saison_id: string;
   gruppe?: FLGruppenNames | null;
-  has_austritt?: boolean | null;
-  austritt_type?: FLAustrittType | null;
-  statistik_scope?: TeamsGetTeamsAdminStatistikScope;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "name";
-  order?: TeamsGetTeamsAdminOrder;
-  include_inactive?: boolean;
+  state?: FLTeamListState | null;
 };
-
-export type TeamsGetTeamsAdminStatistikScope = (typeof TeamsGetTeamsAdminStatistikScope)[keyof typeof TeamsGetTeamsAdminStatistikScope];
-
-export const TeamsGetTeamsAdminStatistikScope = {
-  gruppenphase: "gruppenphase",
-  total: "total",
-} as const;
-
-export type TeamsGetTeamsAdminOrder = (typeof TeamsGetTeamsAdminOrder)[keyof typeof TeamsGetTeamsAdminOrder];
-
-export const TeamsGetTeamsAdminOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type TeamsGetTeamParams = {
   saison_id?: string | null;

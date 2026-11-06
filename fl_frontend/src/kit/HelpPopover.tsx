@@ -3,40 +3,43 @@
 import { Dialog as AriaDialog, DialogTrigger } from "react-aria-components/Dialog";
 import { Popover } from "react-aria-components/Popover";
 
-import { COPY } from "@/core/copy";
-
-import { Button } from "./Button";
-import { useOpenUntilHidden } from "./Dialog";
 import { popoverSurface } from "./fieldStyles";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy } from "@/core/copy";
+import type { ReactElement } from "react";
+
+/** The edge of its control a pop-up opens from: an act's at a row's end, or the control's at a column's start. */
+export type PopoverEdge = "start" | "end";
 
 /**
- * The one ⓘ after a section's title, opening a 320-px pop-up with a short help text on the page, which
- * it neither dims nor blurs: a few declarative lines, each statement a line of its own. `Section` places it from its
- * `help` prop, so a section has one at most.
+ * A short text in a 320-px pop-up under the control that opens it, on the page, which it neither dims nor blurs: a few
+ * declarative lines, each statement a line of its own. It opens from the ⓘ after a section's title, which `Section`
+ * places from its `help` prop, so a section has one at most, and from a locked act's button, as its reason (`Button`).
  */
 export function HelpPopover({
   subject,
   lines,
+  edge = "start",
+  children,
 }: {
-  /** The section's title, which names the pop-up. */
-  subject: Copy;
+  /** What names the pop-up, such as a section's title; without one, React Aria names it by its trigger. */
+  subject?: Copy;
   lines: readonly [Copy, ...Copy[]];
+  edge?: PopoverEdge;
+  /** The kit `Button` that opens it. */
+  children: ReactElement;
 }) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   return (
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={setOpen}>
-      <Button
-        icon="info"
-        label={COPY.shared.help}
-      />
+      {children}
       <Popover
-        placement="bottom start"
+        placement={`bottom ${edge}`}
         offset={4}
-        crossOffset={-8}
+        crossOffset={edge === "start" ? -8 : 0}
         data-kit-focus
         className={popoverSurface({ width: "help" })}>
         <AriaDialog

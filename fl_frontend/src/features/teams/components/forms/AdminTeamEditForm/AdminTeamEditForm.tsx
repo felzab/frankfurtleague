@@ -260,7 +260,7 @@ export function AdminTeamEditForm({
             // The echoed record names the route, so the sentence says which one landed rather than
             // reaching for a word that fits only one of the two.
             const saved = res.saison_team?.austritt ?? null;
-            consequenceNotes.push(saved === null ? "Der Austritt ist aufgehoben." : `${austrittZustand(saved.type)}: sofort überall sichtbar.`);
+            if (saved !== null) consequenceNotes.push(`${austrittZustand(saved.type)}: sofort überall sichtbar.`);
           }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
@@ -295,11 +295,7 @@ export function AdminTeamEditForm({
         setSubmitFieldErrors({}, {});
         setHasSaved(true);
 
-        // A lifted disqualification is the one thing this save can destroy that nothing else copies,
-        // so that grade is a warning; an ordinary save is a success.
-        const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
-        const raise = destroyedSomething ? appToast.warning : appToast.success;
-        raise(destroyedSomething ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
+        appToast.success("Änderung gespeichert", {
           description: consequenceNotes.join(" ") || "Die Teamdaten wurden aktualisiert.",
         });
 
@@ -383,11 +379,11 @@ export function AdminTeamEditForm({
           {storedMembership !== null && (
             <FormAustrittSection
               hasAustritt={hasAustritt}
+              isStored={storedMembership.austritt !== null}
               onHasAustrittChange={(next) => {
                 setHasAustritt(next);
-                // Seeded with today, the common case for "took effect"; the lift stays a draft
-                // until the save sends the explicit null. `art` is NOT seeded -- which route it was
-                // is the one thing here nobody can guess for the admin.
+                // Seeded with today, the common case for "took effect". `art` is NOT seeded -- which
+                // route it was is the one thing here nobody can guess for the admin.
                 if (next && datum === null) setDatum(parseDate(today));
               }}
               banners={banners}

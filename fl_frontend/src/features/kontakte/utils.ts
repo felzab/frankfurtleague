@@ -171,7 +171,7 @@ export function resolveTeamSaisonMembership(
             kontakte: membership.kontakte,
             confirmations: membership.confirmations,
             address_change: membership.address_change,
-            kontakte_stand: membership.kontakte_stand,
+            version: membership.version,
           },
   };
 }
@@ -186,7 +186,7 @@ export function kontakteEditorKey(
 ): string {
   const team = { id, name, shorthand, inactive_since };
   if (membership === null) return JSON.stringify({ team, saison, membership });
-  const { confirmations: _confirmations, address_change: _address_change, ...gesaet } = membership;
+  const { confirmations: _confirmations, address_change: _address_change, version: _version, ...gesaet } = membership;
 
   return JSON.stringify({ team, saison, membership: gesaet });
 }

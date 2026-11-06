@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from typing import Any, NoReturn, cast
+from typing import Any, NoReturn, cast, get_args
 
 import pytest
 from bson import ObjectId
@@ -13,7 +13,6 @@ from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners, apply_release_to_spiel
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
-    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpiel,
@@ -52,6 +51,7 @@ from app.api.spiele.services import (
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.literals import FLSonderereignis
 from tests import documents
 from tests.payloads import spiel_patch_body
 
@@ -1233,7 +1233,11 @@ class TestTheClashComparesRealTime:
                 for event in SONDEREREIGNIS_KEEPING_ITS_SLOT
             ),
             # A fixture called off frees the ground, and judging it would make the admin move it before recording why.
-            *(pytest.param({"sonderereignis": event}, [], id=f"{event}-frees-its-slot") for event in SONDEREREIGNIS_RECORDING_AN_ABSENCE),
+            *(
+                pytest.param({"sonderereignis": event}, [], id=f"{event}-frees-its-slot")
+                for event in get_args(FLSonderereignis.__value__)
+                if event not in SONDEREREIGNIS_KEEPING_ITS_SLOT
+            ),
             pytest.param({"date": None}, [], id="no-date"),
             pytest.param({"time": None}, [], id="no-time"),
         ],

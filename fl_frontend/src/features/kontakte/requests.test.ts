@@ -17,18 +17,17 @@ const { ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError.ts");
 const TEAM_ID = "507f1f77bcf86cd799439011";
 const SAISON_ID = "2526";
 
-/** The block's own answer: the seats as stored and the token of the block this save left. */
+/** The block's own answer: the seats as stored. */
 let blockAnswer: Record<string, unknown> = {};
 
 /** A block cleared whole, which every label check admits without a read, so the save reaches the client. */
-const CLEARED: KontakteSpeichernEingabe = { team_id: TEAM_ID, saison_id: SAISON_ID, kontakte: null, kontakte_stand: "9f2c" };
+const CLEARED: KontakteSpeichernEingabe = { team_id: TEAM_ID, saison_id: SAISON_ID, kontakte: null, version: 3 };
 
 beforeEach(() => {
   blockAnswer = {
     saison_id: SAISON_ID,
     team_id: TEAM_ID,
     kontakte: null,
-    kontakte_stand: "a1b2",
     confirmations: [],
   };
 });
@@ -42,7 +41,7 @@ describe("what the season's contacts save sends", () => {
       {
         endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`,
         method: "PATCH",
-        body: { kontakte: null, kontakte_stand: "9f2c" },
+        body: { kontakte: null, version: 3 },
       },
     ]);
   });
@@ -57,7 +56,7 @@ describe("what the season's contacts save sends", () => {
     expect(sent, "a save that forgot the block reached the client, where a default writes one").toStrictEqual([]);
 
     await patchSaisonTeamKontakteAction(CLEARED);
-    expect(requestsOf(sent).map(({ body }) => body)).toStrictEqual([{ kontakte: null, kontakte_stand: "9f2c" }]);
+    expect(requestsOf(sent).map(({ body }) => body)).toStrictEqual([{ kontakte: null, version: 3 }]);
   });
 
   /* The session first, because `runAdminMutation` seeds the scope the actor header is read from, then

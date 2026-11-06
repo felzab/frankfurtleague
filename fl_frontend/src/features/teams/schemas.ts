@@ -202,8 +202,8 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
   team_id: CustomObjectIdStringSchema,
   saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
-  // The whole record, or `null` to lift one. REQUIRED with no default on either side: a form that
-  // omits it gets a 422, never a team quietly reinstated.
+  // The whole record, or `null` for none, which leaves a stored one standing. REQUIRED with no
+  // default on either side: a form that omits it gets a 422.
   austritt: FLAustrittPayloadSchema.nullable(),
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
 });

@@ -7,8 +7,8 @@ import { FLSaisonTeamKontaktePayloadSchema } from "@/features/teams/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
- * The contacts save's input: the three seats and the token naming which block they were composed
- * against, beside the row's natural key. Not the wire's body, which the generated
+ * The contacts save's input: the three seats and the row's version they were composed against, beside
+ * the row's natural key. Not the wire's body, which the generated
  * `FLPatchSaisonTeamKontaktePayload` types at the SDK call: both ids ride in its path.
  * `FLSaisonTeamKontaktePayloadSchema` is reused: the junction PATCH takes the same block, and a second
  * spelling would drift with nothing able to see it.
@@ -21,9 +21,8 @@ export const KontakteSpeichernEingabeSchema = z.object({
   // The whole block, or `null` to clear it. REQUIRED with no default: a form that omits it gets a
   // 422, never three people quietly left standing.
   kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),
-  // Echoed back exactly as the read served it (`kontakte_moved_under_the_save`). Unbounded on purpose: a token no
-  // read minted is refused there anyway, and a bound here would mark a box nothing renders.
-  kontakte_stand: z.string(),
+  // Echoed back as the read served it: a row another write has raised since is refused `version_stale`.
+  version: z.int().min(0),
 });
 export type KontakteSpeichernEingabe = z.infer<typeof KontakteSpeichernEingabeSchema>;
 

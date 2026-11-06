@@ -92,7 +92,7 @@ async function AdminTeamEditContent({
             kontakte: membership.kontakte,
             confirmations: membership.confirmations,
             address_change: membership.address_change,
-            kontakte_stand: membership.kontakte_stand,
+            version: membership.version,
           },
   };
 

@@ -106,7 +106,7 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
     facts: [{ label: label, value: { record: email } }],
     sentence: sentence,
     action: answerAddressChange,
-    acts: { primary: COPY.shared.verb.confirm, secondary: COPY.shared.verb.decline },
+    acts: { primary: title, secondary: COPY.shared.verb.decline },
     carry: { token: token, side: side },
   };
 }

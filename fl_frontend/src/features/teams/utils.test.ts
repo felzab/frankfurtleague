@@ -41,7 +41,6 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
       kontakte,
       confirmations: null,
       address_change: null,
-      kontakte_stand: "9f2c",
       version: 0,
     },
   ],

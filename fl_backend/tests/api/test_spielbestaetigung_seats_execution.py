@@ -25,7 +25,7 @@ from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
@@ -41,7 +41,6 @@ from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -236,16 +235,13 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
     return await patch_saison_team_kontakte(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-            {"kontakte": dict(kontakte), "kontakte_stand": kontakte_stand_of(STORED)}
-        ),
+        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": dict(kontakte), "version": 0}),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,
-        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )

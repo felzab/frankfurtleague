@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -36,5 +36,22 @@ describe("a section's act", () => {
 
     rerender(page(["a", "c"]));
     expect(line()?.textContent).toBe("");
+  });
+
+  // The harm: a dialog's trigger around the locked button would open the question behind the reason.
+  it("answers a press with its reason while locked, never its question", async () => {
+    const reason = COPY.template.draftUnsaved;
+    render(
+      <SectionAct
+        label={LABEL}
+        locked={reason}
+        confirm={{ verb: "swap", subject: COPY.page.teams, consequence: reason, tone: "primary" }}
+        run={async () => DONE}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: LABEL }));
+    expect(within(await screen.findByRole("dialog")).getByText(reason)).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });

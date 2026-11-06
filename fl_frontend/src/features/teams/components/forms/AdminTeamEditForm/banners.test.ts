@@ -92,11 +92,8 @@ describe("buildTeamBanners", () => {
     expect(closed("past")).toMatch(/beendet/);
   });
 
-  it("tells entering an austritt apart from lifting one", () => {
-    const record = { type: "disqualifikation", exit_reason: "Nicht angetreten", date: "2026-03-12" } as const;
-
+  it("raises the publication on entering an austritt", () => {
     expect(ids(build({ hasAustritt: true }))).toStrictEqual(["team.austritt-entering"]);
-    expect(ids(build({ storedAustritt: record }))).toStrictEqual(["team.austritt-lifting"]);
   });
 
   it("renders the stored reason verbatim, with its date in the title", () => {

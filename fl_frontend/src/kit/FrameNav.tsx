@@ -15,6 +15,7 @@ import { signOut } from "@/shared/utils/signOut";
 import { Segmented, SegmentedPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
+import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
 import { menuEntry } from "./Link";
@@ -83,13 +84,13 @@ export function useHoldsSaison() {
 /** A route's dynamic segments as Next fills them in from the address. */
 type Params = ReturnType<typeof useParams>;
 
-/** The season the page works in: the one its address names, else the frame's standard; `null` where there is none. */
+/** The season the page works in: the one its address names where the frame holds it, else the frame's standard; `null` where there is none. */
 export function useFrameSaison() {
   const frame = useContext(SaisonContext);
   const { saison } = useParams();
   const saisons = frame === null ? null : use(frame.saisons);
   if (frame === null || saisons === null) return null;
-  return { ...frame, ...saisons, active: typeof saison === "string" ? saison : saisons.standard };
+  return { ...frame, ...saisons, active: saisons.entries.find((entry) => entry.id === saison)?.id ?? saisons.standard };
 }
 
 /**
@@ -269,11 +270,11 @@ function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
 // `data-selected`; a menu's chosen entry is marked otherwise, by its check.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: "flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) hover:bg-layer pointer-coarse:h-10",
+  base: `flex h-8 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10 ${hoverLook({ host: "link" })}`,
   variants: {
     current: {
       true: entryMark({ mark: "place" }),
-      false: "text-fg-muted hover:text-fg",
+      false: `text-fg-muted ${hoverLook({ host: "link", answer: "words" })}`,
     },
   },
 });
@@ -427,7 +428,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
       trigger={
         <AriaButton
           data-kit-focus="ring"
-          className="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm data-hovered:bg-layer data-pressed:bg-layer">
+          className={`flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm ${hoverLook({ host: "aria" })}`}>
           <span
             aria-hidden
             className={avatar({ size: "rail" })}>
@@ -465,14 +466,24 @@ export function AccountRowPlaceholder() {
   );
 }
 
+// A place's placeholder names no `host`: it borrows the box and answers nothing. The current place keeps its green
+// under the pointer, and every other turns its words full colour.
 const barPlace = tv({
-  base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium",
+  base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-(--motion-state)",
   variants: {
     current: {
       true: "text-brand",
       false: "text-fg-muted",
     },
+    host: {
+      link: hoverLook({ host: "link" }),
+      aria: hoverLook({ host: "aria" }),
+    },
   },
+  compoundVariants: [
+    { host: "link", current: false, class: hoverLook({ host: "link", answer: "words" }) },
+    { host: "aria", current: false, class: hoverLook({ host: "aria", answer: "words" }) },
+  ],
 });
 
 /** The frame's menu as the phone's band and bar draw it, which a nested layout placing them cannot be handed. */
@@ -519,7 +530,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
           href={entry.href}
           aria-current={entry.href === current ? "page" : undefined}
           data-kit-focus="inset"
-          className={barPlace({ current: entry.href === current })}>
+          className={barPlace({ current: entry.href === current, host: "link" })}>
           <Icon
             glyph={entry.icon}
             size={18}
@@ -534,7 +545,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
             trigger={
               <AriaButton
                 data-kit-focus="inset"
-                className={barPlace({ current: false })}>
+                className={barPlace({ current: false, host: "aria" })}>
                 <Icon
                   glyph="more"
                   size={18}
@@ -658,7 +669,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
       trigger={
         <AriaButton
           data-kit-focus="inset"
-          className={barPlace({ current: false })}>
+          className={barPlace({ current: false, host: "aria" })}>
           <span
             aria-hidden
             className={avatar({ size: "bar" })}>

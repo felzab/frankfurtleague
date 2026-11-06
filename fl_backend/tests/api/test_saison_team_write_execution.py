@@ -5,8 +5,8 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.teams.admin_router import patch_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamPayload
+from app.api.teams.admin_router import patch_saison_team, put_austritt
+from app.api.teams.schemas import FLAustrittPayload, FLPatchSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -120,6 +120,18 @@ async def call_patch(
     )
 
 
+async def call_put(database: AsyncDatabase, austritt: dict[str, Any], *, today: str = TODAY) -> None:
+    await put_austritt(
+        team_id=ADLER,
+        saison_id=SAISON_ID,
+        austritt_data=FLAustrittPayload.model_validate(austritt),
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        db=database.client,
+        today=today,
+    )
+
+
 async def stored_row(database: AsyncDatabase, team_id: ObjectId = ADLER) -> dict[str, Any]:
     row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": team_id})
     assert row is not None, f"the seed holds no junction row for {team_id}"
@@ -135,11 +147,25 @@ class TestRecordingAnExitFromTheSeason:
 
         padded = f"  {EXIT['exit_reason']}  "
 
-        response, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, austritt={**EXIT, "exit_reason": padded}))
+        async def body(database: AsyncDatabase) -> Any:
+            await call_put(database, {**EXIT, "exit_reason": padded})
+
+            return await stored_row(database)
+
+        assert on_a_season(mongo_replica_set_url, body)["austritt"] == EXIT
+
+    def test_no_save_clears_it(self, mongo_replica_set_url: str):
+        """An exit is never lifted, so the old form's null beside a stored one leaves it standing and the echo says so."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await call_put(database, dict(EXIT))
+
+            return await _both(database, austritt=None)
+
+        response, row = on_a_season(mongo_replica_set_url, body)
 
         assert row["austritt"] == EXIT
         assert response.austritt is not None
-        assert response.austritt.exit_reason == EXIT["exit_reason"]
 
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`saison_past`: an exit recorded on a finished season would move its table and podium after the fact."""
@@ -147,7 +173,7 @@ class TestRecordingAnExitFromTheSeason:
         async def body(database: AsyncDatabase) -> Any:
             before = await stored_row(database)
             with pytest.raises(APIError) as refused:
-                await call_patch(database, austritt=dict(EXIT))
+                await call_put(database, dict(EXIT))
 
             return refused.value.error_code, before, await stored_row(database)
 
@@ -165,7 +191,7 @@ class TestRecordingAnExitFromTheSeason:
         async def body(database: AsyncDatabase) -> Any:
             before = await stored_row(database)
             with pytest.raises(APIError) as refused:
-                await call_patch(database, austritt=dict(EXIT), today=BEFORE_THE_START)
+                await call_put(database, dict(EXIT), today=BEFORE_THE_START)
 
             return refused.value, before, await stored_row(database)
 

@@ -39,7 +39,7 @@ export function mapKontakteRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "kontakte_moved_under_the_save":
+    case "version_stale":
       return buildRefusal({
         reason:
           "Die Kontakte dieser Saison wurden inzwischen geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde",

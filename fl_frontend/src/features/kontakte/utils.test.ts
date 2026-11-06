@@ -320,7 +320,7 @@ describe("resolveTeamSaisonMembership", () => {
   const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, entered_by: "liga" } };
 
   // The server derives the token and this side only carries it, so any value stands in for one here.
-  const TOKEN = "9f2c";
+  const VERSION = 3;
 
   const membership = (saison_id: string): FLTeamMembership => ({
     saison_id,
@@ -330,8 +330,7 @@ describe("resolveTeamSaisonMembership", () => {
     kontakte: { trainer: stored, ansprechperson: null, stellvertretung: null, trainer_is_also: null },
     confirmations: null,
     address_change: null,
-    kontakte_stand: TOKEN,
-    version: 0,
+    version: VERSION,
   });
 
   /* The header names the SELECTED season and a save writes onto that season's row. Falling back to
@@ -357,11 +356,11 @@ describe("resolveTeamSaisonMembership", () => {
   });
 
   /* The narrowing is by field, so one left out reaches the editor as `undefined`. A save carrying no
-     token is then refused for a row nothing has touched (`kontakte_moved_under_the_save`). */
-  it("carries the token the save is judged against", () => {
+     version is then refused for a row nothing has touched (`version_stale`). */
+  it("carries the version the save is judged against", () => {
     const resolved = resolveTeamSaisonMembership([membership("2025")], { id: "2025", status: "active" });
 
-    expect(resolved.membership?.kontakte_stand).toBe(TOKEN);
+    expect(resolved.membership?.version).toBe(VERSION);
   });
 });
 

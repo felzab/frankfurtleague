@@ -317,6 +317,7 @@ export const COPY = catalogue({
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
     privacyNotice: PRIVACY_NOTICE,
+    sitemap: "Sitemap",
     accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",
@@ -375,6 +376,8 @@ export const COPY = catalogue({
     sonderereignis: {
       ausgefallen: SONDEREREIGNIS.ausgefallen,
       nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+      /** A no-show's chip in a match row, whose struck side names the club. */
+      nichtAngetretenChip: "Nicht angetreten",
       abgebrochen: SONDEREREIGNIS.abgebrochen,
       annulliert: SONDEREREIGNIS.annulliert,
       /**
@@ -424,6 +427,8 @@ export const COPY = catalogue({
     /** The footer: the league's group, which holds the sponsors' page, the legal pages' group, and the line over the sponsors' logos. */
     liga: "Liga",
     legal: "Rechtliches",
+    /** The footer's way to the landing's section on applying, which stands whether or not a window is open. */
+    bewerbung: "Bewerbung",
     oberstufenliga: "Die Frankfurter Oberstufenliga",
     supportedBy: "Mit Unterstützung von",
     instagram: "Instagram",
@@ -871,6 +876,8 @@ export const COPY = catalogue({
       onSpieltag: "Spielt schon an diesem Spieltag",
       departed: "Aus der Saison ausgeschieden",
       elfmeterschiessen: "Elfmeterschießen",
+      /** The shoot-out's column head, the mark its score carries. */
+      afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
       /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
       shootOutMissing: "Ohne Elfmeterschießen steht kein Sieger fest.",
       /** An event after which the match carries no result, chosen over a stored one. */

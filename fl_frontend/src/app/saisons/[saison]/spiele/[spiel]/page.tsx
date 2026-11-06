@@ -4,7 +4,7 @@ import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatePair, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekdayAndYear, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -118,19 +118,16 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * The match's five facts, a tile each, an absent one a dash: its matchday, a group matchday by its number over its
- * phase; its date, the day and the month over the weekday and the year, and its time; its referee where the referee's name is public; its venue.
+ * phase; its date and its time; its referee where the referee's name is public; its venue.
  */
 function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
   const group = spiel.saison_phase === "gruppenphase";
-  const date = spiel.date === null ? null : formatDatePair(dayOf(spiel.date));
   return [
     group
       ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, page), words: true },
-    date === null
-      ? { label: fact.date, value: COPY.shared.noValue }
-      : { label: fact.date, value: { record: date.figure }, line: { record: date.line } },
+    { label: fact.date, value: spiel.date === null ? COPY.shared.noValue : { record: formatDateWithWeekdayAndYear(dayOf(spiel.date)) } },
     { label: fact.time, value: spiel.time === null ? COPY.shared.noValue : { record: formatTime(timeOf(spiel.time)) } },
     {
       label: fact.schiedsrichter,

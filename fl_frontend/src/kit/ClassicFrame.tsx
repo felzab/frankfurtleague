@@ -1,17 +1,14 @@
-import { Suspense } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import Image from "next/image";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
-import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
 import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
-import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 
 import type { Copy } from "@/core/copy";
@@ -34,7 +31,7 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
     <nav
       aria-label={heading}
       className="grid content-start gap-1">
-      <h2 className={smallCaps({ class: "mb-1" })}>{heading}</h2>
+      <h2 className={smallCaps({ class: "mb-2" })}>{heading}</h2>
       {links.map((link) => (
         <Link
           key={link.href}
@@ -48,47 +45,13 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
 }
 
 /**
- * The „Saison“ group while the season is read: its heading and a season's pages as `FooterGroup` draws them, their
- * words as bars as wide as they will stand, so the groups beside it keep their columns.
- */
-function SeasonGroupPlaceholder() {
-  return (
-    <Placeholder layout="grid content-start gap-1">
-      <div className={smallCaps({ class: "mb-1" })}>
-        <PlaceholderLine
-          text="text-xs"
-          words={COPY.shared.saison}
-        />
-      </div>
-      {SAISON_PAGES.map((page) => (
-        <PlaceholderLine
-          key={page}
-          text="text-sm leading-6"
-          words={ROUTES[page].title}
-        />
-      ))}
-    </Placeholder>
-  );
-}
-
-/** The „Saison“ group once the season the site is on is read, and nothing where the league has none. */
-async function SeasonGroup({ pages }: { pages: Promise<ReadonlyArray<HeaderLink> | null> }) {
-  const read = await pages;
-  return read === null ? null : (
-    <FooterGroup
-      heading={COPY.shared.saison}
-      links={read}
-    />
-  );
-}
-
-/**
  * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
  * the legal pages, the application form, the pages a mail opens and the sign-in: the dark-green band with
  * the logo, its links and „Konto“, the way to the sign-in, at the top, the footer at the foot. The footer holds the logo and the
  * league's line at the left with Instagram and Threads as glyph links under them, the question door's, and to
- * their right three link groups, „Saison“, „Liga“ closed by „Sponsoren“, and „Rechtliches“, two a row on a
- * phone; under them the sponsors' logos under „Mit Unterstützung von“ above the © line.
+ * their right three link groups, „Saison“, „Liga“ and „Rechtliches“, two a row on a phone; under them the sponsors'
+ * logos under „Mit Unterstützung von“ above the © line. Its links are all known before any read, so the footer
+ * stands outside every boundary and never waits.
  *
  * Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
  */
@@ -96,7 +59,7 @@ export function ClassicFrame({
   season,
   links,
   signIn,
-  seasonPages,
+  saison,
   liga,
   legal,
   social,
@@ -109,9 +72,9 @@ export function ClassicFrame({
   links: ReadonlyArray<HeaderLink>;
   /** Where „Konto“, the way to the sign-in, leads. */
   signIn: Route;
-  /** The pages of the season the site is on, the footer's „Saison“ group once read; null where the league has none. */
-  seasonPages: Promise<ReadonlyArray<HeaderLink> | null>;
-  /** The „Liga“ group's links before „Sponsoren“, which closes it. */
+  /** The „Saison“ group's links. */
+  saison: ReadonlyArray<HeaderLink>;
+  /** The „Liga“ group's links. */
   liga: ReadonlyArray<HeaderLink>;
   /** The „Rechtliches“ group's links, the legal pages. */
   legal: ReadonlyArray<HeaderLink>;
@@ -162,13 +125,13 @@ export function ClassicFrame({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-6 lg:grid-cols-3">
-              {/* The season's pages wait for the read naming the season, their group's place held meanwhile. */}
-              <Suspense fallback={<SeasonGroupPlaceholder />}>
-                <SeasonGroup pages={seasonPages} />
-              </Suspense>
+              <FooterGroup
+                heading={COPY.shared.saison}
+                links={saison}
+              />
               <FooterGroup
                 heading={COPY.template.liga}
-                links={[...liga, { label: COPY.page.sponsors, href: ROUTES.sponsors.path() }]}
+                links={liga}
               />
               <FooterGroup
                 heading={COPY.template.legal}

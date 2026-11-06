@@ -68,14 +68,22 @@ const CHARACTERS_PER_LINE = 30;
 /**
  * A sentence whose words are known before the read, in a box that wraps it: `text` is the size it will be set at. The
  * words wrap unseen, so the sentence stands as many lines as it will at every width, and cut the bars laid over them
- * to the lines they hold.
+ * to the lines they hold. `lines` is the most lines they can take, for a narrower box than a sentence's.
  */
-export function PlaceholderSentence({ text, words }: { text: string; words: string }) {
+export function PlaceholderSentence({
+  text,
+  words,
+  lines = Math.ceil(words.length / CHARACTERS_PER_LINE),
+}: {
+  text: string;
+  words: string;
+  lines?: number;
+}) {
   return (
     <span className={`relative block overflow-hidden ${text}`}>
       <span className="invisible">{words}</span>
       <span className="absolute inset-0">
-        {Array.from({ length: Math.ceil(words.length / CHARACTERS_PER_LINE) }, (_, line) => (
+        {Array.from({ length: lines }, (_, line) => (
           <PlaceholderLine
             key={line}
             text=""

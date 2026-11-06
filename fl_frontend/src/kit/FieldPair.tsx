@@ -28,14 +28,15 @@ const reach = tv({
  * message line under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A
  * field whose line appears with its error alone, the sign-in's address, takes `line={false}`.
  */
-export function FieldPlaceholder({ width, line = true }: { width: "W3" | "C10" | "C5" | "C2" | "column"; line?: boolean }) {
+export function FieldPlaceholder({ width, line = true }: { width: "W3" | "W3L" | "C10" | "C5" | "C2" | "column" | "fit"; line?: boolean }) {
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
         text={fieldLabel()}
         width="w-24"
       />
-      <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[width]}`)} />
+      {/* The frame's own text size, which a short width's `ch` is counted in. */}
+      <span className={placeholderBar(`rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width[width]}`)} />
       {line && <span className={messageLine()} />}
     </div>
   );
@@ -63,7 +64,7 @@ export function FieldPairPlaceholder() {
  * fills it there: the long side takes the room the short one leaves, and two short sides share it, each growing from
  * its own width. Any other pair stands one field per row on a phone, as every field does. The address writes the
  * number after its street but the postcode before its town, which is why `short` names a side. Two fields holding
- * values of one kind stand as `FieldColumns` instead.
+ * values of one kind, or a span's two ends, stand as `FieldRows` instead.
  */
 export function FieldPair({
   short,

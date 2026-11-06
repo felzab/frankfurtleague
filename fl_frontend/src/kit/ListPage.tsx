@@ -12,11 +12,9 @@ import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
-import { StatusLine } from "./FieldParts";
 import { Filters } from "./Filters";
 import { Icon } from "./Icon";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
-import { lockedLine } from "./lockedLine";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { Placeholder, SAISON_WORDS, Waiting } from "./Skeleton";
@@ -234,7 +232,7 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
 
 /**
  * A record created where its list shows: the dialog's act, and why it cannot run on the list as it stands, which the
- * page read, the button disabled and the reason in the line under it.
+ * page read, the button saying why (`Button`).
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
@@ -256,36 +254,24 @@ function CreatePlaceholder() {
   );
 }
 
-/**
- * The create act at the toolbar row's end, its button opening the dialog over the list. Its reason, where it cannot
- * run, stands under the button in the gap between the toolbar and the list, outside the toolbar's flow, so a create
- * closing the act, as a new season closes the next, moves neither the toolbar nor the list, and the toolbar's parts
- * stay centred on one line. It is placed against the toolbar, the act's own box being only as wide as its button.
- */
+/** The create act at the toolbar row's end, its button opening the dialog over the list. */
 function CreateAct({ create }: { create: ListCreate }) {
   const { locked, ...act } = create;
-  return (
-    <>
-      <Dialog
-        {...act}
-        trigger={
-          <Button
-            variant="primary"
-            leadingIcon="create"
-            label={actLabel(act.act)}
-            isDisabled={locked !== undefined}
-          />
-        }
-      />
-      {locked !== undefined && (
-        <div className="absolute end-0 top-full mt-1 text-end">
-          <StatusLine
-            status={lockedLine(locked)}
-            placement="column"
-          />
-        </div>
-      )}
-    </>
+  const button = (
+    <Button
+      variant="primary"
+      leadingIcon="create"
+      label={actLabel(act.act)}
+      locked={locked}
+    />
+  );
+  return locked === undefined ? (
+    <Dialog
+      {...act}
+      trigger={button}
+    />
+  ) : (
+    button
   );
 }
 
@@ -422,8 +408,7 @@ export function ListPage({
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
-          // Positioned, so the create act's reason stands under the toolbar's end, in the gap above the list.
-          <div className="relative flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {search !== undefined && <ListSearchField label={search.label} />}
             {filters !== undefined && (
               <Suspense fallback={<FiltersPlaceholder />}>

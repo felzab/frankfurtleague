@@ -34,15 +34,15 @@ export function FormKontakteLoeschenSection({
   teamId,
   saisonId,
   hasStored,
-  stand,
+  version,
   isDirty,
 }: {
   teamId: string;
   saisonId: string;
   /** Somebody is on file. Three empty seats are nothing stored: clearing them would take no person. */
   hasStored: boolean;
-  /** The token the page's own read served: this clearing is a save like any other and is judged against it. */
-  stand: string;
+  /** The version the page's own read served: this clearing is a save like any other and is judged against it. */
+  version: number;
   isDirty: boolean;
 }) {
   const twoPress = useTwoPressConfirm({ stepUp: true });
@@ -60,7 +60,7 @@ export function FormKontakteLoeschenSection({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand }).catch(
+      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, version }).catch(
         rejectedWrite(router),
       );
 

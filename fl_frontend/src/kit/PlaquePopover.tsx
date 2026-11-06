@@ -8,12 +8,12 @@ import { Popover } from "react-aria-components/Popover";
 
 import { COPY, textOf } from "@/core/copy";
 
-import { useOpenUntilHidden } from "./Dialog";
 import { popoverSurface } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { plaqueLook } from "./TeamPlaque";
 import { tv } from "./tv";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -66,9 +66,8 @@ export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText
         placement="bottom start"
         offset={4}
         data-kit-focus
-        // The menu's 4-px inset around its entries, and the control edge, which stands apart from the row's
-        // own surface where the hairline is lost on it.
-        className={popoverSurface({ width: "fit", class: "border-border-control p-1" })}>
+        // The menu's 4-px inset around its entries.
+        className={popoverSurface({ width: "fit", class: "p-1" })}>
         <AriaDialog
           aria-label={textOf(name)}
           data-kit-focus
