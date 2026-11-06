@@ -22,8 +22,6 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     AUSTRITT_REASON_MAX_LENGTH,
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
     TEAM_DESCRIPTION_MAX_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
@@ -59,7 +57,6 @@ from app.shared.schemas.literals import (
     FLKontaktRolle,
     FLSaisonStatus,
     FLSchulform,
-    FLSortOrder,
     FLTrikotFarbe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -397,7 +394,7 @@ class _TeamWritable(BaseModel):
     website_url: CustomOptionalExternalUrl
     # Public on every read: decided 2026-08, Datenschutzexperte consulted. A school's street stays on
     # the base tier, and the form asking for it says so
-    # (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`).
+    # (`fl_frontend/src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx`).
     address: FLAddress
 
 
@@ -657,10 +654,6 @@ class FLTeamsFilterParams(BaseModel):
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
     # playoff-polluted one.
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: Literal["name"] = Field(default="name")
-    order: FLSortOrder = Field(default="asc")
 
     # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
     # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left

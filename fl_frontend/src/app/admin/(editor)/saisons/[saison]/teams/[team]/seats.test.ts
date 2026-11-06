@@ -57,6 +57,16 @@ describe("where a team's seat stands", () => {
     );
     expect(chipOf(NOBODY, null)).toBe(COPY.admin.erased);
   });
+
+  it("adds the chip of a link that never reached its person, beside the seat's own", () => {
+    const held = { ...NOBODY, ansprechperson: person("Anna") };
+    const unsent = link({ delivery: { state: "abandoned", delivery: null, undeliverable: true } });
+    const seat = seatsOf({ kontakte: held, confirmations: { trainer: null, stellvertretung: null, ansprechperson: unsent } }).find(
+      (row) => row.id === "ansprechperson",
+    );
+
+    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.template.open, COPY.admin.saison.linkNotSent]);
+  });
 });
 
 /* One person holds two seats and one link answers both, so two rows would offer two presses for one mail. */

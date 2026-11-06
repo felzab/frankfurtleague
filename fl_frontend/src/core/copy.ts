@@ -229,6 +229,8 @@ export const COPY = catalogue({
 
     /** The match pop-up's way to the match's own page. */
     toSpiel: "Zum Spiel",
+    /** An accepted application's way to its team's page. */
+    toTeam: "Zum Team",
     /** A fact nobody has entered, where a sentence names it in words rather than a glyph: a match mail's ground. */
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
@@ -1016,6 +1018,10 @@ export const COPY = catalogue({
       newSchool: "Neue Schule",
       /** A colour's description in the acceptance, by its `TRIKOT_FARBEN` name. */
       wish: (farbe: string) => `Wunsch: ${farbe}`,
+      /** Over a list the read's cap cut, which a flooded season reaches. */
+      cut: "Nicht alle Bewerbungen sind geladen.",
+      /** The acceptance of a new school, whose address the created team's page then shows (`docs/datenschutz.md` section 4). */
+      addressPublic: "Die Adresse der Schule steht danach öffentlich auf der Teamseite.",
       /** „E-Mail an“'s value in both dialogs: each decision mails every seat. */
       allSeats: "Alle Kontaktpersonen",
       /** The bulk card's line over the record's name. */

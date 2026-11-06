@@ -154,6 +154,7 @@ async def read_view(database: AsyncDatabase, token: str, *, spieler_collection: 
     return await get_confirmation_view(
         view_data=FLTokenPayload(token=token),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen_collection is None else registrierungen_collection,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,
         ban_list=ban_list(database),
@@ -175,6 +176,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     return await post_confirmation(
         answer_data=FLRegistrierungConfirmationPayload.model_validate(body),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         spieler_collection=database[Collection.SPIELER],
         ban_list=ban_list(database),
         db=client,
@@ -460,6 +462,25 @@ class TestTheLinkIsSpentByTheStamp:
             return conflict.value.error_code
 
         assert on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.LINK_EXPIRED
+
+    def test_a_departed_clubs_link_reads_over_and_takes_no_answer(self, mongo_replica_set_url: str):
+        """Its club takes no one in, so the pupil's answer would stand on a registration nobody can ever admit."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": YESTERDAY}
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(SAISON_ID, TEAM_OID, TEAM_NAME, "ADX", austritt=austritt)
+            )
+            view = await read_view(database, RAW)
+            with pytest.raises(APIError) as conflict:
+                await answer(database, client, RAW)
+
+            return view.state, conflict.value.error_code, await stored(database)
+
+        state, code, document = on_a_league(mongo_replica_set_url, body)
+
+        assert (state, code) == ("expired", Code.LINK_EXPIRED)
+        assert document["einwilligung"] is None
 
     def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

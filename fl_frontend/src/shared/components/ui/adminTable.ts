@@ -34,7 +34,7 @@ export const IDENTITY_HEAD_CLASSES = "flex min-w-0 flex-wrap items-center gap-x-
  * in one string are decided by the stylesheet's order rather than the string's, there being no
  * `twMerge` in the path.
  */
-export const IDENTITY_NAME_BOX_CLASSES = "max-w-full min-w-0 shrink-0 truncate fluid-sm font-semibold";
+const IDENTITY_NAME_BOX_CLASSES = "max-w-full min-w-0 shrink-0 truncate fluid-sm font-semibold";
 
 /**
  * `shrink-0` keeps the name whole, so the pills wrap under it rather than the name giving way, and

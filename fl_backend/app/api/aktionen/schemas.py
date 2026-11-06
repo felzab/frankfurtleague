@@ -219,9 +219,8 @@ class FLAktionenFilterParams(BaseModel):
 
 class FLActionLogListResponse(BaseAPIResponse):
     action_log: list[FLActionLogEntry]
-    # German for `FLBewerbungenListResponse.complete`'s reason, and load-bearing here too: the
-    # log takes a row per recorded write and keeps it twelve months, so this read reaches the cap
-    # by ordinary use.
+    # Whether every row was served, load-bearing: the log takes a row per recorded write and keeps it twelve months, so
+    # this read reaches the cap by ordinary use.
     complete: bool
     # Open maps rather than the bar's closed sets: a stored value no option names would refuse a
     # response the page can otherwise serve, and an absent key is a value nothing was recorded under.

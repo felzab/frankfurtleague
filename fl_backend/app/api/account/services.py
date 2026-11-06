@@ -240,14 +240,13 @@ def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def compose_spieler_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
+def compose_spieler_account(row: Mapping[str, Any], *, today: str) -> dict[str, Any]:
     """The pupil's account entry: its stored data and its consent, never its squad rows, which the page lists none of."""
 
     return {
         **_compose_spieler_person(row),
         "einwilligung": _account_einwilligung(row["einwilligung"]),
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
-        "givable": givable,
         "media_offered": media_offered(birth_date=row.get("birth_date"), today=today),
         "media_minimum_age": MEDIA_MIN_AGE_YEARS,
     }

@@ -4,7 +4,7 @@ import { setImmediate as nextTurn, setTimeout as wallClock } from "node:timers/p
 import { assert, beforeEach } from "vitest";
 
 /** One answer a double handed out and has not yet seen land, named as the failure reports it. */
-export type InFlight = { name: string; answer: Promise<unknown> };
+type InFlight = { name: string; answer: Promise<unknown> };
 
 /**
  * A double settles within its microtasks, so only an answer nobody gives reaches this bound. Unbounded,
@@ -13,7 +13,7 @@ export type InFlight = { name: string; answer: Promise<unknown> };
 const ANSWER_WAIT_MS = 2_000;
 
 /** `inFlight` is read again after a turn between rounds, which waits for a request an answer sets off. */
-export async function untilAnswered(inFlight: () => readonly InFlight[], repair: string): Promise<void> {
+async function untilAnswered(inFlight: () => readonly InFlight[], repair: string): Promise<void> {
   const lapse = new AbortController();
   const lapsed = wallClock(ANSWER_WAIT_MS, true, { signal: lapse.signal, ref: false }).catch(() => false);
   try {

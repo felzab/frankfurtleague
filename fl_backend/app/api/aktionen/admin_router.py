@@ -150,9 +150,8 @@ async def get_action_log(
                 **_facet_term("operation", filters.operation),
                 **_herkunft_term(filters.herkunft),
             },
-            # One row past what is served, `get_bewerbungen`'s shape:
-            # the log holds twelve months of recorded writes, and whether that reaches the cap is
-            # what the extra row answers.
+            # One row past what is served: the log holds twelve months of recorded writes, and whether that reaches the
+            # cap is what the extra row answers.
             limit=filters.limit + 1,
             sort_by=build_aktionen_sort(order=filters.order),
         ),

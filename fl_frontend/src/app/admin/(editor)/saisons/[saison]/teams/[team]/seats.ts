@@ -1,6 +1,7 @@
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { deliveryChip } from "@/features/bewerbungen/zustellLage";
 
 import type { Copy } from "@/core/copy";
 import type { FLKontaktperson, FLKontaktRolle, FLSaisonTeamConfirmationView, FLTeamMembership } from "@/core/generated/client/types";
@@ -50,10 +51,11 @@ export function seatsOf({
     const link = confirmations?.[rolle] ?? null;
     const rollen = rolle === "trainer" && covered !== null ? [rolle, covered] : [rolle];
     const { chip, day, asks } = standingOf(person, link, kontakte != null);
+    const delivery = deliveryChip(link?.delivery ?? null);
     return {
       id: rolle,
       name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
-      chips: chip === null ? [] : [chip],
+      chips: [...(chip === null ? [] : [chip]), ...(delivery === null ? [] : [delivery])],
       line: COPY.admin.seatLine(rollen, person?.email ?? null, day),
       muted: person === null,
       target: {

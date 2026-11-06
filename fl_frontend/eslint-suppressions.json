@@ -74,26 +74,6 @@
       "count": 4
     }
   },
-  "src/app/area/admin/bewerbungen/[bewerbung_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/bewerbungen/[bewerbung_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/app/area/admin/bewerbungen/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/bewerbungen/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/admin/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -462,70 +442,6 @@
       "count": 1
     }
   },
-  "src/features/bewerbungen/actions.ts": {
-    "fl/server-action": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 32
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/components/forms/AdminBewerbungAblehnenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 8
-    }
-  },
-  "src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "no-restricted-syntax": {
-      "count": 23
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 10
-    }
-  },
-  "src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
   "src/features/bewerbungen/components/ui/Gefuellt.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -544,22 +460,6 @@
   },
   "src/features/bewerbungen/components/ui/seite.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/views/AdminBewerbungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    }
-  },
-  "src/features/bewerbungen/components/views/AdminBewerbungenView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -583,63 +483,6 @@
     },
     "react/jsx-no-literals": {
       "count": 3
-    }
-  },
-  "src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 24
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 25
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 30
-    },
-    "react/forbid-component-props": {
-      "count": 31
-    },
-    "react/jsx-no-literals": {
-      "count": 12
-    }
-  },
-  "src/features/bewerbungen/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/bewerbungen/duplicates.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 13
     }
   },
   "src/features/bewerbungen/zustellLage.ts": {
@@ -1382,11 +1225,6 @@
       "count": 2
     }
   },
-  "src/features/spieler/components/ui/Nachweis.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/features/spieler/components/ui/SpielerAngaben.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
@@ -1428,11 +1266,6 @@
       "count": 2
     }
   },
-  "src/features/spieler/nachweis.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/features/spieler/personActions.ts": {
     "fl/server-action": {
       "count": 2
@@ -1451,40 +1284,9 @@
       "count": 1
     }
   },
-  "src/features/teams/components/forms/GruppeSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/forms/TrikotFarbeSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 8
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/teams/constants.ts": {
     "no-restricted-syntax": {
-      "count": 9
+      "count": 3
     }
   },
   "src/shared/components/layout/footer/Footer.tsx": {
@@ -1844,11 +1646,6 @@
     },
     "react/forbid-component-props": {
       "count": 2
-    }
-  },
-  "src/shared/components/ui/ConfirmReadoutRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "src/shared/components/ui/ConfirmReveal.tsx": {

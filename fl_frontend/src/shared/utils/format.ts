@@ -1,8 +1,6 @@
 // Redesign: goes with its last importer; `core/format.ts` replaces it.
 import { TIME_ZONE } from "@/core/format";
 
-import type { FLAddress } from "@/core/generated/client/types";
-
 /**
  * One placeholder per category, so an absent value looks the same everywhere it appears. Spelled at the call site
  * instead, the same absence reads two ways on one screen.
@@ -39,18 +37,6 @@ export const formatEuro = (value: number): string => EUR.format(value);
 export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: string = PLACEHOLDER.time): string {
   if (!uhrzeit) return fallback;
   return uhrzeit.slice(0, 5);
-}
-
-/** A part holding only whitespace counts as blank: `stadtteil` reaches storage unstripped on both tiers. */
-const joinPresent = (parts: readonly string[], separator: string): string => parts.filter((part) => part.trim() !== "").join(separator);
-
-export function formatAddressFull(address: FLAddress): string {
-  // Joined at both levels rather than templated: the copied line is pasted into a message, where
-  // „Feldweg , 60437“ reads as a typo nobody made.
-  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
-  const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
-
-  return joinPresent([strasse, ort, "Deutschland"], ", ");
 }
 
 // `timeZone` is what carries this: without one the runtime's zone decides, so a server in UTC and a

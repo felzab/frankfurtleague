@@ -97,4 +97,4 @@ class TestTheTierTheseReadsAreServedAt:
     def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
         """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""
 
-        assert answered(seeded_url, PREFIX).status_code == 401
+        assert answered(seeded_url, f"{PREFIX}/list/admin?saison_id=2027").status_code == 401

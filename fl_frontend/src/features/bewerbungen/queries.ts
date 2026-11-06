@@ -1,38 +1,30 @@
 import { cache } from "react";
 
 import { isRecordMissing } from "@/core/errors";
-import { bewerbungenGetBewerbung, bewerbungenGetBewerbungen } from "@/core/generated/client/sdk";
+import { bewerbungenGetBewerbung, bewerbungenGetBewerbungenAdmin } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { bewerbungenQueueTerms } from "./facets";
-
-import type { BewerbungenGetBewerbungenParams, FLBewerbungenListResponse, FLBewerbungSingleResponse } from "@/core/generated/client/types";
+import type { FLBewerbungenAdminListResponse, FLBewerbungSingleResponse } from "@/core/generated/client/types";
 
 /**
- * Every application, newest first, narrowable by season and by any number of statuses.
+ * One season's applications, newest first, with what an acceptance into the season would meet: one read for its list and
+ * its Sammel-Zusage, `null` for a season the league does not hold.
  *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not caller identity, so a
- * cached read of this admin-tier personal data is a shared slot.
+ * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not caller identity, so a cached read of
+ * admin-tier data is a shared slot.
  */
-export async function getBewerbungen(filters: BewerbungenGetBewerbungenParams = {}): Promise<FLBewerbungenListResponse> {
-  // No cache tag either: one means nothing outside a cache scope.
-  return runAdminRead(() => bewerbungenGetBewerbungen(filters));
-}
+// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+export const getBewerbungenOfSaison = cache(async (saison: string): Promise<FLBewerbungenAdminListResponse | null> =>
+  runAdminRead(() =>
+    bewerbungenGetBewerbungenAdmin({ saison_id: saison }).catch((error: unknown) => {
+      if (isRecordMissing(error)) return null;
+      throw error;
+    }),
+  ),
+);
 
 /**
- * The queue as one route's query string selects it. Here rather than at the page: a facet carries a `read`
- * function, which a Server Component may not pass on.
- */
-export async function getBewerbungenQueue(
-  params: Readonly<Record<string, string | string[] | undefined>>,
-  order: "asc" | "desc",
-  saisonId: string | undefined,
-): Promise<FLBewerbungenListResponse> {
-  return getBewerbungen({ order: order, ...bewerbungenQueueTerms(params, saisonId) });
-}
-
-/**
- * The one application the triage page decides against, uncached for the reason above. `null` on a
+ * The one application the review page decides against, uncached for the reason above. `null` on a
  * 404, which the page turns into `notFound()`; everything else throws.
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.

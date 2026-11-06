@@ -37,8 +37,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
 - **spiele** — Write from the „Spiele“ list; save a match outside `saveSpiel`
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
-- **saisons** — Fetch the season list inside `resolveSaisonId` when `?saison_id=` is absent; drop
-  `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
+- **saisons** — Drop `SaisonSelector`'s fallback
 - **auth** — Carry a return destination on the sign-in redirect without the allowlist first
 - **forms** — Confirm a clean save; raise the dialog on `info`
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component

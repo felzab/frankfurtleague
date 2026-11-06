@@ -487,14 +487,7 @@ def holds_a_seat(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id
     return any(seat.team_id == team_id and seat.saison_id == saison_id for seat in seats)
 
 
-# The grant predicates, one per kind of own record: each consent PATCH grants by its record's, and each
-# read's `givable` is that same predicate.
-
-
-def may_grant_on_spieler(subject: FLSubject, spieler_id: ObjectId) -> bool:
-    return any(entry.spieler_id == spieler_id for entry in subject.spieler)
-
-
+# A retired referee's record takes withdrawals alone: the consent PATCH grants by this, and the read's `givable` is the same predicate.
 def may_grant_on_schiedsrichter(subject: FLSubject, schiedsrichter_id: ObjectId) -> bool:
     return any(entry.schiedsrichter_id == schiedsrichter_id for entry in subject.schiedsrichter)
 
