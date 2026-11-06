@@ -349,11 +349,12 @@ export const AddressChangeInviteAddressChangeParams = zod.object({
  * who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
  * is answered.
  *
- * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
+ * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
+ * already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbungBodyKaderExpectedSizeMax = 200;
@@ -632,14 +633,11 @@ export const BewerbungenGetFormParams = zod.object({
  * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
  * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
  * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
+ * Every application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.
  * @summary One Saison's Bewerbungen for its list
  */
-export const bewerbungenGetBewerbungenAdminQueryLimitDefault = 1024;
-export const bewerbungenGetBewerbungenAdminQueryLimitMax = 1024;
-
 export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
   saison_id: zod.string(),
-  limit: zod.int().min(1).max(bewerbungenGetBewerbungenAdminQueryLimitMax).default(bewerbungenGetBewerbungenAdminQueryLimitDefault),
 });
 
 /**

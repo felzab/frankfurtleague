@@ -6535,11 +6535,6 @@ export type AddressChangeSweepAddressChangeParams = {
 
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
 };
 
 export type IdentitySweepErasureParams = {

@@ -257,20 +257,18 @@ async def pull_tabelle(
     return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)
 
 
-async def _pull_team_field(
-    *, teams_collection: ReadCollection, team_ids: Iterable[Any], field: str, session: AsyncClientSession | None
-) -> dict[Any, str]:
-    """One field of these clubs' `teams` documents, one read and no command for none; a club no document holds is absent."""
+async def _pull_team_fields(
+    *, teams_collection: ReadCollection, team_ids: Iterable[Any], fields: list[str], session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """These fields of these clubs' `teams` documents, one read and no command for none; a club no document holds is absent."""
 
     wanted = list({team_id for team_id in team_ids if team_id is not None})
     if not wanted:
-        return {}
+        return []
 
-    teams = await pull_many_from_db(
-        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=[field], limit=LIST_LIMIT_MAX, session=session
+    return await pull_many_from_db(
+        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=fields, limit=LIST_LIMIT_MAX, session=session
     )
-
-    return {team["_id"]: str(team.get(field) or "") for team in teams}
 
 
 async def pull_team_names(
@@ -278,13 +276,17 @@ async def pull_team_names(
 ) -> dict[Any, str]:
     """These clubs' names off their `teams` documents."""
 
-    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="name", session=session)
+    teams = await _pull_team_fields(teams_collection=teams_collection, team_ids=team_ids, fields=["name"], session=session)
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}
 
 
-async def pull_team_codes(*, teams_collection: ReadCollection, team_ids: Iterable[Any]) -> dict[Any, str]:
-    """These clubs' codes off their `teams` documents."""
+async def pull_team_names_and_codes(*, teams_collection: ReadCollection, team_ids: Iterable[Any]) -> tuple[dict[Any, str], dict[Any, str]]:
+    """These clubs' names and their codes off their `teams` documents, in one read."""
 
-    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="shorthand", session=None)
+    teams = await _pull_team_fields(teams_collection=teams_collection, team_ids=team_ids, fields=["name", "shorthand"], session=None)
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}, {team["_id"]: str(team.get("shorthand") or "") for team in teams}
 
 
 async def void_moved_seats(

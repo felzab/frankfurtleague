@@ -99,7 +99,8 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   outside a role's span, an address the ban list holds (on a registration, an application's seat, a
   sign-in by any route, refused as its session would be created in
   `fl_frontend/src/core/auth/minting.ts :: refuseUnadmitted`, and a confirmation however old its
-  link), a full squad, Cloudflare's bot check on the sign-in code request, the application form and
+  link), an address already on three open applications of the season
+  (`fl_backend/app/api/bewerbungen/services.py :: OPEN_APPLICATIONS_PER_ADDRESS`), a full squad, Cloudflare's bot check on the sign-in code request, the application form and
   the registration form (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), an address that
   is not plain ASCII (`fl_backend/app/shared/folding.py :: league_address`), and the code sign-in's
   limits (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`, the per-address counts under

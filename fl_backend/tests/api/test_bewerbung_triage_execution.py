@@ -25,7 +25,6 @@ from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbungEinwilligungAnswerPayload,
-    FLBewerbungenAdminFilterParams,
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
@@ -1124,7 +1123,7 @@ class TestTheQueueTheTriageIsWorkedDown:
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 saisons_collection=database[Collection.SAISONS],
-                filters=FLBewerbungenAdminFilterParams(saison_id=SAISON_ID),
+                saison_id=SAISON_ID,
             )
 
             return [bewerbung.id for bewerbung in response.bewerbungen], {bewerbung.submitted_at for bewerbung in response.bewerbungen}

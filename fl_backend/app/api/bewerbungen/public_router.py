@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -21,12 +21,14 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSICHT_FIELDS,
     EINWILLIGUNG_ANSWER_FIELDS,
+    OPEN_APPLICATIONS_PER_ADDRESS,
     SAISON_EINWILLIGUNG_ANSWER_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
     ansprechperson_mailbox,
     assigned_trikot_farben,
     bewerbung_bezug,
     bewerbung_schule,
+    build_eigene_bewerbung_filter,
     build_form_pipeline,
     build_saison_token_filter,
     build_schluessel_filter,
@@ -173,6 +175,21 @@ async def _any_barred(*, ban_list: BanList, hashed: Sequence[str], governing_sai
     return bool(await barred_hashes(ban_list, hashed, governing_saison_id=governing_saison_id, session=session))
 
 
+async def _stands_on_too_many(
+    *, bewerbungen_collection: BewerbungenCollection, saison_id: str, addresses: Iterable[str], session: AsyncClientSession
+) -> bool:
+    """Whether any of these addresses already stands on the season's ceiling of open applications, each address counted alone."""
+
+    for address in addresses:
+        held = await bewerbungen_collection.count_documents(
+            {**build_eigene_bewerbung_filter(address), "saison_id": saison_id}, limit=OPEN_APPLICATIONS_PER_ADDRESS, session=session
+        )
+        if held >= OPEN_APPLICATIONS_PER_ADDRESS:
+            return True
+
+    return False
+
+
 def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLCreatedResponse:
     """The answer a stored key gets: the application it already holds, whose mails its first press owed, never a second one."""
 
@@ -198,8 +215,7 @@ async def post_bewerbung(
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # visitor's own press is then refused as a changed replay.
-    # Optional, so a page loaded before the form sent one still submits, unprotected.
-    idempotency_key: Annotated[UUID4 | None, Header()] = None,
+    idempotency_key: Annotated[UUID4, Header()],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLCreatedResponse:
@@ -212,20 +228,22 @@ async def post_bewerbung(
     who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
     is answered.
 
-    An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
+    The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     application it holds, stores none and owes nothing again. The same key over other details is refused
     (`bewerbung_key_differing`).
 
-    An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
+    An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
+    already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season.
     """
 
-    schluessel = None if idempotency_key is None else str(idempotency_key)
+    schluessel = str(idempotency_key)
     fingerabdruck = payload_fingerabdruck(bewerbung_data)
 
     # Hashed outside the transaction, whose callback may run again: the hash reads no document. One
     # per distinct address, the seat the Trainer also holds naming theirs twice.
     kontakte = bewerbung_data.kontakte
-    hashed = sorted({ban_list.hash_of(str(person.email)) for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)})
+    addresses = sorted({str(person.email) for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)})
+    hashed = sorted({ban_list.hash_of(address) for address in addresses})
     # The REFERENCE season a ban is counted from, as the registration reads it.
     governing_saison_id = await ban_list_saison(ban_list)
 
@@ -233,11 +251,7 @@ async def post_bewerbung(
         """The replay or the judged insert, in one transaction: either write is the request's only one."""
 
         # Before every judgement: a replay answers what the first request did, whatever has closed since.
-        stored = (
-            None
-            if schluessel is None
-            else await bewerbungen_collection.find_one(build_schluessel_filter(key=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
-        )
+        stored = await bewerbungen_collection.find_one(build_schluessel_filter(key=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
         if stored is not None:
             return _answer_as_the_first(stored=stored, fingerabdruck=fingerabdruck)
 
@@ -266,7 +280,14 @@ async def post_bewerbung(
         # Last, as the registration asks it: every other refusal names what the applicant can repair
         # themselves, and this one they are told neutrally.
         barred = await _any_barred(ban_list=ban_list, hashed=hashed, governing_saison_id=governing_saison_id, session=session)
-        refuse(find_barred_refusal(barred=barred))
+        refuse(
+            find_barred_refusal(
+                barred=barred
+                or await _stands_on_too_many(
+                    bewerbungen_collection=bewerbungen_collection, saison_id=bewerbung_data.saison_id, addresses=addresses, session=session
+                )
+            )
+        )
 
         confirmation_deadline = confirmation_deadline_from(today=today)
         # The school as the mails name it: proposed, or the picked club as the league holds it, never as the body spells it.
@@ -296,7 +317,8 @@ async def post_bewerbung(
                 "decision": None,
                 # Each seat's bookkeeping and its own deadline, so the sweep and the links have something to judge.
                 "confirmations": compose_bestaetigungen(today=today),
-                **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
+                "idempotency_key": schluessel,
+                "idempotency_fingerprint": fingerabdruck,
             },
             session=session,
         )

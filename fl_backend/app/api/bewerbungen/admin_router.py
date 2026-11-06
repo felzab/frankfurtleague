@@ -16,7 +16,6 @@ from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungResponse,
     FLBewerbung,
     FLBewerbungEinwilligungResendResponse,
-    FLBewerbungenAdminFilterParams,
     FLBewerbungenAdminListResponse,
     FLBewerbungEntry,
     FLBewerbungEntryOffer,
@@ -33,6 +32,7 @@ from app.api.bewerbungen.services import (
     WITHOUT_TOKEN_HASHES,
     bewerbung_list_row,
     build_bewerbungen_sort,
+    build_confirmed_seat_filter,
     build_dubletten_pipeline,
     build_entry_offer_pipeline,
     build_erneut_filter,
@@ -42,7 +42,6 @@ from app.api.bewerbungen.services import (
     compose_new_club,
     confirmation_deadline_from,
     decider_addresses,
-    dubletten_schluessel_of,
     find_acceptance_code_refusal,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
@@ -68,7 +67,7 @@ from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
-from app.api.teams.crud import pull_a_club_to_enter, pull_team_codes, pull_team_names, refuse_a_full_gruppe
+from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe
 from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -99,6 +98,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
@@ -110,8 +110,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
-
-FLBewerbungenAdminFilters = Annotated[FLBewerbungenAdminFilterParams, Query()]
 
 
 async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollection) -> FLBewerbungEntryOffer:
@@ -170,7 +168,7 @@ async def get_bewerbungen_admin(
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
-    filters: FLBewerbungenAdminFilters,
+    saison_id: Annotated[str, Query()],
 ) -> FLBewerbungenAdminListResponse:
     """
     One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
@@ -178,35 +176,40 @@ async def get_bewerbungen_admin(
     A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
     taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
     public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
+    Every application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.
     """
 
-    offer, doubled, read = await asyncio.gather(
-        _entry_offer(saison_id=filters.saison_id, saisons_collection=saisons_collection),
-        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline({"saison_id": filters.saison_id})),
-        pull_many_from_db(
+    async def newest_of(db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+        return await pull_many_from_db(
             collection=bewerbungen_collection,
-            db_filter={"saison_id": filters.saison_id},
-            limit=filters.limit + 1,
-            sort_by=build_bewerbungen_sort(sort_by="submitted_at", order="desc"),
+            db_filter=db_filter,
+            # One past the cap, so `complete` is answered without counting.
+            limit=LIST_LIMIT_DEFAULT + 1,
+            sort_by=build_bewerbungen_sort(order="desc"),
             projection=BEWERBUNG_LIST_FIELDS,
-        ),
+        )
+
+    offer, doubled, read, confirmed = await asyncio.gather(
+        _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
+        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(saison_id=saison_id)),
+        newest_of({"saison_id": saison_id}),
+        newest_of(build_confirmed_seat_filter(saison_id=saison_id)),
     )
-    # Sliced before validation, so the probe row is never parsed and never reaches the wire.
-    served = read[: filters.limit]
-    team_ids = [row.get("team_id") for row in served]
-    club_names, club_codes = await asyncio.gather(
-        pull_team_names(teams_collection=teams_collection, team_ids=team_ids),
-        pull_team_codes(teams_collection=teams_collection, team_ids=team_ids),
-    )
-    keys = set(dubletten_schluessel_of(doubled))
+    # Sliced before validation, so neither probe row is ever parsed or reaches the wire.
+    newest = read[:LIST_LIMIT_DEFAULT]
+    shown = {row["_id"] for row in newest}
+    # Past the newest rows, so the two reads' one order holds without a sort here.
+    served = [*newest, *(row for row in confirmed[:LIST_LIMIT_DEFAULT] if row["_id"] not in shown)]
+    club_names, club_codes = await pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
+    clubs = {cell["_id"] for cell in doubled}
 
     return FLBewerbungenAdminListResponse(
         saison=offer,
         bewerbungen=[
-            FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, club_names=club_names, club_codes=club_codes, doubled=keys))
+            FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, club_names=club_names, club_codes=club_codes, doubled=clubs))
             for row in served
         ],
-        complete=len(read) <= filters.limit,
+        complete=len(read) <= LIST_LIMIT_DEFAULT,
     )
 
 
@@ -230,10 +233,9 @@ async def get_bewerbung(
     [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection, today=today)
 
     team_id = bewerbung_raw.get("team_id")
-    offer, club_names, club_codes, entry = await asyncio.gather(
+    offer, (club_names, club_codes), entry = await asyncio.gather(
         _entry_offer(saison_id=str(bewerbung_raw["saison_id"]), saisons_collection=saisons_collection),
-        pull_team_names(teams_collection=teams_collection, team_ids=[team_id]),
-        pull_team_codes(teams_collection=teams_collection, team_ids=[team_id]),
+        pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[team_id]),
         _entry_of(bewerbung_raw, saison_teams_collection=saison_teams_collection),
     )
 

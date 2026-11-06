@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import build_schluessel_filter, compose_decline_update, compose_kontakte
+from app.api.bewerbungen.services import OPEN_APPLICATIONS_PER_ADDRESS, build_schluessel_filter, compose_decline_update, compose_kontakte
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -28,6 +28,7 @@ from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.bans import ban_list
@@ -683,7 +684,6 @@ class Submitted:
 
     response: Response
     stored: int
-    keyed: int
     log_rows: list[Mapping[str, Any]]
 
 
@@ -713,9 +713,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         async def _submitted() -> Response:
             async with app_client(url, app=_served(), now=NOW) as http:
                 sent = dict(BASE_AUTH if headers is None else headers)
-                # A fresh key unless the case names one, an empty one standing for none sent.
-                if key != "":
-                    sent["Idempotency-Key"] = key or str(uuid4())
+                sent["Idempotency-Key"] = key or str(uuid4())
                 return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
 
         response = asyncio.run(_submitted())
@@ -725,7 +723,6 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         return Submitted(
             response=response,
             stored=database[Collection.BEWERBUNGEN].count_documents({}),
-            keyed=database[Collection.BEWERBUNGEN].count_documents({"idempotency_key": {"$exists": True}}),
             log_rows=list(database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)})),
         )
     finally:
@@ -743,8 +740,6 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.response.status_code == 201
         assert set(submitted.response.json()) == {"created_id"}
         assert submitted.stored == 1
-        # The floor under the keyless press's count of none: a count reading no key would answer none here too.
-        assert submitted.keyed == 1
 
     def test_no_key_reaches_none_of_it(self, mongo_replica_set_url: str):
         """Public here means no SESSION, never no key: a bearer token is checked before the body is parsed."""
@@ -809,15 +804,6 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.response.status_code == 422
         assert submitted.stored == 0
 
-    def test_a_press_carrying_no_key_is_still_taken(self, mongo_replica_set_url: str):
-        """A page loaded before the form sent one: stored, unprotected, and outside the unique index."""
-
-        submitted = through_the_app(mongo_replica_set_url, payload(), key="")
-
-        assert submitted.response.status_code == 201
-        assert submitted.stored == 1
-        assert submitted.keyed == 0
-
     def test_a_refusal_is_a_409_carrying_its_code(self, mongo_replica_set_url: str):
         """The contract a client maps to German: the code reaches the body, not just the status."""
 
@@ -856,6 +842,56 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         ),
         **fields,
     }
+
+
+class TestAnAddressOnTooManyOpenApplications:
+    """One mailbox named on press after press: past the ceiling a press owes it nothing, answered as a ban is so a prober cannot tell."""
+
+    def test_the_press_past_the_ceiling_is_refused_and_owes_no_mail(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> tuple[str, int, int]:
+            for _ in range(OPEN_APPLICATIONS_PER_ADDRESS):
+                await submit(database)
+            owed = await database[Collection.OUTBOX].count_documents({})
+            with pytest.raises(APIError) as failure:
+                await submit(database)
+
+            return (
+                failure.value.error_code,
+                await database[Collection.BEWERBUNGEN].count_documents({}),
+                await database[Collection.OUTBOX].count_documents({}) - owed,
+            )
+
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADDRESS_BARRED, OPEN_APPLICATIONS_PER_ADDRESS, 0)
+
+    @pytest.mark.parametrize(
+        "moved",
+        [pytest.param({"status": "declined"}, id="an application decided"), pytest.param({"saison_id": "2025"}, id="another season's")],
+    )
+    def test_only_the_seasons_open_applications_count(self, mongo_replica_set_url: str, moved: dict[str, str]):
+        """A school turned down applies again, and a person keeps their address from one season to the next."""
+
+        async def body(database: AsyncDatabase) -> int:
+            for _ in range(OPEN_APPLICATIONS_PER_ADDRESS):
+                await submit(database)
+            await database[Collection.BEWERBUNGEN].update_one({}, {"$set": moved})
+            await submit(database)
+
+            return await database[Collection.BEWERBUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == OPEN_APPLICATIONS_PER_ADDRESS + 1
+
+    def test_each_address_is_counted_alone(self, mongo_replica_set_url: str):
+        """Three schools each sharing a different one of these three people stand on nobody's ceiling."""
+
+        async def body(database: AsyncDatabase) -> int:
+            for seat in ("trainer", "ansprechperson", "stellvertretung"):
+                others = {name: person(f"{name}{seat}", phone=KONTAKTE[name]["phone"]) for name in KONTAKT_ROLLEN if name != seat}
+                await submit(database, kontakte={**KONTAKTE, **others})
+            await submit(database)
+
+            return await database[Collection.BEWERBUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == OPEN_APPLICATIONS_PER_ADDRESS + 1
 
 
 class TestABannedContactAddress:

@@ -15,8 +15,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
@@ -188,16 +186,6 @@ class FLBewerbungRecord(FLBewerbung):
     idempotency_fingerprint: str | None = None
 
 
-class FLBewerbungenAdminFilterParams(BaseModel):
-    """Which season's applications the list reads, whole: its page narrows them, its chips and the bulk's rows counting over all."""
-
-    saison_id: str
-    # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
-    # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the
-    # ceiling rather than "everything".
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-
-
 class FLAcceptBewerbungPayload(BaseModel):
     """Which group the school enters, and the kit colour the league assigns it; the season is the application's own."""
 
@@ -278,7 +266,7 @@ class FLBewerbungenAdminListResponse(BaseAPIResponse):
     saison: FLBewerbungEntryOffer
     bewerbungen: list[FLBewerbungListRow]
     # Whether every row was served, which an administrator must be able to trust: this is the one list an anonymous
-    # party writes rows into.
+    # party writes rows into. A cut drops unconfirmed rows alone, the oldest first.
     complete: bool
 
 

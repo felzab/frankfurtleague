@@ -869,6 +869,12 @@ def build_eigene_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
     return {"status": "submitted", **rows_seating(*identifiers)}
 
 
+# The open applications of one season an address may stand on before a press naming it mails nobody. Each press owes the
+# address a mail and each open application a reminder and a notice, so this is the ceiling on what a stranger can send one
+# mailbox past the bot check; two schools sharing a person, or a school applying twice, stay under it.
+OPEN_APPLICATIONS_PER_ADDRESS: Final = 3
+
+
 def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
     """Whether a decline of these seats is told to an Ansprechperson who still stands, in a notice naming the deletion day."""
 
@@ -921,7 +927,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
 
 
 def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names.
+    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names, or it stands on too many open applications.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
     """
@@ -930,7 +936,8 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
         return None
 
     # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
-    # list, and 403 because what fails is who is applying rather than the season's state.
+    # list, and 403 because what fails is who is applying rather than the season's state. One code for
+    # the ban and the ceiling, since a code of its own would tell a prober which of the two answered.
     return WriteRefusal(
         error_code=Code.BEWERBUNG_ADDRESS_BARRED,
         status=HTTPStatus.FORBIDDEN,
@@ -1605,9 +1612,9 @@ def seats_confirmed_of(*, kontakte: Any) -> int:
 
 
 def bewerbung_list_row(
-    *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Collection[str]
+    *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Collection[Any]
 ) -> dict[str, Any]:
-    """One stored application as `FLBewerbungListRow` serves it, `doubled` being `dubletten_schluessel_of`'s keys."""
+    """One stored application as `FLBewerbungListRow` serves it, `doubled` being the clubs `build_dubletten_pipeline` found."""
 
     return {
         "id": row["_id"],
@@ -1623,21 +1630,11 @@ def bewerbung_list_row(
         "wunschgegner": row.get("wunschgegner"),
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
         "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
-        "duplicate": row["status"] == "submitted" and f"{row.get('saison_id')} team {row.get('team_id')}" in doubled,
+        "duplicate": row["status"] == "submitted" and row.get("team_id") in doubled,
     }
 
 
-def build_bewerbungen_status_term(status: Sequence[str] | None) -> dict[str, Any]:
-    """`$in` rather than an equality, so a facet that offers all three has a request expressing any two of them.
-
-    The leading key of `app/core/constraints.py :: SUPPORT_INDEXES`' `bewerbungen_status_queue`
-    serves it either way.
-    """
-
-    return {} if status is None else {"status": {"$in": list(status)}}
-
-
-def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
+def build_bewerbungen_sort(*, order: str) -> list[tuple[str, int]]:
     """The triage queue's order, tie-broken by `_id`."""
 
     # `_id` breaks the tie in `order`'s OWN direction, so same-day rows read the way the queue does
@@ -1645,30 +1642,32 @@ def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]
     # match neither and scan the whole archive.
     direction = 1 if order == "asc" else -1
 
-    return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))
+    return build_sort(sort_by="submitted_at", order=order, chain=(("_id", direction),))
 
 
-# One club applying twice for one season. A new school names no club, so two of them never collide: the Dublette
-# is a display aid, and acceptance's unique code is what holds two clubs apart.
-DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
-    {"$group": {"_id": {"saison_id": "$saison_id", "team_id": "$team_id"}, "count": {"$sum": 1}}},
-    {"$match": {"count": {"$gt": 1}}},
-)
+def build_confirmed_seat_filter(*, saison_id: str) -> Mapping[str, Any]:
+    """Every application of the season with a confirmed seat, the list's way back past the newest rows a flood fills.
+
+    A flood's seats never confirm, since each takes a mailed link and its person's birthdate.
+    """
+
+    return {"saison_id": saison_id, "$or": [{f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN]}
 
 
-def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    """Every open application the request's other terms leave, grouped and never bounded."""
+def build_dubletten_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """Every club more than one open application of the season names, what `bewerbung_list_row` marks.
 
-    # `submitted` whatever status the page was narrowed to, and no `$limit`: the collision is a fact
-    # about the queue, and a pass stopping where the page stops leaves a split pair unseen at both ends.
-    return [{"$match": {**beyond_status, "status": "submitted", "team_id": {"$ne": None}}}, *DUBLETTEN_TALLY]
+    A new school names no club, so two of them never collide: the Dublette is a display aid, and acceptance's unique
+    code is what holds two clubs apart.
+    """
 
-
-def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Which keys more than one open application holds, composed as `bewerbung_list_row` composes a served row's."""
-
-    # Sorted, so an unchanged queue answers the same list twice.
-    return sorted(f"{cell['_id']['saison_id']} team {cell['_id']['team_id']}" for cell in cells)
+    # No `$limit`: the collision is a fact about the queue, and a pass stopping where the page stops leaves a split pair
+    # unseen at both ends.
+    return [
+        {"$match": {"saison_id": saison_id, "status": "submitted", "team_id": {"$ne": None}}},
+        {"$group": {"_id": "$team_id", "count": {"$sum": 1}}},
+        {"$match": {"count": {"$gt": 1}}},
+    ]
 
 
 def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
