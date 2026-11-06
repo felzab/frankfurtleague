@@ -762,7 +762,8 @@ async def post_einwilligung(
                 session=session,
                 mails=[
                     OwedMail(
-                        key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/objection/{seat}",
+                        # The press's instant: a seat refilled since a Widerspruch owes a notice of its own, and a retry keeps this one.
+                        key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/objection/{seat}/{at}",
                         to=declined_email,
                         data=FLBewerbungObjectionData(
                             kind="bewerbung_objection",

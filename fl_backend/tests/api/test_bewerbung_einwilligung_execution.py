@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -9,13 +9,14 @@ from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import resend_einwilligung
+from app.api.bewerbungen.admin_router import post_kontakt_seat, resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLBewerbungKontaktSeatPayload
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.recording import log_stamp
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -557,7 +558,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
 
         assert on_a_league(mongo_replica_set_url, body) == [
             {
-                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/objection/stellvertretung",
+                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/objection/stellvertretung/{log_stamp(MAIL_NOW)}",
                 "to": "quillhilde@example.com",
                 "data": {
                     "kind": "bewerbung_objection",
@@ -569,6 +570,38 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                 },
             }
         ]
+
+    def test_a_second_objection_on_a_refilled_seat_owes_its_own_notice(self, mongo_replica_set_url: str):
+        """The seat write took the first notice's stamp back, so a notice swallowed here leaves the deletion stamped and untold."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
+            await post_kontakt_seat(
+                bewerbung_id=BEWERBUNG_OID,
+                seat="stellvertretung",
+                seat_data=FLBewerbungKontaktSeatPayload(
+                    first_name="Thessaly",
+                    last_name=LAST_NAME,
+                    email=f"thessaly@{MAIL_DOMAIN}",
+                    phone="+49 170 7654321",
+                    version=(await stored(database))["version"],
+                ),
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                teams_collection=database[Collection.TEAMS],
+                outbox_collection=database[Collection.OUTBOX],
+                ban_list=ban_list(database),
+                db=client,
+                today=TODAY,
+                germany_now=MAIL_NOW,
+            )
+            links = [mail.token for mail in await drained(database, client) if mail.token is not None]
+            await answer(database, client, links[-1], answer="declined", now=MAIL_NOW + timedelta(minutes=1))
+
+            return await database[Collection.OUTBOX].count_documents({"kind": "bewerbung_objection"}), await stored(database)
+
+        notices, document = on_a_league(mongo_replica_set_url, body)
+
+        assert (notices, document["erasure_announced_at"]) == (2, TODAY)
 
     def test_an_ansprechperson_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
         """A stranger names a mailbox past the bound as Ansprechperson and declines their own link: that mailbox has heard of nothing."""
