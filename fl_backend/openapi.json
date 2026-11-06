@@ -3662,16 +3662,11 @@
             "title": "Gruppen",
             "type": "array"
           },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           }
         },
         "required": [
-          "saison_id",
           "status",
           "gruppen"
         ],
@@ -3718,10 +3713,6 @@
       "FLBewerbungFormResponse": {
         "description": "What one season's application form shows, whichever state its page takes.",
         "properties": {
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
           "schulen": {
             "items": {
               "$ref": "#/components/schemas/FLBewerbungSchuleOption"
@@ -3748,7 +3739,6 @@
           }
         },
         "required": [
-          "saison_id",
           "window",
           "schulen",
           "taken"
@@ -3896,29 +3886,15 @@
         "type": "object"
       },
       "FLBewerbungKontaktSeatResponse": {
-        "description": "A seat's address as the write left it, and every seat it reached; the link is owed there in the same write.",
+        "description": "A seat's address as the write left it; the link is owed there in the same write.",
         "properties": {
-          "confirmation_deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmation Deadline",
-            "type": "string"
-          },
           "email": {
             "title": "Email",
             "type": "string"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
           }
         },
         "required": [
-          "email",
-          "rollen",
-          "confirmation_deadline"
+          "email"
         ],
         "title": "FLBewerbungKontaktSeatResponse",
         "type": "object"
@@ -7497,7 +7473,7 @@
         "type": "object"
       },
       "FLKontaktSeatResponse": {
-        "description": "Where the seat write's link went, and the row's count of writes after it.",
+        "description": "Where the seat write's link went.",
         "properties": {
           "email": {
             "anyOf": [
@@ -7509,15 +7485,10 @@
               }
             ],
             "title": "Email"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
           }
         },
         "required": [
-          "email",
-          "version"
+          "email"
         ],
         "title": "FLKontaktSeatResponse",
         "type": "object"
@@ -18770,12 +18741,6 @@
           "entry": {
             "$ref": "#/components/schemas/FLTeamEntryOffer"
           },
-          "format": {
-            "const": "list",
-            "default": "list",
-            "title": "Format",
-            "type": "string"
-          },
           "teams": {
             "items": {
               "$ref": "#/components/schemas/FLTeamsAdminRow"
@@ -18785,7 +18750,6 @@
           }
         },
         "required": [
-          "format",
           "teams",
           "entry"
         ],

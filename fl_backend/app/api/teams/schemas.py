@@ -616,7 +616,6 @@ class FLTeamEntryOffer(BaseReadModel):
 class FLTeamsAdminListResponse(BaseAPIResponse):
     """One season's Teams list, and what its create dialog offers."""
 
-    format: Literal["list"] = "list"
     teams: list[FLTeamsAdminRow]
     entry: FLTeamEntryOffer
 
@@ -668,12 +667,10 @@ class FLKontaktMint(BaseModel):
 
 
 class FLKontaktSeatResponse(BaseAPIResponse):
-    """Where the seat write's link went, and the row's count of writes after it."""
+    """Where the seat write's link went."""
 
     # The address the fresh link is owed to, as stored. Null where the seat keeps its person, who keeps their link.
     email: str | None
-    # What the next seat write on this row sends.
-    version: int
 
 
 class FLKontaktInviteResponse(BaseAPIResponse):

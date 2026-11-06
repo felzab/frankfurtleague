@@ -240,7 +240,6 @@ class FLBewerbungGruppeOffer(BaseModel):
 class FLBewerbungEntryOffer(BaseReadModel):
     """What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it."""
 
-    saison_id: str
     # An application is accepted into a `future` season alone (`entry_saison_not_future`).
     status: FLSaisonStatus
     # The groups the season's rules offer, in their order.
@@ -530,7 +529,6 @@ class FLBewerbungFormWindow(BaseModel):
 class FLBewerbungFormResponse(BaseAPIResponse):
     """What one season's application form shows, whichever state its page takes."""
 
-    saison_id: str
     # Null where the season records no window.
     window: FLBewerbungFormWindow | None
     # Empty unless `running`: a page showing no form asks for neither, and a season not taking applications tells this
@@ -669,14 +667,10 @@ class FLBewerbungKontaktSeatPayload(_KontaktpersonWritablePayload):
 
 
 class FLBewerbungKontaktSeatResponse(BaseAPIResponse):
-    """A seat's address as the write left it, and every seat it reached; the link is owed there in the same write."""
+    """A seat's address as the write left it; the link is owed there in the same write."""
 
     # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
     email: str
-    # Plural: one person may hold two seats, a mirrored pair the claim `kontakte.trainer_is_also` records, and the
-    # write reaches both, as a re-send does (`app/api/bewerbungen/services.py :: compose_erneut_update`).
-    rollen: list[FLKontaktRolle]
-    confirmation_deadline: CustomDateString
 
 
 # --- The retention SWEEP, system tier. The backend decides, erases and owes each mail in the Postausgang; nothing a

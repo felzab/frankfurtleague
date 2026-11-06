@@ -97,7 +97,7 @@ async def write_the_block(
             projection=KONTAKT_WRITE_FIELDS,
             session=session,
         )
-        _, confirmations = await write_the_contact_block(
+        confirmations = await write_the_contact_block(
             stored=stored,
             proposed=proposed,
             expected_version=version,

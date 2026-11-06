@@ -1408,10 +1408,9 @@ class TestCorrectingOneContactAddress:
 
         response, mail, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
-        assert response.confirmation_deadline == confirmation_deadline_from(today=TODAY)
+        assert response.email == CORRECTED_EMAIL
         assert stored["kontakte"]["ansprechperson"]["email"] == CORRECTED_EMAIL
-        assert stored["confirmations"]["ansprechperson"]["deadline"] == response.confirmation_deadline
+        assert stored["confirmations"]["ansprechperson"]["deadline"] == confirmation_deadline_from(today=TODAY)
         # The raw token exists in the mail alone; the document keeps its hash, minted by the hand-out.
         assert mail.an == CORRECTED_EMAIL
         assert stored["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mail.token or "")]
@@ -1442,13 +1441,12 @@ class TestCorrectingOneContactAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client, mirrored=True)
-            response = await correct(database, client, "ansprechperson")
+            await correct(database, client, "ansprechperson")
 
-            return response.rollen, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+            return await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
-        rollen, stored = on_a_league(mongo_replica_set_url, body)
+        stored = on_a_league(mongo_replica_set_url, body)
 
-        assert sorted(rollen) == ["ansprechperson", "trainer"]
         assert stored["kontakte"]["trainer"]["email"] == CORRECTED_EMAIL
         # One link for the person, voided on both seats until its hand-out mints it into both.
         assert stored["confirmations"]["trainer"]["token_hashes"] == stored["confirmations"]["ansprechperson"]["token_hashes"] == []
@@ -1873,21 +1871,19 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
             rows_before = await database[Collection.ACTION_LOG].count_documents({"document_id": RESEAT_BEWERBUNG})
-            response = await reseat(database, client, "ansprechperson")
+            await reseat(database, client, "ansprechperson")
 
             return (
                 emptied,
-                response,
                 await stored_bewerbung(database, RESEAT_BEWERBUNG),
                 await database[Collection.ACTION_LOG].count_documents({"document_id": RESEAT_BEWERBUNG}) - rows_before,
                 await drained(database, client),
                 await stored_bewerbung(database, RESEAT_BEWERBUNG),
             )
 
-        emptied, response, stored, rows_written, mails, linked = on_a_league(mongo_replica_set_url, body)
+        emptied, stored, rows_written, mails, linked = on_a_league(mongo_replica_set_url, body)
 
         assert emptied["kontakte"]["ansprechperson"] is None, "the Widerspruch left a slot this endpoint was never exercised against"
-        assert response.rollen == ["ansprechperson"]
         assert stored["kontakte"]["ansprechperson"] == {
             **RESEAT_PERSON,
             "birth_date": None,
@@ -1906,7 +1902,6 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert linked["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mails[0].token or "")]
         assert stored["confirmations"]["ansprechperson"]["declined_at"] is None
         assert stored["confirmations"]["ansprechperson"]["deadline"] == confirmation_deadline_from(today=TODAY)
-        assert response.confirmation_deadline == stored["confirmations"]["ansprechperson"]["deadline"]
         # Two would leave the new person standing in the seat beside the link its last holder was sent.
         assert rows_written == 1
 
@@ -1951,13 +1946,12 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client, mirrored=True)
-            response = await reseat(database, client, "ansprechperson")
+            await reseat(database, client, "ansprechperson")
 
-            return response.rollen, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+            return await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-        rollen, stored = on_a_league(mongo_replica_set_url, body)
+        stored = on_a_league(mongo_replica_set_url, body)
 
-        assert sorted(rollen) == ["ansprechperson", "trainer"]
         assert stored["kontakte"]["trainer"] == stored["kontakte"]["ansprechperson"]
         # One link for the person, voided on both seats until its hand-out mints it into both.
         assert stored["confirmations"]["trainer"]["token_hashes"] == stored["confirmations"]["ansprechperson"]["token_hashes"] == []

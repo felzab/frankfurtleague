@@ -253,8 +253,8 @@ async def write_the_contact_block(
     today: str,
     germany_now: datetime,
     session: AsyncClientSession,
-) -> tuple[Mapping[str, Any], list[FLKontaktMint]]:
-    """Store a block over `stored`, read in this session, owing each person it newly seats their link; the row after it and each link owed.
+) -> list[FLKontaktMint]:
+    """Store a block over `stored`, read in this session, owing each person it newly seats their link; each link owed.
 
     Each seat keeping its person keeps its record and its link. A seat newly filled or handed on is stored as the league's
     entry, unconfirmed, and a seat handed on loses its links on the team's open match confirmations.
@@ -303,7 +303,7 @@ async def write_the_contact_block(
         kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("confirmations"), minted=minted
     )
 
-    updated_raw = await patch_one_in_db(
+    await patch_one_in_db(
         collection=saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": saison_id},
         # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
@@ -312,7 +312,7 @@ async def write_the_contact_block(
         update={"$set": {"kontakte": kontakte, "confirmations": confirmations}},
         expected_version=expected_version,
         session=session,
-        return_document=ReturnDocument.AFTER,
+        return_document=ReturnDocument.BEFORE,
     )
     # Judged on the block read in this transaction.
     await void_moved_seats(
@@ -322,7 +322,7 @@ async def write_the_contact_block(
     )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
 
-    return updated_raw, [mint for _, mint in links]
+    return [mint for _, mint in links]
 
 
 async def _served_invitation(live: Mapping[str, Any], *, ban_list: BanList, outbox_collection: AsyncCollection) -> FLInvitationRow:
@@ -842,7 +842,7 @@ async def put_kontakt_seat(
         kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=rolle, sent=sent, today=today)
         refuse(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
 
-        updated_raw, confirmations = await write_the_contact_block(
+        confirmations = await write_the_contact_block(
             stored=stored,
             proposed=kontakte,
             expected_version=seat_data.version,
@@ -861,7 +861,7 @@ async def put_kontakt_seat(
         )
 
         # One person, so one link at most.
-        return FLKontaktSeatResponse(email=confirmations[0].email if confirmations else None, version=updated_raw[VERSION_FIELD])
+        return FLKontaktSeatResponse(email=confirmations[0].email if confirmations else None)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(seat_the_person)

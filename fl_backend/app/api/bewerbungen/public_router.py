@@ -156,7 +156,6 @@ async def get_form(
     running = saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=window, today=today)
 
     return FLBewerbungFormResponse(
-        saison_id=saison_id,
         window=None
         if window is None
         else FLBewerbungFormWindow(

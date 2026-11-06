@@ -183,10 +183,10 @@ class TestTheSeasonsListRead:
     def test_the_review_page_reads_its_name_and_its_offer_off_one_request(self, mongo_url: str):
         answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_one))
 
-        assert (answered.name, answered.shorthand, answered.saison.saison_id, answered.bewerbung.version) == (
+        assert (answered.name, answered.shorthand, answered.saison.status, answered.bewerbung.version) == (
             "Adlerhorst",
             "ADX",
-            VIEW_SAISON,
+            "future",
             0,
         )
 

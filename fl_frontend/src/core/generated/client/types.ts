@@ -1613,7 +1613,6 @@ export const FLSaisonStatus = {
  */
 export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
-  saison_id: string;
   status: FLSaisonStatus;
 }
 
@@ -1663,7 +1662,6 @@ export interface FLBewerbungFormWindow {
  * What one season's application form shows, whichever state its page takes.
  */
 export interface FLBewerbungFormResponse {
-  saison_id: string;
   schulen: FLBewerbungSchuleOption[];
   taken: FLTrikotFarbe[];
   window: FLBewerbungFormWindow | null;
@@ -1709,13 +1707,10 @@ export interface FLBewerbungKontaktSeatPayload {
 }
 
 /**
- * A seat's address as the write left it, and every seat it reached; the link is owed there in the same write.
+ * A seat's address as the write left it; the link is owed there in the same write.
  */
 export interface FLBewerbungKontaktSeatResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmation_deadline: string;
   email: string;
-  rollen: FLKontaktRolle[];
 }
 
 /**
@@ -3101,11 +3096,10 @@ export interface FLKontaktSeatPayload {
 }
 
 /**
- * Where the seat write's link went, and the row's count of writes after it.
+ * Where the seat write's link went.
  */
 export interface FLKontaktSeatResponse {
   email: string | null;
-  version: number;
 }
 
 /**
@@ -6331,7 +6325,6 @@ export interface FLTeamsAdminRow {
  */
 export interface FLTeamsAdminListResponse {
   entry: FLTeamEntryOffer;
-  format: "list";
   teams: FLTeamsAdminRow[];
 }
 

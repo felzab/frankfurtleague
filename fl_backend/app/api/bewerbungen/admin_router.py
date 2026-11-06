@@ -126,7 +126,6 @@ async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollect
     occupied = Counter(row["gruppe"] for row in saison_raw["rows"])
 
     return FLBewerbungEntryOffer(
-        saison_id=saison_id,
         status=saison_raw["status"],
         gruppen=[
             FLBewerbungGruppeOffer(gruppe=gruppe, free=max(rules.teams_per_gruppe - occupied[gruppe], 0))
@@ -766,7 +765,7 @@ async def post_kontakt_seat(
             now=germany_now,
         )
 
-        return FLBewerbungKontaktSeatResponse(email=sitz_data.email, rollen=list(seats), confirmation_deadline=confirmation_deadline)
+        return FLBewerbungKontaktSeatResponse(email=sitz_data.email)
 
     # A transaction where the re-send beside it takes none: this write moves a person as well as a credential, so a
     # decision landing mid-request must leave neither half standing.
