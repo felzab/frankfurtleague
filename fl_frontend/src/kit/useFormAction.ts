@@ -9,6 +9,7 @@ import { isEdgeRefusal } from "./edgeRefusal";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
+import type { FormEvent } from "react";
 
 /**
  * Anything the action throws is answered with the stale-page line, and the page is read again: the press may
@@ -59,6 +60,23 @@ export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolea
   const { reason } = answer;
   const unsaid = reason !== undefined && !Object.values(answer.fieldErrors).includes(reason);
   return { tone: "error", text: unsaid ? reason : COPY.template.checkFields };
+}
+
+/**
+ * A kit form's submit, handing `send` the fields as the press left them. Unheld, a press before hydration is the
+ * browser's own, a GET carrying every field in the URL. A function `action` has React's server output keep that press
+ * and replay it once the form hydrates, its `FormData` by then the one copy of what was typed. A hydrated press stays
+ * on `onSubmit`, whose `preventDefault` spares it the form reset that follows `action` and would empty a React Aria
+ * field. A replayed press takes that reset, so a field that must outlast it names its value as its `defaultValue` too.
+ */
+export function formSend(send: (formData: FormData) => void) {
+  return {
+    action: send,
+    onSubmit: (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      send(new FormData(event.currentTarget));
+    },
+  };
 }
 
 type Step<Payload> = { kind: "send"; payload: Payload } | { kind: "reset" };

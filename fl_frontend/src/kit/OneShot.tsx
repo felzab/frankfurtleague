@@ -8,7 +8,7 @@ import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { StatusLine } from "./FieldParts";
 import { StatusPage } from "./StatusPage";
-import { statusOf, useFormAction } from "./useFormAction";
+import { formSend, statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
@@ -104,10 +104,9 @@ export function OneShotForm({
   const status: FormStatus = refusal !== null ? { tone: "error", text: refusal } : statusOf(refused, isBlocked, isPending);
   const isBusy = isPending || isTouching;
 
-  const send = (element: HTMLFormElement, act: Act) => {
+  // The form's data is read before the prompt, which the browser may hold for as long as the person takes.
+  const send = (formData: FormData, act: Act) => {
     setPressed(act);
-    // Read before the prompt, which the browser may hold for as long as the person takes.
-    const formData = new FormData(element);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
     formData.set(ACT_FIELD, act);
     // The quieter act posts without the touch: an objection hands nothing over.
@@ -122,10 +121,9 @@ export function OneShotForm({
         ref={form}
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!isBusy) send(event.currentTarget, "primary");
-        }}
+        {...formSend((formData) => {
+          if (!isBusy) send(formData, "primary");
+        })}
         className="grid gap-6">
         {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
         {/* Full width on a phone; from `lg` each act as wide as its label, centred in the column, as a status card
@@ -143,7 +141,7 @@ export function OneShotForm({
               label={acts.secondary}
               isBusy={isBusy && pressed === "secondary"}
               onPress={() => {
-                if (form.current !== null && !isBusy) send(form.current, "secondary");
+                if (form.current !== null && !isBusy) send(new FormData(form.current), "secondary");
               }}
             />
           )}

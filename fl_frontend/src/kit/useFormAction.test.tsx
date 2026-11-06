@@ -3,19 +3,69 @@ import { Activity } from "react";
 import { redirect } from "next/navigation";
 
 import { act, renderHook } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { AccountBox } from "./AccountBox";
 import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
+import { OneShotForm } from "./OneShot";
+import { SignInPage } from "./SignInPage";
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 // The hook reads the page again through Next's router, which no test mounts.
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
+
+const WORDS = COPY.signIn;
+const refused = async () => ({ ok: false, reason: COPY.shared.failure.stale }) as const;
+
+// A press before hydration is the browser's own: without React's holding action, a GET with every field in the URL,
+// which nothing on the page shows until a person reads the address bar or a log keeps the query.
+describe("a form a visitor reaches before hydration", () => {
+  it.each<[string, ReactElement]>([
+    [
+      "the sign-in's address",
+      <SignInPage
+        key="sign-in"
+        view="address"
+        title={WORDS.title}
+        row={null}
+        address={{ label: WORDS.address, value: "", onChange: () => undefined }}
+        check={null}
+        send={{ label: WORDS.sendCode, onPress: () => undefined }}
+        or={WORDS.or}
+        passkey={{ label: WORDS.withPasskey, onPress: () => undefined }}
+      />,
+    ],
+    [
+      "a Konto box",
+      <AccountBox
+        key="account"
+        title={WORDS.address}
+        description={COPY.account.address.description}
+        act={{ run: refused, button: { label: WORDS.sendCode } }}
+      />,
+    ],
+    [
+      "a one-shot form",
+      <OneShotForm
+        key="one-shot"
+        head={<p />}
+        action={refused}
+        acts={{ primary: WORDS.sendCode }}
+      />,
+    ],
+  ])("hands %s to React, never the browser", (_, form) => {
+    const held = document.createElement("div");
+    held.innerHTML = renderToString(form);
+    expect(held.querySelector("form")?.getAttribute("action")).toMatch(/^javascript:/);
+  });
+});
 
 describe("a form's action through the one wrapper", () => {
   it("answers as the action answered", async () => {

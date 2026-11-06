@@ -147,12 +147,14 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       send={{
         label: COPY.signIn.sendCode,
         isBusy: send.isPending,
-        onPress: () => {
+        onPress: (address) => {
           // The busy button is not the whole guard: `Enter` in the field submits too, and a second send mid-flight
           // would mail a second code.
           if (send.isPending) return;
           setPasskeyError(null);
-          send.submit(email);
+          // A press before hydration is the one place the address is kept: hydration leaves this state empty.
+          setEmail(address);
+          send.submit(address);
         },
       }}
       or={COPY.signIn.or}
