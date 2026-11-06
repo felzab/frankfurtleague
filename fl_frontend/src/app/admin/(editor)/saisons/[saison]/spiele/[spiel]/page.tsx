@@ -94,7 +94,7 @@ export default function SpielEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        sections: [["pair", "pair", "pair"], ["field", "score"], [{ titled: "fit" }], [{ titled: "W4" }], ["field", "field"]],
+        sections: [["pair", "pair", "pair"], ["field", "score"], [{ titled: "W4" }], [{ titled: "fit" }], ["field", "field"]],
       }}
       editor={readEditor(params)}
     />

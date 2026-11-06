@@ -55,9 +55,9 @@ const goals = (text: string) => (text === "" ? null : Number(text));
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
  * result, entered by the switch the board drew, a side per row, a shoot-out's column appearing by itself on level
- * knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
- * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar;
- * a save that would delete a later match's result the server holds back with its question, which the bar asks.
+ * knockout goals, and the referee's proposal carried over by „Übernehmen“; the note; the Sonderereignis, in a box of
+ * its own; and the report's goals and every party's answer, read-only. Saved together from the editor's bar; a save
+ * that would delete a later match's result the server holds back with its question, which the bar asks.
  */
 export function SpielEditor({
   title,
@@ -359,7 +359,23 @@ export function SpielEditor({
             </>
           ),
         },
-        // What happened beyond the play, which decides whether the box above takes a result at all.
+        {
+          id: "note",
+          title: WORDS.note,
+          fields: (
+            <TextField
+              label={WORDS.note}
+              labelHidden
+              name="note"
+              width="W4"
+              kind="text"
+              maxLength={noteMax}
+              value={draft.note}
+              onChange={(note) => set("note", note)}
+            />
+          ),
+        },
+        // What happened beyond the play, which decides whether the Ergebnis box takes a result at all.
         {
           id: "sonderereignis",
           title: WORDS.sonderereignis,
@@ -375,22 +391,6 @@ export function SpielEditor({
                 if (id !== null) set("sonderereignis", id);
               }}
               {...(storedScore !== null && !resultShown ? { consequence: WORDS.resultDropped(storedScore) } : {})}
-            />
-          ),
-        },
-        {
-          id: "note",
-          title: WORDS.note,
-          fields: (
-            <TextField
-              label={WORDS.note}
-              labelHidden
-              name="note"
-              width="W4"
-              kind="text"
-              maxLength={noteMax}
-              value={draft.note}
-              onChange={(note) => set("note", note)}
             />
           ),
         },
