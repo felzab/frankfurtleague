@@ -25,14 +25,11 @@ import type { GruppeOffer } from "@/features/teams/types";
  */
 export function AdminBewerbungView({
   bewerbung,
-  fristAbgelaufen,
   teamName,
   saisonStatus,
   gruppeOffer,
 }: {
   bewerbung: FLBewerbung;
-  /** Whether its confirmation deadline has passed, as the read judged it on the server's day. */
-  fristAbgelaufen: boolean;
   /** The club the application names, resolved by the page — `null` where it names none. */
   teamName: string | null;
   /** The state of the season this application is for, or `null` where no season carries its id. */
@@ -49,6 +46,8 @@ export function AdminBewerbungView({
   const [boxGetippt, setBoxGetippt] = useState(false);
 
   const staende = bestaetigungsStand(bewerbung);
+  const { trainer, ansprechperson, stellvertretung } = bewerbung.confirmations;
+  const sitze = [trainer, ansprechperson, stellvertretung].filter((sitz) => sitz !== null);
   const hindernis = zusageHindernis(staende, teamName);
 
   return (
@@ -73,9 +72,10 @@ export function AdminBewerbungView({
         <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:mx-0 xl:max-w-none">
           <BewerbungBestaetigungStrip
             bewerbungId={bewerbung.id}
+            version={bewerbung.version}
             staende={staende}
-            deadline={bewerbung.confirmation_deadline}
-            fristAbgelaufen={fristAbgelaufen}
+            deadline={sitze.map((sitz) => sitz.deadline).sort()[0] ?? ""}
+            fristAbgelaufen={sitze.some((sitz) => sitz.expired)}
             isOpen={isOpen}
             isDirty={grundGetippt}
             onGetipptChange={setBoxGetippt}
@@ -92,6 +92,7 @@ export function AdminBewerbungView({
           {isOpen && (
             <AdminBewerbungAnnehmenSection
               bewerbungId={bewerbung.id}
+              version={bewerbung.version}
               teamName={teamName}
               createsTeam={bewerbung.schule !== null}
               saisonId={bewerbung.saison_id}
@@ -105,6 +106,7 @@ export function AdminBewerbungView({
           {isOpen && (
             <AdminBewerbungAblehnenSection
               bewerbungId={bewerbung.id}
+              version={bewerbung.version}
               teamName={teamName}
               saisonId={bewerbung.saison_id}
               onGetipptChange={setGrundGetippt}

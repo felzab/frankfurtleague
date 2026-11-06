@@ -281,6 +281,8 @@ class FLBewerbungZusageData(BaseModel):
 
     kind: Literal["bewerbung_zusage"]
     team: str
+    # The club's code, which a new school first holds through this acceptance.
+    shorthand: str
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     gruppe: FLGruppenNames

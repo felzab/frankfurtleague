@@ -78,16 +78,13 @@ export const Code = {
   bewerbung_submission_subject_unresolved: "bewerbung_submission_subject_unresolved",
   bewerbung_picked_team_unusable: "bewerbung_picked_team_unusable",
   bewerbung_picked_team_already_entered: "bewerbung_picked_team_already_entered",
-  bewerbung_shorthand_taken: "bewerbung_shorthand_taken",
   bewerbung_seat_already_answered: "bewerbung_seat_already_answered",
   confirmation_age: "confirmation_age",
   bewerbung_kontakte_unconfirmed: "bewerbung_kontakte_unconfirmed",
   bewerbung_kontakt_email_taken: "bewerbung_kontakt_email_taken",
   bewerbung_key_differing: "bewerbung_key_differing",
-  bewerbung_token_past_deadline: "bewerbung_token_past_deadline",
   bewerbung_address_barred: "bewerbung_address_barred",
   bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
-  bewerbung_seat_differently_seated: "bewerbung_seat_differently_seated",
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
@@ -251,7 +248,10 @@ export const FLTrikotFarbe = {
  */
 export interface FLAcceptBewerbungPayload {
   gruppe: FLGruppenNames;
+  shorthand: string | null;
   trikot_farbe: FLTrikotFarbe | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -1226,8 +1226,11 @@ export interface FLBanData {
  * One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.
  */
 export interface FLBewerbungConfirmation {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
   declined_at: string | null;
   delivery: FLOutboxStatus | null;
+  expired: boolean;
   reminded_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   sent_at: string;
@@ -1372,8 +1375,6 @@ export interface FLBewerbungSchule {
   /** @minLength 1 */
   full_name: string;
   schulform: FLSchulform | null;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
   /** @minLength 1 */
   team_name: string;
   website_url: string | null;
@@ -1399,8 +1400,6 @@ export interface FLBewerbungTrikot {
  * One school's application to play one season, as stored, its decision as served.
  */
 export interface FLBewerbung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmation_deadline: string;
   confirmations: FLBewerbungConfirmations;
   decision: FLBewerbungDecisionRow | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1415,6 +1414,7 @@ export interface FLBewerbung {
   submitted_at: string;
   team_id: string | null;
   trikot: FLBewerbungTrikot;
+  version: number;
   wunschgegner: string | null;
 }
 
@@ -1518,14 +1518,6 @@ export interface FLBewerbungEinwilligungGiven {
 }
 
 /**
- * What the applicant acknowledged; the scope and the date are the server's.
- */
-export const FLBewerbungEinwilligungPayloadValue = {
-  given: true,
-} as const;
-export type FLBewerbungEinwilligungPayload = typeof FLBewerbungEinwilligungPayloadValue;
-
-/**
  * The seat whose link was replaced and where its fresh one is owed; the old one opens nothing.
  */
 export interface FLBewerbungEinwilligungResendResponse {
@@ -1569,6 +1561,9 @@ export const FLKontaktRow = {
  */
 export interface FLBewerbungEinwilligungViewResponse {
   also_rolle: FLKontaktRolle | null;
+  answered_on: string | null;
+  deadline: string | null;
+  maximum_age: number;
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;
@@ -1578,6 +1573,32 @@ export interface FLBewerbungEinwilligungViewResponse {
   saison_id: string;
   schule: string;
   state: FLBewerbungEinwilligungViewResponseState;
+}
+
+/**
+ * One group an acceptance may name, and whether it has room.
+ */
+export interface FLBewerbungGruppeOffer {
+  full: boolean;
+  gruppe: FLGruppenNames;
+}
+
+export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
+
+export const FLSaisonStatus = {
+  past: "past",
+  active: "active",
+  future: "future",
+} as const;
+
+/**
+ * What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.
+ */
+export interface FLBewerbungEntryOffer {
+  gruppen: FLBewerbungGruppeOffer[];
+  saison_id: string;
+  status: FLSaisonStatus;
+  taken: FLTrikotFarbe[];
 }
 
 /**
@@ -1600,6 +1621,38 @@ export interface FLBewerbungErasureData {
   saison_id: string;
 }
 
+/**
+ * One club as the public form offers it: its id and its name.
+ */
+export interface FLBewerbungSchuleOption {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minLength 1 */
+  name: string;
+}
+
+/**
+ * A season's application window as the form's page judges it.
+ */
+export interface FLBewerbungFormWindow {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end: string;
+  running: boolean;
+  saison_ended: boolean;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start: string;
+}
+
+/**
+ * What one season's application form shows, whichever state its page takes.
+ */
+export interface FLBewerbungFormResponse {
+  saison_id: string;
+  schulen: FLBewerbungSchuleOption[];
+  taken: FLTrikotFarbe[];
+  window: FLBewerbungFormWindow | null;
+}
+
 export interface FLBewerbungKaderPayload {
   /**
    * @minimum 1
@@ -1613,30 +1666,10 @@ export interface FLBewerbungKaderPayload {
   good_spieler: number;
 }
 
-/**
- * The corrected address and the one the page showed on the seat, and nothing else of the person.
- */
-export interface FLBewerbungKontaktEmailPayload {
-  /** @maxLength 254 */
-  email: string;
-  /** @maxLength 254 */
-  previous_email: string;
-}
-
-/**
- * A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write.
- */
-export interface FLBewerbungKontaktEmailResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmation_deadline: string;
-  email: string;
-  rollen: FLKontaktRolle[];
-}
-
 export type FLBewerbungKontaktMinAgeYears = 16;
 
 /**
- * The person seated where a contact person stepped out, who has agreed to nothing yet.
+ * The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.
  */
 export interface FLBewerbungKontaktSeatPayload {
   /** @maxLength 254 */
@@ -1655,13 +1688,24 @@ export interface FLBewerbungKontaktSeatPayload {
   last_name: string;
   /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
   phone: string;
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
+ * A seat's address as the write left it, and every seat it reached; the link is owed there in the same write.
+ */
+export interface FLBewerbungKontaktSeatResponse {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  confirmation_deadline: string;
+  email: string;
+  rollen: FLKontaktRolle[];
 }
 
 /**
  * One of the three people, as a member of the public submits them, without a birthdate.
  */
 export interface FLBewerbungKontaktpersonPayload {
-  einwilligung: FLBewerbungEinwilligungPayload;
   /** @maxLength 254 */
   email: string;
   /**
@@ -1690,14 +1734,6 @@ export interface FLBewerbungKontaktePayload {
   trainer_is_also: FLTrainerAlso | null;
 }
 
-/**
- * Whether a proposed Kürzel is already a club's, active or retired, naming no club.
- */
-export interface FLBewerbungKuerzelResponse {
-  shorthand: string;
-  taken: boolean;
-}
-
 export type FLBewerbungLinkDataKind = (typeof FLBewerbungLinkDataKind)[keyof typeof FLBewerbungLinkDataKind];
 
 export const FLBewerbungLinkDataKind = {
@@ -1718,6 +1754,25 @@ export interface FLBewerbungLinkData {
   rollen: FLKontaktRolle[];
   saison_id: string;
   schule: string;
+}
+
+/**
+ * One application as the season's list shows it, holding nothing of a person.
+ */
+export interface FLBewerbungListRow {
+  duplicate: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  name: string;
+  new_school: boolean;
+  seats_confirmed: number;
+  seats_objected: number;
+  status: FLBewerbungStatus;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  submitted_at: string;
+  team_id: string | null;
+  version: number;
+  wunschfarbe: FLTrikotFarbe;
 }
 
 /**
@@ -1742,6 +1797,13 @@ export interface FLBewerbungObjectionData {
   saison_id: string;
 }
 
+export type FLBewerbungOrigin = (typeof FLBewerbungOrigin)[keyof typeof FLBewerbungOrigin];
+
+export const FLBewerbungOrigin = {
+  new_school: "new_school",
+  existing_team: "existing_team",
+} as const;
+
 /**
  * The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.
  */
@@ -1763,16 +1825,6 @@ export const FLBewerbungSaisonReference = {
 } as const;
 
 /**
- * One club as the public form offers it: its id and its name.
- */
-export interface FLBewerbungSchuleOption {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  /** @minLength 1 */
-  name: string;
-}
-
-/**
  * The club a new school proposes, bounded and stripped for the write.
  */
 export interface FLBewerbungSchulePayload {
@@ -1784,8 +1836,6 @@ export interface FLBewerbungSchulePayload {
    */
   full_name: string;
   schulform: FLSchulform;
-  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
-  shorthand: string;
   /**
    * @minLength 1
    * @maxLength 60
@@ -1799,9 +1849,14 @@ export interface FLBewerbungSchulenResponse {
   schulen: FLBewerbungSchuleOption[];
 }
 
+/**
+ * One application as its review page shows it.
+ */
 export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;
-  confirmation_deadline_expired: boolean;
+  name: string;
+  saison: FLBewerbungEntryOffer;
+  seats_confirmed: number;
 }
 
 /**
@@ -1864,9 +1919,19 @@ export interface FLBewerbungZusageData {
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
+  shorthand: string;
   team: string;
   trikot_farbe: FLTrikotFarbe | null;
   wunschgegner: string | null;
+}
+
+/**
+ * The season's applications, what an acceptance would meet there, and whether the list is whole.
+ */
+export interface FLBewerbungenAdminListResponse {
+  bewerbungen: FLBewerbungListRow[];
+  complete: boolean;
+  saison: FLBewerbungEntryOffer;
 }
 
 /**
@@ -2215,8 +2280,11 @@ export interface FLDeclineBewerbungPayload {
   /**
    * @minLength 1
    * @maxLength 1000
+   * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
   decision_reason: string;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -2830,14 +2898,6 @@ export const FLSpielerStufe = {
   Q2: "Q2",
   Q3: "Q3",
   Q4: "Q4",
-} as const;
-
-export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
-
-export const FLSaisonStatus = {
-  past: "past",
-  active: "active",
-  future: "future",
 } as const;
 
 /**
@@ -3835,6 +3895,7 @@ export interface FLPatchKaderRowPayload {
 export interface FLSaisonBewerbungPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
+  open: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start: string;
 }
@@ -4614,12 +4675,13 @@ export interface FLReplaceSaisonTeamResponse {
 /**
  * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
  *
- * No flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::
- * saison_nimmt_bewerbungen_an`).
+ * `open` pauses the form alone, its dates untouched and the applications already received staying in triage, as
+ * `FLSaisonRegistrierung.open` pauses a link (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
  */
 export interface FLSaisonBewerbung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
+  open: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start: string;
 }
@@ -6664,6 +6726,17 @@ export type BewerbungenGetBewerbungenParams = {
   limit?: number;
   sort_by?: "submitted_at";
   order?: FLSortOrder;
+};
+
+export type BewerbungenGetBewerbungenAdminParams = {
+  saison_id: string;
+  status?: FLBewerbungStatus[] | null;
+  origin?: FLBewerbungOrigin[] | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
 };
 
 export type IdentitySweepErasureParams = {

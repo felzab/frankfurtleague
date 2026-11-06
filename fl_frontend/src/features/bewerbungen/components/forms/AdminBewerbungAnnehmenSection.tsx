@@ -35,6 +35,7 @@ import type { GruppeOffer } from "@/features/teams/types";
  */
 export function AdminBewerbungAnnehmenSection({
   bewerbungId,
+  version,
   teamName,
   createsTeam,
   saisonId,
@@ -44,6 +45,7 @@ export function AdminBewerbungAnnehmenSection({
   isDirty,
 }: {
   bewerbungId: string;
+  version: number;
   /** The club this acceptance would enter, or `null` where the application names none. */
   teamName: string | null;
   /** Whether the club is created by this press, which is the difference the readout states. */
@@ -89,7 +91,13 @@ export function AdminBewerbungAnnehmenSection({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe }).catch(rejectedWrite(router));
+      const res = await annehmenBewerbungAction({
+        id: bewerbungId,
+        gruppe: chosen,
+        trikot_farbe: trikotFarbe,
+        shorthand: null,
+        version: version,
+      }).catch(rejectedWrite(router));
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.

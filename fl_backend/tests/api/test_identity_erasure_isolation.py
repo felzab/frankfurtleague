@@ -61,7 +61,7 @@ PUPIL_EMAIL = "wraxlington@example.com"
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
 
-OPEN_WINDOW = {"start": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 # The registration window's own shape: it stores its start as `by`.
 OPEN_REGISTRATION_WINDOW = {"open": True, "end": "2026-04-30"}
 
@@ -114,7 +114,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=new_schule_document("Neue", "NEX"),
+            schule=new_schule_document("Neue"),
         )
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -129,7 +129,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             submitted_at="2026-03-10",
             confirmation_deadline="2026-04-10",
-            schule=new_schule_document("Ander", "ANX"),
+            schule=new_schule_document("Ander"),
         )
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.

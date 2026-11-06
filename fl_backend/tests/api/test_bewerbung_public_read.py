@@ -53,10 +53,12 @@ AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "exit_reason": "keine Mannsch
 OPEN_SAISON = "2026"
 SHUT_SAISON = "2025"
 WINDOWLESS_SAISON = "2024"
+# A span holding today, paused: it sorts ahead of the answer, so a read ignoring the pause picks it.
+PAUSED_SAISON = "2030"
 
 # Named because two corpora seed it: a case building its own season still has to be the one the
 # colour read serves, and a span drifting from `seeded_url`'s would make it the one it refuses.
-RUNNING_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
+RUNNING_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 
 # The two near-misses, each ruled out by ONE term of the open-window query and by nothing else.
 # Each sorts AHEAD of the answer, so a query dropping that term picks it rather than `2026`.
@@ -130,11 +132,12 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
         database[Collection.SAISONS].insert_many(
             [
                 _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
-                _saison(SHUT_SAISON, bewerbung={"start": "2025-03-01", "end": "2025-04-30"}),
+                _saison(SHUT_SAISON, bewerbung={"open": True, "start": "2025-03-01", "end": "2025-04-30"}),
                 # A span that has not begun: the opening date is what rules it out.
-                _saison(NOT_YET_OPEN_SAISON, bewerbung={"start": "2026-09-01", "end": "2026-10-31"}),
+                _saison(NOT_YET_OPEN_SAISON, bewerbung={"open": True, "start": "2026-09-01", "end": "2026-10-31"}),
                 # A span already over: the closing date is what rules it out.
-                _saison(ALREADY_CLOSED_SAISON, bewerbung={"start": "2026-01-01", "end": "2026-02-28"}),
+                _saison(ALREADY_CLOSED_SAISON, bewerbung={"open": True, "start": "2026-01-01", "end": "2026-02-28"}),
+                _saison(PAUSED_SAISON, bewerbung={**RUNNING_WINDOW, "open": False}),
                 # No key at all, as every season stored before the field existed carries none.
                 _saison(WINDOWLESS_SAISON, bewerbung=None),
             ]
@@ -218,6 +221,33 @@ def open_window(uri: str, *, database_name: str = CORPUS_DATABASE) -> Any:
 
 
 pytestmark = pytest.mark.db
+
+
+class TestTheFormRead:
+    """The one read of the form's page: a state it must show, and what a season not taking applications must not tell."""
+
+    def test_a_running_window_serves_the_clubs_and_the_colours(self, seeded_url: str):
+        body = answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}").json()
+
+        assert body["window"]["running"] is True
+        assert [row["name"] for row in body["schulen"]] == sorted(name for name, _, _ in CLUBS)
+        assert body["taken"] == OPEN_SAISON_FARBEN
+
+    @pytest.mark.parametrize(
+        "saison_id",
+        [pytest.param(PAUSED_SAISON, id="a paused window"), pytest.param(SHUT_SAISON, id="a window that has passed")],
+    )
+    def test_a_form_not_running_serves_its_dates_and_nothing_else(self, seeded_url: str, saison_id: str):
+        body = answered(seeded_url, f"{PREFIX}/form/{saison_id}").json()
+
+        assert body["window"]["running"] is False
+        assert (body["schulen"], body["taken"]) == ([], [])
+
+    def test_a_season_recording_no_window_is_served_as_that(self, seeded_url: str):
+        assert answered(seeded_url, f"{PREFIX}/form/{WINDOWLESS_SAISON}").json()["window"] is None
+
+    def test_a_season_nobody_holds_is_a_404(self, seeded_url: str):
+        assert answered(seeded_url, f"{PREFIX}/form/1999").status_code == 404
 
 
 class TestTheWindowReads:

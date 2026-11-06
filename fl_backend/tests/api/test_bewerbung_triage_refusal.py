@@ -2,8 +2,12 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
+from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
+    compose_kontakt_seat_update,
+    find_acceptance_code_refusal,
     find_kontakt_email_refusal,
     find_new_club_refusal,
 )
@@ -43,6 +47,63 @@ class TestOnlyTheSchoolsOwnFaultIsRefused:
 
         with pytest.raises(ZorbanaxBoom):
             find_new_club_refusal(club_document=ExplodingSchule())
+
+
+class TestADeclinesReason:
+    """The reason is stored and mailed verbatim, so a NUL or a page break an administrator pasted reaches every person it goes to."""
+
+    @pytest.mark.parametrize("reason", ["Kein\x00Platz", "Kein\x0cPlatz", "Kein\u2028Platz"])
+    def test_a_character_no_paragraph_holds_is_refused(self, reason: str):
+        with pytest.raises(ValidationError):
+            FLDeclineBewerbungPayload(decision_reason=reason, version=0)
+
+    def test_the_line_breaks_of_a_paragraph_pass(self):
+        assert FLDeclineBewerbungPayload(decision_reason="Kein Platz.\r\nNächstes Jahr gern.", version=0).decision_reason.count("\n") == 1
+
+
+class TestWhatASeatWriteMoves:
+    """Per seat: a write restarting the application's other seats keeps their details past their own 14 days."""
+
+    SEAT = {"token_hashes": [], "sent_at": "2026-03-01", "deadline": "2026-03-15", "reminded_at": None, "declined_at": None}
+
+    def written(self, **confirmations: Any) -> Mapping[str, Any]:
+        person = {"first_name": "Berta", "last_name": "Beispiel", "email": "berta@example.de", "phone": "069 1234567"}
+
+        return compose_kontakt_seat_update(seats=("trainer",), person=person, today="2026-04-01", confirmations=confirmations)["$set"]
+
+    def test_only_the_written_seat_restarts(self):
+        written = self.written(trainer=self.SEAT, ansprechperson=self.SEAT, stellvertretung=self.SEAT)
+
+        assert written["confirmations.trainer"]["deadline"] == "2026-04-15"
+        assert not any("ansprechperson" in path or "stellvertretung" in path for path in written)
+
+    def test_filling_the_last_declined_seat_takes_the_announcement_back(self):
+        """The notice named a deletion this write calls off, so the next deletion is announced afresh."""
+
+        assert self.written(trainer={**self.SEAT, "declined_at": "2026-03-20"})["erasure_announced_at"] is None
+
+    def test_a_widerspruch_on_another_seat_keeps_the_announcement(self):
+        """That seat still takes the application on the day the notice named, and a second notice would announce one deletion twice."""
+
+        assert "erasure_announced_at" not in self.written(trainer=self.SEAT, stellvertretung={**self.SEAT, "declined_at": "2026-03-20"})
+
+
+class TestTheCodeAnAcceptanceTakes:
+    """A new school accepted with no code fails at the club's own parse as the school's fault, and a code on a picked club is dropped unsaid."""
+
+    @pytest.mark.parametrize(
+        ("new_school", "shorthand"),
+        [pytest.param(True, None, id="a new school with none"), pytest.param(False, "ABX", id="a picked club with one")],
+    )
+    def test_the_wrong_side_of_the_rule_is_refused_on_the_box(self, new_school: bool, shorthand: str | None):
+        refusal = find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand)
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields) == (Code.PAYLOAD_REFUSED, (("shorthand",),))
+
+    @pytest.mark.parametrize(("new_school", "shorthand"), [(True, "ABX"), (False, None)])
+    def test_the_right_side_passes(self, new_school: bool, shorthand: str | None):
+        assert find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand) is None
 
 
 class TestCorrectingOneContactAddress:

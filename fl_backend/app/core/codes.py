@@ -48,9 +48,8 @@ class Code(StrEnum):
     # tells a stranger's guess from a spent link, and naming which would say more than the guess knew.
     LINK_INVALID = auto()
     ADDRESS_CHANGE_ENDED = auto()
-    # A link whose deadline passed, or whose application was decided: either spends it for good. An
-    # application's deadline a re-send restarts is no such link, so it keeps its own code at the state's
-    # status (`bewerbung_token_past_deadline`).
+    # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
+    # another token.
     LINK_EXPIRED = auto()
     # 403 where `address_change_barred` is 409: this caller is the barred person, and nothing they change lifts it.
     LINK_BARRED = auto()
@@ -127,16 +126,13 @@ class Code(StrEnum):
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_PICKED_TEAM_UNUSABLE = auto()
     BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED = auto()
-    BEWERBUNG_SHORTHAND_TAKEN = auto()
     BEWERBUNG_SEAT_ALREADY_ANSWERED = auto()
     CONFIRMATION_AGE = auto()
     BEWERBUNG_KONTAKTE_UNCONFIRMED = auto()
     BEWERBUNG_KONTAKT_EMAIL_TAKEN = auto()
     BEWERBUNG_KEY_DIFFERING = auto()
-    BEWERBUNG_TOKEN_PAST_DEADLINE = auto()
     BEWERBUNG_ADDRESS_BARRED = auto()
     BEWERBUNG_KONTAKT_BARRED = auto()
-    BEWERBUNG_SEAT_DIFFERENTLY_SEATED = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
     # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
     BOOKING_UNKNOWN_RESOURCE = auto()

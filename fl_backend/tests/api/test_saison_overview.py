@@ -184,9 +184,9 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
         database[Collection.BEWERBUNGEN].insert_many(
             [
-                application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg", "RIE")),
+                application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
                 application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
-                application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend", "WES")),
+                application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
             ]
         )
 

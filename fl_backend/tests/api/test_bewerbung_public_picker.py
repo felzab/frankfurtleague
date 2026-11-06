@@ -78,40 +78,12 @@ class TestTheClubList:
         assert names == sorted(names)
 
 
-class TestTheKuerzelCheck:
-    """ONE neutral answer: it names no club, and does not tell an active one from a retired one."""
-
-    @pytest.mark.parametrize(
-        ("shorthand", "taken"),
-        [
-            pytest.param("ZEX", True, id="a live club's"),
-            pytest.param("zex", True, id="a live club's asked in lower case, folded as a submission folds it"),
-            pytest.param("VEX", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
-            pytest.param("QQX", False, id="one nobody holds"),
-        ],
-    )
-    def test_a_taken_kuerzel_answers_taken(self, seeded_url: str, shorthand: str, taken: bool):
-        response = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}")
-
-        assert response.status_code == 200
-        assert response.json()["taken"] is taken
-
-    def test_the_answer_names_no_club(self, seeded_url: str):
-        """A shape distinguishing a retired holder from a live one would publish which schools have left."""
-
-        name, shorthand, _ = RETIRED_CLUB
-        body = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").json()
-
-        assert set(body) == {"shorthand", "taken"}
-        assert name not in answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").text
-
-
 # Every public route, bound once: a route added to one list alone would keep its reachability test
 # and silently lose its unauthorised-answer test.
 PUBLIC_PATHS = [
+    f"{PREFIX}/form/{OPEN_SAISON}",
     f"{PREFIX}/window/{OPEN_SAISON}",
     f"{PREFIX}/schulen",
-    f"{PREFIX}/kuerzel/ZEX",
     f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
 ]
 

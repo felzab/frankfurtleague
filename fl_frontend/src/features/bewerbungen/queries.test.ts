@@ -28,7 +28,7 @@ serveServerReact();
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);
 
-const { getBewerbungById, getBewerbungen, getBewerbungWindow, getBewerbungKuerzel, getBewerbungSchulen } = await import("./queries.ts");
+const { getBewerbungById, getBewerbungen, getBewerbungWindow, getBewerbungSchulen } = await import("./queries.ts");
 const { refused } = await import("@/test-support/refusals.ts");
 
 /**
@@ -66,9 +66,8 @@ describe("the three base-tier public reads", () => {
   it("reaches the backend through the doubled client at all", async () => {
     await getBewerbungWindow("2627");
     await getBewerbungSchulen();
-    await getBewerbungKuerzel("GG");
 
-    for (const endpoint of ["/bewerbungen/window/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
+    for (const endpoint of ["/bewerbungen/window/2627", "/bewerbungen/schulen"]) {
       assert.ok(
         calls.some((call) => call.endpoint === endpoint),
         `nothing asked for ${endpoint}`,
@@ -76,13 +75,12 @@ describe("the three base-tier public reads", () => {
     }
   });
 
-  /* Both path interpolations encode, for the reason the Kürzel's always has: a caller-supplied segment
+  /* A path interpolation encodes: a caller-supplied segment
      reaching a URL raw is one that can leave the path it was written into. */
   it("encodes every caller-supplied path segment", async () => {
     await getBewerbungWindow("26/27");
-    await getBewerbungKuerzel("G/G");
 
-    for (const endpoint of ["/bewerbungen/window/26%2F27", "/bewerbungen/kuerzel/G%2FG"]) {
+    for (const endpoint of ["/bewerbungen/window/26%2F27"]) {
       assert.ok(
         calls.some((call) => call.endpoint === endpoint),
         `a path segment reached the client unencoded; expected ${endpoint}`,

@@ -49,12 +49,14 @@ const zuLangSatz = (grund: string): string | null => {
  */
 export function AdminBewerbungAblehnenSection({
   bewerbungId,
+  version,
   teamName,
   saisonId,
   onGetipptChange,
   isDirty,
 }: {
   bewerbungId: string;
+  version: number;
   /** The club this decline is about, or `null` where the application names none — the readout says so. */
   teamName: string | null;
   saisonId: string;
@@ -92,7 +94,7 @@ export function AdminBewerbungAblehnenSection({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await ablehnenBewerbungAction({ id: bewerbungId, decision_reason: grund }).catch(unansweredAction);
+      const res = await ablehnenBewerbungAction({ id: bewerbungId, decision_reason: grund, version: version }).catch(unansweredAction);
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.

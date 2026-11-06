@@ -73,7 +73,6 @@ def person(**overrides: Any) -> dict[str, Any]:
         "last_name": "Brackenmoor",
         "email": "quillhilde@example.com",
         "phone": "+49 170 1234567",
-        "einwilligung": {"given": True},
         **overrides,
     }
 
@@ -118,7 +117,6 @@ def schule(**overrides: Any) -> dict[str, Any]:
     return {
         "team_name": "Zorbanax",
         "full_name": "Zorbanax-Gymnasium",
-        "shorthand": "ZXX",
         "schulform": "gymnasium_g9",
         "address": dict(ADDRESS),
         "website_url": "https://zorbanax.example.de",
@@ -338,7 +336,7 @@ class TestWhatTheServerComposes:
         }
 
     def test_the_composed_block_stores_no_field_the_payload_carried_beside_the_wording(self):
-        """`given` is the form's tickbox, not a stored field: the record IS the consent, and `False` is a body this endpoint refuses."""
+        """The block is the server's whole composition: nothing of it arrives on a body."""
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
@@ -369,18 +367,11 @@ class TestWhatTheServerComposes:
         assert composed["trainer_is_also"] == "ansprechperson"
         assert composed["stellvertretung"]["first_name"] == "Stellan"
 
-    def test_a_consent_the_applicant_did_not_give_is_refused_rather_than_stored(self):
-        """`given: Literal[True]`: an unticked box is a 422, never a stored record saying somebody declined."""
+    def test_a_client_may_not_name_a_consent(self):
+        """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": False}))
-
-    @pytest.mark.parametrize("field", ["scope", "entered_by", "date", "confirmed_at"])
-    def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
-        """`extra="forbid"`: a body naming one of these could claim a person's own consent or its seating, or backdate or pre-confirm one."""
-
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"given": True, field: "x"}))
+            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"scope": "kontaktdaten"}))
 
 
 class TestWhatTheSubmissionPayloadRefuses:
@@ -478,14 +469,6 @@ class TestWhatTheSubmissionPayloadRefuses:
         stored = {"existing_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2), "wunschfarbe": "blau"}
 
         assert len(FLBewerbungTrikot.model_validate(stored).existing_satz) == BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2
-
-    def test_a_padded_lower_case_kuerzel_is_folded_to_fit_rather_than_refused(self):
-        """The strip and the upper-casing run before the pattern judges it, so the code is stored as every comparison reads it."""
-
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(shorthand=" zXx ")))
-
-        assert parsed.schule is not None
-        assert parsed.schule.shorthand == "ZXX"
 
 
 # Every ceiling this branch put on the PUBLIC payload, as (label, the field's path, the bound). One
@@ -696,7 +679,7 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
         "confirmations": {
-            seat: {**entry, "delivery": None}
+            seat: {**entry, "delivery": None, "expired": False}
             for seat, entry in minted_confirmations(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
         },
         **overrides,
@@ -831,7 +814,7 @@ class _WindowCollection:
 
 # The day the window below is judged against, sitting inside its span.
 COLOUR_READ_TODAY = "2026-04-01"
-COLOUR_READ_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
+COLOUR_READ_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 
 
 def _colours_for(junction: _DistinctCollection, *, bewerbung: Any, status: str = "future") -> Any:
@@ -899,8 +882,8 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         "bewerbung",
         [
             pytest.param(None, id="a season carrying no window"),
-            pytest.param({"start": "2026-05-01", "end": "2026-06-30"}, id="a span not yet begun"),
-            pytest.param({"start": "2026-01-01", "end": "2026-02-28"}, id="a span already over"),
+            pytest.param({"open": True, "start": "2026-05-01", "end": "2026-06-30"}, id="a span not yet begun"),
+            pytest.param({"open": True, "start": "2026-01-01", "end": "2026-02-28"}, id="a span already over"),
         ],
     )
     def test_a_season_not_taking_applications_never_reaches_the_junction(self, bewerbung: Any):

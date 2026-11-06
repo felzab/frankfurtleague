@@ -12,7 +12,8 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungEinwilligungAnswerResponse,
     FLBewerbungEinwilligungViewResponse,
-    FLBewerbungKuerzelResponse,
+    FLBewerbungFormResponse,
+    FLBewerbungFormWindow,
     FLBewerbungNoWindowResponse,
     FLBewerbungSchulenResponse,
     FLBewerbungSchuleOptionListAdapter,
@@ -31,6 +32,7 @@ from app.api.bewerbungen.services import (
     assigned_trikot_farben,
     bewerbung_bezug,
     bewerbung_schule,
+    build_form_pipeline,
     build_saison_token_filter,
     build_schluessel_filter,
     build_token_filter,
@@ -40,6 +42,7 @@ from app.api.bewerbungen.services import (
     compose_kontakte,
     compose_saison_decline_update,
     confirmation_deadline_from,
+    deletion_day,
     find_abweichender_fingerabdruck_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
@@ -50,7 +53,6 @@ from app.api.bewerbungen.services import (
     find_picked_club_refusal,
     find_saison_deadline_refusal,
     find_saison_vorbei_einwilligung_refusal,
-    find_shorthand_refusal,
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
@@ -59,13 +61,14 @@ from app.api.bewerbungen.services import (
     owed_at_submission,
     paired_seat,
     payload_fingerabdruck,
-    saison_deadline_of,
     saison_link_pair,
     saison_nimmt_bewerbungen_an,
     saison_schule,
     saison_zustand_of,
     season_has_ended,
     seat_addresses,
+    seat_answered_on,
+    seat_deadline_of,
     seat_first_name,
     seat_holding,
     seat_opens_nobody,
@@ -82,7 +85,7 @@ from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
@@ -105,9 +108,8 @@ from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
+from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
-from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
 from app.shared.tokens import hash_token
@@ -147,6 +149,38 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     # The status travels beside the window and is served only as whether it is `past`: that season
     # takes no application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
     return window, saison_raw["status"]
+
+
+@router.get("/form/{saison_id}", response_model=FLBewerbungFormResponse, summary="What one Saison's application form shows")
+async def get_form(
+    saison_id: str, saisons_collection: SaisonsReadCollection, today: str = Depends(get_german_date_str)
+) -> FLBewerbungFormResponse:
+    """
+    One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+
+    404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
+    page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
+    nothing more (`READ-BEWERBUNG-001`).
+    """
+
+    seasons = await aggregate_many_from_db(collection=saisons_collection, pipeline=build_form_pipeline(saison_id=saison_id))
+    if not seasons:
+        raise DocumentNotFoundError()
+
+    saison_raw = seasons[0]
+    window, saison_status = saison_raw.get("bewerbung"), saison_raw["status"]
+    running = saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=window, today=today)
+
+    return FLBewerbungFormResponse(
+        saison_id=saison_id,
+        window=None
+        if window is None
+        else FLBewerbungFormWindow(
+            start=str(window["start"]), end=str(window["end"]), running=running, saison_ended=season_has_ended(saison_status=saison_status)
+        ),
+        schulen=FLBewerbungSchuleOptionListAdapter.validate_python(saison_raw["schulen"]) if running else [],
+        taken=assigned_trikot_farben(stored=[row["_id"] for row in saison_raw["colours"]]) if running else [],
+    )
 
 
 @router.get(
@@ -197,23 +231,6 @@ async def get_schulen(teams_collection: TeamsCollection) -> FLBewerbungSchulenRe
     )
 
     return FLBewerbungSchulenResponse(schulen=FLBewerbungSchuleOptionListAdapter.validate_python(teams_raw))
-
-
-@router.get("/kuerzel/{shorthand}", response_model=FLBewerbungKuerzelResponse, summary="Whether a Kürzel is already a club's")
-async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBewerbungKuerzelResponse:
-    """
-    Answer whether any club holds this three-letter code.
-
-    Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
-    naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
-    """
-
-    # Folded as the submission folds it, so the answer is the one the submission will meet; no pattern
-    # on the parameter, a 422 here being the malformed-path answer this application does not give.
-    folded: str = fold_shorthand(shorthand)
-    taken = await teams_collection.count_documents({"shorthand": folded}, limit=1)
-
-    return FLBewerbungKuerzelResponse(shorthand=folded, taken=taken > 0)
 
 
 @router.get(
@@ -338,19 +355,10 @@ async def post_bewerbung(
         # Then who is applying, because the two branches below judge different things.
         refuse(find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule))
 
-        # Branched on `schule` rather than on `team_id`, so the narrowing the shorthand read needs is one
-        # the type checker can follow: the refusal above has already made the two branches exclusive.
-        if (schule := bewerbung_data.schule) is not None:
-            # Asked of a NEW school alone: a picked club already holds its own shorthand, and refusing it
-            # for that would make applying impossible.
-
-            # NO `inactive_since` term: `uniq_shorthand` spans retired clubs, so narrowing this to live
-            # ones would pass a submission here that acceptance then fails on a duplicate key.
-            taken = await teams_collection.count_documents({"shorthand": schule.shorthand}, limit=1, session=session)
-            refuse(find_shorthand_refusal(taken=taken > 0))
-        else:
-            # `find_one`, not `pull_one_from_db`: a club the picker never offered is refused with
-            # `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
+        # A picked club alone: a new school has nothing stored to judge. `find_one`, not `pull_one_from_db`: a club the
+        # picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
+        schule, team_raw = bewerbung_data.schule, None
+        if schule is None:
             team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1, "name": 1}, session=session)
             refuse(find_picked_club_refusal(team_raw=team_raw))
 
@@ -370,8 +378,7 @@ async def post_bewerbung(
 
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
 
-        # Every refusal is behind us, so the write follows with nothing left to judge. The uniqueness the
-        # checks narrow is held at acceptance.
+        # Every refusal is behind us, so the write follows with nothing left to judge.
         created = await post_one_to_db(
             collection=bewerbungen_collection,
             document={
@@ -391,8 +398,7 @@ async def post_bewerbung(
                 "wunschgegner": bewerbung_data.wunschgegner,
                 # Null until the triage decides, which is what `status == "eingereicht"` claims.
                 "decision": None,
-                # The deadline and each seat's bookkeeping, so the sweep and the links have something to judge.
-                "confirmation_deadline": confirmation_deadline,
+                # Each seat's bookkeeping and its own deadline, so the sweep and the links have something to judge.
                 "confirmations": compose_bestaetigungen(today=today),
                 **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
             },
@@ -471,6 +477,9 @@ async def _saison_ansicht(
         rolle=seat,
         also_rolle=zugleich,
         minimum_age=mindestalter_for(seats),
+        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
+        answered_on=seat_answered_on(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
@@ -535,6 +544,9 @@ async def get_einwilligung_view(
         rolle=seat,
         also_rolle=zugleich,
         minimum_age=mindestalter_for(seats),
+        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
+        answered_on=seat_answered_on(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
@@ -591,7 +603,7 @@ async def post_einwilligung(
         assert row is not None and seat is not None
 
         kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
-        refuse(find_saison_deadline_refusal(deadline=saison_deadline_of(confirmations=confirmations, seat=seat), today=today))
+        refuse(find_saison_deadline_refusal(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today))
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         other = saison_link_pair(kontakte=kontakte, confirmations=confirmations, seat=seat, token_hash=token_hash)
@@ -707,7 +719,7 @@ async def post_einwilligung(
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(
             find_expired_token_refusal(
-                confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), status=bewerbung_raw.get("status"), today=today
+                deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today
             )
         )
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
@@ -720,9 +732,6 @@ async def post_einwilligung(
         # Read before either branch writes: a decline empties this slot, and the message reporting
         # it is the one thing that has to name the person who refused.
         first_name = seat_first_name(kontakte=kontakte, seat=seat)
-        # Present wherever a token is: the submission writes the deadline and the tokens in one
-        # insert, and a re-send moves both (`app/api/bewerbungen/services.py :: compose_erneut_update`).
-        confirmation_deadline = str(bewerbung_raw["confirmation_deadline"])
         saison_id = str(bewerbung_raw["saison_id"])
 
         if answer_data.answer == "given":
@@ -804,7 +813,8 @@ async def post_einwilligung(
                             rollen=abgelehnt_rollen,
                             # Named off the read before the decline: nothing left in the record can say whose entry was refused.
                             declined=FLBewerbungPerson(first_name=first_name, rollen=list(seats)),
-                            deadline=confirmation_deadline,
+                            # The declining seat is outstanding now, so a day is there to name.
+                            deadline=str(deletion_day(kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations"))),
                         ),
                         reference=bewerbung_bezug(bewerbung_raw["_id"], abgelehnt_rollen),
                     )

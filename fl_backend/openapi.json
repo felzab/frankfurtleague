@@ -208,16 +208,13 @@
           "bewerbung_submission_subject_unresolved",
           "bewerbung_picked_team_unusable",
           "bewerbung_picked_team_already_entered",
-          "bewerbung_shorthand_taken",
           "bewerbung_seat_already_answered",
           "confirmation_age",
           "bewerbung_kontakte_unconfirmed",
           "bewerbung_kontakt_email_taken",
           "bewerbung_key_differing",
-          "bewerbung_token_past_deadline",
           "bewerbung_address_barred",
           "bewerbung_kontakt_barred",
-          "bewerbung_seat_differently_seated",
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
@@ -335,6 +332,18 @@
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
           },
+          "shorthand": {
+            "anyOf": [
+              {
+                "pattern": "^\\s*[A-Za-z]{3}\\s*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shorthand"
+          },
           "trikot_farbe": {
             "anyOf": [
               {
@@ -344,11 +353,18 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "gruppe",
-          "trikot_farbe"
+          "trikot_farbe",
+          "shorthand",
+          "version"
         ],
         "title": "FLAcceptBewerbungPayload",
         "type": "object"
@@ -3022,11 +3038,6 @@
       "FLBewerbung": {
         "description": "One school's application to play one season, as stored, its decision as served.",
         "properties": {
-          "confirmation_deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmation Deadline",
-            "type": "string"
-          },
           "confirmations": {
             "$ref": "#/components/schemas/FLBewerbungConfirmations"
           },
@@ -3092,6 +3103,11 @@
           "trikot": {
             "$ref": "#/components/schemas/FLBewerbungTrikot"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "wunschgegner": {
             "anyOf": [
               {
@@ -3106,6 +3122,7 @@
         },
         "required": [
           "id",
+          "version",
           "saison_id",
           "submitted_at",
           "status",
@@ -3117,7 +3134,6 @@
           "stufengroesse",
           "wunschgegner",
           "decision",
-          "confirmation_deadline",
           "confirmations"
         ],
         "title": "FLBewerbung",
@@ -3209,6 +3225,11 @@
       "FLBewerbungConfirmation": {
         "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.",
         "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "declined_at": {
             "anyOf": [
               {
@@ -3231,6 +3252,10 @@
               }
             ]
           },
+          "expired": {
+            "title": "Expired",
+            "type": "boolean"
+          },
           "reminded_at": {
             "anyOf": [
               {
@@ -3251,9 +3276,11 @@
         },
         "required": [
           "sent_at",
+          "deadline",
           "reminded_at",
           "declined_at",
-          "delivery"
+          "delivery",
+          "expired"
         ],
         "title": "FLBewerbungConfirmation",
         "type": "object"
@@ -3459,22 +3486,6 @@
         "title": "FLBewerbungEinwilligungGiven",
         "type": "object"
       },
-      "FLBewerbungEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "What the applicant acknowledged; the scope and the date are the server's.",
-        "properties": {
-          "given": {
-            "const": true,
-            "title": "Given",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "given"
-        ],
-        "title": "FLBewerbungEinwilligungPayload",
-        "type": "object"
-      },
       "FLBewerbungEinwilligungResendResponse": {
         "description": "The seat whose link was replaced and where its fresh one is owed; the old one opens nothing.",
         "properties": {
@@ -3519,6 +3530,34 @@
                 "type": "null"
               }
             ]
+          },
+          "answered_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answered On"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "maximum_age": {
+            "title": "Maximum Age",
+            "type": "integer"
           },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
@@ -3580,9 +3619,46 @@
           "rolle",
           "also_rolle",
           "minimum_age",
+          "maximum_age",
+          "deadline",
+          "answered_on",
           "media_minimum_age"
         ],
         "title": "FLBewerbungEinwilligungViewResponse",
+        "type": "object"
+      },
+      "FLBewerbungEntryOffer": {
+        "description": "What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.",
+        "properties": {
+          "gruppen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungGruppeOffer"
+            },
+            "title": "Gruppen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "taken": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken",
+            "type": "array"
+          }
+        },
+        "required": [
+          "saison_id",
+          "status",
+          "gruppen",
+          "taken"
+        ],
+        "title": "FLBewerbungEntryOffer",
         "type": "object"
       },
       "FLBewerbungErasureData": {
@@ -3620,6 +3696,96 @@
           "pending"
         ],
         "title": "FLBewerbungErasureData",
+        "type": "object"
+      },
+      "FLBewerbungFormResponse": {
+        "description": "What one season's application form shows, whichever state its page takes.",
+        "properties": {
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "schulen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungSchuleOption"
+            },
+            "title": "Schulen",
+            "type": "array"
+          },
+          "taken": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken",
+            "type": "array"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungFormWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "saison_id",
+          "window",
+          "schulen",
+          "taken"
+        ],
+        "title": "FLBewerbungFormResponse",
+        "type": "object"
+      },
+      "FLBewerbungFormWindow": {
+        "description": "A season's application window as the form's page judges it.",
+        "properties": {
+          "end": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "End",
+            "type": "string"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "saison_ended": {
+            "title": "Saison Ended",
+            "type": "boolean"
+          },
+          "start": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "running",
+          "saison_ended"
+        ],
+        "title": "FLBewerbungFormWindow",
+        "type": "object"
+      },
+      "FLBewerbungGruppeOffer": {
+        "description": "One group an acceptance may name, and whether it has room.",
+        "properties": {
+          "full": {
+            "title": "Full",
+            "type": "boolean"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          }
+        },
+        "required": [
+          "gruppe",
+          "full"
+        ],
+        "title": "FLBewerbungGruppeOffer",
         "type": "object"
       },
       "FLBewerbungKader": {
@@ -3664,63 +3830,13 @@
         "title": "FLBewerbungKaderPayload",
         "type": "object"
       },
-      "FLBewerbungKontaktEmailPayload": {
-        "additionalProperties": false,
-        "description": "The corrected address and the one the page showed on the seat, and nothing else of the person.",
-        "properties": {
-          "email": {
-            "maxLength": 254,
-            "title": "Email",
-            "type": "string"
-          },
-          "previous_email": {
-            "maxLength": 254,
-            "title": "Previous Email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "previous_email"
-        ],
-        "title": "FLBewerbungKontaktEmailPayload",
-        "type": "object"
-      },
-      "FLBewerbungKontaktEmailResponse": {
-        "description": "A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write.",
-        "properties": {
-          "confirmation_deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmation Deadline",
-            "type": "string"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "email",
-          "rollen",
-          "confirmation_deadline"
-        ],
-        "title": "FLBewerbungKontaktEmailResponse",
-        "type": "object"
-      },
       "FLBewerbungKontaktMinAgeYears": {
         "const": 16,
         "type": "integer"
       },
       "FLBewerbungKontaktSeatPayload": {
         "additionalProperties": false,
-        "description": "The person seated where a contact person stepped out, who has agreed to nothing yet.",
+        "description": "The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.",
         "properties": {
           "email": {
             "maxLength": 254,
@@ -3745,15 +3861,49 @@
             "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
             "title": "Phone",
             "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "first_name",
           "last_name",
           "email",
-          "phone"
+          "phone",
+          "version"
         ],
         "title": "FLBewerbungKontaktSeatPayload",
+        "type": "object"
+      },
+      "FLBewerbungKontaktSeatResponse": {
+        "description": "A seat's address as the write left it, and every seat it reached; the link is owed there in the same write.",
+        "properties": {
+          "confirmation_deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Confirmation Deadline",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "title": "Rollen",
+            "type": "array"
+          }
+        },
+        "required": [
+          "email",
+          "rollen",
+          "confirmation_deadline"
+        ],
+        "title": "FLBewerbungKontaktSeatResponse",
         "type": "object"
       },
       "FLBewerbungKontaktePayload": {
@@ -3793,9 +3943,6 @@
         "additionalProperties": false,
         "description": "One of the three people, as a member of the public submits them, without a birthdate.",
         "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLBewerbungEinwilligungPayload"
-          },
           "email": {
             "maxLength": 254,
             "title": "Email",
@@ -3825,29 +3972,9 @@
           "first_name",
           "last_name",
           "email",
-          "phone",
-          "einwilligung"
+          "phone"
         ],
         "title": "FLBewerbungKontaktpersonPayload",
-        "type": "object"
-      },
-      "FLBewerbungKuerzelResponse": {
-        "description": "Whether a proposed Kürzel is already a club's, active or retired, naming no club.",
-        "properties": {
-          "shorthand": {
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "taken": {
-            "title": "Taken",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "shorthand",
-          "taken"
-        ],
-        "title": "FLBewerbungKuerzelResponse",
         "type": "object"
       },
       "FLBewerbungLinkData": {
@@ -3891,6 +4018,78 @@
           "deadline"
         ],
         "title": "FLBewerbungLinkData",
+        "type": "object"
+      },
+      "FLBewerbungListRow": {
+        "description": "One application as the season's list shows it, holding nothing of a person.",
+        "properties": {
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "new_school": {
+            "title": "New School",
+            "type": "boolean"
+          },
+          "seats_confirmed": {
+            "title": "Seats Confirmed",
+            "type": "integer"
+          },
+          "seats_objected": {
+            "title": "Seats Objected",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FLBewerbungStatus"
+          },
+          "submitted_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "wunschfarbe": {
+            "$ref": "#/components/schemas/FLTrikotFarbe"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "submitted_at",
+          "team_id",
+          "name",
+          "new_school",
+          "wunschfarbe",
+          "seats_confirmed",
+          "seats_objected",
+          "duplicate"
+        ],
+        "title": "FLBewerbungListRow",
         "type": "object"
       },
       "FLBewerbungNoWindowResponse": {
@@ -3950,6 +4149,13 @@
         ],
         "title": "FLBewerbungObjectionData",
         "type": "object"
+      },
+      "FLBewerbungOrigin": {
+        "enum": [
+          "new_school",
+          "existing_team"
+        ],
+        "type": "string"
       },
       "FLBewerbungPerson": {
         "description": "Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.",
@@ -4052,11 +4258,6 @@
               }
             ]
           },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
           "team_name": {
             "minLength": 1,
             "title": "Team Name",
@@ -4077,7 +4278,6 @@
         "required": [
           "team_name",
           "full_name",
-          "shorthand",
           "schulform",
           "address",
           "website_url"
@@ -4123,11 +4323,6 @@
           "schulform": {
             "$ref": "#/components/schemas/FLSchulform"
           },
-          "shorthand": {
-            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
-            "title": "Shorthand",
-            "type": "string"
-          },
           "team_name": {
             "maxLength": 60,
             "minLength": 1,
@@ -4151,7 +4346,6 @@
         "required": [
           "team_name",
           "full_name",
-          "shorthand",
           "schulform",
           "address",
           "website_url"
@@ -4176,18 +4370,28 @@
         "type": "object"
       },
       "FLBewerbungSingleResponse": {
+        "description": "One application as its review page shows it.",
         "properties": {
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
           },
-          "confirmation_deadline_expired": {
-            "title": "Confirmation Deadline Expired",
-            "type": "boolean"
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "saison": {
+            "$ref": "#/components/schemas/FLBewerbungEntryOffer"
+          },
+          "seats_confirmed": {
+            "title": "Seats Confirmed",
+            "type": "integer"
           }
         },
         "required": [
           "bewerbung",
-          "confirmation_deadline_expired"
+          "name",
+          "seats_confirmed",
+          "saison"
         ],
         "title": "FLBewerbungSingleResponse",
         "type": "object"
@@ -4392,6 +4596,10 @@
             "title": "Saison Id",
             "type": "string"
           },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
           "team": {
             "title": "Team",
             "type": "string"
@@ -4421,6 +4629,7 @@
         "required": [
           "kind",
           "team",
+          "shorthand",
           "saison_id",
           "rollen",
           "gruppe",
@@ -4428,6 +4637,32 @@
           "wunschgegner"
         ],
         "title": "FLBewerbungZusageData",
+        "type": "object"
+      },
+      "FLBewerbungenAdminListResponse": {
+        "description": "The season's applications, what an acceptance would meet there, and whether the list is whole.",
+        "properties": {
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungListRow"
+            },
+            "title": "Bewerbungen",
+            "type": "array"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "saison": {
+            "$ref": "#/components/schemas/FLBewerbungEntryOffer"
+          }
+        },
+        "required": [
+          "saison",
+          "bewerbungen",
+          "complete"
+        ],
+        "title": "FLBewerbungenAdminListResponse",
         "type": "object"
       },
       "FLBewerbungenListResponse": {
@@ -5036,12 +5271,19 @@
           "decision_reason": {
             "maxLength": 1000,
             "minLength": 1,
+            "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
             "title": "Decision Reason",
             "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
-          "decision_reason"
+          "decision_reason",
+          "version"
         ],
         "title": "FLDeclineBewerbungPayload",
         "type": "object"
@@ -11602,12 +11844,16 @@
         "type": "object"
       },
       "FLSaisonBewerbung": {
-        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\nNo flag beside the span: closing early is moving `end` to today (`app/api/bewerbungen/services.py ::\nsaison_nimmt_bewerbungen_an`).",
+        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\n`open` pauses the form alone, its dates untouched and the applications already received staying in triage, as\n`FLSaisonRegistrierung.open` pauses a link (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "End",
             "type": "string"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
           },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11616,6 +11862,7 @@
           }
         },
         "required": [
+          "open",
           "start",
           "end"
         ],
@@ -11630,6 +11877,10 @@
             "title": "End",
             "type": "string"
           },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start",
@@ -11637,6 +11888,7 @@
           }
         },
         "required": [
+          "open",
           "start",
           "end"
         ],
@@ -21019,7 +21271,7 @@
     },
     "/api/v0/bewerbungen": {
       "get": {
-        "description": "Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.\n\n`complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.\n`duplicates_key` names every key two or more open applications share: the season and the club id or upper-cased\nKürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `decision.by_barred`.",
+        "description": "Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.\n\n`complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.\n`duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.\nA barred administrator is served as `null` beside `decision.by_barred`.",
         "operationId": "bewerbungen_get_bewerbungen",
         "parameters": [
           {
@@ -21451,17 +21703,17 @@
         "x-safe": true
       }
     },
-    "/api/v0/bewerbungen/kuerzel/{shorthand}": {
+    "/api/v0/bewerbungen/form/{saison_id}": {
       "get": {
-        "description": "Answer whether any club holds this three-letter code.\n\nRetired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer\nnaming the holder would publish which schools have left (`READ-BEWERBUNG-001`).",
-        "operationId": "bewerbungen_get_kuerzel",
+        "description": "One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.\n\n404 only where no season carries the id. A closed or paused window and a season recording none are served, for the\npage to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and\nnothing more (`READ-BEWERBUNG-001`).",
+        "operationId": "bewerbungen_get_form",
         "parameters": [
           {
             "in": "path",
-            "name": "shorthand",
+            "name": "saison_id",
             "required": true,
             "schema": {
-              "title": "Shorthand",
+              "title": "Saison Id",
               "type": "string"
             }
           }
@@ -21471,7 +21723,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungKuerzelResponse"
+                  "$ref": "#/components/schemas/FLBewerbungFormResponse"
                 }
               }
             },
@@ -21523,7 +21775,135 @@
             "BaseKey": []
           }
         ],
-        "summary": "Whether a Kürzel is already a club's",
+        "summary": "What one Saison's application form shows",
+        "tags": [
+          "bewerbungen"
+        ]
+      }
+    },
+    "/api/v0/bewerbungen/list/admin": {
+      "get": {
+        "description": "One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as\n`get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.",
+        "operationId": "bewerbungen_get_bewerbungen_admin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/FLBewerbungStatus"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/FLBewerbungOrigin"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1024,
+              "maximum": 1024,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungenAdminListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison's Bewerbungen for its list",
         "tags": [
           "bewerbungen"
         ]
@@ -21907,7 +22287,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application, its decision's administrator withheld as the list withholds it.\n\n`confirmation_deadline_expired` says whether its confirmation deadline has passed today.",
+        "description": "One application, its decision's administrator withheld as the list withholds it.\n\nEach seat's `expired` says whether its own deadline has passed today.",
         "operationId": "bewerbungen_get_bewerbung",
         "parameters": [
           {
@@ -21978,7 +22358,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "One Bewerbung",
+        "summary": "One Bewerbung for its review page",
         "tags": [
           "bewerbungen"
         ]
@@ -21986,7 +22366,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {
@@ -22246,7 +22626,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend": {
       "post": {
-        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.",
+        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThat seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.",
         "operationId": "bewerbungen_resend_einwilligung",
         "parameters": [
           {
@@ -22334,7 +22714,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included\n(`bewerbung_seat_already_answered`); and on an address another\ncontact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds\n(`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
+        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -22372,7 +22752,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
+                  "$ref": "#/components/schemas/FLBewerbungKontaktSeatResponse"
                 }
               }
             },
@@ -22424,105 +22804,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Seat another person where a contact person stepped out",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
-      "post": {
-        "description": "Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on an application already decided (`bewerbung_already_decided`), on any seat this write would reach that is already\nconfirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included\n(`bewerbung_seat_already_answered`) — on a seat holding another address than `previous_email`, the address the caller's page\nshowed, as after a Widerspruch and a reseat (`bewerbung_seat_differently_seated`), and on an address another contact person on this\napplication already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_barred`). A path naming\nno seat is a 404.",
-        "operationId": "bewerbungen_post_kontakt_email",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "bewerbung_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Bewerbung Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "seat",
-            "required": true,
-            "schema": {
-              "title": "Seat",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLBewerbungKontaktEmailPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Correct one contact person's email address and re-send their link",
+        "summary": "Write the person one contact seat holds and mail them a fresh link",
         "tags": [
           "bewerbungen"
         ]

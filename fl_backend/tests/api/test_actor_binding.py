@@ -150,11 +150,6 @@ GRANT_WRITES = [
 # Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
 # link to an address. Listed, and held to the declarations by the case below.
 STEP_UP_WRITES = [
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/accept", id="an acceptance"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/decline", id="a decline"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend", id="a seat's re-send"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email", id="a seat's address correction"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}", id="a reseat"),
     pytest.param("post", "/api/v0/identity/erasure", id="an erasure on a mailed request"),
     pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),

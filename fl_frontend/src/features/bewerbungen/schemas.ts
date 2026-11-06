@@ -36,7 +36,6 @@ import {
   BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-  KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
 
@@ -51,6 +50,8 @@ export const FLAnnehmenBewerbungPayloadSchema = z.object({
   gruppe: FLGruppenNamesSchema,
   // Assigned rather than read off `trikot.wunschfarbe`: a wish is not an assignment.
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
+  shorthand: z.string().nullable(),
+  version: z.number(),
 });
 
 /**
@@ -70,6 +71,7 @@ export const FLAblehnenBewerbungPayloadSchema = z.object({
     .max(BEWERBUNG_DECISION_REASON_MAX_LENGTH, {
       error: `Der Grund darf höchstens ${String(BEWERBUNG_DECISION_REASON_MAX_LENGTH)} Zeichen lang sein.`,
     }),
+  version: z.number(),
 });
 
 /**
@@ -163,10 +165,6 @@ const FLBewerbungSchulePayloadSchema = z.object({
       }),
     "Der vollständige Name",
   ),
-  shorthand: z
-    .string()
-    .trim()
-    .length(KUERZEL_LAENGE, { error: `Das Kürzel besteht aus genau ${String(KUERZEL_LAENGE)} Zeichen.` }),
   // Answered, unlike the club editor's: „Keine Angabe“ is a gap an administrator can chase later,
   // and the one person who knows the answer is the applicant filling this box.
   schulform: FLSchulformSchema,
@@ -338,9 +336,7 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
   email: KontaktEmailSchema,
-  // The address the page showed on the seat, never one read again in the action: the backend refuses a seat another
-  // person took since, which a fresh read would hand the address typed for the one who left (`bewerbung_seat_differently_seated`).
-  previous_email: KontaktEmailSchema,
+  version: z.number(),
 });
 
 /**
@@ -354,4 +350,5 @@ export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   phone: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  version: z.number(),
 });

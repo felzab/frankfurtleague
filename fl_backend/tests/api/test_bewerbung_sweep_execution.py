@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view
-from app.api.bewerbungen.services import SWEEP_PAGE, compose_confirmation_update
+from app.api.bewerbungen.services import SWEEP_PAGE, compose_confirmation_update, confirmation_deadline_from
 from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
     REMINDERS_PER_PASS,
@@ -110,7 +110,9 @@ def kontakte() -> dict[str, Any]:
     }
 
 
-def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrides: Any) -> dict[str, Any]:
+def application(
+    bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, confirmation_deadline: str = "2026-04-12", **overrides: Any
+) -> dict[str, Any]:
     # Each seat's first link minted from the application's id, as `first_hashes` reads it back.
     stored = documents.bewerbung_document(
         bewerbung_id,
@@ -118,8 +120,8 @@ def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrid
         "submitted",
         kontakte=kontakte(),
         submitted_at=MAILED_ON_THE_MARK,
-        confirmation_deadline="2026-04-12",
-        schule=documents.new_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        confirmation_deadline=confirmation_deadline,
+        schule=documents.new_schule_document(SCHOOL_NAME, full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
     )
 
     return {**stored, **overrides}
@@ -335,7 +337,7 @@ class TestTheReminderClock:
             # No link before the hand-out: the first one alone stands until the drain mints the reminder's beside it.
             assert bookkeeping["token_hashes"] == [first[rolle]]
             assert (bookkeeping["reminded_at"], bookkeeping["sent_at"]) == (TODAY, MAILED_ON_THE_MARK)
-        assert document["confirmation_deadline"] == "2026-04-12"
+        assert document["confirmations"]["trainer"]["deadline"] == "2026-04-12"
 
     def test_the_reminders_link_joins_the_first_and_both_open_the_seat(self, mongo_replica_set_url: str):
         """The reader still looking at the first mail is not punished by the chase."""
@@ -402,6 +404,7 @@ class TestTheReminderClock:
             assert document["confirmations"][rolle] == {
                 "token_hashes": [hash_token(fresh_token)],
                 "sent_at": TODAY,
+                "deadline": confirmation_deadline_from(today=TODAY),
                 "reminded_at": None,
                 "declined_at": None,
             }
@@ -615,6 +618,45 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
             return await stored(database, DELETE_OID) is None
 
         assert on_a_league(mongo_replica_set_url, body) is outstanding
+
+    def test_one_seats_lapsed_deadline_reaches_the_query_beside_another_seats_fresh_link(self, mongo_replica_set_url: str):
+        """The filter's first arm: a read judging the latest deadline never hands the predicate this row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": DELETE_OID}, {"$set": {"confirmations.stellvertretung.deadline": "2026-04-12"}}
+            )
+            await sweep(database, client)
+
+            return await stored(database, DELETE_OID) is None
+
+        assert on_a_league(mongo_replica_set_url, body) is True
+
+    @pytest.mark.parametrize(
+        ("other_deadline", "taken"),
+        [pytest.param("2026-04-12", False, id="another seat's link still runs"), pytest.param(YESTERDAY, True, id="no link runs")],
+    )
+    def test_a_seat_an_erasure_emptied_reaches_the_query_once_no_link_runs(self, mongo_replica_set_url: str, other_deadline: str, taken: bool):
+        """The filter's second arm: the erased seat holds no deadline for the first arm to read."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirm_every_seat(database, DELETE_OID)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": DELETE_OID},
+                {
+                    "$set": {
+                        "kontakte.stellvertretung": None,
+                        "confirmations.stellvertretung": None,
+                        "confirmations.trainer.deadline": other_deadline,
+                        "confirmations.ansprechperson.deadline": other_deadline,
+                    }
+                },
+            )
+            await sweep(database, client)
+
+            return await stored(database, DELETE_OID) is None
+
+        assert on_a_league(mongo_replica_set_url, body) is taken
 
     @pytest.mark.parametrize(
         ("update", "due"),
@@ -1340,19 +1382,20 @@ async def passes_until_empty(one_pass: Callable[[], Awaitable[int]], *, share: i
 class TestEachCappedClockMakesProgressAcrossPasses:
     """More due rows than one share: a clock that took its share from the same page every pass would stall for ever."""
 
-    def test_the_reminder_takes_its_share_earliest_deadline_first_and_the_passes_reach_every_row(self, mongo_replica_set_url: str):
+    def test_the_reminder_takes_its_share_oldest_application_first_and_the_passes_reach_every_row(self, mongo_replica_set_url: str):
         overflow = REMINDERS_PER_PASS + 5
-        # The later deadlines seeded FIRST, so natural order would take the wrong share.
-        deadline_of = {position: "2026-04-12" if position < overflow - REMINDERS_PER_PASS else "2026-04-05" for position in range(overflow)}
+        # The later applications seeded FIRST, so natural order would take the wrong share.
+        submitted_of = {position: "2026-03-20" if position < overflow - REMINDERS_PER_PASS else "2026-03-19" for position in range(overflow)}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_many({})
             await database[Collection.BEWERBUNGEN].insert_many(
-                [application(numbered(position), confirmation_deadline=deadline) for position, deadline in deadline_of.items()]
+                [application(numbered(position), submitted_at=day) for position, day in submitted_of.items()]
             )
 
             first = await sweep(database, client, now=MAIL_NOW)
-            first_deadlines = {mail["data"]["deadline"] for mail in await owed(database, "bewerbung_reminder")}
+            reminded = await database[Collection.BEWERBUNGEN].find({"confirmations.trainer.reminded_at": TODAY}).to_list(length=None)
+            first_days = {row["submitted_at"] for row in reminded}
 
             async def one_pass() -> int:
                 return (await sweep(database, client, now=MAIL_NOW)).reminded
@@ -1361,11 +1404,11 @@ class TestEachCappedClockMakesProgressAcrossPasses:
 
             stamped = await database[Collection.BEWERBUNGEN].count_documents({"confirmations.trainer.reminded_at": TODAY})
 
-            return first_deadlines, taken, stamped
+            return first_days, taken, stamped
 
-        first_deadlines, taken, stamped = on_a_league(mongo_replica_set_url, body)
+        first_days, taken, stamped = on_a_league(mongo_replica_set_url, body)
 
-        assert first_deadlines == {"2026-04-05"}
+        assert first_days == {"2026-03-19"}
         per_pass(taken, REMINDERS_PER_PASS, overflow)
         assert stamped == overflow
 
@@ -1435,7 +1478,13 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
     @pytest.mark.parametrize(
         "refused",
         [
-            pytest.param(lambda row: {**row, "confirmation_deadline": "2026-04-1"}, id="a deadline the answer refuses"),
+            pytest.param(
+                lambda row: {
+                    **row,
+                    "confirmations": {seat: {**entry, "deadline": "2026-04-1"} for seat, entry in row["confirmations"].items()},
+                },
+                id="a deadline the answer refuses",
+            ),
             pytest.param(
                 lambda row: {
                     **row,

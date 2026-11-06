@@ -13,6 +13,7 @@ import {
 import type {
   ActionLogGetActionLogParams,
   AddressChangeSweepAddressChangeParams,
+  BewerbungenGetBewerbungenAdminParams,
   BewerbungenGetBewerbungenParams,
   CheckIsLiveResponse,
   FLAcceptBewerbungPayload,
@@ -48,11 +49,11 @@ import type {
   FLBewerbungEinwilligungGiven,
   FLBewerbungEinwilligungResendResponse,
   FLBewerbungEinwilligungViewResponse,
+  FLBewerbungenAdminListResponse,
   FLBewerbungenListResponse,
-  FLBewerbungKontaktEmailPayload,
-  FLBewerbungKontaktEmailResponse,
+  FLBewerbungFormResponse,
   FLBewerbungKontaktSeatPayload,
-  FLBewerbungKuerzelResponse,
+  FLBewerbungKontaktSeatResponse,
   FLBewerbungNoWindowResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
@@ -837,8 +838,8 @@ export const getBewerbungenGetBewerbungenUrl = (params?: BewerbungenGetBewerbung
  * Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
  *
  * `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
- * `duplicates_key` names every key two or more open applications share: the season and the club id or upper-cased
- * Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `decision.by_barred`.
+ * `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
+ * A barred administrator is served as `null` beside `decision.by_barred`.
  * @summary List Bewerbungen
  */
 export const bewerbungenGetBewerbungen = async (
@@ -967,22 +968,46 @@ export const bewerbungenGetEinwilligungView = async (
   });
 };
 
-export const getBewerbungenGetKuerzelUrl = (shorthand: string) => {
-  return `/api/v0/bewerbungen/kuerzel/${encodeURIComponent(String(shorthand))}`;
+export const getBewerbungenGetFormUrl = (saisonId: string) => {
+  return `/api/v0/bewerbungen/form/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
- * Answer whether any club holds this three-letter code.
+ * One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
  *
- * Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
- * naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
- * @summary Whether a Kürzel is already a club's
+ * 404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
+ * page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
+ * nothing more (`READ-BEWERBUNG-001`).
+ * @summary What one Saison's application form shows
  */
-export const bewerbungenGetKuerzel = async (
-  shorthand: string,
+export const bewerbungenGetForm = async (
+  saisonId: string,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungKuerzelResponse> => {
-  return baseKeyTransport<FLBewerbungKuerzelResponse>(getBewerbungenGetKuerzelUrl(shorthand), {
+): Promise<FLBewerbungFormResponse> => {
+  return baseKeyTransport<FLBewerbungFormResponse>(getBewerbungenGetFormUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewerbungenAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/v0/bewerbungen/list/admin?${stringifiedParams}` : `/api/v0/bewerbungen/list/admin`;
+};
+
+/**
+ * One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+ *
+ * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
+ * `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+ * @summary One Saison's Bewerbungen for its list
+ */
+export const bewerbungenGetBewerbungenAdmin = async (
+  params: BewerbungenGetBewerbungenAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungenAdminListResponse> => {
+  return adminKeyTransport<FLBewerbungenAdminListResponse>(getBewerbungenGetBewerbungenAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -1092,8 +1117,8 @@ export const getBewerbungenGetBewerbungUrl = (bewerbungId: string) => {
 /**
  * One application, its decision's administrator withheld as the list withholds it.
  *
- * `confirmation_deadline_expired` says whether its confirmation deadline has passed today.
- * @summary One Bewerbung
+ * Each seat's `expired` says whether its own deadline has passed today.
+ * @summary One Bewerbung for its review page
  */
 export const bewerbungenGetBewerbung = async (
   bewerbungId: string,
@@ -1110,11 +1135,15 @@ export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Accept an application, creating the school's club where the applicant proposed a new one.
+ * Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.
+ *
+ * The bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:
+ * one request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
  *
  * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
  * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
+ * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
  * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */
@@ -1223,8 +1252,8 @@ export const getBewerbungenResendEinwilligungUrl = (bewerbungId: string, seat: s
  * Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.
  *
  * Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
- * The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
- * The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
+ * The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
+ * That seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat
  * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
  * decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
  * holds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.
@@ -1246,30 +1275,30 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
 };
 
 /**
- * Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.
+ * „Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.
  *
- * It runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.
- * The record written is administrative and confirms nothing: the new person's own link is what asks them, and an
- * acceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled
- * from one press and one link answers both, and both must be empty for either to be written.
+ * One write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a
+ * Widerspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative
+ * and confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it
+ * waits on the other two. Where one person holds two seats both are written from one press and one link answers
+ * both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
+ * EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
  *
- * The link the seat's last holder was sent stops opening anything, and the application's confirmation deadline
- * restarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens
- * nothing, seating them for a confirmation they cannot give.
+ * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
+ * its notice could not arrive is a deletion candidate again once that mail is not refused.
  *
- * Refused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody
- * stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
- * (`bewerbung_seat_already_answered`); and on an address another
- * contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
- * (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
- * @summary Seat another person where a contact person stepped out
+ * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
+ * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
+ * address another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban
+ * list holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
+ * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeat = async (
   bewerbungId: string,
   seat: string,
   fLBewerbungKontaktSeatPayload: FLBewerbungKontaktSeatPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungKontaktEmailResponse> => {
+): Promise<FLBewerbungKontaktSeatResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1282,59 +1311,11 @@ export const bewerbungenPostKontaktSeat = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenPostKontaktSeatUrl(bewerbungId, seat), {
+  return adminKeyTransport<FLBewerbungKontaktSeatResponse>(getBewerbungenPostKontaktSeatUrl(bewerbungId, seat), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLBewerbungKontaktSeatPayload),
-  });
-};
-
-export const getBewerbungenPostKontaktEmailUrl = (bewerbungId: string, seat: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}/email`;
-};
-
-/**
- * Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.
- *
- * The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
- * record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
- * deadline restarts from today exactly as a re-send restarts it.
- *
- * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
- * its notice could not arrive is a deletion candidate again once that mail is not refused.
- *
- * Refused on an application already decided (`bewerbung_already_decided`), on any seat this write would reach that is already
- * confirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included
- * (`bewerbung_seat_already_answered`) — on a seat holding another address than `previous_email`, the address the caller's page
- * showed, as after a Widerspruch and a reseat (`bewerbung_seat_differently_seated`), and on an address another contact person on this
- * application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_barred`). A path naming
- * no seat is a 404.
- * @summary Correct one contact person's email address and re-send their link
- */
-export const bewerbungenPostKontaktEmail = async (
-  bewerbungId: string,
-  seat: string,
-  fLBewerbungKontaktEmailPayload: FLBewerbungKontaktEmailPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungKontaktEmailResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenPostKontaktEmailUrl(bewerbungId, seat), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungKontaktEmailPayload),
   });
 };
 

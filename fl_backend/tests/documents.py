@@ -293,13 +293,12 @@ def spieler_document(spieler_id: Any, first_name: str, last_name: str | None, **
     }
 
 
-def new_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
+def new_schule_document(team_name: str, **fields: Any) -> dict[str, Any]:
     """The school block of an application naming a school the league does not hold yet, named as `team_document` names one."""
 
     return {
         "team_name": team_name,
         "full_name": f"{team_name}-Schule",
-        "shorthand": shorthand,
         "schulform": None,
         "address": dict(ADDRESS),
         "website_url": None,
@@ -335,9 +334,15 @@ def bewerbung_document(
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
     minted = sent_at or submitted_at
+    confirmations = (
+        fields.pop("confirmations")
+        if "confirmations" in fields
+        else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted)
+    )
 
     return {
         "_id": bewerbung_id,
+        "version": 0,
         "saison_id": saison_id,
         "submitted_at": submitted_at,
         "status": status,
@@ -349,8 +354,13 @@ def bewerbung_document(
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": confirmation_deadline if confirmation_deadline is not None else confirmation_deadline_from(today=minted),
-        "confirmations": minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted),
+        # `confirmation_deadline` every seat's day at once, each seat's own otherwise, as the mint gave it.
+        "confirmations": {
+            seat: {**entry, "deadline": confirmation_deadline or entry.get("deadline") or confirmation_deadline_from(today=minted)}
+            if isinstance(entry, Mapping)
+            else entry
+            for seat, entry in confirmations.items()
+        },
         **fields,
     }
 

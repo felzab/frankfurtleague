@@ -27,7 +27,7 @@ export type AdminBewerbungRow = FLBewerbung & {
  * One contact person mid-entry. Every field is typed, so an unanswered one is the empty string and
  * the schema is what turns it into a field error rather than a type error.
  */
-export type BewerbungKontaktpersonDraft = Omit<FLBewerbungKontaktpersonPayload, "einwilligung"> & {
+export type BewerbungKontaktpersonDraft = FLBewerbungKontaktpersonPayload & {
   // `given` starts `false`, which `z.literal(true)` refuses: an untouched box is an acknowledgement
   // nobody made, and the payload type admits no other value.
   einwilligung: { given: boolean };
@@ -73,12 +73,6 @@ export type BewerbungFormDraft = {
  * that answered "abgelaufen" there would state a deadline it never learnt.
  */
 export type FensterZustand = "running" | "noch-nicht" | "closed" | "vorbei" | "keine-frist";
-
-/**
- * A blur-time verdict on a Kürzel, kept with the value it judged. **The value, not just the answer**:
- * a refusal about `GG` says nothing about the `GY` the box holds a keystroke later.
- */
-export type KuerzelVerdikt = { shorthand: string; taken: boolean };
 
 /**
  * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a

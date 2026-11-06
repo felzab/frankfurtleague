@@ -222,7 +222,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "stufengroesse": 96,
             "wunschgegner": None,
             "decision": None,
-            "confirmation_deadline": "2026-02-15",
             "confirmations": minted_confirmations(
                 hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),

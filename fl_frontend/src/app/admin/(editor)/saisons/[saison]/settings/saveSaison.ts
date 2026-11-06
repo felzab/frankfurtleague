@@ -93,7 +93,7 @@ function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonP
         verlierer_tore: either(changes.forfeitLoser, stored.forfeit_ergebnis.verlierer_tore),
       },
     },
-    bewerbung: bewerbungStart === null || bewerbungEnd === null ? null : { start: bewerbungStart, end: bewerbungEnd },
+    bewerbung: bewerbungStart === null || bewerbungEnd === null ? null : { open: saison.bewerbung?.open ?? true, start: bewerbungStart, end: bewerbungEnd },
     registrierung: registrierungEnd === null ? null : { end: registrierungEnd, open: !paused },
   };
 }

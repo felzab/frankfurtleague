@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import build_schluessel_filter, compose_decline_update, compose_kontakte, confirmation_deadline_from
+from app.api.bewerbungen.services import build_schluessel_filter, compose_decline_update, compose_kontakte
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -60,10 +60,8 @@ EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "ADX"
 RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BIX"
 ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 
-# Free, unlike `EXISTING_SHORTHAND`, which `uniq_shorthand` already holds.
-NEW_SCHOOL_SHORTHAND = "ZXX"
 
-OPEN_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 
 
 def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str, Any]:
@@ -74,7 +72,6 @@ def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str
         "last_name": f"{first_name}-Mustermann",
         "email": email or f"{first_name.lower()}@example.com",
         "phone": phone,
-        "einwilligung": {"given": True},
     }
 
 
@@ -95,7 +92,6 @@ def schule_block(**overrides: Any) -> dict[str, Any]:
     return {
         "team_name": "Zorbanax",
         "full_name": "Zorbanax-Gesamtschule",
-        "shorthand": NEW_SCHOOL_SHORTHAND,
         "schulform": "gesamtschule",
         "address": dict(ADDRESS),
         "website_url": "https://zorbanax.example.de",
@@ -221,7 +217,7 @@ class TestWhatASubmissionStores:
         stored = on_a_league(mongo_replica_set_url, body)
 
         assert "team_id" in stored and stored["team_id"] is None
-        assert stored["schule"]["shorthand"] == NEW_SCHOOL_SHORTHAND
+        assert "shorthand" not in stored["schule"]
 
     def test_each_consent_is_the_one_the_server_composed(self, mongo_replica_set_url: str):
         """The applicant supplied a wording version and a tick; the scope, the source, the day and the empty stamp are the league's.
@@ -386,17 +382,19 @@ class TestWhatTheCreateOwes:
             assert document["confirmations"][seat]["token_hashes"] == [hash_token(mail.token)]
             assert (views[mail.an].state, views[mail.an].rolle) == ("valid", seat)
 
-    def test_the_deadline_is_the_bound_counted_from_today_and_written_beside_the_block(self, mongo_replica_set_url: str):
+    def test_each_seats_deadline_is_the_bound_counted_from_today(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             response = await submit(database)
             document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
             assert document is not None
-            return document["confirmation_deadline"], {mail["data"]["deadline"] for mail in await owed(database)}
+            return {entry["deadline"] for entry in document["confirmations"].values()}, {
+                mail["data"]["deadline"] for mail in await owed(database)
+            }
 
         written, mailed = on_a_league(mongo_replica_set_url, body)
 
-        assert {written} == mailed == {deadline_from_today()}
+        assert written == mailed == {deadline_from_today()}
 
     def test_no_raw_token_reaches_the_log(self, mongo_replica_set_url: str):
         """The insert files no image, and the row is searched as text so a token carried in under any key would show."""
@@ -479,7 +477,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase) -> Any:
             first = await submit(database, key=SCHLUESSEL)
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"bewerbung.offen": False}})
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"bewerbung.open": False}})
             second = await submit(database, key=SCHLUESSEL)
 
             return first.created_id, second.created_id
@@ -616,7 +614,7 @@ class TestTheRefusalsTheWritePathAnswers:
         "bewerbung",
         [
             pytest.param(None, id="no window recorded"),
-            pytest.param({"start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
+            pytest.param({"open": True, "start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
@@ -663,20 +661,6 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
         assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
 
-    def test_a_new_school_proposing_a_taken_kuerzel_refuses(self, mongo_replica_set_url: str):
-        """Asked of a NEW school alone; `uniq_shorthand` is what would otherwise fail at acceptance."""
-
-        failure = refused(mongo_replica_set_url, team_id=None, schule=schule_block(shorthand=EXISTING_SHORTHAND))
-
-        assert failure.error_code == Code.BEWERBUNG_SHORTHAND_TAKEN
-
-    def test_a_picked_club_is_not_refused_for_holding_its_own_kuerzel(self, mongo_replica_set_url: str):
-        """The control for the case above: a shorthand check reaching both branches would make applying impossible."""
-
-        response = on_a_league(mongo_replica_set_url, lambda database: submit(database))
-
-        assert response.created_id is not None
-
 
 class TestTwoSchoolsMayApplyForOneSeason:
     """Explicitly NOT refused: a season takes many applications, and nothing here is a queue of one."""
@@ -684,7 +668,7 @@ class TestTwoSchoolsMayApplyForOneSeason:
     def test_a_second_new_school_is_stored_beside_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> int:
             await submit(database, team_id=None, schule=schule_block())
-            await submit(database, team_id=None, schule=schule_block(team_name="Yttrium", shorthand="YTX"))
+            await submit(database, team_id=None, schule=schule_block(team_name="Yttrium"))
 
             return await database[Collection.BEWERBUNGEN].count_documents({})
 
@@ -867,45 +851,11 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         "confirmations": minted_confirmations(
             hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today=TODAY
         ),
         **fields,
     }
-
-
-class TestAKuerzelARetiredClubStillHolds:
-    """The write path's lookup spans retired clubs, because `uniq_shorthand` does.
-
-    Narrow it and a new school passes here, then fails at ACCEPTANCE on the duplicate key -- the
-    dead end `bewerbung_picked_team_unusable`'s wording exists to close, reached through `schule`.
-    """
-
-    def test_a_new_school_proposing_a_retired_clubs_kuerzel_is_refused(self, mongo_replica_set_url: str):
-        """Only a lookup spanning retired clubs can be refusing this.
-
-        `RETIRED_SHORTHAND` is held by exactly one club, and that club has left the league.
-        """
-
-        failure = refused(mongo_replica_set_url, team_id=None, schule=schule_block(shorthand=RETIRED_SHORTHAND))
-
-        assert failure.error_code == Code.BEWERBUNG_SHORTHAND_TAKEN
-
-    def test_a_kuerzel_no_club_holds_is_still_accepted(self, mongo_replica_set_url: str):
-        """The control: a lookup matching everything would refuse this too, and applying would be impossible."""
-
-        response = on_a_league(mongo_replica_set_url, lambda database: submit(database, team_id=None, schule=schule_block()))
-
-        assert response.created_id is not None
-
-    def test_the_availability_check_and_the_write_agree_about_a_retired_club(self, mongo_replica_set_url: str):
-        """Two lookups, one rule. They drifted before: the read was pinned against narrowing and the write was not."""
-
-        async def body(database: AsyncDatabase) -> int:
-            return await database[Collection.TEAMS].count_documents({"shorthand": RETIRED_SHORTHAND})
-
-        assert on_a_league(mongo_replica_set_url, body) == 1
 
 
 class TestABannedContactAddress:

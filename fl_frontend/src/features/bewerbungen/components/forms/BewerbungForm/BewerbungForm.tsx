@@ -3,20 +3,19 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
-import z from "zod";
 
 import { Button } from "@heroui/react/button";
 
 import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
-import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { bewerbungJudgedPaths, bewerbungPayload, KUERZEL_UNGEPRUEFT, KUERZEL_VERGEBEN, kuerzelHinweis } from "@/features/bewerbungen/utils";
+import { bewerbungJudgedPaths, bewerbungPayload } from "@/features/bewerbungen/utils";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
-import { EDGE_RATE_LIMIT_STATUS, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
@@ -30,23 +29,11 @@ import type {
   BewerbungKontakteDraft,
   BewerbungKontaktpersonDraft,
   BewerbungSchuleDraft,
-  KuerzelVerdikt,
 } from "@/features/bewerbungen/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
 
 type BewerbungAntwort = PublicEnvelope & { message?: string };
-
-/**
- * The availability check's answer as its route sends it, whose `vergeben` is present only where it could be judged:
- * parsed rather than asserted, so an answer of another shape is a check that failed rather than a verdict read off
- * fields that are not there.
- */
-const KuerzelAntwortSchema = z.object({ success: z.boolean(), vergeben: z.boolean().optional() });
-
-/** The answer, or the edge's limit, which answers before the route runs. */
-type KuerzelAntwort = z.infer<typeof KuerzelAntwortSchema> & { rateLimited?: boolean };
 
 const NICHT_ABGESCHICKT = `Deine Bewerbung wurde nicht abgeschickt. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
@@ -55,24 +42,6 @@ const NICHT_ABGESCHICKT = `Deine Bewerbung wurde nicht abgeschickt. ${VERSUCHE_E
  * unchanged, because other details under that key are refused.
  */
 const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
-
-// Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
-// the two render together — one promise in two wordings reads as two different promises.
-const KUERZEL_RATE_LIMIT = `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`;
-
-// A read and not a write, so it stays outside `postPublicForm`.
-/**
- * `?shorthand=` and never a path segment: nginx matches this location EXACTLY, and a longer path
- * falls through to the catch-all where the rate limit does not apply and nothing reports it.
- */
-async function fetchKuerzel(shorthand: string): Promise<KuerzelAntwort> {
-  const response = await fetch(`/api/bewerbung/kuerzel?shorthand=${encodeURIComponent(shorthand)}`);
-
-  if (response.status === EDGE_RATE_LIMIT_STATUS) return { success: false, rateLimited: true };
-  if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
-
-  return KuerzelAntwortSchema.parse(await response.json());
-}
 
 /**
  * One school's application, submitted with no session at all.
@@ -112,9 +81,6 @@ export function BewerbungForm({
    * and by nothing else.
    */
   const [trainerWahl, setTrainerWahl] = useState<FLTrainerAlso | null | undefined>(undefined);
-  /** The last blur-time answer about a Kürzel, kept WITH the value it judged (see `mergedErrors`). */
-  const [kuerzelVerdikt, setKuerzelVerdikt] = useState<KuerzelVerdikt | null>(null);
-  const [isKuerzelPending, setIsKuerzelPending] = useState(false);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
@@ -136,17 +102,6 @@ export function BewerbungForm({
   /** Judged with the value the event carried, because state has not committed yet. */
   const validatePicked = (paths: readonly string[], next: BewerbungFormDraft) =>
     validatePaths("bewerbung", bewerbungPayload(next), bewerbungJudgedPaths(paths, next.kontakte.trainer_is_also));
-
-  /**
-   * The blur-time verdict stands only while the value it judged is still in the box.
-   *
-   * Laid over the hook's map rather than written into it: `setSubmitFieldErrors` moves focus, and a
-   * blur-time answer would drag the applicant back into the field they left.
-   */
-  const mergedErrors: FieldErrors =
-    kuerzelVerdikt !== null && kuerzelVerdikt.taken && kuerzelVerdikt.shorthand === draft.schule.shorthand
-      ? { ...fieldErrors, "schule.shorthand": KUERZEL_VERGEBEN }
-      : fieldErrors;
 
   const setKontakte = (next: BewerbungKontakteDraft) => applyDraft((current) => ({ ...current, kontakte: next }));
 
@@ -201,35 +156,8 @@ export function BewerbungForm({
   const pickAuswahl = (auswahl: string | null) => {
     const next: BewerbungFormDraft = { ...draft, auswahl: auswahl };
 
-    // The blur-time verdict judged a Kürzel this pick may have taken out of the payload entirely.
-    setKuerzelVerdikt(null);
     applyDraft(next);
     validatePicked(["team_id"], next);
-  };
-
-  const checkKuerzel = (shorthand: string) => {
-    if (shorthand.length !== KUERZEL_LAENGE) {
-      setKuerzelVerdikt(null);
-      return;
-    }
-
-    setIsKuerzelPending(true);
-    void fetchKuerzel(shorthand).then(
-      (antwort) => {
-        setIsKuerzelPending(false);
-        // A check that could not be judged refuses nothing: the submit's own `bewerbung_shorthand_taken` is
-        // what stands between a taken code and a stored one, and this is a courtesy in front of it.
-        setKuerzelVerdikt(antwort.success && antwort.vergeben !== undefined ? { shorthand, taken: antwort.vergeben } : null);
-
-        // Said out loud only for the limit: the form goes on either way, and what it costs is that
-        // the code stays unchecked until the submit judges it.
-        if (antwort.rateLimited === true) appToast.warning("Kürzel noch nicht geprüft", { description: KUERZEL_RATE_LIMIT });
-      },
-      () => {
-        setIsKuerzelPending(false);
-        setKuerzelVerdikt(null);
-      },
-    );
   };
 
   const handleSubmit = () => {
@@ -346,7 +274,7 @@ export function BewerbungForm({
       {hinweisSlot}
 
       <Form
-        wiring={{ ...formWiring, validationErrors: mergedErrors }}
+        wiring={{ ...formWiring, validationErrors: fieldErrors }}
         // A create form, so its required fields carry the asterisk every other create form marks them
         // with: nearly every box here is required, and a stranger fills this in once.
         data-required-marks="on"
@@ -367,8 +295,6 @@ export function BewerbungForm({
             applyDraft(next);
             validatePicked(paths, next);
           }}
-          onKuerzelLeft={checkKuerzel}
-          kuerzelHinweis={kuerzelHinweis(draft.schule.shorthand, kuerzelVerdikt, isKuerzelPending)}
           isSchulenLesbar={isSchulenLesbar}
         />
 

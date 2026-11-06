@@ -57,7 +57,7 @@ export type PublicAnswer<T> =
  * The edge's rate limit, generated before any route handler runs: the body is nginx's own sentence
  * rather than the envelope, so the status is the whole of what arrived.
  */
-export const EDGE_RATE_LIMIT_STATUS = 429;
+const EDGE_RATE_LIMIT_STATUS = 429;
 
 /** The request reached no judgement, so nothing of what was typed may be named here. */
 const KEINE_VERBINDUNG = "Prüfe die Verbindung und versuche es erneut.";

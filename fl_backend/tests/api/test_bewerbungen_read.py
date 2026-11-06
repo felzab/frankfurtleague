@@ -11,9 +11,9 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbungen
-from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
-from app.api.bewerbungen.services import dubletten_schluessel_of, mit_zustellung
+from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbung, get_bewerbungen, get_bewerbungen_admin
+from app.api.bewerbungen.schemas import FLBewerbungenAdminFilterParams, FLBewerbungenFilterParams
+from app.api.bewerbungen.services import mit_zustellung
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
@@ -43,7 +43,6 @@ def bewerbung_document(
     status: str = "submitted",
     saison_id: str = SAISON_ID,
     *,
-    shorthand: str = "SGX",
     submitted_at: str = "2026-02-01",
     team_id: ObjectId | None = None,
 ) -> dict[str, Any]:
@@ -63,7 +62,7 @@ def bewerbung_document(
         schule=None
         if team_id is not None
         else documents.new_schule_document(
-            f"Schule {index}", shorthand, full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
+            f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
         ),
         trikot={"existing_satz": "16 rote Trikots", "wunschfarbe": "rot"},
     )
@@ -152,18 +151,18 @@ class _ArchiveCollection:
         # Grouped rather than answered from a canned list: cells of the reader's own shape would pass
         # a pipeline narrowed to the page. Which keys MongoDB really answers is the db tier's.
         self.requested_pipeline = list(pipeline)
-        stages = {name: body for stage in self.requested_pipeline for name, body in stage.items()}
+        first_match, first_group, *_ = [body for stage in self.requested_pipeline for body in stage.values()]
         grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
 
         for document in self.stored:
-            if not matches(document, stages.get("$match", {})):
+            if not matches(document, first_match):
                 continue
 
-            cell_id = {name: at(document, reference) for name, reference in stages["$group"]["_id"].items()}
+            cell_id = {name: at(document, reference) for name, reference in first_group["_id"].items()}
             held = grouped.setdefault(tuple(cell_id.values()), {"_id": cell_id, "count": 0})
             held["count"] += 1
 
-        return _Cells(list(grouped.values()))
+        return _Cells([cell for cell in grouped.values() if cell["count"] > 1])
 
 
 class _Cells:
@@ -204,6 +203,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
             outbox_collection=cast(AsyncCollection, _NothingStored()),
             ban_list=ban_list({Collection.BAN_LIST: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
+            today="2026-03-01",
         )
     )
 
@@ -314,7 +314,8 @@ DUBLETTEN_DATABASE = worker_database("fl_bewerbungen_dubletten_test")
 # The two ends of the queue, with the cap's worth of rows between them.
 NEUESTE = 9001
 AELTESTE = 9002
-KUERZEL_PAAR = f"{SAISON_ID} kuerzel GGX"
+PAAR_CLUB = ObjectId("6890a1b2c3d4e5f600009999")
+PAAR = f"{SAISON_ID} team {PAAR_CLUB}"
 
 
 def straddling_archive() -> list[dict[str, Any]]:
@@ -331,8 +332,8 @@ def straddling_archive() -> list[dict[str, Any]]:
 
     return [
         *filler,
-        bewerbung_document(NEUESTE, submitted_at="2026-02-28", shorthand="ggx"),
-        bewerbung_document(AELTESTE, submitted_at="2026-02-01", shorthand="GGX"),
+        bewerbung_document(NEUESTE, submitted_at="2026-02-28", team_id=PAAR_CLUB),
+        bewerbung_document(AELTESTE, submitted_at="2026-02-01", team_id=PAAR_CLUB),
     ]
 
 
@@ -440,7 +441,9 @@ class TestTheSeasonRelationIsATermTheReadNarrowsOn:
         collection = _ArchiveCollection(mixed_archive())
         run_list(collection, saison_id=SAISON_ID, saison_reference=["other_saison"], status=["submitted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": {"$ne": SAISON_ID}, "status": "submitted"}}
+        assert collection.requested_pipeline[0] == {
+            "$match": {"saison_id": {"$ne": SAISON_ID}, "status": "submitted", "team_id": {"$ne": None}}
+        }
 
 
 class TestBothSidesOfTheSeasonRelationAreCounted:
@@ -473,78 +476,26 @@ class TestTheCollisionIsAskedOverTheWholeQueue:
         collection = _ArchiveCollection(mixed_archive())
         run_list(collection, status=["accepted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"status": "submitted"}}
+        assert collection.requested_pipeline[0] == {"$match": {"status": "submitted", "team_id": {"$ne": None}}}
 
     def test_the_pass_keeps_the_season_the_request_named(self):
         collection = _ArchiveCollection(mixed_archive())
         run_list(collection, saison_id=SAISON_ID, status=["submitted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": SAISON_ID, "status": "submitted"}}
+        assert collection.requested_pipeline[0] == {"$match": {"saison_id": SAISON_ID, "status": "submitted", "team_id": {"$ne": None}}}
 
     def test_the_pass_carries_no_bound_of_its_own(self):
         collection = _ArchiveCollection(archive_of(2))
         run_list(collection)
 
-        assert [name for stage in collection.requested_pipeline for name in stage] == ["$match", "$group"]
+        assert [name for stage in collection.requested_pipeline for name in stage] == ["$match", "$group", "$match"]
 
     def test_the_answer_carries_the_keys_the_pass_found(self):
-        """Read off the ANSWER: the fold's own cases below build cells by hand, which a router dropping the field would still satisfy."""
+        """Read off the ANSWER: a router dropping the field would still pass a case over cells built by hand."""
 
-        collection = _ArchiveCollection([bewerbung_document(1, shorthand="ggx"), bewerbung_document(2, shorthand="GGX")])
+        collection = _ArchiveCollection([bewerbung_document(1, team_id=PAAR_CLUB), bewerbung_document(2, team_id=PAAR_CLUB)])
 
-        assert run_list(collection).duplicates_key == [KUERZEL_PAAR]
-
-
-class TestWhatCountsAsOneCollisionKey:
-    """The fold and the pair rule, over cells of the shape the tally's `$group` answers with."""
-
-    def test_two_cells_parted_by_the_kuerzels_case_are_one_collision(self):
-        """Why the fold cannot move into the pipeline: MongoDB parts `gg` from `GG`, leaving two cells of one."""
-
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "ggx"}, "count": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": " GGX "}, "count": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == [KUERZEL_PAAR]
-
-    def test_a_key_one_application_holds_is_named_by_nothing(self):
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1}]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_cell_naming_neither_a_club_nor_a_kuerzel_is_passed_over(self):
-        """The row `bewerbung_subject_unresolved` refuses, and two of them are not a pair."""
-
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": None}, "count": 4}]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_the_season_parts_two_cells_sharing_a_kuerzel(self):
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1},
-            {"_id": {"saison_id": "2025", "team_id": None, "shorthand": "GGX"}, "count": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_club_and_a_kuerzel_spelling_one_text_are_two_keys(self):
-        """`GG` as a club id is nothing a school could propose, and the words in the key are what keep them apart."""
-
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": "GGX", "shorthand": None}, "count": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_club_key_spells_the_id_as_the_served_row_carries_it(self):
-        """The frontend composes its half from a row's `team_id` string, so the two only meet on that spelling."""
-
-        club = ObjectId("6890a1b2c3d4e5f600009999")
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": club, "shorthand": None}, "count": 2}]
-
-        assert dubletten_schluessel_of(cells) == [f"{SAISON_ID} team {club}"]
+        assert run_list(collection).duplicates_key == [PAAR]
 
 
 class TestTheCollisionSurvivesTheReadsCap:
@@ -566,6 +517,7 @@ class TestTheCollisionSurvivesTheReadsCap:
                     outbox_collection=database[Collection.OUTBOX],
                     ban_list=ban_list(database),
                     filters=FLBewerbungenFilterParams.model_validate({}),
+                    today="2026-03-01",
                 )
 
         answered = on_the_seed_loop(read())
@@ -578,7 +530,109 @@ class TestTheCollisionSurvivesTheReadsCap:
         assert ObjectId(BEWERBUNG_ID.format(NEUESTE)) in served
         assert ObjectId(BEWERBUNG_ID.format(AELTESTE)) not in served
 
-        assert answered.duplicates_key == [KUERZEL_PAAR]
+        assert answered.duplicates_key == [PAAR]
+
+
+VIEW_DATABASE = worker_database("fl_bewerbungen_view_test")
+
+VIEW_SAISON = "2027"
+PICKED_CLUB = ObjectId("6890a1b2c3d4e5f600009998")
+PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED = 9101, 9102, 9103, 9104
+
+
+async def on_the_view_corpus(mongo_url: str, read: Any) -> Any:
+    """A `future` season with one full group and one with room, a pair naming one club, a new school and a declined row."""
+
+    async with a_clean_database(mongo_url, VIEW_DATABASE, constraints=True) as (_, database):
+        rules = documents.rules_document(teams_per_gruppe=2, number_of_gruppen=2)
+        await database[Collection.SAISONS].insert_one(documents.saison_document(VIEW_SAISON, "future", rules=rules))
+        await database[Collection.TEAMS].insert_one(documents.team_document(PICKED_CLUB, "Adlerhorst", "ADX"))
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(VIEW_SAISON, ObjectId(), "Fremd", "FRX", gruppe="A", trikot_farbe="blau"),
+                documents.saison_team_document(VIEW_SAISON, ObjectId(), "Anders", "ANX", gruppe="A", trikot_farbe=None),
+            ]
+        )
+        await database[Collection.BEWERBUNGEN].insert_many(
+            [
+                bewerbung_document(PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(ALSO_PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(NEW_SCHOOL, saison_id=VIEW_SAISON),
+                bewerbung_document(DECLINED, "declined", VIEW_SAISON, team_id=PICKED_CLUB),
+            ]
+        )
+
+        return await read(database)
+
+
+async def view_list(database: Any, **filters: Any) -> Any:
+    return await get_bewerbungen_admin(
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        filters=FLBewerbungenAdminFilterParams.model_validate({"saison_id": VIEW_SAISON, **filters}),
+    )
+
+
+class TestTheSeasonsListRead:
+    """The list page's one read: what its rows and its dialogs need, off one request, and no person's details."""
+
+    pytestmark = pytest.mark.db
+
+    def test_a_row_holds_the_list_and_nobody_s_details(self, mongo_url: str):
+        """The list shows counts, so an address here is personal data served to a page that never shows it."""
+
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
+
+        assert KONTAKTPERSON["email"] not in answered.model_dump_json()
+        assert {row.name for row in answered.bewerbungen} == {"Adlerhorst", f"Schule {NEW_SCHOOL}"}
+        assert [row.new_school for row in answered.bewerbungen if row.id == ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] == [True]
+
+    def test_two_open_rows_naming_one_club_are_marked_and_a_decided_one_is_not(self, mongo_url: str):
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
+
+        marked = {row.id for row in answered.bewerbungen if row.duplicate}
+
+        assert marked == {ObjectId(BEWERBUNG_ID.format(PICKED)), ObjectId(BEWERBUNG_ID.format(ALSO_PICKED))}
+
+    def test_the_offer_marks_the_group_an_acceptance_would_be_refused_on(self, mongo_url: str):
+        """The dialog's greyed entry and `entry_gruppe_full` read one bound, so a page offers nothing the write refuses."""
+
+        offer = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list)).saison
+
+        assert (offer.status, [(row.gruppe, row.full) for row in offer.gruppen], offer.taken) == (
+            "future",
+            [("A", True), ("B", False)],
+            ["blau"],
+        )
+
+    @pytest.mark.parametrize(
+        ("origin", "expected"),
+        [pytest.param("new_school", {NEW_SCHOOL}, id="new"), pytest.param("existing_team", {PICKED, ALSO_PICKED, DECLINED}, id="existing")],
+    )
+    def test_the_origin_filter_parts_the_rows(self, mongo_url: str, origin: str, expected: set[int]):
+        async def read(database: Any) -> Any:
+            return await view_list(database, origin=[origin])
+
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
+
+        assert {row.id for row in answered.bewerbungen} == {ObjectId(BEWERBUNG_ID.format(index)) for index in expected}
+
+    def test_the_review_page_reads_its_name_and_its_offer_off_one_request(self, mongo_url: str):
+        async def read(database: Any) -> Any:
+            return await get_bewerbung(
+                bewerbung_id=ObjectId(BEWERBUNG_ID.format(PICKED)),
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                outbox_collection=database[Collection.OUTBOX],
+                ban_list=ban_list(database),
+                today="2026-03-01",
+            )
+
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
+
+        assert (answered.name, answered.saison.saison_id, answered.bewerbung.version) == ("Adlerhorst", VIEW_SAISON, 0)
 
 
 # The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so
@@ -715,7 +769,7 @@ class TestEachSeatReadsItsLastMail:
             },
         }
 
-        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): aufgegeben})
+        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): aufgegeben}, today="2026-03-01")
 
         assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == sent
         assert served["confirmations"]["stellvertretung"] is None
@@ -723,4 +777,4 @@ class TestEachSeatReadsItsLastMail:
     def test_a_seat_nobody_was_owed_a_mail_reads_null(self):
         row = {"_id": "bewerbung", "kontakte": {"trainer_is_also": None}, "confirmations": {"trainer": {"sent_at": "2026-04-01"}}}
 
-        assert mit_zustellung(row, {})["confirmations"]["trainer"]["delivery"] is None
+        assert mit_zustellung(row, {}, today="2026-03-01")["confirmations"]["trainer"]["delivery"] is None

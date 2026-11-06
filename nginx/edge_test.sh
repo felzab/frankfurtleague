@@ -314,7 +314,6 @@ CASES=(
   # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
   # them is a different defect rather than a fix.
   "KEEP|${BASE}/signin?error=Verification|error=Verification"
-  "KEEP|${BASE}/api/bewerbung/kuerzel?shorthand=ABC|shorthand=ABC"
   # A parameter whose name merely ends in `q`, which the one-letter arm must not reach.
   "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
   "KEEP-REF|http://localhost/teams?saison_id=abc&seq=2|seq=2"

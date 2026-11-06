@@ -367,7 +367,9 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
             async def accept(saisons: Any) -> Any:
                 return await accept_bewerbung(
                     bewerbung_id=oid(5040),
-                    annahme_data=FLAcceptBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
+                    annahme_data=FLAcceptBewerbungPayload.model_validate(
+                        {"gruppe": "A", "trikot_farbe": "blau", "shorthand": None, "version": 0}
+                    ),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
