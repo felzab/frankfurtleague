@@ -177,6 +177,9 @@ type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLa
 const STALE: ReadonlySet<Code> = new Set<Code>([
   "document_not_found",
   "version_stale",
+  // A season narrowed, or a club a replacement took out of it, since the page offering the Stufe or the row's return was read.
+  "kader_stufe_not_allowed",
+  "kader_team_not_in_saison",
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
