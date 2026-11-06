@@ -10,7 +10,7 @@ import { chosenTab } from "@/kit/tabChoice";
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { ereignisOf, matchRowOf } from "@/features/spiele/blocks";
+import { matchRowOf } from "@/features/spiele/blocks";
 import { getAdminSpielplan } from "@/features/spiele/queries";
 import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -34,11 +34,9 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison)));
 }
 
-/** What befell the match, else, while the match is to be played, that its date is not yet confirmed. */
+/** That the match's date is not yet confirmed, while nothing has befallen it: its row carries an event's chip by itself. */
 function chipOf(spiel: FLSpielJoinedAdmin): ChipProps | undefined {
-  const ereignis = ereignisOf(spiel);
-  if (ereignis !== null) return { tone: "danger", label: ereignis.title };
-  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: WORDS.provisional } : undefined;
+  return spiel.sonderereignis === null && spiel.ansetzung_confirmed === false ? { tone: "warn", label: WORDS.provisional } : undefined;
 }
 
 /**

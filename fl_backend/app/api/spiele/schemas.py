@@ -36,20 +36,13 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-type FLSpielStatus = Literal["from_today", "past", "today", "cancelled", "unknown"]
-
 # Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
 # boolean would make independent consumers agree by accident, and a field telling five events apart
 # has a different right answer per consumer.
 
-# Two sides of ONE partition -- did the fixture use up its slot, or does it record a non-event?
+# The fixtures that used up their slot: an abandoned match used the ground and the referee, and every other event
+# records a non-event.
 SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "abgebrochen")
-SONDEREREIGNIS_RECORDING_AN_ABSENCE: tuple[FLSonderereignis, ...] = (
-    "ausgefallen",
-    "nichtantreten_team1",
-    "nichtantreten_team2",
-    "annulliert",
-)
 
 # `state_ergebnis_on_a_non_event`'s subject, and by construction also the fixtures that can never award a point: a
 # state barred from carrying a result reaches no figure the table is scored on.
@@ -695,7 +688,6 @@ class FLSpieleFilterParams(BaseModel):
     # route can make (`get_spiele_admin`).
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
-    spiel_status: FLSpielStatus | None = None
     team_id: CustomObjectId | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
@@ -766,12 +758,11 @@ FLSpielRecipientListAdapter: TypeAdapter[list[FLSpielRecipient]] = TypeAdapter(l
 
 
 class FLPatchSpielDataResponse(BaseAPIResponse):
-    """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
+    """Every fixture the save moved beyond its own edit, each with the result it destroyed.
 
-    `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
-    adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
-    `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
-    so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
+    `version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and
+    null on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as
+    it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
     `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
     the set a save names in its body to delete them.
     """
@@ -779,7 +770,5 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
     voided_results: list[FLSpielVoidedResult]
-    bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     version: int
-    bericht_adopted: bool | None
     recipients: list[FLSpielRecipient] | None

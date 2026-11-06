@@ -375,6 +375,8 @@ export const COPY = catalogue({
     sonderereignis: {
       ausgefallen: SONDEREREIGNIS.ausgefallen,
       nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+      /** A no-show's chip in a match row, whose struck side names the club. */
+      nichtAngetretenChip: "Nicht angetreten",
       abgebrochen: SONDEREREIGNIS.abgebrochen,
       annulliert: SONDEREREIGNIS.annulliert,
       /**

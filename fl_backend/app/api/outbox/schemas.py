@@ -192,6 +192,25 @@ class FLSpielVorschlagDiscardedData(BaseModel):
     appointment: FLSpielMailAppointment
 
 
+class FLSpielMailFixture(BaseModel):
+    """A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them."""
+
+    team1: str
+    team2: str
+    date: CustomDateString | None
+    time: CustomTimeString | None
+
+
+class FLAustrittNoticeData(BaseModel):
+    """An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them."""
+
+    kind: Literal["austritt_notice"]
+    # The departed club's name in that season.
+    team: str
+    saison_id: str
+    fixtures: list[FLSpielMailFixture] = Field(min_length=1)
+
+
 # --- The season's and the applications' mails.
 
 
@@ -330,6 +349,7 @@ FLOutboxData = Annotated[
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
     | FLInvitationData
@@ -363,6 +383,7 @@ FLOutboxKind = Literal[
     "spiel_cancelled",
     "spiel_einteilung_lifted",
     "spiel_vorschlag_discarded",
+    "austritt_notice",
     "registrierung_confirmation",
     "registrierung_reminder",
     "registrierung_absage",

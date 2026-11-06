@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   formatDate,
   formatDateLong,
-  formatDatePair,
   formatDateWithWeekday,
+  formatDateWithWeekdayAndYear,
   formatErgebnis,
   formatEuro,
   formatInstant,
@@ -44,18 +44,14 @@ describe("formatDateLong", () => {
   });
 });
 
-describe("formatDatePair", () => {
-  it("sets the day and the month over the long weekday and the year", async (t) => {
-    const { figure, line } = formatDatePair("2027-03-06");
-    await same(t, figure, "06.03.");
-    await same(t, line, "Samstag 2027");
+describe("formatDateWithWeekdayAndYear", () => {
+  it("leads with the short weekday and keeps the year", async (t) => {
+    await same(t, formatDateWithWeekdayAndYear("2026-11-06"), "Fr., 06.11.2026");
   });
 
   // Late on New Year's Eve UTC it is already the new year in Berlin: its weekday and its year both.
   it("reads an instant on the league's clock, the year included", async (t) => {
-    const { figure, line } = formatDatePair(new Date("2026-12-31T23:30:00Z"));
-    await same(t, figure, "01.01.");
-    await same(t, line, "Freitag 2027");
+    await same(t, formatDateWithWeekdayAndYear(new Date("2026-12-31T23:30:00Z")), "Fr., 01.01.2027");
   });
 });
 

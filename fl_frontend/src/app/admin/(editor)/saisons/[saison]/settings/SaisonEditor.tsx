@@ -470,9 +470,11 @@ export function SaisonEditor({
             facts={[
               { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
               { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
-              ...(facts.spielplan.drawnOn === null
-                ? []
-                : [{ label: WORDS.drawnOn, value: { record: formatDate(facts.spielplan.drawnOn) }, figures: true }]),
+              {
+                label: WORDS.drawnOn,
+                value: facts.spielplan.drawnOn === null ? COPY.shared.noValue : { record: formatDate(facts.spielplan.drawnOn) },
+                figures: true,
+              },
             ]}
           />
         ),

@@ -1177,6 +1177,27 @@ export interface FLAustritt {
 }
 
 /**
+ * A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them.
+ */
+export interface FLSpielMailFixture {
+  date: string | null;
+  team1: string;
+  team2: string;
+  time: string | null;
+}
+
+/**
+ * An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them.
+ */
+export interface FLAustrittNoticeData {
+  /** @minItems 1 */
+  fixtures: FLSpielMailFixture[];
+  kind: "austritt_notice";
+  saison_id: string;
+  team: string;
+}
+
+/**
  * The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
  *
  * On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
@@ -3417,6 +3438,7 @@ export interface FLOutboxHandout {
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
     | FLInvitationData
@@ -4054,19 +4076,16 @@ export interface FLSpielReleasedSide {
 }
 
 /**
- * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
+ * Every fixture the save moved beyond its own edit, each with the result it destroyed.
  *
- * `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
- * adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a
- * `dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved
- * so, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
+ * `version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and
+ * null on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as
+ * it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
  * `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
  * the set a save names in its body to delete them.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
-  bericht_adopted: boolean | null;
-  bracket_faults: FLBracketFault[];
   recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
@@ -5308,16 +5327,6 @@ export interface FLSpielPageResponse {
   spieltag_position: number;
   standings: FLSpielSideStandings;
 }
-
-export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
-
-export const FLSpielStatus = {
-  from_today: "from_today",
-  past: "past",
-  today: "today",
-  cancelled: "cancelled",
-  unknown: "unknown",
-} as const;
 
 /**
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
@@ -6624,7 +6633,6 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
 export type SpieleGetSpieleAdminParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | FLSaisonPhase | null;
-  spiel_status?: FLSpielStatus | null;
   team_id?: string | null;
   /**
    * @minimum 1

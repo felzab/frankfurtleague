@@ -76,7 +76,6 @@ async def get_spiele_admin(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieleFilterParams = Depends(),
-    today: str = Depends(get_german_date_str),
 ) -> FLSpieleAdminListResponse:
     """
     List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
@@ -92,7 +91,7 @@ async def get_spiele_admin(
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
-            db_filter=build_spiele_filter(filters=filters, today=today),
+            db_filter=build_spiele_filter(filters=filters),
             sort_by=build_spiele_sort(sort_by=filters.sort_by, order=filters.order),
             limit=filters.limit,
         ),

@@ -316,6 +316,13 @@ export const SERVER_COPY = catalogue({
       keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
     },
 
+    /** An opponent's word that a club left the season. The lead follows the club's name, set semibold. */
+    austrittNotice: {
+      subject: (team: string) => `${team} spielt nicht mehr mit`,
+      lead: { after: (saison: string) => ` ist aus der ${COPY.shared.saisonName(saison)} ausgeschieden.` },
+      fixtures: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
+    },
+
     /** The sign-in code: no button, since a link carrying the code would sign in whoever opened a forwarded mail. */
     signInCode: {
       subject: "Dein Anmeldecode",
