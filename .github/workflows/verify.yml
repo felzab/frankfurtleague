@@ -372,7 +372,8 @@ jobs:
       # journey failing now and then on a chunk, naming nothing of this.
       - name: Judge that no veth holds an IPv6 address
         run: |
-          addresses="$(ip -6 -oneline address show type veth)"
+          # `ip address show type veth` printed lo and eth0 on the runner, so the name decides: Docker names its host side veth*.
+          addresses="$(ip -6 -oneline address show | grep -E '^[0-9]+: veth' || true)"
           if [ -n "$addresses" ]; then
             printf '%s\n' "$addresses"
             echo "::error::A veth holds an IPv6 address, so Chromium can read a change of it as the network changing."
