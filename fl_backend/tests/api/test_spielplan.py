@@ -549,7 +549,7 @@ class TestSpielNrRunsOnceThroughTheSeason:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_a_bracket_fixture_is_fed_only_by_numbers_already_played(self, shape: tuple[int, int, int]):
-        """A source naming a later fixture is a bracket that cannot resolve; `find_bracket_faults` would report the cycle."""
+        """A source naming a later fixture is a bracket that cannot resolve; `bracket_faults_of` would report the cycle."""
 
         for spiel in draw(*shape).spiele:
             for quelle in (spiel["team1_quelle"], spiel["team2_quelle"]):
