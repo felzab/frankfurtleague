@@ -442,8 +442,8 @@ surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py ::
 
 **Closing the window is what stops new rows**, and it is the season's own edit rather than anything here. The
 window's span is the season editor's „Bewerbungsfenster“ box (`fl_frontend/src/app/admin/(editor)/saisons/[saison]/settings/SaisonEditor.tsx`),
-reaching `PATCH /saisons/{saison_id}`; closing early is moving its end to today, and the window guard reads the span on
-every submission, so a closed window refuses the next one without touching a row already written.
+reaching `PATCH /saisons/{saison_id}`; closing early is moving its end to today or pausing it (`bewerbung.open`), and the
+window guard reads both on every submission, so a closed window refuses the next one without touching a row already written.
 
 **The rate limit buys time rather than prevention.** `= /api/bewerbung` carries a paired ceiling of 2r/m on
 one /64 and 6r/m on one /48 ([`spec.md`](spec.md) §1.3 for why the pair and why the wide half sits below the

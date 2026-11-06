@@ -15,10 +15,10 @@ class TestTheApplicationWindow:
     """A closed application window taking a submission puts a school in the triage queue the league said it would not take.
 
     One predicate answers the landing's window, `/window/{saison_id}`, the colour read and the submission: today between
-    its two dates, both included, on a season not yet ended.
+    its two dates, both included, on a season not yet ended, the window not paused.
     """
 
-    WINDOW: dict[str, Any] = {"start": START, "end": END}
+    WINDOW: dict[str, Any] = {"open": True, "start": START, "end": END}
 
     def runs(self, *, bewerbung: Any = WINDOW, today: str = INSIDE, saison_status: str = "future") -> bool:
         return saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today)
@@ -30,7 +30,12 @@ class TestTheApplicationWindow:
     def test_a_reversed_span_covers_no_day(self):
         """Span ordering is the payload's alone, so a stored reversal is reachable, and comparing one end would open it for ever."""
 
-        assert self.runs(bewerbung={"start": END, "end": START}) is False
+        assert self.runs(bewerbung={"open": True, "start": END, "end": START}) is False
+
+    def test_a_paused_window_takes_none_inside_its_span(self):
+        """The dates still run, and the pause is the whole answer: a paused form taking a submission is a pause doing nothing."""
+
+        assert self.runs(bewerbung={**self.WINDOW, "open": False}) is False
 
     def test_a_season_recording_no_window_takes_none(self):
         assert self.runs(bewerbung=None) is False

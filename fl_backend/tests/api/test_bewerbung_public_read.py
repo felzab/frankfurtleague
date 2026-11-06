@@ -56,7 +56,7 @@ WINDOWLESS_SAISON = "2024"
 
 # Named because two corpora seed it: a case building its own season still has to be the one the
 # colour read serves, and a span drifting from `seeded_url`'s would make it the one it refuses.
-RUNNING_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
+RUNNING_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 
 # The two near-misses, each ruled out by ONE term of the open-window query and by nothing else.
 # Each sorts AHEAD of the answer, so a query dropping that term picks it rather than `2026`.
@@ -130,11 +130,11 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
         database[Collection.SAISONS].insert_many(
             [
                 _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
-                _saison(SHUT_SAISON, bewerbung={"start": "2025-03-01", "end": "2025-04-30"}),
+                _saison(SHUT_SAISON, bewerbung={"open": True, "start": "2025-03-01", "end": "2025-04-30"}),
                 # A span that has not begun: the opening date is what rules it out.
-                _saison(NOT_YET_OPEN_SAISON, bewerbung={"start": "2026-09-01", "end": "2026-10-31"}),
+                _saison(NOT_YET_OPEN_SAISON, bewerbung={"open": True, "start": "2026-09-01", "end": "2026-10-31"}),
                 # A span already over: the closing date is what rules it out.
-                _saison(ALREADY_CLOSED_SAISON, bewerbung={"start": "2026-01-01", "end": "2026-02-28"}),
+                _saison(ALREADY_CLOSED_SAISON, bewerbung={"open": True, "start": "2026-01-01", "end": "2026-02-28"}),
                 # No key at all, as every season stored before the field existed carries none.
                 _saison(WINDOWLESS_SAISON, bewerbung=None),
             ]

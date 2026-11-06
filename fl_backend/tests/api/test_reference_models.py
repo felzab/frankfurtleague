@@ -149,7 +149,7 @@ class TestTheSeasonsSpans:
             "start_date": stored["start_date"],
             "end_date": stored["end_date"],
             "rules": stored["rules"],
-            "bewerbung": {"start": "2025-09-01", "end": "2025-10-31"},
+            "bewerbung": {"open": True, "start": "2025-09-01", "end": "2025-10-31"},
             "registrierung": {"open": True, "end": "2025-12-15"},
             "version": 0,
             **overrides,
@@ -164,7 +164,7 @@ class TestTheSeasonsSpans:
                 id="the season's end",
             ),
             pytest.param(
-                {"bewerbung": {"start": "2025-10-31", "end": "2025-09-01"}},
+                {"bewerbung": {"open": True, "start": "2025-10-31", "end": "2025-09-01"}},
                 ("bewerbung_window_ends_before_start", ("bewerbung", "end"), {"start": "2025-10-31"}),
                 id="the application window's end",
             ),

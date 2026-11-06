@@ -63,7 +63,7 @@ ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 # Free, unlike `EXISTING_SHORTHAND`, which `uniq_shorthand` already holds.
 NEW_SCHOOL_SHORTHAND = "ZXX"
 
-OPEN_WINDOW: Mapping[str, Any] = {"start": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 
 
 def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str, Any]:
@@ -479,7 +479,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase) -> Any:
             first = await submit(database, key=SCHLUESSEL)
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"bewerbung.offen": False}})
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"bewerbung.open": False}})
             second = await submit(database, key=SCHLUESSEL)
 
             return first.created_id, second.created_id
@@ -616,7 +616,7 @@ class TestTheRefusalsTheWritePathAnswers:
         "bewerbung",
         [
             pytest.param(None, id="no window recorded"),
-            pytest.param({"start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
+            pytest.param({"open": True, "start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
