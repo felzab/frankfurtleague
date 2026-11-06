@@ -1287,7 +1287,7 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
         return False
 
     # A seat gets ONE chase, and spending it on an address the provider has refused, or whose person reported the mail
-    # as spam, spends it on nobody; a seat write is what makes the seat due again, its mail being the seat's last.
+    # as spam, spends it on nobody: the clock closes it (`closed_chases`), and a re-send or a seat write opens it again.
     if unreachable:
         return False
 
@@ -1310,6 +1310,17 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable:
         for seat in KONTAKT_ROLLEN
         if seat_reminder_is_due(kontakte=kontakte, confirmations=confirmations, seat=seat, today=today, unreachable=seat in unreachable)
     ]
+
+
+def closed_chases(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: Container[str]) -> list[FLKontaktRolle]:
+    """The seats due today but for a last mail that did not arrive, whose one chase the clock stamps over.
+
+    No query reads the Postausgang, so unstamped they stay in the clock's read until their deadline, and a page of them
+    hides every newer row. The stamp costs nobody a link: the next one a seat is mailed comes from a re-send or a seat
+    write, each replacing the entry with the stamp in it.
+    """
+
+    return [seat for seat in reminder_seats(bewerbung_raw=bewerbung_raw, today=today, unreachable=()) if seat in unreachable]
 
 
 def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) -> list[tuple[str, list[FLKontaktRolle]]]:
