@@ -52,7 +52,7 @@ FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "ni
 
 # Derived on every read from the report and the fixture, and stored nowhere. `cancelled` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-type FLSpielberichtState = Literal["vorgeschlagen", "adopted", "differing", "cancelled", "teams_changed"]
+type FLSpielberichtState = Literal["proposed", "adopted", "differing", "cancelled", "sides_changed"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -251,7 +251,7 @@ class _SpielberichtView(BaseAPIResponse):
     # knockout slot has since replaced -- so an entry stored before keeps its name.
     named: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
-    # The sides fielding another club than the report's last write found there, which reads `teams_changed`.
+    # The sides fielding another club than the report's last write found there, which reads `sides_changed`.
     sides_changed: list[FLSpielSide]
     # The document's count of writes, null where none is stored: a save sending it back is refused once another write
     # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.

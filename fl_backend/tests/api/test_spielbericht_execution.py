@@ -589,7 +589,7 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
 
         proposed, differing = on_the_league(mongo_replica_set_url, body)
 
-        assert [(entry.spiel_id, entry.state) for entry in proposed.spielberichte] == [(SPIEL, "vorgeschlagen")]
+        assert [(entry.spiel_id, entry.state) for entry in proposed.spielberichte] == [(SPIEL, "proposed")]
         # The sides swapped: 1:0 proposed, 0:1 saved.
         assert [(entry.spiel_id, entry.state) for entry in differing.spielberichte] == [(SPIEL, "differing")]
 
@@ -681,7 +681,7 @@ class TestTheOverviewFindsEveryReportAwaitingTheAdministrator:
         # Adopted as it stands: awaiting nothing.
         assert SPIEL not in adopted[0]
         # Each row carries the state it was judged in, so the page reads no second snapshot.
-        assert [unreported[1], proposed[1], differing[1], adopted[1]] == [[], [(SPIEL, "vorgeschlagen")], [(SPIEL, "differing")], []]
+        assert [unreported[1], proposed[1], differing[1], adopted[1]] == [[], [(SPIEL, "proposed")], [(SPIEL, "differing")], []]
 
 
 def save_handles(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:
@@ -765,10 +765,10 @@ class TestAReportOutlivingItsSpieleClub:
 
         moved, sent_again, block = on_the_league(mongo_replica_set_url, body)
 
-        assert moved == ["teams_changed"], "a report about the club that left read as one about Biber"
+        assert moved == ["sides_changed"], "a report about the club that left read as one about Biber"
         assert (block["version"], block["sides"]) == (2, {"team1": TEAM2, "team2": None})
         # The correction voided the quarter-final's result, so the report proposes again.
-        assert sent_again == ["vorgeschlagen"]
+        assert sent_again == ["proposed"]
 
     def test_a_scorer_of_the_club_that_left_is_judged_against_the_squad_playing_now(self, mongo_replica_set_url: str):
         """Lina scored for Adler: sent again unchanged, she would stand on the report as Biber's scorer."""

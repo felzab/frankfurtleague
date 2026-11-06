@@ -195,9 +195,9 @@ export const SERVER_COPY = catalogue({
     missing: (label: Copy) => `${label} fehlt`,
     /** A report awaiting the administrator, by the state it reads in. */
     report: {
-      vorgeschlagen: "Spielbericht nicht übernommen",
+      proposed: "Spielbericht nicht übernommen",
       differing: "Spielbericht weicht vom Ergebnis ab",
-      teams_changed: "Spielbericht nennt andere Teams",
+      sides_changed: "Spielbericht nennt andere Teams",
     },
     /** A club's proposed date and hour, as a match row writes them; a club the fixture no longer fields is not named. */
     proposal: (when: Copy, team: Words | null) => (team === null ? `Schlägt ${when} vor` : `${textOf(team)} schlägt ${when} vor`),

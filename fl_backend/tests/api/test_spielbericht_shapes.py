@@ -198,9 +198,9 @@ class TestTheAdoptedStateIsDerivedFromThree:
     def test_a_result_the_administrator_typed_without_adopting_reads_abweichend(self):
         assert bericht_state_of(saved(), gespielt(1, 0)) == "differing"
 
-    def test_a_spiel_holding_no_result_reads_vorgeschlagen_however_it_was_stamped(self):
-        assert bericht_state_of(saved(), spiel()) == "vorgeschlagen"
-        assert bericht_state_of(saved(**ADOPTED), spiel()) == "vorgeschlagen"
+    def test_a_spiel_holding_no_result_reads_proposed_however_it_was_stamped(self):
+        assert bericht_state_of(saved(), spiel()) == "proposed"
+        assert bericht_state_of(saved(**ADOPTED), spiel()) == "proposed"
 
     def test_a_no_show_matches_on_its_event_whatever_goals_the_forfeit_composed(self):
         no_show = {"team1_tore": None, "team2_tore": None, "elfmeterschiessen": None, "sonderereignis": "nichtantreten_team2"}
@@ -216,10 +216,10 @@ class TestTheAdoptedStateIsDerivedFromThree:
         assert bericht_state_of(saved(), spiel(sonderereignis=sonderereignis)) == "cancelled"
         assert bericht_state_of(saved(**ADOPTED), spiel(sonderereignis=sonderereignis)) == "cancelled"
 
-    def test_an_abandonment_saved_without_its_result_reads_vorgeschlagen(self):
+    def test_an_abandonment_saved_without_its_result_reads_proposed(self):
         """It still owes a result, so nothing stands to differ from."""
 
-        assert bericht_state_of(saved(), spiel(sonderereignis="abgebrochen")) == "vorgeschlagen"
+        assert bericht_state_of(saved(), spiel(sonderereignis="abgebrochen")) == "proposed"
 
 
 class TestAReportAboutOtherClubsReadsItsOwnState:
@@ -231,11 +231,11 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
 
         bericht = saved(**ADOPTED, sides={**SIDES, side: ObjectId()})
 
-        assert bericht_state_of(bericht, gespielt(1, 0)) == "teams_changed"
-        assert bericht_state_of(bericht, spiel()) == "teams_changed"
+        assert bericht_state_of(bericht, gespielt(1, 0)) == "sides_changed"
+        assert bericht_state_of(bericht, spiel()) == "sides_changed"
 
     def test_a_slot_filled_since_an_open_one_was_reported_reads_teams_geaendert(self):
-        assert bericht_state_of(saved(sides={**SIDES, "team2": None}), spiel()) == "teams_changed"
+        assert bericht_state_of(saved(sides={**SIDES, "team2": None}), spiel()) == "sides_changed"
 
     def test_a_spiel_called_off_reads_cancelled_first(self):
         assert bericht_state_of(saved(sides={**SIDES, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "cancelled"

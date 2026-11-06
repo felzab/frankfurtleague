@@ -15430,9 +15430,9 @@
       },
       "FLSpielberichtOpenState": {
         "enum": [
-          "vorgeschlagen",
+          "proposed",
           "differing",
-          "teams_changed"
+          "sides_changed"
         ],
         "type": "string"
       },
@@ -16030,11 +16030,11 @@
       },
       "FLSpielberichtState": {
         "enum": [
-          "vorgeschlagen",
+          "proposed",
           "adopted",
           "differing",
           "cancelled",
-          "teams_changed"
+          "sides_changed"
         ],
         "type": "string"
       },
@@ -28381,7 +28381,7 @@
         ]
       },
       "put": {
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `differing` again until it\nis adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,\nso a report a knockout correction re-fielded a side under reads `teams_changed` until it is written again. Writes\nno fixture: the result is the administrator's to save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records\n(`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a\n`bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated\nor whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out\nproposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's\nlive squad of the season, a pupil the report already named on that side staying while the side fields the club it\ndid (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`card_reason_missing`). Every refusal but\n`bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a\nwrite landing on what was judged before that second asking refuses the report rather than letting it stand, and one\nlanding after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,\nwhose retry meets `bericht_meanwhile_changed`. Two first writes at once are two forms opened on no report: the later is\nrefused.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `differing` again until it\nis adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,\nso a report a knockout correction re-fielded a side under reads `sides_changed` until it is written again. Writes\nno fixture: the result is the administrator's to save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records\n(`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a\n`bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated\nor whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out\nproposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's\nlive squad of the season, a pupil the report already named on that side staying while the side fields the club it\ndid (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`card_reason_missing`). Every refusal but\n`bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a\nwrite landing on what was judged before that second asking refuses the report rather than letting it stand, and one\nlanding after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,\nwhose retry meets `bericht_meanwhile_changed`. Two first writes at once are two forms opened on no report: the later is\nrefused.",
         "operationId": "spielberichte_put_spielbericht_bericht",
         "parameters": [
           {

@@ -356,7 +356,7 @@ def vorschlag_matches(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str
 
 # The states awaiting the administrator, which the Übersicht lists: an adopted report awaits nothing, and one on a match
 # that took no place awaits nothing anyone can do.
-type FLSpielberichtOpenState = Literal["vorgeschlagen", "differing", "teams_changed"]
+type FLSpielberichtOpenState = Literal["proposed", "differing", "sides_changed"]
 
 BERICHT_OPEN_STATES: Final[frozenset[FLSpielberichtOpenState]] = frozenset(get_args(FLSpielberichtOpenState.__value__))
 
@@ -370,7 +370,7 @@ def is_open(state: FLSpielberichtState) -> TypeIs[FLSpielberichtOpenState]:
 def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtState:
     """The state a report reads in, from the fixture, the adoption and the block's version.
 
-    No result reads `vorgeschlagen` however the report was stamped, as after a later save emptied the result or on an
+    No result reads `proposed` however the report was stamped, as after a later save emptied the result or on an
     abandonment still owing its result.
     """
 
@@ -380,10 +380,10 @@ def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any
     # Ahead of every comparison of the result: a proposal by side is about the clubs its last write found, and read
     # against another club's result it would credit that club.
     if sides_changed(dict(bericht.sides), spiel_raw):
-        return "teams_changed"
+        return "sides_changed"
 
     if spiel_raw.get("ergebnis") is None:
-        return "vorgeschlagen"
+        return "proposed"
 
     # Equal versions, never instants: a correction and an adoption in one second are two writes.
     if bericht.adopted_version == bericht.version and vorschlag_matches(bericht.ergebnis_vorschlag, spiel_raw):

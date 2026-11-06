@@ -175,7 +175,7 @@ async def write_bericht(
     """
 
     # Off the fixture this write judged: a correction landing mid-write leaves the clubs before it stamped, and the
-    # report reads `teams_changed`, never adoptable.
+    # report reads `sides_changed`, never adoptable.
     sides = sides_of(spiel_raw)
     if saved is not None and bericht_unchanged(payload, saved.get("bericht"), sides):
         return saved

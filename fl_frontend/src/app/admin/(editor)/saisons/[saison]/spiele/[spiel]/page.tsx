@@ -214,7 +214,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
 
 /** The referee's proposal as „Übernehmen“ carries it into the result's fields, where the report stands open to it. */
 function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | null): Adoption | null {
-  if (bericht === null || (bericht.state !== "vorgeschlagen" && bericht.state !== "differing")) return null;
+  if (bericht === null || (bericht.state !== "proposed" && bericht.state !== "differing")) return null;
   const { team1_tore: tore1, team2_tore: tore2, elfmeterschiessen, sonderereignis } = bericht.ergebnis_vorschlag;
   const event = sonderereignis ?? NO_SONDEREREIGNIS;
   // A no-show's goals are the award the write composes: the proposal names the side that stayed away alone.

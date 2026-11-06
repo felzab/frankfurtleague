@@ -3830,9 +3830,9 @@ export const FLOverviewSpielberichtRowKind = {
 export type FLSpielberichtOpenState = (typeof FLSpielberichtOpenState)[keyof typeof FLSpielberichtOpenState];
 
 export const FLSpielberichtOpenState = {
-  vorgeschlagen: "vorgeschlagen",
+  proposed: "proposed",
   differing: "differing",
-  teams_changed: "teams_changed",
+  sides_changed: "sides_changed",
 } as const;
 
 /**
@@ -5268,11 +5268,11 @@ export interface FLSpielberichtSides {
 export type FLSpielberichtState = (typeof FLSpielberichtState)[keyof typeof FLSpielberichtState];
 
 export const FLSpielberichtState = {
-  vorgeschlagen: "vorgeschlagen",
+  proposed: "proposed",
   adopted: "adopted",
   differing: "differing",
   cancelled: "cancelled",
-  teams_changed: "teams_changed",
+  sides_changed: "sides_changed",
 } as const;
 
 /**

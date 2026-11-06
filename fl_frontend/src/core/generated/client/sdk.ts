@@ -3585,7 +3585,7 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
  * The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
  * write changing it raises its `version`, so a report the administrator adopted reads `differing` again until it
  * is adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,
- * so a report a knockout correction re-fielded a side under reads `teams_changed` until it is written again. Writes
+ * so a report a knockout correction re-fielded a side under reads `sides_changed` until it is written again. Writes
  * no fixture: the result is the administrator's to save.
  *
  * `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
