@@ -21,7 +21,6 @@ const reads = doubleApiClient(({ endpoint }) => (endpoint.startsWith(LIST) ? { s
 serveServerReact();
 
 const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
-const { resolveSaisonId } = await import("./resolvers.ts");
 
 const listReads = () => reads.filter(({ endpoint }) => endpoint.startsWith(LIST));
 const adminReads = (): number => listReads().length;
@@ -39,15 +38,13 @@ describe("the admin season list across a render pass", () => {
     expect(new URL(listReads().at(-1)?.endpoint ?? "", "http://backend").searchParams.toString()).toBe("sort_by=_id&order=asc");
   });
 
-  it("is fetched once when the resolver and the page both read it", async () => {
+  it("is fetched once when the frame and the page both read it", async () => {
     beginRenderPass();
     const before = adminReads();
 
-    // What one admin Suspense boundary does: check the season named in the URL, then read the list.
-    const resolved = await resolveSaisonId(Promise.resolve({ saison_id: "2526" }));
+    await getAdminSaisons();
     await getAdminSaisons();
 
-    expect(resolved).toBe("2526");
     expect(adminReads() - before, "the admin season list went to the backend twice in one render pass").toBe(1);
   });
 
@@ -59,7 +56,7 @@ describe("the admin season list across a render pass", () => {
     const before = adminReads();
 
     beginRenderPass();
-    await resolveSaisonId(Promise.resolve({ saison_id: "2526" }));
+    await getAdminSaisons();
     await getAdminSaisons();
 
     // Split, so each way of being wrong names itself: 0 is the cross-request leak `"use cache"`
