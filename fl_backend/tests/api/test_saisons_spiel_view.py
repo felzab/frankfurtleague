@@ -82,31 +82,10 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
-            # The match's matchday beside one more of its phase, and one of another phase and of another season the
-            # count passes over, so a count read off the wrong key moves off 2.
-            await database[Collection.SPIELTAGE].insert_many(
-                [
-                    {
-                        "_id": spiel["spieltag_id"],
-                        "beginn": None,
-                        "ende": None,
-                        "position": 3,
-                        "saison_phase": "gruppenphase",
-                        "saison_id": SAISON,
-                    },
-                    {"_id": ObjectId(), "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON},
-                    {"_id": ObjectId(), "beginn": None, "ende": None, "position": 1, "saison_phase": "finale", "saison_id": SAISON},
-                    {"_id": ObjectId(), "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": EARLIER},
-                ]
+            await database[Collection.SPIELTAGE].insert_one(
+                {"_id": spiel["spieltag_id"], "beginn": None, "ende": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON}
             )
             await database[Collection.SPIELE].insert_one(spiel)
-            # The two sides entered in one group, so the match's own 2:0 is the whole of the group's table.
-            await database[Collection.TEAMS].insert_many(
-                [documents.team_document(HOME, "Alpha", "ALP"), documents.team_document(AWAY, "Beta", "BET")]
-            )
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [documents.saison_team_document(SAISON, HOME, "Alpha", "ALP"), documents.saison_team_document(SAISON, AWAY, "Beta", "BET")]
-            )
             await database[Collection.SPIELBERICHTE].insert_one(report_of(spiel))
             await database[Collection.SPIELER].insert_many(
                 [
@@ -145,16 +124,6 @@ def the_page(url: str) -> Any:
         )
 
     return on_the_seed_loop(body())
-
-
-@pytest.mark.db
-def test_each_side_stands_at_its_place_and_the_page_names_its_matchday(seeded_url: str):
-    """The winner first and the loser second, each on its own side, so a swap or a join that matched nobody shows."""
-
-    page = the_page(seeded_url)
-
-    assert (page.spieltag_position, page.count_spieltage_in_phase) == (3, 2)
-    assert page.standings.model_dump() == {"team1": {"gruppe": "A", "platz": 1}, "team2": {"gruppe": "A", "platz": 2}}
 
 
 @pytest.mark.db

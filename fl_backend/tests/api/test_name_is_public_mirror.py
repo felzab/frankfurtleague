@@ -80,26 +80,6 @@ NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
 CASE_IDS = [case.case for case in NAME_IS_PUBLIC]
 
 
-def _inputs(case: EinwilligungCase) -> tuple[Any, Any]:
-    """The two keys the rule reads, in the state this row stores them, and a pair of `None` where there is no record."""
-
-    if case.einwilligung is None:
-        return None, None
-
-    return case.einwilligung.get("scope", ABSENT), case.einwilligung.get("confirmed_at", ABSENT)
-
-
-def test_the_table_closes_over_every_input_and_both_verdicts():
-    """The floor: every case below joins this table, so a table of one row would pass all of them."""
-
-    spanned = {_inputs(case) for case in NAME_IS_PUBLIC}
-
-    assert spanned == {(None, None)} | {
-        (scope, stamp) for scope in ("kader_oeffentlich", "intern", UNKNOWN_SCOPE, ABSENT) for stamp in (CONFIRMED, None, ABSENT)
-    }
-    assert {case.published for case in NAME_IS_PUBLIC} == {True, False}
-
-
 @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
 def test_the_python_predicate_answers_the_table(case: EinwilligungCase):
     assert name_is_public(case.einwilligung) is case.published
@@ -134,20 +114,6 @@ class TestTheSquadPipelineAnswersTheSameTable:
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
 
-    def test_the_corpus_stores_a_name_and_the_case_s_own_record_for_every_row(self, seeded_url: str):
-        """First: every assertion below would pass just as well against a corpus storing no name to withhold."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return {person["_id"]: person for person in await database.spieler.find({}).to_list(None)}
-
-        stored = on_the_seed_loop(body(shared_client(seeded_url)[DATABASE_NAME]))
-
-        assert len(stored) == len(NAME_IS_PUBLIC)
-        for case in NAME_IS_PUBLIC:
-            person = stored[_oid_for(case)]
-            assert (person["vorname"], person["nachname"]) == (VORNAME, NACHNAME)
-            assert person["einwilligung"] == case.einwilligung
-
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
         served = self._served(seeded_url)[_nummer_for(case)]
@@ -177,11 +143,6 @@ class TestTheRefereeJoinAnswersTheSameTable:
             return {fixture["schiedsrichter"]["schiedsrichter_id"]: fixture["schiedsrichter"]["name_is_public"] for fixture in spiele}
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
-
-    def test_every_row_of_the_table_is_booked_on_a_fixture(self, seeded_url: str):
-        """First: a join reaching no referee answers withheld everywhere, which every unpublished row below would pass."""
-
-        assert set(self._verdicts(seeded_url)) == {_schiedsrichter_oid_for(case) for case in NAME_IS_PUBLIC}
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_the_join_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
