@@ -19,6 +19,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
+from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
@@ -599,6 +600,44 @@ class TestTheReminderClockTakesAShareEachCall:
             return {row["confirmation"]["deadline"] for row in rows}
 
         assert on_a_league(mongo_replica_set_url, body) == {"2026-04-05"}
+
+    def test_a_row_the_code_refuses_costs_the_share_no_second_attempt(self, mongo_replica_set_url: str):
+        """A share fills the request's deadline, so a refusal taking its transaction apart overruns it before any half commits.
+
+        A share and nine more due, the one at sorted position 31 carrying a send date no judge can read, against the same
+        rows all readable.
+        """
+
+        due = overflowing()[: REMINDERS_PER_PASS + 9]
+        unreadable = {**due[30], "confirmation": {**due[30]["confirmation"], "sent_at": "2026-03-1x"}}
+        one_refused = [*due[:30], unreadable, *due[31:]]
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(rows: list[dict[str, Any]]) -> int:
+                await database[Collection.REGISTRIERUNGEN].delete_many({})
+                await database[Collection.OUTBOX].delete_many({})
+                await database[Collection.REGISTRIERUNGEN].insert_many(rows)
+
+                _, names = await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+                return names.total()
+
+            return await counted(due), await counted(one_refused)
+
+        carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
+
+        assert with_one_refused == carryable
+
+
+class TestASeasonNobodyHas:
+    def test_the_pass_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentNotFoundError):
+                await sweep(database, client, saison_id="1999")
+
+            return await standing(database)
+
+        assert len(on_a_league(mongo_replica_set_url, body)) == len(the_corpus())
 
 
 # The reminder's commands a row: the stamp's update, its read-back and its log row.

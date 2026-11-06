@@ -30,7 +30,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
@@ -1538,6 +1538,63 @@ class TestTheSeasonRowSeatClock:
         assert response.kontakt_seats_emptied == 2
         assert row["kontakte"]["stellvertretung"] is None
         assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] == MAILED_ON_THE_MARK
+
+
+class TestASeasonNobodyHas:
+    def test_the_pass_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(DocumentNotFoundError):
+                await sweep(database, client, saison_id="1999")
+
+            return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (5, [])
+
+
+# Under the driver's first batch, so a page read is one command however many rows it holds.
+FEW = 10
+
+
+class TestARefusedReminderCostsThePassNothing:
+    @pytest.mark.parametrize(
+        "refused",
+        [
+            pytest.param(
+                lambda row: {
+                    **row,
+                    "confirmations": {seat: {**entry, "deadline": "2026-04-1"} for seat, entry in row["confirmations"].items()},
+                },
+                id="a deadline the answer refuses",
+            ),
+            pytest.param(
+                lambda row: {
+                    **row,
+                    "confirmations": {seat: {**entry, "sent_at": "2026-03-1x"} for seat, entry in row["confirmations"].items()},
+                },
+                id="a send date no judge can read",
+            ),
+        ],
+    )
+    def test_it_costs_only_the_write_it_skips(self, mongo_replica_set_url: str, refused: Callable[[dict[str, Any]], dict[str, Any]]):
+        """Taken apart instead, the share spends a failed attempt and its halves on the row."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(rows: list[dict[str, Any]]) -> int:
+                # The first run's mails gone too: keys it owed would cost the second run no insert.
+                await database[Collection.OUTBOX].delete_many({})
+                await database[Collection.BEWERBUNGEN].delete_many({})
+                await database[Collection.BEWERBUNGEN].insert_many(rows)
+
+                _, names = await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+                return names.total()
+
+            rows = [application(numbered(position)) for position in range(FEW)]
+            return await counted(rows), await counted([*rows[:-1], refused(rows[-1])])
+
+        carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
+
+        assert carryable - with_one_refused == ROUND_TRIPS_A_ROW
 
 
 # The per-row loops' three commands a row: the update, its read-back and its log row.
