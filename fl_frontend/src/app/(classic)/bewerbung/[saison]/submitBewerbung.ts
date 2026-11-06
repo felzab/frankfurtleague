@@ -12,6 +12,7 @@ import { repeatedContacts } from "@/features/teams/kontaktePersonen";
 import { applicationOf, REPLAY_FIELD } from "./application";
 import { SUBMITTED } from "./ends";
 
+const { exampleFirstName, exampleLastName } = COPY.shared.field;
 const { phoneExample } = COPY.admin.schiedsrichter;
 const { hausnummerExample, plzExample } = COPY.admin.spielort;
 
@@ -46,8 +47,14 @@ export const submitBewerbung = action({
     "schule.website_url": "schule.website_url",
   },
   examples: {
+    "kontakte.trainer.first_name": exampleFirstName,
+    "kontakte.trainer.last_name": exampleLastName,
     "kontakte.trainer.phone": phoneExample,
+    "kontakte.ansprechperson.first_name": exampleFirstName,
+    "kontakte.ansprechperson.last_name": exampleLastName,
     "kontakte.ansprechperson.phone": phoneExample,
+    "kontakte.stellvertretung.first_name": exampleFirstName,
+    "kontakte.stellvertretung.last_name": exampleLastName,
     "kontakte.stellvertretung.phone": phoneExample,
     "schule.address.plz": plzExample,
     "schule.address.hausnummer": hausnummerExample,

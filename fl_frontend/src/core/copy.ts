@@ -146,6 +146,10 @@ export const COPY = catalogue({
       format: (example: Copy) => `Format: ${example}`,
       // A reserved domain, so no reader takes the example for the address the league expects.
       exampleAddress: "name@example.com",
+      // A name's examples, by the box: `fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` takes letters, hyphens, apostrophes and spaces.
+      exampleName: "Anna Weber",
+      exampleFirstName: "Anna",
+      exampleLastName: "Weber",
       // A digits field's example: figures alone, whatever the field counts.
       exampleDigits: "123",
       exampleDate: "31.12.2026",
