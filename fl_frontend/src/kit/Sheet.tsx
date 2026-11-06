@@ -2,7 +2,7 @@
 
 import { Sheet as AriaSheet, SheetBackdrop, SheetContent, SheetOverlay, SheetTrigger } from "react-aria-components/Sheet";
 
-import { useOpenUntilHidden } from "./Dialog";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";

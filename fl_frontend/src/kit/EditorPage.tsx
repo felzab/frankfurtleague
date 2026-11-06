@@ -12,7 +12,6 @@ import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
 import { StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
-import { lockedLine } from "./lockedLine";
 import { formColumn, RailPage } from "./RailFrame";
 import { dangerRow, Section } from "./Section";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -47,10 +46,7 @@ export type DangerAct = {
    * person always holds one.
    */
   touch?: { holder: string };
-  /**
-   * Why the act cannot run on the record as it stands, which the page read: the button disabled, and this reason in
-   * the row's second line in place of the consequence, as every act's `locked` reason stands (`useLocked`).
-   */
+  /** Why the act cannot run on the record as it stands, which the page read, the button saying why (`Button`). */
   locked?: Copy;
 };
 
@@ -64,10 +60,18 @@ function DangerRow({ act }: { act: DangerAct }) {
   const { run, refusal, isTouching } = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
   const label = COPY.shared.verb[act.confirm.verb];
   const locked = useLocked(act.locked);
-  const isLocked = locked !== undefined;
-  // The row's one line, a live region from the first render, so the touch's refusal and a reason are announced as each
-  // replaces the consequence, which rests in the small muted face of the reason taking its place.
-  const line: FormStatus = refusal === null ? lockedLine(locked ?? act.consequence) : { tone: "error", text: refusal };
+  // The row's one line, a live region from the first render, so the touch's refusal is announced as it replaces the
+  // consequence.
+  const line: FormStatus = refusal === null ? { tone: "resting", text: act.consequence } : { tone: "error", text: refusal };
+  const button = (
+    <Button
+      variant={act.confirm.tone}
+      label={label}
+      isBusy={isTouching}
+      locked={locked}
+      onPress={act.touch === undefined ? undefined : () => void run(() => setAsking(true))}
+    />
+  );
   return (
     // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
     <div className={dangerRow()}>
@@ -78,31 +82,19 @@ function DangerRow({ act }: { act: DangerAct }) {
           placement="column"
         />
       </div>
-      {act.touch === undefined ? (
+      {act.touch !== undefined || locked !== undefined ? (
+        button
+      ) : (
         <ConfirmDialog
           {...act.confirm}
-          trigger={
-            <Button
-              variant={act.confirm.tone}
-              label={label}
-              isDisabled={isLocked}
-            />
-          }
+          trigger={button}
         />
-      ) : (
-        <>
-          <Button
-            variant={act.confirm.tone}
-            label={label}
-            isBusy={isTouching}
-            isDisabled={isLocked}
-            onPress={() => void run(() => setAsking(true))}
-          />
-          <ConfirmDialog
-            {...act.confirm}
-            open={{ isOpen: isAsking, onOpenChange: setAsking }}
-          />
-        </>
+      )}
+      {act.touch !== undefined && (
+        <ConfirmDialog
+          {...act.confirm}
+          open={{ isOpen: isAsking, onOpenChange: setAsking }}
+        />
       )}
     </div>
   );

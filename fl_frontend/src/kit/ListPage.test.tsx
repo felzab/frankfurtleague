@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { COPY } from "@/core/copy";
+
+import { actLabel } from "./dialogAct";
 import { ListPage } from "./ListPage";
 
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
@@ -36,6 +41,26 @@ async function declarationsFor(classes: readonly string[]): Promise<{ decl: Decl
   });
   return found;
 }
+
+describe("the list's create act", () => {
+  // The harm: a dialog's trigger around the locked button would open the create form behind the reason.
+  it("answers a press with its reason while locked, never its form", async () => {
+    const reason = COPY.template.draftUnsaved;
+    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
+    render(
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        create={{ title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null, locked: reason }}
+        list={{ kind: "spieltage", content: new Promise(() => undefined) }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name }));
+    expect(within(await screen.findByRole("dialog")).getByText(reason)).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("heading", { name })).toBeNull();
+  });
+});
 
 describe("the list template's wait", () => {
   // Under `prefers-reduced-motion: reduce` the motion tokens are unset, and a declaration reading one is

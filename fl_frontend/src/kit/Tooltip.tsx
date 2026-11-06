@@ -6,11 +6,12 @@ import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 
 /**
- * The name of an icon-only control, shown above it on the hairline surface, or at its end for an entry of
- * the collapsed rail, where one above would cover the entry before it. React Aria's own delays stand: the
- * first tooltip waits, the next ones open at once. Rendered by `Button` for an icon-only button, by
- * `ChoiceButtons` for a glyph segment, by the rail for a collapsed entry and by `Link`'s icon placement for a
- * glyph link, each from its required label; disabled while the control shows its own words.
+ * The name of an icon-only control, or the reason a locked act cannot run, shown above it on the hairline surface, or
+ * at its end for an entry of the collapsed rail, where one above would cover the entry before it. A sentence wraps at
+ * the help pop-up's 320 px. React Aria's own delays stand: the first tooltip waits, the next ones open at once. It
+ * stands in React Aria's portal, so a card's `overflow-hidden` never cuts it. Rendered by `Button` for an icon-only
+ * button and a locked act, by `ChoiceButtons` for a glyph segment, by the rail for a collapsed entry and by `Link`'s
+ * icon placement for a glyph link, each from its required label; disabled while the control shows its own words.
  */
 export function Tooltip({
   label,
@@ -19,7 +20,7 @@ export function Tooltip({
   children,
 }: {
   label: Copy;
-  placement?: "top" | "end";
+  placement?: "top" | "top start" | "top end" | "end";
   isDisabled?: boolean;
   children: ReactElement;
 }) {
@@ -31,7 +32,7 @@ export function Tooltip({
         placement={placement}
         // 4 px over a control; past a rail entry's end, 4 px beyond the rail's 12-px inset and its edge.
         offset={placement === "end" ? 16 : 4}
-        className="rounded-md border border-border bg-bg-overlay px-2 py-1 text-xs font-medium whitespace-nowrap text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)">
+        className="w-max max-w-popover rounded-md border border-border bg-bg-overlay px-2 py-1 text-xs font-medium text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)">
         {label}
       </AriaTooltip>
     </TooltipTrigger>

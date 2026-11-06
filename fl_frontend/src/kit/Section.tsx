@@ -1,7 +1,8 @@
 import { isValidElement } from "react";
 
-import { textOf } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
+import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { FieldColumns, subgroup } from "./FieldColumns";
@@ -134,7 +135,7 @@ export function SectionPlaceholder(props: { rows: ReadonlyArray<FieldRow>; dange
                   width="w-1/3"
                 />
                 <PlaceholderLine
-                  text={statusLine({ placement: "column", tone: "locked" })}
+                  text={statusLine({ placement: "column", tone: "resting" })}
                   width="w-2/3"
                 />
               </div>
@@ -184,8 +185,12 @@ export function Section({
             <span className="-my-1 flex pointer-coarse:-my-2">
               <HelpPopover
                 subject={title}
-                lines={help}
-              />
+                lines={help}>
+                <Button
+                  icon="info"
+                  label={COPY.shared.help}
+                />
+              </HelpPopover>
             </span>
           )}
         </div>

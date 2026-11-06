@@ -1,31 +1,45 @@
 "use client";
 
+import { useId } from "react";
+
 import { Button as AriaButton } from "react-aria-components/Button";
 import { ProgressBar } from "react-aria-components/ProgressBar";
 
 import { COPY } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
+import { HelpPopover } from "./HelpPopover";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 
 import type { Copy } from "@/core/copy";
+import type { ReactElement } from "react";
+import type { PopoverEdge } from "./HelpPopover";
 import type { IconName } from "./Icon";
 
 type Act = {
   onPress?: () => void;
   type?: "button" | "submit";
-  isDisabled?: boolean;
   /** The act is under way: a spinner joins the label, which stays as it is, and a press does nothing. */
   isBusy?: boolean;
   /** `close` closes the dialog or the sheet the button stands in, through React Aria's slot for it. */
   slot?: "close";
+  /**
+   * Why the act cannot run on the record as it stands: dimmed but reachable, its reason shown by `LockedReason`, and
+   * `onPress` never called. It stands instead of a dialog's trigger, never as one: React Aria's press responders
+   * merge, so a press would open the dialog as well as the reason. Wins over `isDisabled`, since it can say why.
+   */
+  locked?: Copy;
+  /** The edge the reason opens from: an act's at a row's end unless it stands at a column's start. */
+  lockedEdge?: PopoverEdge;
 };
 
 type ButtonProps =
   | (Act & {
       variant: "primary" | "secondary" | "danger" | "quiet";
       label: Copy;
+      /** Closed for input still missing, which the fields beside it show; an act with a reason of its own is `locked`. */
+      isDisabled?: boolean;
       /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
       leadingIcon?: IconName;
       icon?: never;
@@ -33,13 +47,16 @@ type ButtonProps =
   /**
    * An icon alone: `label` is its name, which the tooltip shows. One folding a region, such as the rail,
    * says whether that region stands open and names it by its id; one repeated on every row of a list, such as a
-   * row's removal, is described by its row's name, since every row's button carries the same name.
+   * row's removal, is described by its row's name, since every row's button carries the same name. It closes by
+   * `locked` alone: a disabled trigger's tooltip never opens, React Aria's `useFocusable` dropping what the trigger
+   * hands it, and an icon without its tooltip says nothing.
    */
   | (Act & {
       icon: IconName;
       label: Copy;
       variant?: never;
       leadingIcon?: never;
+      isDisabled?: never;
       "aria-expanded"?: boolean;
       "aria-controls"?: string;
       "aria-describedby"?: string;
@@ -60,60 +77,99 @@ function Spinner() {
 }
 
 /**
+ * A locked act's reason, one sentence in two forms around its button: the tooltip while the pointer or the keys' focus
+ * rests on it, which a touch never raises, and the pop-up any press opens. `TooltipTrigger` around `DialogTrigger`
+ * around the button is the nesting React Aria's Tooltip page documents. A tooltip's description lasts only while it is
+ * open, so the sentence also stands unseen for the button's `aria-describedby`, read on every visit.
+ */
+function LockedReason({ reason, reasonId, edge, children }: { reason: Copy; reasonId: string; edge: PopoverEdge; children: ReactElement }) {
+  return (
+    <>
+      <Tooltip
+        label={reason}
+        placement={`top ${edge}`}>
+        <HelpPopover
+          edge={edge}
+          lines={[reason]}>
+          {children}
+        </HelpPopover>
+      </Tooltip>
+      <span
+        id={reasonId}
+        hidden>
+        {reason}
+      </span>
+    </>
+  );
+}
+
+/**
  * The one control that acts: primary, secondary, danger, quiet, or an icon alone; disabled at half opacity.
  * A labelled button may lead with a glyph.
  */
 export function Button(props: ButtonProps) {
-  const { onPress, type = "button", isDisabled = false, isBusy = false, label, slot } = props;
+  const { onPress, type = "button", isDisabled = false, isBusy = false, label, slot, locked, lockedEdge = "end" } = props;
+  const reasonId = useId();
+  const isLocked = locked !== undefined;
+  // `aria-disabled` rather than `isDisabled`: a native `disabled` takes the focus and the hover the reason opens on. A
+  // submit button is a plain one while locked, or the form's Enter and the press would send it.
+  const act = {
+    type: isLocked ? "button" : type,
+    slot,
+    onPress: isLocked ? undefined : onPress,
+    isDisabled: !isLocked && isDisabled,
+    isPending: isBusy,
+    "aria-disabled": isLocked || undefined,
+  } as const;
+  const described = (own?: string) => (isLocked ? [own, reasonId].filter((id) => id !== undefined).join(" ") : own);
 
-  if (props.icon !== undefined) {
-    return (
-      <Tooltip label={label}>
-        <AriaButton
-          data-kit-focus="ring"
-          type={type}
-          slot={slot}
-          onPress={onPress}
-          isDisabled={isDisabled}
-          isPending={isBusy}
-          aria-label={label}
-          aria-expanded={props["aria-expanded"]}
-          aria-controls={props["aria-controls"]}
-          aria-describedby={props["aria-describedby"]}
-          className={buttonLook({ look: "icon", host: "aria" })}>
-          {isBusy ? (
-            <Spinner />
-          ) : (
-            <Icon
-              glyph={props.icon}
-              size={16}
-            />
-          )}
-        </AriaButton>
-      </Tooltip>
-    );
-  }
-
-  return (
-    <AriaButton
-      data-kit-focus="ring"
-      type={type}
-      slot={slot}
-      onPress={onPress}
-      isDisabled={isDisabled}
-      isPending={isBusy}
-      className={buttonLook({ look: props.variant, host: "aria" })}>
-      {isBusy ? (
-        <Spinner />
-      ) : (
-        props.leadingIcon !== undefined && (
+  const button =
+    props.icon !== undefined ? (
+      <AriaButton
+        data-kit-focus="ring"
+        {...act}
+        aria-label={label}
+        aria-expanded={props["aria-expanded"]}
+        aria-controls={props["aria-controls"]}
+        aria-describedby={described(props["aria-describedby"])}
+        className={buttonLook({ look: "icon", host: "aria", locked: isLocked })}>
+        {isBusy ? (
+          <Spinner />
+        ) : (
           <Icon
-            glyph={props.leadingIcon}
+            glyph={props.icon}
             size={16}
           />
-        )
-      )}
-      {label}
-    </AriaButton>
-  );
+        )}
+      </AriaButton>
+    ) : (
+      <AriaButton
+        data-kit-focus="ring"
+        {...act}
+        aria-describedby={described()}
+        className={buttonLook({ look: props.variant, host: "aria", locked: isLocked })}>
+        {isBusy ? (
+          <Spinner />
+        ) : (
+          props.leadingIcon !== undefined && (
+            <Icon
+              glyph={props.leadingIcon}
+              size={16}
+            />
+          )
+        )}
+        {label}
+      </AriaButton>
+    );
+
+  if (locked !== undefined)
+    return (
+      <LockedReason
+        reason={locked}
+        reasonId={reasonId}
+        edge={lockedEdge}>
+        {button}
+      </LockedReason>
+    );
+  return props.icon !== undefined ? <Tooltip label={label}>{button}</Tooltip> : button;
 }

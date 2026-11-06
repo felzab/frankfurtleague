@@ -64,8 +64,8 @@ export const statusLine = tv({
     tone: {
       none: "",
       changes: "text-fg",
-      // An act's reason it cannot run, in the small muted tone a danger row's second line takes.
-      locked: "text-xs text-fg-muted",
+      // A danger row's second line at rest, its act's consequence in the small muted face.
+      resting: "text-xs text-fg-muted",
       saved: "text-success",
       error: "text-danger",
     },

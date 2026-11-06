@@ -34,10 +34,10 @@ export function answering<Payload, Value>(
 }
 
 /**
- * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields, `locked` the
- * reason an act cannot run (`lockedLine`).
+ * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields, `resting`
+ * what a danger row says until something answers.
  */
-export type FormStatus = { tone: "changes" | "saved" | "error" | "locked"; text: Copy } | null;
+export type FormStatus = { tone: "changes" | "saved" | "error" | "resting"; text: Copy } | null;
 
 /**
  * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
