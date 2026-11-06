@@ -508,8 +508,8 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The landing's sections, the blocks About, Kontakt and the sponsors page share with it, and the not-found page's
-   * title, each read by a Server Component.
+   * The landing's sections and the blocks About, Kontakt and the sponsors page share with it, each read by a Server
+   * Component.
    */
   landing: {
     /** The hero's one heading. */
@@ -630,18 +630,19 @@ export const SERVER_COPY = catalogue({
       place: placeName,
       /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque. */
       vacant: "Nicht vergeben",
-      /** The chip in the card's head, one word for where the season stands: before its start, running, decided. */
-      state: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
     },
 
     /** The league's mail address by its label: Kontakt's row, and the doors' and the sponsors page's link. */
     contact: {
       email: "E-Mail",
     },
-
-    /** The not-found page's title, in every frame. */
-    notFound: "Seite nicht gefunden",
   },
+
+  /** The not-found page's title, in every frame. */
+  notFound: "Seite nicht gefunden",
+
+  /** One word for where a season stands, before its start, running or decided: a season card's chip, a list's. */
+  saisonState: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
 
   /**
    * The public season pages and the kit's season blocks, drawn on the server alone. Every entry is a draft for

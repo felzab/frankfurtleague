@@ -163,7 +163,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       />
       <TextField
         {...path("phone")}
-        label={COPY.account.entries.facts.phone}
+        label={COPY.shared.facts.phone}
         width="W3"
         kind="tel"
         isRequired={required.phone}
@@ -215,11 +215,11 @@ export function BewerbungFields({
 
   return (
     <>
-      <Section title={COPY.account.entries.facts.school}>
+      <Section title={COPY.shared.facts.school}>
         {isListed && (
           <>
             <ComboBox
-              label={COPY.account.entries.facts.school}
+              label={COPY.shared.facts.school}
               description={bewerbung.schoolDescription}
               name="team_id"
               isRequired={!isNewSchool}
@@ -283,7 +283,7 @@ export function BewerbungFields({
         </Section>
       ))}
 
-      <Section title={COPY.account.entries.facts.team}>
+      <Section title={COPY.shared.facts.team}>
         <TextField
           {...box("trikot.existing_satz")}
           label={team.trikotSatz}

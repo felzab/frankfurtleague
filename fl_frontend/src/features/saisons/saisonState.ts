@@ -5,7 +5,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import type { FLSaisonAdmin } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
-const STATE = SERVER_COPY.landing.saison.state;
+const STATE = SERVER_COPY.saisonState;
 
 /**
  * Where a season stands, in the landing's one vocabulary, so a season reads alike on the public card and in the

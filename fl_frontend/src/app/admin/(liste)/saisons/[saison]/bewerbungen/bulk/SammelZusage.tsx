@@ -173,7 +173,7 @@ export function SammelZusage({
     <CheckStep
       table={{
         label: TITLE,
-        nameLabel: COPY.account.entries.facts.school,
+        nameLabel: COPY.shared.facts.school,
         columns: [
           { key: "gruppe", label: COPY.team.gruppe, narrow: true },
           { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true },

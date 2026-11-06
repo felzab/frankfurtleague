@@ -85,7 +85,7 @@ const rollenOf = ({ rolle, also_rolle: also }: FLBewerbungEinwilligungViewRespon
 /** For whom the person stands, in which season and as what: a season row's seat is entered for a team. */
 const standsFor = (view: FLBewerbungEinwilligungViewResponse): Fact[] => [
   {
-    label: view.quelle === "saison" ? COPY.account.entries.facts.team : COPY.account.entries.facts.school,
+    label: view.quelle === "saison" ? COPY.shared.facts.team : COPY.shared.facts.school,
     value: { record: view.schule },
   },
   { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },

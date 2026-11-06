@@ -208,7 +208,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
     case "schiedsrichter_missing":
       return { line: WORDS.missing(COPY.shared.schiedsrichter) };
     case "team_missing":
-      return { line: WORDS.missing(COPY.account.entries.facts.team) };
+      return { line: WORDS.missing(COPY.shared.facts.team) };
   }
 }
 

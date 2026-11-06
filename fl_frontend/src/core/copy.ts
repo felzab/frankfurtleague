@@ -276,6 +276,8 @@ export const COPY = catalogue({
     /** A person's two names, each its own box wherever a person is entered. */
     firstName: "Vorname",
     lastName: "Nachname",
+    /** A person's or a school's facts by their labels: a box, a fact in a list, a column head. */
+    facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
     /** The glossary's nouns for a pupil, a referee and a squad: a page's title, a Funktion, an entry's box. */
     spieler: SPIELER,
     schiedsrichter: SCHIEDSRICHTER,
@@ -666,8 +668,6 @@ export const COPY = catalogue({
         /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
         seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag als ${rollenText(rollen)} und wie wir dich erreichen.`,
       },
-      /** The facts an entry box shows of its record. */
-      facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
       /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
       mediaFrom: (age: number) => `Erst ab ${formatNumber(age)} Jahren`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */

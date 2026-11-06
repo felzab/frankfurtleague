@@ -26,7 +26,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/teams">;
 
 const WORDS = COPY.admin.team;
-const TEAM = COPY.account.entries.facts.team;
+const TEAM = COPY.shared.facts.team;
 const ACT = { verb: "enter", object: TEAM } as const;
 
 /** One value of a parameter the address may hold, what it holds only where it is one of `allowed`. */

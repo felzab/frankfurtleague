@@ -34,7 +34,7 @@ import type { SaisonValues } from "./saisonValues";
 
 const WORDS = COPY.admin.saison;
 const SPIELPLAN = COPY.page.spielplan;
-const TEAM = COPY.account.entries.facts.team;
+const TEAM = COPY.shared.facts.team;
 
 const TIEBREAK: readonly Option[] = [
   { id: "tordifferenz", label: WORDS.tordifferenz },

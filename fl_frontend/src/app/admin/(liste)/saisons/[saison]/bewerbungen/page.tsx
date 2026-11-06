@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** The table's head, drawn while the rows are read and over them once they are: a phone keeps the name and its chip. */
 const HEAD: TableHead = {
-  nameLabel: COPY.account.entries.facts.school,
+  nameLabel: COPY.shared.facts.school,
   columns: [
     { key: "received", label: WORDS.received, hideOnPhone: true, width: "date" },
     { key: "seats", label: COPY.admin.spiel.bestaetigungen, hideOnPhone: true },

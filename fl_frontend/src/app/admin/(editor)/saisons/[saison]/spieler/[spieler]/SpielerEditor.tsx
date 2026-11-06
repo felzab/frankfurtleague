@@ -135,7 +135,7 @@ export function SpielerEditor({
                 onChange={(last_name) => set("last_name", last_name)}
               />
               <DateField
-                label={COPY.account.entries.facts.birthday}
+                label={COPY.shared.facts.birthday}
                 name="birth_date"
                 isRequired={required.birth_date}
                 value={draft.birth_date as CalendarDay | null}

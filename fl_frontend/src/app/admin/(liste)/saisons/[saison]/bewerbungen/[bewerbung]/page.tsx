@@ -31,7 +31,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen/[bewerbung]">;
 
 const WORDS = COPY.admin.bewerbung;
-const FACTS = COPY.account.entries.facts;
+const FACTS = COPY.shared.facts;
 
 /** A record's text as a fact's value, or the dash a fact the application left empty keeps its row with. */
 const orDash = (value: string | null): Words => (value === null || value === "" ? COPY.shared.noValue : { record: value });

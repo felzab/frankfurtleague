@@ -15,7 +15,7 @@ export default function AccountNotFound() {
       <StatusPage
         frame="rail"
         scope="area"
-        title={SERVER_COPY.landing.notFound}
+        title={SERVER_COPY.notFound}
         card={{ tone: "info", next: ACCOUNT_HOME }}
       />
     </RailColumn>

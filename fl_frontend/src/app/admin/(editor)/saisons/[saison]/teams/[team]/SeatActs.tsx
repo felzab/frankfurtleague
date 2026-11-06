@@ -125,7 +125,7 @@ export function SeatActs({
             defaultValue={person?.email}
           />
           <TextField
-            label={COPY.account.entries.facts.phone}
+            label={COPY.shared.facts.phone}
             name="phone"
             width="W3"
             kind="tel"
