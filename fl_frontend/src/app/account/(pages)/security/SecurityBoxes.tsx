@@ -111,7 +111,6 @@ export function SecurityBoxes({
           button: { label: COPY.shared.withObject(PASSKEY, "setUp") },
           touch: held,
           locked: setUpClosed,
-          line: lastKept,
         }}>
         {rows.length > 0 ? <AccountRows rows={rows} /> : undefined}
       </AccountBox>

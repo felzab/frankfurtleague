@@ -13,8 +13,7 @@ export const DraftUnsaved = createContext<Copy | undefined>(undefined);
 /**
  * Why an act cannot run, every act alike: its `locked` reason, which the page read from the record as it stands, or,
  * inside an editor whose draft is unsaved, the draft's. The record's reason comes first: the draft's save would not
- * open the act. The act's button is then disabled and the reason stands in its line (`lockedLine`); `undefined`
- * while the act can run.
+ * open the act. The act hands it to its button's `locked`; `undefined` while the act can run.
  */
 export function useLocked(locked: Copy | undefined): Copy | undefined {
   const unsaved = useContext(DraftUnsaved);

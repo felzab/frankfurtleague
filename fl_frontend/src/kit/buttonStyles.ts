@@ -27,19 +27,26 @@ export const buttonLook = tv({
       aria: "",
       link: "",
     },
+    // A locked act (`Button`'s `locked`) dims as a disabled one does and takes no layer, keeping the pointing hand, since
+    // a press opens its reason. Read from the recipe rather than `aria-disabled:`, which React Aria sets on a busy button too.
+    locked: {
+      true: "opacity-50",
+      false: "",
+    },
   },
   // Under the pointer every look but the quiet one lays the one hover layer over its fill (`bg-layer`, 12 % of its own
   // words' colour), so the step shows on the page, a card, a card's head and an overlay alike, and over a row's own
   // layer. A press takes the hover's look, so under a mouse the two are one state and a touch, which never hovers,
   // still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
   compoundVariants: [
-    { look: ["primary", "secondary", "danger", "icon"], host: "aria", class: "data-hovered:bg-layer data-pressed:bg-layer" },
+    { look: ["primary", "secondary", "danger", "icon"], host: "aria", locked: false, class: "data-hovered:bg-layer data-pressed:bg-layer" },
     { look: ["primary", "secondary", "icon"], host: "link", class: "hover:bg-layer active:bg-layer" },
     // A quiet act is a button, so it takes no underline, which marks a link alone, and its words alone answer: they
     // take their full colour, as a plain button and a text button do (Apple's HIG, Material).
-    { look: "quiet", host: "aria", class: "data-hovered:text-fg data-pressed:text-fg" },
+    { look: "quiet", host: "aria", locked: false, class: "data-hovered:text-fg data-pressed:text-fg" },
     { look: "quiet", host: "link", class: "hover:text-fg active:text-fg" },
   ],
+  defaultVariants: { locked: false },
 });
 
 /**
