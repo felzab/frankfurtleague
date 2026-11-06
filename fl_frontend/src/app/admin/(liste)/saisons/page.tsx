@@ -107,8 +107,8 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.saison,
   // A phone's row holds the name, its chip and the start beside them, with room to spare at 390 px.
   columns: [
-    { key: "beginn", label: WORDS.beginn },
-    { key: "ende", label: WORDS.ende, hideOnPhone: true },
+    { key: "beginn", label: WORDS.beginn, width: "date" },
+    { key: "ende", label: WORDS.ende, hideOnPhone: true, width: "date" },
     { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
     { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },
   ],

@@ -41,12 +41,12 @@ export default function TabellePage({ params }: Props) {
 const { column } = SERVER_COPY.season;
 
 const COLUMNS: TableProps["columns"] = [
-  { key: "spiele", label: column.spiele, figures: true },
-  { key: "siege", label: column.siege, figures: true, hideOnPhone: true },
-  { key: "unentschieden", label: column.unentschieden, figures: true, hideOnPhone: true },
-  { key: "niederlagen", label: column.niederlagen, figures: true, hideOnPhone: true },
-  { key: "record", label: column.record, figures: true, phoneOnly: true },
-  { key: "tore", label: column.tore, figures: true },
+  { key: "spiele", label: column.spiele, figures: true, width: "pair" },
+  { key: "siege", label: column.siege, figures: true, hideOnPhone: true, width: "count" },
+  { key: "unentschieden", label: column.unentschieden, figures: true, hideOnPhone: true, width: "count" },
+  { key: "niederlagen", label: column.niederlagen, figures: true, hideOnPhone: true, width: "count" },
+  { key: "record", label: column.record, figures: true, phoneOnly: true, width: "pair" },
+  { key: "tore", label: column.tore, figures: true, width: "pair" },
   { key: "differenz", label: column.differenz, figures: true, hideOnPhone: true },
   { key: "punkte", label: column.punkte, figures: true, strong: true },
 ];

@@ -52,7 +52,7 @@ export default function SpielortePage() {
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "adresse", label: WORDS.address, hideOnPhone: true },
+    { key: "adresse", label: WORDS.address, hideOnPhone: true, width: "line" },
     { key: "mietpreis", label: WORDS.mietpreis, figures: true },
   ],
 };
