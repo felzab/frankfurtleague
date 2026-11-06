@@ -58,7 +58,7 @@ test("a listed school is rejected, and every seat reads the reason", async ({ pa
   const decided = await filedMessages();
   await administration.getByRole("main").getByRole("button", { name: "Ablehnen", exact: true }).click();
   const dialog = administration.getByRole("dialog", { name: "Bewerbung ablehnen" });
-  await typeInto(dialog.getByRole("textbox", { name: /^Begründung/ }), reason);
+  await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), reason);
   await dialog.getByRole("button", { name: "Ablehnen", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(administration.getByRole("banner").getByText("Abgelehnt", { exact: true })).toBeVisible();

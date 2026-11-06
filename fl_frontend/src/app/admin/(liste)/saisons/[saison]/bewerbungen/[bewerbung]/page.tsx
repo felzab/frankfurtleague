@@ -62,7 +62,7 @@ function decisionFacts({ bewerbung: { status, decision }, entry }: FLBewerbungSi
   if (status === "declined") {
     return [
       { label: WORDS.declinedOn, value: day },
-      { label: COPY.admin.overview.reason, value: orDash(decision.reason) },
+      { label: COPY.admin.spiel.reason, value: orDash(decision.reason) },
     ];
   }
   const farbe = entry?.trikot_farbe ?? null;

@@ -55,7 +55,7 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
         />
       }>
       <TextField
-        label={COPY.admin.overview.reason}
+        label={COPY.admin.spiel.reason}
         name="reason"
         width="W4"
         kind="text"
