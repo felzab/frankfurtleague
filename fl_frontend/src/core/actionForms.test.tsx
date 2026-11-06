@@ -43,7 +43,7 @@ const spelledIn = (...files: readonly string[]): Set<string> => {
   const carried = [...source.matchAll(/carry(?:: |=\{)\{([^}]*)\}/g)].flatMap(([, keys = ""]) =>
     [...keys.matchAll(/(\w+):/g)].map(([, key = ""]) => key),
   );
-  const spelled = [...source.matchAll(/\bname="(\w+)"|\.set\("(\w+)"/g)].map(([, box, set]) => box ?? set ?? "");
+  const spelled = [...source.matchAll(/\bname="([\w.]+)"|\.set\("([\w.]+)"/g)].map(([, box, set]) => box ?? set ?? "");
   return new Set([...spelled, ...carried]);
 };
 
@@ -95,6 +95,37 @@ describe("each form's posted names meet its lane's keys", () => {
 
     // `media` renders once a birthdate stands; `act` and `token` are `kit/OneShot.tsx`'s carry.
     expect([...new Set([...names, "media", "act", "token"])].toSorted()).toStrictEqual(keysOf(answerSchiedsrichter));
+  });
+
+  it("loses no box of a contact person's confirmation", async () => {
+    const { answerKontakt } = await import("@/app/(classic)/confirm/kontakt/answerKontakt");
+    const posted = spelledIn("app/(classic)/confirm/kontakt/ConfirmationFields.tsx");
+
+    // Spelled rather than rendered: `media` renders only once a birthdate stands, and a consent box whose name meets no
+    // key parses as a refusal. `act` and `token` are `kit/OneShot.tsx`'s carry.
+    expect([...posted, "act", "token"].toSorted()).toStrictEqual(keysOf(answerKontakt));
+  });
+
+  // The application's boxes post dotted names `applicationOf` reads by string, its own parse seeing a nested body, and an
+  // optional box meeting no key turns into a silent null. A digit string survives both its text and its figure's reading.
+  it.each([
+    ["a new school's", []],
+    ["a listed school's", [{ id: "team", name: "Schule" }]],
+  ])("carries every box of %s application into its body", async (_, schulen) => {
+    const { applicationOf } = await import("@/app/(classic)/bewerbung/[saison]/application");
+    const { BEWERBUNG_RULES } = await import("@/app/(classic)/bewerbung/[saison]/bewerbungRules");
+    const { BewerbungFields } = await import("@/app/(classic)/bewerbung/[saison]/BewerbungFields");
+    const names = namesIn(
+      <BewerbungFields
+        schulen={schulen}
+        taken={[]}
+        rules={BEWERBUNG_RULES}
+      />,
+    );
+    const valueOf = (name: string) => String(100_000 + names.indexOf(name));
+    const body = JSON.stringify(applicationOf(Object.fromEntries(names.map((name) => [name, valueOf(name)]))));
+
+    expect(names.filter((name) => !body.includes(valueOf(name)))).toStrictEqual([]);
   });
 
   it.each([
