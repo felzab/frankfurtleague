@@ -5,6 +5,7 @@ import { COPY } from "@/core/copy";
 import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
+import { Callout } from "./Callout";
 import { Card, CardActRow, CardPlaceholder, CardRowsPlaceholder } from "./Card";
 import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
@@ -14,6 +15,7 @@ import { EmptyState } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
 import { Filters } from "./Filters";
 import { Icon } from "./Icon";
+import { Link } from "./Link";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
@@ -25,6 +27,7 @@ import { Tabs, TabsPlaceholder } from "./Tabs";
 import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
+import type { Route } from "next";
 import type { ComponentProps, ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
 import type { DialogAct } from "./dialogAct";
@@ -286,6 +289,40 @@ async function CreateOnceRead({ create }: { create: Promise<ListCreate> }) {
   return <CreateAct create={await create} />;
 }
 
+/**
+ * A page acting on the list as a whole, such as the Sammel-Zusage: a secondary link at the toolbar row's end, its words
+ * stated with the list and its address read with it, `null` where the list holds nothing it could act on.
+ */
+export type ListLink = { label: Copy; href: Promise<Route | null> };
+
+/** That link once the list says whether it stands. */
+async function LinkOnceRead({ link }: { link: ListLink }) {
+  const href = await link.href;
+  return (
+    href !== null && (
+      <Link
+        href={href}
+        placement="button"
+        look="secondary"
+        label={link.label}
+      />
+    )
+  );
+}
+
+/** The standing word over a list read short, once the list says so. */
+async function NoticeOnceRead({ notice }: { notice: Promise<Copy | null> }) {
+  const text = await notice;
+  return (
+    text !== null && (
+      <Callout
+        tone="warn"
+        text={text}
+      />
+    )
+  );
+}
+
 /** The list once its content is read, in the boundary's place. */
 async function ListBody({ list }: { list: ListContent }) {
   switch (list.kind) {
@@ -390,6 +427,8 @@ export function ListPage({
   filters,
   filterCount = 1,
   create,
+  link,
+  notice,
   list,
 }: {
   head: RailPageHead;
@@ -406,10 +445,13 @@ export function ListPage({
    * its own and stands in the toolbar once read.
    */
   create?: ListCreate | Promise<ListCreate>;
+  link?: ListLink;
+  /** What holds of the list as read and no row says, standing between the toolbar and the list. */
+  notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
   const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
-  const hasToolbar = search !== undefined || filters !== undefined || create !== undefined;
+  const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || link !== undefined;
 
   return (
     <RailPage {...head}>
@@ -435,7 +477,24 @@ export function ListPage({
                 )}
               </div>
             )}
+            {link !== undefined && (
+              <div className="ms-auto">
+                <Suspense
+                  fallback={
+                    <Placeholder>
+                      <span className={buttonPlaceholder()}>{link.label}</span>
+                    </Placeholder>
+                  }>
+                  <LinkOnceRead link={link} />
+                </Suspense>
+              </div>
+            )}
           </div>
+        )}
+        {notice !== undefined && (
+          <Suspense fallback={null}>
+            <NoticeOnceRead notice={notice} />
+          </Suspense>
         )}
         <PageWait
           fallback={

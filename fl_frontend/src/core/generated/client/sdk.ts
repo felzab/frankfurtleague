@@ -14,7 +14,6 @@ import type {
   ActionLogGetActionLogParams,
   AddressChangeSweepAddressChangeParams,
   BewerbungenGetBewerbungenAdminParams,
-  BewerbungenGetBewerbungenParams,
   CheckIsLiveResponse,
   FLAcceptBewerbungPayload,
   FLAcceptBewerbungResponse,
@@ -50,7 +49,6 @@ import type {
   FLBewerbungEinwilligungResendResponse,
   FLBewerbungEinwilligungViewResponse,
   FLBewerbungenAdminListResponse,
-  FLBewerbungenListResponse,
   FLBewerbungFormResponse,
   FLBewerbungKontaktSeatPayload,
   FLBewerbungKontaktSeatResponse,
@@ -818,30 +816,6 @@ export const addressChangeInviteAddressChange = async (
   });
 };
 
-export const getBewerbungenGetBewerbungenUrl = (params?: BewerbungenGetBewerbungenParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/bewerbungen?${stringifiedParams}` : `/api/v0/bewerbungen`;
-};
-
-/**
- * Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
- *
- * `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
- * `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
- * A barred administrator is served as `null` beside `decision.by_barred`.
- * @summary List Bewerbungen
- */
-export const bewerbungenGetBewerbungen = async (
-  params?: BewerbungenGetBewerbungenParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungenListResponse> => {
-  return adminKeyTransport<FLBewerbungenListResponse>(getBewerbungenGetBewerbungenUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getBewerbungenPostBewerbungUrl = () => {
   return `/api/v0/bewerbungen`;
 };
@@ -987,10 +961,11 @@ export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewer
 };
 
 /**
- * One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+ * One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
  *
- * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
- * `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+ * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
+ * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
+ * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdmin = async (

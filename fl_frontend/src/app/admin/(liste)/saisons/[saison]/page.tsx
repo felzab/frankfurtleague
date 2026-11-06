@@ -217,7 +217,7 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
   if (row.kind === "bewerbung") {
     return {
       id: row.bewerbung_id,
-      href: ROUTES.adminBewerbung.path(row.bewerbung_id),
+      href: ROUTES.adminBewerbung.path(saison, row.bewerbung_id),
       name: { record: row.name },
       line: WORDS.seatsConfirmed(row.seats_confirmed, row.seats),
     };

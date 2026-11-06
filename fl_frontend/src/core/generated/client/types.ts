@@ -1585,10 +1585,18 @@ export interface FLBewerbungEinwilligungViewResponse {
 }
 
 /**
+ * Where an accepted application's club stands in the season, which the decision itself does not record.
+ */
+export interface FLBewerbungEntry {
+  gruppe: FLGruppenNames;
+  trikot_farbe: FLTrikotFarbe | null;
+}
+
+/**
  * One group an acceptance may name, and whether it has room.
  */
 export interface FLBewerbungGruppeOffer {
-  full: boolean;
+  free: number;
   gruppe: FLGruppenNames;
 }
 
@@ -1607,7 +1615,6 @@ export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
   saison_id: string;
   status: FLSaisonStatus;
-  taken: FLTrikotFarbe[];
 }
 
 /**
@@ -1770,18 +1777,21 @@ export interface FLBewerbungLinkData {
  */
 export interface FLBewerbungListRow {
   duplicate: boolean;
+  expected_kader: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   name: string;
   new_school: boolean;
+  people: number;
   seats_confirmed: number;
-  seats_objected: number;
+  shorthand: string | null;
   status: FLBewerbungStatus;
+  stufengroesse: number;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   submitted_at: string;
-  team_id: string | null;
   version: number;
   wunschfarbe: FLTrikotFarbe;
+  wunschgegner: string | null;
 }
 
 /**
@@ -1797,13 +1807,6 @@ export interface FLBewerbungObjectionData {
   saison_id: string;
 }
 
-export type FLBewerbungOrigin = (typeof FLBewerbungOrigin)[keyof typeof FLBewerbungOrigin];
-
-export const FLBewerbungOrigin = {
-  new_school: "new_school",
-  existing_team: "existing_team",
-} as const;
-
 /**
  * The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.
  */
@@ -1816,13 +1819,6 @@ export interface FLBewerbungReceivedData {
   rollen: FLKontaktRolle[];
   saison_id: string;
 }
-
-export type FLBewerbungSaisonReference = (typeof FLBewerbungSaisonReference)[keyof typeof FLBewerbungSaisonReference];
-
-export const FLBewerbungSaisonReference = {
-  diese_saison: "diese_saison",
-  other_saison: "other_saison",
-} as const;
 
 /**
  * The club a new school proposes, bounded and stripped for the write.
@@ -1850,9 +1846,11 @@ export interface FLBewerbungSchulePayload {
  */
 export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;
+  entry: FLBewerbungEntry | null;
   name: string;
   saison: FLBewerbungEntryOffer;
   seats_confirmed: number;
+  shorthand: string | null;
 }
 
 /**
@@ -1902,25 +1900,12 @@ export interface FLBewerbungZusageData {
 }
 
 /**
- * The season's applications, what an acceptance would meet there, and whether the list is whole.
+ * The season's applications and what an acceptance would meet there.
  */
 export interface FLBewerbungenAdminListResponse {
   bewerbungen: FLBewerbungListRow[];
   complete: boolean;
   saison: FLBewerbungEntryOffer;
-}
-
-/**
- * The queue, newest first, and whether that is the whole of it.
- *
- * `duplicates_key` is taken over every open application, so a pair the cap parted is named at both ends.
- */
-export interface FLBewerbungenListResponse {
-  bewerbungen: FLBewerbung[];
-  complete: boolean;
-  count_per_saison_reference: Partial<Record<FLBewerbungSaisonReference, number>>;
-  count_per_status: Partial<Record<FLBewerbungStatus, number>>;
-  duplicates_key: string[];
 }
 
 export type FLBookingResource = (typeof FLBookingResource)[keyof typeof FLBookingResource];
@@ -6548,23 +6533,8 @@ export type AddressChangeSweepAddressChangeParams = {
   after?: string | null;
 };
 
-export type BewerbungenGetBewerbungenParams = {
-  saison_id?: string | null;
-  saison_reference?: FLBewerbungSaisonReference[] | null;
-  status?: FLBewerbungStatus[] | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "submitted_at";
-  order?: FLSortOrder;
-};
-
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
-  status?: FLBewerbungStatus[] | null;
-  origin?: FLBewerbungOrigin[] | null;
   /**
    * @minimum 1
    * @maximum 1024

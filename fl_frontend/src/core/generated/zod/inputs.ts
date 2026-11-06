@@ -341,28 +341,6 @@ export const AddressChangeInviteAddressChangeParams = zod.object({
 });
 
 /**
- * Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
- *
- * `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
- * `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
- * A barred administrator is served as `null` beside `decision.by_barred`.
- * @summary List Bewerbungen
- */
-export const bewerbungenGetBewerbungenQueryLimitDefault = 1024;
-export const bewerbungenGetBewerbungenQueryLimitMax = 1024;
-
-export const bewerbungenGetBewerbungenQuerySortByDefault = `submitted_at`;
-
-export const BewerbungenGetBewerbungenQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  saison_reference: zod.union([zod.array(zod.enum(["diese_saison", "other_saison"])), zod.null()]).optional(),
-  status: zod.union([zod.array(zod.enum(["submitted", "accepted", "declined"])), zod.null()]).optional(),
-  limit: zod.int().min(1).max(bewerbungenGetBewerbungenQueryLimitMax).default(bewerbungenGetBewerbungenQueryLimitDefault),
-  sort_by: zod.literal("submitted_at").default(bewerbungenGetBewerbungenQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).optional(),
-});
-
-/**
  * Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
  *
  * Everything the league decides -- `status`, `submitted_at`, `decision` and each consent's
@@ -649,10 +627,11 @@ export const BewerbungenGetFormParams = zod.object({
 });
 
 /**
- * One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+ * One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
  *
- * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
- * `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+ * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
+ * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
+ * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdminQueryLimitDefault = 1024;
@@ -660,8 +639,6 @@ export const bewerbungenGetBewerbungenAdminQueryLimitMax = 1024;
 
 export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
   saison_id: zod.string(),
-  status: zod.union([zod.array(zod.enum(["submitted", "accepted", "declined"])), zod.null()]).optional(),
-  origin: zod.union([zod.array(zod.enum(["new_school", "existing_team"])), zod.null()]).optional(),
   limit: zod.int().min(1).max(bewerbungenGetBewerbungenAdminQueryLimitMax).default(bewerbungenGetBewerbungenAdminQueryLimitDefault),
 });
 

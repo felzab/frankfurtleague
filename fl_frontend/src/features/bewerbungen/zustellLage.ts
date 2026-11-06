@@ -1,6 +1,7 @@
-import { FLKontaktRolle } from "@/core/generated/client/types";
+import { COPY } from "@/core/copy";
 
-import type { FLBewerbung, FLOutboxDeliveryState, FLOutboxStatus, FLOutboxStatusState } from "@/core/generated/client/types";
+import type { FLOutboxDeliveryState, FLOutboxStatus, FLOutboxStatusState } from "@/core/generated/client/types";
+import type { ChipProps } from "@/kit/Chip";
 
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
 type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
@@ -46,15 +47,29 @@ export function zustellungChip(lage: FLOutboxStatus | null): Chip | null {
   return lage.delivery === null ? STAND_CHIP[lage.state] : EREIGNIS_CHIP[lage.delivery.state];
 }
 
-/** What the triage queue marks a row on. `danger` and never the duplicate mark's `warning`: this one cannot be waited out. */
-export const ZUSTELLUNG_QUEUE_LABEL = "Kontakt unerreichbar";
-export const ZUSTELLUNG_QUEUE_TINT = "danger";
+const DELIVERY = COPY.admin.delivery;
 
-/**
- * Whether any seat of this application holds an address no mail reaches. The queue reads it so an administrator meets
- * the fact where their eye already is, rather than on a page they never open.
- */
-export function hatUnerreichbarenSitz({ confirmations }: Pick<FLBewerbung, "confirmations">): boolean {
-  // By the seats' own names: `Object.values` reads an interface's values as `any`, which no field check reaches.
-  return Object.values(FLKontaktRolle).some((rolle) => confirmations[rolle]?.delivery?.undeliverable === true);
+/** What the provider reported, as a seat's row says it; the ordinary course says nothing. */
+const REPORTED: Readonly<Record<FLOutboxDeliveryState, ChipProps | null>> = {
+  delivered: null,
+  delayed: { tone: "warn", label: DELIVERY.delayed },
+  undeliverable: { tone: "danger", label: DELIVERY.undeliverable },
+  suppressed: { tone: "danger", label: DELIVERY.suppressed },
+  complaint: { tone: "danger", label: DELIVERY.complaint },
+};
+
+/** What the outbox did with the mail where the provider said nothing. A stack that mails nothing has not sent it either. */
+const OWED: Readonly<Record<FLOutboxStatusState, ChipProps | null>> = {
+  open: null,
+  sent: null,
+  dropped: null,
+  barred: { tone: "warn", label: COPY.admin.saison.addressBarred },
+  held: { tone: "danger", label: COPY.admin.saison.linkNotSent },
+  abandoned: { tone: "danger", label: COPY.admin.saison.linkNotSent },
+};
+
+/** A seat's second chip, where its last mail met trouble: the provider's event where it reported one, else the outbox's own state. */
+export function deliveryChip(status: FLOutboxStatus | null): ChipProps | null {
+  if (status === null) return null;
+  return status.delivery === null ? OWED[status.state] : REPORTED[status.delivery.state];
 }

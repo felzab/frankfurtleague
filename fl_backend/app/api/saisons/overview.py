@@ -16,7 +16,6 @@ from pydantic import BaseModel, Field
 
 from app.api.bewerbungen.services import (
     ausstehende_seats,
-    build_bewerbungen_saison_term,
     build_bewerbungen_sort,
     build_bewerbungen_status_term,
 )
@@ -238,7 +237,7 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                 "pipeline": [
                     {
                         "$match": {
-                            **build_bewerbungen_saison_term(saison_id=saison_id, saison_reference=None),
+                            "saison_id": saison_id,
                             **build_bewerbungen_status_term(["submitted"]),
                         }
                     },

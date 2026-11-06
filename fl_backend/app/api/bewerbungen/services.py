@@ -10,7 +10,6 @@ from pydantic import BaseModel, ValidationError
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
-    FLBewerbungSaisonReference,
     age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
@@ -990,6 +989,7 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
         return WriteRefusal(
             error_code=Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN,
             status=HTTPStatus.CONFLICT,
+            fields=(("email",),),
         )
 
     return None
@@ -1588,32 +1588,27 @@ def build_entry_offer_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
 # shows none.
 BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
     **_per_seat("kontakte", "einwilligung.confirmed_at"),
-    **_per_seat("confirmations", "declined_at"),
     "version": 1,
     "saison_id": 1,
     "status": 1,
     "submitted_at": 1,
     "team_id": 1,
     "schule.team_name": 1,
+    "kontakte.trainer_is_also": 1,
     "trikot.wunschfarbe": 1,
+    "stufengroesse": 1,
+    "kader.expected_size": 1,
+    "wunschgegner": 1,
 }
-
-
-def build_bewerbung_list_filter(*, saison_id: str, status: Sequence[str] | None, origin: Sequence[str] | None) -> dict[str, Any]:
-    """The season's rows the list's filters leave. Both origins, or neither, is every row."""
-
-    terms = {"saison_id": saison_id, **build_bewerbungen_status_term(status)}
-    if origin is None or len(set(origin)) != 1:
-        return terms
-
-    return {**terms, "schule": None if origin[0] == "existing_team" else {"$ne": None}}
 
 
 def seats_confirmed_of(*, kontakte: Any) -> int:
     return len(KONTAKT_ROLLEN) - len(ausstehende_seats(kontakte=kontakte))
 
 
-def bewerbung_list_row(*, row: Mapping[str, Any], club_names: Mapping[Any, str], doubled: Collection[str]) -> dict[str, Any]:
+def bewerbung_list_row(
+    *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Collection[str]
+) -> dict[str, Any]:
     """One stored application as `FLBewerbungListRow` serves it, `doubled` being `dubletten_schluessel_of`'s keys."""
 
     return {
@@ -1621,47 +1616,17 @@ def bewerbung_list_row(*, row: Mapping[str, Any], club_names: Mapping[Any, str],
         "version": row["version"],
         "status": row["status"],
         "submitted_at": row["submitted_at"],
-        "team_id": row.get("team_id"),
         "name": schule_name(bewerbung_raw=row, club_names=club_names),
         "new_school": isinstance(row.get("schule"), Mapping),
+        "shorthand": club_codes.get(row.get("team_id")),
         "wunschfarbe": row["trikot"]["wunschfarbe"],
+        "stufengroesse": row["stufengroesse"],
+        "expected_kader": row["kader"]["expected_size"],
+        "wunschgegner": row.get("wunschgegner"),
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
-        "seats_objected": sum(_declined_on(row.get("confirmations"), seat) is not None for seat in KONTAKT_ROLLEN),
+        "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
         "duplicate": row["status"] == "submitted" and f"{row.get('saison_id')} team {row.get('team_id')}" in doubled,
     }
-
-
-def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewerbungSaisonReference, dict[str, Any]]:
-    """Each relation's own term, for the count its option is told.
-
-    A request naming no season is answered against `None`, which no application carries, so every row
-    falls under `other_saison` -- where
-    `fl_frontend/src/features/bewerbungen/utils.ts :: buildBewerbungRows` files those same rows.
-    """
-
-    return {"diese_saison": {"saison_id": saison_id}, "other_saison": {"saison_id": {"$ne": saison_id}}}
-
-
-def build_bewerbungen_saison_term(*, saison_id: str | None, saison_reference: Sequence[str] | None) -> dict[str, Any]:
-    """Which seasons the read covers, as the bar's relation to the season the caller named.
-
-    A relation rather than the id alone, the bar offering a complement no `saison_id` can express.
-    """
-
-    if saison_id is None:
-        return {}
-
-    # The parameter's older meaning, kept: a caller naming no relation asked for that season's queue.
-    if saison_reference is None:
-        return {"saison_id": saison_id}
-
-    picked = [relation for relation in get_args(FLBewerbungSaisonReference.__value__) if relation in saison_reference]
-
-    # Every relation picked is every season, and so the facet turned off.
-    if len(picked) != 1:
-        return {}
-
-    return build_bewerbungen_saisonbezug_terms(saison_id=saison_id)[picked[0]]
 
 
 def build_bewerbungen_status_term(status: Sequence[str] | None) -> dict[str, Any]:
@@ -1702,10 +1667,7 @@ def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[s
 
 
 def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Which keys more than one open application holds, composed as the frontend composes a served row's.
-
-    `fl_frontend/src/features/bewerbungen/duplicates.ts :: duplicatesKey`, whose comparison marks the row.
-    """
+    """Which keys more than one open application holds, composed as `bewerbung_list_row` composes a served row's."""
 
     # Sorted, so an unchanged queue answers the same list twice.
     return sorted(f"{cell['_id']['saison_id']} team {cell['_id']['team_id']}" for cell in cells)

@@ -218,6 +218,13 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A contact's link answered in another window, or its season row closed, since the page was served.
   "bewerbung_seat_already_answered",
   "kontakt_saison_past",
+  // An application decided, or its seats or its season moved, since the page offering its decision was read.
+  "bewerbung_already_decided",
+  "bewerbung_kontakte_unconfirmed",
+  "entry_saison_not_future",
+  "entry_gruppe_not_offered",
+  "entry_gruppe_full",
+  "entry_gruppe_locked",
   // A season's dates, rules, draw, swap, replacement and links, each of which the season editor closes off its own read
   // before it is pressed: the season moved since the page was served.
   "saison_start_taken_place",

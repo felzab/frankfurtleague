@@ -51,7 +51,8 @@ export function OptionList({ options, fit = "field", act }: { options: readonly 
                 <>
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate">{textOf(option.label)}</span>
-                    {option.note !== undefined && <span className={messageLine({ tone: "description" })}>{option.note}</span>}
+                    {/* The several-line recipe: the one-line one's `contain-inline-size` leaves a note no width inside an entry. */}
+                    {option.note !== undefined && <span className={messageLine({ tone: "description", lines: "several" })}>{option.note}</span>}
                   </span>
                   {isSelected && (
                     <Icon
