@@ -31539,7 +31539,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
       "post": {
-        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's\nlive squad rows are retired, in ONE transaction: the schedule survives.",
+        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and\ntheir links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:\nthe schedule survives.",
         "operationId": "teams_replace_saison_team",
         "parameters": [
           {

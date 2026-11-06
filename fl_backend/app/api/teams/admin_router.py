@@ -916,8 +916,9 @@ async def replace_saison_team(
     """
     Hand this season's junction row, and every fixture on it, to another club.
 
-    Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
-    live squad rows are retired, in ONE transaction: the schedule survives.
+    Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
+    their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
+    the schedule survives.
     """
 
     # Before any read, as the group swap judges its pair: this one is refused whatever the season holds.
