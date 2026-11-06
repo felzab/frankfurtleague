@@ -261,6 +261,26 @@ class TestTheWindowReads:
 
         assert open_window(seeded_url)["saison_id"] == OPEN_SAISON
 
+    def test_the_landing_names_the_day_the_next_window_opens(self, mongo_url: str):
+        """The later window sorts ahead of the sooner, and the pause and the ended season behind both open sooner still."""
+
+        later = {"open": True, "start": "2026-09-01", "end": "2026-10-31"}
+        sooner = {"open": True, "start": "2026-06-01", "end": "2026-07-31"}
+        earliest = {"open": True, "start": "2026-05-01", "end": "2026-05-31"}
+        database = seeded_with(
+            mongo_url,
+            [
+                _saison("2029", bewerbung=later),
+                _saison("2028", bewerbung=sooner),
+                _saison("2027", bewerbung={**earliest, "open": False}),
+                _saison("2026", bewerbung=earliest, status="past"),
+            ],
+        )
+
+        response = answered(mongo_url, f"/api/v{API_VERSION}/saisons/landing", database_name=database)
+
+        assert response.json()["bewerbung_opens_on"] == sooner["start"]
+
     @pytest.mark.parametrize(
         ("saison_id", "state"),
         [

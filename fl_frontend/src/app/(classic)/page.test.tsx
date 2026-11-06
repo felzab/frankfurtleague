@@ -2,6 +2,7 @@ import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import HomePage from "./page";
@@ -17,14 +18,14 @@ vi.mock("next/server", async (original) => ({ ...(await original<object>()), con
 /** The landing's read each case serves: no season yet, no figures, and the window a case sets. */
 const landing = vi.hoisted((): { counts: FLLandingResponse["counts"]; current: FLLandingResponse | Promise<FLLandingResponse> } => {
   const counts = { count_saisons: 0, count_schulen: 0, count_spiele: 0, count_tore: 0 };
-  return { counts, current: { saison: null, bewerbung_window: null, counts } };
+  return { counts, current: { saison: null, bewerbung_window: null, bewerbung_opens_on: null, counts } };
 });
 
 vi.mock("./landing", async (original) => ({ ...(await original<object>()), readLanding: async () => landing.current }));
 
 /** The landing's whole server render for the window given: the document a browser shows before hydrating. */
-async function rendered(window: FLLandingResponse["bewerbung_window"]) {
-  landing.current = { saison: null, bewerbung_window: window, counts: landing.counts };
+async function rendered(window: FLLandingResponse["bewerbung_window"], opensOn: FLLandingResponse["bewerbung_opens_on"] = null) {
+  landing.current = { saison: null, bewerbung_window: window, bewerbung_opens_on: opensOn, counts: landing.counts };
   const stream = await renderToReadableStream(<HomePage />);
   await stream.allReady;
   return new Response(stream).text();
@@ -39,6 +40,14 @@ describe("the landing's ways to apply", () => {
   it("lead to the form from the hero, the steps' band, the season card and the school's door while a window is open", async () => {
     const html = await rendered({ saison_id: "2028", end: "2028-01-31" });
     expect(hrefs(html).filter((href) => href === "/bewerbung/2028")).toHaveLength(4);
+  });
+});
+
+// The closed band sends a school to next season, which a window about to open makes false where only the form's page shows it.
+describe("the landing's band while a window is upcoming", () => {
+  it("names the day it opens", async () => {
+    const html = await rendered(null, "2028-01-01");
+    expect(html).toContain(SERVER_COPY.bewerbung.end.opensOn(dayOf("2028-01-01")));
   });
 });
 

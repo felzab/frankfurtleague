@@ -16,7 +16,8 @@ type Step = { title: Copy; text: Copy };
 
 /**
  * The band under the steps: while a window is open, its deadline and the way to apply, the page's primary
- * act; while none is, the word that none is and the way to the league's own page, a secondary one.
+ * act; while none is, the day the next opens or the word that none is, and the way to the league's own page, a
+ * secondary one.
  */
 type StepsBand = { open: boolean; sentence: Copy; act: { label: Copy; href: Route } };
 

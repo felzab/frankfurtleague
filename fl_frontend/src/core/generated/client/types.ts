@@ -3218,6 +3218,7 @@ export interface FLLandingRunning {
  * The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures.
  */
 export interface FLLandingResponse {
+  bewerbung_opens_on: string | null;
   bewerbung_window: FLBewerbungWindow | null;
   counts: FLLandingCounts;
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;

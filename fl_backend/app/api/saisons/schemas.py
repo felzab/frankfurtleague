@@ -692,4 +692,6 @@ class FLLandingResponse(BaseAPIResponse):
 
     saison: FLLandingSaison | None
     bewerbung_window: FLBewerbungWindow | None
+    # The day the next window opens, by the judgement the form's page serves as `upcoming`.
+    bewerbung_opens_on: CustomDateString | None
     counts: FLLandingCounts

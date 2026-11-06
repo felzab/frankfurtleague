@@ -7773,6 +7773,18 @@
       "FLLandingResponse": {
         "description": "The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures.",
         "properties": {
+          "bewerbung_opens_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bewerbung Opens On"
+          },
           "bewerbung_window": {
             "anyOf": [
               {
@@ -7819,6 +7831,7 @@
         "required": [
           "saison",
           "bewerbung_window",
+          "bewerbung_opens_on",
           "counts"
         ],
         "title": "FLLandingResponse",
@@ -24112,7 +24125,7 @@
     },
     "/api/v0/saisons/landing": {
       "get": {
-        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, and the league's figures over\nevery season the public reads, counted on every read. The figures are read beside the season's two steps rather\nthan after them, so they add no step to the read.",
+        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, the day the next one opens by\nthe judgement the form's page serves, and the league's figures over every season the public reads, counted on every\nread. The windows and the figures are read beside the season's two steps rather than after them, so they add no step\nto the read.",
         "operationId": "saisons_get_landing",
         "responses": {
           "200": {
