@@ -20,7 +20,7 @@
 // writes would change what another reads (https://playwright.dev/docs/auth). One administrator per
 // end-to-end project (`fl_frontend/playwright.config.ts`), the third the desktop journey's whose save
 // meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
-// administration's journey's (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own
+// administration's journey's (`fl_frontend/e2e/desktop/admin.spec.ts`): each sets up its own
 // passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
 // journey's, are the account acts' three per project and the desktop passkey journeys' two. The owner's
 // code is asked for and never typed (`fl_frontend/e2e/signin.spec.ts`).
@@ -216,7 +216,7 @@ const GRANTS = [
   ["admin.desktop@example.com", "administration"],
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
-  ["admin.verwaltung@example.com", "administration"],
+  ["admin@example.com", "administration"],
 ].map(([address, admin_tier]) => ({
   _id: ObjectId(),
   address,

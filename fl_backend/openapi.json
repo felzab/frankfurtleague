@@ -7733,9 +7733,9 @@
               }
             ]
           },
-          "start": {
+          "starts_at": {
             "format": "date-time",
-            "title": "Start",
+            "title": "Starts At",
             "type": "string"
           },
           "state": {
@@ -7753,7 +7753,7 @@
         },
         "required": [
           "id",
-          "start",
+          "starts_at",
           "teams",
           "state",
           "opening_spiel"
@@ -7849,9 +7849,9 @@
             "title": "Podium",
             "type": "array"
           },
-          "start": {
+          "starts_at": {
             "format": "date-time",
-            "title": "Start",
+            "title": "Starts At",
             "type": "string"
           },
           "state": {
@@ -7869,7 +7869,7 @@
         },
         "required": [
           "id",
-          "start",
+          "starts_at",
           "teams",
           "state",
           "podium"
@@ -8001,9 +8001,9 @@
             "title": "Recent",
             "type": "array"
           },
-          "start": {
+          "starts_at": {
             "format": "date-time",
-            "title": "Start",
+            "title": "Starts At",
             "type": "string"
           },
           "state": {
@@ -8028,7 +8028,7 @@
         },
         "required": [
           "id",
-          "start",
+          "starts_at",
           "teams",
           "state",
           "recent",

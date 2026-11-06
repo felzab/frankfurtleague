@@ -3208,7 +3208,7 @@ export interface FLSaisonTeamEntry {
 export interface FLLandingBeforeStart {
   id: string;
   opening_spiel: FLLandingOpeningSpiel | null;
-  start: string;
+  starts_at: string;
   state: "before_start";
   teams: FLSaisonTeamEntry[];
 }
@@ -3241,7 +3241,7 @@ export interface FLLandingDecided {
    * @maxItems 4
    */
   podium: [FLLandingSide | null, FLLandingSide | null, FLLandingSide | null, FLLandingSide | null];
-  start: string;
+  starts_at: string;
   state: "decided";
   teams: FLSaisonTeamEntry[];
 }
@@ -3252,7 +3252,7 @@ export interface FLLandingDecided {
 export interface FLLandingRunning {
   id: string;
   recent: FLSpielJoined[];
-  start: string;
+  starts_at: string;
   state: "running";
   teams: FLSaisonTeamEntry[];
   upcoming: FLSpielJoined[];

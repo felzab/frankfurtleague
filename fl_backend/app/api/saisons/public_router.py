@@ -301,7 +301,7 @@ async def _landing_saison(
                 FLLandingDecided(
                     id=saison_id,
                     state="decided",
-                    start=start,
+                    starts_at=start,
                     podium=(landing_side(first_place), landing_side(second_place), landing_side(third_place), landing_side(fourth_place)),
                     teams=teams,
                 ),
@@ -312,7 +312,7 @@ async def _landing_saison(
                 FLLandingRunning(
                     id=saison_id,
                     state="running",
-                    start=start,
+                    starts_at=start,
                     recent=FLSpielJoinedListAdapter.validate_python(recent_raw),
                     upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw),
                     teams=teams,
@@ -324,7 +324,7 @@ async def _landing_saison(
                 FLLandingBeforeStart(
                     id=saison_id,
                     state="before_start",
-                    start=start,
+                    starts_at=start,
                     opening_spiel=FLLandingOpeningSpiel.model_validate(first_raw[0]) if first_raw else None,
                     teams=teams,
                 ),

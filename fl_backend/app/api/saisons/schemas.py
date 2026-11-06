@@ -645,10 +645,10 @@ class FLLandingCounts(BaseReadModel):
 
 
 class _FLLandingSaisonFacts(BaseReadModel):
-    """What the landing shows of the season the site is on in every state: `start` is 00:00 in Berlin on its `start_date`."""
+    """What the landing shows of the season the site is on in every state: `starts_at` is 00:00 in Berlin on its `start_date`."""
 
     id: str
-    start: datetime
+    starts_at: datetime
     teams: list[FLSaisonTeamEntry]
 
 

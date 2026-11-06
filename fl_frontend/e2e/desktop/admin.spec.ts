@@ -14,7 +14,7 @@ import { enrolPasskey, signInWithCode } from "../support/signIn";
 import type { Page } from "@playwright/test";
 
 /** The administrator this journey alone signs in as (`scripts/ops/seed/seed.js`). */
-const ADMINISTRATOR = "admin.verwaltung@example.com";
+const ADMINISTRATOR = "admin@example.com";
 
 /** The seed's longest venue name, which no width of the page may break. */
 const LONG_NAME = "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord";

@@ -50,7 +50,7 @@ export function stateOf(saison: LandingSaison): SaisonState {
       const spiel = saison.opening_spiel;
       return {
         kind: "countdown",
-        start: saison.start,
+        start: saison.starts_at,
         ...(spiel === null
           ? {}
           : {
