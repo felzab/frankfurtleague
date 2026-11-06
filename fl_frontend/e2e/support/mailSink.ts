@@ -51,35 +51,38 @@ export async function mailedCode(address: string, before: ReadonlySet<string>): 
  * opens at: the mail is spelled on the serving origin, which the journey's own `baseURL` reaches.
  */
 export async function mailedLink(address: string, subject: string, before: ReadonlySet<string>): Promise<string> {
-  let link: string | null = null;
+  // The button's link, printed to copy under it in the plain-text part.
+  const found = (await mailedMessage(address, subject, before)).join("\n").match(/https?:\/\/[^\s"<>]+\?token=[A-Za-z0-9_%-]+/);
+  if (found === null) throw new Error(`the mail „${subject}“ to ${address} carries no link`);
+
+  const url = new URL(found[0]);
+  return `${url.pathname}${url.search}`;
+}
+
+/**
+ * The envelope and plain-text lines of a message filed after `before` to `address`, waited for as the send is. `subject`
+ * is the subject's start, as far as a journey can spell it: a day it cannot know ends some.
+ */
+export async function mailedMessage(address: string, subject: string, before: ReadonlySet<string>): Promise<readonly string[]> {
+  let message: string[] | null = null;
 
   await expect
     .poll(
       async () => {
-        link = await linkAmong(address, subject, before);
-        return link;
+        message = await messageAmong(address, subject, before);
+        return message;
       },
       { message: `a mail „${subject}“ to ${address} in ${MAIL_SINK}`, timeout: 20_000 },
     )
     .not.toBeNull();
 
-  if (link === null) throw new Error(`no mail „${subject}“ reached ${address}`);
-  return link;
+  if (message === null) throw new Error(`no mail „${subject}“ reached ${address}`);
+  return message;
 }
 
-async function linkAmong(address: string, subject: string, before: ReadonlySet<string>): Promise<string | null> {
-  for (const lines of await headersAmong(before)) {
-    if (!lines.includes(`To: ${address}`) || !lines.includes(`Subject: ${subject}`)) continue;
-
-    // The button's link, printed to copy under it in the plain-text part.
-    const found = lines.join("\n").match(/https?:\/\/[^\s"<>]+\?token=[A-Za-z0-9_%-]+/);
-    if (found !== null) {
-      const url = new URL(found[0]);
-      return `${url.pathname}${url.search}`;
-    }
-  }
-
-  return null;
+async function messageAmong(address: string, subject: string, before: ReadonlySet<string>): Promise<string[] | null> {
+  const filed = await headersAmong(before);
+  return filed.find((lines) => lines.includes(`To: ${address}`) && lines.some((line) => line.startsWith(`Subject: ${subject}`))) ?? null;
 }
 
 /** Each message filed after `before`, newest first, as its envelope's and plain-text part's lines. */
