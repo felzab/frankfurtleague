@@ -255,20 +255,34 @@ async def pull_tabelle(
     return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)
 
 
-async def pull_team_names(
-    *, teams_collection: ReadCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
+async def _pull_team_field(
+    *, teams_collection: ReadCollection, team_ids: Iterable[Any], field: str, session: AsyncClientSession | None
 ) -> dict[Any, str]:
-    """These clubs' names off their `teams` documents, one read and no command for none; a club no document holds is absent."""
+    """One field of these clubs' `teams` documents, one read and no command for none; a club no document holds is absent."""
 
     wanted = list({team_id for team_id in team_ids if team_id is not None})
     if not wanted:
         return {}
 
     teams = await pull_many_from_db(
-        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=["name"], limit=LIST_LIMIT_MAX, session=session
+        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=[field], limit=LIST_LIMIT_MAX, session=session
     )
 
-    return {team["_id"]: str(team.get("name") or "") for team in teams}
+    return {team["_id"]: str(team.get(field) or "") for team in teams}
+
+
+async def pull_team_names(
+    *, teams_collection: ReadCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
+) -> dict[Any, str]:
+    """These clubs' names off their `teams` documents."""
+
+    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="name", session=session)
+
+
+async def pull_team_codes(*, teams_collection: ReadCollection, team_ids: Iterable[Any]) -> dict[Any, str]:
+    """These clubs' codes off their `teams` documents."""
+
+    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="shorthand", session=None)
 
 
 async def void_moved_seats(

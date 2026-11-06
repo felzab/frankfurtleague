@@ -516,6 +516,18 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         assert code == Code.ENTRY_SAISON_NOT_FUTURE
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "submitted")
 
+    def test_a_club_the_season_already_holds_is_refused_by_its_own_code(self, mongo_replica_set_url: str):
+        """Two open applications may name one club, and the index alone would answer the second a bare `duplicate_key`."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_one(junction_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND, "B"))
+            with pytest.raises(APIError) as conflict:
+                await accept(database, client, PICKED_BEWERBUNG)
+
+            return conflict.value.error_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["status"]
+
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED, "submitted")
+
 
 # The two shapes `bewerbung_subject_unresolved` refuses, each stored as a hand edit could leave it.
 UNRESOLVED = [

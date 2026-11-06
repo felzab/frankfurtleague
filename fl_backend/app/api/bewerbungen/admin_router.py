@@ -34,7 +34,6 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     BEWERBUNG_LIST_FIELDS,
     WITHOUT_TOKEN_HASHES,
-    assigned_trikot_farben,
     bewerbung_list_row,
     build_bewerbung_list_filter,
     build_bewerbungen_saison_term,
@@ -54,6 +53,7 @@ from app.api.bewerbungen.services import (
     find_acceptance_code_refusal,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
+    find_already_entered_refusal,
     find_kontakt_barred_refusal,
     find_kontakt_email_refusal,
     find_new_club_refusal,
@@ -75,7 +75,7 @@ from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
-from app.api.teams.crud import pull_a_club_to_enter, pull_team_names, refuse_a_full_gruppe
+from app.api.teams.crud import pull_a_club_to_enter, pull_team_codes, pull_team_names, refuse_a_full_gruppe
 from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -138,10 +138,9 @@ async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollect
         saison_id=saison_id,
         status=saison_raw["status"],
         gruppen=[
-            FLBewerbungGruppeOffer(gruppe=gruppe, full=occupied[gruppe] >= rules.teams_per_gruppe)
+            FLBewerbungGruppeOffer(gruppe=gruppe, free=max(rules.teams_per_gruppe - occupied[gruppe], 0))
             for gruppe in offered_gruppen(rules.number_of_gruppen)
         ],
-        taken=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in saison_raw["rows"]]),
     )
 
 
@@ -252,12 +251,19 @@ async def get_bewerbungen_admin(
         ),
     )
     served = read[: filters.limit]
-    club_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
+    team_ids = [row.get("team_id") for row in served]
+    club_names, club_codes = await asyncio.gather(
+        pull_team_names(teams_collection=teams_collection, team_ids=team_ids),
+        pull_team_codes(teams_collection=teams_collection, team_ids=team_ids),
+    )
     keys = set(dubletten_schluessel_of(doubled))
 
     return FLBewerbungenAdminListResponse(
         saison=offer,
-        bewerbungen=[FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, club_names=club_names, doubled=keys)) for row in served],
+        bewerbungen=[
+            FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, club_names=club_names, club_codes=club_codes, doubled=keys))
+            for row in served
+        ],
         complete=len(read) <= filters.limit,
     )
 
@@ -280,14 +286,17 @@ async def get_bewerbung(
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
     [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection, today=today)
 
-    offer, club_names = await asyncio.gather(
+    team_id = bewerbung_raw.get("team_id")
+    offer, club_names, club_codes = await asyncio.gather(
         _entry_offer(saison_id=str(bewerbung_raw["saison_id"]), saisons_collection=saisons_collection),
-        pull_team_names(teams_collection=teams_collection, team_ids=[bewerbung_raw.get("team_id")]),
+        pull_team_names(teams_collection=teams_collection, team_ids=[team_id]),
+        pull_team_codes(teams_collection=teams_collection, team_ids=[team_id]),
     )
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),
         name=schule_name(bewerbung_raw=bewerbung_raw, club_names=club_names),
+        shorthand=club_codes.get(team_id),
         seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),
         saison=offer,
     )
@@ -386,6 +395,10 @@ async def accept_bewerbung(
             # The club's OWN `_id`, never the application's copy of it: this read is what proves the
             # club exists, so the id the junction row carries comes from the document it resolved.
             picked_club = team_raw["_id"]
+            # Two applications may name one club, so the first's acceptance reaches the second here: on the status
+            # line by this code, ahead of the junction's unique index, which answers only a race.
+            entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": picked_club}, limit=1, session=session)
+            refuse(find_already_entered_refusal(entered=entered > 0))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
         else:
             # Composed beside the guard that judges it, and reaching for no field of the application

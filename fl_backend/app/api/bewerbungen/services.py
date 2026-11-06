@@ -1555,7 +1555,11 @@ BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
     "submitted_at": 1,
     "team_id": 1,
     "schule.team_name": 1,
+    "kontakte.trainer_is_also": 1,
     "trikot.wunschfarbe": 1,
+    "stufengroesse": 1,
+    "kader.expected_size": 1,
+    "wunschgegner": 1,
 }
 
 
@@ -1573,7 +1577,9 @@ def seats_confirmed_of(*, kontakte: Any) -> int:
     return len(KONTAKT_ROLLEN) - len(ausstehende_seats(kontakte=kontakte))
 
 
-def bewerbung_list_row(*, row: Mapping[str, Any], club_names: Mapping[Any, str], doubled: Collection[str]) -> dict[str, Any]:
+def bewerbung_list_row(
+    *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Collection[str]
+) -> dict[str, Any]:
     """One stored application as `FLBewerbungListRow` serves it, `doubled` being `dubletten_schluessel_of`'s keys."""
 
     return {
@@ -1584,9 +1590,14 @@ def bewerbung_list_row(*, row: Mapping[str, Any], club_names: Mapping[Any, str],
         "team_id": row.get("team_id"),
         "name": schule_name(bewerbung_raw=row, club_names=club_names),
         "new_school": isinstance(row.get("schule"), Mapping),
+        "shorthand": club_codes.get(row.get("team_id")),
         "wunschfarbe": row["trikot"]["wunschfarbe"],
+        "stufengroesse": row["stufengroesse"],
+        "expected_kader": row["kader"]["expected_size"],
+        "wunschgegner": row.get("wunschgegner"),
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
         "seats_objected": sum(_declined_on(row.get("confirmations"), seat) is not None for seat in KONTAKT_ROLLEN),
+        "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
         "duplicate": row["status"] == "submitted" and f"{row.get('saison_id')} team {row.get('team_id')}" in doubled,
     }
 

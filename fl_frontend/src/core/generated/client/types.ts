@@ -1579,7 +1579,7 @@ export interface FLBewerbungEinwilligungViewResponse {
  * One group an acceptance may name, and whether it has room.
  */
 export interface FLBewerbungGruppeOffer {
-  full: boolean;
+  free: number;
   gruppe: FLGruppenNames;
 }
 
@@ -1598,7 +1598,6 @@ export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
   saison_id: string;
   status: FLSaisonStatus;
-  taken: FLTrikotFarbe[];
 }
 
 /**
@@ -1761,18 +1760,23 @@ export interface FLBewerbungLinkData {
  */
 export interface FLBewerbungListRow {
   duplicate: boolean;
+  expected_kader: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   name: string;
   new_school: boolean;
+  people: number;
   seats_confirmed: number;
   seats_objected: number;
+  shorthand: string | null;
   status: FLBewerbungStatus;
+  stufengroesse: number;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   submitted_at: string;
   team_id: string | null;
   version: number;
   wunschfarbe: FLTrikotFarbe;
+  wunschgegner: string | null;
 }
 
 /**
@@ -1857,6 +1861,7 @@ export interface FLBewerbungSingleResponse {
   name: string;
   saison: FLBewerbungEntryOffer;
   seats_confirmed: number;
+  shorthand: string | null;
 }
 
 /**

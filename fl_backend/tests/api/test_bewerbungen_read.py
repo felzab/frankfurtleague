@@ -600,11 +600,17 @@ class TestTheSeasonsListRead:
 
         offer = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list)).saison
 
-        assert (offer.status, [(row.gruppe, row.full) for row in offer.gruppen], offer.taken) == (
-            "future",
-            [("A", True), ("B", False)],
-            ["blau"],
-        )
+        assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
+
+    def test_a_row_names_the_code_of_its_club_alone(self, mongo_url: str):
+        """The acceptance's closed box: a picked club's code stands in `teams`, and a new school has none until it is accepted."""
+
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
+
+        codes = {row.id: row.shorthand for row in answered.bewerbungen}
+
+        assert codes[ObjectId(BEWERBUNG_ID.format(PICKED))] == "ADX"
+        assert codes[ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] is None
 
     @pytest.mark.parametrize(
         ("origin", "expected"),
@@ -632,7 +638,12 @@ class TestTheSeasonsListRead:
 
         answered = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
 
-        assert (answered.name, answered.saison.saison_id, answered.bewerbung.version) == ("Adlerhorst", VIEW_SAISON, 0)
+        assert (answered.name, answered.shorthand, answered.saison.saison_id, answered.bewerbung.version) == (
+            "Adlerhorst",
+            "ADX",
+            VIEW_SAISON,
+            0,
+        )
 
 
 # The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so

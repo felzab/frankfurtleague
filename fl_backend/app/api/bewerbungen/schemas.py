@@ -294,7 +294,8 @@ class FLBewerbungGruppeOffer(BaseModel):
     """One group an acceptance may name, and whether it has room."""
 
     gruppe: FLGruppenNames
-    full: bool
+    # The places left, none where it is full: the bulk accept's cards take their own run's picks off this.
+    free: int
 
 
 class FLBewerbungEntryOffer(BaseReadModel):
@@ -305,8 +306,6 @@ class FLBewerbungEntryOffer(BaseReadModel):
     status: FLSaisonStatus
     # The groups the season's rules offer, in their order.
     gruppen: list[FLBewerbungGruppeOffer]
-    # Which kit colours the season has assigned, for a mark: a colour is not unique, so nothing refuses one.
-    taken: list[FLTrikotFarbe]
 
 
 class FLBewerbungListRow(BaseReadModel):
@@ -321,9 +320,17 @@ class FLBewerbungListRow(BaseReadModel):
     # The school as submitted, or the picked club's own name.
     name: str
     new_school: bool
+    # The code of the club it names; a new school takes one from the acceptance.
+    shorthand: str | None
     wunschfarbe: FLTrikotFarbe
+    # What the bulk accept's card shows beside the colour, so its run takes no read per card.
+    stufengroesse: int
+    expected_kader: int
+    wunschgegner: str | None
     seats_confirmed: int
     seats_objected: int
+    # The people its seats name, one person holding two counting once: whom a decision mails.
+    people: int
     # Whether this open application and another one for the season name the same club (`Dublette`).
     duplicate: bool
 
@@ -342,6 +349,8 @@ class FLBewerbungSingleResponse(BaseAPIResponse):
     bewerbung: FLBewerbung
     # The school as submitted, or the picked club's own name.
     name: str
+    # The code of the club it names, which the acceptance shows closed; null for a new school until it is accepted.
+    shorthand: str | None
     seats_confirmed: int
     saison: FLBewerbungEntryOffer
 
