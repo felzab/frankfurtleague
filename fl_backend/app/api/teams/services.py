@@ -62,7 +62,7 @@ def _spiele_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[st
 
     return {
         "saison_id": saison_id,
-        # Absent under "gesamt" rather than negated: an `$in` over every phase needs widening by
+        # Absent under "total" rather than negated: an `$in` over every phase needs widening by
         # hand the day one is added.
         **({"saison_phase": "gruppenphase"} if scope == "gruppenphase" else {}),
         "$expr": {"$or": [_IS_THIS_TEAM_IN_SLOT_ONE, {"$eq": ["$team2.team_id", "$$team_oid"]}]},

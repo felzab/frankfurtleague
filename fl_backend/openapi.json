@@ -28592,7 +28592,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Take a Spieler out of the squad as its team's seat holder (austragen)",
+        "summary": "Take a Spieler out of the squad as its team's seat holder (retire)",
         "tags": [
           "spieler"
         ]

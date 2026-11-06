@@ -535,7 +535,7 @@ function confirmedPerson(person, answeredOn) {
 /**
  * A seat's bookkeeping beside its slot. An application's link takes one reminder
  * (`fl_backend/app/api/bewerbungen/services.py :: compose_bestaetigung`); a season row's is chased by nothing, and its
- * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_bestaetigung`).
+ * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_confirmation`).
  */
 function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn = null } = {}) {
   return {
@@ -576,7 +576,7 @@ function rowSeats(owner, sentOn, states) {
 
 // Weide stayed away from match 3 and is disqualified since: it keeps its group place and its drawn fixtures, match 12
 // still to play, as a departed club does (`docs/domain.md`, "A departed club holding drawn fixtures"). Its open seat's
-// link takes a Widerspruch alone (`fl_backend/app/api/bewerbungen/services.py :: saison_zustand_of`).
+// link takes a Widerspruch alone (`fl_backend/app/api/bewerbungen/services.py :: saison_state_of`).
 Object.assign(
   running.saisonTeams.find((row) => row.name === "Weide"),
   {
@@ -617,7 +617,7 @@ function ansetzungOf(spiel) {
 }
 
 // Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
-// (`:: letzter_anfrage_tag`) and dates its deadline a week ahead of it (`:: deadline_of`), and declined by Birke's
+// (`:: last_request_day`) and dates its deadline a week ahead of it (`:: deadline_of`), and declined by Birke's
 // Trainer three days ago for the next day at the same hour, which clashes with no other fixture's ground or referee.
 // The link she pressed is the seed's fiction, so her seat holds no hash: the seed owes no mail.
 const PROPOSED = running.spiele.find((row) => row.spiel_nr === 11);

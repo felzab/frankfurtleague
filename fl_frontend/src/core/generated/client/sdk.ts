@@ -4112,7 +4112,7 @@ export const getSpielerDeleteKaderRowUrl = (teamId: string, saisonId: string, sp
  * Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
  * brings the row back. 404 where this team holds no live row for the player in this season,
  * another team's pupil and an ausgetragen row alike. Refused `role_not_held` without a seat.
- * @summary Take a Spieler out of the squad as its team's seat holder (austragen)
+ * @summary Take a Spieler out of the squad as its team's seat holder (retire)
  */
 export const spielerDeleteKaderRow = async (
   teamId: string,

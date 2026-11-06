@@ -228,7 +228,7 @@ async def patch_kader_row(
 @router.delete(
     ROW_PATH,
     response_model=FLKaderRow,
-    summary="Take a Spieler out of the squad as its team's seat holder (austragen)",
+    summary="Take a Spieler out of the squad as its team's seat holder (retire)",
 )
 async def delete_kader_row(
     team_id: CustomRouteObjectId,
