@@ -67,6 +67,9 @@ export const yearsLater = (day: CalendarDay, years: number): CalendarDay => pars
  */
 export const bornBy = (today: CalendarDay, years: number): CalendarDay => yearsLater(today, -years);
 
+/** The day before `day`. */
+export const dayBefore = (day: CalendarDay): CalendarDay => parseDate(day).subtract({ days: 1 }).toString() as CalendarDay;
+
 /** The earliest birthdate at most `years` old on `today`: the day after the latest that is a year older. */
 export const bornAfter = (today: CalendarDay, years: number): CalendarDay =>
   parseDate(bornBy(today, years + 1))

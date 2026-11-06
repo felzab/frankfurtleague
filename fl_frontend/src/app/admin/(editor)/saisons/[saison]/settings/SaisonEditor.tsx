@@ -16,7 +16,7 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
-import { formatDate, formatNumber } from "@/core/format";
+import { dayBefore, formatDate, formatNumber } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
@@ -455,6 +455,7 @@ export function SaisonEditor({
             name="registrierungEnd"
             value={draft.registrierungEnd}
             onChange={(day) => set("registrierungEnd", day)}
+            {...(draft.start === null ? {} : { maxValue: dayBefore(draft.start) })}
           />
           <Checkbox
             label={WORDS.registrierungPaused}
