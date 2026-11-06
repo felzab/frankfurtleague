@@ -395,7 +395,7 @@ async def accept_bewerbung(
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/area/admin/kontakte` reads them from here. Copied whole, each seat
+                # application was, and the team editor reads them from here. Copied whole, each seat
                 # confirmed by its own person before acceptance was allowed (`bewerbung_kontakte_unconfirmed`).
                 "kontakte": bewerbung_raw["kontakte"],
                 # Copied rather than joined on read.
@@ -684,9 +684,6 @@ async def post_kontakt_seat(
     waits on the other two. Where one person holds two seats both are written from one press and one link answers
     both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
     EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
-
-    The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
-    its notice could not arrive is a deletion candidate again once that mail is not refused.
 
     Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
     a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an

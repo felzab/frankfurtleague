@@ -809,9 +809,6 @@ export const BewerbungenResendEinwilligungParams = zod.object({
  * both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
  * EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
  *
- * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
- * its notice could not arrive is a deletion candidate again once that mail is not refused.
- *
  * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
  * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
  * address another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban

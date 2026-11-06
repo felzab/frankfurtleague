@@ -43,4 +43,3 @@ export const SEAT_RULES = {
 } as const;
 
 export type AcceptRules = typeof ACCEPT_RULES;
-export type SeatRules = typeof SEAT_RULES;

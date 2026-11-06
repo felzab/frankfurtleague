@@ -77,7 +77,7 @@ describe("where a seat stands", () => {
 
 describe("one person on two seats", () => {
   /* Two rows would offer two links for one answer, and name a person twice on a page saying who they are. */
-  it("stands once, on the seat held beside the Trainer's, naming both", () => {
+  it("stands once, on the Trainer's row, naming both", () => {
     const kontakte = {
       trainer: person(null),
       ansprechperson: person(null),
@@ -87,7 +87,7 @@ describe("one person on two seats", () => {
 
     const rows = seatsOf(bewerbung({ kontakte }));
 
-    expect(rows.map((row) => row.seat)).toStrictEqual(["ansprechperson", "stellvertretung"]);
-    expect(rows[0]?.rollen).toStrictEqual(["ansprechperson", "trainer"]);
+    expect(rows.map((row) => row.seat)).toStrictEqual(["trainer", "stellvertretung"]);
+    expect(rows[0]?.rollen).toStrictEqual(["trainer", "ansprechperson"]);
   });
 });

@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy";
 import { dayIn, dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { adminTeamChip } from "@/features/teams/constants";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions } from "@/features/teams/options";
 import { getTeamSaisonAdmin } from "@/features/teams/queries";
@@ -24,7 +25,6 @@ import { valuesOf } from "./teamValues";
 
 import type { Copy } from "@/core/copy";
 import type { FLTeamLinkState, FLTeamMembership, FLTeamSaisonAdminResponse } from "@/core/generated/client/types";
-import type { ChipProps } from "@/kit/Chip";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { TeamRow } from "./TeamEditor";
 
@@ -137,13 +137,6 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
   };
 }
 
-/** The chip after the club's name: „Stillgelegt“ once it left the league, else how it left the season. */
-function chipOf({ team, membership }: FLTeamSaisonAdminResponse): ChipProps | undefined {
-  if (team.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
-  const type = membership?.austritt?.type;
-  return type === undefined ? undefined : { tone: "danger", label: COPY.shared.austritt[type].state };
-}
-
 async function readEditor(params: Props["params"]) {
   const read = await find(params);
   if (read === null) notFound();
@@ -153,7 +146,7 @@ async function readEditor(params: Props["params"]) {
   const row = membership === null || link === null ? null : rowOf(read, membership, link);
   // A finished season's rows are its table's and its podium's, and a retired club's page exists for its return.
   const closed = retired ? SERVER_COPY.refusalLine.team_retired : saison.status === "past" ? SERVER_COPY.refusalLine.saison_past : undefined;
-  const chip = chipOf(read);
+  const chip = adminTeamChip(team.inactive_since, membership?.austritt?.type ?? null);
 
   return (
     <TeamEditor

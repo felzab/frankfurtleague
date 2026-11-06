@@ -1,3 +1,5 @@
+import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+
 import type { FLKontaktRolle } from "@/core/generated/client/types";
 
 /** The field the form's replay key posts under (`fl_frontend/src/kit/OneShot.tsx :: replayField`). */
@@ -6,8 +8,8 @@ export const REPLAY_FIELD = "idempotency_key";
 /** „Keine weitere Rolle“, the select's first entry: the wire's `trainer_is_also: null`, which no option's id can be. */
 export const NO_SECOND_SEAT = "none";
 
-/** The boxes in the order the form shows them, the Trainer first (D653). */
-export const SEATS = ["trainer", "ansprechperson", "stellvertretung"] as const satisfies readonly FLKontaktRolle[];
+/** The boxes in the order the form shows them, the seats' one order. */
+export const SEATS = KONTAKT_ROLLEN.map(({ value }) => value);
 
 /** What the boxes post, each under its dotted name, a box not shown posting nothing. */
 type Posted = Readonly<Record<string, unknown>>;

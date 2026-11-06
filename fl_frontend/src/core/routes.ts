@@ -135,11 +135,9 @@ export const ROUTES = {
   /** The site's pages for a person; `/sitemap.xml` is the crawler's list (`fl_frontend/src/app/sitemap.ts`). */
   sitemap: { path: () => "/sitemap" as const, title: COPY.page.sitemap, crawl: "index" },
   /**
-   * A coming season's application form, which the landing and a mail lead to. Never in the sitemap, whose one
-   * season is the season the site is on and not the one taking applications; the page names its own canonical
-   * address while a window is open and asks not to be listed while none is.
+   * A coming season's application form, which the landing and a mail lead to. Never listed, in the sitemap or by a search
+   * engine, whatever its window: the sitemap's one season is the season the site is on and not the one taking applications.
    */
-  // Session 6: its page is built.
   bewerbung: { path: (saison: string) => `/bewerbung/${saison}` as const, title: COPY.page.bewerbung, crawl: "noindex" },
   /** Signing in, which every page signed out offers as „Konto“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },

@@ -4,6 +4,7 @@ import { medienZuJung } from "@/features/account/einwilligung";
 
 import { BEWERBUNG_MAX_ALTER } from "./constants";
 
+// Redesign: goes with its last importers in `features/registrierungen`; `core/format.ts :: bornAfter`, `bornBy` replace it.
 /**
  * Bounds rather than an age: a date control takes a `minValue` and a schema a string comparison, so
  * one derivation serves both. The floor is the seat's, which the link's own read answers
