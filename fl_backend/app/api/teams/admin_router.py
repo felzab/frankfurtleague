@@ -52,6 +52,8 @@ from app.api.teams.schemas import (
     FLAustrittPayload,
     FLKontaktInviteResponse,
     FLKontaktMint,
+    FLKontaktSeatPayload,
+    FLKontaktSeatResponse,
     FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamKontakteResponse,
     FLPatchSaisonTeamPayload,
@@ -85,11 +87,13 @@ from app.api.teams.services import (
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
     compose_kontakte_herkunft,
+    compose_seat_block,
     composite_version,
     find_austritt_refusal,
     find_gruppe_move_refusal,
     find_kontakt_seat_barred_refusal,
     find_kontakt_sitz_refusal,
+    find_kontakt_taken_refusal,
     find_kontakt_zeile_refusal,
     find_replacement_pair_refusal,
     find_replacement_refusal,
@@ -237,6 +241,101 @@ async def _with_seat_states(
     lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
 
     return mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, denied=denied)
+
+
+# What a write of the contact block reads of the row: what it composes on, and what the mails it owes name.
+KONTAKT_WRITE_FIELDS = ["kontakte", "confirmations", "name", "austritt"]
+
+
+async def _write_the_contact_block(
+    *,
+    stored: Mapping[str, Any],
+    proposed: Mapping[str, Any] | None,
+    expected_version: int,
+    team_id: Any,
+    saison_id: str,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    ban_list: BanList,
+    governing_saison_id: str | None,
+    # Made outside the caller's callback, so a retried transaction owes this save's mails once and a second save its own.
+    nonce: str,
+    today: str,
+    germany_now: datetime,
+    session: AsyncClientSession,
+) -> tuple[Mapping[str, Any], list[FLKontaktMint]]:
+    """Store a block over `stored`, read in this session, owing each person it newly seats their link; the row after it and each link owed.
+
+    Each seat keeping its person keeps its record and its link. A seat newly filled or handed on is stored as the league's
+    entry, unconfirmed, and a seat emptied or handed on loses its links on the team's open match confirmations.
+    """
+
+    kontakte = compose_kontakte_herkunft(kontakte=proposed, stored=stored.get("kontakte"))
+
+    # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
+    # Widerspruch alone.
+    owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
+    # A ban committing after this read conflicts with the save on the saver's own grant row, which
+    # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
+    barred = await barred_addresses(
+        ban_list,
+        {address for seats in owed for address in seat_addresses(kontakte=kontakte, seats=seats)},
+        governing_saison_id=governing_saison_id,
+        session=session,
+    )
+    # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
+    # after the save is the press's.
+    refuse(find_kontakt_seat_barred_refusal(barred=bool(barred)))
+
+    entry = compose_kontakt_bestaetigung(today=today)
+    minted = {seat: entry for seats in owed for seat in seats}
+    links: list[tuple[OwedMail, FLKontaktMint]] = []
+    if owed:
+        assert kontakte is not None
+        # Read only where a link is owed, and in session as the address is. Unanchored: a rollover
+        # committing after this read leaves the mail asking the open row's answer, which the press then
+        # refuses.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        zeile = kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
+        links = [
+            owed_kontakt_link(
+                row=stored,
+                saison_id=saison_id,
+                kontakte=kontakte,
+                seats=seats,
+                deadline=entry["deadline"],
+                zeile=zeile,
+                key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/kontakt/{seats[0]}/{nonce}",
+            )
+            for seats in owed
+        ]
+
+    confirmations = compose_bestaetigungen_nach(
+        kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("confirmations"), minted=minted
+    )
+
+    updated_raw = await patch_one_in_db(
+        collection=saison_teams_collection,
+        db_filter={"team_id": team_id, "saison_id": saison_id},
+        # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
+        # `trikot_farbe` belong to the row's own saves, and a `$set` carrying them would reinstate
+        # whatever this caller last read. The version the editor sent is the helper's to check.
+        update={"$set": {"kontakte": kontakte, "confirmations": confirmations}},
+        expected_version=expected_version,
+        session=session,
+        return_document=ReturnDocument.AFTER,
+    )
+    # Judged on the block read in this transaction.
+    await void_moved_seats(
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
+        voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
+        session=session,
+    )
+    await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
+
+    return updated_raw, [mint for _, mint in links]
 
 
 async def _served_invitation(live: Mapping[str, Any], *, ban_list: BanList, outbox_collection: AsyncCollection) -> FLInvitationRow:
@@ -961,6 +1060,7 @@ async def put_austritt(
         await session.with_transaction(record_the_exit)
 
 
+# Redesign: goes with its last importer.
 @router.patch(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
     response_model=FLPatchSaisonTeamKontakteResponse,
@@ -1014,89 +1114,125 @@ async def patch_saison_team_kontakte(
         # (`app/api/identity/crud.py :: erase_everything`) committing between the read and the `$set` puts the seat it
         # cleared back, the version it raised being what refuses the save.
         stored = await pull_one_from_db(
-            collection=saison_teams_collection,
-            db_filter=db_filter,
-            projection=["kontakte", "confirmations", "name", "austritt"],
-            session=session,
+            collection=saison_teams_collection, db_filter=db_filter, projection=KONTAKT_WRITE_FIELDS, session=session
         )
 
-        kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
-
-        # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
-        # Widerspruch alone.
-        owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
-        # A ban committing after this read conflicts with the save on the saver's own grant row, which
-        # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
-        barred = await barred_addresses(
-            ban_list,
-            {address for seats in owed for address in seat_addresses(kontakte=kontakte, seats=seats)},
-            governing_saison_id=governing_saison_id,
-            session=session,
-        )
-        # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
-        # after the save is the press's.
-        refuse(find_kontakt_seat_barred_refusal(barred=bool(barred)))
-
-        entry = compose_kontakt_bestaetigung(today=today)
-        minted = {seat: entry for seats in owed for seat in seats}
-        links: list[tuple[OwedMail, FLKontaktMint]] = []
-        if owed:
-            assert kontakte is not None
-            # Read only where a link is owed, and in session as the address is. Unanchored: a rollover
-            # committing after this read leaves the mail asking the open row's answer, which the press then
-            # refuses.
-            saison_raw = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session
-            )
-            zeile = kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
-            links = [
-                owed_kontakt_link(
-                    row=stored,
-                    saison_id=saison_id,
-                    kontakte=kontakte,
-                    seats=seats,
-                    deadline=entry["deadline"],
-                    zeile=zeile,
-                    key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/kontakt/{seats[0]}/{nonce}",
-                )
-                for seats in owed
-            ]
-
-        confirmations = compose_bestaetigungen_nach(
-            kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("confirmations"), minted=minted
-        )
-
-        updated_raw = await patch_one_in_db(
-            collection=saison_teams_collection,
-            db_filter=db_filter,
-            # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
-            # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
-            # whatever this caller last read. The version the editor sent is the helper's to check.
-            update={"$set": {"kontakte": kontakte, "confirmations": confirmations}},
+        updated_raw, confirmations = await _write_the_contact_block(
+            stored=stored,
+            proposed=payload["kontakte"],
             expected_version=kontakte_data.version,
-            session=session,
-            return_document=ReturnDocument.AFTER,
-        )
-        # Judged on the block read in this transaction.
-        await void_moved_seats(
+            team_id=team_id,
+            saison_id=saison_id,
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
+            outbox_collection=outbox_collection,
+            ban_list=ban_list,
+            governing_saison_id=governing_saison_id,
+            nonce=nonce,
+            today=today,
+            germany_now=germany_now,
             session=session,
         )
-        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
 
         return FLPatchSaisonTeamKontakteResponse(
             saison_id=saison_id,
             team_id=team_id,
             # The AFTER image, not the payload: what the row holds is the claim this echo makes.
             kontakte=updated_raw["kontakte"],
-            confirmations=[mint for _, mint in links],
+            confirmations=confirmations,
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,
     # so a retry after a write conflict refuses on what the winner left rather than on a stale read.
     async with transaction_session(db) as session:
         return await session.with_transaction(rewrite_the_block)
+
+
+@router.put(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}",
+    response_model=FLKontaktSeatResponse,
+    summary="Write the person one contact seat holds",
+)
+async def put_kontakt_seat(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    seat: str,
+    seat_data: Annotated[FLKontaktSeatPayload, Body()],
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    outbox_collection: OutboxCollection,
+    ban_list: BanListLookup,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLKontaktSeatResponse:
+    """
+    „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
+
+    The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
+    `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
+    in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
+    last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+    stay correctable, and such a link takes the person's Widerspruch alone.
+
+    Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
+    on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
+    claim, and the seat it named keeps its person. Left out, the claim stands.
+
+    Refused `version_stale` on a row moved since the read, `kontakt_email_taken` and `kontakt_phone_taken` where another
+    seat's person holds the address or the number, and `kontakt_seat_barred` where the ban list holds the address of a
+    person newly seated. 404 for a team and season holding no row, and for a path naming no seat.
+    """
+
+    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
+    rolle = seat_named(seat)
+    if rolle is None:
+        raise DocumentNotFoundError()
+
+    # Unset fields left out, so an omitted claim stands rather than reading as the null that ends it.
+    sent = seat_data.model_dump(mode="json", exclude={"version"}, exclude_unset=True)
+    # Outside the callback, so a retried transaction owes this save's mail once and a second save its own.
+    nonce = secrets.token_hex(8)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    governing_saison_id = await ban_list_saison(ban_list)
+
+    async def seat_the_person(session: AsyncClientSession) -> FLKontaktSeatResponse:
+        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
+
+        stored = await pull_one_from_db(
+            collection=saison_teams_collection,
+            db_filter={"team_id": team_id, "saison_id": saison_id},
+            projection=KONTAKT_WRITE_FIELDS,
+            session=session,
+        )
+        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=rolle, sent=sent, today=today)
+        refuse(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
+
+        updated_raw, confirmations = await _write_the_contact_block(
+            stored=stored,
+            proposed=kontakte,
+            expected_version=seat_data.version,
+            team_id=team_id,
+            saison_id=saison_id,
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            outbox_collection=outbox_collection,
+            ban_list=ban_list,
+            governing_saison_id=governing_saison_id,
+            nonce=nonce,
+            today=today,
+            germany_now=germany_now,
+            session=session,
+        )
+
+        # One person, so one link at most.
+        return FLKontaktSeatResponse(email=confirmations[0].email if confirmations else None, version=updated_raw[VERSION_FIELD])
+
+    async with transaction_session(db) as session:
+        return await session.with_transaction(seat_the_person)
 
 
 @router.post(

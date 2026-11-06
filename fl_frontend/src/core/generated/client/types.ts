@@ -116,6 +116,8 @@ export const Code = {
   role_not_held: "role_not_held",
   kontakt_seat_without_confirmation: "kontakt_seat_without_confirmation",
   kontakt_seat_barred: "kontakt_seat_barred",
+  kontakt_email_taken: "kontakt_email_taken",
+  kontakt_phone_taken: "kontakt_phone_taken",
   kontakt_row_without_saison: "kontakt_row_without_saison",
   kontakt_saison_past: "kontakt_saison_past",
   own_address: "own_address",
@@ -3143,6 +3145,39 @@ export interface FLKontaktPayload {
   /** @maxLength 254 */
   email: string;
   phone: string | null;
+}
+
+/**
+ * The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet.
+ */
+export interface FLKontaktSeatPayload {
+  /** @maxLength 254 */
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
+  first_name: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
+  last_name: string;
+  /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
+  phone: string;
+  trainer_is_also?: FLTrainerAlso | null;
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
+ * Where the seat write's link went, and the row's count of writes after it.
+ */
+export interface FLKontaktSeatResponse {
+  email: string | null;
+  version: number;
 }
 
 export interface FLKontaktpersonPayload {

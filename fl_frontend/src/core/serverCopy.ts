@@ -91,8 +91,10 @@ export const SERVER_COPY = catalogue({
     duplicate_key: COPY.shared.field.taken,
     // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
     state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.shared.tore),
-    // A rule of their own rather than a unique index: an application's seat, and a squad's one Kapitän per team.
+    // A rule of their own rather than a unique index: a seat of an application or a season row, and a squad's one Kapitän per team.
     bewerbung_kontakt_email_taken: COPY.shared.field.taken,
+    kontakt_email_taken: COPY.shared.field.taken,
+    kontakt_phone_taken: COPY.shared.field.taken,
     kader_rolle_taken: COPY.shared.field.taken,
   } satisfies Partial<Record<Code, string>>,
 

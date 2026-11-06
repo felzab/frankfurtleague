@@ -4229,6 +4229,54 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
   );
 
 /**
+ * „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
+ *
+ * The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
+ * `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
+ * in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
+ * last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+ * stay correctable, and such a link takes the person's Widerspruch alone.
+ *
+ * Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
+ * on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
+ * claim, and the seat it named keeps its person. Left out, the claim stands.
+ *
+ * Refused `version_stale` on a row moved since the read, `kontakt_email_taken` and `kontakt_phone_taken` where another
+ * seat's person holds the address or the number, and `kontakt_seat_barred` where the ban list holds the address of a
+ * person newly seated. 404 for a team and season holding no row, and for a path naming no seat.
+ * @summary Write the person one contact seat holds
+ */
+export const teamsPutKontaktSeatPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsPutKontaktSeatParams = zod.object({
+  team_id: zod.string().regex(teamsPutKontaktSeatPathTeamIdRegExp),
+  saison_id: zod.string(),
+  seat: zod.string(),
+});
+
+export const teamsPutKontaktSeatBodyEmailMax = 254;
+
+export const teamsPutKontaktSeatBodyFirstNameMax = 80;
+
+export const teamsPutKontaktSeatBodyFirstNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const teamsPutKontaktSeatBodyLastNameMax = 80;
+
+export const teamsPutKontaktSeatBodyLastNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const teamsPutKontaktSeatBodyPhoneRegExp = new RegExp("^([+]?[ 0-9\\-().]{2,19}[0-9])$");
+export const teamsPutKontaktSeatBodyVersionMin = 0;
+
+export const TeamsPutKontaktSeatBody = zod
+  .object({
+    email: zod.string().max(teamsPutKontaktSeatBodyEmailMax),
+    first_name: zod.string().min(1).max(teamsPutKontaktSeatBodyFirstNameMax).regex(teamsPutKontaktSeatBodyFirstNameRegExp),
+    last_name: zod.string().min(1).max(teamsPutKontaktSeatBodyLastNameMax).regex(teamsPutKontaktSeatBodyLastNameRegExp),
+    phone: zod.string().regex(teamsPutKontaktSeatBodyPhoneRegExp),
+    trainer_is_also: zod.union([zod.enum(["ansprechperson", "stellvertretung"]), zod.null()]).optional(),
+    version: zod.int().min(teamsPutKontaktSeatBodyVersionMin),
+  })
+  .describe("The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet.");
+
+/**
  * Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.
  *
  * It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
