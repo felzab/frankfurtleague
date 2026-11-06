@@ -727,11 +727,10 @@ export function BackControl({ href }: { href: Route }) {
 export function EditorBackPlaceholder() {
   return (
     <Placeholder layout={back({ class: "gap-1" })}>
-      <span className={placeholderBar("size-4.5", "band")} />
+      <span className={placeholderBar("size-4.5")} />
       <PlaceholderLine
         text="text-sm"
         words={COPY.shared.back}
-        ground="band"
       />
     </Placeholder>
   );

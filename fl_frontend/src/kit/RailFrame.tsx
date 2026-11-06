@@ -103,7 +103,7 @@ export function RailFrame({
             id={RAIL_ID}
             className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
-            <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
+            <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)]">
               {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
             </div>
             {/* Each part the menus' reads hold back stands meanwhile as its own placeholder, at its own size, so
@@ -160,7 +160,7 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
     <>
       {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
           not drawn over them (`tokens.css`). */}
-      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
+      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
           <Suspense fallback={<EditorBackPlaceholder />}>

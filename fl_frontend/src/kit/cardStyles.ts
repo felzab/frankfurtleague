@@ -15,12 +15,8 @@ export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-car
  */
 export const cardHover = tv({ base: "hover:bg-layer" });
 
-/**
- * A card's head as a ground, the one band a card, Konto's box foot and the match head stand on: its fill, and the step
- * a placeholder's bar takes on it. `tokens.css`'s `--bg-hover` sets that step one off the page, which the dark theme's
- * head, filled with that very grey, would swallow, so the head redeclares it as its own.
- */
-export const headGround = tv({ base: "bg-bg-card-head [--bg-hover:var(--bg-card-head-hover)]" });
+/** A card's head as a ground, the one band a card, Konto's box foot and the match head stand on. */
+export const headGround = tv({ base: "bg-bg-card-head" });
 
 /**
  * The hairline parting parts stacked one under another inside one box, drawn above every part but the first: a

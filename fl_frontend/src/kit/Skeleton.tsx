@@ -20,25 +20,15 @@ const placeholder = tv({
     // so nothing in it answers the pointer: a placeholder drawn with a control's or a row's recipe borrows its box, never
     // its hover or its hand, and `pointer-events` is inherited, so this holds for every part inside.
     root: "pointer-events-none opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
-    // The fill and the sweep (`tokens.css`), a card's head redeclaring the fill's step as its own (`cardStyles.ts ::
-    // headGround`). The sweep runs under reduced motion too: a loading indicator that stops reads as stuck.
+    // The one recipe on every ground (`tokens.css`). Its pulse runs under reduced motion too: a loading indicator that
+    // stops reads as stuck.
     bar: "skeleton-bar",
     // One line of text: as tall as the line the text's own size sets (`1lh`), the bar inside it a little taller than
     // the letters' height, so a line of placeholders stands where the line of words will.
     line: "flex h-lh min-w-0 items-center",
     words: "h-[0.75em]",
   },
-  variants: {
-    // On the dark-green band, the band's white, faint, as the band's words are white.
-    ground: {
-      page: {},
-      band: { bar: "bg-on-brand/20" },
-    },
-  },
 });
-
-/** Where a placeholder stands: on a ground that sets its own step, the page's, a card's or a card's head, or on the dark-green band. */
-export type Ground = "page" | "band";
 
 /**
  * A season's name while the season is read, as words for a placeholder's width alone: every season is named by its
@@ -46,9 +36,9 @@ export type Ground = "page" | "band";
  */
 export const SAISON_WORDS = COPY.shared.saisonName("2027");
 
-/** A shimmering box of its own size, for what is not a line of text: a plaque, a glyph, a control, an avatar. */
-export function placeholderBar(size: string, ground: Ground = "page") {
-  return placeholder({ ground }).bar({ class: size });
+/** A pulsing box of its own size, for what is not a line of text: a plaque, a glyph, a control, an avatar. */
+export function placeholderBar(size: string) {
+  return placeholder().bar({ class: size });
 }
 
 /**
@@ -61,9 +51,8 @@ export function PlaceholderLine({
   text,
   width = "",
   words,
-  ground = "page",
-}: { text: string; ground?: Ground } & ({ width: string; words?: never } | { words: string; width?: never })) {
-  const slots = placeholder({ ground });
+}: { text: string } & ({ width: string; words?: never } | { words: string; width?: never })) {
+  const slots = placeholder();
   return (
     <span className={slots.line({ class: text })}>
       <span className={slots.bar({ class: `${slots.words()} ${width} ${words === undefined ? "" : "whitespace-nowrap text-transparent"}` })}>
