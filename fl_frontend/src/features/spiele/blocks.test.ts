@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { ereignisOf, matchRowOf, outcomeFor } from "./blocks";
+import { eventOf, matchRowOf, outcomeFor } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -74,11 +74,11 @@ describe("what befell a match", () => {
   // Read backwards, the pop-up and the match page would publish that the wrong school failed to turn up.
   it("names the side that did not turn up, and gives the match to the side that did", () => {
     const { sonderereignis } = COPY.spielplan;
-    expect(ereignisOf(spiel([0, 3], "nichtantreten_team1"))).toStrictEqual({
+    expect(eventOf(spiel([0, 3], "nichtantreten_team1"))).toStrictEqual({
       title: sonderereignis.nichtAngetreten({ record: "Goethe" }),
       text: sonderereignis.consequence.nichtAngetreten({ record: "Helmholtz" }),
     });
-    expect(ereignisOf(spiel([3, 0], "nichtantreten_team2"))).toStrictEqual({
+    expect(eventOf(spiel([3, 0], "nichtantreten_team2"))).toStrictEqual({
       title: sonderereignis.nichtAngetreten({ record: "Helmholtz" }),
       text: sonderereignis.consequence.nichtAngetreten({ record: "Goethe" }),
     });

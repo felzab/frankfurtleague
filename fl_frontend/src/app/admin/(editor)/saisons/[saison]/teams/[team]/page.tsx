@@ -111,7 +111,7 @@ export default function TeamEditorPage({ params }: Props) {
 /** Where the link stands, by the season's press and the live link: a club the press passes over, none yet, or its mail. */
 function linkStateOf({ skipped, invitation, paused }: FLTeamLinkState): Copy {
   if (skipped === "kontakte_barred") return LINK_WORDS.addressBarred;
-  if (skipped === "no_kontaktblock" || skipped === "no_confirmed_kontaktperson") return LINK_WORDS.noConfirmedAddress;
+  if (skipped === "no_kontakt_block" || skipped === "no_confirmed_kontaktperson") return LINK_WORDS.noConfirmedAddress;
   if (invitation === null) return LINK_WORDS.noLinkYet;
   if (paused) return LINK_WORDS.registrierungPaused;
   return invitation.sent_at === null ? LINK_WORDS.linkNotSent : LINK_WORDS.linkSentOn(dayOf(invitation.sent_at));

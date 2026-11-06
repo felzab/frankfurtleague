@@ -74,7 +74,7 @@ class FLInvitationRecipient(BaseModel):
 
 type FLInvitationSkipReason = Literal[
     "austritt_entered",
-    "no_kontaktblock",
+    "no_kontakt_block",
     "no_confirmed_kontaktperson",
     "kontakte_barred",
     "already_sent",

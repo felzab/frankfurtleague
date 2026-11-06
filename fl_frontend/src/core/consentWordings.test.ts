@@ -8,8 +8,8 @@ import { CONSENT_WORDINGS } from "./consentWordings.ts";
 const DIGESTS: Readonly<Record<string, string>> = {
   "2026-11-whatsapp-1": "dc19926de23634f43af34e7f33af5431f186619f0b37f6883155ffd6a50eefbf",
   "2026-11-medien-1": "c662077965205756696bf0abef79e1e02a29400e1868f367daf9da723a6ec2e5",
-  "2026-11-name-kader-1": "c255d1fab58fc09adf6a709c1aff9e94c330461a905f76d1dd683756c89d9b46",
-  "2026-11-name-spielplan-1": "463223fd2015198e27ebf79fa5ad27fef0272b320f34ede35bc77197459ebe48",
+  "2026-11-name-kader-1": "72a47786b896610e9e188169f790e143914ab8d9c35f6af3c7347532ab6eb22f",
+  "2026-11-name-spielplan-1": "36ee61a73b1f53c77b1c2300d0002cfc76bde70fd559fd846608cb220aec1968",
 };
 
 // Keys sorted, so moving a key inside an entry leaves its digest alone, and a link's address left out, which a route

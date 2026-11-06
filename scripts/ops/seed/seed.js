@@ -65,8 +65,8 @@ function linkHash(label) {
   return createHash("sha256").update(`made-up-${label}`, "utf8").digest("hex");
 }
 
-function address(strasse, hausnummer, plz, stadtteil) {
-  return { strasse, hausnummer, plz, stadtteil, stadt: "Frankfurt am Main" };
+function address(street, house_number, postcode, district) {
+  return { street, house_number, postcode, district, city: "Frankfurt am Main" };
 }
 
 // --- The clubs -----------------------------------------------------------------------------------
@@ -104,9 +104,9 @@ function joinPresent(parts, separator) {
  * `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` writes it.
  */
 function mapsLink(name, address) {
-  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
-  const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
-  return `${name}, ${joinPresent([strasse, ort], ", ")}, Deutschland`;
+  const street = joinPresent([address.street, address.house_number], " ");
+  const locality = joinPresent([address.postcode, address.district, address.city], " ");
+  return `${name}, ${joinPresent([street, locality], ", ")}, Deutschland`;
 }
 
 function venue(name, rent, address, inactiveSince) {
@@ -177,7 +177,7 @@ function confirmed(row) {
     confirmation: confirmationBlock(-62),
     birth_date: day(-20 * 365),
     einwilligung: {
-      scope: "intern",
+      scope: "internal",
       date: CONSENTED,
       confirmed_at: CONSENTED,
       media: false,
@@ -510,7 +510,7 @@ function seated(firstName, lastName, enteredOn, enteredBy, email = `${firstName}
     email,
     phone: `+49 170 ${2000000 + seatedPeople}`,
     birth_date: null,
-    einwilligung: { scope: "kontaktdaten", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
+    einwilligung: { scope: "kontakt_data", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
   };
 }
 
@@ -535,7 +535,7 @@ function confirmedPerson(person, answeredOn) {
 /**
  * A seat's bookkeeping beside its slot. An application's link takes one reminder
  * (`fl_backend/app/api/bewerbungen/services.py :: compose_bestaetigung`); a season row's is chased by nothing, and its
- * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_bestaetigung`).
+ * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_confirmation`).
  */
 function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn = null } = {}) {
   return {
@@ -576,7 +576,7 @@ function rowSeats(owner, sentOn, states) {
 
 // Weide stayed away from match 3 and is disqualified since: it keeps its group place and its drawn fixtures, match 12
 // still to play, as a departed club does (`docs/domain.md`, "A departed club holding drawn fixtures"). Its open seat's
-// link takes a Widerspruch alone (`fl_backend/app/api/bewerbungen/services.py :: saison_zustand_of`).
+// link takes a Widerspruch alone (`fl_backend/app/api/bewerbungen/services.py :: saison_state_of`).
 Object.assign(
   running.saisonTeams.find((row) => row.name === "Weide"),
   {
@@ -617,7 +617,7 @@ function ansetzungOf(spiel) {
 }
 
 // Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
-// (`:: letzter_anfrage_tag`) and dates its deadline a week ahead of it (`:: deadline_of`), and declined by Birke's
+// (`:: last_request_day`) and dates its deadline a week ahead of it (`:: deadline_of`), and declined by Birke's
 // Trainer three days ago for the next day at the same hour, which clashes with no other fixture's ground or referee.
 // The link she pressed is the seed's fiction, so her seat holds no hash: the seed owes no mail.
 const PROPOSED = running.spiele.find((row) => row.spiel_nr === 11);
@@ -680,7 +680,7 @@ function pupil(firstName, lastName, consentedOn = CONSENTED) {
     email: `${firstName}.${lastName}@schule.example`.toLowerCase(),
     birth_date: day(-16 * 365),
     einwilligung: {
-      scope: "kader_oeffentlich",
+      scope: "kader_public",
       date: consentedOn,
       confirmed_at: consentedOn,
       media: false,
@@ -877,7 +877,7 @@ function application({ picked, school, owner, submittedOn, wunschfarbe, states, 
             website_url: school.website_url,
           },
     ...seats(links, states, trainerIsAlso),
-    trikot: { existing_satz: "", wunschfarbe },
+    trikot: { existing_set: "", wunschfarbe },
     kader: { expected_size: 14, good_spieler: 3 },
     stufengroesse: 96,
     wunschgegner,
@@ -1026,7 +1026,7 @@ const SETTLED_MAILS = [
     _id: ObjectId(),
     key: "made-up/bounced",
     kind: "bewerbung_received",
-    an: BOUNCED.kontakte.ansprechperson.email,
+    to: BOUNCED.kontakte.ansprechperson.email,
     reference: { collection: "bewerbungen", id: BOUNCED._id, seat: "ansprechperson" },
     link: null,
     state: "sent",

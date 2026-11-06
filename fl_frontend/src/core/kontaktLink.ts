@@ -7,6 +7,6 @@ import { ROUTES } from "./routes";
  * `token` is the parameter name because `nginx/shared/http.conf :: $credential_free_uri` matches that
  * name; a second spelling reaches the access line and the referer unredacted.
  */
-export function kontaktBestaetigungsLink(origin: string, token: string): string {
+export function kontaktConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.kontaktConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }

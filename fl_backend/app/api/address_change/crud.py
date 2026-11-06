@@ -396,7 +396,7 @@ async def owe_the_link_in_session(
         mails=[
             OwedMail(
                 key=f"address_changes/{address_change_id}/link/{now.isoformat()}",
-                an=email,
+                to=email,
                 data=FLAddressChangeLinkData(kind="address_change_link", way=way, valid_until=valid_until),
                 reference=_reference(address_change_id),
                 link=FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=True),
@@ -425,7 +425,7 @@ async def owe_the_notice_in_session(
         mails=[
             OwedMail(
                 key=f"address_changes/{address_change_id}/notice",
-                an=address,
+                to=address,
                 data=FLAddressChangeNoticeData(kind="address_change_notice", way=way, valid_until=valid_until, first_name=first_name),
                 reference=_reference(address_change_id),
                 link=FLOutboxLink(paths=["stop.token_hashes"], addresses=["address"], replaced=False),
@@ -449,7 +449,7 @@ async def owe_the_refusal_notice_in_session(
         mails=[
             OwedMail(
                 key=f"address_changes/{record['_id']}/discarded",
-                an=str(record["email"]),
+                to=str(record["email"]),
                 data=FLAddressChangeDiscardedData(kind="address_change_discarded"),
             )
         ],
@@ -879,7 +879,7 @@ async def move_the_address_in_session(
             mails=[
                 OwedMail(
                     key=f"address_changes/{record['_id']}/effective",
-                    an=old,
+                    to=old,
                     # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
                     data=FLAddressChangeEffectiveData(
                         kind="address_change_effective",
@@ -905,12 +905,12 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
 
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
-        pipeline=[{"$match": {"kind": {"$nin": sorted(SIGN_IN_KINDS)}, "an": same_address(old)}}, {"$project": {"an": 1, "state": 1}}],
+        pipeline=[{"$match": {"kind": {"$nin": sorted(SIGN_IN_KINDS)}, "to": same_address(old)}}, {"$project": {"to": 1, "state": 1}}],
         session=session,
     )
-    held = [row for row in rows if sign_in_identifier(str(row["an"])) == old]
+    held = [row for row in rows if sign_in_identifier(str(row["to"])) == old]
     if open := [row["_id"] for row in held if row["state"] == "open"]:
-        await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"an": new}}, session=session)
+        await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"to": new}}, session=session)
     if sent := [row["_id"] for row in held if row["state"] != "open"]:
         await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, session=session)
 

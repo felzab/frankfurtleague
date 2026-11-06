@@ -12,7 +12,7 @@ import { COPY } from "@/core/copy";
 import type { ActionAnswer } from "@/core/action";
 import type { CalendarDay, TimeOfDay } from "@/core/format";
 
-const ACT = { verb: "set", object: COPY.admin.overview.termin } as const;
+const ACT = { verb: "set", object: COPY.admin.overview.appointment } as const;
 const TITLE = COPY.shared.withObject(ACT.object, ACT.verb);
 
 // Each box posts under the path the match editor's save places its refusal on.
@@ -29,7 +29,7 @@ const posted = (form: FormData, name: string): string | null => {
  * own save at the version the Übersicht read, so a fixture changed since is refused as stale rather than written over,
  * and everything else of it is sent as stored. The venue and its price stay the editor's.
  */
-export function TerminDialog({
+export function AppointmentDialog({
   spiel,
   version,
   date,

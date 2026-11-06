@@ -87,7 +87,7 @@ async def patch_einwilligung(
     else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
     public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
     list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
-    `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
+    `kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
     `evidence_state` other than the record's own, either choice having moved since the page was served
@@ -99,7 +99,7 @@ async def patch_einwilligung(
     **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
     """
 
-    eigener_eintrag = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
+    own_entry = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     at = log_stamp(germany_now)
@@ -108,7 +108,7 @@ async def patch_einwilligung(
     @journal.attempted
     async def write(session: AsyncClientSession) -> None:
         row = await schiedsrichter_collection.find_one(
-            eigener_eintrag, projection={"kontakt.email": 1, "birth_date": 1, EINWILLIGUNG_FIELD: 1}, session=session
+            own_entry, projection={"kontakt.email": 1, "birth_date": 1, EINWILLIGUNG_FIELD: 1}, session=session
         )
         # The fold decides, as it does for the read: the filter's pattern is the wider rule.
         refuse(find_own_entry_refusal(held=row is not None and is_own_schiedsrichter(row, identifier)))

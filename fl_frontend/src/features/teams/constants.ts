@@ -6,16 +6,16 @@ import type { FLAustrittType, FLTrainerAlso, FLTrikotFarbe } from "@/core/genera
 import type { ChipProps } from "@/kit/Chip";
 
 // Keyed by every route, so a route the contract adds fails to compile until the catalogue words it.
-const AUSTRITT_WORDS: Record<FLAustrittType, { readonly state: Copy; readonly kuerzel: Copy }> = COPY.shared.austritt;
+const AUSTRITT_WORDS: Record<FLAustrittType, { readonly state: Copy; readonly shorthand: Copy }> = COPY.shared.austritt;
 
 /** The state a club is in once the record exists — `Disqualifiziert seit …`, `Zurückgezogen seit …`. */
-export function austrittZustand(type: FLAustrittType): Copy {
+export function austrittState(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].state;
 }
 
 /** The badge form, for a table cell, a popover or a chip, where only two letters have room. */
 function austrittKuerzel(type: FLAustrittType): Copy {
-  return AUSTRITT_WORDS[type].kuerzel;
+  return AUSTRITT_WORDS[type].shorthand;
 }
 
 // A disqualification is the league's sanction, so its chip takes the danger hue; a withdrawal is the club's own act.
@@ -26,7 +26,7 @@ const AUSTRITT_TONE = { disqualifikation: "danger", rueckzug: "neutral" } as con
  * screen reader hears as the club's state, so every public surface draws one chip for one record.
  */
 export function austrittChip(type: FLAustrittType): ChipProps {
-  return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittZustand(type) };
+  return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittState(type) };
 }
 
 /**
@@ -35,14 +35,14 @@ export function austrittChip(type: FLAustrittType): ChipProps {
  */
 export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps | undefined {
   if (retiredSince !== null) return { tone: "neutral", label: COPY.shared.retired };
-  return exit === null ? undefined : { tone: "danger", label: austrittZustand(exit) };
+  return exit === null ? undefined : { tone: "danger", label: austrittState(exit) };
 }
 
 // A person's name, or one part of one, at every field the backend types with
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName`.
 export const KONTAKT_NAME_MAX_LENGTH = 80;
 // The one refusal of that ceiling, for every form that holds a name to it.
-export const KONTAKT_NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
+export const KONTAKT_NAME_TOO_LONG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): string {
   return TRIKOT_FARBEN.find((option) => option.value === farbe)?.label ?? "";

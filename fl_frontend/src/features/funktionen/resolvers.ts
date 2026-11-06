@@ -33,9 +33,9 @@ export async function requireTeamSeats(
   params: Promise<{ team_id: string; saison_id: string }>,
 ): Promise<readonly [TeamSeat, ...TeamSeat[]] | null> {
   const { team_id, saison_id } = await params;
-  const [erster, ...weitere] = seatsAt(rolesOf(await requireSubjectSession()).roles, team_id, saison_id);
+  const [first, ...rest] = seatsAt(rolesOf(await requireSubjectSession()).roles, team_id, saison_id);
 
-  return erster === undefined ? null : [erster, ...weitere];
+  return first === undefined ? null : [first, ...rest];
 }
 
 /**

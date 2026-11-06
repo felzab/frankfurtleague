@@ -223,7 +223,7 @@ def build_open_link_filter(*, saison_id: str, address: str) -> Mapping[str, Any]
 
 
 # --- The SUBMISSION KEY, as the application's submission keeps it
-# (`app/api/bewerbungen/services.py :: payload_fingerabdruck`).
+# (`app/api/bewerbungen/services.py :: payload_fingerprint`).
 
 
 def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:
@@ -279,8 +279,8 @@ def build_registrierungen_sort(*, order: str) -> list[tuple[str, int]]:
 
 
 # The two pages one link opens.
-PAGE_NEW: Final[FLRegistrierungPage] = "bestaetigung_spieler"
-PAGE_RETURNING: Final[FLRegistrierungPage] = "bestaetigung_spieler_wiederkehrend"
+PAGE_NEW: Final[FLRegistrierungPage] = "confirmation_spieler"
+PAGE_RETURNING: Final[FLRegistrierungPage] = "confirmation_spieler_returning"
 
 
 def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:

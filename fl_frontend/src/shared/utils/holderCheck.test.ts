@@ -43,7 +43,7 @@ registerAuthDoubles({
 const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { pruefeAdministratorAction } = await import("@/features/admin/actions.ts");
+const { checkAdministratorAction } = await import("@/features/admin/actions.ts");
 const { auth } = await import("@/core/auth/library");
 
 beforeEach(() => {
@@ -67,9 +67,9 @@ async function arriveSignedIn(email: string, { byPasskey = false } = {}): Promis
 describe("which session a holder check calls the holder's", () => {
   it("answers held for the administrator who asked, and not held for another administrator's session", async () => {
     const holder = await arriveSignedIn(ADMIN_EMAIL, { byPasskey: true });
-    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, gleich: true });
+    expect(await checkAdministratorAction(holder)).toStrictEqual({ success: true, gleich: true });
 
     await arriveSignedIn(SECOND_ADMIN_EMAIL, { byPasskey: true });
-    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, gleich: false });
+    expect(await checkAdministratorAction(holder)).toStrictEqual({ success: true, gleich: false });
   });
 });

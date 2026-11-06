@@ -1,5 +1,5 @@
 import { FLEinwilligungScope } from "@/core/generated/client/types";
-import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_MAX_AGE } from "@/features/bewerbungen/constants";
 
 import type { FLMedienMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
 
@@ -31,4 +31,4 @@ export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungScope[] = Objec
 // The ceiling is the contact seat's constant, which
 // `fl_backend/app/api/registrierungen/services.py :: find_alter_refusal` applies to a pupil too.
 export const alterAusserhalb = (mindestalter: number): string =>
-  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
+  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_AGE)} Jahre alt sein.`;

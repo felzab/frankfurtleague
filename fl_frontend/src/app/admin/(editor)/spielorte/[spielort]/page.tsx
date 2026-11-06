@@ -61,14 +61,14 @@ export default function SpielortEditorPage({ params }: Props) {
           ],
           [
             <FieldPair
-              key="strasse"
+              key="street"
               short="second"
               phone="pair">
               <FieldPlaceholder width="W3" />
               <FieldPlaceholder width="C5" />
             </FieldPair>,
             <FieldPair
-              key="stadt"
+              key="city"
               short="first"
               phone="pair">
               <FieldPlaceholder

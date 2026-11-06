@@ -333,7 +333,7 @@ SPIELORT_UNKNOWN = ObjectId("6890a1b2c3d4e5f6072200b9")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6072200c1")
 SCHIEDSRICHTER_RETIRED = ObjectId("6890a1b2c3d4e5f6072200c2")
 # Entered by an administrator, its person's confirmation not yet in.
-SCHIEDSRICHTER_UNBESTAETIGT = ObjectId("6890a1b2c3d4e5f6072200c3")
+SCHIEDSRICHTER_UNCONFIRMED = ObjectId("6890a1b2c3d4e5f6072200c3")
 
 RETIRED_ON = "2026-02-01"
 
@@ -341,7 +341,7 @@ VENUES = {SPIELORT: ("Sportplatz Ost", None), SPIELORT_RETIRED: ("Bezirkssportan
 REFEREES = {
     SCHIEDSRICHTER: ("A. Referee", None),
     SCHIEDSRICHTER_RETIRED: ("B. Whistle", RETIRED_ON),
-    SCHIEDSRICHTER_UNBESTAETIGT: ("C. Pfiff", None),
+    SCHIEDSRICHTER_UNCONFIRMED: ("C. Pfiff", None),
     # Every erasure's fixtures end here, and it is the one referee row with no name
     # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     GHOST_SCHIEDSRICHTER_ID: (None, GHOST_INACTIVE_SINCE),
@@ -379,7 +379,7 @@ def referee_documents() -> list[dict[str, Any]]:
             # Every named row confirmed by its person but the one a case books unconfirmed; the ghost holds no record.
             "einwilligung": (
                 None
-                if schiedsrichter_id in (SCHIEDSRICHTER_UNBESTAETIGT, GHOST_SCHIEDSRICHTER_ID)
+                if schiedsrichter_id in (SCHIEDSRICHTER_UNCONFIRMED, GHOST_SCHIEDSRICHTER_ID)
                 else documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20")
             ),
         }
@@ -455,7 +455,7 @@ async def call_patch(
     spiel_data: FLPatchSpielDataPayload,
     *,
     dry_run: bool = False,
-    uebernimmt_bericht: int | None = None,
+    adopts_bericht: int | None = None,
     confirming: list[FLSpielVoidedResult] | None = None,
 ) -> FLPatchSpielDataResponse:
     """The save as the editor sends it: confirming the later results its own dry run says it deletes, unless `confirming` names them."""
@@ -476,7 +476,7 @@ async def call_patch(
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        adopts_bericht=uebernimmt_bericht,
+        adopts_bericht=adopts_bericht,
         now=ADOPTED_AT,
         today=ADOPTED_AT.date().isoformat(),
         dry_run=dry_run,
@@ -581,7 +581,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         """The confirmation is read off the referee's own record in the save's transaction, never off the payload."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            assigned = {"schiedsrichter_id": SCHIEDSRICHTER_UNBESTAETIGT, "payment": 20}
+            assigned = {"schiedsrichter_id": SCHIEDSRICHTER_UNCONFIRMED, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
             with pytest.raises(APIError) as refused:
@@ -1355,7 +1355,7 @@ class TestTheQueueReadsTheHoldersTheRefusalReads:
         ]
 
 
-# The adoption stamp: a save carrying `uebernimmt_bericht` stamps the fixture's report, in its own transaction.
+# The adoption stamp: a save carrying `adopts_bericht` stamps the fixture's report, in its own transaction.
 
 # As `get_germany_now` answers, so the stored instant is compared as the moment it is rather than as a wall-clock reading.
 ADOPTED_AT = datetime(2026, 5, 2, 18, 30, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -1403,7 +1403,7 @@ class TestOnlyALandedSaveStamps:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, reports)
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
-            await call_patch(database, client, VIERTELFINALE, spiel_data, uebernimmt_bericht=SEEDED_VERSION)
+            await call_patch(database, client, VIERTELFINALE, spiel_data, adopts_bericht=SEEDED_VERSION)
 
             return await spiele_now(database), before, await reports_now(database)
 
@@ -1434,7 +1434,7 @@ class TestOnlyALandedSaveStamps:
             )
             refusal = None
             try:
-                await call_patch(database, client, VIERTELFINALE, spiel_data, dry_run=dry_run, uebernimmt_bericht=SEEDED_VERSION)
+                await call_patch(database, client, VIERTELFINALE, spiel_data, dry_run=dry_run, adopts_bericht=SEEDED_VERSION)
             except APIError as refused:
                 refusal = refused.error_code
 
@@ -1456,7 +1456,7 @@ class TestAStaleSeedIsNotAdopted:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, reports)
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
-            await call_patch(database, client, VIERTELFINALE, spiel_data, uebernimmt_bericht=SEEDED_VERSION)
+            await call_patch(database, client, VIERTELFINALE, spiel_data, adopts_bericht=SEEDED_VERSION)
 
             return await spiele_now(database), before, await reports_now(database)
 
@@ -1477,7 +1477,7 @@ class TestAReportAboutOtherClubsIsNotAdopted:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, [quarter_report, semi_report])
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
-            await call_patch(database, client, VIERTELFINALE, spiel_data, uebernimmt_bericht=SEEDED_VERSION)
+            await call_patch(database, client, VIERTELFINALE, spiel_data, adopts_bericht=SEEDED_VERSION)
 
             return await spiele_now(database), before, await reports_now(database)
 

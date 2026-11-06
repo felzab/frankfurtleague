@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mapAnsetzungAnsichtRefusal } from "./utils.ts";
 
 describe("mapAnsetzungAnsichtRefusal", () => {
-  /* The read refuses an unknown token alone; a spent link answers its own `zustand` in a 200. Fail-closed,
+  /* The read refuses an unknown token alone; a spent link answers its own `state` in a 200. Fail-closed,
      so a code nobody planned still renders the panel that names nothing of a fixture. */
   it("calls the link void on every refusal the read publishes, and on a rule's code nobody planned", () => {
     for (const code of refusalCodes("link_invalid")) {

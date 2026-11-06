@@ -39,13 +39,13 @@ async function RegistrierungContent() {
     token !== null
       ? await runWithIncomingTrace(() =>
           getEinladungAnsicht(token).then(
-            (gelesen) => gelesen,
+            (read) => read,
             // A failed read is its own state, the dead-link panel calling a live invite void. A broken contract
             // is no failed read: it reaches the error boundary, which logs it.
-            (error: unknown): RegistrierungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+            (error: unknown): RegistrierungStart => nullUnlessContractBreak(error) ?? { state: "unlesbar" },
           ),
         )
-      : { zustand: "invalid" };
+      : { state: "invalid" };
 
   return (
     <RegistrierungView

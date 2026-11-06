@@ -28,7 +28,7 @@ CONFIRMED_LABELS: Final[TextVersions] = {"scope": "2026-10-name", "media": CONFI
 
 # A referee's record as their confirmation left it: both choices granted, each with its evidence.
 CONFIRMED: Final[Mapping[str, Any]] = {
-    "scope": "kader_oeffentlich",
+    "scope": "kader_public",
     "date": "2026-04-01",
     "confirmed_at": "2026-04-01",
     "media": True,
@@ -59,11 +59,11 @@ class TestWhichValueGrants:
     @pytest.mark.parametrize(
         ("choice", "value", "given"),
         [
-            ("scope", "kader_oeffentlich", True),
-            ("scope", "intern", False),
+            ("scope", "kader_public", True),
+            ("scope", "internal", False),
             # A seat's acknowledgement is no consent; WhatsApp is the one on top of it.
-            ("scope", "kontaktdaten", False),
-            ("scope", "kontaktdaten_whatsapp", True),
+            ("scope", "kontakt_data", False),
+            ("scope", "kontakt_data_whatsapp", True),
             ("media", True, True),
             ("media", False, False),
             # Absent reads as off on both read models, so an absent value never grants.
@@ -102,9 +102,9 @@ class TestTheEvidenceOfOneChoice:
         }
 
     def test_a_seat_answered_without_whatsapp_keeps_no_earlier_grant(self):
-        """`kontaktdaten` withholds, so a seat's first answer declining WhatsApp is a withdrawal of nothing."""
+        """`kontakt_data` withholds, so a seat's first answer declining WhatsApp is a withdrawal of nothing."""
 
-        assert compose_receipt(saved=SEATED, choice="scope", value="kontaktdaten", at=LATER, text_version="v6") == {
+        assert compose_receipt(saved=SEATED, choice="scope", value="kontakt_data", at=LATER, text_version="v6") == {
             "at": LATER,
             "text_version": "v6",
         }
@@ -144,7 +144,7 @@ class TestTheTwoShapesOfAWrite:
 # A registration confirmed between the record's confirmation and its withdrawal: scope narrowed, media granted.
 REGISTERED_AT: Final = "2026-04-15T09:00:00+00:00"
 REGISTERED: Final[Mapping[str, Any]] = {
-    "scope": "intern",
+    "scope": "internal",
     "date": "2026-04-15",
     "confirmed_at": "2026-04-15",
     "media": True,
@@ -169,7 +169,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
 
         assert "einwilligung.media" not in update and "einwilligung.evidence.media" not in update
         assert (update["einwilligung.scope"], update["einwilligung.evidence.scope"]) == (
-            "intern",
+            "internal",
             {
                 "at": REGISTERED_AT,
                 "text_version": "2026-10-spielerseite-5",
@@ -228,7 +228,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
 
         saved = compose_initial(
             block={
-                "scope": "kader_oeffentlich",
+                "scope": "kader_public",
                 "date": "2025-09-01",
                 "confirmed_at": "2025-09-01",
                 "media": True,
@@ -242,7 +242,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             "birth_date": "2009-05-04",
             "einwilligung": compose_initial(
                 block={
-                    "scope": "intern",
+                    "scope": "internal",
                     "date": "2026-10-01",
                     "confirmed_at": "2026-10-01",
                     "media": False,
@@ -263,7 +263,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             "given_before": {"at": "2025-09-01T08:00:00+00:00", "text_version": "2025-09"},
         }
         assert {key: value for key, value in set_fields.items() if key.startswith("einwilligung.")} == {
-            "einwilligung.scope": "intern",
+            "einwilligung.scope": "internal",
             "einwilligung.media": False,
             "einwilligung.date": "2026-10-01",
             "einwilligung.confirmed_at": "2026-10-01",
@@ -302,8 +302,8 @@ class TestTheStandAPressEchoes:
 
         receipt = {"at": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}
         media = {"at": GIVEN_AT, "text_version": CONFIRMED_LABEL}
-        granted = {**SEATED, "scope": "kontaktdaten_whatsapp", "evidence": {"scope": receipt, "media": media}}
-        withdrawn = {**granted, "scope": "kontaktdaten"}
+        granted = {**SEATED, "scope": "kontakt_data_whatsapp", "evidence": {"scope": receipt, "media": media}}
+        withdrawn = {**granted, "scope": "kontakt_data"}
         renewed = {**granted, "evidence": {"scope": {"at": LATER, "text_version": ACCOUNT_LABEL}, "media": media}}
 
         stands = [evidence_state_of(blocks=[block]) for block in (granted, withdrawn, renewed)]

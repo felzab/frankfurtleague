@@ -10,9 +10,9 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielbestaetigungen.crud import (
-    EIGENE_ZEILE_FIELDS,
-    pull_ansetzung_lage,
-    pull_eigene_lagen,
+    OWN_ROW_FIELDS,
+    pull_ansetzung_state,
+    pull_own_states,
     pull_spielorte_public,
 )
 from app.api.spielbestaetigungen.schemas import (
@@ -22,20 +22,20 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSelf,
 )
 from app.api.spielbestaetigungen.services import (
-    ansetzung_verlassen_refusal,
-    ansicht_ansetzung_of,
-    ansicht_snapshot_of,
+    ansetzung_left_refusal,
     build_answerable_filter,
     build_current_rows_pipeline,
     clubs_without_a_season_row,
     compose_schiedsrichter_answer_update,
-    eingetragen_of,
-    find_fremde_zeile_refusal,
+    entered_of,
+    find_foreign_row_refusal,
     find_spent_link_refusal,
     first_press_refusal,
     own_reason_of,
-    schiedsrichter_zustand_of,
+    schiedsrichter_state_of,
     stand_moved,
+    view_ansetzung_of,
+    view_snapshot_of,
 )
 from app.api.teams.crud import pull_team_names
 from app.core.config import API_VERSION
@@ -110,7 +110,7 @@ async def get_self(
                 *build_current_rows_pipeline(
                     saison_ids=[str(saison["_id"]) for saison in saisons],
                     schiedsrichter_ids=[entry.schiedsrichter_id for entry in subject.schiedsrichter],
-                    projection=EIGENE_ZEILE_FIELDS,
+                    projection=OWN_ROW_FIELDS,
                 ),
                 {"$limit": LIST_LIMIT_MAX + 1},
             ],
@@ -120,28 +120,35 @@ async def get_self(
         if len(rows) > LIST_LIMIT_MAX:
             raise ValueError("a referee's fixtures in the active seasons outrun one read")
 
-        lagen = await pull_eigene_lagen(
+        ansetzung_states = await pull_own_states(
             spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigungen_raw=rows, session=session
         )
-        moved = [row for row in rows if stand_moved(spielbestaetigung_raw=row, lage=lagen[row["_id"]])]
+        moved = [row for row in rows if stand_moved(spielbestaetigung_raw=row, ansetzung_state=ansetzung_states[row["_id"]])]
         moved_ids = {row["_id"] for row in moved}
         spielorte = await pull_spielorte_public(
             spielorte_collection=spielorte_collection, spielort_ids=[row["ansetzung"]["spielort_id"] for row in moved], session=session
         )
         vereinsnamen = await pull_team_names(
             teams_collection=teams_collection,
-            team_ids=[team_id for row in moved for team_id in clubs_without_a_season_row(spielbestaetigung_raw=row, lage=lagen[row["_id"]])],
+            team_ids=[
+                team_id
+                for row in moved
+                for team_id in clubs_without_a_season_row(spielbestaetigung_raw=row, ansetzung_state=ansetzung_states[row["_id"]])
+            ],
             session=session,
         )
 
-    def eintrag_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelf:
-        lage = lagen[row["_id"]]
+    def entry_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelf:
+        ansetzung_state = ansetzung_states[row["_id"]]
         ansetzung = (
-            ansicht_snapshot_of(
-                spielbestaetigung_raw=row, lage=lage, vereinsnamen=vereinsnamen, spielort=spielorte.get(row["ansetzung"]["spielort_id"])
+            view_snapshot_of(
+                spielbestaetigung_raw=row,
+                ansetzung_state=ansetzung_state,
+                vereinsnamen=vereinsnamen,
+                spielort=spielorte.get(row["ansetzung"]["spielort_id"]),
             )
             if row["_id"] in moved_ids
-            else ansicht_ansetzung_of(lage.spiel)
+            else view_ansetzung_of(ansetzung_state.spiel)
         )
 
         return FLSpielbestaetigungSelf.model_validate(
@@ -150,18 +157,18 @@ async def get_self(
                 "spiel_id": row["spiel_id"],
                 "schiedsrichter_id": row["party"]["schiedsrichter_id"],
                 "ansetzung": ansetzung,
-                "state": schiedsrichter_zustand_of(spielbestaetigung_raw=row, lage=lage, today=today),
+                "state": schiedsrichter_state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today),
                 "reason": own_reason_of(row),
-                "entered": eingetragen_of(row),
+                "entered": entered_of(row),
                 "past": ansetzung.date < today,
             }
         )
 
-    entries = list(map(eintrag_of, rows))
-    kommend = sorted((e for e in entries if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.date, str(e.id)))
-    vergangen = sorted((e for e in entries if e.past), key=lambda e: (e.ansetzung.date, str(e.id)), reverse=True)
+    entries = list(map(entry_of, rows))
+    upcoming = sorted((e for e in entries if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.date, str(e.id)))
+    past = sorted((e for e in entries if e.past), key=lambda e: (e.ansetzung.date, str(e.id)), reverse=True)
 
-    return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*kommend, *vergangen])
+    return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*upcoming, *past])
 
 
 @router.post(
@@ -215,17 +222,17 @@ async def post_schiedsrichter_answer(
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
         row = await spielbestaetigungen_collection.find_one(
             {"_id": spielbestaetigung_id, "saison_id": {"$in": [str(saison["_id"]) for saison in saisons]}},
-            projection=EIGENE_ZEILE_FIELDS,
+            projection=OWN_ROW_FIELDS,
             session=session,
         )
         refuse(
-            find_fremde_zeile_refusal(
+            find_foreign_row_refusal(
                 spielbestaetigung_raw=row, schiedsrichter_ids=[entry.schiedsrichter_id for entry in subject.schiedsrichter]
             )
         )
         assert row is not None
 
-        lage = await pull_ansetzung_lage(
+        ansetzung_state = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
@@ -234,8 +241,8 @@ async def post_schiedsrichter_answer(
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
-        assert lage is not None
-        refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=lage, today=today))
+        assert ansetzung_state is not None
+        refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today))
 
         try:
             await patch_one_in_db(
@@ -264,11 +271,11 @@ async def post_schiedsrichter_answer(
             except DocumentNotFoundError:
                 # Unreachable: the snapshot judged above books them, and a write since conflicts rather than missing.
                 # Mapped to that judgement's refusal, so no `document_not_found` is published for a miss no caller meets.
-                refuse(ansetzung_verlassen_refusal())
+                refuse(ansetzung_left_refusal())
         else:
             # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction
             # raises no conflict: all judged again outside it before answering.
-            current = await pull_ansetzung_lage(
+            current = await pull_ansetzung_state(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
@@ -278,7 +285,7 @@ async def post_schiedsrichter_answer(
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
             assert current is not None
-            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=current, today=today))
+            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
 
         return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
 

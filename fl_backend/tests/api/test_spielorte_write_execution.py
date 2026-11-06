@@ -38,11 +38,11 @@ RETIRED_NAME = "Sportplatz Süd"
 RETIRED_SINCE = "2026-03-01"
 
 ADDRESS = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
+    "street": "Hanauer Landstraße",
+    "house_number": "12a",
+    "postcode": "60314",
+    "district": "Ostend",
+    "city": "Frankfurt am Main",
 }
 
 

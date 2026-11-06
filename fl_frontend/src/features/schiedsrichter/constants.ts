@@ -7,4 +7,4 @@ import type { FLSchiedsrichterConfirmationDeadlineDays } from "@/core/generated/
  * the type check here. Fourteen rather than the registration's seven: this link waits on an adult with no second
  * route in.
  */
-export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLSchiedsrichterConfirmationDeadlineDays;
+export const SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS = 14 satisfies FLSchiedsrichterConfirmationDeadlineDays;

@@ -12,7 +12,7 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter
+from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
 from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, saison_status_lookup
@@ -325,7 +325,7 @@ def seat_choices_of_row(blocks: Sequence[Mapping[str, Any]]) -> dict[FLEinwillig
     """
 
     return {
-        "scope": "kontaktdaten_whatsapp" if any(is_given("scope", block.get("scope")) for block in blocks) else "kontaktdaten",
+        "scope": "kontakt_data_whatsapp" if any(is_given("scope", block.get("scope")) for block in blocks) else "kontakt_data",
         "media": any(is_given("media", block.get("media")) for block in blocks),
     }
 
@@ -392,7 +392,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending application with a seat at the address, `own_seats` then keeping the confirmed ones as on a season row."""
 
     return [
-        {"$match": build_eigene_bewerbung_filter(identifier)},
+        {"$match": build_own_bewerbung_filter(identifier)},
         {
             "$project": {
                 "saison_id": 1,

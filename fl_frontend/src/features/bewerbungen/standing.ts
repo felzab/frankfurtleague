@@ -16,7 +16,7 @@ export const STANDING_CHIP: Readonly<Record<Standing, ChipProps>> = {
   incomplete: { tone: "warn", label: WORDS.incomplete },
   complete: { tone: "info", label: WORDS.complete },
   accepted: { tone: "success", label: WORDS.accepted },
-  declined: { tone: "danger", label: COPY.admin.spiel.abgelehnt },
+  declined: { tone: "danger", label: COPY.admin.spiel.declined },
 };
 
 export function standingOf({ status, seats_confirmed: confirmed }: { status: FLBewerbungStatus; seats_confirmed: number }): Standing {

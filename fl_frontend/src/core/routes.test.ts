@@ -65,7 +65,6 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
   spielbericht: "Spielbericht",
   tabelle: "Tabelle",
   "ko-runde": "K.-o.-Runde",
-  kuerzel: "Kürzel",
   kontakt: "kontakte",
 };
 

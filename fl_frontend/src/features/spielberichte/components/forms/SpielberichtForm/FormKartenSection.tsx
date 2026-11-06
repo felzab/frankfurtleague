@@ -30,7 +30,7 @@ export function FormKartenSection({
   onAdd,
   fieldErrors,
   onValidateFields,
-  geleert,
+  emptied,
   bestand,
 }: {
   kontext: SpielberichtKontext;
@@ -40,7 +40,7 @@ export function FormKartenSection({
   fieldErrors: FieldErrors;
   onValidateFields: (paths: readonly string[]) => void;
   /** The entries whose person the form took out on opening (`eroeffnungOf`). */
-  geleert: ReadonlySet<number>;
+  emptied: ReadonlySet<number>;
   /** The stored report's cards, whose stripped cautions owe no reason again. */
   bestand: readonly KartenSchluessel[];
 }) {
@@ -74,7 +74,7 @@ export function FormKartenSection({
             aria-label="Karten"
             className="flex w-full flex-col gap-3">
             {eintraege.map((entry, index) => {
-              const pfad = `bericht.cards.${String(index)}`;
+              const path = `bericht.cards.${String(index)}`;
               const wofuer = `Karte ${String(index + 1)}`;
 
               return (
@@ -98,25 +98,25 @@ export function FormKartenSection({
 
                     <div className={FIELD_PAIR_CLASSES}>
                       <AuswahlSelect<FLSpielSide>
-                        name={`${pfad}.side`}
+                        name={`${path}.side`}
                         label="Team"
                         placeholder="Team wählen"
                         value={entry.side}
                         options={seitenOptionen(kontext)}
                         // Another side's squad names other pupils, so the person picked for the first does not survive the switch.
                         onChange={(seite) => update(entry.key, seite === entry.side ? {} : { side: seite, spieler: "" })}
-                        error={fieldErrors[`${pfad}.side`]}
+                        error={fieldErrors[`${path}.side`]}
                       />
                       <AuswahlSelect<string>
-                        name={`${pfad}.spieler_id`}
+                        name={`${path}.spieler_id`}
                         label="Spielerin oder Spieler"
                         placeholder={entry.side === null ? "Zuerst das Team wählen" : "Person wählen"}
                         value={entry.spieler === "" ? null : entry.spieler}
                         options={personOptionen(kontext, entry.side, entry.spieler)}
                         onChange={(spieler) => update(entry.key, { spieler })}
-                        error={fieldErrors[`${pfad}.spieler_id`]}
+                        error={fieldErrors[`${path}.spieler_id`]}
                         hint={personHinweis({
-                          geleert: geleert.has(entry.key) && entry.spieler === "",
+                          emptied: emptied.has(entry.key) && entry.spieler === "",
                           ohneKaderSatz: ohneKader(kontext, entry.side)
                             ? "Für dieses Team ist kein Kader hinterlegt. Beschreib die Karte dann in den Bemerkungen mit der Rückennummer."
                             : null,
@@ -126,31 +126,31 @@ export function FormKartenSection({
 
                     <div className={FIELD_PAIR_CLASSES}>
                       <MinuteField
-                        name={`${pfad}.minute`}
+                        name={`${path}.minute`}
                         value={entry.minute}
                         onChange={(minute) => update(entry.key, { minute })}
-                        onBlur={() => onValidateFields([`${pfad}.minute`])}
+                        onBlur={() => onValidateFields([`${path}.minute`])}
                       />
                       <AuswahlSelect<FLCardColour>
-                        name={`${pfad}.colour`}
+                        name={`${path}.colour`}
                         label="Farbe"
                         placeholder="Farbe wählen"
                         value={entry.colour}
                         options={FARBE_OPTIONEN}
                         onChange={(farbe) => update(entry.key, { colour: farbe })}
-                        error={fieldErrors[`${pfad}.colour`]}
+                        error={fieldErrors[`${path}.colour`]}
                       />
                     </div>
 
                     <AuswahlSelect<FLCardReason | typeof KEIN_GRUND>
-                      name={`${pfad}.reason`}
+                      name={`${path}.reason`}
                       label="Grund"
                       placeholder="Grund wählen"
                       value={entry.reason ?? (entry.colour === "rot" ? KEIN_GRUND : null)}
                       // Red alone may stand without a reason, so only it offers the way back to none.
                       options={entry.colour === "rot" ? [{ id: KEIN_GRUND, label: "Kein Grund" }, ...GRUND_OPTIONEN] : GRUND_OPTIONEN}
                       onChange={(grund) => update(entry.key, { reason: grund === KEIN_GRUND ? null : grund })}
-                      error={fieldErrors[`${pfad}.reason`]}
+                      error={fieldErrors[`${path}.reason`]}
                       // Marked by hand: a caution's reason is refused empty over the whole list
                       // (`fl_frontend/src/features/spielberichte/schemas.ts :: spielberichtFormSchema`), the leaf taking `null`
                       // for a red and for a caution a stripped card of the stored report excuses.

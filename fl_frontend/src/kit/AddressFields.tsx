@@ -8,14 +8,14 @@ import type { Copy } from "@/core/copy";
 const WORDS = COPY.admin.spielort;
 
 /** An address's boxes, by the names they post under. */
-type AddressField = "strasse" | "hausnummer" | "plz" | "stadtteil" | "stadt";
+type AddressField = "street" | "house_number" | "postcode" | "district" | "city";
 
 /** What a write asks of an address, read off its schema on the server, so the schema never reaches the browser. */
 export type AddressRules = {
   required: Readonly<Record<AddressField, boolean>>;
-  maxLength: Readonly<Record<Exclude<AddressField, "plz">, number>>;
+  maxLength: Readonly<Record<Exclude<AddressField, "postcode">, number>>;
   /** The postcode's one length, which its box holds before the send as well. */
-  plzLength: number;
+  postcodeLength: number;
 };
 
 /**
@@ -36,11 +36,11 @@ export function AddressFields({
   box?: (field: AddressField) => { name: string; defaultValue?: string; onChange: (value: string) => void };
   streetDescription?: Copy;
 }) {
-  const { required, maxLength, plzLength } = rules;
+  const { required, maxLength, postcodeLength } = rules;
   const bound = (field: AddressField) => {
     if (draft !== undefined) return { name: field, value: draft.values[field], onChange: (value: string) => draft.set(field, value) };
     const held: { name: string; defaultValue?: string; onChange?: (value: string) => void } = box?.(field) ?? { name: field };
-    return field === "stadt" ? { ...held, defaultValue: held.defaultValue ?? WORDS.stadtDefault } : held;
+    return field === "city" ? { ...held, defaultValue: held.defaultValue ?? WORDS.cityDefault } : held;
   };
   return (
     <>
@@ -48,51 +48,51 @@ export function AddressFields({
         short="second"
         phone="pair">
         <TextField
-          label={WORDS.strasse}
+          label={WORDS.street}
           description={streetDescription}
           width="W3"
           kind="text"
-          isRequired={required.strasse}
-          maxLength={maxLength.strasse}
-          {...bound("strasse")}
+          isRequired={required.street}
+          maxLength={maxLength.street}
+          {...bound("street")}
         />
         <TextField
-          label={WORDS.hausnummer}
+          label={WORDS.houseNumber}
           width="C5"
           kind="text"
-          isRequired={required.hausnummer}
-          maxLength={maxLength.hausnummer}
-          {...bound("hausnummer")}
+          isRequired={required.house_number}
+          maxLength={maxLength.house_number}
+          {...bound("house_number")}
         />
       </FieldPair>
       <FieldPair
         short="first"
         phone="pair">
         <TextField
-          label={WORDS.plz}
+          label={WORDS.postcode}
           width="C5"
           kind="digits"
-          isRequired={required.plz}
-          maxLength={plzLength}
-          minLength={plzLength}
-          {...bound("plz")}
+          isRequired={required.postcode}
+          maxLength={postcodeLength}
+          minLength={postcodeLength}
+          {...bound("postcode")}
         />
         <TextField
-          label={WORDS.stadt}
+          label={WORDS.city}
           width="W3"
           kind="text"
-          isRequired={required.stadt}
-          maxLength={maxLength.stadt}
-          {...bound("stadt")}
+          isRequired={required.city}
+          maxLength={maxLength.city}
+          {...bound("city")}
         />
       </FieldPair>
       <TextField
-        label={WORDS.stadtteil}
+        label={WORDS.district}
         width="W3"
         kind="text"
-        isRequired={required.stadtteil}
-        maxLength={maxLength.stadtteil}
-        {...bound("stadtteil")}
+        isRequired={required.district}
+        maxLength={maxLength.district}
+        {...bound("district")}
       />
     </>
   );

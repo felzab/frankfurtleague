@@ -11,7 +11,7 @@ import type { TableProps } from "./Table";
 const props = (rows: TableProps["rows"]): TableProps => ({
   label: COPY.shared.saison,
   nameLabel: COPY.shared.saison,
-  columns: [{ key: "stadtteil", label: COPY.shared.startelf }],
+  columns: [{ key: "district", label: COPY.shared.startelf }],
   rows,
   empty: { kind: "none", plural: COPY.shared.startelf },
 });
@@ -23,10 +23,10 @@ describe("a table's rank column", () => {
     render(
       <Table
         {...props([
-          { id: "1", name: { record: "Goethe" }, place: 1, cells: { stadtteil: { record: "Nordend" } } },
-          { id: "2", name: { record: "Bettina" }, place: 1, cells: { stadtteil: { record: "Westend" } } },
-          { id: "3", name: { record: "Schiller" }, place: 3, cells: { stadtteil: { record: "Bornheim" } } },
-          { id: "4", name: { record: "Lessing" }, place: null, cells: { stadtteil: { record: "Ostend" } } },
+          { id: "1", name: { record: "Goethe" }, place: 1, cells: { district: { record: "Nordend" } } },
+          { id: "2", name: { record: "Bettina" }, place: 1, cells: { district: { record: "Westend" } } },
+          { id: "3", name: { record: "Schiller" }, place: 3, cells: { district: { record: "Bornheim" } } },
+          { id: "4", name: { record: "Lessing" }, place: null, cells: { district: { record: "Ostend" } } },
         ])}
         rankLabel={COPY.shared.saison}
       />,

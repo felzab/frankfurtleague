@@ -44,8 +44,8 @@ export function SpieltagEditor({
       closed={closed}
       sections={[
         {
-          id: "zeitraum",
-          title: WORDS.zeitraum,
+          id: "period",
+          title: WORDS.period,
           fields: (
             <FieldRows>
               <DateField

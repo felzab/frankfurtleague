@@ -95,7 +95,7 @@ class FLSaisonBewerbung(BaseModel):
     """When the league accepts applications for this season: while today lies between `start` and `end`, both included.
 
     `open` pauses the form alone, its dates untouched and the applications already received staying in triage, as
-    `FLSaisonRegistrierung.open` pauses a link (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
+    `FLSaisonRegistrierung.open` pauses a link (`app/api/bewerbungen/services.py :: saison_takes_bewerbungen`).
     """
 
     open: bool

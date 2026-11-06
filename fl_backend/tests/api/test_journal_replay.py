@@ -26,7 +26,7 @@ from app.api.address_change.admin_router import delete_address_change as discard
 from app.api.address_change.services import as_utc
 from app.api.identity.journal_replay import REPLAY_METHOD, Read, Window, replay_line, run_replay
 from app.api.schiedsrichter.services import compose_confirmation, confirmation_deadline_from, erase_at_from
-from app.api.teams.services import compose_kontakt_bestaetigung
+from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.dependencies import get_germany_now
@@ -126,20 +126,20 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         "Ortrud" if confirmed else "Ida",
         confirmed_at="2126-09-03" if confirmed else None,
         birth_date=ADULT if confirmed else None,
-        einwilligung={"scope": "kontaktdaten_whatsapp", "media": True} if confirmed else {},
+        einwilligung={"scope": "kontakt_data_whatsapp", "media": True} if confirmed else {},
     )
     return {**seat, "email": email}
 
 
 # The stand each account page serves for the record as `_seed` stores it, which a press from that page echoes.
 # Each account control beside the wordings its press names.
-type Konto = Literal["konto_spieler", "konto_schiedsrichter", "konto_kontakt"]
-LABELS: dict[Konto, TextVersions] = {
+type Account = Literal["konto_spieler", "konto_schiedsrichter", "konto_kontakt"]
+LABELS: dict[Account, TextVersions] = {
     "konto_spieler": SPIELER_TEXT_VERSIONS,
     "konto_schiedsrichter": SCHIEDSRICHTER_TEXT_VERSIONS,
     "konto_kontakt": SEAT_TEXT_VERSIONS,
 }
-SERVED_STAND: dict[Konto, dict[str, str | None]] = {
+SERVED_STAND: dict[Account, dict[str, str | None]] = {
     "konto_spieler": evidence_state_of(blocks=[_own(SPIELER_TEXT_VERSIONS)]),
     "konto_schiedsrichter": evidence_state_of(blocks=[_own(SCHIEDSRICHTER_TEXT_VERSIONS)]),
     "konto_kontakt": evidence_state_of(blocks=[_seat(PERSON)["einwilligung"]]),
@@ -163,7 +163,7 @@ async def _seed(database: AsyncDatabase) -> None:
             "confirmations": {
                 "trainer": None,
                 "ansprechperson": None,
-                "stellvertretung": {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(ROW_LINK)]},
+                "stellvertretung": {**compose_kontakt_confirmation(today=TODAY), "token_hashes": [hash_token(ROW_LINK)]},
             },
         }
     )
@@ -261,7 +261,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 birth_date=ADULT,
                 today="2126-09-21",
                 at="2126-09-21T08:00:00+00:00",
-                scope="kader_oeffentlich",
+                scope="kader_public",
                 media=True,
             ),
         )
@@ -284,7 +284,7 @@ def _person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
-def _withdrawal(page: Konto, **choices: Any) -> dict[str, Any]:
+def _withdrawal(page: Account, **choices: Any) -> dict[str, Any]:
     return {"text_versions": dict(LABELS[page]), "evidence_state": SERVED_STAND[page], **choices}
 
 
@@ -295,7 +295,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
     # Its confirmation stamped evidence, so the page serves that evidence's stand.
     stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": REGISTRATION_OID})
     assert stored is not None
-    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": evidence_state_of(blocks=[stored["einwilligung"]])}
+    body = {**_withdrawal("konto_spieler", scope="internal", media=True), "evidence_state": evidence_state_of(blocks=[stored["einwilligung"]])}
 
     return await http.patch(f"{V}/registrierungen/account/{REGISTRATION_OID}/einwilligung", json=body, headers=_person(REGISTRANT))
 
@@ -312,7 +312,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/spieler/account/einwilligung",
-            json=_withdrawal("konto_spieler", scope="intern", media=False),
+            json=_withdrawal("konto_spieler", scope="internal", media=False),
             headers=_person(PERSON),
         ),
         Collection.SPIELER,
@@ -321,7 +321,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
-            json=_withdrawal("konto_schiedsrichter", scope="kader_oeffentlich", media=False),
+            json=_withdrawal("konto_schiedsrichter", scope="kader_public", media=False),
             headers=_person(PERSON),
         ),
         Collection.SCHIEDSRICHTER,
@@ -330,7 +330,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", scope="kontaktdaten", media=True),
+            json=_withdrawal("konto_kontakt", scope="kontakt_data", media=True),
             headers=_person(PERSON),
         ),
         Collection.SAISON_TEAMS,
@@ -339,14 +339,14 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/bewerbungen/{APPLICATION_OID}/account/einwilligung",
-            json=_withdrawal("konto_kontakt", scope="kontaktdaten_whatsapp", media=False),
+            json=_withdrawal("konto_kontakt", scope="kontakt_data_whatsapp", media=False),
             headers=_person(PERSON),
         ),
         Collection.BEWERBUNGEN,
         APPLICATION_OID,
     ),
     "a pending registration's withdrawal": (_registration_withdrawal, Collection.REGISTRIERUNGEN, REGISTRATION_OID),
-    "a Widerspruch on an application": (
+    "an objection on an application": (
         lambda http, _database: http.post(
             f"{V}/bewerbungen/einwilligung",
             json=_declined(f"{APPLICATION_LINK}-trainer"),
@@ -355,7 +355,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         Collection.BEWERBUNGEN,
         DECLINED_APPLICATION_OID,
     ),
-    "a Widerspruch on a season row": (
+    "an objection on a season row": (
         lambda http, _database: http.post(
             f"{V}/bewerbungen/einwilligung",
             json=_declined(ROW_LINK),
@@ -405,8 +405,8 @@ MOVED: dict[str, tuple[Collection, ObjectId]] = {
 # Whose hash each line names: the signed-in person, or the new address of a change declined, stopped or taking effect.
 PERSONS = {
     "a pending registration's withdrawal": REGISTRANT,
-    "a Widerspruch on an application": DECLINER,
-    "a Widerspruch on a season row": DECLINER,
+    "an objection on an application": DECLINER,
+    "an objection on a season row": DECLINER,
     "a referee's objection": OBJECTING_REFEREE,
     "a referee's declined address": NEW_ADDRESS,
     "a pupil's declined address": NEW_ADDRESS,
@@ -636,8 +636,8 @@ ONE_DAY = Window(since=datetime(2126, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2
 
 # What the restored site sends again on a day after the restore: a new link for the declined seat, a new change to the declined address.
 SENT_AGAIN: dict[str, Callable[[str], dict[str, Any]]] = {
-    "a Widerspruch on a season row": lambda day: {
-        "confirmations.stellvertretung": {**compose_kontakt_bestaetigung(today=day), "token_hashes": [hash_token("a-new-link")]}
+    "an objection on a season row": lambda day: {
+        "confirmations.stellvertretung": {**compose_kontakt_confirmation(today=day), "token_hashes": [hash_token("a-new-link")]}
     },
     "a referee's declined address": lambda day: {"token_hash": hash_token("asked-again"), "sent_at": day},
 }
@@ -651,7 +651,7 @@ async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabas
     [line] = journalled(caplog)
     # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
     _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
-    body = {**_withdrawal("konto_spieler", scope="intern", media=True), "evidence_state": (await _served(http))["spieler"]["evidence_state"]}
+    body = {**_withdrawal("konto_spieler", scope="internal", media=True), "evidence_state": (await _served(http))["spieler"]["evidence_state"]}
     granted = await http.patch(f"{V}/spieler/account/einwilligung", json=body, headers=_person(PERSON))
     assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
 

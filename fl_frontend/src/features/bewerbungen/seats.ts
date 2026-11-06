@@ -3,7 +3,7 @@ import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
 
-import { deliveryChip } from "./zustellLage";
+import { deliveryChip } from "./deliveryState";
 
 import type { Copy } from "@/core/copy";
 import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson, FLKontaktRolle } from "@/core/generated/client/types";

@@ -35,12 +35,12 @@ export async function getRegistrierungenAdmin(saisonId: string): Promise<FLRegis
 export async function getEinladungAnsicht(token: string): Promise<RegistrierungStart> {
   return runWithIncomingTrace(() =>
     postEinladungAnsicht({ token }).then(
-      (view) => (einladungZustand(view) === "valid" ? { zustand: "valid", ansicht: view, token } : { zustand: "closed", ansicht: view }),
+      (view) => (einladungZustand(view) === "valid" ? { state: "valid", ansicht: view, token } : { state: "closed", ansicht: view }),
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live invite void.
         const state = mapRegistrierungAnsichtRefusal(error);
-        if (state !== null) return { zustand: state };
+        if (state !== null) return { state };
         throw error;
       },
     ),
@@ -56,10 +56,10 @@ export async function getEinladungAnsicht(token: string): Promise<RegistrierungS
 export async function getSpielerBestaetigungAnsicht(token: string): Promise<SpielerBestaetigungAnsicht> {
   return runWithIncomingTrace(() =>
     postBestaetigungAnsicht({ token }).then(
-      (ansicht) => (ansicht.state === "valid" ? { zustand: "valid" as const, ansicht } : { zustand: ansicht.state }),
+      (ansicht) => (ansicht.state === "valid" ? { state: "valid" as const, ansicht } : { state: ansicht.state }),
       (error: unknown) => {
         const state = mapRegistrierungAnsichtRefusal(error);
-        if (state !== null) return { zustand: state };
+        if (state !== null) return { state };
         throw error;
       },
     ),

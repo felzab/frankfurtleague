@@ -442,12 +442,12 @@
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/ui/Gefuellt.tsx": {
+  "src/features/bewerbungen/components/ui/Filled.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/ui/LinkStandAngaben.tsx": {
+  "src/features/bewerbungen/components/ui/LinkStateDetails.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
@@ -463,12 +463,12 @@
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/views/BestaetigungHinweise.tsx": {
+  "src/features/bewerbungen/components/views/ConfirmationNotices.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }
   },
-  "src/features/bewerbungen/components/views/BestaetigungPanels.tsx": {
+  "src/features/bewerbungen/components/views/ConfirmationPanels.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 7
     },
@@ -485,7 +485,7 @@
       "count": 3
     }
   },
-  "src/features/bewerbungen/zustellLage.ts": {
+  "src/features/bewerbungen/deliveryState.ts": {
     "no-restricted-syntax": {
       "count": 6
     }
@@ -756,7 +756,7 @@
       "count": 2
     }
   },
-  "src/features/saisons/components/ui/laufendDot.ts": {
+  "src/features/saisons/components/ui/runningDot.ts": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
     }
@@ -1135,7 +1135,7 @@
       "count": 1
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/FormKaderZeileAustragenSection.tsx": {
+  "src/features/spieler/components/forms/KaderRowEditForm/FormKaderRowRetireSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
     },
@@ -1152,7 +1152,7 @@
       "count": 2
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/FormKaderZeileSection.tsx": {
+  "src/features/spieler/components/forms/KaderRowEditForm/FormKaderRowSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 10
     },
@@ -1172,24 +1172,7 @@
       "count": 4
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx": {
+  "src/features/spieler/components/forms/KaderRowEditForm/KaderRowEditForm.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
     },
@@ -1206,7 +1189,24 @@
       "count": 1
     }
   },
-  "src/features/spieler/components/forms/KaderZeileEditForm/kaderZeileDraftStatus.ts": {
+  "src/features/spieler/components/forms/KaderRowEditForm/KaderRowRetired.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "check-file/folder-naming-convention": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/KaderRowEditForm/kaderRowDraftStatus.ts": {
     "check-file/folder-naming-convention": {
       "count": 1
     },
@@ -1225,7 +1225,7 @@
       "count": 2
     }
   },
-  "src/features/spieler/components/ui/SpielerAngaben.tsx": {
+  "src/features/spieler/components/ui/SpielerDetails.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
     },

@@ -1,7 +1,7 @@
 import "server-only";
 
-import { sweepLoeschung } from "./loeschung";
-import { postLoeschungSweep } from "./mutations";
+import { sweepErasure } from "./loeschung";
+import { postErasureSweep } from "./mutations";
 
 /**
  * One pass over the pupils the season-after rule makes due, for the scheduler
@@ -13,13 +13,13 @@ import { postLoeschungSweep } from "./mutations";
  * failed or passed over, and a pass a call cut short its failures, with that call's `error`.
  */
 export async function runErasureSweep() {
-  const lauf = await sweepLoeschung(postLoeschungSweep);
+  const run = await sweepErasure(postErasureSweep);
 
-  if (!lauf.abgebrochen) {
-    const { abgebrochen: _durchgelaufen, ...zahlen } = lauf;
+  if (!run.abgebrochen) {
+    const { abgebrochen: _durchgelaufen, ...zahlen } = run;
     return { count: zahlen, open: zahlen.remaining };
   }
 
-  const { abgebrochen: _abgebrochen, error, ...bisher } = lauf;
-  return { count: bisher, open: bisher.failed, error };
+  const { abgebrochen: _abgebrochen, error, ...previous } = run;
+  return { count: previous, open: previous.failed, error };
 }

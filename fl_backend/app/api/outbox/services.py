@@ -83,7 +83,7 @@ class OwedMail:
     """
 
     key: str
-    an: str
+    to: str
     data: FLOutboxData
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
@@ -151,7 +151,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     return {
         "key": mail.key,
         "kind": mail.data.kind,
-        "an": mail.an,
+        "to": mail.to,
         # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
         "data": mail.data.model_dump(mode="json"),
         "secret": secret,

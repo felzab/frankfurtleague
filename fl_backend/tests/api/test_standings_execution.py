@@ -170,7 +170,7 @@ class TestTheTwoDerivationsAgree:
 
         # Guarded rather than assumed: an empty read, or a table of zeros, would agree with anything.
         assert {row["name"] for row in rows} == {"Anna", "Bodo", "Caro", "Dirk"}
-        assert any(row["statistik"]["count_gespielte_spiele"] > 0 for row in rows)
+        assert any(row["statistik"]["count_played_spiele"] > 0 for row in rows)
 
         for row in rows:
             expected = derived.get(row["_id"], ZERO_STATISTIK)
@@ -184,8 +184,8 @@ class TestTheScopeIsTheCallersFilter:
         """Both halves of one claim: the derivation filters nothing, so a caller handing it the wrong season answers the wrong question."""
 
         gruppenphase = build_statistik_by_team(season_in_scope("gruppenphase"), RULES)
-        gesamt = build_statistik_by_team(season_in_scope("total"), RULES)
+        total = build_statistik_by_team(season_in_scope("total"), RULES)
 
-        assert gruppenphase[ANNA].count_gespielte_spiele == 3
-        assert gesamt[ANNA].count_gespielte_spiele == 4
-        assert gruppenphase[DIRK] == gesamt[DIRK]
+        assert gruppenphase[ANNA].count_played_spiele == 3
+        assert total[ANNA].count_played_spiele == 4
+        assert gruppenphase[DIRK] == total[DIRK]

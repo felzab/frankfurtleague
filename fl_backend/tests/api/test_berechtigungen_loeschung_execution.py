@@ -118,7 +118,7 @@ def notice(
         "_id": row_id,
         "key": f"grant/{grant_id}/{kind}/anwendung/{QUEUED.isoformat()}/{DORA}",
         "kind": "grant",
-        "an": DORA,
+        "to": DORA,
         "data": FLGrantData.model_validate(notice.data).model_dump(mode="json"),
         "secret": None,
         "reference": None,

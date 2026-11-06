@@ -26,7 +26,7 @@ from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
-from app.api.teams.services import compose_kontakt_bestaetigung
+from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
 from app.core.exceptions import APIError
@@ -76,7 +76,7 @@ def person(first_name: str, *, email: str | None = None) -> dict[str, Any]:
         "last_name": "Musterfrau",
         "email": email or f"{first_name.lower()}@example.com",
         "phone": PHONE[first_name],
-        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
+        "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
     }
 
 
@@ -182,7 +182,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                             "ADX",
                             kontakte=STORED,
                             confirmations={
-                                seat: {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
+                                seat: {**compose_kontakt_confirmation(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
                                 for seat in KONTAKT_ROLLEN
                             },
                         ),
@@ -324,7 +324,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     )
 
 
-async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+async def replay_the_objection(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch replayed onto a restore from a snapshot older than the press."""
 
     line = JournalLine(
@@ -365,7 +365,7 @@ class TestEverySeatWriteVoidsItsLinks:
             # The season's end strips every team row of the season, a club whose block was empty already included.
             pytest.param(clear_the_blocks, ALL, "past", set(), id="the sweep clearing a past season's blocks"),
             pytest.param(contradict, {"trainer"}, "active", ALL, id="the Widerspruch on the season row"),
-            pytest.param(replay_the_widerspruch, {"trainer"}, "active", ALL, id="the replay of that Widerspruch"),
+            pytest.param(replay_the_objection, {"trainer"}, "active", ALL, id="the replay of that Widerspruch"),
         ],
     )
     def test_the_moved_seat_s_link_stops_answering_and_nothing_else_does(
@@ -445,7 +445,7 @@ class TestALeavingContactsReasonsGo:
         [
             pytest.param(erase_the_trainer, id="their erasure"),
             pytest.param(contradict, id="their Widerspruch on the season row"),
-            pytest.param(replay_the_widerspruch, id="the replay of that Widerspruch"),
+            pytest.param(replay_the_objection, id="the replay of that Widerspruch"),
         ],
     )
     def test_theirs_go_from_the_rows_and_the_images_and_nobody_elses_do(self, mongo_replica_set_url: str, write: Write):
@@ -512,7 +512,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         [
             pytest.param(erase_the_trainer, {"trainer"}, id="their erasure"),
             pytest.param(contradict, {"trainer"}, id="their Widerspruch"),
-            pytest.param(replay_the_widerspruch, {"trainer"}, id="the replay of their Widerspruch"),
+            pytest.param(replay_the_objection, {"trainer"}, id="the replay of their Widerspruch"),
             # A seat handed on is no leaving of a person: the season row's own images keep the predecessor too.
             pytest.param(hand_the_trainer_on, set(), id="a seat handed on"),
         ],

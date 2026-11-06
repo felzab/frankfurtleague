@@ -5,10 +5,10 @@ from bson import ObjectId
 
 from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
-    anfrage_is_due,
     compose_ansetzung,
     deadline_of,
     reason_to_close,
+    request_is_due,
 )
 
 TODAY = "2026-04-01"
@@ -58,7 +58,7 @@ class TestTheMintAsksInsideItsWindowAlone:
     def test_a_spiel_today_is_not_asked(self):
         """The floor's edge: both clubs and the referee would be asked to confirm a match already under way."""
 
-        assert anfrage_is_due(spiel=spiel(date=TODAY), austritte={}, today=TODAY) is False
+        assert request_is_due(spiel=spiel(date=TODAY), austritte={}, today=TODAY) is False
 
 
 class TestWhyARowCloses:
@@ -84,7 +84,7 @@ class TestWhyARowCloses:
         assert reason_to_close(row=row(party), spiel=spiel(**overrides), austritte=austritte, today=TODAY) == reason
 
     def test_an_answered_row_closes_as_an_open_one_does(self):
-        """The close's reach is `geschlossen: null` alone, so a kept agreement records why it stopped applying."""
+        """The close's reach is `closed: null` alone, so a kept agreement records why it stopped applying."""
 
         answered = row(TEAM, answer={"kind": "zugesagt"})
 

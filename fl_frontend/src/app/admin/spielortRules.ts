@@ -3,18 +3,18 @@ import "server-only";
 import { requires } from "@/core/action";
 import {
   SpielortePatchSpielortBody,
-  spielortePatchSpielortBodyAddressHausnummerMax,
-  spielortePatchSpielortBodyAddressPlzMax,
-  spielortePatchSpielortBodyAddressStadtMax,
-  spielortePatchSpielortBodyAddressStadtteilMax,
-  spielortePatchSpielortBodyAddressStrasseMax,
+  spielortePatchSpielortBodyAddressCityMax,
+  spielortePatchSpielortBodyAddressDistrictMax,
+  spielortePatchSpielortBodyAddressHouseNumberMax,
+  spielortePatchSpielortBodyAddressPostcodeMax,
+  spielortePatchSpielortBodyAddressStreetMax,
   spielortePatchSpielortBodyNameMax,
   SpielortePostSpielortBody,
-  spielortePostSpielortBodyAddressHausnummerMax,
-  spielortePostSpielortBodyAddressPlzMax,
-  spielortePostSpielortBodyAddressStadtMax,
-  spielortePostSpielortBodyAddressStadtteilMax,
-  spielortePostSpielortBodyAddressStrasseMax,
+  spielortePostSpielortBodyAddressCityMax,
+  spielortePostSpielortBodyAddressDistrictMax,
+  spielortePostSpielortBodyAddressHouseNumberMax,
+  spielortePostSpielortBodyAddressPostcodeMax,
+  spielortePostSpielortBodyAddressStreetMax,
   spielortePostSpielortBodyNameMax,
 } from "@/core/generated/zod/inputs";
 
@@ -38,11 +38,11 @@ const requiredOf = ({ shape }: Body): SpielortRules["required"] => ({
 const addressRequiredOf = ({ shape }: Body): AddressRules["required"] => {
   const address = shape.address.shape;
   return {
-    strasse: requires(address.strasse, ""),
-    hausnummer: requires(address.hausnummer, ""),
-    plz: requires(address.plz, ""),
-    stadtteil: requires(address.stadtteil, ""),
-    stadt: requires(address.stadt, ""),
+    street: requires(address.street, ""),
+    house_number: requires(address.house_number, ""),
+    postcode: requires(address.postcode, ""),
+    district: requires(address.district, ""),
+    city: requires(address.city, ""),
   };
 };
 
@@ -53,12 +53,12 @@ export const SPIELORT_RULES: SpielortRules = {
   address: {
     required: addressRequiredOf(SpielortePostSpielortBody),
     maxLength: {
-      strasse: spielortePostSpielortBodyAddressStrasseMax,
-      hausnummer: spielortePostSpielortBodyAddressHausnummerMax,
-      stadtteil: spielortePostSpielortBodyAddressStadtteilMax,
-      stadt: spielortePostSpielortBodyAddressStadtMax,
+      street: spielortePostSpielortBodyAddressStreetMax,
+      house_number: spielortePostSpielortBodyAddressHouseNumberMax,
+      district: spielortePostSpielortBodyAddressDistrictMax,
+      city: spielortePostSpielortBodyAddressCityMax,
     },
-    plzLength: spielortePostSpielortBodyAddressPlzMax,
+    postcodeLength: spielortePostSpielortBodyAddressPostcodeMax,
   },
 };
 
@@ -69,11 +69,11 @@ export const SPIELORT_SAVE_RULES: SpielortRules = {
   address: {
     required: addressRequiredOf(SpielortePatchSpielortBody),
     maxLength: {
-      strasse: spielortePatchSpielortBodyAddressStrasseMax,
-      hausnummer: spielortePatchSpielortBodyAddressHausnummerMax,
-      stadtteil: spielortePatchSpielortBodyAddressStadtteilMax,
-      stadt: spielortePatchSpielortBodyAddressStadtMax,
+      street: spielortePatchSpielortBodyAddressStreetMax,
+      house_number: spielortePatchSpielortBodyAddressHouseNumberMax,
+      district: spielortePatchSpielortBodyAddressDistrictMax,
+      city: spielortePatchSpielortBodyAddressCityMax,
     },
-    plzLength: spielortePatchSpielortBodyAddressPlzMax,
+    postcodeLength: spielortePatchSpielortBodyAddressPostcodeMax,
   },
 };

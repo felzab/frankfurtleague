@@ -31,7 +31,7 @@ function EinwilligungZeilenTeile({ line }: { line: ConsentLine }) {
 }
 
 /** The line under a consent control, in the grade the legal board drew it. */
-export function EinwilligungZeile({ line }: { line: ConsentLine }) {
+export function EinwilligungRow({ line }: { line: ConsentLine }) {
   return (
     <p className="muted-hint">
       <EinwilligungZeilenTeile line={line} />

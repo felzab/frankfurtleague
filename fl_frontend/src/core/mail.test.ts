@@ -69,7 +69,7 @@ const { drainOutbox, takeDrainCounts } = await import("./mail.ts");
 /** One handed-out row, its id and claim number spelled from `n`. */
 const handed = (n: number, attempt = 1): FLOutboxHandout => ({
   id: String(n).padStart(24, "a"),
-  an: `person${String(n)}@example.org`,
+  to: `person${String(n)}@example.org`,
   data: { kind: "ban", grund: "Grund", barred_until_saison_id: "2627" },
   token: null,
   secret: null,

@@ -34,7 +34,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.facts.school,
   columns: [
     { key: "received", label: WORDS.received, hideOnPhone: true, width: "date" },
-    { key: "seats", label: COPY.admin.spiel.bestaetigungen, hideOnPhone: true },
+    { key: "seats", label: COPY.admin.spiel.confirmations, hideOnPhone: true },
   ],
 };
 

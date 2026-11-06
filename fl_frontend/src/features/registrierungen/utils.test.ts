@@ -3,7 +3,7 @@ import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
-import { MEDIEN_NOCH_NICHT } from "@/features/bewerbungen/utils.ts";
+import { MEDIA_NOT_YET } from "@/features/bewerbungen/utils.ts";
 import { nummerPayload } from "@/features/spieler/utils.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink.ts";
@@ -90,7 +90,7 @@ describe("what one refused submission shows", () => {
   /* The record missing is a season or club the link named and nothing holds now: the dead-link page,
      never the admin's „nicht gefunden“ with a reload. */
   it("answers the link's record gone as the link void", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "invalid" });
+    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ state: "invalid" });
   });
 
   it("puts a body refusal naming a field on that field's box, with the team's link for a box the form lacks", () => {
@@ -185,18 +185,18 @@ describe("what one refused submission shows", () => {
  * media floor is one no link is served today.
  */
 const floorOf = (minimumAge: number | null, mediaMinimumAge = 21) =>
-  readOf(minimumAge === null ? null : { zustand: "valid", ansicht: { minimum_age: minimumAge, media_minimum_age: mediaMinimumAge } });
+  readOf(minimumAge === null ? null : { state: "valid", ansicht: { minimum_age: minimumAge, media_minimum_age: mediaMinimumAge } });
 
 /** A link's own read answering `link`, counting how often it was asked. */
 const readOf = (link: GelesenerLink | null) => {
-  let gelesen = 0;
+  let read = 0;
 
   return {
     lesen: async () => {
-      gelesen += 1;
+      read += 1;
       return Promise.resolve(link);
     },
-    gelesen: () => gelesen,
+    read: () => read,
   };
 };
 
@@ -208,13 +208,13 @@ describe("what one refused confirmation shows", () => {
 
   it("tells the three link states apart, each on its own panel", async () => {
     expect(await mapBestaetigungRefusal(refused("link_invalid"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "invalid",
+      state: "invalid",
     });
     expect(await mapBestaetigungRefusal(refused("link_expired"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "expired",
+      state: "expired",
     });
     expect(await mapBestaetigungRefusal(refused("confirmation_exists"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "confirmed",
+      state: "confirmed",
     });
   });
 
@@ -224,25 +224,25 @@ describe("what one refused confirmation shows", () => {
     const zustaende = floorOf(16);
     await mapBestaetigungRefusal(refused("link_invalid"), GETIPPT, zustaende.lesen);
     await mapBestaetigungRefusal(refused("link_barred"), GETIPPT, zustaende.lesen);
-    expect(zustaende.gelesen(), "a link state spent a read on the floor").toBe(0);
+    expect(zustaende.read(), "a link state spent a read on the floor").toBe(0);
 
-    const alter = floorOf(16);
-    await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, alter.lesen);
-    expect(alter.gelesen(), "the age refusal reached the reader no number of its own could answer").toBe(1);
+    const age = floorOf(16);
+    await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, age.lesen);
+    expect(age.read(), "the age refusal reached the reader no number of its own could answer").toBe(1);
   });
 
   /* Judged ahead of the ban, which the view ranks first, the deadline ahead of a confirmation too: the view's state
      stands, and the press's own panel where the read finds the link open or fails. */
   it("answers a lapsed or a spent link with the panel the link's view reads", async () => {
-    for (const [code, link, zustand] of [
-      ["link_expired", { zustand: "confirmed" }, "confirmed"],
-      ["link_expired", { zustand: "barred" }, "barred"],
-      ["confirmation_exists", { zustand: "barred" }, "barred"],
+    for (const [code, link, state] of [
+      ["link_expired", { state: "confirmed" }, "confirmed"],
+      ["link_expired", { state: "barred" }, "barred"],
+      ["confirmation_exists", { state: "barred" }, "barred"],
       ["link_expired", null, "expired"],
       ["confirmation_exists", null, "confirmed"],
     ] as const) {
       expect(await mapBestaetigungRefusal(refused(code), GETIPPT, readOf(link).lesen), code).toStrictEqual({
-        zustand,
+        state,
       });
     }
   });
@@ -272,7 +272,7 @@ describe("what one refused confirmation shows", () => {
       error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
     });
     expect(await mapBestaetigungRefusal(refused("media_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
-      error: MEDIEN_NOCH_NICHT,
+      error: MEDIA_NOT_YET,
     });
   });
 
@@ -297,7 +297,7 @@ describe("what one refused confirmation shows", () => {
   });
 
   it("leaves the age refusal on the field, where the typed date survives it", async () => {
-    expect((await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(16).lesen))?.zustand).toBe(undefined);
+    expect((await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(16).lesen))?.state).toBe(undefined);
   });
 
   /* The returning pupil's page has no date field, and every reopened link takes the same stored date: a

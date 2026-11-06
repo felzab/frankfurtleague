@@ -146,7 +146,7 @@ async def get_self(
             session=session,
         )
 
-    eingereicht = {bericht["spiel_id"]: bericht["bericht"]["submitted_at"] for bericht in berichte}
+    submitted = {bericht["spiel_id"]: bericht["bericht"]["submitted_at"] for bericht in berichte}
 
     def entry(spiel: Mapping[str, Any]) -> dict[str, Any]:
         return {
@@ -155,13 +155,13 @@ async def get_self(
             "time": spiel.get("time"),
             "team1_name": (spiel.get("team1") or {}).get("name"),
             "team2_name": (spiel.get("team2") or {}).get("name"),
-            "submitted_at": eingereicht.get(spiel["_id"]),
+            "submitted_at": submitted.get(spiel["_id"]),
         }
 
     return FLSpielberichteSelfResponse(
         spiele=[FLSpielberichtPersonEntry.model_validate(entry(spiel)) for spiel in laufende],
         # An ended season's fixture holding no report has nothing for its read-only page to show.
-        earlier=[FLSpielberichtPersonEarlierEntry.model_validate(entry(spiel)) for spiel in fruehere if spiel["_id"] in eingereicht],
+        earlier=[FLSpielberichtPersonEarlierEntry.model_validate(entry(spiel)) for spiel in fruehere if spiel["_id"] in submitted],
     )
 
 

@@ -62,7 +62,7 @@ const goals = (text: string) => (text === "" ? null : Number(text));
  */
 export function SpielEditor({
   title,
-  vorschau,
+  preview,
   record,
   save,
   phase,
@@ -83,7 +83,7 @@ export function SpielEditor({
 }: {
   title: PageTitle;
   /** The line under the title: the match as it is stored, read on the server. */
-  vorschau: Copy;
+  preview: Copy;
   record: EditorRecord<SpielValues>;
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
   phase: FLSaisonPhase;
@@ -200,7 +200,7 @@ export function SpielEditor({
   return (
     <EditorPage
       title={title}
-      lead={vorschau}
+      lead={preview}
       editor={editor}
       closed={closed}
       sections={withBegegnung([
@@ -410,13 +410,13 @@ export function SpielEditor({
           ),
         },
         {
-          id: "bestaetigungen",
-          title: WORDS.bestaetigungen,
+          id: "confirmations",
+          title: WORDS.confirmations,
           fields: (
             <AnswerRows
-              label={WORDS.bestaetigungen}
+              label={WORDS.confirmations}
               rows={answers}
-              empty={{ kind: "none", plural: WORDS.bestaetigungen }}
+              empty={{ kind: "none", plural: WORDS.confirmations }}
             />
           ),
         },

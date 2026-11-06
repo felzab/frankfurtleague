@@ -26,7 +26,7 @@ from tests.worker import worker_database
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_bewerbung_einwilligung_paar_test")
+DATABASE_NAME = worker_database("fl_bewerbung_einwilligung_pair_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -175,14 +175,14 @@ class TestAPairedDecline:
 class TestTheFloorIsThePersons:
     """One person, two seats, one floor: the higher of the two, whichever of their links they press."""
 
-    @pytest.mark.parametrize("zweitsitz", ["ansprechperson", "stellvertretung"])
+    @pytest.mark.parametrize("second_seat", ["ansprechperson", "stellvertretung"])
     def test_a_double_seated_trainer_a_day_short_of_eighteen_is_refused_on_the_trainers_own_link(
-        self, mongo_replica_set_url: str, zweitsitz: str
+        self, mongo_replica_set_url: str, second_seat: str
     ):
         """The Trainer's link alone would take this date, and the press writes the seat that may not have it."""
 
-        held_by_the_trainer = {zweitsitz: kontaktperson_document("Wraxlington"), "trainer_is_also": zweitsitz}
-        other = "stellvertretung" if zweitsitz == "ansprechperson" else "ansprechperson"
+        held_by_the_trainer = {second_seat: kontaktperson_document("Wraxlington"), "trainer_is_also": second_seat}
+        other = "stellvertretung" if second_seat == "ansprechperson" else "ansprechperson"
         paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: kontaktperson_document("Bramblewick")}))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

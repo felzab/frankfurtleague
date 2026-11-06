@@ -25,7 +25,7 @@ def owed_invitation_mails(
     return [
         OwedMail(
             key=f"{Collection.INVITATIONS}/{invitation_id}/{occasion}/{person.rolle}",
-            an=person.email,
+            to=person.email,
             data=FLInvitationData(kind="invitation", team=team_name, saison_id=saison_id),
             reference=invitation_reference(invitation_id),
             link=INVITATION_LINK,

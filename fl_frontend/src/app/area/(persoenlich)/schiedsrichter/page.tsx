@@ -33,7 +33,7 @@ export default async function PersoenlichSchiedsrichterPage() {
       // lands through the two reads beside it.
       runWithIncomingTrace(() =>
         getSchiedsrichterSpielberichte().then(
-          (gelesen): SchiedsrichterSpielberichte => ({ spiele: gelesen.spiele, earlier: gelesen.earlier }),
+          (read): SchiedsrichterSpielberichte => ({ spiele: read.spiele, earlier: read.earlier }),
           (error: unknown): SchiedsrichterSpielberichte => nullUnlessContractBreak(error) ?? "unlesbar",
         ),
       ),
