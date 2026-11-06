@@ -67,6 +67,14 @@ describe("where a seat stands", () => {
     expect(seat(spent, "trainer")).toMatchObject({ state: "expired", day: null });
   });
 
+  /* The submission owed this seat no mail, so no delivery exists to report and the page alone can say so. */
+  it("says a seat the submission never mailed was not sent", () => {
+    const read = bewerbung({ confirmations: { trainer: entry({ sent_at: null }), ansprechperson: entry(), stellvertretung: entry() } });
+
+    expect(seat(read, "trainer")?.chips).toContainEqual({ tone: "warn", label: COPY.admin.saison.linkNotSent });
+    expect(seat(read, "ansprechperson")?.chips).toHaveLength(1);
+  });
+
   it("adds a chip where the seat's last mail met trouble", () => {
     const read = bewerbung({
       confirmations: {

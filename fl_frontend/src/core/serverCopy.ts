@@ -370,7 +370,7 @@ export const SERVER_COPY = catalogue({
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
         lead: (saison: string) => `Für die ${COPY.shared.saisonName(saison)} ist eine Bewerbung eingegangen.`,
         named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du als ${rollenText(rollen)} genannt.`,
-        others: "Die anderen Kontaktpersonen bekommen je einen eigenen Link. Sag ihnen selbst Bescheid.",
+        others: "Die anderen Kontaktpersonen bestätigen über einen eigenen Link. Sag ihnen selbst Bescheid.",
         pending: "Noch offen",
       },
       /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */

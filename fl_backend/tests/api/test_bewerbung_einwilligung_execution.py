@@ -570,6 +570,22 @@ class TestWhatAWiderspruchOwesTheAnsprechperson:
             }
         ]
 
+    def test_an_ansprechperson_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
+        """A stranger names a mailbox past the bound as Ansprechperson and declines their own link: that mailbox has heard of nothing."""
+
+        never_mailed = bewerbung_document()
+        never_mailed["confirmations"]["ansprechperson"]["sent_at"] = None
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
+
+            return await owed(database), await stored(database)
+
+        mails, document = on_a_league(mongo_replica_set_url, body, documents=[never_mailed])
+
+        assert mails == []
+        assert document.get("erasure_announced_at") is None
+
     def test_the_ansprechpersons_own_decline_owes_nobody(self, mongo_replica_set_url: str):
         """The seat the notice would address is the seat that just emptied itself."""
 
@@ -653,6 +669,22 @@ class TestAResend:
         }
         # The other seats' links still open.
         assert document["confirmations"]["ansprechperson"]["token_hashes"] == [HASHES["ansprechperson"]]
+
+    def test_it_sends_a_seat_the_submission_left_unmailed(self, mongo_replica_set_url: str):
+        """The administration's way to a seat past the bound: its press is nobody's flood, so no count stands in it."""
+
+        never_mailed = bewerbung_document()
+        never_mailed["confirmations"]["trainer"]["sent_at"] = None
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await resend(database, "trainer")
+
+            return await stored(database), [row["an"] for row in await owed(database)]
+
+        document, addresses = on_a_league(mongo_replica_set_url, body, documents=[never_mailed])
+
+        assert document["confirmations"]["trainer"]["sent_at"] == TODAY
+        assert addresses == ["wraxlington@example.com"]
 
     def test_another_seats_restart_leaves_the_announcement(self, mongo_replica_set_url: str):
         """The notice named the declining seat's day, which this write does not move: a second notice would announce the same deletion."""

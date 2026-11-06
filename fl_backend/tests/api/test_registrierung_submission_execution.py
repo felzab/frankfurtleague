@@ -13,12 +13,13 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import build_schluessel_filter
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_schluessel_filter
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.public_router import get_confirmation_view, post_invitation_view, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import (
     compose_confirmation_update,
+    erinnerung_is_due,
 )
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -606,6 +607,47 @@ class TestTheKeyOverTheWire:
             return response.status_code, len(await rows_of(database))
 
         assert on_a_league(mongo_replica_set_url, body) == (422, 0)
+
+
+class TestAMailboxPastTheBound:
+    """One address typed through a link passed around: nothing refuses the press, and past the bound nothing more is owed that mailbox."""
+
+    def test_the_press_past_the_bound_is_stored_and_owes_nothing_and_no_reminder_reaches_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            mailed = len(await owed_of(database))
+            await register(database, client)
+            rows = await rows_of(database)
+
+            return len(rows), len(await owed_of(database)) - mailed, rows[-1]["confirmation"]
+
+        stored, more, confirmation = on_a_league(mongo_replica_set_url, body)
+
+        assert (stored, more) == (OPEN_LINKS_PER_MAILBOX + 1, 0)
+        assert confirmation["sent_at"] is None
+        assert not erinnerung_is_due(registrierung_raw={"status": "submitted", "confirmation": confirmation}, today="2099-01-01")
+
+    def test_a_plus_tag_is_the_same_mailbox(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for tag in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client, email=f"victim+{tag}@example.com")
+            await register(database, client, email="victim@example.com")
+
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) is None
+
+    def test_an_answered_link_frees_its_place(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": {"einwilligung": {"confirmed_at": TODAY}}})
+            await register(database, client)
+
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
 
 
 class TestWhatASubmissionIsRefused:

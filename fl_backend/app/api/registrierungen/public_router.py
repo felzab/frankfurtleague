@@ -7,7 +7,7 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import build_schluessel_filter, days_after, payload_fingerabdruck
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_schluessel_filter, days_after, payload_fingerabdruck
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -25,6 +25,7 @@ from app.api.registrierungen.services import (
     BESTAETIGUNG_ANSWER_FIELDS,
     REGISTRIERUNG_LINK,
     build_bestaetigung_filter,
+    build_open_link_filter,
     compose_bestaetigung,
     compose_confirmation_update,
     compose_registrierung,
@@ -238,6 +239,9 @@ async def post_registrierung(
     registration it holds, stores none and owes no second mail. The same key over other details is refused
     (`registrierung_key_differing`). A key whose registration the team has since admitted is refused too
     (`registrierung_already_admitted`) and stores nothing: the pupil is in the squad.
+
+    A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
+    the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -322,6 +326,13 @@ async def post_registrierung(
         )
         refuse(find_barred_refusal(barred=barred))
 
+        waiting = await registrierungen_collection.count_documents(
+            build_open_link_filter(saison_id=saison_id, address=str(registrierung_data.email)),
+            limit=OPEN_LINKS_PER_MAILBOX,
+            session=session,
+        )
+        mailed = waiting < OPEN_LINKS_PER_MAILBOX
+
         deadline = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
 
         created = await post_one_to_db(
@@ -337,7 +348,7 @@ async def post_registrierung(
                     position=registrierung_data.position,
                     nummer=registrierung_data.nummer,
                     stufe=registrierung_data.stufe,
-                    confirmation=compose_bestaetigung(today=today, deadline=deadline),
+                    confirmation=compose_bestaetigung(today=today, deadline=deadline, mailed=mailed),
                     today=today,
                 ),
                 **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
@@ -364,7 +375,9 @@ async def post_registrierung(
                     reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     link=REGISTRIERUNG_LINK,
                 )
-            ],
+            ]
+            if mailed
+            else [],
             now=germany_now,
         )
 

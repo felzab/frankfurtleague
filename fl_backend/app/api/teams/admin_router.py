@@ -1207,8 +1207,8 @@ async def post_invitation(
     Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
     (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
 
-    **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
-    administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
+    A row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link
+    opens nothing, whoever holds it.
     """
 
     # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
@@ -1224,8 +1224,9 @@ async def post_invitation(
         # it, so nobody should be handed the junction's answer to act on first.
         refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
 
-        entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": team_id}, session=session)
-        refuse(find_team_in_saison_refusal(entered=bool(entered)))
+        row = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, {"austritt": 1}, session=session)
+        refuse(find_team_in_saison_refusal(entered=row is not None))
+        refuse(find_austritt_standing_refusal(stored=(row or {}).get("austritt")))
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
         # every team starts in, and the single-document helper answers that with a 404.
@@ -1327,7 +1328,7 @@ async def post_invitation_dispatch(
     is handed out.
 
     404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
-    them, and where the season holds no row for the team.
+    them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.
     """
 
     async def owe_the_link(session: AsyncClientSession) -> FLInvitationMailResponse:
@@ -1341,9 +1342,10 @@ async def post_invitation_dispatch(
         row = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            projection=["name", "kontakte"],
+            projection=["name", "kontakte", "austritt"],
             session=session,
         )
+        refuse(find_austritt_standing_refusal(stored=row.get("austritt")))
         empfaenger = bestaetigte_empfaenger(kontakte=row.get("kontakte"))
         # Only where a mail is owed: a press reaching nobody sent nothing, and the row keeps the day it last was.
         if empfaenger:

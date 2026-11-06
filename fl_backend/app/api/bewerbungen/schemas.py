@@ -61,8 +61,9 @@ FLBewerbungSeatState = Literal["valid", "confirmed", "declined", "expired"]
 class _FLBewerbungSitzStand(BaseReadModel):
     """One seat's confirmation bookkeeping, as the record and the read share it."""
 
-    # The day the link was last mailed; a re-send moves it.
-    sent_at: CustomDateString
+    # The day the link was last mailed; a re-send moves it. Null on a seat the submission owed no mail, its mailbox holding
+    # `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX` unanswered links, until an administrator sends one.
+    sent_at: CustomOptionalDateString
     # The day this seat's link stops working, counted from that mail, and the application goes with it if its person
     # never answers. NOT the season's `Bewerbungsfrist`, which is the window the form is open in.
     deadline: CustomDateString

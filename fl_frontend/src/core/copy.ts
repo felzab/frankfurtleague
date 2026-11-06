@@ -384,7 +384,7 @@ export const COPY = catalogue({
     /** The name of the combo's arrow. */
     suggestions: "Vorschläge anzeigen",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its link. */
-    notice: { before: "Jede Kontaktperson bekommt eine E-Mail von der Liga, mehr unter ", after: "." },
+    notice: { before: "Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter ", after: "." },
   },
 
   /**

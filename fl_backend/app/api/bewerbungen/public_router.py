@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -21,15 +21,16 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSICHT_FIELDS,
     EINWILLIGUNG_ANSWER_FIELDS,
-    OPEN_APPLICATIONS_PER_ADDRESS,
+    OPEN_LINK_FIELDS,
+    OPEN_LINKS_PER_MAILBOX,
     SAISON_EINWILLIGUNG_ANSWER_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
     ansprechperson_mailbox,
     assigned_trikot_farben,
     bewerbung_bezug,
     bewerbung_schule,
-    build_eigene_bewerbung_filter,
     build_form_pipeline,
+    build_open_links_filter,
     build_saison_token_filter,
     build_schluessel_filter,
     build_token_filter,
@@ -56,8 +57,10 @@ from app.api.bewerbungen.services import (
     find_window_refusal,
     form_window_state,
     leaving_moves_the_deletion_day,
+    mailbox_of,
     mindestalter_for,
     objection_is_announced,
+    open_links_on,
     owed_at_submission,
     paired_seat,
     payload_fingerabdruck,
@@ -70,6 +73,7 @@ from app.api.bewerbungen.services import (
     seat_first_name,
     seat_holding,
     seat_opens_nobody,
+    seats_past_the_bound,
     zustand_of,
 )
 from app.api.einwilligung.services import find_self_media_refusal
@@ -83,7 +87,15 @@ from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import (
+    GERMAN_COLLATION,
+    aggregate_many_from_db,
+    patch_one_in_db,
+    post_one_to_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+)
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
@@ -181,19 +193,24 @@ async def _any_barred(*, ban_list: BanList, hashed: Sequence[str], governing_sai
     return bool(await barred_hashes(ban_list, hashed, governing_saison_id=governing_saison_id, session=session))
 
 
-async def _stands_on_too_many(
-    *, bewerbungen_collection: BewerbungenCollection, saison_id: str, addresses: Iterable[str], session: AsyncClientSession
-) -> bool:
-    """Whether any of these addresses already stands on the season's ceiling of open applications, each address counted alone."""
+async def _open_links_by_mailbox(
+    *, bewerbungen_collection: BewerbungenCollection, saison_id: str, addresses: Sequence[str], session: AsyncClientSession
+) -> dict[str, int]:
+    """Each of these addresses' mailboxes and its unanswered links of the season, each mailbox counted alone."""
 
-    for address in addresses:
-        held = await bewerbungen_collection.count_documents(
-            {**build_eigene_bewerbung_filter(address), "saison_id": saison_id}, limit=OPEN_APPLICATIONS_PER_ADDRESS, session=session
+    held: dict[str, int] = {}
+    for mailbox in {mailbox_of(address) for address in addresses}:
+        # Each row read holds a link, so the bound's worth of rows answers whether it is reached.
+        rows = await pull_many_from_db(
+            collection=bewerbungen_collection,
+            db_filter=build_open_links_filter(saison_id=saison_id, address=mailbox),
+            projection=OPEN_LINK_FIELDS,
+            limit=OPEN_LINKS_PER_MAILBOX,
+            session=session,
         )
-        if held >= OPEN_APPLICATIONS_PER_ADDRESS:
-            return True
+        held[mailbox] = sum(open_links_on(row=row, mailbox=mailbox) for row in rows)
 
-    return False
+    return held
 
 
 def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLCreatedResponse:
@@ -238,9 +255,13 @@ async def post_bewerbung(
     application it holds, stores none and owes nothing again. The same key over other details is refused
     (`bewerbung_key_differing`).
 
-    An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
-    already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number
-    are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.
+    An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press. Two people sharing
+    an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being
+    that one person.
+
+    A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
+    press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
+    either way, so it tells a stranger nothing about the address.
     """
 
     refuse(find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
@@ -288,13 +309,9 @@ async def post_bewerbung(
 
         # Last, as the registration asks it: every other refusal names what the applicant can repair
         # themselves, and this one they are told neutrally.
-        barred = await _any_barred(ban_list=ban_list, hashed=hashed, governing_saison_id=governing_saison_id, session=session)
         refuse(
             find_barred_refusal(
-                barred=barred
-                or await _stands_on_too_many(
-                    bewerbungen_collection=bewerbungen_collection, saison_id=bewerbung_data.saison_id, addresses=addresses, session=session
-                )
+                barred=await _any_barred(ban_list=ban_list, hashed=hashed, governing_saison_id=governing_saison_id, session=session)
             )
         )
 
@@ -303,6 +320,11 @@ async def post_bewerbung(
         schule_text = schule.team_name if schule is not None else str((team_raw or {}).get("name") or "")
 
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
+
+        open_links = await _open_links_by_mailbox(
+            bewerbungen_collection=bewerbungen_collection, saison_id=bewerbung_data.saison_id, addresses=addresses, session=session
+        )
+        unmailed = seats_past_the_bound(kontakte=stored_kontakte, open_links=open_links)
 
         # Every refusal is behind us, so the write follows with nothing left to judge.
         created = await post_one_to_db(
@@ -325,7 +347,7 @@ async def post_bewerbung(
                 # Null until the triage decides, which is what `status == "eingereicht"` claims.
                 "decision": None,
                 # Each seat's bookkeeping and its own deadline, so the sweep and the links have something to judge.
-                "confirmations": compose_bestaetigungen(today=today),
+                "confirmations": compose_bestaetigungen(today=today, unmailed=unmailed),
                 "idempotency_key": schluessel,
                 "idempotency_fingerprint": fingerabdruck,
             },
@@ -341,6 +363,7 @@ async def post_bewerbung(
                 saison_id=bewerbung_data.saison_id,
                 schule=schule_text,
                 deadline=confirmation_deadline,
+                unmailed=unmailed,
             ),
             now=germany_now,
         )
@@ -707,7 +730,9 @@ async def post_einwilligung(
         updated_raw = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_raw["_id"]},
-            update=compose_decline_update(seats=seats, today=today, announced=objection_is_announced(kontakte=kontakte, seats=seats)),
+            update=compose_decline_update(
+                seats=seats, today=today, announced=objection_is_announced(kontakte=kontakte, confirmations=confirmations, seats=seats)
+            ),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.AFTER,
@@ -727,7 +752,9 @@ async def post_einwilligung(
 
         # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
         # the message their decline would have gone to is owed to nobody.
-        abgelehnt_email, abgelehnt_rollen = ansprechperson_mailbox(kontakte=updated_raw.get("kontakte"))
+        abgelehnt_email, abgelehnt_rollen = ansprechperson_mailbox(
+            kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations")
+        )
         if abgelehnt_email is not None:
             # In the decline's own transaction, which stamped the notice as the deletion's: one cannot stand without the other.
             await enqueue_mails(

@@ -64,6 +64,17 @@ describe("an acceptance", () => {
       { endpoint: `/bewerbungen/${ID}/accept`, body: { gruppe: "A", trikot_farbe: null, shorthand: null, version: 3 } },
     ]);
   });
+
+  /* The list of codes the screen words is held by nothing else: the shared failure line would send the administrator to
+     a retry the same rule refuses. */
+  it("answers a colour another row holds on its box", async () => {
+    state.refusal = refusal("trikot_farbe_taken", ["trikot_farbe"]);
+
+    expect(await acceptBewerbung(posted({ trikot_farbe: "blau" }))).toMatchObject({
+      ok: false,
+      fieldErrors: { trikot_farbe: COPY.shared.field.taken },
+    });
+  });
 });
 
 describe("a seat's write", () => {

@@ -182,9 +182,9 @@ export function RegistrierungFormPanel({
         {/* The recovery path in the answer page's own words: no administrator may edit a stored
             address, so registering again is the only route back from a typo. */}
         <p className="max-w-md muted-hint">
-          Wir haben Dir eine E-Mail mit einem Link geschickt. Erst wenn Du dort bestätigst, kann Dein Team Dich in den Kader aufnehmen.
-          Bestätigst Du nicht innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine
-          Mail bekommen? Prüfe die Adresse und registriere Dich einfach erneut.
+          Bestätige Deine Registrierung über den Link in der E-Mail. Erst dann kann Dein Team Dich in den Kader aufnehmen. Bestätigst Du nicht
+          innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine Mail bekommen? Prüfe
+          die Adresse und registriere Dich einfach erneut.
         </p>
       </BestaetigungErgebnis>
     );

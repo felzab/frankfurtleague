@@ -63,11 +63,11 @@ VIEW_DATABASE = worker_database("fl_bewerbungen_view_test")
 
 VIEW_SAISON = "2027"
 PICKED_CLUB = ObjectId("6890a1b2c3d4e5f600009998")
-PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED = 9101, 9102, 9103, 9104
+PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED, ANOTHER_SEASON = 9101, 9102, 9103, 9104, 9105
 
 
 async def on_the_view_corpus(mongo_url: str, read: Any) -> Any:
-    """A `future` season with one full group and one with room, a pair naming one club, a new school and a declined row."""
+    """A `future` season with one full group and one with room, a pair naming one club, a new school, a declined row and another season's."""
 
     async with a_clean_database(mongo_url, VIEW_DATABASE, constraints=True) as (_, database):
         rules = documents.rules_document(teams_per_gruppe=2, number_of_gruppen=2)
@@ -85,6 +85,8 @@ async def on_the_view_corpus(mongo_url: str, read: Any) -> Any:
                 bewerbung_document(ALSO_PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
                 bewerbung_document(NEW_SCHOOL, saison_id=VIEW_SAISON),
                 bewerbung_document(DECLINED, "declined", VIEW_SAISON, team_id=PICKED_CLUB),
+                # Its seat confirmed as every row here is, so the list's second read must keep it out by its season.
+                bewerbung_document(ANOTHER_SEASON),
             ]
         )
 
@@ -115,7 +117,7 @@ class TestTheSeasonsListRead:
         assert [row.new_school for row in answered.bewerbungen if row.id == ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] == [True]
 
     def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_url: str):
-        """The queue an anonymous form can flood: served short rather than refused, saying so, and with the rows no flood confirms."""
+        """The queue an anonymous form can flood: served short rather than refused, saying so, and with the season's confirmed rows."""
 
         flood = range(1, LIST_LIMIT_DEFAULT + 2)
 

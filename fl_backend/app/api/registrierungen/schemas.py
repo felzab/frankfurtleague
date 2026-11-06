@@ -85,6 +85,8 @@ class _RegistrierungStored(BaseModel):
 class FLRegistrierungBestaetigungRecord(FLConfirmation):
     """One registration's bookkeeping as `registrierungen` stores it: the hash of every link it was mailed, each live."""
 
+    # Null on a row past `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`, which was owed no mail.
+    sent_at: CustomOptionalDateString
     token_hashes: list[str]
 
 

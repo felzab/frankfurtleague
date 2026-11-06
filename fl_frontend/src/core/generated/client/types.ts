@@ -1248,8 +1248,7 @@ export interface FLBewerbungConfirmation {
   declined_at: string | null;
   delivery: FLOutboxStatus | null;
   reminded_at: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  sent_at: string;
+  sent_at: string | null;
   state: FLBewerbungConfirmationState;
 }
 

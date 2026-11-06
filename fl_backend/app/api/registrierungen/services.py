@@ -9,7 +9,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import days_after, latest_decision_due, one_month_after, season_has_ended
+from app.api.bewerbungen.services import days_after, latest_decision_due, mailbox_pattern, one_month_after, season_has_ended
 from app.api.outbox.schemas import FLOutboxLink
 from app.api.registrierungen.schemas import FLRegistrierungPage
 
@@ -199,14 +199,27 @@ def compose_registrierung(
 REGISTRIERUNG_LINK: Final = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=False)
 
 
-def compose_bestaetigung(*, today: str, deadline: str) -> dict[str, Any]:
+def compose_bestaetigung(*, today: str, deadline: str, mailed: bool = True) -> dict[str, Any]:
     """The confirmation bookkeeping the submission writes: owed today, nobody reminded, no link until the hand-out mints one.
 
     `deadline` is stored rather than derived from `sent_at` and the bound, so raising the bound
-    never moves the deadline of a link already in somebody's inbox.
+    never moves the deadline of a link already in somebody's inbox. A row past `OPEN_LINKS_PER_MAILBOX` is owed no mail:
+    its `sent_at` is null, which no reminder reaches, and it lapses on its `deadline` as any unconfirmed row does.
     """
 
-    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "deadline": deadline}
+    return {"token_hashes": [], "sent_at": today if mailed else None, "reminded_at": None, "deadline": deadline}
+
+
+def build_open_link_filter(*, saison_id: str, address: str) -> Mapping[str, Any]:
+    """The season's pending registrations holding a mailed, unconfirmed link at this address's mailbox, the plus-tagged forms among them."""
+
+    return {
+        "saison_id": saison_id,
+        "status": SUBMITTED,
+        "email": {"$regex": mailbox_pattern(address)},
+        "einwilligung.confirmed_at": None,
+        "confirmation.sent_at": {"$ne": None},
+    }
 
 
 # --- The SUBMISSION KEY, as the application's submission keeps it

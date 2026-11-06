@@ -55,14 +55,15 @@ async def refuse_a_taken_colour(
 ) -> None:
     """Refuse `trikot_farbe_taken`: another row of the season holds this colour, a club that left it among them.
 
-    A row that left keeps its colour until an administrator clears it (`app/api/bewerbungen/services.py ::
-    build_form_pipeline`). No colour is free for any number of rows. Reached from two packages, as the capacity rule is.
+    A row that left keeps its colour for the rest of the season, its kit being on the fixtures it played; a replacement
+    alone frees it. No colour is free for any number of rows. Reached from two packages, as the capacity rule is.
     """
 
     if trikot_farbe is None:
         return
 
-    # The capacity rule's anchor: a count is a read, so two writes naming one colour pass unless they meet in one write set.
+    # A count is a read, so two writes naming one colour pass unless they meet in one write set. Every caller has anchored
+    # the season already; this one holds the rule for a caller from either package that has not.
     await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
     other_rows = {} if own_id is None else {"_id": {"$ne": own_id}}
     held = await saison_teams_collection.count_documents(

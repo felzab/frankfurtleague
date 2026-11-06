@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import OPEN_APPLICATIONS_PER_ADDRESS, build_schluessel_filter, compose_decline_update, compose_kontakte
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_schluessel_filter, compose_decline_update, compose_kontakte
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -775,24 +775,129 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
     }
 
 
-class TestAnAddressOnTooManyOpenApplications:
-    """One mailbox named on press after press: past the ceiling a press owes it nothing, answered as a ban is so a prober cannot tell."""
+def naming(**addresses: str) -> dict[str, Any]:
+    """`KONTAKTE` with these seats at these addresses."""
 
-    def test_the_press_past_the_ceiling_is_refused_and_owes_no_mail(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> tuple[str, int, int]:
-            for _ in range(OPEN_APPLICATIONS_PER_ADDRESS):
+    return {**KONTAKTE, **{seat: {**KONTAKTE[seat], "email": address} for seat, address in addresses.items()}}
+
+
+async def sent_days(database: AsyncDatabase, press: Any) -> dict[str, Any]:
+    """Each seat's `sent_at` on the application this press stored."""
+
+    stored = await database[Collection.BEWERBUNGEN].find_one({"_id": press.created_id})
+    assert stored is not None
+
+    return {seat: entry["sent_at"] for seat, entry in stored["confirmations"].items()}
+
+
+class TestAMailboxPastTheBound:
+    """One mailbox named on press after press: nothing refuses the press, and past the bound nothing more is owed that mailbox."""
+
+    def test_the_press_past_the_bound_is_stored_and_owes_that_mailbox_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> tuple[int, int, dict[str, Any]]:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
                 await submit(database)
-            owed = await database[Collection.OUTBOX].count_documents({})
-            with pytest.raises(APIError) as failure:
-                await submit(database)
+            mailed = len(await owed(database))
+            press = await submit(database)
 
             return (
-                failure.value.error_code,
                 await database[Collection.BEWERBUNGEN].count_documents({}),
-                await database[Collection.OUTBOX].count_documents({}) - owed,
+                len(await owed(database)) - mailed,
+                await sent_days(database, press),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADDRESS_BARRED, OPEN_APPLICATIONS_PER_ADDRESS, 0)
+        stored, more, days = on_a_league(mongo_replica_set_url, body)
+
+        assert (stored, more) == (OPEN_LINKS_PER_MAILBOX + 1, 0)
+        assert days == dict.fromkeys(KONTAKT_ROLLEN)
+
+    def test_a_seat_past_the_bound_leaves_the_applications_other_people_mailed(self, mongo_replica_set_url: str):
+        """The school's other two are reached: only the crowded mailbox stands unmailed."""
+
+        async def body(database: AsyncDatabase) -> tuple[list[str], dict[str, Any]]:
+            for round_ in range(OPEN_LINKS_PER_MAILBOX):
+                await submit(database, kontakte=naming(ansprechperson=f"a{round_}@example.com", stellvertretung=f"s{round_}@example.com"))
+            mailed = {row["key"] for row in await owed(database)}
+            press = await submit(database)
+
+            return [row["an"] for row in await owed(database) if row["key"] not in mailed], await sent_days(database, press)
+
+        addresses, days = on_a_league(mongo_replica_set_url, body)
+
+        assert sorted(addresses) == [KONTAKTE["stellvertretung"]["email"], KONTAKTE["ansprechperson"]["email"]]
+        assert days == {"trainer": None, "ansprechperson": TODAY, "stellvertretung": TODAY}
+
+    def test_a_plus_tag_is_the_same_mailbox(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> dict[str, Any]:
+            for tag in range(OPEN_LINKS_PER_MAILBOX):
+                await submit(database, kontakte=naming(trainer=f"victim+{tag}@example.com"))
+
+            return await sent_days(database, await submit(database, kontakte=naming(trainer="victim@example.com")))
+
+        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
+
+    def test_one_application_s_plus_tags_are_a_link_each(self, mongo_replica_set_url: str):
+        """One press can owe one mailbox three mails, so a count of applications would let each press through on two or three."""
+
+        async def body(database: AsyncDatabase) -> tuple[list[str], dict[str, Any]]:
+            await submit(database, kontakte=naming(trainer="victim+1@example.com", ansprechperson="victim+2@example.com"))
+            press = await submit(
+                database,
+                kontakte=naming(trainer="victim+3@example.com", ansprechperson="victim+4@example.com", stellvertretung="victim+5@example.com"),
+            )
+
+            return [row["an"] for row in await owed(database) if str(row["an"]).startswith("victim")], await sent_days(database, press)
+
+        addresses, days = on_a_league(mongo_replica_set_url, body)
+
+        assert len(addresses) == OPEN_LINKS_PER_MAILBOX
+        assert days == {"trainer": TODAY, "ansprechperson": None, "stellvertretung": None}
+
+    def test_a_pattern_s_character_in_an_address_is_that_character(self, mongo_replica_set_url: str):
+        """An unescaped dot would fill the bounded read with its neighbours' rows, and `vic.tim@` would be mailed past its bound."""
+
+        async def body(database: AsyncDatabase) -> dict[str, Any]:
+            # Older and newer than the mailbox's own rows and sorting ahead of them, so the read meets one lot first in any order it takes.
+            for address in ("vic-tim", "vic.tim", "vic_tim"):
+                for _ in range(OPEN_LINKS_PER_MAILBOX):
+                    await submit(database, kontakte=naming(trainer=f"{address}@example.com"))
+
+            return await sent_days(database, await submit(database, kontakte=naming(trainer="vic.tim@example.com")))
+
+        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
+
+    def test_an_answered_link_frees_its_place(self, mongo_replica_set_url: str):
+        """A mailbox that answers is nobody's target, however many schools it serves."""
+
+        async def body(database: AsyncDatabase) -> dict[str, Any]:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await submit(database)
+            await database[Collection.BEWERBUNGEN].update_one({}, {"$set": {"kontakte.trainer.einwilligung.confirmed_at": TODAY}})
+
+            return await sent_days(database, await submit(database))
+
+        assert on_a_league(mongo_replica_set_url, body) == {"trainer": TODAY, "ansprechperson": None, "stellvertretung": None}
+
+    @pytest.mark.parametrize("mailed_first", [True, False], ids=["the older rows mailed", "the newer rows mailed"])
+    def test_rows_left_unmailed_hide_no_mailed_link(self, mongo_replica_set_url: str, mailed_first: bool):
+        """The read is bounded by what was mailed, so a flood's stored rows cannot fill it ahead of the links that count."""
+
+        async def body(database: AsyncDatabase) -> dict[str, Any]:
+            for _ in range(2 * OPEN_LINKS_PER_MAILBOX):
+                await submit(database)
+            if not mailed_first:
+                # As an administrator's sends leave them.
+                ids = [row["_id"] async for row in database[Collection.BEWERBUNGEN].find({}, {"_id": 1}).sort("_id", 1)]
+                await database[Collection.BEWERBUNGEN].update_many(
+                    {"_id": {"$in": ids[:OPEN_LINKS_PER_MAILBOX]}}, {"$set": {"confirmations.trainer.sent_at": None}}
+                )
+                await database[Collection.BEWERBUNGEN].update_many(
+                    {"_id": {"$in": ids[OPEN_LINKS_PER_MAILBOX:]}}, {"$set": {"confirmations.trainer.sent_at": TODAY}}
+                )
+
+            return await sent_days(database, await submit(database))
+
+        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
 
     @pytest.mark.parametrize(
         "moved",
@@ -801,28 +906,14 @@ class TestAnAddressOnTooManyOpenApplications:
     def test_only_the_seasons_open_applications_count(self, mongo_replica_set_url: str, moved: dict[str, str]):
         """A school turned down applies again, and a person keeps their address from one season to the next."""
 
-        async def body(database: AsyncDatabase) -> int:
-            for _ in range(OPEN_APPLICATIONS_PER_ADDRESS):
+        async def body(database: AsyncDatabase) -> str:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
                 await submit(database)
             await database[Collection.BEWERBUNGEN].update_one({}, {"$set": moved})
-            await submit(database)
 
-            return await database[Collection.BEWERBUNGEN].count_documents({})
+            return (await sent_days(database, await submit(database)))["trainer"]
 
-        assert on_a_league(mongo_replica_set_url, body) == OPEN_APPLICATIONS_PER_ADDRESS + 1
-
-    def test_each_address_is_counted_alone(self, mongo_replica_set_url: str):
-        """Three schools each sharing a different one of these three people stand on nobody's ceiling."""
-
-        async def body(database: AsyncDatabase) -> int:
-            for seat in ("trainer", "ansprechperson", "stellvertretung"):
-                others = {name: person(f"{name}{seat}", phone=KONTAKTE[name]["phone"]) for name in KONTAKT_ROLLEN if name != seat}
-                await submit(database, kontakte={**KONTAKTE, **others})
-            await submit(database)
-
-            return await database[Collection.BEWERBUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == OPEN_APPLICATIONS_PER_ADDRESS + 1
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
 
 
 class TestABannedContactAddress:
