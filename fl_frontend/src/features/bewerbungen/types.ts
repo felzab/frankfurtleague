@@ -75,12 +75,6 @@ export type BewerbungFormDraft = {
 export type FensterZustand = "running" | "noch-nicht" | "closed" | "vorbei" | "keine-frist";
 
 /**
- * A blur-time verdict on a Kürzel, kept with the value it judged. **The value, not just the answer**:
- * a refusal about `GG` says nothing about the `GY` the box holds a keystroke later.
- */
-export type KuerzelVerdikt = { shorthand: string; taken: boolean };
-
-/**
  * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a
  * guessed link that a record once existed; a season row's spent link is worded for the row its read named.
  */

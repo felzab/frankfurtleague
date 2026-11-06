@@ -89,7 +89,7 @@ export function AdminBewerbungAnnehmenSection({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe }).catch(rejectedWrite(router));
+      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe, shorthand: null }).catch(rejectedWrite(router));
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.

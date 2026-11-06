@@ -43,6 +43,7 @@ from app.api.bewerbungen.services import (
     confirmation_deadline_passed,
     decider_addresses,
     dubletten_schluessel_of,
+    find_acceptance_code_refusal,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_kontakt_barred_refusal,
@@ -66,10 +67,19 @@ from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
-from app.api.teams.services import find_club_entry_refusal
+from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import (
+    aggregate_many_from_db,
+    insert_live,
+    is_held_elsewhere,
+    patch_one_in_db,
+    post_one_to_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+)
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
@@ -126,8 +136,8 @@ async def get_bewerbungen(
     """Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
 
     `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
-    `duplicates_key` names every key two or more open applications share: the season and the club id or upper-cased
-    Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `decision.by_barred`.
+    `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
+    A barred administrator is served as `null` beside `decision.by_barred`.
     """
 
     # The season term alone, because each count answers for the status it names: counted with the
@@ -248,6 +258,7 @@ async def accept_bewerbung(
     IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
     `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
     confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
+    A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
     The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
     """
 
@@ -268,6 +279,7 @@ async def accept_bewerbung(
         # the retry rather than lost, and the block copied into `saison_teams` below then carries
         # every person's own date and stamp.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
+        refuse(find_acceptance_code_refusal(new_school=schule is not None, shorthand=annahme_data.shorthand))
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -294,7 +306,7 @@ async def accept_bewerbung(
         else:
             # Composed beside the guard that judges it, and reaching for no field of the application
             # itself: nothing here may raise before the refusal below has had its say.
-            new_club = compose_new_club(schule=schule)
+            new_club = compose_new_club(schule=schule, shorthand=annahme_data.shorthand)
             # Asked where the picked club's standing is asked, and for that reason: a school whose
             # own details make no club is not repaired by picking another group.
             refuse(find_new_club_refusal(club_document=new_club))
@@ -319,6 +331,11 @@ async def accept_bewerbung(
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             session=session,
         )
+
+        # On the box a person typed it in, before the write meets `uniq_shorthand`, which answers only a race.
+        if new_club is not None:
+            taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=shorthand, own_id=None, session=session)
+            refuse(find_shorthand_refusal(taken=taken))
 
         # Every refusal is behind us, so the writes follow with nothing left to judge.
         if new_club is None:
@@ -371,6 +388,7 @@ async def accept_bewerbung(
                     data=FLBewerbungZusageData(
                         kind="bewerbung_zusage",
                         team=name,
+                        shorthand=shorthand,
                         saison_id=saison_id,
                         rollen=seats,
                         gruppe=annahme_data.gruppe,

@@ -208,7 +208,6 @@
           "bewerbung_submission_subject_unresolved",
           "bewerbung_picked_team_unusable",
           "bewerbung_picked_team_already_entered",
-          "bewerbung_shorthand_taken",
           "bewerbung_seat_already_answered",
           "confirmation_age",
           "bewerbung_kontakte_unconfirmed",
@@ -336,6 +335,18 @@
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
           },
+          "shorthand": {
+            "anyOf": [
+              {
+                "pattern": "^\\s*[A-Za-z]{3}\\s*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shorthand"
+          },
           "trikot_farbe": {
             "anyOf": [
               {
@@ -349,7 +360,8 @@
         },
         "required": [
           "gruppe",
-          "trikot_farbe"
+          "trikot_farbe",
+          "shorthand"
         ],
         "title": "FLAcceptBewerbungPayload",
         "type": "object"
@@ -3796,25 +3808,6 @@
         "title": "FLBewerbungKontaktpersonPayload",
         "type": "object"
       },
-      "FLBewerbungKuerzelResponse": {
-        "description": "Whether a proposed Kürzel is already a club's, active or retired, naming no club.",
-        "properties": {
-          "shorthand": {
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "taken": {
-            "title": "Taken",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "shorthand",
-          "taken"
-        ],
-        "title": "FLBewerbungKuerzelResponse",
-        "type": "object"
-      },
       "FLBewerbungLinkData": {
         "description": "One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.\n\n`rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.",
         "properties": {
@@ -4017,11 +4010,6 @@
               }
             ]
           },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
           "team_name": {
             "minLength": 1,
             "title": "Team Name",
@@ -4042,7 +4030,6 @@
         "required": [
           "team_name",
           "full_name",
-          "shorthand",
           "schulform",
           "address",
           "website_url"
@@ -4088,11 +4075,6 @@
           "schulform": {
             "$ref": "#/components/schemas/FLSchulform"
           },
-          "shorthand": {
-            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
-            "title": "Shorthand",
-            "type": "string"
-          },
           "team_name": {
             "maxLength": 60,
             "minLength": 1,
@@ -4116,7 +4098,6 @@
         "required": [
           "team_name",
           "full_name",
-          "shorthand",
           "schulform",
           "address",
           "website_url"
@@ -4357,6 +4338,10 @@
             "title": "Saison Id",
             "type": "string"
           },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
           "team": {
             "title": "Team",
             "type": "string"
@@ -4386,6 +4371,7 @@
         "required": [
           "kind",
           "team",
+          "shorthand",
           "saison_id",
           "rollen",
           "gruppe",
@@ -20637,7 +20623,7 @@
     },
     "/api/v0/bewerbungen": {
       "get": {
-        "description": "Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.\n\n`complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.\n`duplicates_key` names every key two or more open applications share: the season and the club id or upper-cased\nKürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `decision.by_barred`.",
+        "description": "Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.\n\n`complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.\n`duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.\nA barred administrator is served as `null` beside `decision.by_barred`.",
         "operationId": "bewerbungen_get_bewerbungen",
         "parameters": [
           {
@@ -21067,84 +21053,6 @@
           "bewerbungen"
         ],
         "x-safe": true
-      }
-    },
-    "/api/v0/bewerbungen/kuerzel/{shorthand}": {
-      "get": {
-        "description": "Answer whether any club holds this three-letter code.\n\nRetired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer\nnaming the holder would publish which schools have left (`READ-BEWERBUNG-001`).",
-        "operationId": "bewerbungen_get_kuerzel",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "shorthand",
-            "required": true,
-            "schema": {
-              "title": "Shorthand",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungKuerzelResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "Whether a Kürzel is already a club's",
-        "tags": [
-          "bewerbungen"
-        ]
       }
     },
     "/api/v0/bewerbungen/schulen": {
@@ -21604,7 +21512,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {

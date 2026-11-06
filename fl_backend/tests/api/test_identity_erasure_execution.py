@@ -398,7 +398,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             ),
             submitted_at="2126-03-10",
             confirmation_deadline="2126-04-10",
-            schule=new_schule_document("Neue", "NEX"),
+            schule=new_schule_document("Neue"),
             idempotency_fingerprint=THEIR_DIGEST,
         )
     )
@@ -409,7 +409,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "submitted",
             kontakte=kontakte_document(ansprechperson=their_seat()),
             submitted_at="2126-02-10",
-            schule=new_schule_document("Alte", "ALX"),
+            schule=new_schule_document("Alte"),
             idempotency_fingerprint=THEIR_BLOCKLESS_DIGEST,
         )
     )
@@ -726,7 +726,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             "declined",
             kontakte=kontakte_document(),
             submitted_at="2126-03-01",
-            schule=new_schule_document("Abgelehnt", "ABX"),
+            schule=new_schule_document("Abgelehnt"),
             decision={"made_at": "2126-03-10", "by": IDENTIFIER, "decision_reason": "Keine Halle"},
         )
     )
@@ -1464,7 +1464,7 @@ class TestAPersonHoldingNoFunktion:
                         "submitted",
                         kontakte=kontakte_document(trainer=their_seat(), ansprechperson=kontaktperson_document("Quillhilde")),
                         submitted_at="2126-03-10",
-                        schule=new_schule_document("Neue", "NEX"),
+                        schule=new_schule_document("Neue"),
                     )
                 )
             else:

@@ -42,7 +42,6 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
-from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
 
 
@@ -78,20 +77,31 @@ def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str,
     return None
 
 
-# The school's field names in the club's. `team_name` becomes the club's `name`; the other five are
-# spelled alike on both sides, and `description` is on neither.
+# The school's field names in the club's. `team_name` becomes the club's `name`; the other three are
+# spelled alike on both sides, and `description` and `shorthand` are on neither.
 _CLUB_FIELDS_FROM_SCHULE = {
     "team_name": "name",
     "full_name": "full_name",
-    "shorthand": "shorthand",
     "schulform": "schulform",
     "address": "address",
     "website_url": "website_url",
 }
 
 
-def compose_new_club(*, schule: Any) -> dict[str, Any]:
-    """The club document acceptance would create, from the school's block AS STORED.
+def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> WriteRefusal | None:
+    """Why this acceptance's code is refused, or `None`: a new school takes one, and a picked club keeps its own.
+
+    A body's fault, which only the stored application can show: the dialog asks the code of a new school alone.
+    """
+
+    if new_school == (shorthand is None):
+        return WriteRefusal(error_code=Code.PAYLOAD_REFUSED, status=HTTPStatus.UNPROCESSABLE_CONTENT, fields=(("shorthand",),))
+
+    return None
+
+
+def compose_new_club(*, schule: Any, shorthand: str | None) -> dict[str, Any]:
+    """The club document acceptance would create, from the school's block AS STORED and the code the administrator set.
 
     Raw so `find_new_club_refusal` judges every field: a `str()` here makes a club named `'None'`
     from a null with no undo, and a subscript 500s where the rule promises 409.
@@ -104,6 +114,7 @@ def compose_new_club(*, schule: Any) -> dict[str, Any]:
         # blurb, and a sentence the league wrote would stand on the team page as though the school
         # had written it.
         "description": "",
+        "shorthand": shorthand,
         # A key the block has not got is left OUT rather than defaulted, so the guard names it
         # "Field required" rather than judging a null nobody submitted.
         **{club_field: fields[schule_field] for schule_field, club_field in _CLUB_FIELDS_FROM_SCHULE.items() if schule_field in fields},
@@ -223,22 +234,6 @@ def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
     if entered:
         return WriteRefusal(
             error_code=Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    return None
-
-
-def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
-    """Why the proposed Kürzel cannot be the new school's, or `None`.
-
-    Asked here as well as by the availability check, which narrows the collision without preventing
-    it: acceptance would otherwise fail on a duplicate key, the school already told it applied.
-    """
-
-    if taken:
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_SHORTHAND_TAKEN,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1578,16 +1573,11 @@ def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]
     return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))
 
 
-# One `$group` over the raw fields a collision is decided on, and never a `$match` on the count
-# beside it: two groups parted by a Kürzel's case are one collision, which only
-# `dubletten_schluessel_of`'s fold can see.
+# One club applying twice for one season. A new school names no club, so two of them never collide: the Dublette
+# is a display aid, and acceptance's unique code is what holds two clubs apart.
 DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
-    {
-        "$group": {
-            "_id": {"saison_id": "$saison_id", "team_id": "$team_id", "shorthand": "$schule.shorthand"},
-            "count": {"$sum": 1},
-        }
-    },
+    {"$group": {"_id": {"saison_id": "$saison_id", "team_id": "$team_id"}, "count": {"$sum": 1}}},
+    {"$match": {"count": {"$gt": 1}}},
 )
 
 
@@ -1596,47 +1586,17 @@ def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[s
 
     # `submitted` whatever status the page was narrowed to, and no `$limit`: the collision is a fact
     # about the queue, and a pass stopping where the page stops leaves a split pair unseen at both ends.
-    return [{"$match": {**beyond_status, "status": "submitted"}}, *DUBLETTEN_TALLY]
-
-
-def _dublette_schluessel(gruppe: Mapping[str, Any]) -> str | None:
-    """One application's collision key, `None` where it names neither a club nor a Kürzel.
-
-    Composed the way `fl_frontend/src/features/bewerbungen/duplicates.ts :: duplicatesKey`
-    composes a served row's, which is the comparison that marks the row.
-    """
-
-    team_id = gruppe.get("team_id")
-
-    if team_id is not None:
-        return f"{gruppe.get('saison_id')} team {team_id}"
-
-    kuerzel = fold_shorthand(str(gruppe.get("shorthand") or ""))
-
-    return None if kuerzel == "" else f"{gruppe.get('saison_id')} kuerzel {kuerzel}"
+    return [{"$match": {**beyond_status, "status": "submitted", "team_id": {"$ne": None}}}, *DUBLETTEN_TALLY]
 
 
 def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Which keys more than one open application holds, over every row the tally covered.
+    """Which keys more than one open application holds, composed as the frontend composes a served row's.
 
-    `fold_shorthand` and never a collation: the tally groups the stored codes, a row written before the
-    input fold among them, while `CustomShorthand` folds each as it is served and
-    `fl_frontend/src/features/bewerbungen/duplicates.ts` keys a row by the served code, so a pair
-    parted only by a stored code's case or padding is one collision at both ends.
+    `fl_frontend/src/features/bewerbungen/duplicates.ts :: duplicatesKey`, whose comparison marks the row.
     """
 
-    held: dict[str, int] = {}
-
-    for cell in cells:
-        schluessel = _dublette_schluessel(cell["_id"])
-
-        if schluessel is None:
-            continue
-
-        held[schluessel] = held.get(schluessel, 0) + cell["count"]
-
     # Sorted, so an unchanged queue answers the same list twice.
-    return sorted(schluessel for schluessel, count in held.items() if count > 1)
+    return sorted(f"{cell['_id']['saison_id']} team {cell['_id']['team_id']}" for cell in cells)
 
 
 def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:

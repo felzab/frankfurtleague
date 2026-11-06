@@ -78,7 +78,6 @@ export const Code = {
   bewerbung_submission_subject_unresolved: "bewerbung_submission_subject_unresolved",
   bewerbung_picked_team_unusable: "bewerbung_picked_team_unusable",
   bewerbung_picked_team_already_entered: "bewerbung_picked_team_already_entered",
-  bewerbung_shorthand_taken: "bewerbung_shorthand_taken",
   bewerbung_seat_already_answered: "bewerbung_seat_already_answered",
   confirmation_age: "confirmation_age",
   bewerbung_kontakte_unconfirmed: "bewerbung_kontakte_unconfirmed",
@@ -252,6 +251,7 @@ export const FLTrikotFarbe = {
  */
 export interface FLAcceptBewerbungPayload {
   gruppe: FLGruppenNames;
+  shorthand: string | null;
   trikot_farbe: FLTrikotFarbe | null;
 }
 
@@ -1351,8 +1351,6 @@ export interface FLBewerbungSchule {
   /** @minLength 1 */
   full_name: string;
   schulform: FLSchulform | null;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
   /** @minLength 1 */
   team_name: string;
   website_url: string | null;
@@ -1669,14 +1667,6 @@ export interface FLBewerbungKontaktePayload {
   trainer_is_also: FLTrainerAlso | null;
 }
 
-/**
- * Whether a proposed Kürzel is already a club's, active or retired, naming no club.
- */
-export interface FLBewerbungKuerzelResponse {
-  shorthand: string;
-  taken: boolean;
-}
-
 export type FLBewerbungLinkDataKind = (typeof FLBewerbungLinkDataKind)[keyof typeof FLBewerbungLinkDataKind];
 
 export const FLBewerbungLinkDataKind = {
@@ -1763,8 +1753,6 @@ export interface FLBewerbungSchulePayload {
    */
   full_name: string;
   schulform: FLSchulform;
-  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
-  shorthand: string;
   /**
    * @minLength 1
    * @maxLength 60
@@ -1843,6 +1831,7 @@ export interface FLBewerbungZusageData {
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
+  shorthand: string;
   team: string;
   trikot_farbe: FLTrikotFarbe | null;
   wunschgegner: string | null;

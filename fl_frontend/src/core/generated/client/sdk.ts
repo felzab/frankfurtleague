@@ -51,7 +51,6 @@ import type {
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSeatPayload,
-  FLBewerbungKuerzelResponse,
   FLBewerbungNoWindowResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
@@ -834,8 +833,8 @@ export const getBewerbungenGetBewerbungenUrl = (params?: BewerbungenGetBewerbung
  * Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
  *
  * `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
- * `duplicates_key` names every key two or more open applications share: the season and the club id or upper-cased
- * Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `decision.by_barred`.
+ * `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
+ * A barred administrator is served as `null` beside `decision.by_barred`.
  * @summary List Bewerbungen
  */
 export const bewerbungenGetBewerbungen = async (
@@ -961,27 +960,6 @@ export const bewerbungenGetEinwilligungView = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLTokenPayload),
-  });
-};
-
-export const getBewerbungenGetKuerzelUrl = (shorthand: string) => {
-  return `/api/v0/bewerbungen/kuerzel/${encodeURIComponent(String(shorthand))}`;
-};
-
-/**
- * Answer whether any club holds this three-letter code.
- *
- * Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
- * naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
- * @summary Whether a Kürzel is already a club's
- */
-export const bewerbungenGetKuerzel = async (
-  shorthand: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungKuerzelResponse> => {
-  return baseKeyTransport<FLBewerbungKuerzelResponse>(getBewerbungenGetKuerzelUrl(shorthand), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -1112,6 +1090,7 @@ export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
  * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
  * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
+ * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
  * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */

@@ -27,9 +27,13 @@ beforeEach(() => {
    backend payloads forbidding an extra field. */
 describe("how each triage endpoint is addressed", () => {
   it("posts the acceptance to its own endpoint, the id in the path and out of the body", async () => {
-    await annehmenBewerbung({ id: ID, gruppe: "A", trikot_farbe: null });
+    await annehmenBewerbung({ id: ID, gruppe: "A", trikot_farbe: null, shorthand: null });
 
-    expect(lastSent()).toStrictEqual({ endpoint: `/bewerbungen/${ID}/accept`, method: "POST", body: { gruppe: "A", trikot_farbe: null } });
+    expect(lastSent()).toStrictEqual({
+      endpoint: `/bewerbungen/${ID}/accept`,
+      method: "POST",
+      body: { gruppe: "A", trikot_farbe: null, shorthand: null },
+    });
   });
 
   it("posts the decline to its own endpoint, the id in the path and out of the body", async () => {

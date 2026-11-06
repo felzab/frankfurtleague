@@ -4,7 +4,6 @@ import { isRecordMissing } from "@/core/errors";
 import {
   bewerbungenGetBewerbung,
   bewerbungenGetBewerbungen,
-  bewerbungenGetKuerzel,
   bewerbungenGetSchulen,
   bewerbungenGetTrikotfarben,
   bewerbungenGetWindow,
@@ -19,7 +18,6 @@ import { mapEinwilligungAnsichtRefusal } from "./utils";
 import type {
   BewerbungenGetBewerbungenParams,
   FLBewerbungenListResponse,
-  FLBewerbungKuerzelResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungTrikotFarbenResponse,
@@ -88,9 +86,8 @@ export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse>
 }
 
 /**
- * Which colours one season has ASSIGNED — `saison_teams.trikot_farbe`, never a wish. Uncached for
- * `getBewerbungKuerzel`'s reason: one is assigned between two page loads, and a cached "still
- * free" outlives that.
+ * Which colours one season has ASSIGNED — `saison_teams.trikot_farbe`, never a wish. Uncached: one is assigned between two page loads, and a cached
+ * "still free" outlives that.
  */
 export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewerbungTrikotFarbenResponse> {
   return runWithIncomingTrace(() => bewerbungenGetTrikotfarben(saisonId));
@@ -121,9 +118,4 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
       },
     ),
   );
-}
-
-/** Whether a Kürzel already belongs to a club, in one neutral answer that names none. */
-export async function getBewerbungKuerzel(shorthand: string): Promise<FLBewerbungKuerzelResponse> {
-  return runWithIncomingTrace(() => bewerbungenGetKuerzel(shorthand));
 }

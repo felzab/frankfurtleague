@@ -831,7 +831,7 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
         kontakte=kontakte,
         submitted_at="2026-09-01",
         confirmation_deadline="2026-09-15",
-        schule=new_schule_document(PENDING_SCHULE, "GWX"),
+        schule=new_schule_document(PENDING_SCHULE),
     )
 
 

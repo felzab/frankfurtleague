@@ -101,7 +101,6 @@ class FLBewerbungSchule(BaseModel):
     # a block called `schule` would read as the school's own.
     team_name: CustomNonEmptyString
     full_name: CustomNonEmptyString
-    shorthand: CustomShorthand
     schulform: FLSchulform | None
     address: FLAddress
     # A plain string, unlike `_TeamWritable.website_url`: stored values are typed only,
@@ -227,6 +226,9 @@ class FLAcceptBewerbungPayload(BaseModel):
     # Assigned rather than read off `trikot.wunschfarbe`: a wish is not an assignment, and two
     # schools may wish for one colour.
     trikot_farbe: FLTrikotFarbe | None
+    # The club's code for a new school, null for a picked club, which holds its own. The administrator sets it here and
+    # the applicant never does, so a taken one is refused on this box (`duplicate_key`, naming `shorthand`).
+    shorthand: CustomShorthand | None
 
 
 class FLDeclineBewerbungPayload(BaseModel):
@@ -347,8 +349,8 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Stripped before either floor counts it: `team_name` and `shorthand` reach a league table row.
-    # The ceilings are here and not on the read model, which the triage reads a stored one through.
+    # Stripped before the floor counts it: `team_name` reaches a league table row. The ceilings are
+    # here and not on the read model, which the triage reads a stored one through.
 
     # `SINGLE_LINE_PATTERN` earns a second reason on these two: the decision mail renders them as
     # `label: value` rows, so a name holding a CR or an LF forges a line the reader cannot tell from
@@ -365,7 +367,6 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
     ]
-    shorthand: CustomShorthand
     # Required and NON-NULL here alone: the form offers the real Schulformen and no "keine
     # Angabe". The stored field stays nullable (`app/api/teams/schemas.py :: _TeamWritable.schulform`).
     schulform: FLSchulform
@@ -506,19 +507,12 @@ class FLBewerbungSchulenResponse(BaseAPIResponse):
     schulen: list[FLBewerbungSchuleOption]
 
 
-class FLBewerbungKuerzelResponse(BaseAPIResponse):
-    """Whether a proposed Kürzel is already a club's, active or retired, naming no club."""
-
-    shorthand: str
-    taken: bool
-
-
 class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
     """Which kit colours one season has already assigned, naming no club."""
 
     saison_id: str
-    # `taken` as the Kürzel read means it -- taken, and by nobody this answer names. A LIST rather
-    # than a set, JSON having none; `assigned_trikot_farben` is what makes it distinct and ordered.
+    # Taken, and by nobody this answer names. A LIST rather than a set, JSON having none;
+    # `assigned_trikot_farben` is what makes it distinct and ordered.
     taken: list[FLTrikotFarbe]
 
 

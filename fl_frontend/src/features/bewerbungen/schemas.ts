@@ -36,7 +36,6 @@ import {
   BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-  KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
 
@@ -51,6 +50,7 @@ export const FLAnnehmenBewerbungPayloadSchema = z.object({
   gruppe: FLGruppenNamesSchema,
   // Assigned rather than read off `trikot.wunschfarbe`: a wish is not an assignment.
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
+  shorthand: z.string().nullable(),
 });
 
 /**
@@ -163,10 +163,6 @@ const FLBewerbungSchulePayloadSchema = z.object({
       }),
     "Der vollständige Name",
   ),
-  shorthand: z
-    .string()
-    .trim()
-    .length(KUERZEL_LAENGE, { error: `Das Kürzel besteht aus genau ${String(KUERZEL_LAENGE)} Zeichen.` }),
   // Answered, unlike the club editor's: „Keine Angabe“ is a gap an administrator can chase later,
   // and the one person who knows the answer is the applicant filling this box.
   schulform: FLSchulformSchema,

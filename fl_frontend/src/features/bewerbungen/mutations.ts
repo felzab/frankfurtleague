@@ -44,8 +44,9 @@ export async function annehmenBewerbung({
   id,
   gruppe,
   trikot_farbe,
+  shorthand,
 }: { id: string } & FLAcceptBewerbungPayload): Promise<FLAcceptBewerbungResponse> {
-  return bewerbungenAcceptBewerbung(id, { gruppe: gruppe, trikot_farbe: trikot_farbe });
+  return bewerbungenAcceptBewerbung(id, { gruppe: gruppe, trikot_farbe: trikot_farbe, shorthand: shorthand });
 }
 
 // Moves `status` and `entscheidung` and nothing else: what the school wrote stays the record the

@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 
 from app.api.bewerbungen.services import (
+    find_acceptance_code_refusal,
     find_kontakt_email_refusal,
     find_new_club_refusal,
 )
@@ -43,6 +44,24 @@ class TestOnlyTheSchoolsOwnFaultIsRefused:
 
         with pytest.raises(ZorbanaxBoom):
             find_new_club_refusal(club_document=ExplodingSchule())
+
+
+class TestTheCodeAnAcceptanceTakes:
+    """A new school accepted with no code fails at the club's own parse as the school's fault, and a code on a picked club is dropped unsaid."""
+
+    @pytest.mark.parametrize(
+        ("new_school", "shorthand"),
+        [pytest.param(True, None, id="a new school with none"), pytest.param(False, "ABX", id="a picked club with one")],
+    )
+    def test_the_wrong_side_of_the_rule_is_refused_on_the_box(self, new_school: bool, shorthand: str | None):
+        refusal = find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand)
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields) == (Code.PAYLOAD_REFUSED, (("shorthand",),))
+
+    @pytest.mark.parametrize(("new_school", "shorthand"), [(True, "ABX"), (False, None)])
+    def test_the_right_side_passes(self, new_school: bool, shorthand: str | None):
+        assert find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand) is None
 
 
 class TestCorrectingOneContactAddress:

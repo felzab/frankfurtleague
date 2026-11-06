@@ -7,7 +7,7 @@ import { buildRefusal, LADE_DIE_SEITE_NEU, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } fro
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
+import { alterAusserhalb, BEWERBUNG_MAX_ALTER, SCHULE_NICHT_IN_LISTE } from "./constants";
 
 import type { FLBewerbung, FLBewerbungEinwilligungViewResponse, FLBewerbungWindowResponse, FLTrainerAlso } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -20,35 +20,9 @@ import type {
   BewerbungSchuleDraft,
   EinwilligungAnsicht,
   FensterZustand,
-  KuerzelVerdikt,
   LinkZustand,
   NamedTeam,
 } from "./types";
-
-/**
- * The ONE answer a taken Kürzel gets, wherever it is judged. It names no club and does not say
- * whether that club still plays.
- */
-export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben.";
-
-export const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
-const KUERZEL_FREI = "Dieses Kürzel ist noch frei.";
-export const KUERZEL_UNGEPRUEFT = "Ob das Kürzel frei ist, prüfen wir spätestens beim Abschicken.";
-
-/**
- * What the blur-time check has to say about the code in the box right now.
- *
- * A TAKEN code is left to the field error: it is the one answer that stops a submission, and two
- * channels stating it would say it twice.
- */
-export function kuerzelHinweis(shorthand: string, verdikt: KuerzelVerdikt | null, isPending: boolean): string | null {
-  if (shorthand.length !== KUERZEL_LAENGE) return null;
-  if (isPending) return KUERZEL_PRUEFUNG;
-  // A verdict about another value says nothing about this one.
-  if (verdikt === null || verdikt.shorthand !== shorthand) return KUERZEL_UNGEPRUEFT;
-
-  return verdikt.taken ? null : KUERZEL_FREI;
-}
 
 /**
  * The club an application is about: the proposed school's own name, or the picked club's.
@@ -152,9 +126,8 @@ export function mapBewerbungSubmitRefusal(
       };
     case "bewerbung_submission_subject_unresolved":
       return { fieldErrors: { team_id: "Wähle entweder eine bestehende Schule aus oder trage eine neue ein, nicht beides." } };
-    // Reload-and-pick leads: this is reachable only for an id the picker never offered. The new-school
-    // arm names a free Kürzel so nobody walks into `bewerbung_shorthand_taken`, and says nothing about why the club went,
-    // which is what `READ-BEWERBUNG-001` asks of it.
+    // Reload-and-pick leads: this is reachable only for an id the picker never offered, and it says nothing
+    // about why the club went, which is what `READ-BEWERBUNG-001` asks of it.
     case "bewerbung_picked_team_unusable":
       return {
         fieldErrors: {
@@ -165,8 +138,6 @@ export function mapBewerbungSubmitRefusal(
     // only one of them is what the backend refused.
     case "bewerbung_picked_team_already_entered":
       return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit." } };
-    case "bewerbung_shorthand_taken":
-      return { fieldErrors: { "schule.shorthand": KUERZEL_VERGEBEN } };
     // The press this form repeated stands, under the details first sent: a banner rather than a
     // field, since whichever box changed since then is not the one at fault.
     case "bewerbung_key_differing":
@@ -342,7 +313,6 @@ const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft => ({
 const buildEmptyBewerbungSchule = (): BewerbungSchuleDraft => ({
   team_name: "",
   full_name: "",
-  shorthand: "",
   schulform: null,
   address: { strasse: "", hausnummer: "", plz: "", stadtteil: "", stadt: "" },
   // `null` and not `""`: the box starts empty either way, and this is the one spelling of "no

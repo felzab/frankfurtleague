@@ -102,7 +102,7 @@ UNUSABLE_URL = "javascript:alert(1)"
 EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "ADX"
 RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BIX"
 
-# The club the new school proposes. Its two letters are free, unlike `CLASHING_BEWERBUNG`'s.
+# The club the new school becomes. Its letters are free, unlike `EXISTING_SHORTHAND`.
 NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZXX"
 
 # Two groups of two, so one seeded pair fills `A` and `entry_gruppe_full` is reachable without twenty rows.
@@ -133,13 +133,12 @@ def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_sinc
     return team_document(team_id, name, shorthand, schulform="gymnasium_g9", inactive_since=inactive_since)
 
 
-def schule_block(team_name: str, shorthand: str) -> dict[str, Any]:
+def schule_block(team_name: str) -> dict[str, Any]:
     """What a school proposes when it picked no existing club, spelled as `teams` spells it."""
 
     return {
         "team_name": team_name,
         "full_name": f"{team_name}-Gesamtschule",
-        "shorthand": shorthand,
         "schulform": "gesamtschule",
         "address": dict(ADDRESS),
         "website_url": f"https://{team_name.lower()}.example.de",
@@ -200,10 +199,9 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied
             await database[Collection.BEWERBUNGEN].insert_many(
                 [
                     bewerbung_document(PICKED_BEWERBUNG, team_id=EXISTING_OID),
-                    bewerbung_document(NEW_SCHOOL_BEWERBUNG, schule=schule_block(NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND)),
+                    bewerbung_document(NEW_SCHOOL_BEWERBUNG, schule=schule_block(NEW_SCHOOL_NAME)),
                     bewerbung_document(RETIRED_BEWERBUNG, team_id=RETIRED_OID),
-                    # The two letters an existing club already holds, which `uniq_shorthand` refuses.
-                    bewerbung_document(CLASHING_BEWERBUNG, schule=schule_block("Kollision", EXISTING_SHORTHAND)),
+                    bewerbung_document(CLASHING_BEWERBUNG, schule=schule_block("Kollision")),
                 ]
             )
 
@@ -219,10 +217,11 @@ async def accept(
     *,
     gruppe: str = "A",
     trikot_farbe: str | None = "blau",
+    shorthand: str | None = None,
 ) -> Any:
     return await accept_bewerbung(
         bewerbung_id=bewerbung_id,
-        annahme_data=FLAcceptBewerbungPayload.model_validate({"gruppe": gruppe, "trikot_farbe": trikot_farbe}),
+        annahme_data=FLAcceptBewerbungPayload.model_validate({"gruppe": gruppe, "trikot_farbe": trikot_farbe, "shorthand": shorthand}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -312,7 +311,7 @@ class TestAnAcceptanceEntersTheSchool:
         """Catches an acceptance that enters the school without writing the created id back: nothing would join the two."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await accept(database, client, NEW_SCHOOL_BEWERBUNG)
+            response = await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND)
             created = await database[Collection.TEAMS].find_one({"shorthand": NEW_SCHOOL_SHORTHAND})
 
             return response, created, await junction_rows(database), await stored_bewerbung(database, NEW_SCHOOL_BEWERBUNG)
@@ -424,7 +423,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
-                await accept(database, client, NEW_SCHOOL_BEWERBUNG)
+                await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND)
 
             return (
                 conflict.value.error_code,
@@ -442,7 +441,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """The floor under the refusal above: without it a blanket failure would read as the capacity rule working."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await accept(database, client, NEW_SCHOOL_BEWERBUNG, gruppe="B")
+            response = await accept(database, client, NEW_SCHOOL_BEWERBUNG, gruppe="B", shorthand=NEW_SCHOOL_SHORTHAND)
 
             return response.gruppe, len(await junction_rows(database, gruppe="B"))
 
@@ -482,13 +481,13 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
     def test_the_full_group_is_reported_before_the_club_is_written(self, mongo_replica_set_url: str):
         """The order pinned on a WRITE that fails differently: the rollback hides an early insert.
 
-        `CLASHING_BEWERBUNG` takes two letters `uniq_shorthand` refuses, so an insert before the
-        count answers `duplicate_key` rather than the rule to act on.
+        `EXISTING_SHORTHAND` is a code `uniq_shorthand` refuses, so an insert before the count answers
+        `duplicate_key` rather than the rule to act on.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
-                await accept(database, client, CLASHING_BEWERBUNG)
+                await accept(database, client, CLASHING_BEWERBUNG, shorthand=EXISTING_SHORTHAND)
 
             return conflict.value.error_code
 
@@ -500,7 +499,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
-                await accept(database, client, NEW_SCHOOL_BEWERBUNG)
+                await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND)
 
             return (
                 conflict.value.error_code,
@@ -517,7 +516,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
 # The two shapes `bewerbung_subject_unresolved` refuses, each stored as a hand edit could leave it.
 UNRESOLVED = [
-    pytest.param(BOTH_BEWERBUNG, EXISTING_OID, schule_block("Doppelt", "DPX"), id="both a club and a school"),
+    pytest.param(BOTH_BEWERBUNG, EXISTING_OID, schule_block("Doppelt"), id="both a club and a school"),
     pytest.param(NEITHER_BEWERBUNG, None, None, id="neither a club nor a school"),
 ]
 
@@ -643,7 +642,7 @@ async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]
     """
 
     await database[Collection.BEWERBUNGEN].insert_one(
-        bewerbung_document(UNUSABLE_BEWERBUNG, schule={**schule_block("Skriptsam", "SKX"), "website_url": UNUSABLE_URL})
+        bewerbung_document(UNUSABLE_BEWERBUNG, schule={**schule_block("Skriptsam"), "website_url": UNUSABLE_URL})
     )
 
     return await stored_bewerbung(database, UNUSABLE_BEWERBUNG)
@@ -662,7 +661,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
             seeded = await seed_the_unusable_school(database)
 
             with pytest.raises(APIError) as conflict:
-                await accept(database, client, UNUSABLE_BEWERBUNG)
+                await accept(database, client, UNUSABLE_BEWERBUNG, shorthand="SKX")
 
             return (
                 conflict.value.error_code,
@@ -685,7 +684,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
             await seed_the_unusable_school(database)
 
             with pytest.raises(APIError) as conflict:
-                await accept(database, client, UNUSABLE_BEWERBUNG)
+                await accept(database, client, UNUSABLE_BEWERBUNG, shorthand="SKX")
 
             return conflict.value.error_code
 
@@ -713,7 +712,7 @@ class TestAPartialAcceptanceCommitsNothing:
             )
 
             with pytest.raises(OperationFailure) as failure:
-                await accept(database, client, NEW_SCHOOL_BEWERBUNG)
+                await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND)
 
             return (
                 failure.value.code,
@@ -739,7 +738,9 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
         """Through a served request, because the code asserted on is the exception handler's rather than any refusal's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, CLASHING_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot"})
+            response = await through_the_app(
+                mongo_replica_set_url, CLASHING_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot", "shorthand": EXISTING_SHORTHAND}
+            )
 
             return (
                 response.status_code,
@@ -751,7 +752,7 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
 
         status_code, payload, clubs, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert (status_code, payload["error_code"]) == (409, Code.DUPLICATE_KEY)
+        assert (status_code, payload["error_code"], payload["fields"][0]["path"]) == (409, Code.DUPLICATE_KEY, ["shorthand"])
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "submitted")
 
 
@@ -767,7 +768,9 @@ class TestWhoTheDecisionNames:
         """Catches `get_actor_email` resolving BEFORE the router-level binder, which would file every decision under SYSTEM."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot"})
+            response = await through_the_app(
+                mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot", "shorthand": None}
+            )
             stored = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
             return response.status_code, stored["decision"]
@@ -784,7 +787,7 @@ class TestWhoTheDecisionNames:
         """The pairing the field exists for: two sources for one name is two names waiting to disagree."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot"})
+            await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot", "shorthand": None})
             rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
             return rows, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
@@ -1175,11 +1178,11 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
         rather than on a copy of its expression.
         """
 
-        schule = {**schule_block(DIRTY_URL_NAME, DIRTY_URL_SHORTHAND), "website_url": DIRTY_URL}
+        schule = {**schule_block(DIRTY_URL_NAME), "website_url": DIRTY_URL}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             posted = await post_team(
-                team_data=FLPostTeamPayload.model_validate(compose_new_club(schule=schule)),
+                team_data=FLPostTeamPayload.model_validate(compose_new_club(schule=schule, shorthand=DIRTY_URL_SHORTHAND)),
                 teams_collection=database[Collection.TEAMS],
                 db=database.client,
             )
@@ -1189,7 +1192,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
             await database[Collection.TEAMS].delete_one({"_id": posted.created_id})
 
             await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(DIRTY_URL_BEWERBUNG, schule=schule))
-            await accept(database, client, DIRTY_URL_BEWERBUNG)
+            await accept(database, client, DIRTY_URL_BEWERBUNG, shorthand=DIRTY_URL_SHORTHAND)
 
             return through_post_teams, await database[Collection.TEAMS].find_one({"shorthand": DIRTY_URL_SHORTHAND})
 
@@ -1225,7 +1228,7 @@ class TestADeclineLandingInsideAnAcceptance:
             with pytest.raises(APIError) as refused:
                 await accept_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
-                    annahme_data=FLAcceptBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
+                    annahme_data=FLAcceptBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau", "shorthand": None}),
                     bewerbungen_collection=cast(AsyncCollection, racing),
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],

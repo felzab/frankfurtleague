@@ -33,7 +33,6 @@ const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft>
 const schule = (overrides: Partial<BewerbungSchuleDraft> = {}): BewerbungSchuleDraft => ({
   team_name: "Goethe",
   full_name: "Goethe-Gymnasium",
-  shorthand: "GOE",
   schulform: "gymnasium_g9",
   address: { strasse: "Feldweg", hausnummer: "12", plz: "60327", stadtteil: "Gallus", stadt: "Frankfurt" },
   website_url: "https://gg.de",
@@ -360,10 +359,6 @@ const SINGLE_LINE_BROKEN = SINGLE_LINE_CHARS.map(([was, character]) => [was, `Go
 const SINGLE_LINE_INTACT = "Goethe Startgeld: 500 Euro";
 
 describe("what a new school has to state", () => {
-  it("refuses a Kürzel that is not exactly three letters", () => {
-    expect(refusedPaths(validDraft({ schule: schule({ shorthand: "GOET" }) }))).toStrictEqual(["schule.shorthand"]);
-  });
-
   /* `trim` leaves an interior break, and every surface that sets one value to the line reads it as a
      second line — in a decision mail, one no reader can tell from a stated fact. */
   for (const [was, padded2] of SINGLE_LINE_BROKEN) {

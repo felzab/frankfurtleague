@@ -293,13 +293,12 @@ def spieler_document(spieler_id: Any, first_name: str, last_name: str | None, **
     }
 
 
-def new_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
+def new_schule_document(team_name: str, **fields: Any) -> dict[str, Any]:
     """The school block of an application naming a school the league does not hold yet, named as `team_document` names one."""
 
     return {
         "team_name": team_name,
         "full_name": f"{team_name}-Schule",
-        "shorthand": shorthand,
         "schulform": None,
         "address": dict(ADDRESS),
         "website_url": None,

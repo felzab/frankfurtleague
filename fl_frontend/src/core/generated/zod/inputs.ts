@@ -344,8 +344,8 @@ export const AddressChangeInviteAddressChangeParams = zod.object({
  * Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
  *
  * `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
- * `duplicates_key` names every key two or more open applications share: the season and the club id or upper-cased
- * Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `decision.by_barred`.
+ * `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
+ * A barred administrator is served as `null` beside `decision.by_barred`.
  * @summary List Bewerbungen
  */
 export const bewerbungenGetBewerbungenQueryLimitDefault = 1024;
@@ -426,7 +426,6 @@ export const bewerbungenPostBewerbungBodySchuleOneAddressStrasseMax = 120;
 export const bewerbungenPostBewerbungBodySchuleOneFullNameMax = 120;
 
 export const bewerbungenPostBewerbungBodySchuleOneFullNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const bewerbungenPostBewerbungBodySchuleOneShorthandRegExp = new RegExp("^\\s*[A-Za-z]{3}\\s*$");
 export const bewerbungenPostBewerbungBodySchuleOneTeamNameMax = 60;
 
 export const bewerbungenPostBewerbungBodySchuleOneTeamNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
@@ -537,7 +536,6 @@ export const BewerbungenPostBewerbungBody = zod
             .max(bewerbungenPostBewerbungBodySchuleOneFullNameMax)
             .regex(bewerbungenPostBewerbungBodySchuleOneFullNameRegExp),
           schulform: zod.enum(["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]),
-          shorthand: zod.string().regex(bewerbungenPostBewerbungBodySchuleOneShorthandRegExp),
           team_name: zod
             .string()
             .min(1)
@@ -647,17 +645,6 @@ export const BewerbungenGetEinwilligungViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Answer whether any club holds this three-letter code.
- *
- * Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
- * naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
- * @summary Whether a Kürzel is already a club's
- */
-export const BewerbungenGetKuerzelParams = zod.object({
-  shorthand: zod.string(),
-});
-
-/**
  * Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
  * The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
@@ -709,6 +696,7 @@ export const BewerbungenGetBewerbungParams = zod.object({
  * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
  * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
+ * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
  * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */
@@ -718,9 +706,12 @@ export const BewerbungenAcceptBewerbungParams = zod.object({
   bewerbung_id: zod.string().regex(bewerbungenAcceptBewerbungPathBewerbungIdRegExp),
 });
 
+export const bewerbungenAcceptBewerbungBodyShorthandOneRegExp = new RegExp("^\\s*[A-Za-z]{3}\\s*$");
+
 export const BewerbungenAcceptBewerbungBody = zod
   .object({
     gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
+    shorthand: zod.union([zod.string().regex(bewerbungenAcceptBewerbungBodyShorthandOneRegExp), zod.null()]),
     trikot_farbe: zod.union([
       zod.enum([
         "schwarz",

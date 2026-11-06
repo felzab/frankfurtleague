@@ -231,7 +231,6 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/auth/sign-in/email-otp`     | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                   |
 | `= /api/client-error`               | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30`, and `client_max_body_size 32k` ([`docs/logging/overview.md`](../logging/overview.md))             |
 | `= /api/bewerbung`                  | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
-| `= /api/bewerbung/kuerzel`          | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
 | `= /api/bestaetigung/kontakt`       | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                             |
 | `= /api/registrierung`              | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
 | `= /api/bestaetigung/spieler`       | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
@@ -312,8 +311,8 @@ address in `nginx/shared/http.conf`, the `geo` beside `set_real_ip_from`, and th
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
 `limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
-**The zones over a GET key on the network maps unconditionally**: the Kürzel check, the pair
-under `/api/auth` and the link pages' pair would otherwise read as limited and be unlimited.
+**The zones over a GET key on the network maps unconditionally**: the pair under `/api/auth` and
+the link pages' pair would otherwise read as limited and be unlimited.
 
 **Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
 `nginx/shared/http.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
@@ -397,7 +396,7 @@ bounding no ceremony's body. The application form's `64k` cap alone is measured,
 100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
-A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
+A burst at a GET route handler was refused past the burst as `429` (not nginx's `503` default), the
 `fl_json` line carrying `"status":429` with an empty `upstream_duration_s` and the headers on the
 refusal being what `nginx/edge_test.sh` observes. No rate here is measured — the figures remain judgement calls, and
 the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (measured 2026-08-30).

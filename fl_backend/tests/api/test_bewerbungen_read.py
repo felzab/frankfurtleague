@@ -13,7 +13,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
-from app.api.bewerbungen.services import dubletten_schluessel_of, mit_zustellung
+from app.api.bewerbungen.services import mit_zustellung
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
@@ -43,7 +43,6 @@ def bewerbung_document(
     status: str = "submitted",
     saison_id: str = SAISON_ID,
     *,
-    shorthand: str = "SGX",
     submitted_at: str = "2026-02-01",
     team_id: ObjectId | None = None,
 ) -> dict[str, Any]:
@@ -63,7 +62,7 @@ def bewerbung_document(
         schule=None
         if team_id is not None
         else documents.new_schule_document(
-            f"Schule {index}", shorthand, full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
+            f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
         ),
         trikot={"existing_satz": "16 rote Trikots", "wunschfarbe": "rot"},
     )
@@ -152,18 +151,18 @@ class _ArchiveCollection:
         # Grouped rather than answered from a canned list: cells of the reader's own shape would pass
         # a pipeline narrowed to the page. Which keys MongoDB really answers is the db tier's.
         self.requested_pipeline = list(pipeline)
-        stages = {name: body for stage in self.requested_pipeline for name, body in stage.items()}
+        first_match, first_group, *_ = [body for stage in self.requested_pipeline for body in stage.values()]
         grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
 
         for document in self.stored:
-            if not matches(document, stages.get("$match", {})):
+            if not matches(document, first_match):
                 continue
 
-            cell_id = {name: at(document, reference) for name, reference in stages["$group"]["_id"].items()}
+            cell_id = {name: at(document, reference) for name, reference in first_group["_id"].items()}
             held = grouped.setdefault(tuple(cell_id.values()), {"_id": cell_id, "count": 0})
             held["count"] += 1
 
-        return _Cells(list(grouped.values()))
+        return _Cells([cell for cell in grouped.values() if cell["count"] > 1])
 
 
 class _Cells:
@@ -314,7 +313,8 @@ DUBLETTEN_DATABASE = worker_database("fl_bewerbungen_dubletten_test")
 # The two ends of the queue, with the cap's worth of rows between them.
 NEUESTE = 9001
 AELTESTE = 9002
-KUERZEL_PAAR = f"{SAISON_ID} kuerzel GGX"
+PAAR_CLUB = ObjectId("6890a1b2c3d4e5f600009999")
+PAAR = f"{SAISON_ID} team {PAAR_CLUB}"
 
 
 def straddling_archive() -> list[dict[str, Any]]:
@@ -331,8 +331,8 @@ def straddling_archive() -> list[dict[str, Any]]:
 
     return [
         *filler,
-        bewerbung_document(NEUESTE, submitted_at="2026-02-28", shorthand="ggx"),
-        bewerbung_document(AELTESTE, submitted_at="2026-02-01", shorthand="GGX"),
+        bewerbung_document(NEUESTE, submitted_at="2026-02-28", team_id=PAAR_CLUB),
+        bewerbung_document(AELTESTE, submitted_at="2026-02-01", team_id=PAAR_CLUB),
     ]
 
 
@@ -440,7 +440,9 @@ class TestTheSeasonRelationIsATermTheReadNarrowsOn:
         collection = _ArchiveCollection(mixed_archive())
         run_list(collection, saison_id=SAISON_ID, saison_reference=["other_saison"], status=["submitted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": {"$ne": SAISON_ID}, "status": "submitted"}}
+        assert collection.requested_pipeline[0] == {
+            "$match": {"saison_id": {"$ne": SAISON_ID}, "status": "submitted", "team_id": {"$ne": None}}
+        }
 
 
 class TestBothSidesOfTheSeasonRelationAreCounted:
@@ -473,78 +475,26 @@ class TestTheCollisionIsAskedOverTheWholeQueue:
         collection = _ArchiveCollection(mixed_archive())
         run_list(collection, status=["accepted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"status": "submitted"}}
+        assert collection.requested_pipeline[0] == {"$match": {"status": "submitted", "team_id": {"$ne": None}}}
 
     def test_the_pass_keeps_the_season_the_request_named(self):
         collection = _ArchiveCollection(mixed_archive())
         run_list(collection, saison_id=SAISON_ID, status=["submitted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": SAISON_ID, "status": "submitted"}}
+        assert collection.requested_pipeline[0] == {"$match": {"saison_id": SAISON_ID, "status": "submitted", "team_id": {"$ne": None}}}
 
     def test_the_pass_carries_no_bound_of_its_own(self):
         collection = _ArchiveCollection(archive_of(2))
         run_list(collection)
 
-        assert [name for stage in collection.requested_pipeline for name in stage] == ["$match", "$group"]
+        assert [name for stage in collection.requested_pipeline for name in stage] == ["$match", "$group", "$match"]
 
     def test_the_answer_carries_the_keys_the_pass_found(self):
-        """Read off the ANSWER: the fold's own cases below build cells by hand, which a router dropping the field would still satisfy."""
+        """Read off the ANSWER: a router dropping the field would still pass a case over cells built by hand."""
 
-        collection = _ArchiveCollection([bewerbung_document(1, shorthand="ggx"), bewerbung_document(2, shorthand="GGX")])
+        collection = _ArchiveCollection([bewerbung_document(1, team_id=PAAR_CLUB), bewerbung_document(2, team_id=PAAR_CLUB)])
 
-        assert run_list(collection).duplicates_key == [KUERZEL_PAAR]
-
-
-class TestWhatCountsAsOneCollisionKey:
-    """The fold and the pair rule, over cells of the shape the tally's `$group` answers with."""
-
-    def test_two_cells_parted_by_the_kuerzels_case_are_one_collision(self):
-        """Why the fold cannot move into the pipeline: MongoDB parts `gg` from `GG`, leaving two cells of one."""
-
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "ggx"}, "count": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": " GGX "}, "count": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == [KUERZEL_PAAR]
-
-    def test_a_key_one_application_holds_is_named_by_nothing(self):
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1}]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_cell_naming_neither_a_club_nor_a_kuerzel_is_passed_over(self):
-        """The row `bewerbung_subject_unresolved` refuses, and two of them are not a pair."""
-
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": None}, "count": 4}]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_the_season_parts_two_cells_sharing_a_kuerzel(self):
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1},
-            {"_id": {"saison_id": "2025", "team_id": None, "shorthand": "GGX"}, "count": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_club_and_a_kuerzel_spelling_one_text_are_two_keys(self):
-        """`GG` as a club id is nothing a school could propose, and the words in the key are what keep them apart."""
-
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": "GGX", "shorthand": None}, "count": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "count": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_club_key_spells_the_id_as_the_served_row_carries_it(self):
-        """The frontend composes its half from a row's `team_id` string, so the two only meet on that spelling."""
-
-        club = ObjectId("6890a1b2c3d4e5f600009999")
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": club, "shorthand": None}, "count": 2}]
-
-        assert dubletten_schluessel_of(cells) == [f"{SAISON_ID} team {club}"]
+        assert run_list(collection).duplicates_key == [PAAR]
 
 
 class TestTheCollisionSurvivesTheReadsCap:
@@ -578,7 +528,7 @@ class TestTheCollisionSurvivesTheReadsCap:
         assert ObjectId(BEWERBUNG_ID.format(NEUESTE)) in served
         assert ObjectId(BEWERBUNG_ID.format(AELTESTE)) not in served
 
-        assert answered.duplicates_key == [KUERZEL_PAAR]
+        assert answered.duplicates_key == [PAAR]
 
 
 # The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so

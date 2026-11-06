@@ -33,7 +33,7 @@ const GELESEN = {
 const GEWAEHLT = { bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: "6890a1b2c3d4e5f607182932" } };
 
 /** An acceptance of the application, whatever its group. */
-const ANNAHME = { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null } as const;
+const ANNAHME = { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null, shorthand: null } as const;
 
 /** The triage mapper as the acceptance asks it about `GELESEN`, a proposed school. */
 const acceptanceMapped = (refusal: unknown) => mapTriageRefusal(refusal, "neue_schule");
@@ -231,7 +231,6 @@ const ENTSCHIEDEN: FLBewerbung = {
   schule: {
     team_name: "Gymnasium Beispiel",
     full_name: "Gymnasium Beispiel Frankfurt",
-    shorthand: "GB",
     schulform: null,
     address: { strasse: "Schulweg", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
     website_url: null,
@@ -365,7 +364,7 @@ describe("the application's writes", () => {
     const { id: _id, rolle: _rolle, ...person } = SITZ;
     // The writes alone: each owes its mails in the backend's own transaction, so no report of a send follows one.
     expect(requestsOf(writes)).toStrictEqual([
-      { endpoint: `${bewerbung}/accept`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
+      { endpoint: `${bewerbung}/accept`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe, shorthand: null } },
       { endpoint: `${bewerbung}/decline`, method: "POST", body: { decision_reason: "Die Liga ist voll." } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/resend`, method: "POST", body: undefined },
       // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.

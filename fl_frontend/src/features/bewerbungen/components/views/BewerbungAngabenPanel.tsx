@@ -125,7 +125,6 @@ export function BewerbungAngabenPanel({
           ) : (
             <>
               <Angabe label="Vollständiger Name">{schule.full_name}</Angabe>
-              <Angabe label="Kürzel">{schule.shorthand}</Angabe>
               <Angabe label="Schulform">{schule.schulform === null ? <Leer /> : schulformLabel(schule.schulform)}</Angabe>
               <Angabe label="Adresse">{formatAddressFull(schule.address)}</Angabe>
               <Angabe label="Website">

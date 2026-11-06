@@ -21,10 +21,6 @@ import {
   describeAufnahme,
   fensterZustand,
   geburtsdatumSpanne,
-  KUERZEL_PRUEFUNG,
-  KUERZEL_UNGEPRUEFT,
-  KUERZEL_VERGEBEN,
-  kuerzelHinweis,
   mapBewerbungSubmitRefusal,
   mapEinwilligungAnsichtRefusal,
   mapEinwilligungRefusal,
@@ -38,7 +34,6 @@ import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft, EinwilligungA
 const SCHOOL: FLBewerbung["schule"] = {
   team_name: "Ernst-Reuter",
   full_name: "Ernst-Reuter-Schule",
-  shorthand: "ER",
   schulform: "gesamtschule",
   address: { strasse: "Hammarskjöldring", hausnummer: "17a", plz: "60439", stadtteil: "Nordweststadt", stadt: "Frankfurt" },
   website_url: "https://ernst-reuter-schule.de",
@@ -362,7 +357,6 @@ describe("what a submission's refusal is shown as", () => {
       "bewerbung_submission_subject_unresolved",
       "bewerbung_picked_team_unusable",
       "bewerbung_picked_team_already_entered",
-      "bewerbung_shorthand_taken",
     ] as const) {
       expect(refusal(code), `${code} reaches the applicant unmapped`).not.toBe(null);
     }
@@ -376,7 +370,6 @@ describe("what a submission's refusal is shown as", () => {
       "bewerbung_submission_subject_unresolved",
       "bewerbung_picked_team_unusable",
       "bewerbung_picked_team_already_entered",
-      "bewerbung_shorthand_taken",
     ] as const) {
       expect(refusal(code)?.schonAngekommen, code).toBe(undefined);
     }
@@ -388,7 +381,6 @@ describe("what a submission's refusal is shown as", () => {
     expect(Object.keys(refusal("bewerbung_submission_subject_unresolved")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
     expect(Object.keys(refusal("bewerbung_picked_team_unusable")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
     expect(Object.keys(refusal("bewerbung_picked_team_already_entered")?.fieldErrors ?? {})).toStrictEqual(["team_id"]);
-    expect(Object.keys(refusal("bewerbung_shorthand_taken")?.fieldErrors ?? {})).toStrictEqual(["schule.shorthand"]);
   });
 
   /* The window closing mid-form is about the season rather than about anything typed, so it has no
@@ -396,13 +388,6 @@ describe("what a submission's refusal is shown as", () => {
   it("reports a closed window as a banner with no field on it", () => {
     expect(refusal("bewerbung_window_closed")?.fieldErrors).toBe(undefined);
     expect(refusal("bewerbung_window_closed")?.error ?? "").toMatch(/Lade die Seite neu/);
-  });
-
-  /* The one answer a taken Kürzel gets, wherever it is judged: the blur-time check and this refusal
-     word it from the same constant, so the two cannot come to disagree. */
-  it("gives a taken Kürzel the same neutral sentence the blur check gives", () => {
-    expect(refusal("bewerbung_shorthand_taken")?.fieldErrors?.["schule.shorthand"]).toBe(KUERZEL_VERGEBEN);
-    assert.ok(!KUERZEL_VERGEBEN.includes("stillgelegt"), "the answer separates a retired club from an active one");
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
@@ -430,7 +415,6 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_submission_subject_unresolved",
       "bewerbung_picked_team_unusable",
       "bewerbung_picked_team_already_entered",
-      "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
       "bewerbung_address_barred",
     )) {
@@ -447,7 +431,6 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       "bewerbung_submission_subject_unresolved",
       "bewerbung_picked_team_unusable",
       "bewerbung_picked_team_already_entered",
-      "bewerbung_shorthand_taken",
       "bewerbung_key_differing",
       "bewerbung_address_barred",
     ).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refused(code))));
@@ -471,9 +454,8 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     expect(fieldOf("bewerbung_submission_subject_unresolved")).toMatch(/oder/);
 
     /* The picker never offered this club, so a reload is the primary repair; the new-school arm is an
-       alternative and has to carry the free-Kürzel qualifier, or it promises a path `bewerbung_shorthand_taken` refuses. */
+       alternative. */
     expect(fieldOf("bewerbung_picked_team_unusable")).toMatch(/[Ll]ade die Seite neu/);
-    expect(fieldOf("bewerbung_picked_team_unusable")).toMatch(/frei\w* Kürzel/);
 
     /* PLAYS, present tense and scoped to THIS season. `/spielt/` alone matches inside „mitgespielt“,
        which says past seasons; the register says a club standing in the season applied for. */
@@ -499,7 +481,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     // Beyond the table: words that disclose a club's existence or its past without naming a status.
     const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "removed", "reaktiv"];
 
-    for (const code of ["bewerbung_picked_team_unusable", "bewerbung_shorthand_taken"] as const) {
+    for (const code of ["bewerbung_picked_team_unusable"] as const) {
       const refusalText = Object.values(mapBewerbungSubmitRefusal(refused(code))?.fieldErrors ?? {}).join(" ");
 
       for (const numberWord of telltale) {
@@ -543,37 +525,6 @@ describe("the submission's refusals against the codes its endpoint publishes", (
       fieldErrors: { "kontakte.ansprechperson.email": FELD_ABGELEHNT },
       unplacedError: mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen"))?.error,
     });
-  });
-});
-
-describe("what the blur-time Kürzel check says short of a refusal", () => {
-  const verdictOf = (shorthand: string, taken: boolean) => ({ shorthand: shorthand, taken: taken });
-
-  /* Nothing to say about a code nobody has finished typing: a line under a half-typed box describes
-     a value the check was never asked about. */
-  it("says nothing about an incomplete code", () => {
-    expect(kuerzelHinweis("", null, false)).toBe(null);
-    expect(kuerzelHinweis("GO", null, true)).toBe(null);
-  });
-
-  /* Its own line, not the unjudged one: both mention checking, and a reader told „beim Abschicken“
-     while a request is out learns nothing about the request that is out. */
-  it("says that it is checking while the request is out", () => {
-    expect(kuerzelHinweis("GOE", null, true)).toBe(KUERZEL_PRUEFUNG);
-    expect(KUERZEL_PRUEFUNG).not.toBe(KUERZEL_UNGEPRUEFT);
-  });
-
-  /* The arm a rate limit, a dropped connection and a fresh keystroke all land in. Silent, a school
-     reads „noch frei“ from the last code it typed and finds out at the submit. */
-  it("says the code is unjudged where no verdict covers the value in the box", () => {
-    expect(kuerzelHinweis("GOE", null, false)).toBe(KUERZEL_UNGEPRUEFT);
-    expect(kuerzelHinweis("GOE", verdictOf("GOY", false), false)).toBe(KUERZEL_UNGEPRUEFT);
-    expect(kuerzelHinweis("GOE", verdictOf("GOY", true), false)).toBe(KUERZEL_UNGEPRUEFT);
-  });
-
-  it("confirms a free code, and leaves a taken one to the field error", () => {
-    expect(kuerzelHinweis("GOE", verdictOf("GOE", false), false) ?? "").toMatch(/noch frei/);
-    expect(kuerzelHinweis("GOE", verdictOf("GOE", true), false)).toBe(null);
   });
 });
 

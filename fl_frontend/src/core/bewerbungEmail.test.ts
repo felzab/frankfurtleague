@@ -11,6 +11,7 @@ const ORIGIN = "http://localhost:3000";
 const ZUSAGE: FLBewerbungZusageData = {
   kind: "bewerbung_zusage",
   team: "Ernst-Reuter-Schule",
+  shorthand: "ERS",
   saison_id: "2627",
   rollen: ["ansprechperson"],
   gruppe: "A",

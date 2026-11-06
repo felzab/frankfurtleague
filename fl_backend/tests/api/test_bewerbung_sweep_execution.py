@@ -119,7 +119,7 @@ def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrid
         kontakte=kontakte(),
         submitted_at=MAILED_ON_THE_MARK,
         confirmation_deadline="2026-04-12",
-        schule=documents.new_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.new_schule_document(SCHOOL_NAME, full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
     )
 
     return {**stored, **overrides}

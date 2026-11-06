@@ -11,12 +11,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
-import {
-  BEWERBUNG_STUFENGROESSE_MAX,
-  KUERZEL_LAENGE,
-  SCHULE_NICHT_IN_LISTE,
-  SCHULE_NICHT_IN_LISTE_LABEL,
-} from "@/features/bewerbungen/constants";
+import { BEWERBUNG_STUFENGROESSE_MAX, SCHULE_NICHT_IN_LISTE, SCHULE_NICHT_IN_LISTE_LABEL } from "@/features/bewerbungen/constants";
 import { istNeueSchule } from "@/features/bewerbungen/utils";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import {
@@ -82,8 +77,6 @@ export function FormSchuleSection({
   onStufengroesseChange,
   onFieldLeft,
   onSchulformPicked,
-  onKuerzelLeft,
-  kuerzelHinweis,
   isSchulenLesbar,
 }: {
   /** Name-sorted by the backend, so nothing here re-sorts them. */
@@ -99,10 +92,6 @@ export function FormSchuleSection({
   onFieldLeft: (paths: readonly string[]) => void;
   /** Judged with the school type the event carried, because state has not committed yet. */
   onSchulformPicked: (paths: readonly string[], next: BewerbungSchuleDraft) => void;
-  /** The Kürzel is judged against the league's own list, which only the server can answer. */
-  onKuerzelLeft: (shorthand: string) => void;
-  /** What the check has to say short of a refusal, or `null` where it has nothing to add. */
-  kuerzelHinweis: string | null;
   /** Whether the club list was read at all, so an empty picker says which of the two emptied it. */
   isSchulenLesbar: boolean;
 }) {
@@ -131,7 +120,6 @@ export function FormSchuleSection({
 
   // Ids rather than a bare `<p>`: a sentence a control is not described BY is one a reader never meets.
   const listeHinweisId = useId();
-  const kuerzelHinweisId = useId();
   const adressHinweisId = useId();
   const listeHinweis = !isSchulenLesbar ? LISTE_UNLESBAR : schulen.length === 0 ? LISTE_LEER : null;
 
@@ -316,42 +304,6 @@ export function FormSchuleSection({
             </div>
 
             <div className={FIELD_PAIR_CLASSES}>
-              {/* The verdict's id while the check has something to say, beside the explanation the
-                  description slot names: two different sentences, and naming one alone drops the
-                  other for a reader who cannot see either. */}
-              <TextField
-                name="schule.shorthand"
-                aria-describedby={kuerzelHinweis === null ? undefined : kuerzelHinweisId}
-                value={schule.shorthand}
-                onChange={(next) => setSchuleFeld({ shorthand: next })}
-                onBlur={() => {
-                  onFieldLeft(["schule.shorthand"]);
-                  onKuerzelLeft(schule.shorthand);
-                }}>
-                {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
-                    it hands out is another one where this is taken. */}
-                <Label className={FIELD_LABEL_CLASSES}>Wunschkürzel</Label>
-                <Input
-                  placeholder="z.B. GG"
-                  maxLength={KUERZEL_LAENGE}
-                  className={FIELD_INPUT_CLASSES}
-                />
-                <FieldError className={FIELD_ERROR_CLASSES} />
-                {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
-                    line beside the field would push its neighbour out of the column. */}
-                {kuerzelHinweis !== null && (
-                  <p
-                    id={kuerzelHinweisId}
-                    className="fluid-xxs font-medium text-foreground-muted">
-                    {kuerzelHinweis}
-                  </p>
-                )}
-                <Hint
-                  mode="field"
-                  text="Zwei Buchstaben, mit denen Tabelle und Spielplan Dein Team abkürzen."
-                />
-              </TextField>
-
               {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
                   the moment it is made. */}
               <Select

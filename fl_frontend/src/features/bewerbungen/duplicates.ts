@@ -1,42 +1,28 @@
 import type { FLBewerbung } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 
-/**
- * What two open applications collide on. Never both at once: an application names either a club or a
- * proposed school, the shape `bewerbung_submission_subject_unresolved` refuses, so each row carries exactly one key.
- */
-export type BewerbungDublette = "team" | "kuerzel";
+/** What two open applications collide on: one club picked twice. */
+export type BewerbungDublette = "team";
 
-/**
- * What each collision reads as in the queue.
- *
- * Two wordings and not one: the same club applying twice is one school's doing, while two schools
- * proposing one Kürzel is a clash between strangers, and an administrator acts on them differently.
- */
+/** What the collision reads as in the queue. */
 export const BEWERBUNG_DUBLETTE_LABEL: Record<BewerbungDublette, string> = {
   team: "Team doppelt",
-  kuerzel: "Kürzel doppelt",
 };
 
-/** One tone for both, the grade the app gives a row that wants an eye rather than a fault. */
+/** The grade the app gives a row that wants an eye rather than a fault. */
 export const BEWERBUNG_DUBLETTE_TINT: PillTone = "warning";
 
 /** The fields the collision is decided on, so a stored application and a triage row both answer. */
-type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "schule">;
+type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id">;
 
 /**
- * What an application would collide with another one on, or `null` where it names neither.
+ * What an application would collide with another one on, or `null` where it names no club.
  *
  * The season is part of the key: one club applying in two seasons is two applications, not a
  * duplicate a triage has to decide between.
  */
 function duplicatesKey(bewerbung: Kandidat): { kind: BewerbungDublette; key: string } | null {
-  if (bewerbung.team_id !== null) return { kind: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
-
-  // As served: the backend folds a code on arrival and again as it serves one, so two spellings of one code are one value.
-  const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand;
-
-  return kuerzel === "" ? null : { kind: "kuerzel", key: `${bewerbung.saison_id} kuerzel ${kuerzel}` };
+  return bewerbung.team_id === null ? null : { kind: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
 }
 
 // **Shown, never refused**: uniqueness on an unauthenticated form lets a stranger lock a school out
@@ -56,8 +42,8 @@ export function markBewerbungDubletten(
   const dubletten = new Map<string, BewerbungDublette>();
 
   for (const bewerbung of bewerbungen) {
-    // The ROW's own status and not the key's: two open applications collide on a Kürzel a third,
-    // declined one also carries, and marking that one asks for a decision already taken.
+    // The ROW's own status and not the key's: two open applications collide on a club a third,
+    // declined one also names, and marking that one asks for a decision already taken.
     if (bewerbung.status !== "submitted") continue;
 
     const schluessel = duplicatesKey(bewerbung);

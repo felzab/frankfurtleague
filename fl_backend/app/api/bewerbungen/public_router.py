@@ -12,7 +12,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungEinwilligungAnswerResponse,
     FLBewerbungEinwilligungViewResponse,
-    FLBewerbungKuerzelResponse,
     FLBewerbungNoWindowResponse,
     FLBewerbungSchulenResponse,
     FLBewerbungSchuleOptionListAdapter,
@@ -50,7 +49,6 @@ from app.api.bewerbungen.services import (
     find_picked_club_refusal,
     find_saison_deadline_refusal,
     find_saison_vorbei_einwilligung_refusal,
-    find_shorthand_refusal,
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
@@ -107,7 +105,6 @@ from app.core.security import bind_public_actor, erasure_journal_hash, verify_ac
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
-from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
 from app.shared.tokens import hash_token
@@ -197,23 +194,6 @@ async def get_schulen(teams_collection: TeamsCollection) -> FLBewerbungSchulenRe
     )
 
     return FLBewerbungSchulenResponse(schulen=FLBewerbungSchuleOptionListAdapter.validate_python(teams_raw))
-
-
-@router.get("/kuerzel/{shorthand}", response_model=FLBewerbungKuerzelResponse, summary="Whether a Kürzel is already a club's")
-async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBewerbungKuerzelResponse:
-    """
-    Answer whether any club holds this three-letter code.
-
-    Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
-    naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
-    """
-
-    # Folded as the submission folds it, so the answer is the one the submission will meet; no pattern
-    # on the parameter, a 422 here being the malformed-path answer this application does not give.
-    folded: str = fold_shorthand(shorthand)
-    taken = await teams_collection.count_documents({"shorthand": folded}, limit=1)
-
-    return FLBewerbungKuerzelResponse(shorthand=folded, taken=taken > 0)
 
 
 @router.get(
@@ -338,19 +318,10 @@ async def post_bewerbung(
         # Then who is applying, because the two branches below judge different things.
         refuse(find_submission_subject_refusal(team_id=bewerbung_data.team_id, schule=bewerbung_data.schule))
 
-        # Branched on `schule` rather than on `team_id`, so the narrowing the shorthand read needs is one
-        # the type checker can follow: the refusal above has already made the two branches exclusive.
-        if (schule := bewerbung_data.schule) is not None:
-            # Asked of a NEW school alone: a picked club already holds its own shorthand, and refusing it
-            # for that would make applying impossible.
-
-            # NO `inactive_since` term: `uniq_shorthand` spans retired clubs, so narrowing this to live
-            # ones would pass a submission here that acceptance then fails on a duplicate key.
-            taken = await teams_collection.count_documents({"shorthand": schule.shorthand}, limit=1, session=session)
-            refuse(find_shorthand_refusal(taken=taken > 0))
-        else:
-            # `find_one`, not `pull_one_from_db`: a club the picker never offered is refused with
-            # `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
+        # A picked club alone: a new school has nothing stored to judge. `find_one`, not `pull_one_from_db`: a club the
+        # picker never offered is refused with `bewerbung_picked_team_unusable` rather than answering the 404 a miss would raise.
+        schule, team_raw = bewerbung_data.schule, None
+        if schule is None:
             team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1, "name": 1}, session=session)
             refuse(find_picked_club_refusal(team_raw=team_raw))
 
@@ -370,8 +341,7 @@ async def post_bewerbung(
 
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
 
-        # Every refusal is behind us, so the write follows with nothing left to judge. The uniqueness the
-        # checks narrow is held at acceptance.
+        # Every refusal is behind us, so the write follows with nothing left to judge.
         created = await post_one_to_db(
             collection=bewerbungen_collection,
             document={
