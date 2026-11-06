@@ -17,6 +17,7 @@ import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
 
 import type { ReactNode, RefObject } from "react";
 
+// Redesign: this file goes with the old link pages in `features/address-change`, `features/registrierungen` and `features/spielbestaetigungen`.
 /** The heading of a page whose link could not be checked, on every page a token link opens. */
 export const LINK_UNLESBAR_TITEL = "Link nicht geprüft";
 
@@ -46,13 +47,11 @@ export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElemen
     if (antworten > 0) ergebnisRef.current?.focus();
   }, [antworten]);
 
-  return { ergebnisRef: ergebnisRef, beantwortet: () => setAntworten((bisher) => bisher + 1) };
+  return { ergebnisRef, beantwortet: () => setAntworten((bisher) => bisher + 1) };
 }
 
 /**
- * One section of the page, in the shell every panel of the application form wears
- * (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx`): a
- * contact meets the same box on both ends of the workflow.
+ * One section of the page, a contact meeting the same box on every link page of the workflow.
  */
 export function BestaetigungAbschnitt({ titel, children }: { titel: string; children: ReactNode }) {
   const panel = formPanel();
@@ -112,7 +111,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
   return (
     <dl className="flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
       {zeilen.map(({ label, value, unbegrenzt = false }) => {
-        const { zelle, value: wertKlasse } = fakt({ unbegrenzt: unbegrenzt });
+        const { zelle, value: wertKlasse } = fakt({ unbegrenzt });
 
         return (
           <div
@@ -160,10 +159,8 @@ export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: stri
 }
 
 /**
- * The receipt panel at both ends of the application — this page's states and the form's own
- * „eingegangen“ box
- * (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx`) — one
- * formula for both tones, a second spelling being one nobody re-measures against the scheme.
+ * The receipt panel: one formula for both tones, a second spelling being one nobody re-measures
+ * against the scheme.
  */
 const ergebnisPanel = tv({
   base: "flex w-full flex-col items-center gap-y-4 rounded-2xl border p-6 text-center shadow-sm outline-none sm:p-8",

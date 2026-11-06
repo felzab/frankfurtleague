@@ -31,7 +31,7 @@ const { token } = AddressChangePostAddressChangeAnswerBody.shape;
 export const answerAddressChange = action({
   lane: "public",
   name: "answerAddressChange",
-  input: z.object({ token: token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
+  input: z.object({ token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
   run: async ({ token: link, side, act }): Promise<{ ok: true; value: EndState }> => {
     const answer = act === "primary" ? "confirmed" : "declined";
@@ -42,7 +42,7 @@ export const answerAddressChange = action({
 
     let answered;
     try {
-      answered = await postAddressChangeAnswer({ token: link, answer: answer });
+      answered = await postAddressChangeAnswer({ token: link, answer });
     } catch (error) {
       if (mapAddressChangePressRefusal(error) === null) throw error;
       return { ok: true, value: LINK_INVALID };
@@ -76,7 +76,7 @@ async function carryTheAccount(): Promise<void> {
 export const verwaltungswegBeantworten = action({
   lane: "public",
   name: "verwaltungswegBeantworten",
-  input: z.object({ token: token, antwort: z.enum(["confirmed", "declined", "stopped"]) }),
+  input: z.object({ token, antwort: z.enum(["confirmed", "declined", "stopped"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer or its stop.",
   run: async ({ token: link, antwort }): Promise<ActionAnswer<AdresswechselPresse>> => {
     if (antwort === "confirmed" && (await accountAtNewAddress({ token: link }))) {
@@ -105,7 +105,7 @@ export const verwaltungswegBeantworten = action({
       // The change ended or this link was answered since the page opened: the link's own read says how, so the view
       // states it rather than calling the link void. Null where that read failed.
       const ansicht = await postAddressChangeView({ token: link }).then(viewOf, () => null);
-      return { ok: true, value: { ansicht: ansicht } };
+      return { ok: true, value: { ansicht } };
     }
   },
 });

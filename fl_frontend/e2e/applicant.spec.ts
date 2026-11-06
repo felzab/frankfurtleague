@@ -58,7 +58,7 @@ test("a listed school is rejected, and every seat reads the reason", async ({ pa
   const decided = await filedMessages();
   await administration.getByRole("main").getByRole("button", { name: "Ablehnen", exact: true }).click();
   const dialog = administration.getByRole("dialog", { name: "Bewerbung ablehnen" });
-  await typeInto(dialog.getByRole("textbox", { name: /^Begründung/ }), reason);
+  await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), reason);
   await dialog.getByRole("button", { name: "Ablehnen", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(administration.getByRole("banner").getByText("Abgelehnt", { exact: true })).toBeVisible();
@@ -86,21 +86,23 @@ test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh 
   await expect(page.getByRole("main").getByRole("heading", { name: "Widersprochen", exact: true })).toBeVisible();
   await mailedMessage(personOf(school, "ansprechperson").address, SUBJECT.objected, before);
 
-  // The emptied seat, third of the review page's rows, takes another person.
+  // The emptied seat's row takes another person.
   await openApplication(administration, school);
-  const seats = administration.getByRole("main");
-  await expect(seats.getByText("Niemand", { exact: true })).toBeVisible();
+  const seats = administration.getByRole("list", { name: "Kontaktpersonen" }).getByRole("listitem");
   const replaced = await filedMessages();
-  await seats.getByRole("button", { name: "Sitz bearbeiten" }).nth(2).click();
+  await seats.filter({ hasText: "Niemand" }).getByRole("button", { name: "Sitz bearbeiten" }).click();
   const dialog = administration.getByRole("dialog", { name: "Sitz bearbeiten" });
   const replacement = { firstName: "Noah", lastName: "Neumann", address: `neu.${school.toLowerCase()}@example.com`, phone: "069 90009004" };
   await fillSeat(dialog, replacement);
   await dialog.getByRole("button", { name: "Speichern" }).click();
+  // The write owes the person a link, so the dialog stays open on the address that link goes to.
+  await expect(dialog.getByText(replacement.address)).toBeVisible();
+  await dialog.getByRole("button", { name: "Zurück" }).click();
   await expect(dialog).toBeHidden();
 
   // The seat's fresh link is the new person's, and their confirmation fills it.
   await confirmSeat(page, await mailedLink(replacement.address, SUBJECT.seat, replaced));
   await administration.reload();
-  await expect(seats.getByRole("button", { name: "Sitz bearbeiten" }).first()).toBeVisible();
-  await expect(seats.getByText("Niemand", { exact: true })).toHaveCount(0);
+  const seated = seats.filter({ hasText: `${replacement.firstName} ${replacement.lastName}` });
+  await expect(seated.getByText("Bestätigt", { exact: true })).toBeVisible();
 });

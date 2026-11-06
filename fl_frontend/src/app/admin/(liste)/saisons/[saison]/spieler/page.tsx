@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -29,9 +30,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpieler, ROUTES.adminSpieler.path(saison)));
 }
 
-/** A filter's value in the address, the first where it is repeated. */
-const firstOf = (value: string | string[] | undefined): string | null => (Array.isArray(value) ? value[0] : value) ?? null;
-
 /** What the state filter offers, each by whether a row answers it. */
 const STATES = {
   inKader: { label: WORDS.inKader, holds: (row: FLSpielerAdminRow) => row.inactive_since === null },
@@ -41,7 +39,7 @@ const STATES = {
 
 type State = keyof typeof STATES;
 
-const isState = (value: string | null): value is State => value !== null && Object.hasOwn(STATES, value);
+const STATE_OPTIONS = (Object.keys(STATES) as State[]).map((id) => ({ id, label: STATES[id].label }));
 
 /** One squad row, opening the player's editor in this season: the name with its chip, the club, the shirt and the Stufe. */
 function rowOf(saison: string, row: FLSpielerAdminRow): TableRow {
@@ -61,7 +59,7 @@ function rowOf(saison: string, row: FLSpielerAdminRow): TableRow {
 }
 
 /** The clubs the season's rows name, by name, and the filters over them with the address's values. */
-function filtersOf(rows: readonly FLSpielerAdminRow[], team: string | null, state: string | null): readonly [Filter, Filter] {
+function filtersOf(rows: readonly FLSpielerAdminRow[], team: string | string[] | undefined, state: State | null): readonly [Filter, Filter] {
   const teams = new Map(rows.flatMap((row) => (row.team_name === null ? [] : [[row.team_id, row.team_name] as const])));
   const options = [...teams]
     .sort(([, one], [, other]) => one.localeCompare(other, "de"))
@@ -69,17 +67,17 @@ function filtersOf(rows: readonly FLSpielerAdminRow[], team: string | null, stat
   return [
     {
       name: "team",
-      label: COPY.account.entries.facts.team,
+      label: COPY.shared.facts.team,
       all: SERVER_COPY.season.filter.all,
       options,
-      value: team !== null && teams.has(team) ? team : null,
+      value: filterValue(team, options),
     },
     {
       name: "state",
       label: COPY.admin.schiedsrichter.state,
       all: SERVER_COPY.season.filter.all,
-      options: Object.entries(STATES).map(([id, { label }]) => ({ id, label })),
-      value: isState(state) ? state : null,
+      options: STATE_OPTIONS,
+      value: state,
     },
   ];
 }
@@ -89,8 +87,9 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   const answer = await read(saison);
   if (answer === null) notFound();
   const named = await searchParams;
-  const [team, state] = filtersOf(answer.spieler, firstOf(named.team), firstOf(named.state));
-  const chosen = isState(state.value) ? STATES[state.value] : null;
+  const stateId = filterValue(named.state, STATE_OPTIONS);
+  const [team, state] = filtersOf(answer.spieler, named.team, stateId);
+  const chosen = stateId === null ? null : STATES[stateId];
   const shown = answer.spieler.filter((row) => (team.value === null || row.team_id === team.value) && (chosen === null || chosen.holds(row)));
   return { saison, filters: [team, state] as const, shown };
 }
@@ -99,7 +98,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "team", label: COPY.account.entries.facts.team, hideOnPhone: true, width: "phone" },
+    { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone" },
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
     { key: "stufe", label: WORDS.stufe, hideOnPhone: true },
   ],
@@ -116,6 +115,7 @@ export default function SpielerPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminSpieler" } }}
       filters={season.then(({ filters }) => filters)}
+      filterCount={2}
       list={{
         kind: "table",
         search: { label: WORDS.search },

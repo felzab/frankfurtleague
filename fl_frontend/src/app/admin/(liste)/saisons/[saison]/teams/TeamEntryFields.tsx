@@ -44,7 +44,7 @@ export function TeamEntryFields({
   return (
     <>
       <Select
-        label={COPY.account.entries.facts.team}
+        label={COPY.shared.facts.team}
         name="club"
         isRequired={clubRequired}
         description={WORDS.enterDescription}

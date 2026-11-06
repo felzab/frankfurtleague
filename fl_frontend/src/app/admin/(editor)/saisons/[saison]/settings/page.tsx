@@ -40,7 +40,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
 
 const WORDS = COPY.admin.saison;
-const TEAM = COPY.account.entries.facts.team;
+const TEAM = COPY.shared.facts.team;
 
 /** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
 const LINKS_HEAD: TableHead = { nameLabel: TEAM, columns: [{ key: "link", label: COPY.account.address.link }] };

@@ -14,7 +14,7 @@ type Crawl = "index" | "noindex" | "disallow";
  * One page: the address it answers at, built from its segments, the name its tab and its strip show,
  * and what a search engine may do with it. A link takes its address from here, so each address is spelled
  * once. Next's typed routes are off (`typedRoutes` in `next.config.ts`), so the compiler does not hold a row to
- * a page; `routes.test.ts` holds the rows a mail, a rail frame or a placed page names. A page named by its record,
+ * a page; `routes.test.ts` holds the rows a mail names. A page named by its record,
  * such as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does
  * an address that renders nothing, a route handler sending the request on.
  */
@@ -26,7 +26,7 @@ export type RouteEntry = {
    * The menu entry the page belongs to, where its address lies under another entry's: a frame marks that entry and
    * leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`). `entry` is the
    * entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
-   * `[name]`, which `routes.test.ts` holds to a page folder of the tree.
+   * `[name]`.
    */
   readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
 };
@@ -135,11 +135,9 @@ export const ROUTES = {
   /** The site's pages for a person; `/sitemap.xml` is the crawler's list (`fl_frontend/src/app/sitemap.ts`). */
   sitemap: { path: () => "/sitemap" as const, title: COPY.page.sitemap, crawl: "index" },
   /**
-   * A coming season's application form, which the landing and a mail lead to. Never in the sitemap, whose one
-   * season is the season the site is on and not the one taking applications; the page names its own canonical
-   * address while a window is open and asks not to be listed while none is.
+   * A coming season's application form, which the landing and a mail lead to. Never listed, in the sitemap or by a search
+   * engine, whatever its window: the sitemap's one season is the season the site is on and not the one taking applications.
    */
-  // Session 6: its page is built.
   bewerbung: { path: (saison: string) => `/bewerbung/${saison}` as const, title: COPY.page.bewerbung, crawl: "noindex" },
   /** Signing in, which every page signed out offers as „Konto“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },

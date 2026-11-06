@@ -1,3 +1,4 @@
+// Redesign: goes with the old link pages in `features/address-change`, `features/registrierungen` and `features/spielbestaetigungen`.
 /**
  * The application page's own column, so both ends of every public workflow are one page wide. Its
  * own module, importing no hook, so the application page, a Server Component, can read it.

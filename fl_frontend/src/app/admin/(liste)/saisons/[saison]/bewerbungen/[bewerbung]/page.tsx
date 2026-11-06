@@ -11,6 +11,7 @@ import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
+import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -18,7 +19,7 @@ import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { AcceptFields } from "./AcceptFields";
 import { AcceptDialog, DeclineDialog } from "./DecisionDialogs";
-import { SeatActs } from "./SeatActs";
+import { sendSeatLink, writeSeat } from "./writeSeat";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLBewerbung, FLBewerbungSchule, FLBewerbungSingleResponse } from "@/core/generated/client/types";
@@ -31,7 +32,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/bewerbungen/[bewerbung]">;
 
 const WORDS = COPY.admin.bewerbung;
-const FACTS = COPY.account.entries.facts;
+const FACTS = COPY.shared.facts;
 
 /** A record's text as a fact's value, or the dash a fact the application left empty keeps its row with. */
 const orDash = (value: string | null): Words => (value === null || value === "" ? COPY.shared.noValue : { record: value });
@@ -61,7 +62,7 @@ function decisionFacts({ bewerbung: { status, decision }, entry }: FLBewerbungSi
   if (status === "declined") {
     return [
       { label: WORDS.declinedOn, value: day },
-      { label: COPY.admin.overview.reason, value: orDash(decision.reason) },
+      { label: COPY.admin.spiel.reason, value: orDash(decision.reason) },
     ];
   }
   const farbe = entry?.trikot_farbe ?? null;
@@ -170,13 +171,12 @@ function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
       ? {
           acts: (
             <SeatActs
-              id={bewerbung.id}
-              version={bewerbung.version}
-              seat={seat}
               rollen={rollen}
               person={person}
-              sendable={state === "valid" || state === "expired"}
               rules={SEAT_RULES}
+              write={writeSeat}
+              carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
+              link={state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null}
             />
           ),
         }

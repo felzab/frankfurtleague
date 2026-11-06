@@ -346,7 +346,7 @@ describe("what a ban ends, against a real database", () => {
       data: { email: "unbeteiligt@example.org", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
     });
     const session = (userId: string) => ({
-      userId: userId,
+      userId,
       token: randomUUID(),
       expiresAt: new Date(Date.now() + 60_000),
       createdAt: new Date(),
@@ -385,7 +385,7 @@ describe("an address change carrying the account, against a real database", () =
     const { adapter } = await auth.$context;
     const account = await adapter.create<Record<string, unknown>, { id: string }>({
       model: "user",
-      data: { email: email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+      data: { email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
     });
     for (let index = 0; index < 2; index++) {
       await adapter.create({
@@ -611,7 +611,7 @@ describe("a session only read, against a real database", () => {
     const updatedAt = new Date(Date.now() - (auth.options.session?.updateAge ?? Number.NaN) * 1000 - 60_000);
     await authDb()
       .collection("session")
-      .updateMany({}, { $set: { updatedAt: updatedAt, expiresAt: new Date(updatedAt.getTime() + expiresIn) } });
+      .updateMany({}, { $set: { updatedAt, expiresAt: new Date(updatedAt.getTime() + expiresIn) } });
     const stamps = async () => (await sessionRows()).map((row) => [(row.updatedAt as Date).getTime(), (row.expiresAt as Date).getTime()]);
     const due = await stamps();
 

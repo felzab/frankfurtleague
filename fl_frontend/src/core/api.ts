@@ -2,7 +2,6 @@ import "server-only";
 
 import { drainSoon } from "./afterResponse";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
-import { isPathAsSpelled } from "./apiPath";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
 import { APIBadStatusError, APINetworkError, mayHaveWritten, UnattributedAdminCallError } from "./errors";
 import { Code } from "./generated/client/types";
@@ -20,6 +19,17 @@ const FETCH_TIMEOUT_MS = 15000;
 
 /** The path every endpoint is spelled under, as `fl_backend/openapi.json` writes it into each of its paths. */
 export const BASE_FETCH_PATH = "/api/v0";
+
+/** Whether the URL parser left an endpoint's path as the call site spelled it. */
+function isPathAsSpelled(endpoint: string, builtPathname: string, basePathname: string): boolean {
+  // Dropped rather than compared: the query is the URL's own, and a call site may spell an inline `?a=b`.
+  const spelled = endpoint.split(/[?#]/)[0] ?? "";
+
+  // Catches renavigation — `..`, `.`, an empty segment — and nothing else: an id carrying a plain `/`
+  // survives parsing untouched and reads exactly like a nested endpoint, which is why every generated path builder
+  // percent-encodes its parameters (`fl_frontend/src/core/generated/client/sdk.ts`).
+  return builtPathname === `${basePathname}${spelled}`;
+}
 
 export interface FetchOptions extends RequestInit {
   /** The key the call sends, which the operation's `security` names (`fl_frontend/src/core/transport.ts`). */
@@ -160,7 +170,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       isTimeout: error instanceof Error && error.name === "TimeoutError",
       url: urlObj.toString(),
       ...sent,
-      traceId: traceId,
+      traceId,
       originalError: error,
     });
 
@@ -172,14 +182,14 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       isTimeout: true,
       url: urlObj.toString(),
       ...sent,
-      traceId: traceId,
+      traceId,
     });
   }
 
   const res = await dispatchRequest(sent, async () => {
     let answered: Response;
     try {
-      answered = await fetch(urlObj, { ...customOptions, headers, signal: signal });
+      answered = await fetch(urlObj, { ...customOptions, headers, signal });
     } catch (error) {
       throw asNetworkError(error);
     }

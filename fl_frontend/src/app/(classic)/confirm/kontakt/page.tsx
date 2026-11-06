@@ -56,7 +56,7 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
 async function readView(token: string): Promise<FLBewerbungEinwilligungViewResponse | null> {
   return runWithIncomingTrace(() =>
-    bewerbungenGetEinwilligungView({ token: token }).catch((error: unknown) => {
+    bewerbungenGetEinwilligungView({ token }).catch((error: unknown) => {
       // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
       if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
         return null;
@@ -85,7 +85,7 @@ const rollenOf = ({ rolle, also_rolle: also }: FLBewerbungEinwilligungViewRespon
 /** For whom the person stands, in which season and as what: a season row's seat is entered for a team. */
 const standsFor = (view: FLBewerbungEinwilligungViewResponse): Fact[] => [
   {
-    label: view.quelle === "saison" ? COPY.account.entries.facts.team : COPY.account.entries.facts.school,
+    label: view.quelle === "saison" ? COPY.shared.facts.team : COPY.shared.facts.school,
     value: { record: view.schule },
   },
   { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
@@ -101,14 +101,14 @@ function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): Ma
     facts: standsFor(view),
     sentence: WORDS.text(
       WORDS.opening.seasonRow(team, view.saison_id, rollenOf(view)),
-      WORDS.stored,
+      WORDS.closedStored,
       view.row === "ausgetreten" ? WORDS.teamDeparted(team) : SERVER_COPY.refusalLine.saison_past,
       WORDS.objectionEffect.seasonRow,
     ),
     more: WORDS.more,
     action: objectKontakt,
     acts: { primary: COPY.shared.verb.oppose },
-    carry: { token: token },
+    carry: { token },
   };
 }
 
@@ -138,7 +138,7 @@ function question(view: FLBewerbungEinwilligungViewResponse, token: string, unti
     more: WORDS.more,
     action: answerKontakt,
     acts: { primary: COPY.page.entryConfirmation, secondary: COPY.shared.verb.oppose },
-    carry: { token: token },
+    carry: { token },
     children: (
       <ConfirmationFields
         ageCheck={WORDS.ageCheck(view.minimum_age)}

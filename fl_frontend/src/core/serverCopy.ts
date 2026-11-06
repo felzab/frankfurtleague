@@ -45,8 +45,12 @@ const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du
 // In the two parts around its day, which a mail sets semibold between them.
 const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
 const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
-// The same in an application, where a lapsed seat takes the whole application with it.
-const APPLICATION_DEADLINE = { before: ENTRY_DEADLINE.before, after: ", löschen wir die Bewerbung." };
+// The same in an application, where any seat's lapse takes the whole application with it, so the deletion names no day:
+// another seat's earlier day can overtake the reader's own.
+const APPLICATION_DEADLINE = {
+  before: "Bestätige bis zum",
+  after: ". Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung.",
+};
 const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before} ${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
@@ -408,8 +412,8 @@ export const SERVER_COPY = catalogue({
         // No pronoun: „Diese Angaben“ reads correctly for every name.
         removed: "Diese Angaben haben wir aus der Bewerbung entfernt.",
         replace: "Soll eine andere Person übernehmen, antworte auf diese E-Mail.",
-        /** Around the day it goes. */
-        until: { before: "Sonst löschen wir die Bewerbung am ", after: "." },
+        /** Around the last day it stands, the deletion coming once that day has passed. */
+        until: { before: "Sonst löschen wir die Bewerbung nach dem ", after: "." },
         from: "Widerspruch von",
       },
     },
@@ -507,8 +511,8 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The landing's sections, the blocks About, Kontakt and the sponsors page share with it, and the not-found page's
-   * title, each read by a Server Component.
+   * The landing's sections and the blocks About, Kontakt and the sponsors page share with it, each read by a Server
+   * Component.
    */
   landing: {
     /** The hero's one heading. */
@@ -629,18 +633,19 @@ export const SERVER_COPY = catalogue({
       place: placeName,
       /** A place left vacant, its club having left the season before it was decided, beside the dashed open plaque. */
       vacant: "Nicht vergeben",
-      /** The chip in the card's head, one word for where the season stands: before its start, running, decided. */
-      state: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
     },
 
     /** The league's mail address by its label: Kontakt's row, and the doors' and the sponsors page's link. */
     contact: {
       email: "E-Mail",
     },
-
-    /** The not-found page's title, in every frame. */
-    notFound: "Seite nicht gefunden",
   },
+
+  /** The not-found page's title, in every frame. */
+  notFound: "Seite nicht gefunden",
+
+  /** One word for where a season stands, before its start, running or decided: a season card's chip, a list's. */
+  saisonState: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
 
   /**
    * The public season pages and the kit's season blocks, drawn on the server alone. Every entry is a draft for
@@ -748,10 +753,9 @@ export const SERVER_COPY = catalogue({
       },
       bewerbung: {
         heading: "Bewerbung einer Schule",
-        form: (kontakte: number) =>
-          `Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team, darunter die Anschrift der Schule, und zu jeder der ${formatNumber(kontakte)} Rollen eine Kontaktperson mit Name, E-Mail-Adresse und Telefonnummer; freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.`,
+        form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle, Trainerin oder Trainer, Ansprechperson und Stellvertretung, fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab; eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bekommt einen eigenen Link, über den sie ihren Eintrag innerhalb von ${formatNumber(days)} Tagen mit ihrem Geburtsdatum bestätigt oder ihm widerspricht, ebenso wenn die Liga sie selbst einträgt; das Mindestalter ist ${formatNumber(trainerAge)} Jahre als Trainer und sonst ${formatNumber(otherAge)}. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das der Ansprechperson.`,
+          `Jede Kontaktperson bekommt einen eigenen Link, über den sie ihren Eintrag innerhalb von ${formatNumber(days)} Tagen mit ihrem Geburtsdatum bestätigt oder ihm widerspricht, ebenso wenn die Liga sie selbst einträgt. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das der Ansprechperson, wenn sie noch eingetragen ist. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
       },
       kader: {
         heading: "Im Kader",
@@ -801,7 +805,7 @@ export const SERVER_COPY = catalogue({
       },
       recipients: {
         heading: "Empfänger",
-        lead: "Außer uns erhalten deine Daten nur:",
+        lead: "Außer uns und den oben genannten Personen erhalten deine Daten nur:",
         items: [
           "Hetzner Online GmbH, Nürnberg: unser Server;",
           "Cloudflare, Inc.: jede Anfrage, Turnstile und die Weiterleitung von E-Mails;",
@@ -830,7 +834,7 @@ export const SERVER_COPY = catalogue({
             name: "Bewerbung",
             content: "Schule, Team, Kontaktpersonen",
             period: (bound: RetentionBounds) =>
-              `${formatNumber(bound.bewerbungDays)} Tage, wenn nicht alle bestätigen; abgelehnt ${formatNumber(bound.bewerbungDays)} Tage`,
+              `${formatNumber(bound.bewerbungDays)} Tage, wenn nicht alle bestätigen; abgelehnt ${formatNumber(bound.bewerbungDays)} Tage; sonst bis zum Ende der Saison danach`,
           },
           {
             name: "Kontaktpersonen",
@@ -970,6 +974,8 @@ export const SERVER_COPY = catalogue({
         `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
     },
     stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
+    /** The same on a closed row, whose seat no confirmation filled, so no birthdate stands on it. */
+    closedStored: "Wir speichern deinen Namen und deine Kontaktdaten längstens bis zum Ende der Saison danach.",
     /** At the birthdate's field, by the seat's floor: Art. 13 asks the purpose where the date is asked. */
     ageCheck,
     /** The seat's own last day: an application goes whole when one of its seats lapses. */

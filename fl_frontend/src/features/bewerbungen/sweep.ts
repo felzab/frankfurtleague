@@ -26,7 +26,7 @@ type Uebergangen = { bewerbung: number; registrierung: number };
  */
 export async function runBewerbungSweep() {
   // A listing that failed is the seasons' failure too, and the address changes still run.
-  const saisons = await sweepAlleSaisons().catch((error: unknown) => ({ uebergangen: { bewerbung: 0, registrierung: 0 }, error: error }));
+  const saisons = await sweepAlleSaisons().catch((error: unknown) => ({ uebergangen: { bewerbung: 0, registrierung: 0 }, error }));
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
   const adressen = await sweepAdresswechsel();
   // The other clock no season holds: an entry whose link lapsed unanswered or declined, erased with its log images.
@@ -69,9 +69,9 @@ async function sweepAlleSaisons(): Promise<{ uebergangen: Uebergangen; error?: u
     });
   }
 
-  if (error.length === 0) return { uebergangen: uebergangen };
+  if (error.length === 0) return { uebergangen };
 
-  return { uebergangen: uebergangen, error: new AggregateError(error, `${String(error.length)} of the seasons' sweep calls failed.`) };
+  return { uebergangen, error: new AggregateError(error, `${String(error.length)} of the seasons' sweep calls failed.`) };
 }
 
 /** One season's half, its failure filed under its own line and kept for the pass's answer. */

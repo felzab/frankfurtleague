@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+// Redesign: goes with the old link pages in `features/address-change`, `features/registrierungen` and `features/spielbestaetigungen`.
 /**
  * The one body step of the link pages' own sentences: these are words a reader has to get through, so
  * they take the paragraph grade rather than a caption's meta grade.

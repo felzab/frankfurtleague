@@ -75,7 +75,7 @@ export function RegistrierungFormPanel({
   onLinkTot: () => void;
 }) {
   const [isPending, startSending] = useTransition();
-  const humanCheck = useBotCheck({ siteKey: siteKey, size: "compact" });
+  const humanCheck = useBotCheck({ siteKey, size: "compact" });
   const [draft, setDraft] = useState<RegistrierungFormDraft>(buildEmptyDraft);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it. */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
@@ -270,7 +270,7 @@ export function RegistrierungFormPanel({
                 placeholder="Keine Angabe"
                 options={POSITION_OPTIONS}
                 value={draft.position}
-                onChange={(position) => setDraft({ ...draft, position: position })}
+                onChange={(position) => setDraft({ ...draft, position })}
               />
 
               {/* The season's own set, never `STUFE_OPTIONS`: `orderStufen` is what puts the invite's
@@ -281,7 +281,7 @@ export function RegistrierungFormPanel({
                 placeholder="Keine Angabe"
                 options={orderStufen(view.allowed_stufen)}
                 value={draft.stufe}
-                onChange={(stufe) => setDraft({ ...draft, stufe: stufe })}
+                onChange={(stufe) => setDraft({ ...draft, stufe })}
               />
             </div>
           </section>

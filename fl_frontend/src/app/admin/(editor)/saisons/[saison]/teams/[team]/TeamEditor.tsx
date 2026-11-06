@@ -15,12 +15,13 @@ import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
 import { FLAustrittType } from "@/core/generated/client/types";
+import { KONTAKT_ROLLE_LONG_FORM } from "@/core/teamVocabulary";
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
+import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { schulformOptions, TRIKOT_OPTIONS } from "@/features/teams/options";
 
 import { FormInvitationSection } from "./FormInvitationSection";
-import { SeatActs } from "./SeatActs";
-import { reactivateTeam, recordAustritt, retireTeam } from "./teamActs";
+import { reactivateTeam, recordAustritt, retireTeam, sendSeatLink, writeSeat } from "./teamActs";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -34,11 +35,11 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { SeatRow } from "@/kit/SeatRows";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { InvitationView } from "./FormInvitationSection";
-import type { SeatTarget } from "./SeatActs";
+import type { SeatTarget } from "./seats";
 import type { TeamValues } from "./teamValues";
 
 const WORDS = COPY.admin.team;
-const TEAM = COPY.account.entries.facts.team;
+const TEAM = COPY.shared.facts.team;
 
 /** The boxes of the club's row of the season, which a retired club holding none leaves out. */
 export type TeamRow = {
@@ -242,13 +243,35 @@ export function TeamEditor({
                     : {
                         acts: (
                           <SeatActs
-                            target={target}
-                            team={team}
-                            saison={saison}
-                            version={row.version}
+                            rollen={target.rollen}
+                            person={target.person}
                             rules={seatRules}
-                            {...(row.sendLocked === undefined ? {} : { sendLocked: row.sendLocked })}
-                          />
+                            write={writeSeat}
+                            carry={{ team_id: team, saison_id: saison, seat: target.rolle, version: String(row.version) }}
+                            link={
+                              target.asks
+                                ? {
+                                    send: sendSeatLink,
+                                    seat: { team_id: team, saison_id: saison, seat: target.rolle },
+                                    ...(row.sendLocked === undefined ? {} : { locked: row.sendLocked }),
+                                  }
+                                : null
+                            }>
+                            {target.rolle === "trainer" && (
+                              <Select
+                                label={COPY.team.trainerAlso.label}
+                                name="trainer_is_also"
+                                width="fit"
+                                description={COPY.team.trainerAlso.description}
+                                options={[
+                                  { id: "", label: COPY.team.trainerAlso.none },
+                                  { id: "ansprechperson", label: { record: KONTAKT_ROLLE_LONG_FORM.ansprechperson } },
+                                  { id: "stellvertretung", label: { record: KONTAKT_ROLLE_LONG_FORM.stellvertretung } },
+                                ]}
+                                defaultValue={target.trainerAlso ?? ""}
+                              />
+                            )}
+                          </SeatActs>
                         ),
                       }),
                 }))}

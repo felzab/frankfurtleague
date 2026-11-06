@@ -5,11 +5,11 @@ import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types
 
 /** One call's answer, `after` the place the next call starts after. */
 const antwort = (removed: number, verbleibend: number, after: string | null = null): FLAddressChangeSweepResponse => ({
-  removed: removed,
+  removed,
   discarded: 0,
   effective: 0,
   remaining: verbleibend,
-  after: after,
+  after,
 });
 
 /** The pass's answers in turn; past the last, a place-free answer ends any loop rather than hanging it. */

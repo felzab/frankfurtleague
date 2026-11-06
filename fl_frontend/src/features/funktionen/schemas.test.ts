@@ -22,8 +22,8 @@ const REFUSALS = z
 
 /** The two payloads keyed on an address, each judged on the address alone. */
 const LOOKUPS = [
-  ["the reveal and the sign-out", (email: unknown) => FLLoeschungAdressePayloadSchema.safeParse({ email: email }).success],
-  ["the erasure", (email: unknown) => FLLoeschungPayloadSchema.safeParse({ email: email, reason: REASON }).success],
+  ["the reveal and the sign-out", (email: unknown) => FLLoeschungAdressePayloadSchema.safeParse({ email }).success],
+  ["the erasure", (email: unknown) => FLLoeschungPayloadSchema.safeParse({ email, reason: REASON }).success],
 ] as const;
 
 describe("the address the erasure, its reveal and the sign-out look up", () => {
@@ -70,8 +70,8 @@ describe("the mailbox each lookup asks for", () => {
       "no row is trimmed, so the case compares nothing",
     );
     const parsed = [
-      ["the reveal and the sign-out", (email: string) => FLLoeschungAdressePayloadSchema.parse({ email: email }).email],
-      ["the erasure", (email: string) => FLLoeschungPayloadSchema.parse({ email: email, reason: REASON }).email],
+      ["the reveal and the sign-out", (email: string) => FLLoeschungAdressePayloadSchema.parse({ email }).email],
+      ["the erasure", (email: string) => FLLoeschungPayloadSchema.parse({ email, reason: REASON }).email],
     ] as const;
     for (const [payload, asked] of parsed) {
       for (const row of ADDRESSES) {
@@ -83,7 +83,7 @@ describe("the mailbox each lookup asks for", () => {
 
 describe("the request the erasure answers", () => {
   const refused = (reason: string): string | undefined =>
-    FLLoeschungPayloadSchema.safeParse({ email: "ada@example.org", reason: reason }).error?.issues[0]?.message;
+    FLLoeschungPayloadSchema.safeParse({ email: "ada@example.org", reason }).error?.issues[0]?.message;
 
   it("takes a date and a subject", () => {
     expect(refused(REASON)).toBe(undefined);

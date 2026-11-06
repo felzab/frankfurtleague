@@ -20,10 +20,10 @@ import type { FLKaderRow } from "@/core/generated/client/types";
  * brings it back.
  */
 export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderRow[]; kaderHref: string }) {
-  /** EMPTY rather than absent where the row has none, for `fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx`' reason. */
+  /** EMPTY rather than absent where the row has none: a missing chip reads as a rendering fault, not as „not filled in“. */
   const renderNummer = (zeile: FLKaderRow) => (
     <span
-      // A fixed height, as the admin list's chip: an empty span has no line box to size it.
+      // A fixed height: an empty span has no line box to size it.
       className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
         zeile.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
       }`}>

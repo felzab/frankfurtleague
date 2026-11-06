@@ -149,7 +149,7 @@ export function buildBerechtigungEmail(data: FLGrantData, { origin: rawOrigin }:
   return {
     kind: "notice",
     subjectLine: approvalRequest?.betreff ?? BETREFF,
-    origin: origin,
+    origin,
     firstName: "",
     paragraphs: [
       [aenderungsSatz(aenderung)],

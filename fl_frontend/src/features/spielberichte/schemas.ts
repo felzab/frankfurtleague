@@ -44,13 +44,13 @@ const FLSpielberichtVorschlagSchema = z.object({
  * refuses an untouched picker in its own words before the action parses the wire's shape.
  */
 const torschuetze = <T extends z.ZodType<string | null>>(spieler: T) =>
-  z.object({ side: FLSpielSideSchema, spieler_id: spieler, minute: minute, eigentor: z.boolean() });
+  z.object({ side: FLSpielSideSchema, spieler_id: spieler, minute, eigentor: z.boolean() });
 
 const card = <T extends z.ZodType<string>>(spieler: T) =>
   z.object({
     side: FLSpielSideSchema,
     spieler_id: spieler,
-    minute: minute,
+    minute,
     colour: FLCardColourSchema,
     reason: FLCardReasonSchema.nullable(),
   });

@@ -82,7 +82,7 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
  * moves through the address by the History API, so Back walks the cards without a read; what a card chose is held
  * here, and the run's applications are the ones it opened on, a write's fresh render changing neither.
  */
-export function SammelZusage({
+export function BulkAccept({
   saison,
   rows: served,
   gruppen,
@@ -173,7 +173,7 @@ export function SammelZusage({
     <CheckStep
       table={{
         label: TITLE,
-        nameLabel: COPY.account.entries.facts.school,
+        nameLabel: COPY.shared.facts.school,
         columns: [
           { key: "gruppe", label: COPY.team.gruppe, narrow: true },
           { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true },

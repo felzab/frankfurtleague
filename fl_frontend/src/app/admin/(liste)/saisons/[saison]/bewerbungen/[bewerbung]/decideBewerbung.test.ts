@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { Code } from "@/core/generated/client/types";
 
@@ -22,7 +23,7 @@ doubleApiClient((call) => {
 });
 
 const { acceptBewerbung } = await import("./decideBewerbung");
-const { writeSeat } = await import("./writeSeat");
+const { sendSeatLink, writeSeat } = await import("./writeSeat");
 
 /** The refusal the client raises, naming the box its code words. */
 const refusal = (serverErrorCode: Code, path: readonly string[] = []) =>
@@ -111,5 +112,18 @@ describe("a seat's write", () => {
     state.refusal = refusal(code, [box]);
 
     expect(await writeSeat(person)).toMatchObject({ ok: false, fieldErrors: { [box]: COPY.shared.field.taken } });
+  });
+});
+
+describe("a seat's fresh link", () => {
+  /* The ban came after the application, which the page cannot know: the shared failure line sends the administrator to
+     a retry the same rule refuses again. */
+  it("says the ban list's own sentence", async () => {
+    state.refusal = refusal("bewerbung_kontakt_barred");
+
+    expect(await sendSeatLink({ bewerbung_id: ID, seat: "trainer" })).toMatchObject({
+      ok: false,
+      reason: SERVER_COPY.refusalLine.bewerbung_kontakt_barred,
+    });
   });
 });

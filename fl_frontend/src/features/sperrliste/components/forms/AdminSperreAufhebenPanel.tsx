@@ -16,9 +16,8 @@ import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 /**
- * One row's removal, escalated where the row stands rather than in a dialog:
- * `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` asks about a retirement in words
- * („stilllegen“) that no ban is, this delete keeping nothing.
+ * One row's removal, escalated where the row stands rather than in a dialog: a retirement's words
+ * („stilllegen“) fit no ban, this delete keeping nothing.
  */
 export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: string; gesperrtAm: string }) {
   const twoPress = useTwoPressConfirm({ stepUp: true });

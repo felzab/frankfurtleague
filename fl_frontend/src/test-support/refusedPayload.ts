@@ -21,7 +21,7 @@ export function refusedPayload(fields: readonly FLRefusedField[], endpoint = "/p
     statusCode: 422,
     serverErrorCode: "payload_refused",
     refusedFields: fields,
-    endpoint: endpoint,
+    endpoint,
     method: "POST",
     readOnly: false,
     traceId: "0",

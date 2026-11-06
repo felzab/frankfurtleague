@@ -48,7 +48,7 @@ export const SPERRE_MIT_FOLGEN = "Mit Folgen gesperrt";
 /** The ban dialog's one press, read and armed by its first press and sent by its second. */
 export const SPERRE_PRESS = {
   resting: "Adresse sperren",
-  // No „endgültig“, which the list's own lift makes false, as `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` omits it.
+  // No „endgültig“, which the list's own lift makes false.
   armed: "Ja, Adresse sperren",
   running: "Sperrt...",
   // The exact negation of `SPERRE_ERFOLG`, so a refused ban reads in the same words as a saved one.

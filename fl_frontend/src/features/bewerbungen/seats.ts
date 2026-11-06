@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
 
 import { deliveryChip } from "./zustellLage";
 
@@ -51,13 +51,13 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktRolle, ent
 }
 
 /**
- * The application's people in the label table's order. One person holding two seats (`trainer_is_also`) stands once, on
- * the seat they hold beside the Trainer's: the seat write and the re-send reach both from either, and one answer covers both.
+ * The application's people, the Trainer first. One person holding two seats (`trainer_is_also`) stands once, on the
+ * Trainer's row, as a club's seats do: the seat write and the re-send reach both from either, and one answer covers both.
  */
 export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
   const { kontakte, confirmations } = bewerbung;
-  const also = kontakte.trainer_is_also;
-  return KONTAKT_ROLLEN.filter(({ value }) => also === null || value !== "trainer").map(({ value: seat }) => {
+  const also = seatBesideTrainer(kontakte);
+  return KONTAKT_ROLLEN.filter(({ value }) => value !== also).map(({ value: seat }) => {
     const entry = confirmations[seat];
     // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
     const state = entry?.state ?? "erased";
@@ -65,7 +65,7 @@ export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
     const delivery = deliveryChip(entry?.delivery ?? null);
     return {
       seat,
-      rollen: seat === also ? [seat, "trainer"] : [seat],
+      rollen: seat === "trainer" && also !== null ? [seat, also] : [seat],
       person: kontakte[seat],
       state,
       chips: delivery === null ? [STATE_CHIP[state]] : [STATE_CHIP[state], delivery],

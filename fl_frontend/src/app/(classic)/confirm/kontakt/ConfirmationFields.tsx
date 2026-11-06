@@ -45,7 +45,7 @@ export function ConfirmationFields({
   return (
     <>
       <DateField
-        label={COPY.account.entries.facts.birthday}
+        label={COPY.shared.facts.birthday}
         name="birth_date"
         description={ageCheck}
         isRequired={isBirthDateRequired}

@@ -47,8 +47,8 @@ export const FIELD_COUNT_INPUT_CLASSES = "w-full fluid-sm";
 const INDICATOR_CLEARANCE_CLASSES = "pe-9";
 
 /**
- * For `Autocomplete.Trigger` and `Select.Trigger`. **No `gap-x-*` here**, and both
- * structures are vendored — re-read `autocomplete.js` and `select.js` on an upgrade.
+ * For `Select.Trigger`. **No `gap-x-*` here**, and its structure is vendored — re-read
+ * `select.js` on an upgrade.
  */
 export const FIELD_TRIGGER_CLASSES = `${FIELD_INPUT_CLASSES} ${INDICATOR_CLEARANCE_CLASSES}`;
 

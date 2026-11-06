@@ -34,7 +34,7 @@ export const createSchiedsrichter = action({
   input: SchiedsrichterForm,
   ownWords: ["duplicate_key", "email_not_accepted", "schiedsrichter_address_barred"],
   paths: { name: "name", "kontakt.email": "email" },
-  examples: { phone: COPY.admin.schiedsrichter.phoneExample },
+  examples: { name: COPY.shared.field.exampleName, phone: COPY.admin.schiedsrichter.phoneExample },
   run: async ({ name, email, phone, schule, default_payment }) => {
     await schiedsrichterPostSchiedsrichter({ name, kontakt: { email, phone }, schule, default_payment });
     return { ok: true, value: undefined };

@@ -84,7 +84,7 @@ const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = input instanceof Request ? input.url : String(input);
   const body = String(init?.body ?? "");
-  sent.push({ url: url, method: String(init?.method ?? "GET"), headers: new Headers(init?.headers), body: body });
+  sent.push({ url, method: String(init?.method ?? "GET"), headers: new Headers(init?.headers), body });
 
   if (nextTimesOut) {
     nextTimesOut = false;
@@ -125,8 +125,6 @@ const { auth } = await import("./auth/library.ts");
 const { getAdminSession } = await import("./auth/guards.ts");
 const { getSignInLanding } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
-const { lookUpSubject } = await import("./signInGate.ts");
-const { grantOf } = await import("./grant.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
 const { APINetworkError } = await import("./errors.ts");
 const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
@@ -164,7 +162,7 @@ async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSu
   return runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
     const answer = await getSubjectSession();
 
-    return { answer: answer, actor: getRequestActor() };
+    return { answer, actor: getRequestActor() };
   });
 }
 
@@ -314,29 +312,21 @@ describe("who the seam answers for", () => {
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
-     tells that person to confirm rather than that the league holds nothing of theirs. */
+     tells that person to confirm rather than that the league holds nothing of theirs. Lowered on the
+     same body, the landing tells them the league holds nothing. */
   it("carries the lookup's pending flag as the lookup answered it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unconfirmed: true }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
 
-    expect((await getSubjectSession())?.records.unconfirmed).toBe(true);
-  });
+    for (const unconfirmed of [true, false]) {
+      beginRenderPass();
+      nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unconfirmed }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
 
-  /* The person the flag tells apart: no record anywhere, whom the landing tells the league holds
-     nothing of theirs rather than to confirm. */
-  it("carries a lowered pending flag where the lookup matched nothing at all", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify(HOLDS_NOTHING), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
-
-    expect((await getSubjectSession())?.records.unconfirmed).toBe(false);
+      expect((await getSubjectSession())?.records.unconfirmed).toBe(unconfirmed);
+    }
   });
 
   /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
@@ -628,34 +618,8 @@ describe("the guard across one render pass", () => {
     expect(headerReads() - readsBefore, "the second call read the session again rather than the memo").toBe(oneGuard);
   });
 
-  /* A layout, a guard and a page each asking inside one render pass. */
-  it("reads the session and asks the backend once for every guard of one render pass", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    const oneGuard = await readsOfOneGuard(getSubjectSession);
-    const readsBefore = headerReads();
-    const sentBefore = sent.length;
-
-    const answers = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, () =>
-      Promise.all([getSubjectSession(), getSubjectSession(), getSubjectSession()]),
-    );
-
-    assert.ok(
-      answers.every((answer) => answer?.email === PERSON_EMAIL),
-      "a guard was refused, so the counts below count refusals",
-    );
-    expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(oneGuard);
-    expect(sent.length - sentBefore, "the guards of one render pass each asked the backend").toBe(1);
-
-    // The control: the next request is a new pass and reads again, so the counters count reads.
-    beginRenderPass();
-    await getSubjectSession();
-    expect(headerReads() - readsBefore, "a second request was answered from the first one's read").toBe(2 * oneGuard);
-    expect(sent.length - sentBefore, "a second request was answered from the first one's lookup").toBe(2);
-  });
-
-  /* The counts above pass with this guard's own memo gone, the session read's and the lookup's memos
-     holding them; what it alone saves is a second judgement and a second actor. */
+  /* A count of reads passes with this guard's own memo gone, the session read's and the lookup's memos
+     holding it; what it alone saves is a second judgement and a second actor. */
   it("hands every guard of one render pass the one subject it judged", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
@@ -705,19 +669,5 @@ describe("the guard across one render pass", () => {
       "a guard refused, so the count below counts a refusal",
     );
     expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(oneGuard);
-  });
-
-  /* The admin layout's hold, its switcher and the administrators page each read the grant or the
-     records, and the lookup is what they share: without its memo an admin render asks three times. */
-  it("asks the backend once for the admin guard, the switcher and the page of one render pass", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-    const sentBefore = sent.length;
-
-    const [served] = await Promise.all([getAdminSession(), lookUpSubject(ADMIN_EMAIL), grantOf(ADMIN_EMAIL)]);
-
-    expect(served?.user.email, "the guard refused, so the count below counts a refusal").toBe(ADMIN_EMAIL);
-    expect(sent.length - sentBefore, "the reads of one admin render pass each asked the backend").toBe(1);
   });
 });

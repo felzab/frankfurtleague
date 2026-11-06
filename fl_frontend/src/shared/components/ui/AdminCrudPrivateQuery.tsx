@@ -17,7 +17,7 @@ const PrivateQueryContext = createContext<PrivateQuery | null>(null);
 export function AdminCrudPrivateQuery({ children }: { children: ReactNode }) {
   const [value, setValue] = useState("");
   // On the value alone: a fresh object per render re-renders the list under it on every keystroke.
-  const held = useMemo(() => ({ value: value, set: setValue }), [value]);
+  const held = useMemo(() => ({ value, set: setValue }), [value]);
 
   return <PrivateQueryContext.Provider value={held}>{children}</PrivateQueryContext.Provider>;
 }

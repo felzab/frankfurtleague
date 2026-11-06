@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY, textOf } from "@/core/copy";
@@ -40,11 +41,13 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
     matches.flatMap(({ spiel }) => [spiel.team1, spiel.team2].flatMap((team) => (team === null ? [] : [[team.team_id, team.name] as const]))),
   );
   const words = SERVER_COPY.season.filter;
-  const filter = (name: string, label: Copy, options: Filter["options"]): Filter => {
-    const named = address[name];
-    const value = Array.isArray(named) ? named[0] : named;
-    return { name, label, all: words.all, options, value: options.some((option) => option.id === value) ? (value ?? null) : null };
-  };
+  const filter = (name: string, label: Copy, options: Filter["options"]): Filter => ({
+    name,
+    label,
+    all: words.all,
+    options,
+    value: filterValue(address[name], options),
+  });
   const filters = [
     filter(
       "phase",

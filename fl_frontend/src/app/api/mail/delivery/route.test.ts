@@ -52,7 +52,7 @@ const MESSAGE_AT = "2026-09-08T10:14:59.000Z";
 
 function eventFor(type: string, data: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    type: type,
+    type,
     created_at: EVENT_AT,
     data: {
       email_id: "56761188-7520-42d8-8898-ff6fc54ce618",

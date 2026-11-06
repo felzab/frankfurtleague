@@ -10,7 +10,7 @@ describe("the one treatment a link inside text wears", () => {
     expect(textLink.variantKeys, "the recipe grew a switch beside the tone").toStrictEqual(["tone"]);
 
     for (const tone of ["brand", "muted"] as const) {
-      expect(textLink({ tone: tone }), `the ${tone} tone leaves the underline to a hover`).toMatch(/(^|\s)underline(\s|$)/);
+      expect(textLink({ tone }), `the ${tone} tone leaves the underline to a hover`).toMatch(/(^|\s)underline(\s|$)/);
     }
   });
 

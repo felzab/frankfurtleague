@@ -68,7 +68,7 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   (`fl_backend/app/api/registrierungen/person_router.py :: admit`). There is no guardian workflow:
   the record names nobody else as its source
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`).
-- **A contact seat's confirmation is a Kenntnisnahme under Art. 6(1)(f), not an Einwilligung**; the
+- **A contact seat's confirmation is a `Bestätigung` under Art. 6(1)(f), not an Einwilligung**; the
   only consents on its block are the optional WhatsApp scope and the media answer
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
 - **The minimum age is 16 for every role, and 18 for the Ansprechperson and the Stellvertretung**,
@@ -118,8 +118,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - People and data: a school's three contact persons per application and per season row, each
     with name, address, telephone number and the birthdate their own confirmation types, their
     confirmation or Widerspruch, and each consent choice with its evidence; the school's details,
-    its address among them. Named by the submitter or an administrator, so taken from a third party (Art. 14).
-  - Recipients: administrators.
+    its address among them. Named by whoever submits the application or by an administrator, so
+    taken from a third party (Art. 14).
+  - Recipients: administrators; an application's Ansprechperson, who is told the other seats' first
+    names and roles and who objected, at an address that may be unconfirmed.
 - **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `einladungen`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
     name's publication and media on consent.
@@ -330,6 +332,9 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | The application logs                         | The runtime's size rotation while they run; 30 days as each deploy's copy                                                                                              | `scripts/ops/deploy.sh :: LOG_DIR`                                                                                                                                       |
 | The erasure journal                          | As the application log, and a file per day deleted 30 days after its last change                                                                                       | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                         |
 
+- **A seat an erasure emptied holds no day**, so it takes nobody else: its application goes once no
+  seat's link runs (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), and an empty
+  Ansprechperson seat leaves nobody to tell (`:: owed_loeschung`).
 - **No delivery state has a clock of its own**: each goes with what holds it, the Postausgang row
   its message was sent from or the link entry it went out for. No open or click tracking is
   subscribed ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard)).
@@ -443,6 +448,7 @@ cannot reach is section 5's list, each bounded by its own period.
 | 2026-10-26 | A delivery state stored on the Postausgang row                                                                                                                                                                                                      |
 | 2026-11-04 | One wording per consent, each choice evidenced under its label; a consent's label is its whole sentence; every confirmation link 14 days; a withdrawal by mail; media taken down on withdrawal; Art. 22 before the switch                           |
 | 2026-11-05 | A fixture answer names its answerer by seat alone; an erasure or a Widerspruch clears the reasons typed from the seats it empties                                                                                                                   |
+| 2026-11-06 | An application goes on its day whether or not the Ansprechperson's mail arrived                                                                                                                                                                     |
 
 ## 11. Open, and owed a decision
 
@@ -513,3 +519,20 @@ procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
     media consent foresees are journalistic-editorial content needing a responsible person under
     § 18(2) MStV; and which basis the notice and the page's description should cite, they citing
     § 5 DDG where this record cites § 18(1) MStV first.
+20. **The objection line's place**: whether a footer of 12 px under the Impressum and privacy links
+    in each first-contact mail, and no longer on the confirmation page, is „presented clearly and
+    separately from any other information“ under Art. 21(4).
+21. **A Widerspruch and naming the person again**: after one, an administrator can seat the same
+    person and a new application can name them, which mails them again; nothing checks it and only
+    a keyed hash stays in the journal. Whether a Widerspruch must prevent that, and whether a mark
+    may be kept to do so.
+22. **An adult contact person's birthdate**: whether the one age check carries storing the date
+    until the end of the following season, or a note of the check is enough (Art. 5(1)(c), (e)).
+23. **The source under Art. 14(2)(f)**: the form stores nobody as having sent it, the page saying
+    „in der Bewerbung von {Schule}“ and the notice „von der Person, die die Bewerbung einreicht“.
+    Whether that is enough, recital 61's general information being for various sources.
+24. **A Trainer of 16 or 17**: a contact person may be 16, can give the WhatsApp consent and decides
+    admissions to a squad, seeing other minors' names to do so. Whether the answers on pupils and on
+    the two 18 seats carry that too.
+25. **The Ansprechperson as a recipient**: whether the mails naming the other seats make that person
+    a recipient under Art. 4(9), as section 3 and the notice treat them.

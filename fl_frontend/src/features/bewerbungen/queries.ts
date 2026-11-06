@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { bewerbungenGetBewerbung, bewerbungenGetBewerbungenAdmin } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
@@ -15,12 +15,7 @@ import type { FLBewerbungenAdminListResponse, FLBewerbungSingleResponse } from "
  */
 // `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
 export const getBewerbungenOfSaison = cache(async (saison: string): Promise<FLBewerbungenAdminListResponse | null> =>
-  runAdminRead(() =>
-    bewerbungenGetBewerbungenAdmin({ saison_id: saison }).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  ),
+  runAdminRead(() => orMissing(bewerbungenGetBewerbungenAdmin({ saison_id: saison }))),
 );
 
 /**
@@ -29,10 +24,5 @@ export const getBewerbungenOfSaison = cache(async (saison: string): Promise<FLBe
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
-  runAdminRead(() =>
-    bewerbungenGetBewerbung(bewerbungId).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  ),
+  runAdminRead(() => orMissing(bewerbungenGetBewerbung(bewerbungId))),
 );

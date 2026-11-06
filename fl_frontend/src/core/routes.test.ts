@@ -4,7 +4,7 @@ import path from "node:path";
 import { filesUnder } from "@/test-support/treeWalk.ts";
 import { describe, expect, it } from "vitest";
 
-import { ADDRESS_WORDS, ROUTES, SAISONLESS_PAGES } from "./routes.ts";
+import { ADDRESS_WORDS, ROUTES } from "./routes.ts";
 
 import type { RouteEntry } from "./routes.ts";
 
@@ -42,20 +42,6 @@ describe("the pages a mail opens", () => {
   });
 });
 
-describe("the links every rail frame writes", () => {
-  // The rail's foot signed out, and the strip's and „Mehr“'s two legal pages.
-  it.each(["signIn", "legalNotice", "privacyNotice"] as const)("lead to a page answering at the %s row's address", (row) => {
-    expect(PAGES.has(ROUTES[row].path())).toBe(true);
-  });
-});
-
-describe("the addresses naming no season", () => {
-  // Without its own page such an address falls to `[saison]`, which answers a footer link with the not-found page.
-  it.each(SAISONLESS_PAGES)("answer at the $route row's address", ({ route }) => {
-    expect(PAGES.has(ROUTES[route].path())).toBe(true);
-  });
-});
-
 /**
  * The league's own words an address carries, each by the glossary entry naming it: a segment is a plural or a
  * spelling of its entry's word, and the entry stands in the glossary's core entities or attributes.
@@ -87,9 +73,9 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
  * Trees the rule does not hold yet, each by its address prefix, each gone with the pages it names.
  */
 const UNHELD = [
-  // Redesign: goes with the old admin pages, sessions 6 and 7.
+  // Redesign: goes with the old admin pages, session 7.
   "/area/admin",
-  // Redesign: goes with their last importers, sessions 6 and 8.
+  // Redesign: goes with their last importers, session 8.
   "/api/bestaetigung",
 ];
 

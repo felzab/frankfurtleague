@@ -4,18 +4,13 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { TRIKOT_OPTIONS } from "@/features/teams/options";
 
 import type { FLBewerbungGruppeOffer, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { AcceptRules } from "@/features/bewerbungen/fieldRules";
 import type { Option } from "@/kit/OptionList";
-
-const COLOURS: readonly Option[] = [
-  { id: "", label: COPY.shared.notProvided },
-  ...TRIKOT_FARBEN.map(({ value, label }) => ({ id: value, label: { record: label } })),
-];
 
 /** The groups an acceptance may name, a full one standing closed with its note. */
 function gruppeOptions(gruppen: readonly FLBewerbungGruppeOffer[]): readonly Option[] {
@@ -78,7 +73,7 @@ export function AcceptFields({
         name="trikot_farbe"
         width="fit"
         isRequired={rules.required.trikot_farbe}
-        options={COLOURS}
+        options={TRIKOT_OPTIONS}
         defaultValue={picked?.trikot_farbe ?? wish}
         description={COPY.admin.bewerbung.wish(trikotFarbeLabel(wish))}
       />

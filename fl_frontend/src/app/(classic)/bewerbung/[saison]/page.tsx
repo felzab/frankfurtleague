@@ -7,7 +7,7 @@ import { SwitchPlaceholder } from "@/kit/Switch";
 
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { bewerbungenGetForm } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
@@ -39,12 +39,7 @@ const SEAT_ROWS = ["field", "field", "field", "field"] as const;
  */
 const readForm = cache(async (saison: string): Promise<FLBewerbungFormResponse | null> => {
   if (saison.length !== SAISON_ID_LENGTH) return null;
-  return runWithIncomingTrace(() =>
-    bewerbungenGetForm(saison).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
+  return runWithIncomingTrace(() => orMissing(bewerbungenGetForm(saison)));
 });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {

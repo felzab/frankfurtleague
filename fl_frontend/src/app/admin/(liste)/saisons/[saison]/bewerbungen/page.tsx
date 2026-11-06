@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** The table's head, drawn while the rows are read and over them once they are: a phone keeps the name and its chip. */
 const HEAD: TableHead = {
-  nameLabel: COPY.account.entries.facts.school,
+  nameLabel: COPY.shared.facts.school,
   columns: [
     { key: "received", label: WORDS.received, hideOnPhone: true, width: "date" },
     { key: "seats", label: COPY.admin.spiel.bestaetigungen, hideOnPhone: true },
@@ -39,18 +40,12 @@ const HEAD: TableHead = {
 
 const STANDINGS: readonly Standing[] = ["incomplete", "complete", "accepted", "declined"];
 
-const STAND_OPTIONS: ReadonlyArray<{ id: Standing; label: Copy }> = STANDINGS.map((id) => ({ id, label: STANDING_CHIP[id].label }));
+const STATE_OPTIONS: ReadonlyArray<{ id: Standing; label: Copy }> = STANDINGS.map((id) => ({ id, label: STANDING_CHIP[id].label }));
 
 const ORIGIN_OPTIONS = [
   { id: "new", label: WORDS.newSchool },
   { id: "existing", label: WORDS.existingTeam },
 ] as const;
-
-/** The address's value of a filter, where its options hold it. */
-function chosen<Id extends string>(value: string | string[] | undefined, options: ReadonlyArray<{ id: Id }>): Id | null {
-  const named = Array.isArray(value) ? value[0] : value;
-  return options.find((option) => option.id === named)?.id ?? null;
-}
 
 /** One application's row, opening its review page: an open Dublette's chip stands in its standing's place. */
 function rowOf(row: FLBewerbungListRow, saison: string): TableRow {
@@ -74,15 +69,15 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   const { saison } = await params;
   const read = await getBewerbungenOfSaison(saison);
   if (read === null) notFound();
-  const { stand: named, herkunft } = await searchParams;
-  const stand = chosen(named, STAND_OPTIONS);
-  const origin = chosen(herkunft, ORIGIN_OPTIONS);
+  const addressed = await searchParams;
+  const state = filterValue(addressed.state, STATE_OPTIONS);
+  const origin = filterValue(addressed.origin, ORIGIN_OPTIONS);
   const filters: Filter[] = [
-    { name: "stand", label: COPY.admin.schiedsrichter.state, all: ALL, options: STAND_OPTIONS, value: stand },
-    { name: "herkunft", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
+    { name: "state", label: COPY.admin.schiedsrichter.state, all: ALL, options: STATE_OPTIONS, value: state },
+    { name: "origin", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
   ];
   const rows = read.bewerbungen.filter(
-    (row) => (stand === null || standingOf(row) === stand) && (origin === null || row.new_school === (origin === "new")),
+    (row) => (state === null || standingOf(row) === state) && (origin === null || row.new_school === (origin === "new")),
   );
   const canBulk = read.saison.status === "future" && read.bewerbungen.some((row) => standingOf(row) === "complete");
   return {
@@ -93,7 +88,7 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
       label: ROUTES.adminBewerbungen.title,
       rows: rows.map((row) => rowOf(row, saison)),
       empty: {
-        kind: stand === null && origin === null ? "none" : "filter",
+        kind: state === null && origin === null ? "none" : "filter",
         plural: ROUTES.adminBewerbungen.title,
         glyph: "bewerbungen",
       } as const,

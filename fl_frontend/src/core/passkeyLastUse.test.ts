@@ -61,7 +61,7 @@ function seedPasskey(credentialID: string): Record<string, unknown> {
   const row = {
     id: `passkey-${credentialID}`,
     userId: USER_ID,
-    credentialID: credentialID,
+    credentialID,
     publicKey: COSE_KEY.toString("base64"),
     counter: 0,
     deviceType: "multiDevice",

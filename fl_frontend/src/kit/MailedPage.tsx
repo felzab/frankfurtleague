@@ -35,7 +35,7 @@ export type { EndState } from "./OneShot";
  * and as a press ends on it where the link stopped holding since the page opened.
  */
 export function linkInvalid(next: StatusCardProps["next"]): EndState {
-  return { tone: "warn", title: COPY.template.linkInvalid, next: next };
+  return { tone: "warn", title: COPY.template.linkInvalid, next };
 }
 
 /**

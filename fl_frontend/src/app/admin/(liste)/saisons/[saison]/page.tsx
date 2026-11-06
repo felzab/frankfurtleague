@@ -6,7 +6,7 @@ import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { dayOf, formatList, timeOf } from "@/core/format";
 import { saisonsGetSaisonOverview } from "@/core/generated/client/sdk";
 import {
@@ -44,14 +44,7 @@ const SPIEL = COPY.admin.spiel;
 const FACTS = COPY.admin.facts;
 
 /** The season's open work, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
-const overviewOf = cache((saison: string) =>
-  runAdminRead(() =>
-    saisonsGetSaisonOverview(saison).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  ),
-);
+const overviewOf = cache((saison: string) => runAdminRead(() => orMissing(saisonsGetSaisonOverview(saison))));
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
@@ -208,7 +201,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
     case "schiedsrichter_missing":
       return { line: WORDS.missing(COPY.shared.schiedsrichter) };
     case "team_missing":
-      return { line: WORDS.missing(COPY.account.entries.facts.team) };
+      return { line: WORDS.missing(COPY.shared.facts.team) };
   }
 }
 

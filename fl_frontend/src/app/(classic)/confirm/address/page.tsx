@@ -55,7 +55,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
 
   // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
   const read = await runWithIncomingTrace(() =>
-    postAddressChangeView({ token: token }).catch((error: unknown) => {
+    postAddressChangeView({ token }).catch((error: unknown) => {
       if (mapAddressChangeViewRefusal(error) === null) throw error;
       return null;
     }),
@@ -100,7 +100,7 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
   // Waiting on an approval after the new mailbox confirmed: the old view's, with the approval.
   if (view.state === "confirmed" || view.state === "approval_expired") return oldView(viewOf({ view }), token);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (view.state !== "valid" || view.email === null || (await accountAtNewAddress({ token: token }))) return INVALID;
+  if (view.state !== "valid" || view.email === null || (await accountAtNewAddress({ token }))) return INVALID;
   return question("new", token, COPY.shared.withObject(COPY.signIn.address, "confirm"), COPY.signIn.address, view.email, WORDS.new.question);
 }
 
@@ -108,12 +108,12 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
 function question(side: Side, token: string, title: Copy, label: Copy, email: string, sentence: Copy): MailedState {
   return {
     state: "question",
-    title: title,
-    facts: [{ label: label, value: { record: email } }],
-    sentence: sentence,
+    title,
+    facts: [{ label, value: { record: email } }],
+    sentence,
     action: answerAddressChange,
     acts: { primary: title, secondary: COPY.shared.verb.decline },
-    carry: { token: token, side: side },
+    carry: { token, side },
   };
 }
 
@@ -121,7 +121,7 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
 async function administratorsWay(read: FLAddressChangeViewResponse, token: string): Promise<MailedState> {
   const view = viewOf(read);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (view.state === "valid" && (await accountAtNewAddress({ token: token }))) {
+  if (view.state === "valid" && (await accountAtNewAddress({ token }))) {
     return oldView({ state: "not_confirmable", way: view.way }, token);
   }
   return oldView(view, token);

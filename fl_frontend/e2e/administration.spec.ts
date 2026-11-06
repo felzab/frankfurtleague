@@ -60,4 +60,6 @@ test("a pupil's squad row saves from its editor, and the season's Registrierunge
 
   await page.goto(`/admin/saisons/${RUNNING}/registrierungen`);
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Registrierungen" })).toBeVisible();
+  // The heading stands over an empty list too: a pupil's row of the seed is what says the list was read.
+  await expect(page.getByRole("main").getByRole("link", { name: "Ole Sommer", exact: true })).toBeVisible();
 });

@@ -48,7 +48,11 @@ export const saveSpieler = action({
   input: SaveSpieler,
   ownWords: ["kader_rolle_taken"],
   paths: { rolle: "changes.rolle" },
-  examples: { "changes.nummer": COPY.shared.field.exampleDigits },
+  examples: {
+    "changes.first_name": COPY.shared.field.exampleFirstName,
+    "changes.last_name": COPY.shared.field.exampleLastName,
+    "changes.nummer": COPY.shared.field.exampleDigits,
+  },
   run: async ({ id, saison, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getSpielerSaison(id, saison);
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };

@@ -182,6 +182,11 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
       }>
       <Form
         ref={form}
+        // Enter in a lone text box submits a form with no submit button, and before hydration that is a GET carrying the
+        // field (`formSend`). A function `action` holds the press; hydration has emptied what was typed, so the replay
+        // finds nothing to save and does nothing, where `editor.submit()` would report a save of no change. A hydrated
+        // press stays on `onSubmit`.
+        action={() => undefined}
         validationErrors={editor.fieldErrors}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
         onInvalid={() => editor.block()}

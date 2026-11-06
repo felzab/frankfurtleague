@@ -186,8 +186,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
-  // A club's entry and group move, and its retiring, each of which the Teams pages close off their own read before it is
-  // pressed: the season, its groups or the club's seasons moved since the page was served.
+  // A club's entry and group move, and its retiring, each of which the Teams pages and an application's decision close off
+  // their own read before it is pressed: the season, its groups or the club's seasons moved since the page was served.
   "entry_saison_not_future",
   "entry_gruppe_not_offered",
   "entry_gruppe_full",
@@ -224,10 +224,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // An application decided, or its seats or its season moved, since the page offering its decision was read.
   "bewerbung_already_decided",
   "bewerbung_kontakte_unconfirmed",
-  "entry_saison_not_future",
-  "entry_gruppe_not_offered",
-  "entry_gruppe_full",
-  "entry_gruppe_locked",
+  // A unique index answering a write the page's read let through, with no field to place it on: another press got there first.
+  "duplicate_key",
   // A season's dates, rules, draw, swap, replacement and links, each of which the season editor closes off its own read
   // before it is pressed: the season moved since the page was served.
   "saison_start_taken_place",

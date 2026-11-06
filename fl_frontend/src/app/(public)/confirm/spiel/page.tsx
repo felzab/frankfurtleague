@@ -45,5 +45,5 @@ async function SpielbestaetigungContent(props: NextPageProps) {
   if (gelesen === null) return <SpielbestaetigungView start={{ zustand: "unlesbar" }} />;
   if (gelesen.zustand !== "valid" && gelesen.zustand !== "vorschlag") return <SpielbestaetigungView start={gelesen} />;
 
-  return <SpielbestaetigungView start={{ zustand: gelesen.zustand, ansicht: gelesen.ansicht, token: token }} />;
+  return <SpielbestaetigungView start={{ zustand: gelesen.zustand, ansicht: gelesen.ansicht, token }} />;
 }

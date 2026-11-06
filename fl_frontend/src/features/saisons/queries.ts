@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import {
   saisonsGetFrame,
   saisonsGetKoRunde,
@@ -44,12 +44,7 @@ export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListRespons
  */
 // `cache` memoizes per RENDER PASS, so the tab's title and the page read it once.
 export const getAdminSaison = cache(async (saisonId: string): Promise<FLSaisonAdminResponse | null> =>
-  runAdminRead(() =>
-    saisonsGetSaisonAdmin(saisonId).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  ),
+  runAdminRead(() => orMissing(saisonsGetSaisonAdmin(saisonId))),
 );
 
 /**
@@ -63,18 +58,6 @@ export async function getSaisonFrame(): Promise<FLSaisonFrameResponse> {
   cacheLife("minutes");
 
   return saisonsGetFrame();
-}
-
-/**
- * A season page's one view read, `null` where the backend answers that the season, or the record it names in
- * it, is not the public's to read. Recognised inside each cache scope: an error thrown out of one reaches the
- * caller redacted to a digest, so a catch at the call site cannot recognise it.
- */
-async function orMissing<T>(read: Promise<T>): Promise<T | null> {
-  return read.catch((error: unknown) => {
-    if (isRecordMissing(error)) return null;
-    throw error;
-  });
 }
 
 /** The season's matchdays with their matches and the one to open on, which the Spielplan and the Spielsuche show. */

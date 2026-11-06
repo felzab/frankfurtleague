@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelf } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -33,10 +33,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
   return runAdminRead(() =>
     // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
     // status still throws.
-    schiedsrichterGetSchiedsrichterById(schiedsrichterId).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
+    orMissing(schiedsrichterGetSchiedsrichterById(schiedsrichterId)),
   );
 }
 

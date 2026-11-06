@@ -23,7 +23,7 @@ let adresswechselAnswer: () => Promise<ReturnType<typeof adressen>> = () => Prom
 // client reaches a backend no test process runs.
 doubleApiClient(({ endpoint: requested, method }) => {
   const endpoint = new URL(requested, "http://backend").pathname;
-  const call = { endpoint: endpoint, method: method ?? "GET" };
+  const call = { endpoint, method: method ?? "GET" };
   events.push({ kind: "api", ...call });
   return apiAnswer(call);
 });
@@ -58,7 +58,7 @@ const bewerbungPass = (saisonId: string, failed = 0) => ({
   erased_without_decision: 0,
   kontakt_blocks_emptied: 0,
   redacted_action_log: 0,
-  failed: failed,
+  failed,
 });
 const registrierungPass = (saisonId: string, failed = 0) => ({
   saison_id: saisonId,
@@ -67,7 +67,7 @@ const registrierungPass = (saisonId: string, failed = 0) => ({
   erased_without_decision: 0,
   erased_declined: 0,
   redacted_action_log: 0,
-  failed: failed,
+  failed,
 });
 
 /**

@@ -48,7 +48,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
         ? []
         : rolesOf(subject).roles.filter((funktion) => isSeatAt(funktion, teamId, saisonId));
 
-    if (subject !== null && erster !== undefined) return { subject: subject, seats: [erster, ...weitere] };
+    if (subject !== null && erster !== undefined) return { subject, seats: [erster, ...weitere] };
 
     verdict.grund = subject === null ? "no_session" : "no_seat";
     logRefused(mutationName, verdict.grund);

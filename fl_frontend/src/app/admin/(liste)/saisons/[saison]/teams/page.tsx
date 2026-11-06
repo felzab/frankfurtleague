@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
 import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
+import { adminTeamChip, trikotFarbeLabel } from "@/features/teams/constants";
 import { TEAM_CLUB_REQUIRED, TEAM_ENTRY_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions } from "@/features/teams/options";
 import { getTeamsAdmin } from "@/features/teams/queries";
@@ -17,7 +18,6 @@ import { enterTeam } from "./enterTeam";
 import { TeamEntryFields } from "./TeamEntryFields";
 
 import type { FLTeamsAdminListResponse, FLTeamsAdminRow } from "@/core/generated/client/types";
-import type { ChipProps } from "@/kit/Chip";
 import type { Filter } from "@/kit/Filters";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
@@ -26,17 +26,16 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/teams">;
 
 const WORDS = COPY.admin.team;
-const TEAM = COPY.account.entries.facts.team;
+const TEAM = COPY.shared.facts.team;
 const ACT = { verb: "enter", object: TEAM } as const;
 
-/** One value of a parameter the address may hold, what it holds only where it is one of `allowed`. */
-const oneOf = <Value extends string>(raw: string | string[] | undefined, allowed: Readonly<Record<string, Value>>): Value | null =>
-  Object.values(allowed).find((value) => value === raw) ?? null;
+/** What a read takes as a filter's options, its enum's values: the read's own answer says which of them the list offers. */
+const taken = <Value extends string>(allowed: Readonly<Record<string, Value>>) => Object.values(allowed).map((id) => ({ id }));
 
 /** What the address asks of the list, read off the values the read takes, so a hand-typed one narrows nothing. */
 async function queryOf(searchParams: Props["searchParams"]) {
   const { state, gruppe } = await searchParams;
-  return { state: oneOf(state, FLTeamListState), gruppe: oneOf(gruppe, FLGruppenNames) };
+  return { state: filterValue(state, taken(FLTeamListState)), gruppe: filterValue(gruppe, taken(FLGruppenNames)) };
 }
 
 async function read({ params, searchParams }: Pick<Props, "params" | "searchParams">): Promise<FLTeamsAdminListResponse | null> {
@@ -55,15 +54,9 @@ export async function generateMetadata({ params, searchParams }: Props, parent: 
   return metadataFor(read({ params, searchParams }), () => pageMetadata(parent, ROUTES.adminTeams, ROUTES.adminTeams.path(saison)));
 }
 
-/** The chip after a club's name: „Stillgelegt“ once it left the league, else how it left the season. */
-function chipOf({ inactive_since: retired, austritt_type: type }: FLTeamsAdminRow): ChipProps | undefined {
-  if (retired !== null) return { tone: "neutral", label: COPY.shared.retired };
-  return type === null ? undefined : { tone: "danger", label: COPY.shared.austritt[type].state };
-}
-
 /** One club's row, opening its editor in this season: its Kürzel, its name with its chip, its group and its colour. */
 function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
-  const chip = chipOf(team);
+  const chip = adminTeamChip(team.inactive_since, team.austritt_type);
   return {
     id: team.id,
     name: { record: team.name },
@@ -72,10 +65,7 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
     ...(chip === undefined ? {} : { chip, muted: true }),
     cells: {
       gruppe: team.gruppe === null ? COPY.shared.noValue : COPY.shared.season.gruppe(team.gruppe),
-      trikotFarbe:
-        team.trikot_farbe === null
-          ? COPY.shared.noValue
-          : { record: TRIKOT_FARBEN.find(({ value }) => value === team.trikot_farbe)?.label ?? team.trikot_farbe },
+      trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : { record: trikotFarbeLabel(team.trikot_farbe) },
     },
   };
 }
@@ -100,6 +90,7 @@ export default function AdminTeamsPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminTeams" } }}
       filters={readFilters(list, searchParams)}
+      filterCount={2}
       create={readCreate(list, params)}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readTeams(list, params, searchParams) }}
     />

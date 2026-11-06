@@ -3,6 +3,8 @@ import { COPY } from "@/core/copy";
 import { FieldPair } from "./FieldPair";
 import { TextField } from "./TextField";
 
+import type { Copy } from "@/core/copy";
+
 const WORDS = COPY.admin.spielort;
 
 /** An address's boxes, by the names they post under. */
@@ -20,18 +22,26 @@ export type AddressRules = {
  * An address's lines, in a create dialog and an editor's box alike, on a venue and a club: the street and its number,
  * the postcode and its town, each pair one line of the address, sharing a row at every width, the postcode before its
  * town as a German address writes it, and the district. Each box posts under its own name; an editor's draft holds
- * the values through `draft`, and without one a new address starts in the league's town.
+ * the values through `draft`, a form holding its typed text itself names each box and keeps its text through `box`, and
+ * without a draft a new address starts in the league's town.
  */
 export function AddressFields({
   rules,
   draft,
+  box,
+  streetDescription,
 }: {
   rules: AddressRules;
   draft?: { values: Readonly<Record<AddressField, string>>; set: (field: AddressField, value: string) => void };
+  box?: (field: AddressField) => { name: string; defaultValue?: string; onChange: (value: string) => void };
+  streetDescription?: Copy;
 }) {
   const { required, maxLength, plzLength } = rules;
-  const bound = (field: AddressField) =>
-    draft === undefined ? {} : { value: draft.values[field], onChange: (value: string) => draft.set(field, value) };
+  const bound = (field: AddressField) => {
+    if (draft !== undefined) return { name: field, value: draft.values[field], onChange: (value: string) => draft.set(field, value) };
+    const held: { name: string; defaultValue?: string; onChange?: (value: string) => void } = box?.(field) ?? { name: field };
+    return field === "stadt" ? { ...held, defaultValue: held.defaultValue ?? WORDS.stadtDefault } : held;
+  };
   return (
     <>
       <FieldPair
@@ -39,7 +49,7 @@ export function AddressFields({
         phone="pair">
         <TextField
           label={WORDS.strasse}
-          name="strasse"
+          description={streetDescription}
           width="W3"
           kind="text"
           isRequired={required.strasse}
@@ -48,7 +58,6 @@ export function AddressFields({
         />
         <TextField
           label={WORDS.hausnummer}
-          name="hausnummer"
           width="C5"
           kind="text"
           isRequired={required.hausnummer}
@@ -61,7 +70,6 @@ export function AddressFields({
         phone="pair">
         <TextField
           label={WORDS.plz}
-          name="plz"
           width="C5"
           kind="digits"
           isRequired={required.plz}
@@ -71,17 +79,15 @@ export function AddressFields({
         />
         <TextField
           label={WORDS.stadt}
-          name="stadt"
           width="W3"
           kind="text"
           isRequired={required.stadt}
           maxLength={maxLength.stadt}
-          {...(draft === undefined ? { defaultValue: WORDS.stadtDefault } : bound("stadt"))}
+          {...bound("stadt")}
         />
       </FieldPair>
       <TextField
         label={WORDS.stadtteil}
-        name="stadtteil"
         width="W3"
         kind="text"
         isRequired={required.stadtteil}
