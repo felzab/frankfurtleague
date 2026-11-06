@@ -507,7 +507,7 @@ const handedOnError = (object) =>
  * it did not happen. `sent` is a public form's transport answer, whose `error` is no action's, in a
  * module posting one.
  */
-// Redesign: `gesendet` goes with the confirmation pages sessions 6 to 8 delete, the last spelling it.
+// Redesign: `gesendet` goes with the confirmation pages sessions 7 and 8 delete, the last spelling it.
 const SENT = "/^(?:sent|gesendet)$/";
 const FAILURE_BY_HAND = syntax(
   [
