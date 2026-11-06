@@ -21,7 +21,7 @@ import { tv } from "./tv";
  */
 export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1" });
 
-export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
+export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" });
 
 /** The asterisk after a required field's label. */
 export const requiredMark = tv({ base: "text-danger" });
@@ -206,7 +206,7 @@ export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" 
  * as the keys' focus does (`focus.css`), over the chosen day's inverted mark too.
  */
 export const calendarCell = tv({
-  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-hovered:bg-layer data-outside-month:text-fg-muted data-pressed:bg-layer data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
+  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-outside-month:text-fg-muted data-pressed:bg-layer data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
 });
 
 /**

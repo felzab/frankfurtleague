@@ -113,7 +113,7 @@ export function SecurityBoxes({
           locked: setUpClosed,
           line: lastKept,
         }}>
-        {rows.length > 0 && <AccountRows rows={rows} />}
+        {rows.length > 0 ? <AccountRows rows={rows} /> : undefined}
       </AccountBox>
       <AccountBox
         title={COPY.account.devices.title}
