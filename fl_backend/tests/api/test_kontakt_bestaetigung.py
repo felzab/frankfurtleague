@@ -25,7 +25,7 @@ from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, confirmation_deadli
 from app.api.identity.crud import roles_of
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import invite_kontakt, patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload
 from app.api.teams.services import (
     compose_kontakt_bestaetigung,
 )
@@ -236,9 +236,7 @@ async def save(
     answer = await patch_saison_team_kontakte(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-            {"kontakte": kontakte, "kontakte_stand": kontakte_stand_of(row.get("kontakte"))}
-        ),
+        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "version": row["version"]}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],

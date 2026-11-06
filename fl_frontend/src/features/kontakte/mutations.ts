@@ -19,9 +19,9 @@ export async function patchSaisonTeamKontakte({
   team_id,
   saison_id,
   kontakte,
-  kontakte_stand,
+  version,
 }: { team_id: string; saison_id: string } & FLPatchSaisonTeamKontaktePayload): Promise<FLPatchSaisonTeamKontakteResponse> {
-  return teamsPatchSaisonTeamKontakte(team_id, saison_id, { kontakte: kontakte, kontakte_stand: kontakte_stand });
+  return teamsPatchSaisonTeamKontakte(team_id, saison_id, { kontakte: kontakte, version: version });
 }
 
 /** The backend owes the link's mail in the write itself; the seat's earlier link stops opening anything. */

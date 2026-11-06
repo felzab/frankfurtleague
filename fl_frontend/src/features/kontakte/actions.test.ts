@@ -67,7 +67,7 @@ const GESPEICHERT = {
   stellvertretung: storedSeat("Bernd", "bernd@schule.example"),
   trainer_is_also: null,
 };
-const PAYLOAD = { team_id: TEAM_ID, saison_id: "2627", kontakte: BLOCK, kontakte_stand: "9f2c" };
+const PAYLOAD = { team_id: TEAM_ID, saison_id: "2627", kontakte: BLOCK, version: 3 };
 
 /** The save's answer: the block as stored and each person it owed a link. */
 const saved = (confirmations: unknown[]) => ({
@@ -90,7 +90,7 @@ const holding = (kontakte: unknown) => () => ({
       schulform: null,
       inactive_since: null,
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [membershipAnswer({ saison_id: "2627", kontakte: kontakte, kontakte_stand: "9f2c" })],
+      memberships: [membershipAnswer({ saison_id: "2627", kontakte: kontakte, version: 3 })],
     },
   ],
 });

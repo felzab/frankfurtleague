@@ -25,7 +25,7 @@ from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
@@ -236,9 +236,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
     return await patch_saison_team_kontakte(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-            {"kontakte": dict(kontakte), "kontakte_stand": kontakte_stand_of(STORED)}
-        ),
+        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": dict(kontakte), "version": 0}),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],

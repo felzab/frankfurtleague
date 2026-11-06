@@ -82,8 +82,8 @@ export type TeamSaisonMembership = {
     confirmations: FLSaisonTeamConfirmationsView | null;
     /** Each seat's pending address change, read beside the block for the contacts editor. */
     address_change: FLSaisonTeamAddressChange | null;
-    /** The token `PATCH .../kontakte` judges a save against, carried from the read (`kontakte_moved_under_the_save`). */
-    kontakte_stand: string;
+    /** The row's count of writes, which `PATCH .../kontakte` judges a save against (`version_stale`). */
+    version: number;
   } | null;
 };
 

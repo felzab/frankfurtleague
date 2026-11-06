@@ -5265,11 +5265,9 @@ export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: str
 /**
  * Rewrite the three people this team is reached through for one season. Null clears the block.
  *
- * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
- * rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
- * beside the block, and a row whose block answers to another token is refused rather than
- * overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
- * which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
+ * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
+ * its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
+ * an erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
  * `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
  * `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.

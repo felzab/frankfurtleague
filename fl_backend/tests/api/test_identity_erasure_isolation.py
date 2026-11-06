@@ -17,7 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_decline_update
 from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.tokens import hash_token
@@ -170,11 +170,11 @@ async def club_row(database: AsyncDatabase) -> dict[str, Any]:
     return found
 
 
-async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, stand: str) -> Any:
+async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, version: int) -> Any:
     return await patch_saison_team_kontakte(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
+        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "version": version}),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -205,15 +205,15 @@ def junction_values(row: dict[str, Any], **changed: Any) -> dict[str, Any]:
 
 
 async def the_block_it_was_served(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    stand = kontakte_stand_of((await club_row(database))["kontakte"])
+    version = (await club_row(database))["version"]
 
-    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED), stand)
+    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED), version)
 
 
 async def another_seat_filled(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    stand = kontakte_stand_of((await club_row(database))["kontakte"])
+    version = (await club_row(database))["version"]
 
-    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED, ansprechperson=BESIDE), stand)
+    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED, ansprechperson=BESIDE), version)
 
 
 async def the_row_as_it_stands(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
@@ -253,8 +253,8 @@ class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Saved twice, the first minting the person's link, so the stored block is what a later send of it composes.
-            await contacts_saved(database, client, kontakte_document(trainer=SEATED), kontakte_stand_of(None))
-            await contacts_saved(database, client, kontakte_document(trainer=SEATED), kontakte_stand_of((await club_row(database))["kontakte"]))
+            await contacts_saved(database, client, kontakte_document(trainer=SEATED), 0)
+            await contacts_saved(database, client, kontakte_document(trainer=SEATED), (await club_row(database))["version"])
             keeping = await prepare(database, client)
             on_the_row = {"collection": str(Collection.SAISON_TEAMS)}
             written: list[str] = []

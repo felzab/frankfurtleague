@@ -79,7 +79,6 @@ from app.api.teams.services import (
     find_kontakt_seat_barred_refusal,
     find_kontakt_sitz_refusal,
     find_kontakt_zeile_refusal,
-    find_kontakte_precondition_refusal,
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
@@ -648,12 +647,11 @@ async def patch_saison_team_kontakte(
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
 
-    Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
-    rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
-    beside the block, and a row whose block answers to another token is refused rather than
-    overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
-    which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
-    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
+    Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
+    its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
+    an erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is
+    refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`. A `past` season's
+    contacts stay correctable. Each seat's `entered_by` and
     `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
     on is stored as the league's entry, unconfirmed.
 
@@ -683,17 +681,15 @@ async def patch_saison_team_kontakte(
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
-        # In session, so the precondition judges what this write will land on. Read outside one, an
-        # erasure (`app/api/identity/crud.py :: erase_everything`) committing between the
-        # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
+        # In session, so everything below composes on what this write lands on. Read outside one, an erasure
+        # (`app/api/identity/crud.py :: erase_everything`) committing between the read and the `$set` puts the seat it
+        # cleared back, the version it raised being what refuses the save.
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
             projection=["kontakte", "confirmations", "name", "austritt"],
             session=session,
         )
-
-        refuse(find_kontakte_precondition_refusal(expected=payload["kontakte_stand"], stored=stored.get("kontakte")))
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 

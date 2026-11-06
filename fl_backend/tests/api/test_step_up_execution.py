@@ -18,7 +18,6 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.teams.schemas import kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -136,7 +135,7 @@ class TestTheClubsContacts:
 
     def test_a_clearing_from_an_older_sign_in_is_refused_and_clears_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            payload = {"kontakte": None, "kontakte_stand": kontakte_stand_of(self.NOBODY)}
+            payload = {"kontakte": None, "version": 0}
             response = await http.patch(self.URL, headers=OLDER, json=payload)
             stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
             return refused(response), stored and stored["kontakte"]
@@ -145,7 +144,7 @@ class TestTheClubsContacts:
 
     def test_a_rewrite_takes_the_older_sign_in(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> int:
-            payload = {"kontakte": dict(self.NOBODY), "kontakte_stand": kontakte_stand_of(self.NOBODY)}
+            payload = {"kontakte": dict(self.NOBODY), "version": 0}
             return (await http.patch(self.URL, headers=OLDER, json=payload)).status_code
 
         assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == 200
@@ -163,7 +162,7 @@ class TestTheClubsContacts:
         }
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            payload = {"kontakte": {**self.NOBODY, "trainer": newcomer}, "kontakte_stand": kontakte_stand_of(self.NOBODY)}
+            payload = {"kontakte": {**self.NOBODY, "trainer": newcomer}, "version": 0}
             response = await http.patch(self.URL, headers=OLDER, json=payload)
             stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
             return refused(response), stored and (stored["kontakte"], stored.get("confirmations"))
@@ -187,7 +186,7 @@ class TestTheClubsContacts:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM_ID}, {"$set": {"kontakte": seated}})
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            payload = {"kontakte": dict(self.NOBODY), "kontakte_stand": kontakte_stand_of(seated)}
+            payload = {"kontakte": dict(self.NOBODY), "version": 0}
             response = await http.patch(self.URL, headers=OLDER, json=payload)
             stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
             return refused(response), stored and stored["kontakte"]

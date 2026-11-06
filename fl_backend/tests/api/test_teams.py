@@ -117,4 +117,4 @@ class TestTheContactsPatchPayload:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate({})
 
-        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte", "kontakte_stand"]
+        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte", "version"]

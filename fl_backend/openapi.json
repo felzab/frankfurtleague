@@ -247,7 +247,6 @@
           "entry_gruppe_locked",
           "team_retired",
           "role_not_held",
-          "kontakte_moved_under_the_save",
           "kontakt_seat_without_confirmation",
           "kontakt_seat_barred",
           "kontakt_row_without_saison",
@@ -9019,7 +9018,7 @@
       },
       "FLPatchSaisonTeamKontaktePayload": {
         "additionalProperties": false,
-        "description": "The contact block alone, plus the token naming which block it was composed against.\n\n`extra=\"forbid\"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.",
+        "description": "The contact block alone, on the row's `version` it was composed against.\n\n`extra=\"forbid\"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.",
         "properties": {
           "kontakte": {
             "anyOf": [
@@ -9031,25 +9030,15 @@
               }
             ]
           },
-          "kontakte_stand": {
-            "title": "Kontakte Stand",
-            "type": "string"
-          },
           "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "kontakte",
-          "kontakte_stand"
+          "version"
         ],
         "title": "FLPatchSaisonTeamKontaktePayload",
         "type": "object"
@@ -18379,12 +18368,6 @@
               }
             ]
           },
-          "kontakte_stand": {
-            "description": "The token a save against this contact block has to echo back.",
-            "readOnly": true,
-            "title": "Kontakte Stand",
-            "type": "string"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -18413,8 +18396,7 @@
           "kontakte",
           "confirmations",
           "address_change",
-          "version",
-          "kontakte_stand"
+          "version"
         ],
         "title": "FLTeamMembership",
         "type": "object"
@@ -32652,7 +32634,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and\n`confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own\ntransaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering\nboth seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or\nhanded on loses the one it held and its links on the team's open match confirmations, so the person who left it\nholds nothing live. A save newly seating an address the ban list holds is\nrefused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`\nits caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,\nan erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and\n`confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own\ntransaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering\nboth seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or\nhanded on loses the one it held and its links on the team's open match confirmations, so the person who left it\nholds nothing live. A save newly seating an address the ban list holds is\nrefused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one.",
         "operationId": "teams_patch_saison_team_kontakte",
         "parameters": [
           {

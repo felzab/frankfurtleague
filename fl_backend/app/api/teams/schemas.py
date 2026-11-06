@@ -1,8 +1,6 @@
-import hashlib
-import json
 import re
 from collections.abc import Mapping
-from typing import Annotated, Any, Final, Literal, Self, get_args
+from typing import Annotated, Final, Literal, Self, get_args
 
 from pydantic import (
     AfterValidator,
@@ -13,7 +11,6 @@ from pydantic import (
     RootModel,
     StringConstraints,
     TypeAdapter,
-    computed_field,
     model_validator,
 )
 
@@ -282,49 +279,6 @@ class FLSaisonTeamAddressChange(BaseModel):
     viewable_denied: FLSaisonTeamAddressChangeDenied
 
 
-def _project_seat(value: Any) -> Any:
-    """One seat with every READ field spelled, so the token reads the stored block as the read model does."""
-
-    # `parse_empty_string_to_none` at every leaf, the coercion the read model makes on the way in: a
-    # stored blank it nulls would answer a token no read can mint, and that row would refuse every
-    # save made against it.
-    if not isinstance(value, Mapping):
-        # A value that is no mapping is no seat, which carries `trainer_is_also` and a fourth
-        # seat alike.
-        return parse_empty_string_to_none(value)
-
-    projected: dict[str, Any] = {field: _projected_leaf(value, field) for field in FLKontaktperson.model_fields}
-    einwilligung = projected.get("einwilligung")
-    if isinstance(einwilligung, Mapping):
-        # Never `evidence`: it moves only with a choice or a stamp the token already holds, and its
-        # nested defaults would part a stored block's token from its read's.
-        projected["einwilligung"] = {
-            field: _projected_leaf(einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields if field != "evidence"
-        }
-
-    return projected
-
-
-def _projected_leaf(stored: Mapping[str, Any], field: str) -> Any:
-    return parse_empty_string_to_none(stored.get(field))
-
-
-# DERIVED and stored nowhere: a version the row carried would have to be bumped by every writer of
-# `kontakte`, and a club rename would then refuse a contacts save.
-def kontakte_stand_of(block: Any) -> str:
-    """The token naming which contact block a save was composed against. A precondition, never a secret."""
-
-    # Projected rather than validated, so a value the read model refuses cannot 500 the very save
-    # that repairs it.
-    projected = {field: _project_seat(block.get(field)) for field in FLSaisonTeamKontakte.model_fields} if isinstance(block, Mapping) else block
-    # Sorted keys and `sha256`, never `hash()`, whose seed changes per process.
-    # `default` reaches only a stored value no model describes,
-    # each of which `str` renders the same way twice.
-    canonical = json.dumps(projected, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
-
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
 # The ceilings are here and not on the read models above for `FLAddressPayload`'s reason: refusing a
 # stored value on read answers 500 for a whole list over one row, and locks out the write that would
 # repair it.
@@ -559,13 +513,6 @@ class FLTeamMembership(BaseReadModel):
     # The row's count of writes, which its two editors' saves send back.
     version: int = 0
 
-    @computed_field
-    @property
-    def kontakte_stand(self) -> str:
-        """The token a save against this contact block has to echo back."""
-
-        return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
-
 
 class FLTeamWithMemberships(FLTeamRecord):
     """The stored club document plus every season membership it holds.
@@ -669,7 +616,7 @@ class FLPatchSaisonTeamPayload(BaseModel):
 
 
 class FLPatchSaisonTeamKontaktePayload(BaseModel):
-    """The contact block alone, plus the token naming which block it was composed against.
+    """The contact block alone, on the row's `version` it was composed against.
 
     `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this
     endpoint was never asked to decide.
@@ -680,11 +627,9 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     # Nullable, and required: null CLEARS the block, which is how a team with no recorded contacts is
     # expressed at entry and must stay expressible here.
     kontakte: FLSaisonTeamKontaktePayload | None
-    # One opaque token rather than the read block echoed back, which would put a read model on a
-    # request body. Required with no default: an omitted precondition judges nothing.
-    kontakte_stand: str
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
+    # Required with no default: an omitted precondition judges nothing, and every writer of the block raises the count,
+    # so a seat confirmed, objected to or erased under an open editor refuses the save rather than being overwritten.
+    version: int = Field(ge=0)
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):

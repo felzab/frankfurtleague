@@ -3940,11 +3940,9 @@ export const TeamsPostInvitationDispatchBody = zod
 /**
  * Rewrite the three people this team is reached through for one season. Null clears the block.
  *
- * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
- * rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
- * beside the block, and a row whose block answers to another token is refused rather than
- * overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
- * which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
+ * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
+ * its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
+ * an erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
  * `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
  * `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.
@@ -4007,6 +4005,7 @@ export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneLastNameMax = 
 
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOneLastNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const teamsPatchSaisonTeamKontakteBodyKontakteOneTrainerOnePhoneRegExp = new RegExp("^([+]?[ 0-9\\-().]{2,19}[0-9])$");
+export const teamsPatchSaisonTeamKontakteBodyVersionMin = 0;
 
 export const TeamsPatchSaisonTeamKontakteBody = zod
   .object({
@@ -4083,11 +4082,10 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
         ),
       zod.null(),
     ]),
-    kontakte_stand: zod.string(),
-    version: zod.union([zod.int(), zod.null()]).optional(),
+    version: zod.int().min(teamsPatchSaisonTeamKontakteBodyVersionMin),
   })
   .describe(
-    'The contact block alone, plus the token naming which block it was composed against.\n\n`extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.',
+    'The contact block alone, on the row\'s `version` it was composed against.\n\n`extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.',
   );
 
 /**

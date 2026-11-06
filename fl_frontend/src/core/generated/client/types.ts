@@ -117,7 +117,6 @@ export const Code = {
   entry_gruppe_locked: "entry_gruppe_locked",
   team_retired: "team_retired",
   role_not_held: "role_not_held",
-  kontakte_moved_under_the_save: "kontakte_moved_under_the_save",
   kontakt_seat_without_confirmation: "kontakt_seat_without_confirmation",
   kontakt_seat_barred: "kontakt_seat_barred",
   kontakt_row_without_saison: "kontakt_row_without_saison",
@@ -3894,15 +3893,15 @@ export interface FLSaisonTeamKontaktePayload {
 }
 
 /**
- * The contact block alone, plus the token naming which block it was composed against.
+ * The contact block alone, on the row's `version` it was composed against.
  *
  * `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this
  * endpoint was never asked to decide.
  */
 export interface FLPatchSaisonTeamKontaktePayload {
   kontakte: FLSaisonTeamKontaktePayload | null;
-  kontakte_stand: string;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -6240,8 +6239,6 @@ export interface FLTeamMembership {
   confirmations: FLSaisonTeamConfirmationsView | null;
   gruppe: FLGruppenNames;
   kontakte: FLSaisonTeamKontakte | null;
-  /** The token a save against this contact block has to echo back. */
-  readonly kontakte_stand: string;
   saison_id: string;
   trikot_farbe: FLTrikotFarbe | null;
   version: number;

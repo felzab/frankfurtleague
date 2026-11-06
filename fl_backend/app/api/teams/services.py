@@ -24,7 +24,6 @@ from app.api.teams.schemas import (
     FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
-    kontakte_stand_of,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -1107,9 +1106,8 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     if held is None:
         return None
 
-    # A stored blank is a date every read already answers as none
-    # (`app/api/teams/schemas.py :: _project_seat`), so writing it back would keep a value no reader
-    # can see and no token can tell from null.
+    # A stored blank is a date every read already answers as none, so writing it back would keep a
+    # value no reader can see.
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
@@ -1405,22 +1403,6 @@ def find_kontakt_seat_barred_refusal(*, barred: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=Code.KONTAKT_SEAT_BARRED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_kontakte_precondition_refusal(*, expected: str, stored: Any) -> WriteRefusal | None:
-    """Why this save may not land on the block the row now holds, or `None`.
-
-    Refused whole rather than merged into the changed paths: an erasure clearing one seat leaves the
-    whole open editor stale.
-    """
-
-    if kontakte_stand_of(stored) == expected:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.KONTAKTE_MOVED_UNDER_THE_SAVE,
         status=HTTPStatus.CONFLICT,
     )
 

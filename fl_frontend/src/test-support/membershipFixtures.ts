@@ -10,6 +10,6 @@ export const membershipAnswer = (overrides: Record<string, unknown> = {}) => ({
   kontakte: null,
   confirmations: null,
   address_change: null,
-  kontakte_stand: "",
+  version: 0,
   ...overrides,
 });
