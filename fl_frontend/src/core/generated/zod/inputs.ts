@@ -1281,36 +1281,6 @@ export const OutboxPostSignInBody = zod
   .describe("One mail of the sign-in library, owed to the address it names.");
 
 /**
- * Every pending registration, newest first, narrowed by season, team and status.
- *
- * `complete` is false where more rows exist than one read serves, `confirmed` says whether the pupil answered their own
- * link, and a barred decision's author is served as `null` beside `decision.by_barred`.
- * @summary List Registrierungen
- */
-export const registrierungenGetRegistrierungenQuerySaisonIdOneMin = 4;
-export const registrierungenGetRegistrierungenQuerySaisonIdOneMax = 4;
-
-export const registrierungenGetRegistrierungenQueryTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const registrierungenGetRegistrierungenQueryLimitDefault = 1024;
-export const registrierungenGetRegistrierungenQueryLimitMax = 1024;
-
-export const registrierungenGetRegistrierungenQuerySortByDefault = `submitted_at`;
-
-export const RegistrierungenGetRegistrierungenQueryParams = zod.object({
-  saison_id: zod
-    .union([
-      zod.string().min(registrierungenGetRegistrierungenQuerySaisonIdOneMin).max(registrierungenGetRegistrierungenQuerySaisonIdOneMax),
-      zod.null(),
-    ])
-    .optional(),
-  team_id: zod.union([zod.string().regex(registrierungenGetRegistrierungenQueryTeamIdOneRegExp), zod.null()]).optional(),
-  status: zod.union([zod.enum(["submitted", "declined"]), zod.null()]).optional(),
-  limit: zod.int().min(1).max(registrierungenGetRegistrierungenQueryLimitMax).default(registrierungenGetRegistrierungenQueryLimitDefault),
-  sort_by: zod.literal("submitted_at").default(registrierungenGetRegistrierungenQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).optional(),
-});
-
-/**
  * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
  *
  * Everything the league decides -- the team, the season, `status`, `submitted_at` and the
@@ -1485,6 +1455,18 @@ export const RegistrierungenGetOpenRegistrierungenQueryParams = zod.object({
     .max(registrierungenGetOpenRegistrierungenQueryLimitMax)
     .default(registrierungenGetOpenRegistrierungenQueryLimitDefault),
   order: zod.enum(["asc", "desc"]).optional(),
+});
+
+/**
+ * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
+ *
+ * Read whole, as every list but the Protokoll is, the page narrowing what it holds; a declined row waits out its month
+ * and asks nothing of an administrator. `confirmed` says whether the pupil answered their own link. 404 where no season
+ * holds that id.
+ * @summary One Saison's pending Registrierungen for its list
+ */
+export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
+  saison_id: zod.string(),
 });
 
 /**
@@ -3135,9 +3117,18 @@ export const SpielerPatchKaderRowBody = zod
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
     version: zod.union([zod.int(), zod.null()]).optional(),
   })
-  .describe(
-    "What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.\n\nNo player moves between teams, so `extra=\"forbid\"` refuses `team_id`; it is also what refuses\n`is_nachnominiert`, which no edit sets or clears.",
-  );
+  .describe("A seat holder's edit of a squad row.");
+
+/**
+ * The Spieler page in one read: every squad row of the season, live and ausgetragen alike, each named and with its club.
+ *
+ * Read whole, as every list but the Protokoll is, the page narrowing what it holds. `nummer_double` marks a live row
+ * whose number another live row of its own squad wears, compared as stored. 404 where no season holds that id.
+ * @summary One Saison's squad rows for its list
+ */
+export const SpielerGetSpielerAdminQueryParams = zod.object({
+  saison_id: zod.string(),
+});
 
 /**
  * One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.
@@ -3150,42 +3141,10 @@ export const SpielerGetSpielerByIdParams = zod.object({
 });
 
 /**
- * Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document.
- * @summary Update a Spieler's name
- */
-export const spielerPatchSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielerPatchSpielerParams = zod.object({
-  spieler_id: zod.string().regex(spielerPatchSpielerPathSpielerIdRegExp),
-});
-
-export const spielerPatchSpielerBodyBirthDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const spielerPatchSpielerBodyFirstNameMax = 80;
-
-export const spielerPatchSpielerBodyFirstNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-export const spielerPatchSpielerBodyLastNameOneMax = 80;
-
-export const spielerPatchSpielerBodyLastNameOneRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
-
-export const SpielerPatchSpielerBody = zod
-  .object({
-    birth_date: zod.string().regex(spielerPatchSpielerBodyBirthDateRegExp),
-    first_name: zod.string().min(1).max(spielerPatchSpielerBodyFirstNameMax).regex(spielerPatchSpielerBodyFirstNameRegExp),
-    last_name: zod.union([
-      zod.string().min(1).max(spielerPatchSpielerBodyLastNameOneMax).regex(spielerPatchSpielerBodyLastNameOneRegExp),
-      zod.null(),
-    ]),
-    version: zod.union([zod.int(), zod.null()]).optional(),
-  })
-  .describe(
-    "Replaces the person's names WHOLESALE.\n\nThe handler `$set`s this model's dump, so a field with a default would let a form that forgot it\nwrite that default over a stored value.",
-  );
-
-/**
  * Take a player out of a season's squad. SOFT: the row stays.
  *
  * The row records that this player wore this number in this squad, which stays true after they
- * leave. `GET /spieler/saisons` is where an admin reads it back, marked by `inactive_since`.
+ * leave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.
  * @summary Remove a Spieler from a squad
  */
 export const spielerDeleteSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3196,31 +3155,64 @@ export const SpielerDeleteSaisonSpielerParams = zod.object({
 });
 
 /**
- * Update a player's squad entry for that season. The team stays the stored row's: no player moves between teams.
+ * Return what the Spieler editor shows in one read: the person, their squad row of the season, and what its boxes offer.
  *
- * A DUPLICATE `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose); a `rolle`
- * another live row holds is not (`kader_rolle_taken`).
- * @summary Update a squad entry
+ * `version` is what the one save sends. `allowed_stufen` is what the season's rules offer, `taken_rollen` each role
+ * another live row of the squad holds. Read outside a transaction: a write landing under this read is judged by its own
+ * write. 404 where no person, no season or no squad row of the person in that season holds those ids: the page stands
+ * under a season, and a person out of its squad is no row of that season's list.
+ * @summary What the Spieler editor shows, in one read
  */
-export const spielerPatchSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielerGetSpielerSaisonPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
-export const SpielerPatchSaisonSpielerParams = zod.object({
-  spieler_id: zod.string().regex(spielerPatchSaisonSpielerPathSpielerIdRegExp),
+export const SpielerGetSpielerSaisonParams = zod.object({
+  spieler_id: zod.string().regex(spielerGetSpielerSaisonPathSpielerIdRegExp),
   saison_id: zod.string(),
 });
 
-export const spielerPatchSaisonSpielerBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
+/**
+ * Save the Spieler editor's one version: the person's own facts and their squad row of the season.
+ *
+ * The team stays the stored row's: no player moves between teams. Refused `version_stale` once the person or the row has
+ * moved since the editor read them, whichever it was; `kader_stufe_not_allowed` for a `stufe` the season's rules do not
+ * offer unless the row already holds it; `kader_rolle_taken` for a `rolle` another live row of the squad holds. A shared
+ * `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose). 404 where the person holds no row of the
+ * season. No fan-out: unlike a team or a venue, a person is embedded in no other document.
+ * @summary Save the Spieler editor: the person and their squad row of the season, in one transaction
+ */
+export const spielerPatchSpielerSaisonPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
-export const SpielerPatchSaisonSpielerBody = zod
+export const SpielerPatchSpielerSaisonParams = zod.object({
+  spieler_id: zod.string().regex(spielerPatchSpielerSaisonPathSpielerIdRegExp),
+  saison_id: zod.string(),
+});
+
+export const spielerPatchSpielerSaisonBodyBirthDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const spielerPatchSpielerSaisonBodyFirstNameMax = 80;
+
+export const spielerPatchSpielerSaisonBodyFirstNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const spielerPatchSpielerSaisonBodyLastNameOneMax = 80;
+
+export const spielerPatchSpielerSaisonBodyLastNameOneRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
+export const spielerPatchSpielerSaisonBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
+export const spielerPatchSpielerSaisonBodyVersionMin = 0;
+
+export const SpielerPatchSpielerSaisonBody = zod
   .object({
-    nummer: zod.union([zod.string().regex(spielerPatchSaisonSpielerBodyNummerOneRegExp), zod.null()]),
+    birth_date: zod.string().regex(spielerPatchSpielerSaisonBodyBirthDateRegExp),
+    first_name: zod.string().min(1).max(spielerPatchSpielerSaisonBodyFirstNameMax).regex(spielerPatchSpielerSaisonBodyFirstNameRegExp),
+    last_name: zod.union([
+      zod.string().min(1).max(spielerPatchSpielerSaisonBodyLastNameOneMax).regex(spielerPatchSpielerSaisonBodyLastNameOneRegExp),
+      zod.null(),
+    ]),
+    nummer: zod.union([zod.string().regex(spielerPatchSpielerSaisonBodyNummerOneRegExp), zod.null()]),
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
-    version: zod.union([zod.int(), zod.null()]).optional(),
+    version: zod.int().min(spielerPatchSpielerSaisonBodyVersionMin),
   })
   .describe(
-    "What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.\n\nNo player moves between teams, so `extra=\"forbid\"` refuses `team_id`; it is also what refuses\n`is_nachnominiert`, which no edit sets or clears.",
+    "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.",
   );
 
 /**

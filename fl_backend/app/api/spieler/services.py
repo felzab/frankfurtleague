@@ -1,9 +1,8 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
-from app.api.address_change.services import LIVE_KEYED_TERMS
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -197,55 +196,6 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
     ]
 
 
-def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
-    """Every player with every squad row they hold.
-
-    UNLIKE `build_spieler_pipeline`: no caller's filters, no `$unwind`, no strict join. Sorted by FORENAME
-    then surname, and MongoDB sorts a null `last_name` first.
-    """
-
-    return [
-        {"$match": build_real_spieler_filter()},
-        {
-            "$lookup": {
-                "from": Collection.SAISON_SPIELER,
-                "localField": "_id",
-                "foreignField": "spieler_id",
-                "pipeline": [
-                    {
-                        "$project": {
-                            "_id": 0,
-                            "saison_id": 1,
-                            "team_id": 1,
-                            "nummer": 1,
-                            "position": 1,
-                            "stufe": 1,
-                            "is_nachnominiert": 1,
-                            "rolle": 1,
-                            "inactive_since": 1,
-                            "version": 1,
-                        }
-                    }
-                ],
-                "as": "memberships",
-            }
-        },
-        {
-            "$lookup": {
-                "from": Collection.ADDRESS_CHANGES,
-                "localField": "email",
-                "foreignField": "address",
-                # The live change alone: a tombstone's null address would meet every pupil holding none.
-                "pipeline": [{"$match": dict(LIVE_KEYED_TERMS)}, {"$project": {"_id": 1}}],
-                "as": "address_changes",
-            }
-        },
-        {"$set": {"address_change_id": {"$ifNull": [{"$first": "$address_changes._id"}, None]}}},
-        {"$unset": "address_changes"},
-        {"$sort": {"first_name": 1, "last_name": 1}},
-    ]
-
-
 # The rows inside `max_kader_size`, whichever squad is counted. Retired rows are out: a player who left gave their place
 # back. Nominees are out: they stand outside the cap, so entering one neither needs a place nor takes one.
 CAPPED_SQUAD_ROW: Mapping[str, Any] = {"inactive_since": None, "is_nachnominiert": False}
@@ -334,15 +284,15 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
     )
 
 
-def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Mapping[str, Any]]:
-    """Every squad row of one team in one season, live and ausgetragen alike, joined to its person's two names.
+def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId | None) -> list[Mapping[str, Any]]:
+    """Every squad row of one season, of one team or of all, live and ausgetragen alike, with its person's two names.
 
-    The person tier's read (`READ-KADER-001`): the surname whole, and no e-mail address, telephone
+    The person tier's read (`READ-KADER-001`), and the Spieler list's: the surname whole, and no e-mail address, telephone
     number, birthdate or consent record at any depth.
     """
 
     return [
-        {"$match": {"saison_id": saison_id, "team_id": team_id}},
+        {"$match": {"saison_id": saison_id, **({} if team_id is None else {"team_id": team_id})}},
         {
             "$lookup": {
                 "from": Collection.SPIELER,
@@ -361,6 +311,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
             "$project": {
                 "_id": 0,
                 "spieler_id": 1,
+                "team_id": 1,
                 "first_name": "$person.first_name",
                 "last_name": "$person.last_name",
                 "nummer": 1,
@@ -395,6 +346,29 @@ def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any
 
     # `shared` holds no null, so a row without a number is never marked.
     return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
+
+
+def mark_shared_nummern_per_squad(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """`mark_shared_nummern` over a season's rows, in their order: each row judged against its own team's alone."""
+
+    squads: defaultdict[Any, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in rows:
+        squads[row["team_id"]].append(row)
+    shared = {team_id: shared_nummern(squad) for team_id, squad in squads.items()}
+
+    return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared[row["team_id"]]} for row in rows]
+
+
+def build_held_rollen_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
+    """Every other live row of this squad holding a role, whichever: the rows `build_live_rolle_filter` asks after one by one."""
+
+    return {
+        "saison_id": saison_id,
+        "team_id": team_id,
+        "rolle": {"$ne": None},
+        "inactive_since": None,
+        "spieler_id": {"$ne": excluding_spieler_id},
+    }
 
 
 def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> WriteRefusal | None:

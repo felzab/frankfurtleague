@@ -5,17 +5,16 @@ Every predicate here takes values and never a collection or a session: the route
 so a refusal is judged against what the submission's own transaction can see.
 """
 
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, latest_decision_due, one_month_after, season_has_ended
 from app.api.outbox.schemas import FLOutboxLink
-from app.api.registrierungen.schemas import FLRegistrierungEntscheidung, FLRegistrierungPage
+from app.api.registrierungen.schemas import FLRegistrierungPage
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
-from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -243,6 +242,10 @@ def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
 # The admin read's projection, an EXCLUSION for the reason `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is one: an inclusion list would restate every field a registration holds.
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"confirmation.token_hashes": 0}
+
+
+# What the admin list reads of a row, the consent's stamp alone of its record, which `registrierung_ist_bestaetigt` judges.
+REGISTRIERUNG_LIST_FIELDS: Final = ("first_name", "last_name", "team_id", "submitted_at", "einwilligung.confirmed_at")
 
 
 def build_registrierungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
@@ -877,24 +880,3 @@ def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, 
 
 def compose_ablehnung_update(*, by: str, reason: Any, today: str) -> Mapping[str, Any]:
     return {"$set": {"status": DECLINED, "decision": {"made_at": today, "by": by, "reason": reason}}}
-
-
-def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
-    """Every decider these stored registrations name, folded as the ban list is asked."""
-
-    return [
-        sign_in_identifier(FLRegistrierungEntscheidung.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None
-    ]
-
-
-def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[str]) -> dict[str, Any]:
-    """A stored registration with its decision as the list serves it."""
-
-    if row.get("decision") is None:
-        return dict(row)
-
-    # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
-    entscheidung = FLRegistrierungEntscheidung.model_validate(row["decision"])
-    by = withheld_actor(entscheidung.by, barred)
-
-    return {**row, "decision": {**entscheidung.model_dump(), "by": by, "by_barred": by is None}}

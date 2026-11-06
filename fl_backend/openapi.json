@@ -5206,40 +5206,6 @@
         "const": "2026-11-medien-1",
         "type": "string"
       },
-      "FLConfirmation": {
-        "description": "One person's confirmation bookkeeping as an administrator reads it, and no token hash.\n\nThe hash is a raw document key the confirmation query alone reads, so no read serves one.",
-        "properties": {
-          "deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
-            "type": "string"
-          },
-          "reminded_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reminded At"
-          },
-          "sent_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Sent At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "sent_at",
-          "reminded_at",
-          "deadline"
-        ],
-        "title": "FLConfirmation",
-        "type": "object"
-      },
       "FLConfirmationState": {
         "enum": [
           "valid",
@@ -9091,7 +9057,7 @@
       },
       "FLPatchKaderRowPayload": {
         "additionalProperties": false,
-        "description": "What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.\n\nNo player moves between teams, so `extra=\"forbid\"` refuses `team_id`; it is also what refuses\n`is_nachnominiert`, which no edit sets or clears.",
+        "description": "A seat holder's edit of a squad row.",
         "properties": {
           "nummer": {
             "anyOf": [
@@ -9629,9 +9595,9 @@
         "title": "FLPatchSpielDataResponse",
         "type": "object"
       },
-      "FLPatchSpielerPayload": {
+      "FLPatchSpielerSaisonPayload": {
         "additionalProperties": false,
-        "description": "Replaces the person's names WHOLESALE.\n\nThe handler `$set`s this model's dump, so a field with a default would let a form that forgot it\nwrite that default over a stored value.",
+        "description": "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.",
         "properties": {
           "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -9659,24 +9625,80 @@
             ],
             "title": "Last Name"
           },
-          "version": {
+          "nummer": {
             "anyOf": [
               {
-                "type": "integer"
+                "pattern": "^[0-9]{1,4}$",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Version"
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rolle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerRolle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerStufe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
+          "nummer",
+          "position",
+          "stufe",
+          "rolle",
           "first_name",
           "last_name",
-          "birth_date"
+          "birth_date",
+          "version"
         ],
-        "title": "FLPatchSpielerPayload",
+        "title": "FLPatchSpielerSaisonPayload",
+        "type": "object"
+      },
+      "FLPatchSpielerSaisonResponse": {
+        "description": "The count the editor's next save sends.",
+        "properties": {
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "FLPatchSpielerSaisonResponse",
         "type": "object"
       },
       "FLPatchSpielortPayload": {
@@ -10557,151 +10579,6 @@
         "title": "FLRefusedField",
         "type": "object"
       },
-      "FLRegistrierung": {
-        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nIts pupil fills and withdraws `einwilligung` and fills `birth_date`; a decline writes `status` and `decision`.",
-        "properties": {
-          "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Birth Date"
-          },
-          "confirmation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLConfirmation"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "confirmed": {
-            "title": "Confirmed",
-            "type": "boolean"
-          },
-          "decision": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLRegistrierungDecisionRow"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "einwilligung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLRegistrierungEinwilligung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "invitation_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Invitation Id",
-            "type": "string"
-          },
-          "last_name": {
-            "minLength": 1,
-            "title": "Last Name",
-            "type": "string"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/FLRegistrierungStatus"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "submitted_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Submitted At",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "saison_id",
-          "team_id",
-          "invitation_id",
-          "submitted_at",
-          "status",
-          "first_name",
-          "last_name",
-          "email",
-          "position",
-          "nummer",
-          "stufe",
-          "birth_date",
-          "einwilligung",
-          "confirmation",
-          "decision",
-          "confirmed"
-        ],
-        "title": "FLRegistrierung",
-        "type": "object"
-      },
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
@@ -10743,6 +10620,62 @@
           "reason"
         ],
         "title": "FLRegistrierungAbsageData",
+        "type": "object"
+      },
+      "FLRegistrierungAdminRow": {
+        "description": "One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them.",
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_name": {
+            "minLength": 1,
+            "title": "Last Name",
+            "type": "string"
+          },
+          "submitted_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          }
+        },
+        "required": [
+          "id",
+          "first_name",
+          "last_name",
+          "team_id",
+          "team_name",
+          "submitted_at",
+          "confirmed"
+        ],
+        "title": "FLRegistrierungAdminRow",
         "type": "object"
       },
       "FLRegistrierungAdmissionResponse": {
@@ -11021,51 +10954,6 @@
         "title": "FLRegistrierungConfirmationViewResponse",
         "type": "object"
       },
-      "FLRegistrierungDecisionRow": {
-        "description": "A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address.",
-        "properties": {
-          "by": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "By"
-          },
-          "by_barred": {
-            "title": "By Barred",
-            "type": "boolean"
-          },
-          "made_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Made At",
-            "type": "string"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          }
-        },
-        "required": [
-          "made_at",
-          "by",
-          "reason",
-          "by_barred"
-        ],
-        "title": "FLRegistrierungDecisionRow",
-        "type": "object"
-      },
       "FLRegistrierungDeclinePayload": {
         "additionalProperties": false,
         "description": "Why the team declines, from a closed set or not at all.",
@@ -11108,61 +10996,6 @@
           "first_name"
         ],
         "title": "FLRegistrierungDeclineResponse",
-        "type": "object"
-      },
-      "FLRegistrierungEinwilligung": {
-        "description": "A pending registration's consent record, each choice and `date` optional here alone.\n\nA returning pupil's page asks no choice.",
-        "properties": {
-          "confirmed_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmed At",
-            "type": "string"
-          },
-          "date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date"
-          },
-          "evidence": {
-            "$ref": "#/components/schemas/FLEinwilligungEvidenceSet"
-          },
-          "media": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media"
-          },
-          "scope": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungScope"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "scope",
-          "date",
-          "confirmed_at",
-          "media",
-          "evidence"
-        ],
-        "title": "FLRegistrierungEinwilligung",
         "type": "object"
       },
       "FLRegistrierungLinkData": {
@@ -11292,26 +11125,21 @@
         "title": "FLRegistrierungSweepResponse",
         "type": "object"
       },
-      "FLRegistrierungenListResponse": {
-        "description": "The pending rows, newest first, and whether that is the whole of them.",
+      "FLRegistrierungenAdminListResponse": {
+        "description": "One season's pending registrations, newest first.",
         "properties": {
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
           "registrierungen": {
             "items": {
-              "$ref": "#/components/schemas/FLRegistrierung"
+              "$ref": "#/components/schemas/FLRegistrierungAdminRow"
             },
             "title": "Registrierungen",
             "type": "array"
           }
         },
         "required": [
-          "registrierungen",
-          "complete"
+          "registrierungen"
         ],
-        "title": "FLRegistrierungenListResponse",
+        "title": "FLRegistrierungenAdminListResponse",
         "type": "object"
       },
       "FLReplaceSaisonTeamPayload": {
@@ -17063,48 +16891,31 @@
         "title": "FLSpieleSpielplanAdminResponse",
         "type": "object"
       },
-      "FLSpielerAdminSingleResponse": {
-        "description": "The same player echoed back to the admin who just wrote them, with their whole name.",
+      "FLSpielerAdminListResponse": {
+        "description": "One season's squad rows, every team's, live and ausgetragen alike, sorted by name.",
+        "properties": {
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerAdminRow"
+            },
+            "title": "Spieler",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spieler"
+        ],
+        "title": "FLSpielerAdminListResponse",
+        "type": "object"
+      },
+      "FLSpielerAdminRow": {
+        "description": "One squad row as the Spieler list shows it: the person's name and nothing else of them.",
         "properties": {
           "first_name": {
             "minLength": 1,
             "title": "First Name",
             "type": "string"
           },
-          "last_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spieler_id",
-          "first_name",
-          "last_name",
-          "version"
-        ],
-        "title": "FLSpielerAdminSingleResponse",
-        "type": "object"
-      },
-      "FLSpielerMembership": {
-        "description": "One squad row as seen from its player.\n\nCarries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,\nwhere a team never leaves a season at all.",
-        "properties": {
           "inactive_since": {
             "anyOf": [
               {
@@ -17121,6 +16932,17 @@
             "title": "Is Nachnominiert",
             "type": "boolean"
           },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
           "nummer": {
             "anyOf": [
               {
@@ -17132,28 +16954,13 @@
             ],
             "title": "Nummer"
           },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "nummer_double": {
+            "title": "Nummer Double",
+            "type": "boolean"
           },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "saison_id": {
-            "title": "Saison Id",
+          "spieler_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id",
             "type": "string"
           },
           "stufe": {
@@ -17171,24 +16978,31 @@
             "title": "Team Id",
             "type": "string"
           },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
           }
         },
         "required": [
+          "spieler_id",
+          "first_name",
+          "last_name",
           "team_id",
+          "team_name",
           "nummer",
-          "position",
           "stufe",
-          "rolle",
           "is_nachnominiert",
-          "saison_id",
           "inactive_since",
-          "version"
+          "nummer_double"
         ],
-        "title": "FLSpielerMembership",
+        "title": "FLSpielerAdminRow",
         "type": "object"
       },
       "FLSpielerPosition": {
@@ -17263,21 +17077,176 @@
         ],
         "type": "string"
       },
-      "FLSpielerSaisonsResponse": {
-        "description": "Every player, each with their squad rows. Sorted by name.",
+      "FLSpielerSaisonAdminResponse": {
+        "description": "What the Spieler editor shows in one read: the person, their row of the season, and what its boxes may offer.",
         "properties": {
-          "spieler": {
+          "allowed_stufen": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielerWithMemberships"
+              "$ref": "#/components/schemas/FLSpielerStufe"
             },
-            "title": "Spieler",
+            "minItems": 1,
+            "title": "Allowed Stufen",
             "type": "array"
+          },
+          "kader": {
+            "$ref": "#/components/schemas/FLSpielerSaisonKader"
+          },
+          "person": {
+            "$ref": "#/components/schemas/FLSpielerSaisonPerson"
+          },
+          "taken_rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerRolle"
+            },
+            "title": "Taken Rollen",
+            "type": "array"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
-          "spieler"
+          "version",
+          "person",
+          "kader",
+          "allowed_stufen",
+          "taken_rollen"
         ],
-        "title": "FLSpielerSaisonsResponse",
+        "title": "FLSpielerSaisonAdminResponse",
+        "type": "object"
+      },
+      "FLSpielerSaisonKader": {
+        "description": "The squad row the editor stands on, with the name its club plays the season under.",
+        "properties": {
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "is_nachnominiert": {
+            "title": "Is Nachnominiert",
+            "type": "boolean"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rolle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerRolle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerStufe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          }
+        },
+        "required": [
+          "team_id",
+          "nummer",
+          "position",
+          "stufe",
+          "rolle",
+          "team_name",
+          "is_nachnominiert",
+          "inactive_since"
+        ],
+        "title": "FLSpielerSaisonKader",
+        "type": "object"
+      },
+      "FLSpielerSaisonPerson": {
+        "description": "The person as the editor shows them: their own record, which outlives the season.",
+        "properties": {
+          "birth_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Birth Date",
+            "type": "string"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "birth_date",
+          "einwilligung",
+          "email"
+        ],
+        "title": "FLSpielerSaisonPerson",
         "type": "object"
       },
       "FLSpielerScopeTextVersion": {
@@ -17498,92 +17467,6 @@
           "media"
         ],
         "title": "FLSpielerTextVersions",
-        "type": "object"
-      },
-      "FLSpielerWithMemberships": {
-        "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
-        "properties": {
-          "address_change_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address Change Id"
-          },
-          "address_change_viewable_denied": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewableDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "birth_date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Birth Date",
-            "type": "string"
-          },
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "memberships": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerMembership"
-            },
-            "title": "Memberships",
-            "type": "array"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "first_name",
-          "last_name",
-          "id",
-          "birth_date",
-          "einwilligung",
-          "email",
-          "address_change_id",
-          "version",
-          "address_change_viewable_denied",
-          "memberships"
-        ],
-        "title": "FLSpielerWithMemberships",
         "type": "object"
       },
       "FLSpielort": {
@@ -24321,156 +24204,6 @@
       }
     },
     "/api/v0/registrierungen": {
-      "get": {
-        "description": "Every pending registration, newest first, narrowed by season, team and status.\n\n`complete` is false where more rows exist than one read serves, `confirmed` says whether the pupil answered their own\nlink, and a barred decision's author is served as `null` beside `decision.by_barred`.",
-        "operationId": "registrierungen_get_registrierungen",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 4,
-                  "minLength": 4,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "team_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Team Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLRegistrierungStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "const": "submitted_at",
-              "default": "submitted_at",
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/FLSortOrder",
-              "default": "desc"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungenListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "List Registrierungen",
-        "tags": [
-          "registrierungen"
-        ]
-      },
       "post": {
         "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nEverything the league decides -- the team, the season, `status`, `submitted_at` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The mail is owed in\nthe Postausgang in the same transaction, its link minted when it is handed out; no token is answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds, stores none and owes no second mail. The same key over other details is refused\n(`registrierung_key_differing`). A key whose registration the team has since admitted is refused too\n(`registrierung_already_admitted`) and stores nothing: the pupil is in the squad.",
         "operationId": "registrierungen_post_registrierung",
@@ -24985,6 +24718,84 @@
           }
         ],
         "summary": "A team's pending registrations for one season",
+        "tags": [
+          "registrierungen"
+        ]
+      }
+    },
+    "/api/v0/registrierungen/list/admin": {
+      "get": {
+        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nRead whole, as every list but the Protokoll is, the page narrowing what it holds; a declined row waits out its month\nand asks nothing of an administrator. `confirmed` says whether the pupil answered their own link. 404 where no season\nholds that id.",
+        "operationId": "registrierungen_get_registrierungen_admin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungenAdminListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison's pending Registrierungen for its list",
         "tags": [
           "registrierungen"
         ]
@@ -30148,16 +29959,27 @@
         ]
       }
     },
-    "/api/v0/spieler/saisons": {
+    "/api/v0/spieler/list/admin": {
       "get": {
-        "description": "Every player, each with every squad row they hold.\n\nA club page's squad cannot answer it: it serves one team's squad in one season, and so never a\nplayer outside that squad or their other rows.\n\n`address_change_id` names the live change of the pupil's address, which the address tool shows, and\n`address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.",
-        "operationId": "spieler_get_spieler_saisons",
+        "description": "The Spieler page in one read: every squad row of the season, live and ausgetragen alike, each named and with its club.\n\nRead whole, as every list but the Protokoll is, the page narrowing what it holds. `nummer_double` marks a live row\nwhose number another live row of its own squad wears, compared as stored. 404 where no season holds that id.",
+        "operationId": "spieler_get_spieler_admin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSaisonsResponse"
+                  "$ref": "#/components/schemas/FLSpielerAdminListResponse"
                 }
               }
             },
@@ -30209,7 +30031,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Every Spieler with their squad rows",
+        "summary": "One Saison's squad rows for its list",
         "tags": [
           "spieler"
         ]
@@ -30359,98 +30181,11 @@
         "tags": [
           "spieler"
         ]
-      },
-      "patch": {
-        "description": "Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document.",
-        "operationId": "spieler_patch_spieler",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPatchSpielerPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerAdminSingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Update a Spieler's name",
-        "tags": [
-          "spieler"
-        ]
       }
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "delete": {
-        "description": "Take a player out of a season's squad. SOFT: the row stays.\n\nThe row records that this player wore this number in this squad, which stays true after they\nleave. `GET /spieler/saisons` is where an admin reads it back, marked by `inactive_since`.",
+        "description": "Take a player out of a season's squad. SOFT: the row stays.\n\nThe row records that this player wore this number in this squad, which stays true after they\nleave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.",
         "operationId": "spieler_delete_saison_spieler",
         "parameters": [
           {
@@ -30534,10 +30269,12 @@
         "tags": [
           "spieler"
         ]
-      },
-      "patch": {
-        "description": "Update a player's squad entry for that season. The team stays the stored row's: no player moves between teams.\n\nA DUPLICATE `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose); a `rolle`\nanother live row holds is not (`kader_rolle_taken`).",
-        "operationId": "spieler_patch_saison_spieler",
+      }
+    },
+    "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/admin": {
+      "get": {
+        "description": "Return what the Spieler editor shows in one read: the person, their squad row of the season, and what its boxes offer.\n\n`version` is what the one save sends. `allowed_stufen` is what the season's rules offer, `taken_rollen` each role\nanother live row of the squad holds. Read outside a transaction: a write landing under this read is judged by its own\nwrite. 404 where no person, no season or no squad row of the person in that season holds those ids: the page stands\nunder a season, and a person out of its squad is no row of that season's list.",
+        "operationId": "spieler_get_spieler_saison",
         "parameters": [
           {
             "in": "path",
@@ -30559,22 +30296,12 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPatchKaderRowPayload"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                  "$ref": "#/components/schemas/FLSpielerSaisonAdminResponse"
                 }
               }
             },
@@ -30626,7 +30353,103 @@
             "AdminKey": []
           }
         ],
-        "summary": "Update a squad entry",
+        "summary": "What the Spieler editor shows, in one read",
+        "tags": [
+          "spieler"
+        ]
+      },
+      "patch": {
+        "description": "Save the Spieler editor's one version: the person's own facts and their squad row of the season.\n\nThe team stays the stored row's: no player moves between teams. Refused `version_stale` once the person or the row has\nmoved since the editor read them, whichever it was; `kader_stufe_not_allowed` for a `stufe` the season's rules do not\noffer unless the row already holds it; `kader_rolle_taken` for a `rolle` another live row of the squad holds. A shared\n`nummer` is permitted (`docs/domain.md`'s what the model permits on purpose). 404 where the person holds no row of the\nseason. No fan-out: unlike a team or a venue, a person is embedded in no other document.",
+        "operationId": "spieler_patch_spieler_saison",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spieler_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSpielerSaisonPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchSpielerSaisonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Save the Spieler editor: the person and their squad row of the season, in one transaction",
         "tags": [
           "spieler"
         ]

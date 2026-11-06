@@ -5,18 +5,18 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.identity.schemas import FLErasureResponse
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
-    patch_saison_spieler,
-    patch_spieler,
+    patch_spieler_saison,
 )
-from app.api.spieler.schemas import FLPatchKaderRowPayload, FLPatchSpielerPayload
+from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
 from app.core.collections import Collection
+from app.core.crud import composite_version, patch_one_in_db
 from app.core.sentinels import GHOST_SPIELER_ID
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_spieler_document, saison_team_document, spielbericht_document, spieler_document
@@ -93,6 +93,33 @@ def person_row(first_name: str) -> dict[str, Any]:
     )
 
 
+async def save(database: AsyncDatabase, spieler_id: ObjectId, saison_id: str, *, last_name: str, nummer: str | None) -> None:
+    """The editor's one save, on the count the two documents stand at."""
+
+    person = await database[Collection.SPIELER].find_one({"_id": spieler_id})
+    row = await database[Collection.SAISON_SPIELER].find_one({"spieler_id": spieler_id, "saison_id": saison_id})
+    assert person is not None
+    assert row is not None
+    await patch_spieler_saison(
+        spieler_id=spieler_id,
+        saison_id=saison_id,
+        spieler_data=FLPatchSpielerSaisonPayload(
+            first_name=person["first_name"],
+            last_name=last_name,
+            birth_date="2009-05-09",
+            nummer=nummer,
+            position="Abwehr",
+            stufe="Q2",
+            rolle="kapitaen",
+            version=composite_version(person, row),
+        ),
+        spieler_collection=database[Collection.SPIELER],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
+        db=database.client,
+    )
+
+
 async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, team_id: ObjectId) -> ObjectId:
     """A person and two squad rows seeded, then edited on every row through the real endpoints.
 
@@ -106,14 +133,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
 
     for saison_id, worn, then_worn in ((FORMER_SAISON_ID, "41", "42"), (SAISON_ID, "10", "7")):
         await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(spieler_id, saison_id, team_id, nummer=worn))
-        await patch_saison_spieler(
-            spieler_id=spieler_id,
-            saison_id=saison_id,
-            saison_spieler_data=FLPatchKaderRowPayload(nummer=then_worn, position="Abwehr", stufe="Q2", rolle="kapitaen"),
-            saison_spieler_collection=database[Collection.SAISON_SPIELER],
-            saisons_collection=database[Collection.SAISONS],
-            db=database.client,
-        )
+        await save(database, spieler_id, saison_id, last_name=document["last_name"], nummer=then_worn)
 
     # The earlier squad is LEFT, which is a shape the erasure has to reach as well: a row recording
     # what somebody wore stays about them after they stop wearing it.
@@ -124,28 +144,27 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
         today=TODAY,
         db=database.client,
     )
-    await patch_spieler(
-        spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(first_name=first_name, last_name=f"{first_name}-Musterfrau", birth_date="2009-05-09"),
-        spieler_collection=database[Collection.SPIELER],
-        db=database.client,
-    )
+    await save(database, spieler_id, SAISON_ID, last_name=f"{first_name}-Musterfrau", nummer="7")
 
     return spieler_id
 
 
 async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
-    """A person seeded and renamed who holds no squad row, so the redaction's squad branch names no id."""
+    """A person seeded and renamed who holds no squad row, so the redaction's squad branch names no id.
+
+    Through the write helper, which logs, since no route writes a person out of a squad.
+    """
 
     document = person_row(LONE_FIRST_NAME)
     await database[Collection.SPIELER].insert_one(document)
     spieler_id = document["_id"]
 
-    await patch_spieler(
-        spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(first_name=LONE_FIRST_NAME, last_name=f"{LONE_FIRST_NAME}-Musterfrau", birth_date="2009-05-09"),
-        spieler_collection=database[Collection.SPIELER],
-        db=database.client,
+    await patch_one_in_db(
+        collection=database[Collection.SPIELER],
+        db_filter={"_id": spieler_id},
+        update={"$set": {"last_name": f"{LONE_FIRST_NAME}-Musterfrau", "birth_date": "2009-05-09"}},
+        expected_version=None,
+        return_document=ReturnDocument.AFTER,
     )
 
     return spieler_id
