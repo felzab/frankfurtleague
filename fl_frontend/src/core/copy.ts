@@ -873,6 +873,8 @@ export const COPY = catalogue({
       onSpieltag: "Spielt schon an diesem Spieltag",
       departed: "Aus der Saison ausgeschieden",
       elfmeterschiessen: "Elfmeterschießen",
+      /** The shoot-out's column head, the mark its score carries. */
+      afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
       /** Level knockout goals saved without a shoot-out leave the match undecided, and the bracket after it. */
       shootOutMissing: "Ohne Elfmeterschießen steht kein Sieger fest.",
       /** An event after which the match carries no result, chosen over a stored one. */

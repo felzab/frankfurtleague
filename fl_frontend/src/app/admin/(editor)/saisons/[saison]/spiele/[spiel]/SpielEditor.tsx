@@ -9,7 +9,7 @@ import { Dialog } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldPair } from "@/kit/FieldPair";
 import { GroupHead } from "@/kit/GroupHead";
-import { ScorePair } from "@/kit/ScorePair";
+import { ScoreRows } from "@/kit/ScoreRows";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
 import { Table } from "@/kit/Table";
@@ -29,7 +29,7 @@ import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/ty
 import type { EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
-import type { ScoreOutcome, ScoreSide } from "@/kit/ScorePair";
+import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortRules } from "../../../../../spielortRules";
@@ -54,8 +54,8 @@ const goals = (text: string) => (text === "" ? null : Number(text));
 
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
- * result, entered by the switch the board drew, its goals as one score, a shoot-out's pair appearing by itself on
- * level knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
+ * result, entered by the switch the board drew, a side per row, a shoot-out's column appearing by itself on level
+ * knockout goals, and the referee's proposal carried over by „Übernehmen“; the Sonderereignis, in a box of its
  * own; the note; and the report's goals and every party's answer, read-only. Saved together from the editor's bar;
  * a save that would delete a later match's result the server holds back with its question, which the bar asks.
  */
@@ -319,30 +319,30 @@ export function SpielEditor({
                 {...(!resultShown ? { description: WORDS.byEvent } : bothSides ? {} : { description: WORDS.needsBothSides })}
               />
               {scored && (
-                <ScorePair
-                  label={COPY.shared.tore}
+                <ScoreRows
                   sides={scoreSides}
-                  names={["tore1", "tore2"]}
-                  values={[draft.tore1, draft.tore2]}
-                  onChange={(side, value) => set(side === 0 ? "tore1" : "tore2", value)}
-                  // Level knockout goals decide nothing: the shoot-out's pair below says what they come to.
-                  outcome={shootOut ? null : outcomeOf([draft.tore1, draft.tore2], null)}
-                  isRequired={scored}
-                />
-              )}
-              {/* By itself on level knockout goals, and optional: left empty, the match and the bracket after it wait. */}
-              {shootOut && (
-                <ScorePair
-                  label={WORDS.elfmeterschiessen}
-                  // Its caption tells it from the goals' pair above, which reads the same clubs over the same fields.
-                  captioned
-                  sides={scoreSides}
-                  names={["shootOut1", "shootOut2"]}
-                  values={[draft.shootOut1, draft.shootOut2]}
-                  onChange={(side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value)}
-                  outcome={outcomeOf([draft.tore1, draft.tore2], [draft.shootOut1, draft.shootOut2])}
-                  isRequired={shootOutTyped}
-                  {...(shootOutTyped ? {} : { consequence: WORDS.shootOutMissing })}
+                  tore={{
+                    label: COPY.shared.tore,
+                    names: ["tore1", "tore2"],
+                    values: [draft.tore1, draft.tore2],
+                    onChange: (side, value) => set(side === 0 ? "tore1" : "tore2", value),
+                    isRequired: true,
+                  }}
+                  // By itself on level knockout goals, and optional: left empty, the match and the bracket after it wait.
+                  shootOut={
+                    shootOut
+                      ? {
+                          label: WORDS.elfmeterschiessen,
+                          head: WORDS.afterElfmeterschiessen,
+                          names: ["shootOut1", "shootOut2"],
+                          values: [draft.shootOut1, draft.shootOut2],
+                          onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
+                          isRequired: shootOutTyped,
+                        }
+                      : null
+                  }
+                  outcome={outcomeOf([draft.tore1, draft.tore2], shootOut ? [draft.shootOut1, draft.shootOut2] : null)}
+                  {...(shootOut && !shootOutTyped ? { consequence: WORDS.shootOutMissing } : {})}
                 />
               )}
               {adoption !== null && !holdsProposal(adoption, draft) && (
@@ -366,6 +366,7 @@ export function SpielEditor({
           fields: (
             <Select
               label={WORDS.sonderereignis}
+              labelHidden
               name="sonderereignis"
               options={sonderereignisse}
               width="fit"
@@ -383,6 +384,7 @@ export function SpielEditor({
           fields: (
             <TextField
               label={WORDS.note}
+              labelHidden
               name="note"
               width="W4"
               kind="text"
