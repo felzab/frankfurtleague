@@ -1489,7 +1489,7 @@ class TestAReportAboutOtherClubsIsNotAdopted:
         """Written while another club held one side: stamped, its 3:1 would read as the clubs the save leaves."""
 
         spiele, (quarter_report, semi_report) = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
-        quarter_report["bericht"]["sides"][side] = ObjectId()
+        quarter_report["bericht"]["sides"][changed_side] = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, [quarter_report, semi_report])
