@@ -796,9 +796,9 @@ const PALETTE =
 const COLOURED =
   "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
-/** The five keyframes and their module that each old page loses with its rebuild. */
+/** The three keyframes and their module that each old page loses with its rebuild. */
 // Session 8: goes with the last old page, with the two bans that read it.
-const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|card-enter|bracket-phase-enter|toast-timer";
+const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|toast-timer";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
