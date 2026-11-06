@@ -38,7 +38,7 @@ from app.api.saisons.crud import (
     count_teams_by_saison,
     pull_create_state,
     pull_finale_by_saison,
-    saisons_with_a_fixture_taken_place,
+    saisons_with_a_spiel_taken_place,
 )
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
@@ -219,7 +219,7 @@ async def get_saisons_admin(
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
     taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await asyncio.gather(
-        saisons_with_a_fixture_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
+        saisons_with_a_spiel_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
         count_spiele_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
@@ -283,7 +283,7 @@ async def get_saison_admin(
     saison_status = str(saison_raw["status"])
 
     # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
-    (rows, fixtures, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
+    (rows, spiele, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
         asyncio.gather(
             # Each whole, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` reads its season: a truncated
             # list grades a club open whose taken-place fixture fell past the page, and offers a club the replacement
@@ -332,7 +332,7 @@ async def get_saison_admin(
             ),
         ),
     )
-    recorded_fixtures = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))
+    recorded_spiele = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))
     # The rows a first draw refuses on, and the undraw and the replace remove: the season is drawn exactly while it holds
     # one, whatever its watermark says, so the editor offers the draw's acts where their writes take them.
     watermark = saison_raw.get("spielplan")
@@ -349,7 +349,7 @@ async def get_saison_admin(
     def code_of(refusal: WriteRefusal | None) -> Code | None:
         return None if refusal is None else refusal.error_code
 
-    played = [spiel for spiel in fixtures if has_taken_place(spiel)]
+    played = [spiel for spiel in spiele if has_taken_place(spiel)]
 
     def has_played(team_id: Any, *, group_only: bool) -> bool:
         return any(
@@ -376,12 +376,12 @@ async def get_saison_admin(
     def draw_refusal(*, replace: bool) -> WriteRefusal | None:
         return find_spielplan_refusal(
             saison_status=saison_status,
-            fixtures_drawn=len(recorded_rows),
+            spiele_drawn=len(recorded_rows),
             spieltage_held=count_spieltage,
             rules=saison.rules,
             occupancy_by_gruppe=occupancy,
             replace=replace,
-            recorded_fixtures=recorded_fixtures,
+            recorded_spiele=recorded_spiele,
         )
 
     return FLSaisonAdminResponse(
@@ -404,7 +404,7 @@ async def get_saison_admin(
             # The draw's own judgement of the stored rules, the ones both presses draw, over the clubs entered.
             create=code_of(draw_refusal(replace=False)),
             recreate=code_of(draw_refusal(replace=True) or find_berichte_refusal(berichte=berichte)),
-            undraw=code_of(_find_undraw_refusal_of(saison_status=saison_status, recorded_fixtures=recorded_fixtures, berichte=berichte)),
+            undraw=code_of(_find_undraw_refusal_of(saison_status=saison_status, recorded_spiele=recorded_spiele, berichte=berichte)),
         ),
         invitations=[
             FLInvitationLinkRow(
@@ -550,7 +550,7 @@ async def patch_saison(
         # Every fixture, whichever matchday it hangs on: what `rules_shape_after_spielplan` freezes is the draw, and
         # one on another season's matchday came out of this season's rules too. Only a draw or an
         # undraw moves the count, and both write `saisons`, so both conflict.
-        drawn_fixtures = sum(per_spieltag.values())
+        drawn_spiele = sum(per_spieltag.values())
 
         for spieltag_id, attached in per_spieltag.items():
             phase = phase_of_spieltag.get(spieltag_id)
@@ -581,7 +581,7 @@ async def patch_saison(
             )
         ]
 
-        taken_place = saison_id in await saisons_with_a_fixture_taken_place(
+        taken_place = saison_id in await saisons_with_a_spiel_taken_place(
             spiele_collection=spiele_collection, saison_ids=[saison_id], session=session
         )
 
@@ -621,7 +621,7 @@ async def patch_saison(
                 highest_wired_platz=highest_platz,
                 largest_squad=largest_squad,
                 attached_by_phase=attached_by_phase,
-                drawn_fixtures=drawn_fixtures,
+                drawn_spiele=drawn_spiele,
             )
         )
         refuse(
@@ -696,7 +696,7 @@ async def _judge_the_activation(
     # One call, so which of the two refusals an admin is shown stays the service's decision.
     # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
     # has no repair, activation writing `status` one way only.
-    target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
+    target_spiele = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
 
     # In-session for `target_status`'s reason, and `start` alone: `end` is dated with it, and a
     # matchday half-dated is a shape no write here produces.
@@ -704,7 +704,7 @@ async def _judge_the_activation(
 
     return outgoing_ids, find_activation_refusal(
         target_status=target_status,
-        target_fixtures=target_fixtures,
+        target_spiele=target_spiele,
         undated_spieltage=undated_spieltage,
         outgoing_unplayed=unplayed,
     )
@@ -730,10 +730,10 @@ async def _pull_recorded_fact_rows(
     )
 
 
-def _find_undraw_refusal_of(*, saison_status: str, recorded_fixtures: int, berichte: int) -> WriteRefusal | None:
+def _find_undraw_refusal_of(*, saison_status: str, recorded_spiele: int, berichte: int) -> WriteRefusal | None:
     """The undraw's whole judgement, in its order: its window, then the reports it would delete."""
 
-    return find_undraw_refusal(saison_status=saison_status, recorded_fixtures=recorded_fixtures) or find_berichte_refusal(berichte=berichte)
+    return find_undraw_refusal(saison_status=saison_status, recorded_spiele=recorded_spiele) or find_berichte_refusal(berichte=berichte)
 
 
 @router.post(
@@ -1004,12 +1004,12 @@ async def post_spielplan(
         refuse(
             find_spielplan_refusal(
                 saison_status=str(saison_raw["status"]),
-                fixtures_drawn=len(stored_spiele),
+                spiele_drawn=len(stored_spiele),
                 spieltage_held=await spieltage_collection.count_documents({"saison_id": saison_id}, session=session),
                 rules=rules,
                 occupancy_by_gruppe=occupancy,
                 replace=spielplan_data.replace,
-                recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
+                recorded_spiele=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
             )
         )
         if spielplan_data.replace:
@@ -1181,7 +1181,7 @@ async def delete_spielplan(
         refuse(
             _find_undraw_refusal_of(
                 saison_status=str(saison_raw["status"]),
-                recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
+                recorded_spiele=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
                 berichte=await count_submitted_berichte(
                     spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
                 ),

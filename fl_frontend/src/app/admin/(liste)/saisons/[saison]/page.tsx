@@ -99,8 +99,8 @@ function faultLine(fault: FLBracketFault): Copy {
     case "gruppenphase_feeder":
     case "feeder_not_played_first":
     case "same_team":
-    case "gruppenphase_fixture_wired":
-    case "source_feeds_another_fixture":
+    case "gruppenphase_spiel_wired":
+    case "source_feeds_another_spiel":
       return words.wiring;
     case "departed_occupant":
       return words.departed_occupant(

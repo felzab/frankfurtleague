@@ -49,12 +49,12 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_double_entries,
     find_eligibility_refusal,
-    find_fixture_date_refusal,
     find_gruppen_not_run,
     find_references_to_anchor,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
+    find_spiel_date_refusal,
     find_state_refusal,
     find_voided_results_refusal,
     find_wiring_refusal,
@@ -715,7 +715,7 @@ async def _judge_spiel_save(
     # The session is what makes a matchday widened by a concurrent write visible.
     span = await pull_spieltag_span(spieltage_collection=collections.spieltage, spieltag_id=stored.spieltag_id, session=session)
     if span is not None:
-        refuse(find_fixture_date_refusal(date=payload.date, spieltag_start=span.start, spieltag_end=span.end))
+        refuse(find_spiel_date_refusal(date=payload.date, spieltag_start=span.start, spieltag_end=span.end))
 
     # Read whatever the payload names, unchanged reference included: the booking rule judges the row each reference
     # names, and judges the reference alone where it is new or reopened.

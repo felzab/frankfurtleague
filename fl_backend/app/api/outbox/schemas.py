@@ -192,7 +192,7 @@ class FLSpielVorschlagDiscardedData(BaseModel):
     appointment: FLSpielMailAppointment
 
 
-class FLSpielMailFixture(BaseModel):
+class FLSpielMailEntry(BaseModel):
     """A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them."""
 
     team1: str
@@ -208,7 +208,7 @@ class FLAustrittNoticeData(BaseModel):
     # The departed club's name in that season.
     team: str
     saison_id: str
-    fixtures: list[FLSpielMailFixture] = Field(min_length=1)
+    spiele: list[FLSpielMailEntry] = Field(min_length=1)
 
 
 # --- The season's and the applications' mails.

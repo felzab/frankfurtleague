@@ -208,7 +208,7 @@ async def patch_spieltag(
         refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
         # Undated fixtures are filtered out rather than passed as nulls: one constrains nothing.
-        fixture_dates = [
+        spiel_dates = [
             row["date"]
             async for row in spiele_collection.find({"spieltag_id": spieltag_id, "date": {"$ne": None}}, {"date": 1}, session=session)
         ]
@@ -218,7 +218,7 @@ async def patch_spieltag(
                 end=spieltag_data.end,
                 saison_start=saison_raw["start_date"],
                 saison_end=saison_raw["end_date"],
-                fixture_dates=fixture_dates,
+                spiel_dates=spiel_dates,
             )
         )
 

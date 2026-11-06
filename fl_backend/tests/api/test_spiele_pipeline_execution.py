@@ -43,7 +43,7 @@ def spiel(league: SeededLeague, spiel_nr: int, saison_id: str = SAISON) -> dict[
 
 
 class TestTheJoinedDisqualification:
-    def test_the_season_is_the_fixtures_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
+    def test_the_season_is_the_spiele_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
         """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision.
 
         And names it as the club is called now, where a past season keeps the name it was played under.
@@ -89,7 +89,7 @@ MOVES: Mapping[str, Mapping[str, Any]] = {
 REFEREE = {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607250031")}
 
 
-def a_fixture(*, with_ground: bool = True) -> dict[str, Any]:
+def a_spiel(*, with_ground: bool = True) -> dict[str, Any]:
     return spiel_document(
         spiel_id=VERDICT_SPIEL_ID,
         saison_id=SAISON,
@@ -107,16 +107,16 @@ def zugesagt() -> dict[str, Any]:
     return {"kind": "zugesagt", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
 
 
-def a_row(fixture: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
-    return spielbestaetigung_document(fixture, party={"kind": "team", "team_id": team_id}, **fields)
+def a_row(spiel: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
+    return spielbestaetigung_document(spiel, party={"kind": "team", "team_id": team_id}, **fields)
 
 
-def discarded(fixture: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
+def discarded(spiel: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
     """A club's decline proposing another date, closed by the administrator's discard."""
 
     abgelehnt = {**zugesagt(), "kind": "declined", "vorschlag": {"date": "2026-05-03", "time": "17:00:00"}, "reason": "Halle belegt"}
 
-    return a_row(fixture, team_id, answer=abgelehnt, closed={"at": "2026-04-21", "reason": "discarded"})
+    return a_row(spiel, team_id, answer=abgelehnt, closed={"at": "2026-04-21", "reason": "discarded"})
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -133,7 +133,7 @@ def venue_document(name: str = "Sportplatz Ost") -> dict[str, Any]:
     }
 
 
-def on_a_fixture(url: str, fixture: dict[str, Any], rows: list[dict[str, Any]], body: Body) -> Any:
+def on_a_spiel(url: str, spiel: dict[str, Any], rows: list[dict[str, Any]], body: Body) -> Any:
     """The fixture beside the rows every read joins its names from: its clubs' season rows and its ground."""
 
     async def _run() -> Any:
@@ -142,7 +142,7 @@ def on_a_fixture(url: str, fixture: dict[str, Any], rows: list[dict[str, Any]], 
                 [saison_team_document(SAISON, VERDICT_HOME, "Alpha", "ALX"), saison_team_document(SAISON, VERDICT_AWAY, "Beta", "BEX")]
             )
             await database[Collection.SPIELORTE].insert_one(venue_document())
-            await database[Collection.SPIELE].insert_one(fixture)
+            await database[Collection.SPIELE].insert_one(spiel)
             if rows:
                 await database[Collection.SPIELBESTAETIGUNGEN].insert_many(rows)
 
@@ -162,11 +162,11 @@ async def verdict(database: AsyncDatabase) -> bool | None:
     return (await joined(database))[ANSETZUNG_CONFIRMED]
 
 
-class TestAFixtureNamesItsVenueAsItIsCalledNow:
-    def test_a_venue_renamed_after_a_past_fixture_shows_its_new_name_there(self, mongo_url: str):
+class TestASpielNamesItsVenueAsItIsCalledNow:
+    def test_a_venue_renamed_after_a_past_spiel_shows_its_new_name_there(self, mongo_url: str):
         """A copy stored on the fixture would go on naming the ground as it was called before the rename."""
 
-        fixture = {**a_fixture(), "date": "2025-09-20", "ort": {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}}
+        spiel = {**a_spiel(), "date": "2025-09-20", "ort": {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}}
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             await database[Collection.SPIELORTE].update_one(
@@ -174,7 +174,7 @@ class TestAFixtureNamesItsVenueAsItIsCalledNow:
             )
             return (await joined(database))["ort"]
 
-        ort = on_a_fixture(mongo_url, fixture, [], body)
+        ort = on_a_spiel(mongo_url, spiel, [], body)
 
         assert ort == {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80, "name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}
 
@@ -184,30 +184,30 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
     def test_both_clubs_agreeing_confirms_it(self, mongo_url: str, with_ground: bool):
         """Without a ground the row stores a null the fixture's path lacks: drop an `$ifNull` from the `let` and no such fixture confirms."""
 
-        fixture = a_fixture(with_ground=with_ground)
-        rows = [a_row(fixture, VERDICT_HOME, answer=zugesagt()), a_row(fixture, VERDICT_AWAY, answer=zugesagt())]
+        spiel = a_spiel(with_ground=with_ground)
+        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_AWAY, answer=zugesagt())]
 
-        document = on_a_fixture(mongo_url, fixture, rows, joined)
+        document = on_a_spiel(mongo_url, spiel, rows, joined)
 
         assert document[ANSETZUNG_CONFIRMED] is True
         assert SPIELBESTAETIGUNGEN_AS_NAME not in document
 
     def test_a_club_yet_to_answer_leaves_it_provisional(self, mongo_url: str):
-        fixture = a_fixture()
-        rows = [a_row(fixture, VERDICT_HOME, answer=zugesagt()), a_row(fixture, VERDICT_AWAY)]
+        spiel = a_spiel()
+        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_AWAY)]
 
-        assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+        assert on_a_spiel(mongo_url, spiel, rows, verdict) is False
 
     def test_an_answer_whose_row_closed_stops_counting(self, mongo_url: str):
         """A call-off closes the agreement and a reinstated fixture is asked afresh; read as open, it would go on confirming it."""
 
-        fixture = a_fixture()
+        spiel = a_spiel()
         rows = [
-            a_row(fixture, VERDICT_HOME, answer=zugesagt()),
-            a_row(fixture, VERDICT_AWAY, answer=zugesagt(), closed={"at": "2026-04-21", "reason": "cancelled"}),
+            a_row(spiel, VERDICT_HOME, answer=zugesagt()),
+            a_row(spiel, VERDICT_AWAY, answer=zugesagt(), closed={"at": "2026-04-21", "reason": "cancelled"}),
         ]
 
-        assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+        assert on_a_spiel(mongo_url, spiel, rows, verdict) is False
 
     @pytest.mark.parametrize(
         "home",
@@ -216,35 +216,35 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
     def test_a_discarded_proposal_counts_as_its_clubs_agreement(self, mongo_url: str, home: str):
         """The league kept the date: a join of unclosed rows alone reads one club as never asked, or both as nobody."""
 
-        fixture = a_fixture()
+        spiel = a_spiel()
         rows = [
-            a_row(fixture, VERDICT_HOME, answer=zugesagt()) if home == "zugesagt" else discarded(fixture, VERDICT_HOME),
-            discarded(fixture, VERDICT_AWAY),
+            a_row(spiel, VERDICT_HOME, answer=zugesagt()) if home == "zugesagt" else discarded(spiel, VERDICT_HOME),
+            discarded(spiel, VERDICT_AWAY),
         ]
 
-        assert on_a_fixture(mongo_url, fixture, rows, verdict) is True
+        assert on_a_spiel(mongo_url, spiel, rows, verdict) is True
 
-    def test_a_discard_about_an_ansetzung_the_fixture_has_left_counts_for_nothing(self, mongo_url: str):
+    def test_a_discard_about_an_ansetzung_the_spiel_has_left_counts_for_nothing(self, mongo_url: str):
         """The close never reaches a closed row, so a discard joined whatever its stand would hold the moved fixture provisional for good."""
 
-        fixture = a_fixture()
+        spiel = a_spiel()
 
         async def body(database: AsyncDatabase) -> bool | None:
             await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": MOVES["the time"]})
 
             return await verdict(database)
 
-        assert on_a_fixture(mongo_url, fixture, [discarded(fixture, VERDICT_AWAY)], body) is None
+        assert on_a_spiel(mongo_url, spiel, [discarded(spiel, VERDICT_AWAY)], body) is None
 
     @pytest.mark.parametrize("move", list(MOVES.values()), ids=list(MOVES))
-    def test_a_moved_fixture_reads_as_provisional_in_the_very_next_read(self, mongo_url: str, move: Mapping[str, Any]):
+    def test_a_moved_spiel_reads_as_provisional_in_the_very_next_read(self, mongo_url: str, move: Mapping[str, Any]):
         """No sweep runs, so both agreements stay open: a comparison missing a key reads its move as settled.
 
         And a join reading only the current Ansetzung's rows reads every move as never asked.
         """
 
-        fixture = a_fixture()
-        rows = [a_row(fixture, VERDICT_HOME, answer=zugesagt()), a_row(fixture, VERDICT_AWAY, answer=zugesagt())]
+        spiel = a_spiel()
+        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_AWAY, answer=zugesagt())]
 
         async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
             before = await verdict(database)
@@ -252,41 +252,41 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
             return before, await verdict(database)
 
-        assert on_a_fixture(mongo_url, fixture, rows, body) == (True, False)
+        assert on_a_spiel(mongo_url, spiel, rows, body) == (True, False)
 
     def test_a_referees_open_row_never_holds_the_clubs_agreement_back(self, mongo_url: str):
-        fixture = a_fixture()
+        spiel = a_spiel()
         rows = [
-            a_row(fixture, VERDICT_HOME, answer=zugesagt()),
-            a_row(fixture, VERDICT_AWAY, answer=zugesagt()),
-            spielbestaetigung_document(fixture, party=REFEREE),
+            a_row(spiel, VERDICT_HOME, answer=zugesagt()),
+            a_row(spiel, VERDICT_AWAY, answer=zugesagt()),
+            spielbestaetigung_document(spiel, party=REFEREE),
         ]
 
-        assert on_a_fixture(mongo_url, fixture, rows, verdict) is True
+        assert on_a_spiel(mongo_url, spiel, rows, verdict) is True
 
     def test_two_agreements_of_one_club_leave_it_provisional(self, mongo_url: str):
         """Nothing in the database stops a second open row once a club has answered: counting rows would confirm without the other club."""
 
-        fixture = a_fixture()
-        rows = [a_row(fixture, VERDICT_HOME, answer=zugesagt()), a_row(fixture, VERDICT_HOME, answer=zugesagt())]
+        spiel = a_spiel()
+        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_HOME, answer=zugesagt())]
 
-        assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+        assert on_a_spiel(mongo_url, spiel, rows, verdict) is False
 
     @pytest.mark.parametrize(
         "parties",
         [pytest.param([], id="no row at all"), pytest.param([REFEREE], id="a referee's row alone")],
     )
     def test_no_clubs_open_row_reads_as_never_asked(self, mongo_url: str, parties: list[Mapping[str, Any]]):
-        fixture = a_fixture()
-        rows = [spielbestaetigung_document(fixture, party=party) for party in parties]
+        spiel = a_spiel()
+        rows = [spielbestaetigung_document(spiel, party=party) for party in parties]
 
-        assert on_a_fixture(mongo_url, fixture, rows, verdict) is None
+        assert on_a_spiel(mongo_url, spiel, rows, verdict) is None
 
 
 def test_the_confirmation_lookup_plans_an_index_scan(mongo_url: str):
     """Every fixture of the most-read endpoint runs the sub-pipeline once, a scan no test database of a few rows shows."""
 
-    fixture = a_fixture()
+    spiel = a_spiel()
 
     async def body(database: AsyncDatabase) -> Mapping[str, Any]:
         command = {"aggregate": str(Collection.SPIELE), "pipeline": build_spiele_pipeline(db_filter={"_id": VERDICT_SPIEL_ID}), "cursor": {}}
@@ -296,7 +296,7 @@ def test_the_confirmation_lookup_plans_an_index_scan(mongo_url: str):
         (stage,) = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.SPIELBESTAETIGUNGEN]
         return stage
 
-    stage = on_a_fixture(mongo_url, fixture, [a_row(fixture, VERDICT_HOME), a_row(fixture, VERDICT_AWAY)], body)
+    stage = on_a_spiel(mongo_url, spiel, [a_row(spiel, VERDICT_HOME), a_row(spiel, VERDICT_AWAY)], body)
 
     assert (stage["indexesUsed"], stage["collectionScans"]) == (["spielbestaetigungen_saison_id_spiel_id"], 0), stage
 
@@ -321,17 +321,17 @@ def published() -> dict[str, Any]:
     return own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-04-01")
 
 
-def a_refereed_fixture(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]:
+def a_refereed_spiel(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]:
     # The booking as stored: the name served beside it is the referee row's, joined at read.
-    return {**a_fixture(), "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "payment": 20}}
+    return {**a_spiel(), "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "payment": 20}}
 
 
-def a_referee_row(fixture: Mapping[str, Any], party: Mapping[str, Any] = REFEREE, **fields: Any) -> dict[str, Any]:
-    return spielbestaetigung_document(fixture, party=party, kontakte=None, **fields)
+def a_referee_row(spiel: Mapping[str, Any], party: Mapping[str, Any] = REFEREE, **fields: Any) -> dict[str, Any]:
+    return spielbestaetigung_document(spiel, party=party, kontakte=None, **fields)
 
 
-def on_a_refereed_fixture(
-    url: str, rows: list[dict[str, Any]], body: Body, *, einwilligung: Mapping[str, Any] | None = None, fixture: dict[str, Any] | None = None
+def on_a_refereed_spiel(
+    url: str, rows: list[dict[str, Any]], body: Body, *, einwilligung: Mapping[str, Any] | None = None, spiel: dict[str, Any] | None = None
 ) -> Any:
     """The booked referee's own record beside the fixture, consenting to publication unless `einwilligung` says otherwise."""
 
@@ -343,7 +343,7 @@ def on_a_refereed_fixture(
         )
         return await body(database)
 
-    return on_a_fixture(url, fixture or a_refereed_fixture(), rows, seeded)
+    return on_a_spiel(url, spiel or a_refereed_spiel(), rows, seeded)
 
 
 async def einsatz(database: AsyncDatabase) -> bool | None:
@@ -362,49 +362,49 @@ class TestTheRefereeIsServedOnceAgreed:
     def test_a_verdict_neither_true_nor_false_publishes_nobody(self, mongo_url: str):
         """The base model's own gate, so a join answering a third value again cannot publish the referee it never judged."""
 
-        fixture = a_refereed_fixture()
-        document = on_a_refereed_fixture(mongo_url, [a_referee_row(fixture, answer=zugesagt())], joined, fixture=fixture)
+        spiel = a_refereed_spiel()
+        document = on_a_refereed_spiel(mongo_url, [a_referee_row(spiel, answer=zugesagt())], joined, spiel=spiel)
         document["schiedsrichter"][EINSATZ_CONFIRMED] = None
 
         assert FLSpielJoined.model_validate(document).schiedsrichter is None
 
-    def test_a_fixture_too_far_out_to_have_been_asked_withholds_them(self, mongo_url: str):
+    def test_a_spiel_too_far_out_to_have_been_asked_withholds_them(self, mongo_url: str):
         """No row at all: read as never asked and served, every booking the pass has not reached would publish its referee."""
 
-        fixture = {**a_refereed_fixture(), "date": "2026-12-12"}
+        spiel = {**a_refereed_spiel(), "date": "2026-12-12"}
 
-        assert withheld(on_a_refereed_fixture(mongo_url, [], joined, fixture=fixture))
+        assert withheld(on_a_refereed_spiel(mongo_url, [], joined, spiel=spiel))
 
     def test_a_referee_booked_after_the_last_pass_withholds_them(self, mongo_url: str):
         """The referee replaced before them holds the only row, closed for the change; the booked one holds none yet."""
 
-        fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, party=REPLACED_REFEREE, closed={"at": "2026-04-21", "reason": "schiedsrichter_switched"})]
+        spiel = a_refereed_spiel()
+        rows = [a_referee_row(spiel, party=REPLACED_REFEREE, closed={"at": "2026-04-21", "reason": "schiedsrichter_switched"})]
 
-        assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
+        assert withheld(on_a_refereed_spiel(mongo_url, rows, joined, spiel=spiel))
 
     def test_a_request_closed_unanswered_withholds_them(self, mongo_url: str):
-        fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, closed={"at": "2026-05-03", "reason": "spiel_past"})]
+        spiel = a_refereed_spiel()
+        rows = [a_referee_row(spiel, closed={"at": "2026-05-03", "reason": "spiel_past"})]
 
-        assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
+        assert withheld(on_a_refereed_spiel(mongo_url, rows, joined, spiel=spiel))
 
     def test_a_referee_asked_and_silent_is_withheld_whole_from_the_base_tier_alone(self, mongo_url: str):
         """The admin editor shows the assignment from the moment it is made, the validator being the base model's own."""
 
-        fixture = a_refereed_fixture()
-        document = on_a_refereed_fixture(mongo_url, [a_referee_row(fixture)], joined, fixture=fixture)
+        spiel = a_refereed_spiel()
+        document = on_a_refereed_spiel(mongo_url, [a_referee_row(spiel)], joined, spiel=spiel)
 
         assert document["schiedsrichter"][EINSATZ_CONFIRMED] is False
         assert FLSpielJoined.model_validate(document).schiedsrichter is None
         admin = FLSpielJoinedAdmin.model_validate(document).schiedsrichter
         assert admin is not None and admin.name == REFEREE_NAME
 
-    def test_an_agreement_to_an_ansetzung_the_fixture_left_withholds_them(self, mongo_url: str):
+    def test_an_agreement_to_an_ansetzung_the_spiel_left_withholds_them(self, mongo_url: str):
         """No pass between: the agreement stays open about the old slot, which counts as asked and not agreed, as a club's does."""
 
-        fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, answer=zugesagt())]
+        spiel = a_refereed_spiel()
+        rows = [a_referee_row(spiel, answer=zugesagt())]
 
         async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
             before = await einsatz(database)
@@ -412,30 +412,30 @@ class TestTheRefereeIsServedOnceAgreed:
 
             return before, await einsatz(database)
 
-        assert on_a_refereed_fixture(mongo_url, rows, body, fixture=fixture) == (True, False)
+        assert on_a_refereed_spiel(mongo_url, rows, body, spiel=spiel) == (True, False)
 
     def test_a_replaced_referees_open_row_is_not_the_booked_ones(self, mongo_url: str):
-        fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, party=REPLACED_REFEREE)]
+        spiel = a_refereed_spiel()
+        rows = [a_referee_row(spiel, party=REPLACED_REFEREE)]
 
-        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is False
+        assert on_a_refereed_spiel(mongo_url, rows, einsatz, spiel=spiel) is False
 
     def test_a_clubs_closed_row_never_counts_for_the_referee(self, mongo_url: str):
         """The join carries a club's discard for the clubs' verdict, and the gate's party term keeps it out of the referee's."""
 
-        fixture = a_refereed_fixture()
-        rows = [a_row(fixture, VERDICT_HOME, answer=zugesagt(), closed={"at": "2026-04-21", "reason": "discarded"})]
+        spiel = a_refereed_spiel()
+        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt(), closed={"at": "2026-04-21", "reason": "discarded"})]
 
-        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is False
+        assert on_a_refereed_spiel(mongo_url, rows, einsatz, spiel=spiel) is False
 
     @pytest.mark.parametrize("moved", [False, True], ids=["about the slot as it stands", "about a slot the fixture left since"])
     def test_their_own_decline_as_their_latest_answer_withholds_them(self, mongo_url: str, moved: bool):
         """Re-booked after declining, they hold no open row until the next pass asks: read as never asked, they would show."""
 
-        fixture = a_refereed_fixture()
+        spiel = a_refereed_spiel()
         rows = [
-            a_referee_row(fixture, _id=EARLIER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
-            a_referee_row(fixture, _id=LATER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
+            a_referee_row(spiel, _id=EARLIER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
+            a_referee_row(spiel, _id=LATER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
         ]
 
         async def body(database: AsyncDatabase) -> bool | None:
@@ -444,31 +444,31 @@ class TestTheRefereeIsServedOnceAgreed:
 
             return await einsatz(database)
 
-        assert on_a_refereed_fixture(mongo_url, rows, body, fixture=fixture) is False
+        assert on_a_refereed_spiel(mongo_url, rows, body, spiel=spiel) is False
 
-    def test_their_latest_answer_about_a_slot_the_fixture_left_withholds_them(self, mongo_url: str):
+    def test_their_latest_answer_about_a_slot_the_spiel_left_withholds_them(self, mongo_url: str):
         """The pass closed the agreement for the move: read without its stand, it publishes a referee who never agreed to this slot."""
 
-        fixture = a_refereed_fixture()
+        spiel = a_refereed_spiel()
         rows = [
-            a_referee_row(fixture, _id=EARLIER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
-            a_referee_row(fixture, _id=LATER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
+            a_referee_row(spiel, _id=EARLIER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
+            a_referee_row(spiel, _id=LATER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
         ]
         # The move the closing names, so the agreement is about a slot the fixture left.
-        moved = {**fixture, "time": "19:30:00"}
+        moved = {**spiel, "time": "19:30:00"}
 
-        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=moved) is False
+        assert on_a_refereed_spiel(mongo_url, rows, einsatz, spiel=moved) is False
 
 
 class TestTheRefereesNameFollowsTheirConsent:
     """`READ-REFEREE-004`: served, the name is reduced where the referee published it and null otherwise."""
 
     def test_an_agreed_referee_publishing_internally_is_served_nameless_and_named_on_the_admin_tier(self, mongo_url: str):
-        fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, answer=zugesagt())]
+        spiel = a_refereed_spiel()
+        rows = [a_referee_row(spiel, answer=zugesagt())]
         intern = {**published(), "scope": "intern"}
 
-        document = on_a_refereed_fixture(mongo_url, rows, joined, einwilligung=intern, fixture=fixture)
+        document = on_a_refereed_spiel(mongo_url, rows, joined, einwilligung=intern, spiel=spiel)
 
         served = FLSpielJoined.model_validate(document).schiedsrichter
         assert served is not None and (served.name, served.name_is_public) == (None, False)
@@ -476,21 +476,21 @@ class TestTheRefereesNameFollowsTheirConsent:
         assert admin is not None and (admin.schiedsrichter_id, admin.name) == (REFEREE_ID, REFEREE_NAME)
 
     def test_a_published_name_is_served_reduced(self, mongo_url: str):
-        fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, answer=zugesagt())]
+        spiel = a_refereed_spiel()
+        rows = [a_referee_row(spiel, answer=zugesagt())]
 
-        served = FLSpielJoined.model_validate(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)).schiedsrichter
+        served = FLSpielJoined.model_validate(on_a_refereed_spiel(mongo_url, rows, joined, spiel=spiel)).schiedsrichter
 
         assert served is not None and served.name == PUBLIC_REFEREE_NAME
 
     def test_a_booking_no_record_answers_is_withheld(self, mongo_url: str):
         """The ghost's case and a join that stopped matching alike: nothing found never publishes."""
 
-        fixture = a_refereed_fixture(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)
+        spiel = a_refereed_spiel(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)
         # Agreed, so the consent gate is the one withholding the name.
-        rows = [a_referee_row(fixture, party={"kind": "schiedsrichter", "schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}, answer=zugesagt())]
+        rows = [a_referee_row(spiel, party={"kind": "schiedsrichter", "schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}, answer=zugesagt())]
 
-        document = on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)
+        document = on_a_refereed_spiel(mongo_url, rows, joined, spiel=spiel)
 
         assert document["schiedsrichter"][NAME_IS_PUBLIC_KEY] is False
         served = FLSpielJoined.model_validate(document).schiedsrichter
@@ -507,6 +507,6 @@ def test_the_referee_lookup_plans_an_index_scan(mongo_url: str):
         (stage,) = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.SCHIEDSRICHTER]
         return stage
 
-    stage = on_a_refereed_fixture(mongo_url, [], body)
+    stage = on_a_refereed_spiel(mongo_url, [], body)
 
     assert (stage["indexesUsed"], stage["collectionScans"]) == (["_id_"], 0), stage

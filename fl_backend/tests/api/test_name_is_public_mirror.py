@@ -140,7 +140,7 @@ class TestTheRefereeJoinAnswersTheSameTable:
         async def body(database: AsyncDatabase) -> Any:
             spiele = await aggregate_many_from_db(collection=database.spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON}))
 
-            return {fixture["schiedsrichter"]["schiedsrichter_id"]: fixture["schiedsrichter"]["name_is_public"] for fixture in spiele}
+            return {spiel["schiedsrichter"]["schiedsrichter_id"]: spiel["schiedsrichter"]["name_is_public"] for spiel in spiele}
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
 
@@ -153,7 +153,7 @@ def _schiedsrichter_oid_for(case: EinwilligungCase) -> ObjectId:
     return _oid(NAME_IS_PUBLIC.index(case) + 40)
 
 
-def _fixture_oid_for(case: EinwilligungCase) -> ObjectId:
+def _spiel_oid_for(case: EinwilligungCase) -> ObjectId:
     return _oid(NAME_IS_PUBLIC.index(case) + 70)
 
 
@@ -188,7 +188,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             await database.spiele.insert_many(
                 [
                     spiel_document(
-                        spiel_id=_fixture_oid_for(case),
+                        spiel_id=_spiel_oid_for(case),
                         saison_id=SAISON,
                         spiel_nr=NAME_IS_PUBLIC.index(case) + 1,
                         spieltag_id=_oid(99),

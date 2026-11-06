@@ -372,14 +372,14 @@ class TestTheEditorRead:
     def test_each_lock_reads_as_its_write_judges(self, mongo_replica_set_url: str):
         """A control opening where the write refuses is a press answered by a stale page."""
 
-        fixture = spiel_document(
+        spiel = spiel_document(
             spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=SPIELTAG_OID, team1={"team_id": ADLER, "tore": None}
         )
 
         async def body(database: AsyncDatabase) -> Any:
             return await editor(database)
 
-        view = on_a_league(mongo_replica_set_url, body, spiele=[fixture])
+        view = on_a_league(mongo_replica_set_url, body, spiele=[spiel])
 
         assert view.gruppe_locked is True
         assert view.retire_blocked_by == SAISON_ID

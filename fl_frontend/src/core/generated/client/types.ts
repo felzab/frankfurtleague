@@ -1178,7 +1178,7 @@ export interface FLAustritt {
 /**
  * A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them.
  */
-export interface FLSpielMailFixture {
+export interface FLSpielMailEntry {
   date: string | null;
   team1: string;
   team2: string;
@@ -1189,10 +1189,10 @@ export interface FLSpielMailFixture {
  * An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them.
  */
 export interface FLAustrittNoticeData {
-  /** @minItems 1 */
-  fixtures: FLSpielMailFixture[];
   kind: "austritt_notice";
   saison_id: string;
+  /** @minItems 1 */
+  spiele: FLSpielMailEntry[];
   team: string;
 }
 
@@ -2065,8 +2065,8 @@ export type FLSpielQuelle = FLSpielQuelleGruppe | FLSpielQuelleSpiel;
 export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
 
 export const FLBracketFaultSlotReason = {
-  gruppenphase_fixture_wired: "gruppenphase_fixture_wired",
-  source_feeds_another_fixture: "source_feeds_another_fixture",
+  gruppenphase_spiel_wired: "gruppenphase_spiel_wired",
+  source_feeds_another_spiel: "source_feeds_another_spiel",
 } as const;
 
 export type FLSpielSide = (typeof FLSpielSide)[keyof typeof FLSpielSide];

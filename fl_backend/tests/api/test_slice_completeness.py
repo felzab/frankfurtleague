@@ -171,7 +171,7 @@ OPPONENT = "6890a1b2c3d4e5f607220004"
 
 # Before the day every fixture below is played on, which is what makes the occupant a fault.
 DEPARTURE = {"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-03-01"}
-FIXTURE_DAY = "2026-03-15"
+SPIEL_DAY = "2026-03-15"
 
 CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED, SEEDED_FROM_A_GROUP_NOT_RUN = 1, 2, 3, 4
 AT_A_RETIRED_GROUND, REFEREED_FIRST, REFEREED_AN_HOUR_LATER = 5, 6, 7
@@ -211,14 +211,14 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
     and reports nothing: every fault below is some sweep's own.
     """
 
-    def fixture(nr: int, spieltag_id: str, team1: dict[str, Any] | None, team2: dict[str, Any], **overrides: Any) -> dict[str, Any]:
+    def one_spiel(nr: int, spieltag_id: str, team1: dict[str, Any] | None, team2: dict[str, Any], **overrides: Any) -> dict[str, Any]:
         return spiel(
             **{
                 "_id": MATCH_ID.format(nr),
                 "spiel_nr": nr,
                 "spieltag_id": spieltag_id,
                 "saison_id": SAISON_ID,
-                "date": FIXTURE_DAY,
+                "date": SPIEL_DAY,
                 "ergebnis": None,
                 "team1": team1,
                 "team2": team2,
@@ -233,10 +233,10 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
         )
 
     return [
-        fixture(CLASHING_FIRST, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(BYSTANDER, "Bieber")),
-        fixture(CLASHING_SECOND, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(OPPONENT, "Cronberg")),
-        fixture(WITH_THE_DEPARTED, QUIET_SPIELTAG, _joined_side(DEPARTED, "Dornbusch", DEPARTURE), _joined_side(BYSTANDER, "Bieber")),
-        fixture(
+        one_spiel(CLASHING_FIRST, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(BYSTANDER, "Bieber")),
+        one_spiel(CLASHING_SECOND, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(OPPONENT, "Cronberg")),
+        one_spiel(WITH_THE_DEPARTED, QUIET_SPIELTAG, _joined_side(DEPARTED, "Dornbusch", DEPARTURE), _joined_side(BYSTANDER, "Bieber")),
+        one_spiel(
             SEEDED_FROM_A_GROUP_NOT_RUN,
             BRACKET_SPIELTAG,
             None,
@@ -244,14 +244,14 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
             saison_phase="halbfinale",
             team1_quelle={"type": "gruppe", "gruppe": UNRUN_GRUPPE, "platz": 1},
         ),
-        fixture(
+        one_spiel(
             AT_A_RETIRED_GROUND,
             RETIRED_GROUND_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
             ort={"spielort_id": RETIRED_GROUND, "name": "Bezirkssportanlage West", "maps_link": "Bezirkssportanlage West", "mietpreis": 40},
         ),
-        fixture(
+        one_spiel(
             REFEREED_FIRST,
             REFEREED_FIRST_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
@@ -259,7 +259,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
             time="18:00:00",
             schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20},
         ),
-        fixture(
+        one_spiel(
             REFEREED_AN_HOUR_LATER,
             REFEREED_LATER_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
@@ -321,7 +321,7 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
 
         assert [(fault.spiel_nr, fault.gruppe) for fault in not_run] == [(SEEDED_FROM_A_GROUP_NOT_RUN, UNRUN_GRUPPE)]
 
-    def test_a_fixture_booked_onto_a_retired_ground_is_reported(self, spiel):
+    def test_a_spiel_booked_onto_a_retired_ground_is_reported(self, spiel):
         """Keyed on the row the ground read answers, so a report reading the fixture's own copy alone could not raise it."""
 
         faults = sweep(spiel)
@@ -329,7 +329,7 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
 
         assert [(fault.spiel_nr, fault.booking, fault.inactive_since) for fault in retired] == [(AT_A_RETIRED_GROUND, "ort", RETIRED_ON)]
 
-    def test_a_referee_booked_twice_within_the_buffer_is_reported_on_both_fixtures(self, spiel):
+    def test_a_referee_booked_twice_within_the_buffer_is_reported_on_both_spiele(self, spiel):
         faults = sweep(spiel)
         clashes = [fault for fault in faults if fault.reason == "double_booked"]
 

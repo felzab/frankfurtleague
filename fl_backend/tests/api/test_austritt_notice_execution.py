@@ -72,7 +72,7 @@ def side(team_id: ObjectId | None, tore: int | None = None) -> dict[str, Any] | 
     return None if team_id is None else {"team_id": team_id, "tore": tore}
 
 
-def fixture(
+def spiel(
     spiel_nr: int, team1: ObjectId, team2: ObjectId | None, date: str | None, *, tore: int | None = None, **fields: Any
 ) -> dict[str, Any]:
     """A fixture no confirmation row names, as one past the asking window."""
@@ -141,20 +141,20 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
     The close's list reaching only rows already asked, an opponent of those fixtures would go to the ground unaware.
     """
 
-    def test_each_opponent_is_owed_one_notice_over_its_open_fixtures_and_the_departed_club_nothing(self, mongo_replica_set_url: str):
+    def test_each_opponent_is_owed_one_notice_over_its_open_spiele_and_the_departed_club_nothing(self, mongo_replica_set_url: str):
         spiele = [
-            fixture(1, DEPARTED, OPPONENT, LATER),
+            spiel(1, DEPARTED, OPPONENT, LATER),
             # On the exit's own day, and the departed club on the other side: `entscheidung_of` counts the day as out.
-            fixture(2, OPPONENT, DEPARTED, EXIT_DAY),
-            fixture(3, DEPARTED, OPPONENT, None),
+            spiel(2, OPPONENT, DEPARTED, EXIT_DAY),
+            spiel(3, DEPARTED, OPPONENT, None),
             # A day the club still played, a result, a call-off, and a side the draw has yet to settle: none is open between two clubs.
-            fixture(4, DEPARTED, OPPONENT, DAY_BEFORE),
-            fixture(5, DEPARTED, OPPONENT, LATER, tore=1),
-            fixture(6, DEPARTED, OPPONENT, LATER, sonderereignis="ausgefallen"),
-            fixture(7, DEPARTED, None, LATER),
+            spiel(4, DEPARTED, OPPONENT, DAY_BEFORE),
+            spiel(5, DEPARTED, OPPONENT, LATER, tore=1),
+            spiel(6, DEPARTED, OPPONENT, LATER, sonderereignis="ausgefallen"),
+            spiel(7, DEPARTED, None, LATER),
             # An opponent whose only fixture lies before the exit, and one out itself by the fixture's day.
-            fixture(8, DEPARTED, EARLIER_OPPONENT, DAY_BEFORE),
-            fixture(9, DEPARTED, GONE_TOO, LATER),
+            spiel(8, DEPARTED, EARLIER_OPPONENT, DAY_BEFORE),
+            spiel(9, DEPARTED, GONE_TOO, LATER),
         ]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -168,7 +168,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
         for notice in notices.values():
             assert (notice.team, notice.saison_id) == ("Goethe", SAISON_ID)
             # By day, the undated one last.
-            assert [(row.team1, row.team2, row.date) for row in notice.fixtures] == [
+            assert [(row.team1, row.team2, row.date) for row in notice.spiele] == [
                 ("Schiller", "Goethe", EXIT_DAY),
                 ("Goethe", "Schiller", LATER),
                 ("Goethe", "Schiller", None),
@@ -177,7 +177,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
         assert {(row["reference"]["id"], row["reference"]["seat"]) for row in rows} == {(DEPARTED_ROW, None)}
 
     def test_a_later_save_tells_only_the_opponents_a_moved_day_newly_reaches(self, mongo_replica_set_url: str):
-        spiele = [fixture(1, DEPARTED, OPPONENT, LATER), fixture(2, DEPARTED, EARLIER_OPPONENT, DAY_BEFORE)]
+        spiele = [spiel(1, DEPARTED, OPPONENT, LATER), spiel(2, DEPARTED, EARLIER_OPPONENT, DAY_BEFORE)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await save_the_exit(database, client, stored=None, proposed=EXIT_DAY)

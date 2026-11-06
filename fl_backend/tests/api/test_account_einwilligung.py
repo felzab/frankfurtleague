@@ -317,7 +317,7 @@ class TestTheOwnRecords:
 
 @pytest.mark.db
 class TestTheTwoChoices:
-    def test_moving_the_scope_moves_this_row_alone_writes_no_fixture_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
+    def test_moving_the_scope_moves_this_row_alone_writes_no_spiel_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(scope="intern"), headers=_person(IDENTIFIER))

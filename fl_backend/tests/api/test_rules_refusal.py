@@ -76,7 +76,7 @@ def judge(
         highest_wired_platz=platz,
         largest_squad=largest_squad,
         attached_by_phase=attached,
-        drawn_fixtures=drawn,
+        drawn_spiele=drawn,
     )
 
 
@@ -243,7 +243,7 @@ class TestAStartedSeasonFreezes:
 
 
 # The season the class below patches, as its fixtures were drawn: 4 groups of 4 over 3 matchdays.
-DRAWN_FIXTURES = 24
+DRAWN_SPIELE = 24
 
 
 class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
@@ -261,7 +261,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     def test_a_change_to_any_of_them_is_refused(self, label: str, changed: dict[str, Any]):
         """Each case leaves the bracket legal, so nothing but this rule can be answering."""
 
-        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
+        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_SPIELE)
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
@@ -274,7 +274,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         (`app/api/saisons/schemas.py :: FLSpielplanShape`).
         """
 
-        refusal = judge(status=status, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+        refusal = judge(status=status, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_SPIELE)
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
@@ -297,10 +297,10 @@ class TestTheUndrawWindow:
 
     @pytest.mark.parametrize(("status", "recorded", "undraw_runs"), UNDRAW_WINDOW_CASES, ids=WINDOW_IDS)
     def test_the_undraw_runs_only_inside_the_window(self, status: str, recorded: int, undraw_runs: bool):
-        assert (find_undraw_refusal(saison_status=status, recorded_fixtures=recorded) is None) is undraw_runs
+        assert (find_undraw_refusal(saison_status=status, recorded_spiele=recorded) is None) is undraw_runs
 
 
-class TestNarrowingBelowAMatchdaysFixtures:
+class TestNarrowingBelowAMatchdaysSpiele:
     """A matchday's expected count derives from these rules; the input is the largest count one matchday holds."""
 
     def test_narrowing_the_group_count_below_an_existing_matchday_is_refused(self):

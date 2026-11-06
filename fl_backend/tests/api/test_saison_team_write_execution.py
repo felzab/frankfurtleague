@@ -49,7 +49,7 @@ def junction_document(team_id: ObjectId, gruppe: str, kontakte: dict[str, Any] |
     return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe, kontakte=kontakte)
 
 
-def fixture_document(team_id: ObjectId) -> dict[str, Any]:
+def team_spiel_document(team_id: ObjectId) -> dict[str, Any]:
     """What the move gate counts is one drawn side; every other field is null, so no other rule can answer for the refusal."""
 
     return spiel_document(
@@ -206,7 +206,7 @@ class TestRecordingAnExitFromTheSeason:
 
 
 class TestMovingAClubBetweenGroups:
-    def test_a_started_season_with_a_fixture_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
+    def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -215,7 +215,7 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[fixture_document(ADLER)])
+        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER)])
 
         assert code == Code.ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"

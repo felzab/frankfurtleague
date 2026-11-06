@@ -139,7 +139,7 @@ def side(key: str, tore: int) -> dict[str, Any]:
     return {"team_id": TEAM_OIDS[key], "tore": tore}
 
 
-def fixture(spiel_id: ObjectId, nr: int, saison_id: str, **overrides: Any) -> dict[str, Any]:
+def spiel(spiel_id: ObjectId, nr: int, saison_id: str, **overrides: Any) -> dict[str, Any]:
     return {
         **documents.spiel_document(
             spiel_id=spiel_id,
@@ -160,10 +160,10 @@ def played_group(saison_id: str) -> list[dict[str, Any]]:
     """
 
     return [
-        fixture(ObjectId("6890a1b2c3d4e5f607420111"), 1, saison_id, team1=side("Lessing", 5), team2=side("Helmholtz", 0), ergebnis="5:0"),
-        fixture(ObjectId("6890a1b2c3d4e5f607420112"), 2, saison_id, team1=side("Lessing", 5), team2=side("Goethe", 0), ergebnis="5:0"),
-        fixture(ObjectId("6890a1b2c3d4e5f607420113"), 3, saison_id, team1=side("Helmholtz", 2), team2=side("Goethe", 1), ergebnis="2:1"),
-        fixture(
+        spiel(ObjectId("6890a1b2c3d4e5f607420111"), 1, saison_id, team1=side("Lessing", 5), team2=side("Helmholtz", 0), ergebnis="5:0"),
+        spiel(ObjectId("6890a1b2c3d4e5f607420112"), 2, saison_id, team1=side("Lessing", 5), team2=side("Goethe", 0), ergebnis="5:0"),
+        spiel(ObjectId("6890a1b2c3d4e5f607420113"), 3, saison_id, team1=side("Helmholtz", 2), team2=side("Goethe", 1), ergebnis="2:1"),
+        spiel(
             FINALE,
             4,
             saison_id,

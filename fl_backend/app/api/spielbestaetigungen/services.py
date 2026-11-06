@@ -13,7 +13,7 @@ from app.api.outbox.schemas import (
     FLSpielEinteilungLiftedData,
     FLSpielMailAnsetzung,
     FLSpielMailAppointment,
-    FLSpielMailFixture,
+    FLSpielMailEntry,
     FLSpielMovedData,
     FLSpielNoticeData,
     FLSpielVorschlagDiscardedData,
@@ -1225,7 +1225,7 @@ def austritt_notices_of(
     would stand in for the seat's link mail, whose delivery the team editor reads.
     """
 
-    open_fixtures: dict[Any, list[FLSpielMailFixture]] = {}
+    open_spiele: dict[Any, list[FLSpielMailEntry]] = {}
     ordered = sorted(spiele, key=lambda spiel: (spiel.get("date") is None, spiel.get("date") or "", spiel.get("time") or ""))
     for spiel in ordered:
         team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
@@ -1235,16 +1235,16 @@ def austritt_notices_of(
 
         own_exit = (opponent.get("austritt") or {}).get("date")
         if entscheidung_of(spiel=spiel, austritte=[] if own_exit is None else [own_exit], tag=spiel.get("date")) is None:
-            open_fixtures.setdefault(opponent["team_id"], []).append(
-                FLSpielMailFixture(team1=vereine[team1]["name"], team2=vereine[team2]["name"], date=spiel.get("date"), time=spiel.get("time"))
+            open_spiele.setdefault(opponent["team_id"], []).append(
+                FLSpielMailEntry(team1=vereine[team1]["name"], team2=vereine[team2]["name"], date=spiel.get("date"), time=spiel.get("time"))
             )
 
     departed = vereine[team_id]
     reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=departed["_id"], seat=None)
     notices: dict[Any, list[OwedMail]] = {}
-    for opponent_id, fixtures in open_fixtures.items():
+    for opponent_id, listed in open_spiele.items():
         opponent = vereine[opponent_id]
-        data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, fixtures=fixtures)
+        data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, spiele=listed)
         mails = [
             OwedMail(key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{rollen[0]}", an=address, data=data, reference=reference)
             for address, rollen in group_seats_by_mailbox(kontakte=opponent.get("kontakte"), seats=KONTAKT_ROLLEN)

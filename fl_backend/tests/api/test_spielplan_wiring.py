@@ -101,7 +101,7 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
     """Run rather than restated: the emitted season judged by the rule an admin's own edit meets."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_no_emitted_fixture_carries_a_wiring_its_own_endpoint_would_refuse(self, shape: Shape):
+    def test_no_emitted_spiel_carries_a_wiring_its_own_endpoint_would_refuse(self, shape: Shape):
         """Wiring the write path refuses is wiring an admin who cleared the slot could never point back at.
 
         The shape's own group count rides along, so a draw seeding outside it would land here too.
@@ -126,7 +126,7 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
     """Asked of the shipped judge, not of the pairing the draw happens to have produced."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_resubmitting_a_fixture_neither_refuses_nor_releases_a_club_from_another(self, shape: Shape):
+    def test_resubmitting_a_spiel_neither_refuses_nor_releases_a_club_from_another(self, shape: Shape):
         """A release is the same fault as the refusal seen from the other slot: the judge found this club already standing on the matchday."""
 
         season = season_of(shape)

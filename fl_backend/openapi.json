@@ -2944,14 +2944,6 @@
       "FLAustrittNoticeData": {
         "description": "An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them.",
         "properties": {
-          "fixtures": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielMailFixture"
-            },
-            "minItems": 1,
-            "title": "Fixtures",
-            "type": "array"
-          },
           "kind": {
             "const": "austritt_notice",
             "title": "Kind",
@@ -2960,6 +2952,14 @@
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielMailEntry"
+            },
+            "minItems": 1,
+            "title": "Spiele",
+            "type": "array"
           },
           "team": {
             "title": "Team",
@@ -2970,7 +2970,7 @@
           "kind",
           "team",
           "saison_id",
-          "fixtures"
+          "spiele"
         ],
         "title": "FLAustrittNoticeData",
         "type": "object"
@@ -4734,12 +4734,12 @@
             "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
             "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
             "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
-            "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
+            "gruppenphase_spiel_wired": "#/components/schemas/FLBracketFaultSlot",
             "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
             "retired_booking": "#/components/schemas/FLBracketFaultBooking",
             "same_team": "#/components/schemas/FLBracketFaultSpiel",
             "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
-            "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
+            "source_feeds_another_spiel": "#/components/schemas/FLBracketFaultSlot",
             "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
             "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
           },
@@ -5058,8 +5058,8 @@
           },
           "reason": {
             "enum": [
-              "gruppenphase_fixture_wired",
-              "source_feeds_another_fixture"
+              "gruppenphase_spiel_wired",
+              "source_feeds_another_spiel"
             ],
             "title": "Reason",
             "type": "string"
@@ -14335,7 +14335,7 @@
         "title": "FLSpielMailAppointment",
         "type": "object"
       },
-      "FLSpielMailFixture": {
+      "FLSpielMailEntry": {
         "description": "A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them.",
         "properties": {
           "date": {
@@ -14377,7 +14377,7 @@
           "date",
           "time"
         ],
-        "title": "FLSpielMailFixture",
+        "title": "FLSpielMailEntry",
         "type": "object"
       },
       "FLSpielMovedData": {

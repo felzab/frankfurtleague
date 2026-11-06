@@ -36,19 +36,19 @@ def season(*spiele: dict) -> list:
 
 
 class TestWhatCountsAsUnplayed:
-    def test_a_fixture_with_a_result_is_played(self):
+    def test_a_spiel_with_a_result_is_played(self):
         assert unplayed_spiel_nrs(season({"spiel_nr": 1, "ergebnis": "2:1"})) == []
 
-    def test_a_fixture_with_no_result_is_unplayed(self):
+    def test_a_spiel_with_no_result_is_unplayed(self):
         assert unplayed_spiel_nrs(season({"spiel_nr": 7, "ergebnis": None})) == [7]
 
     @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
-    def test_a_fixture_that_can_award_nothing_is_settled(self, sonderereignis):
+    def test_a_spiel_that_can_award_nothing_is_settled(self, sonderereignis):
         """Recording that a match will never be played is the route past the refusal: otherwise a fixture nobody will play closes nothing."""
 
         assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": None, "sonderereignis": sonderereignis})) == []
 
-    def test_an_abandoned_fixture_with_no_result_still_owes_one(self):
+    def test_an_abandoned_spiel_with_no_result_still_owes_one(self):
         """The distinction the boolean hid: abandoning a match settles nothing, because a replay may still be scheduled."""
 
         assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": None, "sonderereignis": "abgebrochen"})) == [4]
@@ -66,16 +66,16 @@ class TestWhatCountsAsUnplayed:
     def test_the_numbers_come_back_in_order(self):
         """The refusal names the first few, so the ones it names have to be the lowest-numbered."""
 
-        fixtures = season({"spiel_nr": 9}, {"spiel_nr": 2}, {"spiel_nr": 5})
+        spiele = season({"spiel_nr": 9}, {"spiel_nr": 2}, {"spiel_nr": 5})
 
-        assert unplayed_spiel_nrs(fixtures) == [2, 5, 9]
+        assert unplayed_spiel_nrs(spiele) == [2, 5, 9]
 
 
 class TestAFinishedSeasonIsNeverPromotedBack:
     def test_the_target_is_judged_before_the_outgoing_season(self):
         """Otherwise the administrator is sent to settle the running season's fixtures, and only then told the target was never promotable."""
 
-        refusal = find_activation_refusal(undated_spieltage=0, target_status="past", target_fixtures=60, outgoing_unplayed=[3, 7])
+        refusal = find_activation_refusal(undated_spieltage=0, target_status="past", target_spiele=60, outgoing_unplayed=[3, 7])
 
         assert refusal is not None
         assert refusal.error_code == Code.SAISON_PAST

@@ -49,7 +49,7 @@ REFEREE = {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
 
 
 class TestTheDeadline:
-    def test_a_week_before_the_fixture(self):
+    def test_a_week_before_the_spiel(self):
         assert deadline_of(date=days_after(day=TODAY, days=10), today=TODAY) == days_after(day=TODAY, days=3)
 
     def test_today_inside_the_notice_period(self):
@@ -57,7 +57,7 @@ class TestTheDeadline:
 
 
 class TestTheMintAsksInsideItsWindowAlone:
-    def test_a_fixture_today_is_not_asked(self):
+    def test_a_spiel_today_is_not_asked(self):
         """The floor's edge: both clubs and the referee would be asked to confirm a match already under way."""
 
         assert anfrage_is_due(spiel=spiel(date=TODAY), austritte={}, today=TODAY) is False

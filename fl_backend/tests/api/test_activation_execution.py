@@ -34,7 +34,7 @@ SPIEL_IDS = {
 }
 
 
-def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
+def spiel(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
     return spiel_document(
         spiel_id=SPIEL_IDS[saison_id],
         saison_id=saison_id,
@@ -125,7 +125,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
                 saison_document(INCUMBENT, "active"),
                 saison_document(TARGET, "future"),
             ],
-            spiele=[fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(TARGET, ergebnis=None)],
         )
 
         active = [saison_id for saison_id, status in statuses.items() if status == "active"]
@@ -146,7 +146,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(ARCHIVED, "past"), saison_document(TARGET, "active")],
-            spiele=[fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(TARGET, ergebnis=None)],
         )
 
         assert statuses == {ARCHIVED: "past", TARGET: "active"}
@@ -168,7 +168,7 @@ class TestARefusedRolloverWritesNothing:
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
             # The target is drawn so the unfinished incumbent is what refuses it, not the undrawn-target guard ahead of it.
-            spiele=[fixture(INCUMBENT, ergebnis=None), fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(INCUMBENT, ergebnis=None), spiel(TARGET, ergebnis=None)],
         )
 
         assert code == Code.ACTIVATE_SAISON_UNFINISHED
@@ -213,7 +213,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None)],
+            spiele=[spiel(TARGET, ergebnis=None)],
             mutates_schema=True,
         )
 
@@ -257,7 +257,7 @@ class TestTheRolloverRefusesAFinishedTarget:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(ARCHIVED, "past"), saison_document(INCUMBENT, "active")],
-            spiele=[fixture(INCUMBENT, ergebnis="2:1")],
+            spiele=[spiel(INCUMBENT, ergebnis="2:1")],
         )
 
         assert code == Code.SAISON_PAST
@@ -284,7 +284,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[fixture(TARGET, ergebnis=None), fixture(INCUMBENT, ergebnis="2:1")],
+            spiele=[spiel(TARGET, ergebnis=None), spiel(INCUMBENT, ergebnis="2:1")],
             spieltage=[
                 spieltag_document(TARGET, 1, start=f"{TARGET}-03-01"),
                 spieltag_document(TARGET, 2, start=None),

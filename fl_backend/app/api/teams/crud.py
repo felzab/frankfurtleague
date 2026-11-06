@@ -12,8 +12,8 @@ from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import FLTabelle, FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
     build_tabelle,
-    build_team_fixtures_filter,
     build_team_pipeline,
+    build_team_spiele_filter,
     compose_saison_team,
     find_club_entry_refusal,
     find_entry_refusal,
@@ -169,8 +169,8 @@ async def refuse_a_gruppe_move(
 ) -> None:
     """Refuse moving this club into `gruppe` while its fixtures are drawn or the group is full, its status gate aside."""
 
-    fixtures_drawn = await spiele_collection.count_documents(build_team_fixtures_filter(saison_id=saison_id, team_id=team_id), session=session)
-    refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
+    spiele_drawn = await spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id), session=session)
+    refuse(find_gruppe_move_refusal(spiele_drawn=spiele_drawn))
 
     await refuse_a_full_gruppe(
         saison_teams_collection=saison_teams_collection,

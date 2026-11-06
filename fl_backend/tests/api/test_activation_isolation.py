@@ -256,7 +256,7 @@ async def unplayed_now(database: AsyncDatabase, saison_id: str) -> int:
     )
 
 
-async def fixtures_now(database: AsyncDatabase, saison_id: str) -> int:
+async def spiele_now(database: AsyncDatabase, saison_id: str) -> int:
     return await database[Collection.SPIELE].count_documents({"saison_id": saison_id})
 
 
@@ -292,10 +292,10 @@ async def call_patch_rules(
 async def call_enter_a_result(database: AsyncDatabase) -> None:
     """The rival write: one drawn group fixture of the target takes a result, straight into `spiele`, which fixes its start."""
 
-    fixture = await database[Collection.SPIELE].find_one({"saison_id": TARGET, "saison_phase": "gruppenphase"})
-    assert fixture is not None, "the draw left the target no group fixture to score"
+    spiel = await database[Collection.SPIELE].find_one({"saison_id": TARGET, "saison_phase": "gruppenphase"})
+    assert spiel is not None, "the draw left the target no group fixture to score"
 
-    await database[Collection.SPIELE].update_one({"_id": fixture["_id"]}, {"$set": {"ergebnis": FINAL_SCORE}})
+    await database[Collection.SPIELE].update_one({"_id": spiel["_id"]}, {"$set": {"ergebnis": FINAL_SCORE}})
 
 
 async def results_entered(database: AsyncDatabase) -> int:
@@ -326,7 +326,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
     A missed judgement is unrecoverable: `saison_past` never promotes a `past` season back.
     """
 
-    def test_the_rollover_is_refused_on_the_fixtures_drawn_under_it(self, mongo_replica_set_url: str):
+    def test_the_rollover_is_refused_on_the_spiele_drawn_under_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def draw_the_outgoing_season() -> None:
                 # Permitted while it is `active`: `saison_past` refuses a draw on a `past`
@@ -358,19 +358,19 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
 class TestAnUndrawLandingMidRolloverIsJudgedAgain:
     """The target is drawn when the rollover judges and undrawn when it writes, which `activate_target_undrawn` exists to refuse."""
 
-    def test_the_rollover_is_refused_on_the_fixtures_removed_under_it(self, mongo_replica_set_url: str):
+    def test_the_rollover_is_refused_on_the_spiele_removed_under_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def undraw_the_target() -> None:
                 # Permitted on a `future` season with nothing recorded against it, which the target
                 # of a rollover is by definition.
                 await call_undraw(database, client, TARGET)
 
-            drawn = await fixtures_now(database, TARGET)
+            drawn = await spiele_now(database, TARGET)
             outcome, season_reads = await rollover_under(database, client, undraw_the_target)
 
-            return outcome, season_reads, await statuses_now(database), drawn, await fixtures_now(database, TARGET)
+            return outcome, season_reads, await statuses_now(database), drawn, await spiele_now(database, TARGET)
 
-        outcome, season_reads, statuses, drawn, fixtures = on_a_league(
+        outcome, season_reads, statuses, drawn, spiele = on_a_league(
             mongo_replica_set_url,
             body,
             # Nothing holds `active`, so no incumbent can be the reason for the refusal below.
@@ -385,7 +385,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
 
         # The count's own floor: one reading no fixture would answer none below whatever the undraw did.
         assert drawn > 0
-        assert fixtures == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
+        assert spiele == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
 
 
 class TestTwoFirstActivationsRacing:
@@ -555,22 +555,22 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
     on the incumbent's fixtures, and the club move's on the season document.
     """
 
-    def test_a_fixture_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
+    def test_a_spiel_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
         """Drop the outgoing fixtures' anchor from `activate_saison` and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def roll_over_between() -> None:
                 await call_activate(database, client, TARGET)
 
-            fixture = await database[Collection.SPIELE].find_one({"saison_id": OUTGOING, "saison_phase": "gruppenphase"})
-            assert fixture is not None, "the draw left the incumbent no group fixture to save"
+            spiel = await database[Collection.SPIELE].find_one({"saison_id": OUTGOING, "saison_phase": "gruppenphase"})
+            assert spiel is not None, "the draw left the incumbent no group fixture to save"
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 
             outcome = await outcome_of(
                 patch_spiel(
-                    spiel_id=fixture["_id"],
+                    spiel_id=spiel["_id"],
                     # The no-op save: it writes the fixture all the same, which is what the anchor meets.
-                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(fixture)),
+                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(spiel)),
                     db=client,
                     spiele_collection=database[Collection.SPIELE],
                     teams_collection=database[Collection.TEAMS],

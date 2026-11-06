@@ -146,7 +146,7 @@ PUBLIC_EMBEDDED_FIELDS = [
 # The base-tier FIXTURE's whole membership. Its aggregation projects no allow-list, so the model is
 # the one this read has and a field added to `FLSpielCommon` reaches
 # an anonymous caller unnamed.
-BASE_TIER_FIXTURE_FIELDS = frozenset(
+BASE_TIER_SPIEL_FIELDS = frozenset(
     {
         "id",
         "team1",
@@ -201,10 +201,10 @@ class TestTheJoinedSideShapes:
         assert set(FLSpielTeamFieldJoined.model_fields) == {"team_id", "name", "shorthand", "tore", "austritt_type"}
 
 
-class TestTheFixtureShapes:
+class TestTheSpielShapes:
     """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
-    def test_the_base_tier_fixture_cuts_the_referees_surname(self):
+    def test_the_base_tier_spiel_cuts_the_referees_surname(self):
         """`READ-REFEREE-001`, on the shape a base-tier read answers with rather than on the reducer alone.
 
         The stored document carries the surname in full, so a model that stopped reducing would serve it.
@@ -228,15 +228,15 @@ class TestTheFixtureShapes:
         with pytest.raises(ValidationError):
             FLSpielJoined.model_validate(unjudged)
 
-    def test_the_base_tier_fixture_declares_exactly_these_fields(self):
+    def test_the_base_tier_spiel_declares_exactly_these_fields(self):
         """The tier's whole membership, since neither the admin nor the internal shape narrows it.
 
         A subset relation against either would survive a field added here, both inheriting this one.
         """
 
-        assert set(FLSpielJoined.model_fields) == BASE_TIER_FIXTURE_FIELDS
+        assert set(FLSpielJoined.model_fields) == BASE_TIER_SPIEL_FIELDS
 
-    def test_the_base_tier_fixture_drops_the_reason_and_the_day(self):
+    def test_the_base_tier_spiel_drops_the_reason_and_the_day(self):
         """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
@@ -244,7 +244,7 @@ class TestTheFixtureShapes:
         for side in SIDES:
             assert AUSTRITT_DETAIL_KEYS & keys_under(dumped, side) == set()
 
-    def test_the_admin_fixture_drops_them_too(self):
+    def test_the_admin_spiel_drops_them_too(self):
         """No fixture response carries a reason: the money is withheld by TIER, and the withdrawal is narrowed on every tier at once."""
 
         dumped = FLSpielJoinedAdmin.model_validate(joined_document()).model_dump()
@@ -317,7 +317,7 @@ class TestTheStoredShape:
 # What no base-tier read may publish anywhere in its answer: the admin fixture shape, either figure, and the booked
 # referee's record id. Property names as the document publishes them, which are the keys a body carries.
 WITHHELD_PROPERTIES = MONEY_KEYS | {"schiedsrichter_id"}
-ADMIN_FIXTURE_SCHEMA = FLSpielJoinedAdmin.__name__
+ADMIN_SPIEL_SCHEMA = FLSpielJoinedAdmin.__name__
 
 
 def _reached(document: Mapping[str, Any], schema: Any) -> tuple[set[str], set[str]]:
@@ -354,7 +354,7 @@ def _reads_under(document: Mapping[str, Any], scheme: str) -> dict[str, tuple[se
     }
 
 
-def test_no_base_tier_read_publishes_the_admin_fixture_shape_either_figure_or_the_referees_record():
+def test_no_base_tier_read_publishes_the_admin_spiel_shape_either_figure_or_the_referees_record():
     """Read off the published document, so every base-tier read serving a fixture is held, a new one with no case of its own among them.
 
     This holds every read's declared shape, where a page's model swapped for the admin fixture shape would serve the
@@ -364,12 +364,12 @@ def test_no_base_tier_read_publishes_the_admin_fixture_shape_either_figure_or_th
     document = application().openapi()
     reads = _reads_under(document, "BaseKey")
 
-    leaks = {path: sorted(({ADMIN_FIXTURE_SCHEMA} & names) | (WITHHELD_PROPERTIES & properties)) for path, (names, properties) in reads.items()}
+    leaks = {path: sorted(({ADMIN_SPIEL_SCHEMA} & names) | (WITHHELD_PROPERTIES & properties)) for path, (names, properties) in reads.items()}
     assert {path: leaked for path, leaked in leaks.items() if leaked} == {}
 
     # Non-vacuous: the base-tier reads serving a fixture are among those walked, and the walk sees a leak where one
     # stands, the admin fixture reads reaching the shape and all three keys.
     assert [path for path, (_, properties) in reads.items() if "spiel_nr" in properties]
-    admin_fixture_reads = [properties for names, properties in _reads_under(document, "AdminKey").values() if ADMIN_FIXTURE_SCHEMA in names]
-    assert admin_fixture_reads
-    assert all(WITHHELD_PROPERTIES <= properties for properties in admin_fixture_reads)
+    admin_spiel_reads = [properties for names, properties in _reads_under(document, "AdminKey").values() if ADMIN_SPIEL_SCHEMA in names]
+    assert admin_spiel_reads
+    assert all(WITHHELD_PROPERTIES <= properties for properties in admin_spiel_reads)

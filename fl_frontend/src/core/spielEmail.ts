@@ -205,14 +205,14 @@ export function buildSpielVorschlagVerworfenEmail({ appointment }: FLSpielVorsch
  * The word to an opponent that a club left the season, listing the fixtures left open between them, an undated one by
  * what is still to settle. No button and no name, as every notice: the league writes again about each fixture.
  */
-export function buildAustrittNoticeEmail({ team, saison_id: saison, fixtures }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
+export function buildAustrittNoticeEmail({ team, saison_id: saison, spiele }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
   const words = SERVER_COPY.mail.austrittNotice;
 
-  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)], words.fixtures(fixtures.length)], {
+  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)], words.spiele(spiele.length)], {
     title: COPY.page.spiele,
-    facts: fixtures.map((fixture) => ({
-      label: COPY.spielplan.when(dayOf(fixture.date), timeOf(fixture.time)),
-      value: paarung(fixture),
+    facts: spiele.map((spiel) => ({
+      label: COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
+      value: paarung(spiel),
     })),
   });
 }

@@ -134,13 +134,13 @@ class TestEveryGoalHasAnEntry:
 
 class TestAReportFollowsTheMatchDay:
     @pytest.mark.parametrize("date", [None, "2027-05-15"], ids=["undated", "tomorrow"])
-    def test_an_undated_or_coming_fixture_is_refused(self, date: str | None):
+    def test_an_undated_or_coming_spiel_is_refused(self, date: str | None):
         assert refused_with(Code.BERICHT_NOT_PLAYED, find_not_played_refusal(date=date, today=TODAY))
 
 
-class TestACalledOffFixtureTakesNoReport:
+class TestACalledOffSpielTakesNoReport:
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
-    def test_a_fixture_that_took_no_place_is_refused(self, sonderereignis: str):
+    def test_a_spiel_that_took_no_place_is_refused(self, sonderereignis: str):
         assert refused_with(Code.BERICHT_CANCELLED, find_cancelled_refusal(sonderereignis=sonderereignis))
 
     def test_its_form_serves_no_squads(self):
@@ -198,7 +198,7 @@ class TestTheAdoptedStateIsDerivedFromThree:
     def test_a_result_the_administrator_typed_without_adopting_reads_abweichend(self):
         assert bericht_state_of(saved(), gespielt(1, 0)) == "differing"
 
-    def test_a_fixture_holding_no_result_reads_vorgeschlagen_however_it_was_stamped(self):
+    def test_a_spiel_holding_no_result_reads_vorgeschlagen_however_it_was_stamped(self):
         assert bericht_state_of(saved(), spiel()) == "vorgeschlagen"
         assert bericht_state_of(saved(**ADOPTED), spiel()) == "vorgeschlagen"
 
@@ -210,7 +210,7 @@ class TestTheAdoptedStateIsDerivedFromThree:
         assert bericht_state_of(bericht, gespielt(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
 
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
-    def test_a_fixture_called_off_since_the_report_reads_cancelled(self, sonderereignis: str):
+    def test_a_spiel_called_off_since_the_report_reads_cancelled(self, sonderereignis: str):
         """Read-only and awaiting nobody: no write can adopt a report on a match that took no place."""
 
         assert bericht_state_of(saved(), spiel(sonderereignis=sonderereignis)) == "cancelled"
@@ -237,7 +237,7 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
     def test_a_slot_filled_since_an_open_one_was_reported_reads_teams_geaendert(self):
         assert bericht_state_of(saved(sides={**SIDES, "team2": None}), spiel()) == "teams_changed"
 
-    def test_a_fixture_called_off_reads_cancelled_first(self):
+    def test_a_spiel_called_off_reads_cancelled_first(self):
         assert bericht_state_of(saved(sides={**SIDES, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "cancelled"
 
 
@@ -248,7 +248,7 @@ def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> F
     return saved(**ADOPTED, ergebnis_vorschlag=vorschlag)
 
 
-class TestAShootOutIsComparedWhereTheFixtureKeepsOne:
+class TestAShootOutIsComparedWhereTheSpielKeepsOne:
     """`apply_payload_to_spiel` keeps a shoot-out on a level knockout and discards it everywhere else."""
 
     @pytest.mark.parametrize(
@@ -260,17 +260,17 @@ class TestAShootOutIsComparedWhereTheFixtureKeepsOne:
         ],
     )
     def test_a_level_knockout_matches_on_its_shoot_out(self, stored: dict[str, int] | None, state: str):
-        fixture = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen=stored)
+        spiel = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen=stored)
 
-        assert bericht_state_of(level(1, 1, {"team1": 4, "team2": 3}), fixture) == state
+        assert bericht_state_of(level(1, 1, {"team1": 4, "team2": 3}), spiel) == state
 
     def test_a_level_knockout_proposing_none_differs_from_one_saved_with_one(self):
-        fixture = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen={"team1": 4, "team2": 3})
+        spiel = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen={"team1": 4, "team2": 3})
 
-        assert bericht_state_of(level(1, 1, None), fixture) == "differing"
+        assert bericht_state_of(level(1, 1, None), spiel) == "differing"
 
 
-class TestAGroupFixtureTakesNoShootOut:
+class TestAGroupSpielTakesNoShootOut:
     def test_a_group_draw_proposing_one_is_refused(self):
         vorschlag = FLSpielberichtBerichtPayload.model_validate(
             payload(

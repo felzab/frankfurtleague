@@ -371,7 +371,7 @@ class FLBracketFaultSlot(_BracketFault):
     # The reference travels whole rather than decomposed: it groups the entries of a shared source, and
     # a toast arrives with no fixture to read it off.
 
-    reason: Literal["gruppenphase_fixture_wired", "source_feeds_another_fixture"]
+    reason: Literal["gruppenphase_spiel_wired", "source_feeds_another_spiel"]
     side: FLSpielSide
     quelle: FLSpielQuelle
 

@@ -916,7 +916,7 @@ class TestWhatStandsBesideThem:
             held = held[key]
         assert held == stored
 
-    def test_their_fixture_names_the_ghost_and_no_name_and_keeps_its_fee(self, mongo_replica_set_url: str):
+    def test_their_spiel_names_the_ghost_and_no_name_and_keeps_its_fee(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await erased_over_http(mongo_replica_set_url)
 

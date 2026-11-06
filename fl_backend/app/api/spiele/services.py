@@ -569,7 +569,7 @@ def _is_same_team(left: FLSpielTeamField | None, right: FLSpielTeamField | None)
     return left.team_id == right.team_id
 
 
-def _fixtures_depending_on_a_cycle(by_nr: Mapping[int, FLSpielCommon]) -> frozenset[int]:
+def _spiele_depending_on_a_cycle(by_nr: Mapping[int, FLSpielCommon]) -> frozenset[int]:
     """Every fixture depending, directly or transitively, on a cyclic chain: nothing downstream is derivable."""
 
     IN_PROGRESS, DONE = 1, 2
@@ -636,14 +636,14 @@ def _opening_round_rank(spiele: Iterable[FLSpielCommon]) -> int | None:
     return min(ranks) if ranks else None
 
 
-def _sources_feeding_two_fixtures(spiele: Iterable[FLSpielCommon]) -> frozenset[tuple[Any, ...]]:
+def _sources_feeding_two_spiele(spiele: Iterable[FLSpielCommon]) -> frozenset[tuple[Any, ...]]:
     """Every source whose slots span more than one fixture.
 
     A source feeding both sides of ONE fixture is `same_team`'s, so widening this would report one
     slot twice.
     """
 
-    fixtures_by_source: dict[tuple[Any, ...], set[int]] = {}
+    spiele_by_source: dict[tuple[Any, ...], set[int]] = {}
     for spiel in spiele:
         # A reference on a Gruppenphase fixture is followed by nobody, so counting it would freeze a
         # knockout slot whose own wiring is right.
@@ -652,9 +652,9 @@ def _sources_feeding_two_fixtures(spiele: Iterable[FLSpielCommon]) -> frozenset[
 
         for quelle in (spiel.team1_quelle, spiel.team2_quelle):
             if quelle is not None:
-                fixtures_by_source.setdefault(_quelle_key(quelle), set()).add(spiel.spiel_nr)
+                spiele_by_source.setdefault(_quelle_key(quelle), set()).add(spiel.spiel_nr)
 
-    return frozenset(key for key, spiel_nrs in fixtures_by_source.items() if len(spiel_nrs) > 1)
+    return frozenset(key for key, spiel_nrs in spiele_by_source.items() if len(spiel_nrs) > 1)
 
 
 def _seed_from_gruppe(
@@ -724,7 +724,7 @@ def _occupant_of(
     # rewrite a match that was played.
     if spiel.saison_phase == "gruppenphase":
         walk.faults.append(
-            FLBracketFaultSlot(reason="gruppenphase_fixture_wired", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, side=side, quelle=quelle)
+            FLBracketFaultSlot(reason="gruppenphase_spiel_wired", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, side=side, quelle=quelle)
         )
         return stored, False
 
@@ -767,7 +767,7 @@ def _occupant_of(
     # comes FROM, and reporting the sharing would leave the loop itself unnamed.
     if _quelle_key(quelle) in walk.shared_sources:
         walk.faults.append(
-            FLBracketFaultSlot(reason="source_feeds_another_fixture", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, side=side, quelle=quelle)
+            FLBracketFaultSlot(reason="source_feeds_another_spiel", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, side=side, quelle=quelle)
         )
         return stored, False
 
@@ -907,9 +907,9 @@ def resolve_bracket(spiele: Iterable[FLSpielCommon], standings: Mapping[FLGruppe
     walk = _BracketWalk(
         by_nr=by_nr,
         standings=standings,
-        tainted=_fixtures_depending_on_a_cycle(by_nr),
+        tainted=_spiele_depending_on_a_cycle(by_nr),
         opening_round_rank=_opening_round_rank(by_nr.values()),
-        shared_sources=_sources_feeding_two_fixtures(by_nr.values()),
+        shared_sources=_sources_feeding_two_spiele(by_nr.values()),
         memo={},
         faults=[],
     )
@@ -1220,7 +1220,7 @@ def days_a_clash_can_reach(day: str) -> list[str]:
     return [str(date.fromisoformat(day) + timedelta(days=offset)) for offset in range(-CLASH_REACH_DAYS, CLASH_REACH_DAYS + 1)]
 
 
-def find_fixture_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> WriteRefusal | None:
+def find_spiel_date_refusal(*, date: str | None, spieltag_start: str | None, spieltag_end: str | None) -> WriteRefusal | None:
     """Why this fixture's date must be refused, or `None`.
 
     An undated fixture contradicts no span, and an undated MATCHDAY states none to contradict: a
@@ -1241,7 +1241,7 @@ def find_fixture_date_refusal(*, date: str | None, spieltag_start: str | None, s
 
 
 # A fixture whose referee block carries the record's id: never `FLSpielJoined`, whose block withholds it.
-type BookedFixture = FLSpiel | FLSpielJoinedAdmin
+type BookedSpiel = FLSpiel | FLSpielJoinedAdmin
 
 
 @dataclass(frozen=True)
@@ -1252,7 +1252,7 @@ class BookedReferences:
     schiedsrichter_id: CustomObjectId | None
 
 
-def _chosen_references(spiel: BookedFixture | FLPatchSpielDataPayload | FLSpielSlotHolder) -> BookedReferences:
+def _chosen_references(spiel: BookedSpiel | FLPatchSpielDataPayload | FLSpielSlotHolder) -> BookedReferences:
     return BookedReferences(
         spielort_id=spiel.ort.spielort_id if spiel.ort is not None else None,
         schiedsrichter_id=spiel.schiedsrichter.schiedsrichter_id if spiel.schiedsrichter is not None else None,
@@ -1353,7 +1353,7 @@ class SlotClaim:
     time: str
 
 
-def find_slot_claims(spiel: BookedFixture | FLPatchSpielDataPayload) -> list[SlotClaim]:
+def find_slot_claims(spiel: BookedSpiel | FLPatchSpielDataPayload) -> list[SlotClaim]:
     """Every venue and referee `spiel_double_booked` judges on this fixture, asked of a payload and of the fixture it replaces alike."""
 
     # The same partition the read of the other fixtures filters on: an event that frees the slot cannot
@@ -1377,7 +1377,7 @@ def find_slot_claims(spiel: BookedFixture | FLPatchSpielDataPayload) -> list[Slo
     return claims
 
 
-def find_claims_made(stored: BookedFixture, payload: FLPatchSpielDataPayload) -> list[SlotClaim]:
+def find_claims_made(stored: BookedSpiel, payload: FLPatchSpielDataPayload) -> list[SlotClaim]:
     """Every claim this payload makes that the stored fixture did not already make.
 
     The one set `spiel_double_booked` judges and the save anchors, so neither covers a claim the other misses.

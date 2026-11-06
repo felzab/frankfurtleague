@@ -14,7 +14,7 @@ class TestTheSeasonStartsOnItsStartDate:
         assert has_started(start_date=TODAY, today=TODAY) is True
 
 
-class TestTheStartIsFixedOnceAFixtureHasTakenPlace:
+class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place`: compared by value, so only a MOVED start is refused, and only after play."""
 
     def test_a_moved_start_after_play_is_refused(self):

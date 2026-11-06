@@ -272,7 +272,7 @@ def test_the_single_read_moved_with_its_list(seeded_url: str, path: str, key: st
 
 
 @pytest.mark.db
-def test_the_admin_read_carries_what_the_match_editor_prefills_a_fixture_from(seeded_url: str):
+def test_the_admin_read_carries_what_the_match_editor_prefills_a_spiel_from(seeded_url: str):
     """The values the venue and referee pickers copy onto a fixture; without them the editor offers what it cannot book."""
 
     spielort = answered(seeded_url, SPIELORTE, ADMIN_AUTH).json()["spielorte"][0]

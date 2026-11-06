@@ -78,8 +78,8 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
-    build_team_fixtures_filter,
     build_team_saisons_pipeline,
+    build_team_spiele_filter,
     compose_bestaetigungen_mit,
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
@@ -399,7 +399,7 @@ async def get_team_saison_admin(
     held_saison_ids = [row["saison_id"] for row in team_raw["memberships"]]
     row_raw = next((row for row in team_raw["memberships"] if row["saison_id"] == saison_id), None)
 
-    served, season_rows, held_saisons, fixtures_drawn, live = await asyncio.gather(
+    served, season_rows, held_saisons, spiele_drawn, live = await asyncio.gather(
         _with_seat_states(
             teams_raw,
             address_changes_collection=address_changes_collection,
@@ -414,7 +414,7 @@ async def get_team_saison_admin(
             collection=saison_teams_collection, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s clubs", projection=["gruppe"]
         ),
         pull_many_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
-        spiele_collection.count_documents(build_team_fixtures_filter(saison_id=saison_id, team_id=team_id)),
+        spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
         # A list read where the answer is one row, as `get_invitation` reads it.
         pull_many_from_db(
             collection=invitations_collection,
@@ -455,7 +455,7 @@ async def get_team_saison_admin(
         ),
         membership=next((membership for membership in memberships if membership.saison_id == saison_id), None),
         gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in season_rows]),
-        gruppe_locked=find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn) is not None,
+        gruppe_locked=find_gruppe_move_refusal(spiele_drawn=spiele_drawn) is not None,
         retire_blocked_by=saison_blocking_retirement(held_saisons),
         link=link,
     )

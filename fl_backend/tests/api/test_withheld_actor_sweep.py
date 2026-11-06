@@ -118,7 +118,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
     "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{kind: "admin"}` with no address',
-    "/api/v0/spiele/list/admin": "fixtures",
+    "/api/v0/spiele/list/admin": "spiele",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
     "/api/v0/spiele/spielplan": "a season's fixtures by matchday",
     "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture, what its editor offers, and its report and rows naming an admin by kind",

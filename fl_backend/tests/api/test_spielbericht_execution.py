@@ -68,7 +68,7 @@ def side(team_id: ObjectId) -> dict[str, Any]:
     return {"team_id": team_id, "tore": None}
 
 
-def fixture(*, spiel_id: ObjectId = SPIEL, saison_id: str = SAISON_ID, **fields: Any) -> dict[str, Any]:
+def spiel(*, spiel_id: ObjectId = SPIEL, saison_id: str = SAISON_ID, **fields: Any) -> dict[str, Any]:
     """A round-of-16 tie played today whose winner the quarter-final draws from, booked to the referee."""
 
     return documents.spiel_document(
@@ -144,7 +144,7 @@ async def seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPIELE].insert_many(
         [
-            fixture(),
+            spiel(),
             documents.spiel_document(
                 spiel_id=VIERTELFINALE,
                 saison_id=SAISON_ID,
@@ -234,8 +234,8 @@ async def stored(database: AsyncDatabase) -> list[dict[str, Any]]:
     return await database[Collection.SPIELBERICHTE].find({}).to_list()
 
 
-class TestTheReportNeverWritesTheFixture:
-    def test_the_fixture_and_the_tie_it_feeds_stay_as_stored(self, mongo_replica_set_url: str):
+class TestTheReportNeverWritesTheSpiel:
+    def test_the_spiel_and_the_tie_it_feeds_stay_as_stored(self, mongo_replica_set_url: str):
         """A knockout feeder: a report written into the result would resolve the quarter-final's side and log the fixtures."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -517,7 +517,7 @@ class TestTheReads:
         assert [(spieler.spieler_id, spieler.nummer) for spieler in form.kader.team1] == [(LINA, "7")]
         assert [spieler.spieler_id for spieler in form.kader.team2] == [MIA]
 
-    def test_a_fixture_taking_no_report_serves_no_squad(self, mongo_replica_set_url: str):
+    def test_a_spiel_taking_no_report_serves_no_squad(self, mongo_replica_set_url: str):
         """Only the pupils the stored report names, by name: the squads are served for picking, and nothing is picked here.
 
         One fixture taking none, the read's wiring; which fixtures take one is `takes_a_bericht`'s, held in the shapes.
@@ -611,12 +611,12 @@ async def seed_the_season_before(database: AsyncDatabase) -> None:
             ),
         )
     )
-    vorjahr = fixture(spiel_id=VORJAHRESSPIEL, saison_id=VORSAISON_ID, date="2026-05-14")
+    vorjahr = spiel(spiel_id=VORJAHRESSPIEL, saison_id=VORSAISON_ID, date="2026-05-14")
     await database[Collection.SPIELE].insert_one(vorjahr)
     await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(vorjahr))
 
 
-class TestEachReportReadKeepsToTheFixturesSeason:
+class TestEachReportReadKeepsToTheSpieleSeason:
     def test_another_season_s_report_and_seat_holders_reach_none_of_this_season_s_reads(self, mongo_replica_set_url: str):
         """The season's report states, its count of submitted reports, and the names the remarks are judged against."""
 
@@ -642,7 +642,7 @@ class TestEachReportReadKeepsToTheFixturesSeason:
 
 
 class TestTheOverviewFindsEveryReportAwaitingTheAdministrator:
-    def test_a_report_on_a_fixture_played_today_or_holding_another_result_is_on_its_card(self, mongo_replica_set_url: str):
+    def test_a_report_on_a_spiel_played_today_or_holding_another_result_is_on_its_card(self, mongo_replica_set_url: str):
         """Neither fixture is on the list by its own fields: dated, timed, booked, played today, then holding a result."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -742,7 +742,7 @@ async def quarter_final_block(database: AsyncDatabase) -> dict[str, Any]:
     return document["bericht"]
 
 
-class TestAReportOutlivingItsFixturesClub:
+class TestAReportOutlivingItsSpieleClub:
     """A correction upstream fields Biber where the report credits Adler's goal: adopted, the 1:0 would be Biber's."""
 
     def test_it_reads_teams_geaendert_until_the_referee_sends_it_again(self, mongo_replica_set_url: str):

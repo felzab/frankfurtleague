@@ -171,7 +171,7 @@ class TestTheCircleMethodPairsAGroup:
         assert circle_rounds(4) == (((0, 3), (1, 2)), ((2, 0), (3, 1)), ((0, 1), (2, 3)))
 
     @pytest.mark.parametrize("teams", range(2, 17))
-    def test_the_pinned_club_leads_every_other_fixture_it_plays(self, teams: int):
+    def test_the_pinned_club_leads_every_other_spiel_it_plays(self, teams: int):
         """The alternation `circle_rounds` documents.
 
         Position 0 is the only club whose pair could otherwise list it first every round, because
@@ -488,7 +488,7 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         assert sorted(met, key=sorted) == sorted(expected, key=sorted)
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_group_fixture_takes_its_sides_in_the_order_the_pairing_names(self, shape: tuple[int, int, int]):
+    def test_a_group_spiel_takes_its_sides_in_the_order_the_pairing_names(self, shape: tuple[int, int, int]):
         """Every other pairing assertion here compares unordered pairs.
 
         A draw that swapped `team1` and `team2` on every fixture would pass all of them.
@@ -548,7 +548,7 @@ class TestSpielNrRunsOnceThroughTheSeason:
         assert keys == sorted(keys)
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_bracket_fixture_is_fed_only_by_numbers_already_played(self, shape: tuple[int, int, int]):
+    def test_a_bracket_spiel_is_fed_only_by_numbers_already_played(self, shape: tuple[int, int, int]):
         """A source naming a later fixture is a bracket that cannot resolve; `bracket_faults_of` would report the cycle."""
 
         for spiel in draw(*shape).spiele:
@@ -588,7 +588,7 @@ class TestTheEmittedDocumentsReadBack:
                 assert side is None or isinstance(side["team_id"], ObjectId)
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_every_fixture_sits_in_a_matchday_this_call_produced(self, shape: tuple[int, int, int]):
+    def test_every_spiel_sits_in_a_matchday_this_call_produced(self, shape: tuple[int, int, int]):
         """A `spieltag_id` from anywhere else would strand the fixture in a season it is not part of."""
 
         plan = draw(*shape)
@@ -611,9 +611,9 @@ class TestTheEmittedDocumentsReadBack:
         assert all((spieltag["start"], spieltag["end"]) == (None, None) for spieltag in draw(*shape).spieltage)
 
 
-class TestAFixtureIsEitherDrawnOrWired:
+class TestASpielIsEitherDrawnOrWired:
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_group_fixture_names_both_clubs_and_no_source(self, shape: tuple[int, int, int]):
+    def test_a_group_spiel_names_both_clubs_and_no_source(self, shape: tuple[int, int, int]):
         for spiel in draw(*shape).spiele:
             if spiel["saison_phase"] == "gruppenphase":
                 assert spiel["team1"] is not None and spiel["team2"] is not None
@@ -621,7 +621,7 @@ class TestAFixtureIsEitherDrawnOrWired:
                 assert spiel["team1"]["tore"] is None and spiel["team2"]["tore"] is None
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_bracket_fixture_names_both_sources_and_no_club(self, shape: tuple[int, int, int]):
+    def test_a_bracket_spiel_names_both_sources_and_no_club(self, shape: tuple[int, int, int]):
         """Absence is MODELLED rather than impersonated: nobody has qualified yet, so neither side holds a club."""
 
         for spiel in draw(*shape).spiele:
@@ -646,7 +646,7 @@ class TestAFixtureIsEitherDrawnOrWired:
         assert wired == list(BRACKET_SEEDING[(groups, qualifiers)])
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_later_bracket_round_names_the_two_fixtures_feeding_it(self, shape: tuple[int, int, int]):
+    def test_a_later_bracket_round_names_the_two_spiele_feeding_it(self, shape: tuple[int, int, int]):
         """Left to right, winners only: the one `verlierer` pair is the match for third place, judged on its own below."""
 
         groups, teams, qualifiers = shape
@@ -772,7 +772,7 @@ FULL: Mapping[FLGruppenNames, int] = {"A": 6, "B": 6, "C": 6, "D": 6}
 def refusal_for(
     *,
     saison_status: str = "future",
-    fixtures_drawn: int = 0,
+    spiele_drawn: int = 0,
     spieltage_held: int = 0,
     occupancy: Mapping[FLGruppenNames, int] = FULL,
     rules: FLSaisonRules = RULES,
@@ -781,19 +781,19 @@ def refusal_for(
 ) -> WriteRefusal | None:
     return find_spielplan_refusal(
         saison_status=saison_status,
-        fixtures_drawn=fixtures_drawn,
+        spiele_drawn=spiele_drawn,
         spieltage_held=spieltage_held,
         rules=rules,
         occupancy_by_gruppe=occupancy,
         replace=replace,
-        recorded_fixtures=recorded,
+        recorded_spiele=recorded,
     )
 
 
 class TestASeasonHoldingMatchdays:
     """`spielplan_spieltage_held`: the draw writes the whole matchday list, so it cannot join one already there."""
 
-    def test_a_matchday_without_fixtures_refuses_the_draw(self):
+    def test_a_matchday_without_spiele_refuses_the_draw(self):
         refusal = refusal_for(spieltage_held=1)
 
         assert refusal is not None
@@ -863,7 +863,7 @@ class TestAConfirmedReplaceStepsPastWhatItDeletes:
     def test_a_group_off_its_size_still_refuses_a_confirmed_replace(self):
         """Gate `spielplan_gruppen_off_rules` on `replace` too and this fails: a replace draws the same fixtures, so needs the same groups."""
 
-        refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
+        refusal = refusal_for(replace=True, spiele_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
@@ -881,7 +881,7 @@ BRACKET_PHASE: FLSaisonPhase = next(phase for phase in PHASE_ORDER if phase != D
 # A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
 # could land in empty. No `note` key at all, which is the shape
 # `app/api/saisons/spielplan.py :: _spiel` leaves.
-UNTOUCHED_FIXTURE: Mapping[str, Any] = {
+UNTOUCHED_SPIEL: Mapping[str, Any] = {
     "saison_phase": DRAWN_HOLDING_ITS_SIDES,
     "ergebnis": None,
     "elfmeterschiessen": None,
@@ -897,7 +897,7 @@ UNTOUCHED_FIXTURE: Mapping[str, Any] = {
 # The OTHER shape the same draw writes, and the one an admin seeds by hand: a knockout slot wired to
 # a placing and holding nobody.
 UNTOUCHED_BRACKET: Mapping[str, Any] = {
-    **UNTOUCHED_FIXTURE,
+    **UNTOUCHED_SPIEL,
     "saison_phase": BRACKET_PHASE,
     "team1": None,
     "team2": None,
@@ -978,11 +978,11 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
 # `app/api/saisons/services.py :: _a_side_is_off_the_draw` reads. Derived, so a field that becomes
 # inverted is asked for both directions with nobody listing it.
 INVERTED_BY_THE_DRAW: frozenset[str] = frozenset(
-    path for path in RECORDED_FACT_FIELDS if value_at(UNTOUCHED_FIXTURE, path) != value_at(UNTOUCHED_BRACKET, path)
+    path for path in RECORDED_FACT_FIELDS if value_at(UNTOUCHED_SPIEL, path) != value_at(UNTOUCHED_BRACKET, path)
 )
 
 
-class TestWhatCountsAsRecordedAgainstAFixture:
+class TestWhatCountsAsRecordedAgainstASpiel:
     """`holds_a_recorded_fact`, which is what the endpoint counts for `spielplan_replace_outside_its_window`.
 
     The refusal reads a COUNT, so no test of it reaches this: the window closes on a cancellation
@@ -1011,10 +1011,10 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         assert {path for path, edit in RECORDED_EDITS.items() if edit.ko is not None} == INVERTED_BY_THE_DRAW
 
     @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
-    def test_a_fixture_carrying_that_edit_closes_the_window(self, projected: str, edit: RecordedEdit):
+    def test_a_spiel_carrying_that_edit_closes_the_window(self, projected: str, edit: RecordedEdit):
         """Stop reading any one of these and a replace deletes the work it records, the endpoint answering 200."""
 
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **edit.gruppe}) is True, f"{projected} left the group window open: {edit.why}"
+        assert holds_a_recorded_fact({**UNTOUCHED_SPIEL, **edit.gruppe}) is True, f"{projected} left the group window open: {edit.why}"
 
         if edit.ko is not None:
             assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edit.ko}) is True, f"{projected} left the bracket window open: {edit.why}"
@@ -1027,7 +1027,7 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         added later is judged rather than assumed.
         """
 
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "sonderereignis": sonderereignis}) is True
+        assert holds_a_recorded_fact({**UNTOUCHED_SPIEL, "sonderereignis": sonderereignis}) is True
 
 
 class TestASideMovedOffTheDrawClosesTheWindow:

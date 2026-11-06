@@ -38,7 +38,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spiele.crud import pull_booked_slots, pull_booked_venue, pull_saison_membership, pull_spieltag_span
 from app.api.spiele.schemas import FLSpiel, FLSpielOrtFieldPublic
-from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_fixture_date_refusal
+from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
 from app.api.teams.crud import pull_team_names
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
@@ -241,9 +241,7 @@ async def post_spielbestaetigung(
 
                 span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
                 if span is not None:
-                    refuse(
-                        judged_as_a_proposal(find_fixture_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end))
-                    )
+                    refuse(judged_as_a_proposal(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
 
                 # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
                 # proposal an earlier rule refuses. Only claims the stored fixture did not make.

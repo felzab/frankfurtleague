@@ -1555,7 +1555,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
     """One team's open row about a fixture, every seat holding the link it was mailed."""
 
-    fixture = documents.spiel_document(
+    spiel = documents.spiel_document(
         spiel_id=ObjectId(),
         saison_id=SAISON_ID,
         spiel_nr=1,
@@ -1567,7 +1567,7 @@ def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
     )
 
     return documents.spielbestaetigung_document(
-        fixture,
+        spiel,
         party={"kind": "team", "team_id": team_id},
         deadline="2026-04-11",
         asked_at=TODAY,
@@ -1686,7 +1686,7 @@ REPLACED_CLUB_OID = ObjectId("6890a1b2c3d4e5f6079600f1")
 def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
     """A team row its Trainer declined with a reason, closed since, every seat holding a link and the delivery record of its mail."""
 
-    fixture = documents.spiel_document(
+    spiel = documents.spiel_document(
         spiel_id=ObjectId(),
         saison_id=saison_id,
         spiel_nr=1,
@@ -1699,7 +1699,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
     delivered = {"message_id": "msg-1", "state": "delivered", "reason": None, "at": f"{saison_id}-04-02T09:00:00+00:00"}
 
     return documents.spielbestaetigung_document(
-        fixture,
+        spiel,
         party={"kind": "team", "team_id": team_id},
         asked_at=f"{saison_id}-04-01",
         kontakte={seat: {"token_hashes": ["b" * 64], "delivery": delivered} for seat in KONTAKT_ROLLEN},
