@@ -175,6 +175,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
 
 /** What the question's wait knows of the page before the read, stated beside its read. */
 type QuestionWait = {
+  /** How many facts the question lists: a row the read decides, whose count the page states beside it as a list's. */
+  facts: number;
   /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
   act: Copy;
   /** The quieter act's words beneath it, where the question has one. */
@@ -186,7 +188,7 @@ type QuestionWait = {
 };
 
 /** The question while the read says what it asks: its title, its facts, its sentence, its fields and its acts. */
-function QuestionPlaceholder({ act, second, sentence, fields }: QuestionWait) {
+function QuestionPlaceholder({ facts, act, second, sentence, fields }: QuestionWait) {
   return (
     <ClassicPage width="form">
       <Waiting layout="flex flex-col gap-6">
@@ -194,7 +196,7 @@ function QuestionPlaceholder({ act, second, sentence, fields }: QuestionWait) {
           text={classicTitle()}
           width="w-2/3"
         />
-        <FactsPlaceholder pairs={4} />
+        {facts > 0 && <FactsPlaceholder pairs={facts} />}
         {sentence === undefined ? (
           <PlaceholderLine
             text="text-base"

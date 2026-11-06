@@ -44,6 +44,8 @@ export default function AccountErasurePage() {
   return (
     <MailedPage
       page={readState()}
+      // The address and the one kind of record most people hold, a pupil's entry or a contact's seat.
+      facts={2}
       act={COPY.page.accountErasure}
     />
   );

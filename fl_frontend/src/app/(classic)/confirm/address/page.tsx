@@ -59,8 +59,12 @@ export default function AddressChangeConfirmationPage({ searchParams }: Props) {
   return (
     <MailedPage
       page={readState(searchParams)}
-      // The link's side is the read's, so the shorter of the two acts, which no button that lands is narrower than.
+      facts={1}
+      // The link's side is the read's, so the shorter of the two acts, which no button that lands is narrower than, and
+      // the question of the address on file, asked first.
       act={COPY.shared.withObject(WORDS.change, "confirm")}
+      second={COPY.shared.verb.decline}
+      sentence={WORDS.previous.question}
     />
   );
 }
