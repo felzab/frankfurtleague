@@ -8,12 +8,12 @@ import { Popover } from "react-aria-components/Popover";
 
 import { COPY, textOf } from "@/core/copy";
 
-import { useOpenUntilHidden } from "./Dialog";
 import { popoverSurface } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { plaqueLook } from "./TeamPlaque";
 import { tv } from "./tv";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";

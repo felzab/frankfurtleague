@@ -8,16 +8,17 @@ import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-compone
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { ActRow, DialogOverlay, useOpenUntilHidden } from "./Dialog";
+import { ActRow, DialogOverlay } from "./Dialog";
 import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { answering } from "./useFormAction";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
-import type { HeldOpen } from "./Dialog";
 import type { Fact } from "./Facts";
+import type { HeldOpen } from "./useOpenUntilHidden";
 
 const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 

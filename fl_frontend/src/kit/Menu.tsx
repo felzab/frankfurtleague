@@ -16,13 +16,13 @@ import { Text } from "react-aria-components/Text";
 
 import { COPY, textOf } from "@/core/copy";
 
-import { useOpenUntilHidden } from "./Dialog";
 import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
 import { useDesktop } from "./useDesktop";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
