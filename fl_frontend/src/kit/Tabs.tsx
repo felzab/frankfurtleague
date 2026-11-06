@@ -1,6 +1,8 @@
 import NextLink from "next/link";
 
-import { placeholderBar } from "./Skeleton";
+import { COPY } from "@/core/copy";
+
+import { PlaceholderLine } from "./Skeleton";
 import { TAB_PARAM } from "./tabChoice";
 import { tv } from "./tv";
 
@@ -22,8 +24,9 @@ const tabs = tv({
 });
 
 /**
- * The tabs while their labels are read: the row's own line with `count` tabs, each its label's line as a bar, and
- * under it the placeholder of the chosen tab's content, as `Tabs` sets the chosen tab's content under its row.
+ * The tabs while their labels are read: the row's own line with `count` tabs, and under it the placeholder of the
+ * chosen tab's content, as `Tabs` sets the chosen tab's content under its row. A label comes from the read, so each
+ * bar is sized by the words its tab most likely holds, its place's matchday, the one thing tabs wait for.
  */
 export function TabsPlaceholder({ count, children }: { count: number; children: ReactNode }) {
   const { row, tab } = tabs();
@@ -34,7 +37,10 @@ export function TabsPlaceholder({ count, children }: { count: number; children: 
           <span
             key={index}
             className={tab()}>
-            <span className={placeholderBar("h-3 w-20")} />
+            <PlaceholderLine
+              text="text-sm"
+              words={COPY.shared.spieltag(index + 1)}
+            />
           </span>
         ))}
       </div>
