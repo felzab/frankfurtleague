@@ -10,6 +10,7 @@ import { filesUnder } from "@/test-support/treeWalk.ts";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
+import { COPY } from "@/core/copy.ts";
 import { ROUTES } from "@/core/routes.ts";
 
 import type { ComponentType } from "react";
@@ -93,7 +94,8 @@ describe("the rail frame's own boundary", () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
     onTestFinished(() => quiet.mockRestore());
 
-    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["uebersicht"], home: ROUTES.admin.path() }, h(FailingRead)), ROUTED));
+    const next = { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() };
+    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["uebersicht"], next }, h(FailingRead)), ROUTED));
     await act(() => Promise.resolve());
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 

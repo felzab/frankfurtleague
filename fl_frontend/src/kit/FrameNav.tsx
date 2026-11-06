@@ -84,13 +84,13 @@ export function useHoldsSaison() {
 /** A route's dynamic segments as Next fills them in from the address. */
 type Params = ReturnType<typeof useParams>;
 
-/** The season the page works in: the one its address names, else the frame's standard; `null` where there is none. */
+/** The season the page works in: the one its address names where the frame holds it, else the frame's standard; `null` where there is none. */
 export function useFrameSaison() {
   const frame = useContext(SaisonContext);
   const { saison } = useParams();
   const saisons = frame === null ? null : use(frame.saisons);
   if (frame === null || saisons === null) return null;
-  return { ...frame, ...saisons, active: typeof saison === "string" ? saison : saisons.standard };
+  return { ...frame, ...saisons, active: saisons.entries.find((entry) => entry.id === saison)?.id ?? saisons.standard };
 }
 
 /**

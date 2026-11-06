@@ -1,4 +1,4 @@
-import { VerwaltungColumn } from "../VerwaltungFrame";
+import { RailColumn } from "@/kit/RailFrame";
 
 import type { ReactNode } from "react";
 
@@ -7,5 +7,5 @@ import type { ReactNode } from "react";
  * own bar standing in its place. An editor's route lies here, so the server draws its band and bar right.
  */
 export default function EditorLayout({ children }: { children: ReactNode }) {
-  return <VerwaltungColumn editor>{children}</VerwaltungColumn>;
+  return <RailColumn editor>{children}</RailColumn>;
 }

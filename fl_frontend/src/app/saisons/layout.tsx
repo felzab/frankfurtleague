@@ -1,13 +1,17 @@
 import { connection } from "next/server";
 
 import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
+import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
 import type { Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
+
+const GROUPS = [{ entries: SAISON_PAGES.map((page) => ({ id: page, label: ROUTES[page].title, saison: page, icon: page })) }];
 
 /**
  * The season button's seasons: every season the public may read, the newest first, and the one the site is on
@@ -31,12 +35,19 @@ async function readSeasons(): Promise<Saisons | null> {
  */
 export default function SaisonsLayout({ children }: { children: ReactNode }) {
   return (
-    <RailFrame
-      groups={[{ entries: SAISON_PAGES.map((page) => ({ id: page, label: ROUTES[page].title, saison: page, icon: page })) }]}
+    // A failed read of the frame's own is answered in the rail frame: this segment's `error.tsx` stands inside this layout.
+    <RailFrameBoundary
+      groups={GROUPS}
       bar={SAISON_PAGES}
-      saison={{ saisons: readSeasons(), home: "spielplan" }}
-      foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
-      {children}
-    </RailFrame>
+      next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
+      signIn={ROUTES.signIn.path()}>
+      <RailFrame
+        groups={GROUPS}
+        bar={SAISON_PAGES}
+        saison={{ saisons: readSeasons(), home: "spielplan" }}
+        foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
+        {children}
+      </RailFrame>
+    </RailFrameBoundary>
   );
 }

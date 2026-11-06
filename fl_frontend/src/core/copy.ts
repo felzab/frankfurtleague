@@ -317,6 +317,7 @@ export const COPY = catalogue({
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
     privacyNotice: PRIVACY_NOTICE,
+    sitemap: "Sitemap",
     accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",
@@ -426,6 +427,8 @@ export const COPY = catalogue({
     /** The footer: the league's group, which holds the sponsors' page, the legal pages' group, and the line over the sponsors' logos. */
     liga: "Liga",
     legal: "Rechtliches",
+    /** The footer's way to the landing's section on applying, which stands whether or not a window is open. */
+    bewerbung: "Bewerbung",
     oberstufenliga: "Die Frankfurter Oberstufenliga",
     supportedBy: "Mit Unterstützung von",
     instagram: "Instagram",

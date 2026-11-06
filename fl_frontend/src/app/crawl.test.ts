@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { SITE_URL } from "@/core/brand.ts";
-import { ROUTES } from "@/core/routes.ts";
+import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes.ts";
 
 import robots from "./robots.ts";
 import sitemap from "./sitemap.ts";
@@ -56,5 +56,14 @@ describe("the sitemap", () => {
   it("lists no season page while the league has no season", async () => {
     frame.active_saison_id = null;
     expect((await sitemap()).map((entry) => entry.url)).toEqual(fixed);
+  });
+});
+
+describe("the sitemap page", () => {
+  // Its lists are written by hand beside the rows, so a new listed page would be missing from it in silence. The landing
+  // and the page itself are no entries of it, and a page taking two segments is a record's, reached through its season.
+  it("lists every listed page", () => {
+    const shown = new Set<string>([...SAISONLESS_PAGES.map(({ page }) => page), ...LIGA_PAGES, ...LEGAL_PAGES, "home", "sitemap"]);
+    expect(ROWS.filter((row) => row.crawl === "index" && row.segments < 2 && !shown.has(row.key)).map((row) => row.key)).toStrictEqual([]);
   });
 });

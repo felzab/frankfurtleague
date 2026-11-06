@@ -1,12 +1,15 @@
 import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { readAccount } from "@/features/account/account";
 
-import { ACCOUNT_ENTRIES } from "./entries";
+import { ACCOUNT_ENTRIES, ACCOUNT_HOME } from "./entries";
 
 import type { ReactNode } from "react";
+
+const GROUPS = [{ entries: ACCOUNT_ENTRIES }];
 
 /**
  * Konto's frame, in place of the area's: its own rail of its four pages, „‹ Zurück“ in the logo's place leading to
@@ -17,13 +20,20 @@ import type { ReactNode } from "react";
  */
 export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
-    <RailFrame
-      groups={[{ entries: ACCOUNT_ENTRIES }]}
+    // A failed read of the frame's own is answered in the rail frame: Konto's `error.tsx` stands inside this layout.
+    <RailFrameBoundary
+      groups={GROUPS}
       bar={["signin"]}
-      foot={{ kind: "account", account: readAccount(COPY.template.account) }}
-      back={ROUTES.area.path()}
-      columnInLayouts>
-      {children}
-    </RailFrame>
+      next={ACCOUNT_HOME}
+      back={ROUTES.area.path()}>
+      <RailFrame
+        groups={GROUPS}
+        bar={["signin"]}
+        foot={{ kind: "account", account: readAccount(COPY.template.account) }}
+        back={ROUTES.area.path()}
+        columnInLayouts>
+        {children}
+      </RailFrame>
+    </RailFrameBoundary>
   );
 }

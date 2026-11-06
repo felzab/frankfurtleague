@@ -941,5 +941,6 @@ export const SERVER_COPY = catalogue({
     sponsors: `Die Sponsoren der ${COPY.brand.name}, und wie du die Liga unterstützen kannst.`,
     legalNotice: `Anbieterkennzeichnung der ${COPY.brand.name} nach § 5 DDG.`,
     privacyNotice: `Welche Daten die ${COPY.brand.name} verarbeitet, auf welcher Grundlage und wie lange.`,
+    sitemap: `Alle Seiten der ${COPY.brand.name} auf einen Blick.`,
   } satisfies Record<ListedRoute, string | ((...names: never) => string)>,
 });
