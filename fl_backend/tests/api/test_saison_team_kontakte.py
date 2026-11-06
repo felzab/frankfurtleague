@@ -28,7 +28,6 @@ from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_d
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
@@ -218,7 +217,6 @@ async def write_kontakte(
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=database.client,
-        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )

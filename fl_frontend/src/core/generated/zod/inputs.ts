@@ -4148,9 +4148,6 @@ export const TeamsGetInvitationParams = zod.object({
  *
  * **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
  * administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
- *
- * A mint voiding a live link is refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
- * writes nothing; a team's first link is not.
  * @summary Mint this team's registration link for a season
  */
 export const teamsPostInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -4193,9 +4190,8 @@ export const TeamsPostInvitationDispatchBody = zod
  *
  * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
  * its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
- * an erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is
- * refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`. A `past` season's
- * contacts stay correctable. Each seat's `entered_by` and
+ * an erasure between the caller's read and this write being what moves it. A `past` season's contacts stay correctable.
+ * Each seat's `entered_by` and
  * `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.
  *
@@ -4205,9 +4201,7 @@ export const TeamsPostInvitationDispatchBody = zod
  * handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
  * holds nothing live. A save newly seating an address the ban list holds is
  * refused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
- * link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
- * or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
- * is; a save doing none of these is not.
+ * link is how its person learns of the entry, and it takes their Widerspruch alone.
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
@@ -4349,8 +4343,7 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
  *
  * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), where the seat holds nobody or its
  * person has already confirmed it (`kontakt_seat_without_confirmation`), and where its address is on the ban list (`kontakt_seat_barred`).
- * 404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+ * 404 for a team and season holding no row, and for a path naming no seat.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsInviteKontaktPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

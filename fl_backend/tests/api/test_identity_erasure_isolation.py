@@ -37,7 +37,6 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
 
@@ -181,7 +180,6 @@ async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kont
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,
-        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )

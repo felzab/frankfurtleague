@@ -27,7 +27,6 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -162,7 +161,6 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, einladungen: Any =
         db=database.client,
         created_by=ADMIN,
         today=TODAY,
-        actor=fresh_admin_actor(),
     )
 
 

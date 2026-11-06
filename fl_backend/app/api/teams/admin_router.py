@@ -106,7 +106,6 @@ from app.api.teams.services import (
     seated_identifiers,
     seats_one_link_answers,
     teams_admin_rows,
-    voids_a_live_link,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -147,12 +146,10 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
-    SessionActor,
     bind_actor,
     get_actor_auth_time,
     get_actor_email,
     verify_access_admin,
-    verify_admin_actor,
     verify_step_up,
 )
 from app.core.transactions import transaction_session
@@ -464,6 +461,7 @@ async def get_team_saison_admin(
     )
 
 
+# Redesign: goes with its last importer.
 @router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a team")
 async def post_team(
     team_data: Annotated[FLPostTeamPayload, Body()],
@@ -529,6 +527,7 @@ async def post_team_entry(
         return FLPostTeamEntryResponse(team_id=await session.with_transaction(found_and_enter))
 
 
+# Redesign: goes with its last importer.
 @router.patch(
     by_id("team_id"),
     response_model=FLPatchTeamResponse,
@@ -636,6 +635,7 @@ async def reactivate_team(
         await session.with_transaction(bring_the_club_back)
 
 
+# Redesign: goes with its last importer.
 @router.post(
     f"{by_id('team_id')}/saisons",
     response_model=FLSaisonTeamResponse,
@@ -687,6 +687,7 @@ async def post_saison_team(
     )
 
 
+# Redesign: goes with its last importer.
 @router.patch(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
@@ -1001,7 +1002,6 @@ async def patch_saison_team_kontakte(
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLPatchSaisonTeamKontakteResponse:
@@ -1010,9 +1010,8 @@ async def patch_saison_team_kontakte(
 
     Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
     its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
-    an erasure between the caller's read and this write being what moves it. A clearing, which nothing restores, is
-    refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`. A `past` season's
-    contacts stay correctable. Each seat's `entered_by` and
+    an erasure between the caller's read and this write being what moves it. A `past` season's contacts stay correctable.
+    Each seat's `entered_by` and
     `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
     on is stored as the league's entry, unconfirmed.
 
@@ -1022,17 +1021,12 @@ async def patch_saison_team_kontakte(
     handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
     holds nothing live. A save newly seating an address the ban list holds is
     refused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
-    link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
-    or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
-    is; a save doing none of these is not.
+    link is how its person learns of the entry, and it takes their Widerspruch alone.
 
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
     person's own write grants one.
     """
-
-    if kontakte_data.kontakte is None:
-        verify_step_up(actor)
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
     payload = kontakte_data.model_dump(mode="json")
@@ -1097,18 +1091,6 @@ async def patch_saison_team_kontakte(
         confirmations = compose_bestaetigungen_nach(
             kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("confirmations"), minted=minted
         )
-
-        # Judged on what this transaction mints and voids, which aborts with the refusal: a bearer link
-        # handed out or taken away is a step-up write.
-        voids = voids_a_live_link(
-            stored_kontakte=stored.get("kontakte"),
-            kontakte=kontakte,
-            stored_bestaetigungen=stored.get("confirmations"),
-            confirmations=confirmations,
-            today=today,
-        )
-        if links or voids:
-            verify_step_up(actor)
 
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
@@ -1332,7 +1314,6 @@ async def replace_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/confirmation/invite",
     response_model=FLKontaktInviteResponse,
     summary="Send one contact seat a fresh confirmation link",
-    dependencies=[Depends(verify_step_up)],
 )
 async def invite_kontakt(
     team_id: CustomRouteObjectId,
@@ -1355,8 +1336,7 @@ async def invite_kontakt(
 
     Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), where the seat holds nobody or its
     person has already confirmed it (`kontakt_seat_without_confirmation`), and where its address is on the ban list (`kontakt_seat_barred`).
-    404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
-    sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
+    404 for a team and season holding no row, and for a path naming no seat.
     """
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -1440,7 +1420,6 @@ async def post_invitation(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationMintResponse:
@@ -1460,9 +1439,6 @@ async def post_invitation(
 
     **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
     administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
-
-    A mint voiding a live link is refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
-    writes nothing; a team's first link is not.
     """
 
     # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
@@ -1483,16 +1459,12 @@ async def post_invitation(
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
         # every team starts in, and the single-document helper answers that with a 404.
-        withdrawn = await patch_many_in_db(
+        await patch_many_in_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_revocation_update(today=today),
             session=session,
         )
-        # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
-        # holds makes the mint a step-up write.
-        if withdrawn.modified_count:
-            verify_step_up(actor)
 
         document = compose_einladung(
             saison_id=saison_id,

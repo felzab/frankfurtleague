@@ -700,17 +700,10 @@ class FLReplaceSaisonTeamPayload(BaseModel):
 
 
 class FLTeamsFilterParams(BaseModel):
-    """What a club read narrows on: the admin list's query, and the season views' and the club page's reads built in code."""
+    """What a club read narrows on: the season views' and the club page's reads, each built in code."""
 
     # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
     saison_id: str | None = None
-    gruppe: FLGruppenNames | None = None
-    # A question about the junction, not a field on it -- nothing stores a boolean. It asks whether
-    # the club LEFT, by either route; `austritt_type` below is what narrows to one of them.
-    has_austritt: bool | None = None
-    # Independent of the boolean rather than nested under it: naming a type already implies having
-    # left, so the two combine without either having to imply the other.
-    austritt_type: FLAustrittType | None = None
 
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
     # playoff-polluted one.
@@ -720,8 +713,7 @@ class FLTeamsFilterParams(BaseModel):
     sort_by: Literal["name"] = Field(default="name")
     order: FLSortOrder = Field(default="asc")
 
-    # Retired CLUBS, for the admin pickers and for a read handed one club's id rather than discovering one. Never on a
-    # base-tier list: a standings row names no leaving date, so a list that un-hid a retired club would say nothing
+    # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings row names no leaving date, so a list that un-hid a retired club would say nothing
     # about which one had left (`READ-SQUAD-002`).
     include_inactive: bool = False
 

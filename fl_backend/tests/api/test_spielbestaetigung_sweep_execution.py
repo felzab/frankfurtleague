@@ -59,7 +59,6 @@ from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
-from tests.session_headers import fresh_admin_actor
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -1187,7 +1186,6 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,
-        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )

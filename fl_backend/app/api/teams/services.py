@@ -31,7 +31,7 @@ from app.api.teams.schemas import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import VERSION_FIELD, build_query
+from app.core.crud import VERSION_FIELD
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
@@ -192,24 +192,10 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
     if not filters.include_inactive:
         pipeline.extend(build_retirement_stages(filters.saison_id))
 
-    # Translated, not dumped: the row stores a record, never a boolean.
-    # Two independent terms, so "left the season" and "left it THIS way" compose into one match.
-    austritt_terms: dict[str, Any] = {}
-    if filters.has_austritt is not None:
-        austritt_terms["austritt"] = {"$ne": None} if filters.has_austritt else None
-    if filters.austritt_type is not None:
-        austritt_terms["austritt.type"] = filters.austritt_type
-
-    lookup_filters = build_query(
-        filters,
-        terms={"saison_id", "gruppe"},
-        compiled=austritt_terms or None,
-    )
-
-    lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}]
-
-    if lookup_filters:
-        lookup_pipeline.append({"$match": lookup_filters})
+    lookup_pipeline: list[Mapping[str, Any]] = [
+        {"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}},
+        {"$match": {"saison_id": filters.saison_id}},
+    ]
 
     # Withheld at the JOIN rather than downstream: the outer `$project` is an allow-list too, so this
     # is DEPTH -- two of this pipeline's callers are base-tier and the row carries contact records.
@@ -1232,27 +1218,8 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
     return block
 
 
-def _live_link(*, kontakte: Mapping[str, Any], confirmations: Mapping[str, Any], slot: str, today: str) -> list[str] | None:
-    """The hashes of the link this seat's person can still answer, or `None`: answered, declined, lapsed and unminted links open nothing."""
-
-    entry = confirmations.get(slot)
-    seat = kontakte.get(slot)
-    if not isinstance(entry, Mapping) or not isinstance(seat, Mapping) or _seat_is_stamped(seat):
-        return None
-
-    if entry.get("declined_at") is not None or str(entry.get("deadline") or "") < today:
-        return None
-
-    token_hashes = entry.get("token_hashes")
-
-    return list(token_hashes) if isinstance(token_hashes, list) and token_hashes else None
-
-
 def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle, ...]:
-    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody.
-
-    The void and the step-up both read it: two answers would let a link die unasked.
-    """
+    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody."""
 
     stored_block = stored if isinstance(stored, Mapping) else {}
     block = kontakte if isinstance(kontakte, Mapping) else {}
@@ -1263,29 +1230,6 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
         if isinstance(held := stored_block.get(slot), Mapping)
         and (not isinstance(seat := block.get(slot), Mapping) or _seat_held_by(held, seat=seat) is None)
     )
-
-
-def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, confirmations: Any, today: str) -> bool:
-    """Whether a save drops a link somebody can still answer: a bearer credential voided, as a mint is one handed out.
-
-    Any seat emptied or handed on counts, a confirmed one too: its Spielbestätigung links die with it, unread here.
-    """
-
-    if seats_changing_holder(stored=stored_kontakte, kontakte=kontakte):
-        return True
-
-    stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
-    stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
-    left = confirmations if isinstance(confirmations, Mapping) else {}
-
-    for slot in KONTAKT_ROLLEN:
-        live = _live_link(kontakte=stored_slots, confirmations=stored_links, slot=slot, today=today)
-        kept = left.get(slot)
-        # Still reached: a kept person's seat re-minted beside a newly seated pair ends the link it held.
-        if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hashes") != live):
-            return True
-
-    return False
 
 
 def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:

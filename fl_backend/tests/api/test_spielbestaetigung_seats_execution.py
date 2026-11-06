@@ -41,7 +41,6 @@ from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW
-from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -243,7 +242,6 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         db=client,
-        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )
