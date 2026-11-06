@@ -681,7 +681,7 @@ export const BewerbungenGetWindowParams = zod.object({
 /**
  * One application, its decision's administrator withheld as the list withholds it.
  *
- * `confirmation_deadline_expired` says whether its confirmation deadline has passed today.
+ * Each seat's `expired` says whether its own deadline has passed today.
  * @summary One Bewerbung
  */
 export const bewerbungenGetBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -815,7 +815,7 @@ export const BewerbungenDeclineBewerbungBody = zod
  *
  * Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
  * The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
- * The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
+ * That seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat
  * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
  * decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
  * holds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.
@@ -835,8 +835,8 @@ export const BewerbungenResendEinwilligungParams = zod.object({
  * Widerspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative
  * and confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it
  * waits on the other two. Where one person holds two seats both are written from one press and one link answers
- * both. The link the seat's last holder was sent opens nothing afterwards, and the confirmation deadline restarts
- * from today EVEN WHERE IT HAD PASSED: left where it was, the person would be handed a link that opens nothing.
+ * both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
+ * EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
  *
  * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
  * its notice could not arrive is a deletion candidate again once that mail is not refused.

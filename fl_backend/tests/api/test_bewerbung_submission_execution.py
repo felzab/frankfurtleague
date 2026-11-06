@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import build_schluessel_filter, compose_decline_update, compose_kontakte, confirmation_deadline_from
+from app.api.bewerbungen.services import build_schluessel_filter, compose_decline_update, compose_kontakte
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -383,17 +383,19 @@ class TestWhatTheCreateOwes:
             assert document["confirmations"][seat]["token_hashes"] == [hash_token(mail.token)]
             assert (views[mail.an].state, views[mail.an].rolle) == ("valid", seat)
 
-    def test_the_deadline_is_the_bound_counted_from_today_and_written_beside_the_block(self, mongo_replica_set_url: str):
+    def test_each_seats_deadline_is_the_bound_counted_from_today(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             response = await submit(database)
             document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
             assert document is not None
-            return document["confirmation_deadline"], {mail["data"]["deadline"] for mail in await owed(database)}
+            return {entry["deadline"] for entry in document["confirmations"].values()}, {
+                mail["data"]["deadline"] for mail in await owed(database)
+            }
 
         written, mailed = on_a_league(mongo_replica_set_url, body)
 
-        assert {written} == mailed == {deadline_from_today()}
+        assert written == mailed == {deadline_from_today()}
 
     def test_no_raw_token_reaches_the_log(self, mongo_replica_set_url: str):
         """The insert files no image, and the row is searched as text so a token carried in under any key would show."""
@@ -850,7 +852,6 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         "confirmations": minted_confirmations(
             hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today=TODAY
         ),

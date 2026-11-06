@@ -38,7 +38,7 @@ const person = (vorname: string, bestaetigtAm: string | null): NonNullable<FLBew
   }),
 });
 
-const SITZ = { sent_at: "2026-09-01", reminded_at: null, declined_at: null, delivery: null };
+const SITZ = { sent_at: "2026-09-01", deadline: "2099-12-31", expired: false, reminded_at: null, declined_at: null, delivery: null };
 
 /**
  * An open application for an existing club whose three seats have all confirmed, so nothing closes
@@ -63,7 +63,6 @@ const OFFEN: FLBewerbung = {
   wunschgegner: null,
   decision: null,
   confirmations: { ansprechperson: SITZ, stellvertretung: SITZ, trainer: SITZ },
-  confirmation_deadline: "2099-12-31",
   version: 0,
 };
 
@@ -72,7 +71,6 @@ function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME)
     underNext(
       h(AdminBewerbungView, {
         bewerbung,
-        fristAbgelaufen: false,
         teamName,
         saisonStatus: "future",
         gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],

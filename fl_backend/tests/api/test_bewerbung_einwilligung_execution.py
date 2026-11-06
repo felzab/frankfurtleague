@@ -78,7 +78,9 @@ def kontakte(*, trainer_is_also: str | None = None) -> dict[str, Any]:
     }
 
 
-def bewerbung_document(bewerbung_id: ObjectId = BEWERBUNG_OID, **overrides: Any) -> dict[str, Any]:
+def bewerbung_document(
+    bewerbung_id: ObjectId = BEWERBUNG_OID, *, confirmation_deadline: str = "2026-04-03", **overrides: Any
+) -> dict[str, Any]:
     """One submitted application with its three live links, inside its deadline, that each case moves one thing of."""
 
     stored = documents.bewerbung_document(
@@ -87,7 +89,7 @@ def bewerbung_document(bewerbung_id: ObjectId = BEWERBUNG_OID, **overrides: Any)
         "submitted",
         kontakte=kontakte(),
         submitted_at="2026-03-20",
-        confirmation_deadline="2026-04-03",
+        confirmation_deadline=confirmation_deadline,
         schule=documents.new_schule_document(SCHOOL_NAME, full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
         link_prefix=RAW_PREFIX,
     )
@@ -442,7 +444,7 @@ class TestTheLinkIsSpentByTheStamp:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == Code.BEWERBUNG_TOKEN_PAST_DEADLINE
+        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == Code.LINK_EXPIRED
 
     def test_a_decided_application_refuses_every_link_as_spent(self, mongo_replica_set_url: str):
         """`link_expired`: nothing sets `status` back to `submitted`, and a decided application takes no re-send."""
@@ -591,18 +593,24 @@ class TestAResend:
         assert (view.state, view.rolle) == ("valid", "trainer")
         assert (response.rolle, response.confirmation_deadline) == ("trainer", "2026-04-15")
         assert (mail.an, mail.data.kind) == ("wraxlington@example.com", "bewerbung_confirmation")
-        assert document["confirmation_deadline"] == "2026-04-15"
+        # That seat's alone: the other two keep the days their own links carry.
+        assert {seat: entry["deadline"] for seat, entry in document["confirmations"].items()} == {
+            "trainer": "2026-04-15",
+            "ansprechperson": "2026-04-03",
+            "stellvertretung": "2026-04-03",
+        }
         assert document["confirmations"]["trainer"] == {
             "token_hashes": [hash_token(mail.token or "")],
             "sent_at": TODAY,
+            "deadline": "2026-04-15",
             "reminded_at": None,
             "declined_at": None,
         }
         # The other seats' links still open.
         assert document["confirmations"]["ansprechperson"]["token_hashes"] == [HASHES["ansprechperson"]]
 
-    def test_a_restarted_deadline_takes_back_the_announcement(self, mongo_replica_set_url: str):
-        """The notice named the old deadline, so the new one is announced again before the application is deleted."""
+    def test_another_seats_restart_leaves_the_announcement(self, mongo_replica_set_url: str):
+        """The notice named the declining seat's day, which this write does not move: a second notice would announce the same deletion."""
 
         announced = bewerbung_document(erasure_announced_at="2026-03-30")
 
@@ -611,7 +619,7 @@ class TestAResend:
 
             return await stored(database)
 
-        assert on_a_league(mongo_replica_set_url, body, documents=[announced])["erasure_announced_at"] is None
+        assert on_a_league(mongo_replica_set_url, body, documents=[announced])["erasure_announced_at"] == "2026-03-30"
 
     def test_a_confirmed_seat_gets_no_new_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:

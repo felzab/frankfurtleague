@@ -347,19 +347,19 @@ def days_after(*, day: str, days: int) -> str:
 
 
 def confirmation_deadline_from(*, today: str) -> str:
-    """The day the links stop working and the application is deleted, counted from the mint -- a re-send restarts it."""
+    """The day a seat's link stops working, counted from its mail -- a re-send of that seat restarts it."""
 
     return days_after(day=today, days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)
 
 
 def compose_bestaetigung(*, today: str) -> dict[str, Any]:
-    """One seat's bookkeeping as the create and the re-send write it: mailed today, nobody reminded, nobody declined.
+    """One seat's bookkeeping as the create and the re-send write it: mailed today, its 14 days from today, nobody reminded or declined.
 
     No link yet: the hand-out of the mail the same write owes mints it into `token_hashes`, so a link replaced here opens
     nothing from this write on.
     """
 
-    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "declined_at": None}
+    return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today), "reminded_at": None, "declined_at": None}
 
 
 def compose_bestaetigungen(*, today: str) -> dict[str, Any]:
@@ -386,7 +386,7 @@ KONTAKT_WAHL_FIELDS: Final = ("einwilligung.scope", "einwilligung.media", "einwi
 # rest of the document is what a base-tier read must not hold.
 # Every hash, which `seat_holding` compares.
 EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
-    **_per_seat("confirmations", "token_hashes", "declined_at"),
+    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
     # no field to carry it.
     **_per_seat("kontakte", "email", "einwilligung.confirmed_at"),
@@ -395,7 +395,6 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
     "status": 1,
-    "confirmation_deadline": 1,
     "schule.team_name": 1,
     "team_id": 1,
     # Suppressed here alone: an inclusion projection answers `_id` unasked, and only the answer's
@@ -406,13 +405,12 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # Narrower than the view's: the answer takes its wording from the payload and names no school. The
 # address is what a consent asks the ban list of, and no answer carries it.
 EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
-    **_per_seat("confirmations", "token_hashes", "declined_at"),
+    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
     **_per_seat("kontakte", "first_name", "email", "einwilligung.confirmed_at", *KONTAKT_WAHL_FIELDS),
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
     "status": 1,
-    "confirmation_deadline": 1,
 }
 
 
@@ -478,37 +476,34 @@ def _is_decided(status: Any) -> bool:
     return status != "submitted"
 
 
-def _deadline_passed(*, confirmation_deadline: Any, today: str) -> bool:
-    return isinstance(confirmation_deadline, str) and confirmation_deadline < today
+def _deadline_passed(*, deadline: Any, today: str) -> bool:
+    return isinstance(deadline, str) and deadline < today
 
 
-def confirmation_deadline_passed(*, confirmation_deadline: Any, today: str) -> bool:
-    """Whether an application's confirmation deadline has passed today, by the rule its seats' links refuse on."""
+def seat_deadline_of(*, confirmations: Any, seat: str) -> Any:
+    """The deadline the seat's own link carries: each seat is minted on its own day, so the record holds none."""
 
-    return _deadline_passed(confirmation_deadline=confirmation_deadline, today=today)
+    entry = confirmations.get(seat) if isinstance(confirmations, Mapping) else None
 
-
-def link_is_over(*, confirmation_deadline: Any, status: Any, today: str) -> bool:
-    """Whether the link is over: the deadline has passed, or the application was decided while the seat stood open."""
-
-    return _is_decided(status) or _deadline_passed(confirmation_deadline=confirmation_deadline, today=today)
+    return entry.get("deadline") if isinstance(entry, Mapping) else None
 
 
-def find_expired_token_refusal(*, confirmation_deadline: Any, status: Any, today: str) -> WriteRefusal | None:
-    """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again."""
+def link_is_over(*, deadline: Any, status: Any, today: str) -> bool:
+    """Whether the link is over: its seat's deadline has passed, or the application was decided while the seat stood open."""
 
-    if _is_decided(status):
+    return _is_decided(status) or _deadline_passed(deadline=deadline, today=today)
+
+
+def find_expired_token_refusal(*, deadline: Any, status: Any, today: str) -> WriteRefusal | None:
+    """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again.
+
+    410: no write moves a live link's deadline, a re-send minting another token.
+    """
+
+    if link_is_over(deadline=deadline, status=status, today=today):
         return WriteRefusal(
             error_code=Code.LINK_EXPIRED,
             status=HTTPStatus.GONE,
-        )
-
-    # The deadline is the application's one field, and a re-send of any seat restarts it, so every
-    # other seat's link answers again (`compose_erneut_update`): a conflict with state, not a spent link.
-    if _deadline_passed(confirmation_deadline=confirmation_deadline, today=today):
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_TOKEN_PAST_DEADLINE,
-            status=HTTPStatus.CONFLICT,
         )
 
     return None
@@ -586,16 +581,14 @@ def _zustand(*, kontakte: Any, confirmations: Any, seat: str, over: bool, barred
 def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str, barred: bool) -> FLBewerbungEinwilligungZustand:
     """What a reopened link shows. A confirmed seat on an accepted application reads as confirmed."""
 
-    over = link_is_over(confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), status=bewerbung_raw.get("status"), today=today)
+    confirmations = bewerbung_raw.get("confirmations")
+    over = link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today)
 
-    return _zustand(
-        kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat, over=over, barred=barred
-    )
+    return _zustand(kontakte=bewerbung_raw.get("kontakte"), confirmations=confirmations, seat=seat, over=over, barred=barred)
 
 
 # --- A TEAM'S SEASON ROW. A contact seat an administrator typed in is mailed its own link, resolved
-# by the application's two operations: the slots and stamps are one shape, only the deadline's home
-# differing.
+# by the application's two operations: the slots, the stamps and each seat's deadline are one shape.
 
 
 def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
@@ -629,18 +622,10 @@ SAISON_EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
 }
 
 
-def saison_deadline_of(*, confirmations: Any, seat: str) -> Any:
-    """The deadline the seat's own link carries: each seat is minted on its own day, so the row holds none."""
-
-    entry = confirmations.get(seat) if isinstance(confirmations, Mapping) else None
-
-    return entry.get("deadline") if isinstance(entry, Mapping) else None
-
-
 def saison_link_is_over(*, deadline: Any, today: str) -> bool:
     """Whether a season row's seat link is past its own deadline: what its press refuses (`link_expired`) and the editor shows."""
 
-    return _deadline_passed(confirmation_deadline=deadline, today=today)
+    return _deadline_passed(deadline=deadline, today=today)
 
 
 def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
@@ -656,7 +641,7 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, barred: 
     """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
     confirmations = row.get("confirmations")
-    over = saison_link_is_over(deadline=saison_deadline_of(confirmations=confirmations, seat=seat), today=today)
+    over = saison_link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
     state = _zustand(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat, over=over, barred=barred)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
@@ -670,7 +655,7 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, barred: 
 def find_saison_deadline_refusal(*, deadline: Any, today: str) -> WriteRefusal | None:
     """Why a season row's link takes no answer past its own deadline, or `None`.
 
-    410, never the application's 409: no write moves this deadline, a re-send minting another token.
+    410: no write moves this deadline, a re-send minting another token.
     """
 
     if not saison_link_is_over(deadline=deadline, today=today):
@@ -899,18 +884,15 @@ def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool)
     return {"$set": written, "$unset": {"idempotency_fingerprint": ""}}
 
 
-def compose_erneut_update(*, seats: Sequence[str], today: str, confirmation_deadline: str) -> Mapping[str, Any]:
-    """A re-send: one fresh entry per seat this person holds, and the deadline restarts.
+def compose_erneut_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+    """A re-send: one fresh entry per seat this person holds, restarting those seats' 14 days and no other's.
 
     Both seats one person holds, as the confirmation writes both: one entry left standing would keep
     the replaced address's link alive through `paired_seat`.
     """
 
     # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
-    written: dict[str, Any] = {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}
-
-    # The deadline restarts, so a notice that named the old one no longer announces the deletion.
-    return {"$set": {**written, "confirmation_deadline": confirmation_deadline, "erasure_announced_at": None}}
+    return {"$set": {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}}
 
 
 def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
@@ -1038,12 +1020,16 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
     return seat_named(zugleich) if seat == "trainer" else ("trainer" if seat == zugleich else None)
 
 
-def compose_kontakt_seat_update(
-    *, seats: Sequence[str], person: Mapping[str, Any], today: str, confirmation_deadline: str
-) -> Mapping[str, Any]:
+def compose_kontakt_seat_update(*, seats: Sequence[str], person: Mapping[str, Any], today: str, confirmations: Any) -> Mapping[str, Any]:
     """The person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
-    erneut = compose_erneut_update(seats=seats, today=today, confirmation_deadline=confirmation_deadline)
+    erneut = compose_erneut_update(seats=seats, today=today)
+    # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced.
+    announced = (
+        {}
+        if any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
+        else {"erasure_announced_at": None}
+    )
     # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
     einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
@@ -1052,7 +1038,7 @@ def compose_kontakt_seat_update(
 
     # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
     # `$set` under a null is `PathNotViable`, which aborts the transaction.
-    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"]}}
+    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"], **announced}}
 
 
 # --- The retention SWEEP. Six clocks, each a pure predicate over one document and `today`, so
@@ -1110,7 +1096,7 @@ def _entry_of(confirmations: Any, seat: str) -> Mapping[str, Any] | None:
 
 
 def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today: str, unerreichbar: bool) -> bool:
-    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago, and reachable.
+    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago, link live, reachable.
 
     `unerreichbar` is `lage_unzustellbar` of the seat's last mail (`seat_lage`).
 
@@ -1125,6 +1111,9 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
     if entry.get("reminded_at") is not None or not isinstance(entry.get("sent_at"), str):
         return False
 
+    if _deadline_passed(deadline=entry.get("deadline"), today=today):
+        return False
+
     # A seat gets ONE chase, and spending it on an address the provider has refused, or whose person reported the mail
     # as spam, spends it on nobody; a seat write is what makes the seat due again, its mail being the seat's last.
     if unerreichbar:
@@ -1134,12 +1123,12 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
 
 
 def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unerreichbar: Collection[str]) -> list[FLKontaktRolle]:
-    """Every seat of this application owed a reminder today, in declaration order; none once the link is over.
+    """Every seat of this application owed a reminder today, in declaration order; none once it is decided.
 
     `unerreichbar` names the seats whose last mail did not arrive.
     """
 
-    if link_is_over(confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), status=bewerbung_raw.get("status"), today=today):
+    if _is_decided(bewerbung_raw.get("status")):
         return []
 
     kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
@@ -1169,13 +1158,25 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) ->
 
 
 def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
-    """The reminder's stamp per seat. `sent_at` and the deadline stay: a reminder is not a re-send, and its link joins the first."""
+    """The reminder's stamp per seat. `sent_at` and the seat's deadline stay: a reminder is not a re-send, and its link joins the first."""
 
     return {"$set": {f"confirmations.{seat}.reminded_at": today for seat in seats}}
 
 
+def deletion_day(*, kontakte: Any, confirmations: Any) -> str | None:
+    """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names."""
+
+    days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in ausstehende_seats(kontakte=kontakte)]
+
+    return min((day for day in days if isinstance(day, str)), default=None)
+
+
 def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, undeliverable: bool) -> bool:
-    """Whether the fourteen-day clock takes this application: submitted, past its deadline, a seat outstanding, the notice deliverable.
+    """Whether the fourteen-day clock takes this application: submitted, an outstanding seat past its own deadline, the notice deliverable.
+
+    A seat's 14 days are that person's: past them the application goes, however long another seat's fresh link still
+    runs, or a re-send of one seat would keep the others' details past their own (`build_deletion_filter`). A seat an
+    erasure emptied holds no deadline and takes nobody else, so that application goes once no seat's link runs.
 
     `undeliverable` is `app/api/outbox/schemas.py :: FLOutboxStatus.undeliverable` of the last mail owed the Ansprechperson: the
     deletion notice could not reach the submitter. An EMPTY Ansprechperson slot is not this case: no mailbox is left to
@@ -1188,15 +1189,18 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, undeliverab
     if bewerbung_raw.get("status") != "submitted":
         return False
 
-    deadline = bewerbung_raw.get("confirmation_deadline")
-    if not isinstance(deadline, str) or deadline >= today:
-        return False
-
     # HELD rather than erased: an administrator edits the seat, and that write's mail makes it due again.
     if undeliverable:
         return False
 
-    return bool(ausstehende_seats(kontakte=bewerbung_raw.get("kontakte")))
+    kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
+    day = deletion_day(kontakte=kontakte, confirmations=confirmations)
+    if _deadline_passed(deadline=day, today=today):
+        return True
+
+    days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in KONTAKT_ROLLEN]
+
+    return None in days and not any(isinstance(other, str) and other >= today for other in days)
 
 
 def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
@@ -1214,6 +1218,8 @@ SWEEP_PAGE: Final = LIST_LIMIT_MAX
 def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
     return {
         f"confirmations.{seat}.sent_at": {"$lte": days_after(day=today, days=-BEWERBUNG_REMINDER_DAYS)},
+        # `$not` rather than `$gte`: a seat carrying no readable deadline has a link that is not over.
+        f"confirmations.{seat}.deadline": {"$not": {"$lt": today}},
         f"confirmations.{seat}.reminded_at": None,
         f"confirmations.{seat}.declined_at": None,
         f"kontakte.{seat}.einwilligung.confirmed_at": None,
@@ -1230,8 +1236,6 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     return {
         "saison_id": saison_id,
         "status": "submitted",
-        # `$not` rather than `$gte`: a row carrying no readable deadline has a link that is not over.
-        "confirmation_deadline": {"$not": {"$lt": today}},
         "$or": [_seat_reminder_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN],
     }
 
@@ -1239,15 +1243,21 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     """Every application the fourteen-day clock may take, as a query: a confirmed one would otherwise fill the page ahead of a due one.
 
-    A held one stays in it, its delivery being the Postausgang's, so `deletion_is_due` judges each row read.
+    A held one stays in it, its delivery being the Postausgang's, so `deletion_is_due` judges each row read. Each seat's
+    two terms are that function's two arms: its own deadline passed unconfirmed, or the entry an erasure emptied with no
+    other seat's link running.
     """
 
-    return {
-        "saison_id": saison_id,
-        "status": "submitted",
-        "confirmation_deadline": {"$lt": today},
-        "$or": [{f"kontakte.{seat}.einwilligung.confirmed_at": None} for seat in KONTAKT_ROLLEN],
-    }
+    passed = [{f"confirmations.{seat}.deadline": {"$lt": today}, f"kontakte.{seat}.einwilligung.confirmed_at": None} for seat in KONTAKT_ROLLEN]
+    erased = [
+        {
+            f"confirmations.{seat}": None,
+            **{f"confirmations.{other}.deadline": {"$not": {"$gte": today}} for other in KONTAKT_ROLLEN if other != seat},
+        }
+        for seat in KONTAKT_ROLLEN
+    ]
+
+    return {"saison_id": saison_id, "status": "submitted", "$or": [*passed, *erased]}
 
 
 def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
@@ -1288,8 +1298,8 @@ def acceptance_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], later_saiso
 def undecided_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
     """Whether the season's own end takes this application: undecided, and its season is over.
 
-    Nothing else is asked: a confirmed seat, a missing deadline and a refused notice each drop an
-    application out of the fourteen-day clock.
+    Nothing else is asked: a confirmed seat and a refused notice each drop an application out of the
+    fourteen-day clock.
     """
 
     return bewerbung_raw.get("status") == "submitted" and season_has_ended(saison_status=saison_status)
@@ -1597,8 +1607,8 @@ def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str
     return {seat for seat in KONTAKT_ROLLEN if lage_unzustellbar(seat_lage(row=row, lagen=lagen, seat=seat))}
 
 
-def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> dict[str, Any]:
-    """A stored application with each seat's last mail beside its bookkeeping, as every read serves it."""
+def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus], *, today: str) -> dict[str, Any]:
+    """A stored application with each seat's last mail and whether its link ran out beside its bookkeeping, as every read serves it."""
 
     confirmations = row.get("confirmations")
     if not isinstance(confirmations, Mapping):
@@ -1607,7 +1617,13 @@ def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None]
     return {
         **row,
         "confirmations": {
-            seat: {**entry, "delivery": seat_lage(row=row, lagen=lagen, seat=seat)} if isinstance(entry, Mapping) else entry
+            seat: {
+                **entry,
+                "delivery": seat_lage(row=row, lagen=lagen, seat=seat),
+                "expired": _deadline_passed(deadline=entry.get("deadline"), today=today),
+            }
+            if isinstance(entry, Mapping)
+            else entry
             for seat, entry in confirmations.items()
         },
     }

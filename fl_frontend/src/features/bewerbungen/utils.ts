@@ -229,7 +229,6 @@ export async function mapEinwilligungRefusal(
     // Judged ahead of the seat and the ban, which the view ranks first: an answer given in another window, or a ban
     // entered since, reads as the view says, and the spent link's panel stands for the rest.
     case "link_expired":
-    case "bewerbung_token_past_deadline":
       return stand("expired");
     // A season row's link whose season ended or whose team left, which still takes a Widerspruch, unless the ban the
     // press judges after it bars the address: the view's page either way.

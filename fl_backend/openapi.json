@@ -213,7 +213,6 @@
           "bewerbung_kontakte_unconfirmed",
           "bewerbung_kontakt_email_taken",
           "bewerbung_key_differing",
-          "bewerbung_token_past_deadline",
           "bewerbung_address_barred",
           "bewerbung_kontakt_barred",
           "booking_unknown_resource",
@@ -3004,11 +3003,6 @@
       "FLBewerbung": {
         "description": "One school's application to play one season, as stored, its decision as served.",
         "properties": {
-          "confirmation_deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmation Deadline",
-            "type": "string"
-          },
           "confirmations": {
             "$ref": "#/components/schemas/FLBewerbungConfirmations"
           },
@@ -3105,7 +3099,6 @@
           "stufengroesse",
           "wunschgegner",
           "decision",
-          "confirmation_deadline",
           "confirmations"
         ],
         "title": "FLBewerbung",
@@ -3197,6 +3190,11 @@
       "FLBewerbungConfirmation": {
         "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.",
         "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "declined_at": {
             "anyOf": [
               {
@@ -3219,6 +3217,10 @@
               }
             ]
           },
+          "expired": {
+            "title": "Expired",
+            "type": "boolean"
+          },
           "reminded_at": {
             "anyOf": [
               {
@@ -3239,9 +3241,11 @@
         },
         "required": [
           "sent_at",
+          "deadline",
           "reminded_at",
           "declined_at",
-          "delivery"
+          "delivery",
+          "expired"
         ],
         "title": "FLBewerbungConfirmation",
         "type": "object"
@@ -4120,15 +4124,10 @@
         "properties": {
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
-          },
-          "confirmation_deadline_expired": {
-            "title": "Confirmation Deadline Expired",
-            "type": "boolean"
           }
         },
         "required": [
-          "bewerbung",
-          "confirmation_deadline_expired"
+          "bewerbung"
         ],
         "title": "FLBewerbungSingleResponse",
         "type": "object"
@@ -21435,7 +21434,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application, its decision's administrator withheld as the list withholds it.\n\n`confirmation_deadline_expired` says whether its confirmation deadline has passed today.",
+        "description": "One application, its decision's administrator withheld as the list withholds it.\n\nEach seat's `expired` says whether its own deadline has passed today.",
         "operationId": "bewerbungen_get_bewerbung",
         "parameters": [
           {
@@ -21774,7 +21773,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend": {
       "post": {
-        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.",
+        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThat seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.",
         "operationId": "bewerbungen_resend_einwilligung",
         "parameters": [
           {
@@ -21862,7 +21861,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and the confirmation deadline restarts\nfrom today EVEN WHERE IT HAD PASSED: left where it was, the person would be handed a link that opens nothing.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
+        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {

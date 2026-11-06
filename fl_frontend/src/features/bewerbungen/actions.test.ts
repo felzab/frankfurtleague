@@ -255,10 +255,9 @@ const ENTSCHIEDEN: FLBewerbung = {
   decision: null,
   confirmations: {
     trainer: null,
-    ansprechperson: { sent_at: "2026-09-01", reminded_at: null, declined_at: null, delivery: null },
+    ansprechperson: { sent_at: "2026-09-01", deadline: "2026-09-15", expired: false, reminded_at: null, declined_at: null, delivery: null },
     stellvertretung: null,
   },
-  confirmation_deadline: "2026-09-15",
 };
 
 /** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */

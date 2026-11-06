@@ -38,7 +38,6 @@ from app.api.bewerbungen.services import (
     compose_kontakt_seat_update,
     compose_new_club,
     confirmation_deadline_from,
-    confirmation_deadline_passed,
     decider_addresses,
     dubletten_schluessel_of,
     find_acceptance_code_refusal,
@@ -113,6 +112,7 @@ async def _as_served(
     *,
     ban_list: BanList,
     outbox_collection: AsyncCollection,
+    today: str,
 ) -> list[dict[str, Any]]:
     # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
     barred, lagen = await asyncio.gather(
@@ -120,7 +120,7 @@ async def _as_served(
         states_of(outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
     )
 
-    return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen) for row in rows]
+    return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen, today=today) for row in rows]
 
 
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
@@ -129,6 +129,7 @@ async def get_bewerbungen(
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     filters: FLBewerbungenFilters,
+    today: str = Depends(get_german_date_str),
 ) -> FLBewerbungenListResponse:
     """Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
 
@@ -176,7 +177,9 @@ async def get_bewerbungen(
     # would hand whoever writes them the power to 500 this page. Answering short leaves the
     # administrator a usable list, and `complete` reports the cut.
     return FLBewerbungenListResponse(
-        bewerbungen=FLBewerbungListAdapter.validate_python(await _as_served(served, ban_list=ban_list, outbox_collection=outbox_collection)),
+        bewerbungen=FLBewerbungListAdapter.validate_python(
+            await _as_served(served, ban_list=ban_list, outbox_collection=outbox_collection, today=today)
+        ),
         complete=len(read) <= filters.limit,
         count_per_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
         count_per_saison_reference=dict(zip(saisonbezug_terms, bezogen, strict=True)),
@@ -194,18 +197,13 @@ async def get_bewerbung(
 ) -> FLBewerbungSingleResponse:
     """One application, its decision's administrator withheld as the list withholds it.
 
-    `confirmation_deadline_expired` says whether its confirmation deadline has passed today.
+    Each seat's `expired` says whether its own deadline has passed today.
     """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
-    [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection)
+    [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection, today=today)
 
-    return FLBewerbungSingleResponse(
-        bewerbung=FLBewerbung(**served),
-        confirmation_deadline_expired=confirmation_deadline_passed(
-            confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), today=today
-        ),
-    )
+    return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**served))
 
 
 def _entscheidung(*, today: str, by: str, decision_reason: str | None) -> dict[str, Any]:
@@ -509,7 +507,7 @@ async def resend_einwilligung(
 
     Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
     The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
-    The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
+    That seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat
     is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
     decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
     holds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.
@@ -570,7 +568,7 @@ async def resend_einwilligung(
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-                update=compose_erneut_update(seats=seats, today=today, confirmation_deadline=confirmation_deadline),
+                update=compose_erneut_update(seats=seats, today=today),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
@@ -641,8 +639,8 @@ async def post_kontakt_seat(
     Widerspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative
     and confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it
     waits on the other two. Where one person holds two seats both are written from one press and one link answers
-    both. The link the seat's last holder was sent opens nothing afterwards, and the confirmation deadline restarts
-    from today EVEN WHERE IT HAD PASSED: left where it was, the person would be handed a link that opens nothing.
+    both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
+    EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
 
     The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
     its notice could not arrive is a deletion candidate again once that mail is not refused.
@@ -702,7 +700,7 @@ async def post_kontakt_seat(
                 # The person as the slot stores them, so a sixth field added here reaches storage.
                 person=sitz_data.model_dump(mode="json", exclude={"version"}),
                 today=today,
-                confirmation_deadline=confirmation_deadline,
+                confirmations=confirmations,
             ),
             session=session,
             expected_version=sitz_data.version,

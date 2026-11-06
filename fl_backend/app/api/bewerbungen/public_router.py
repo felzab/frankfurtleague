@@ -39,6 +39,7 @@ from app.api.bewerbungen.services import (
     compose_kontakte,
     compose_saison_decline_update,
     confirmation_deadline_from,
+    deletion_day,
     find_abweichender_fingerabdruck_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
@@ -57,13 +58,13 @@ from app.api.bewerbungen.services import (
     owed_at_submission,
     paired_seat,
     payload_fingerabdruck,
-    saison_deadline_of,
     saison_link_pair,
     saison_nimmt_bewerbungen_an,
     saison_schule,
     saison_zustand_of,
     season_has_ended,
     seat_addresses,
+    seat_deadline_of,
     seat_first_name,
     seat_holding,
     seat_opens_nobody,
@@ -361,8 +362,7 @@ async def post_bewerbung(
                 "wunschgegner": bewerbung_data.wunschgegner,
                 # Null until the triage decides, which is what `status == "eingereicht"` claims.
                 "decision": None,
-                # The deadline and each seat's bookkeeping, so the sweep and the links have something to judge.
-                "confirmation_deadline": confirmation_deadline,
+                # Each seat's bookkeeping and its own deadline, so the sweep and the links have something to judge.
                 "confirmations": compose_bestaetigungen(today=today),
                 **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
             },
@@ -561,7 +561,7 @@ async def post_einwilligung(
         assert row is not None and seat is not None
 
         kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
-        refuse(find_saison_deadline_refusal(deadline=saison_deadline_of(confirmations=confirmations, seat=seat), today=today))
+        refuse(find_saison_deadline_refusal(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today))
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         other = saison_link_pair(kontakte=kontakte, confirmations=confirmations, seat=seat, token_hash=token_hash)
@@ -677,7 +677,7 @@ async def post_einwilligung(
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(
             find_expired_token_refusal(
-                confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), status=bewerbung_raw.get("status"), today=today
+                deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today
             )
         )
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
@@ -690,9 +690,6 @@ async def post_einwilligung(
         # Read before either branch writes: a decline empties this slot, and the message reporting
         # it is the one thing that has to name the person who refused.
         first_name = seat_first_name(kontakte=kontakte, seat=seat)
-        # Present wherever a token is: the submission writes the deadline and the tokens in one
-        # insert, and a re-send moves both (`app/api/bewerbungen/services.py :: compose_erneut_update`).
-        confirmation_deadline = str(bewerbung_raw["confirmation_deadline"])
         saison_id = str(bewerbung_raw["saison_id"])
 
         if answer_data.answer == "given":
@@ -774,7 +771,8 @@ async def post_einwilligung(
                             rollen=abgelehnt_rollen,
                             # Named off the read before the decline: nothing left in the record can say whose entry was refused.
                             declined=FLBewerbungPerson(first_name=first_name, rollen=list(seats)),
-                            deadline=confirmation_deadline,
+                            # The declining seat is outstanding now, so a day is there to name.
+                            deadline=str(deletion_day(kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations"))),
                         ),
                         reference=bewerbung_bezug(bewerbung_raw["_id"], abgelehnt_rollen),
                     )

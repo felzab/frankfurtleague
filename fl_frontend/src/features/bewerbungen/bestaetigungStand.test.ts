@@ -39,6 +39,8 @@ const TEAM = "Lessing-Kolleg";
 
 const OFFEN: FLBewerbungConfirmation = {
   sent_at: "2026-09-01",
+  deadline: "2026-09-15",
+  expired: false,
   reminded_at: null,
   declined_at: null,
   delivery: null,

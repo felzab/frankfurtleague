@@ -70,6 +70,9 @@ class _FLBewerbungSitzStand(BaseReadModel):
 
     # The day the link was last mailed; a re-send moves it.
     sent_at: CustomDateString
+    # The day this seat's link stops working, counted from that mail, and the application goes with it if its person
+    # never answers. NOT the season's `Bewerbungsfrist`, which is the window the form is open in.
+    deadline: CustomDateString
     reminded_at: CustomOptionalDateString
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
@@ -82,6 +85,8 @@ class FLBewerbungConfirmation(_FLBewerbungSitzStand):
     # What became of the last mail owed this seat, as the read joins it from the Postausgang: no seat stores it, and null
     # where none was ever owed.
     delivery: FLOutboxStatus | None
+    # Whether `deadline` has passed today, judged on the server's date so a page reads no day of its own.
+    expired: bool
 
 
 class FLBewerbungConfirmations(BaseModel):
@@ -167,9 +172,6 @@ class FLBewerbung(BaseReadModel):
     # As served, so a row reaches the wire only through
     # `app/api/bewerbungen/services.py :: mit_vorenthaltener_entscheidung`.
     decision: FLBewerbungDecisionRow | None
-    # The day an unconfirmed application is deleted and its links expire. NOT the season's
-    # `Bewerbungsfrist`, which is the window the form is open in.
-    confirmation_deadline: CustomDateString
     confirmations: FLBewerbungConfirmations
 
 
@@ -276,9 +278,6 @@ class FLBewerbungenListResponse(BaseAPIResponse):
 
 class FLBewerbungSingleResponse(BaseAPIResponse):
     bewerbung: FLBewerbung
-    # Whether the confirmation deadline has passed today, judged on the server's date so the editor
-    # reads no day of its own; false where the application holds no deadline.
-    confirmation_deadline_expired: bool
 
 
 class FLAcceptBewerbungResponse(BaseAPIResponse):

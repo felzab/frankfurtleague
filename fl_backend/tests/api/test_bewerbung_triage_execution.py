@@ -151,18 +151,14 @@ def bewerbung_document(
     Every seat is confirmed by its own person, so acceptance is not held back by `bewerbung_kontakte_unconfirmed` unless a case opens one.
     """
 
-    stored = documents.bewerbung_document(
-        bewerbung_id,
-        SAISON_ID,
-        "submitted",
-        kontakte={slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()},
-        submitted_at="2026-02-01",
-        team_id=team_id,
-        schule=schule,
-        trikot={"existing_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-    )
+    fields = {
+        "kontakte": {slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()},
+        "submitted_at": "2026-02-01",
+        "trikot": {"existing_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+        **overrides,
+    }
 
-    return {**stored, **overrides}
+    return documents.bewerbung_document(bewerbung_id, SAISON_ID, "submitted", team_id=team_id, schule=schule, **fields)
 
 
 def junction_document(team_id: ObjectId, name: str, shorthand: str, gruppe: str) -> dict[str, Any]:
@@ -1100,6 +1096,7 @@ class TestTheQueueTheTriageIsWorkedDown:
                 outbox_collection=database[Collection.OUTBOX],
                 ban_list=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
+                today=TODAY,
             )
 
             return [bewerbung.id for bewerbung in response.bewerbungen], {bewerbung.submitted_at for bewerbung in response.bewerbungen}
@@ -1384,7 +1381,7 @@ class TestCorrectingOneContactAddress:
         assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
         assert response.confirmation_deadline == confirmation_deadline_from(today=TODAY)
         assert stored["kontakte"]["ansprechperson"]["email"] == CORRECTED_EMAIL
-        assert stored["confirmation_deadline"] == response.confirmation_deadline
+        assert stored["confirmations"]["ansprechperson"]["deadline"] == response.confirmation_deadline
         # The raw token exists in the mail alone; the document keeps its hash, minted by the hand-out.
         assert mail.an == CORRECTED_EMAIL
         assert stored["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mail.token or "")]
@@ -1440,7 +1437,7 @@ class TestCorrectingOneContactAddress:
 
         moved = {key for key in before if before[key] != after[key]}
 
-        assert moved == {"kontakte", "confirmations", "confirmation_deadline", "version"}
+        assert moved == {"kontakte", "confirmations", "version"}
         assert {seat: person for seat, person in after["kontakte"].items() if seat != "ansprechperson"} == {
             seat: person for seat, person in before["kontakte"].items() if seat != "ansprechperson"
         }
@@ -1878,8 +1875,8 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert [mail.an for mail in mails] == [RESEAT_PERSON["email"]]
         assert linked["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mails[0].token or "")]
         assert stored["confirmations"]["ansprechperson"]["declined_at"] is None
-        assert stored["confirmation_deadline"] == confirmation_deadline_from(today=TODAY)
-        assert response.confirmation_deadline == stored["confirmation_deadline"]
+        assert stored["confirmations"]["ansprechperson"]["deadline"] == confirmation_deadline_from(today=TODAY)
+        assert response.confirmation_deadline == stored["confirmations"]["ansprechperson"]["deadline"]
         # Two would leave the new person standing in the seat beside the link its last holder was sent.
         assert rows_written == 1
 
@@ -2006,15 +2003,19 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
             # The sweep that would have deleted this application has not run; the reseat judges no deadline.
-            await database[Collection.BEWERBUNGEN].update_one({"_id": RESEAT_BEWERBUNG}, {"$set": {"confirmation_deadline": "2026-03-01"}})
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": RESEAT_BEWERBUNG}, {"$set": {"confirmations.ansprechperson.deadline": "2026-03-01"}}
+            )
             await reseat(database, client, "ansprechperson")
 
             return await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored["confirmation_deadline"] == confirmation_deadline_from(today=TODAY)
-        assert stored["confirmation_deadline"] > TODAY, "the new person is seated behind a link that already opens nothing"
+        assert stored["confirmations"]["ansprechperson"]["deadline"] == confirmation_deadline_from(today=TODAY)
+        assert stored["confirmations"]["ansprechperson"]["deadline"] > TODAY, (
+            "the new person is seated behind a link that already opens nothing"
+        )
 
 
 @pytest.mark.db

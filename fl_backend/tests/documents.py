@@ -334,6 +334,11 @@ def bewerbung_document(
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
     minted = sent_at or submitted_at
+    confirmations = (
+        fields.pop("confirmations")
+        if "confirmations" in fields
+        else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted)
+    )
 
     return {
         "_id": bewerbung_id,
@@ -349,8 +354,13 @@ def bewerbung_document(
         "stufengroesse": 96,
         "wunschgegner": None,
         "decision": None,
-        "confirmation_deadline": confirmation_deadline if confirmation_deadline is not None else confirmation_deadline_from(today=minted),
-        "confirmations": minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted),
+        # `confirmation_deadline` every seat's day at once, each seat's own otherwise, as the mint gave it.
+        "confirmations": {
+            seat: {**entry, "deadline": confirmation_deadline or entry.get("deadline") or confirmation_deadline_from(today=minted)}
+            if isinstance(entry, Mapping)
+            else entry
+            for seat, entry in confirmations.items()
+        },
         **fields,
     }
 

@@ -203,9 +203,9 @@ async def sweep_saison(
                 collection=bewerbungen_collection,
                 db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
                 limit=SWEEP_PAGE + 1,
-                # Earliest deadline first, so the application the fourteen-day clock takes soonest is
-                # chased first; `_id` makes the page the same page whichever plan the server picks.
-                sort_by=[("confirmation_deadline", ASCENDING), ("_id", ASCENDING)],
+                # Oldest first, as near the fourteen-day clock's order as a key on the record comes, each seat keeping
+                # its own day; `_id` makes the page the same page whichever plan the server picks.
+                sort_by=[("submitted_at", ASCENDING), ("_id", ASCENDING)],
                 session=session,
             )
         )
@@ -239,8 +239,8 @@ async def sweep_saison(
                     seats=seats,
                     saison_id=saison_id,
                     schule=schule,
-                    # The deadline the first mail gave; a reminder does not move it.
-                    deadline=str(row["confirmation_deadline"]),
+                    # The deadline the seat's last mail gave; a reminder does not move it.
+                    deadline=str(row["confirmations"][seats[0]]["deadline"]),
                     # The day too: a re-send clears the stamp, and the seat's next reminder is a mail of its own.
                     key=f"{Collection.BEWERBUNGEN}/{row['_id']}/reminder/{seats[0]}/{today}",
                 )

@@ -203,6 +203,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
             outbox_collection=cast(AsyncCollection, _NothingStored()),
             ban_list=ban_list({Collection.BAN_LIST: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
+            today="2026-03-01",
         )
     )
 
@@ -516,6 +517,7 @@ class TestTheCollisionSurvivesTheReadsCap:
                     outbox_collection=database[Collection.OUTBOX],
                     ban_list=ban_list(database),
                     filters=FLBewerbungenFilterParams.model_validate({}),
+                    today="2026-03-01",
                 )
 
         answered = on_the_seed_loop(read())
@@ -665,7 +667,7 @@ class TestEachSeatReadsItsLastMail:
             },
         }
 
-        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): aufgegeben})
+        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): aufgegeben}, today="2026-03-01")
 
         assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == sent
         assert served["confirmations"]["stellvertretung"] is None
@@ -673,4 +675,4 @@ class TestEachSeatReadsItsLastMail:
     def test_a_seat_nobody_was_owed_a_mail_reads_null(self):
         row = {"_id": "bewerbung", "kontakte": {"trainer_is_also": None}, "confirmations": {"trainer": {"sent_at": "2026-04-01"}}}
 
-        assert mit_zustellung(row, {})["confirmations"]["trainer"]["delivery"] is None
+        assert mit_zustellung(row, {}, today="2026-03-01")["confirmations"]["trainer"]["delivery"] is None

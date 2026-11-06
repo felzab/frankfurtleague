@@ -128,7 +128,6 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
     wunschgegner: null,
     decision: null,
     confirmations: { trainer: null, ansprechperson: null, stellvertretung: null },
-    confirmation_deadline: "2026-05-15",
   };
 }
 
@@ -554,7 +553,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "link_expired",
       "bewerbung_seat_already_answered",
       "confirmation_age",
-      "bewerbung_token_past_deadline",
       "link_barred",
       "media_age",
       "link_expired",
@@ -583,7 +581,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       "link_expired",
       "bewerbung_seat_already_answered",
       "confirmation_age",
-      "bewerbung_token_past_deadline",
       "link_barred",
       "media_age",
       "link_expired",
@@ -592,10 +589,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       answers.set(code, JSON.stringify(await mapEinwilligungRefusal(refused(code), offenBei(VERTRETUNG_MIN_ALTER))));
     }
 
-    for (const code of ["bewerbung_token_past_deadline", "link_expired"]) {
-      expect(answers.get(code), `${code}'s passed deadline leaves the spent-link panel`).toBe(answers.get("link_expired"));
-      answers.delete(code);
-    }
     // An answer the read cannot find claims no more than the refusal did: the panel naming nobody.
     expect(answers.get("bewerbung_seat_already_answered"), "an answer the view reads as open names a panel").toBe(answers.get("link_invalid"));
     answers.delete("bewerbung_seat_already_answered");

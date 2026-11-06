@@ -83,7 +83,6 @@ export const Code = {
   bewerbung_kontakte_unconfirmed: "bewerbung_kontakte_unconfirmed",
   bewerbung_kontakt_email_taken: "bewerbung_kontakt_email_taken",
   bewerbung_key_differing: "bewerbung_key_differing",
-  bewerbung_token_past_deadline: "bewerbung_token_past_deadline",
   bewerbung_address_barred: "bewerbung_address_barred",
   bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
   booking_unknown_resource: "booking_unknown_resource",
@@ -1206,8 +1205,11 @@ export interface FLBanData {
  * One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.
  */
 export interface FLBewerbungConfirmation {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
   declined_at: string | null;
   delivery: FLOutboxStatus | null;
+  expired: boolean;
   reminded_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   sent_at: string;
@@ -1377,8 +1379,6 @@ export interface FLBewerbungTrikot {
  * One school's application to play one season, as stored, its decision as served.
  */
 export interface FLBewerbung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmation_deadline: string;
   confirmations: FLBewerbungConfirmations;
   decision: FLBewerbungDecisionRow | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1762,7 +1762,6 @@ export interface FLBewerbungSchulenResponse {
 
 export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;
-  confirmation_deadline_expired: boolean;
 }
 
 /**
