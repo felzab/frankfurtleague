@@ -67,7 +67,7 @@ function filtersOf(
   return [
     {
       name: "team",
-      label: COPY.account.entries.facts.team,
+      label: COPY.shared.facts.team,
       all: SERVER_COPY.season.filter.all,
       options,
       value: filterValue(team, options),
@@ -100,7 +100,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "team", label: COPY.account.entries.facts.team, narrow: true, width: "phone" },
+    { key: "team", label: COPY.shared.facts.team, narrow: true, width: "phone" },
     { key: "received", label: COPY.admin.bewerbung.received, hideOnPhone: true, width: "date" },
   ],
 };

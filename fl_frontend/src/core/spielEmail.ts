@@ -98,7 +98,7 @@ export function buildSpielAnfrageEmail(
 
   return {
     kind: "notice",
-    subjectLine: subjectLine,
+    subjectLine,
     // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
     // could send the two versions to different hosts.
     origin: mailOrigin(origin),
@@ -145,7 +145,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
 function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
   return {
     kind: "notice",
-    subjectLine: subjectLine,
+    subjectLine,
     origin: mailOrigin(origin),
     firstName: "",
     paragraphs: [paragraph],

@@ -69,9 +69,9 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
     if (status >= 400 && status < 500) {
       const refusal = SiteverifyAnswerSchema.safeParse(await response.json().catch(() => null));
       const codes = refusal.success ? refusal.data["error-codes"] : [];
-      return codes.length > 0 ? { passed: false, codes: codes, status: status } : { refusedStatus: status };
+      return codes.length > 0 ? { passed: false, codes, status } : { refusedStatus: status };
     }
-    if (!response.ok) return unjudged({ status: status });
+    if (!response.ok) return unjudged({ status });
     body = await response.json();
   } catch (failed) {
     // The NAME alone: a `TimeoutError` is the bound, anything else the network or a body that is no JSON.
@@ -81,7 +81,7 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
   const answer = SiteverifyAnswerSchema.safeParse(body);
   if (!answer.success) return unjudged({ name: "UnreadableAnswer" });
 
-  return { passed: answer.data.success, codes: answer.data["error-codes"], status: status };
+  return { passed: answer.data.success, codes: answer.data["error-codes"], status };
 }
 
 /**

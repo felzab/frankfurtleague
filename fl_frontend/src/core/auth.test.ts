@@ -182,7 +182,7 @@ afterAll(() => {
 /** A stored passkey as the plugin's own routes read one, so an admitted route would really act. */
 const aPasskeyFor = (userId: string) => ({
   id: "a-passkey",
-  userId: userId,
+  userId,
   credentialID: "fabricated-credential",
   publicKey: "fabricated-public-key",
   counter: 0,
@@ -946,7 +946,7 @@ describe("the passkey touch an act declares", () => {
     email: PERSON_EMAIL,
     lane: "person" as const,
     authTime: Math.floor((Date.now() - ageMs) / 1000),
-    factor: factor,
+    factor,
   });
 
   it("admits a passkey sign-in inside the touch, and refuses one past it", async () => {
@@ -2453,7 +2453,7 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
     {
       traceId: `${"0".repeat(31)}3`,
       // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
-      actor: { email: email, lane: "person", authTime: 0, factor: "code" },
+      actor: { email, lane: "person", authTime: 0, factor: "code" },
     },
     run,
   );

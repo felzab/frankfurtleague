@@ -29,7 +29,7 @@ export default function AccountUnmatchedPage() {
     <StatusPage
       frame="rail"
       scope="area"
-      title={SERVER_COPY.landing.notFound}
+      title={SERVER_COPY.notFound}
       card={judge()}
     />
   );

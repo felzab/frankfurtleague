@@ -14,7 +14,6 @@ import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_
 import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
@@ -49,7 +48,7 @@ export default function PrivacyNoticePage() {
     paragraph(words.website.requests),
     paragraph(words.website.browser),
     heading(words.bewerbung.heading),
-    paragraph(words.bewerbung.form(KONTAKT_ROLLEN.length)),
+    paragraph(words.bewerbung.form),
     paragraph(words.bewerbung.confirmation(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER)),
     heading(words.kader.heading),
     paragraph(words.kader.text(REGISTRIERUNG_MIN_ALTER)),

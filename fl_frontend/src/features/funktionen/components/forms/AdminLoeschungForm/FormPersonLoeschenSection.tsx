@@ -45,7 +45,7 @@ const ohneUebersicht = (reason: string): string =>
 
 /** Each box's verdict in the write's own words, judged at the press and never between keystrokes. */
 function fehlerIn(email: string, erasureReason: string): Fehler {
-  const geprueft = FLLoeschungPayloadSchema.safeParse({ email: email, reason: erasureReason });
+  const geprueft = FLLoeschungPayloadSchema.safeParse({ email, reason: erasureReason });
   if (geprueft.success) return {};
 
   const fehler: Fehler = {};

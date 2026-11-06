@@ -35,5 +35,5 @@ export async function sweepAdresswechsel(): Promise<Omit<FLAddressChangeSweepRes
   await runAddressChangeMoves();
 
   // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
-  return { removed: removed, effective: effective, discarded: discarded, remaining: antwort.remaining };
+  return { removed, effective, discarded, remaining: antwort.remaining };
 }

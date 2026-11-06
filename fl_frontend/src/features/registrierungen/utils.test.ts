@@ -250,7 +250,7 @@ describe("what one refused confirmation shows", () => {
       ["confirmation_exists", null, "confirmed"],
     ] as const) {
       expect(await mapBestaetigungRefusal(refused(code), GETIPPT, readOf(link).lesen), code).toStrictEqual({
-        zustand: zustand,
+        zustand,
       });
     }
   });

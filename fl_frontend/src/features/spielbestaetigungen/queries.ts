@@ -27,7 +27,7 @@ export const getEigeneSpielbestaetigungen = cache(async (): Promise<FLSpielbesta
  */
 export async function getSpielbestaetigungAnsicht(token: string): Promise<SpielbestaetigungAnsicht> {
   return runWithIncomingTrace(() =>
-    postSpielbestaetigungAnsicht({ token: token }).then(
+    postSpielbestaetigungAnsicht({ token }).then(
       // Narrowed here and never at the page, which would carry the clubs, the date and the proposal
       // regardless: a dead link's panel names nothing of the fixture, an answered one the seat alone.
       (view): SpielbestaetigungAnsicht => {

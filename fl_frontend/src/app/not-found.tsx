@@ -22,7 +22,7 @@ export default function NotfoundPage() {
       <StatusPage
         frame="classic"
         tone="info"
-        title={SERVER_COPY.landing.notFound}
+        title={SERVER_COPY.notFound}
         next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
       />
     </Classic>

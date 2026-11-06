@@ -29,7 +29,7 @@ describe("the consent each page shows", () => {
     render(
       underNext(
         h(SpielerBestaetigungView, {
-          start: { zustand: "valid", ansicht: ansicht, token: "kein-echtes-token" },
+          start: { zustand: "valid", ansicht, token: "kein-echtes-token" },
           wording: { page: "bestaetigung_spieler" },
         }),
       ),

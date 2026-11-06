@@ -10,7 +10,7 @@ import { formButton, MODAL_FOOTER_STACK_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 /**
- * **Single-step, where `ConfirmDeleteModal` is two**: a retirement reaches stored data, while a discard destroys only work
+ * **Single-step, where a retirement's is two**: a retirement reaches stored data, while a discard destroys only work
  * still on screen that the admin has just asked to leave. Every caller gates it on a dirty draft.
  */
 export function ConfirmDiscardModal({

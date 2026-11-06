@@ -26,7 +26,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/admin/saisons/[saison]/teams">;
 
 const WORDS = COPY.admin.team;
-const TEAM = COPY.account.entries.facts.team;
+const TEAM = COPY.shared.facts.team;
 const ACT = { verb: "enter", object: TEAM } as const;
 
 /** What a read takes as a filter's options, its enum's values: the read's own answer says which of them the list offers. */

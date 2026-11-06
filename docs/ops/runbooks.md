@@ -513,8 +513,8 @@ its day, its administrator and the season it runs to; the hash itself is not sen
 being the value that identifies them.
 
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
-application, an accepted one and a season's contact block are each removed by the retention sweep; an application nobody confirmed is deleted after its deadline, its
-submitter told first; an application nobody decided is deleted once
+application, an accepted one and a season's contact block are each removed by the retention sweep; a season row's unconfirmed seat is emptied on the first pass past its day; an application nobody confirmed is deleted after its deadline, its
+Ansprechperson told; an application nobody decided is deleted once
 the season it applied for has ended, whatever its seats answered; and a log row expires after twelve months.
 
 **A rectification is the ordinary admin edit**, made on the page above. Two carry a trap worth
@@ -637,7 +637,7 @@ their Widerspruch.** On an application, which of the three cases below you are i
 that seat's own link, not by the person's role; a seat on a team's season row is the fourth:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
-  page the link opens, empties the seat at once and tells the submitter so the school can name
+  page the link opens, empties the seat at once and tells the Ansprechperson so the school can name
   somebody else (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
@@ -645,7 +645,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   offering no Widerspruch: its withdrawal reaches the league's
   mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/area/admin/loeschung`), which erases everything the
   address holds rather than this seat alone. Once the school has named a replacement, seat them
-  from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
+  with „Sitz bearbeiten“ on that seat's row of the application's review page, which sends the
   new person their own link and restarts that seat's 14 days alone: the application goes once any other
   unconfirmed seat's own day passes, so re-send those too where they need longer. It is acceptable again
   once every seat has confirmed. An ERASED seat offers no such control: that application takes only the
@@ -657,11 +657,11 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   like any other.
 - **The application has been decided.** „Löschung auf Anfrage“, as above.
 - **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it
-  is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
-  submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
-  again with „Bestätigungslink senden“ on that seat in the team's contacts editor
+  is live, and the Widerspruch empties the seat and mails nobody, an administrator having entered
+  them (`docs/glossary.md :: Bestätigung`). A lost link is sent again, and a lapsed one until the
+  hourly pass empties its seat, with „Link senden“ on that seat's row in the team's editor
   (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`), which replaces the old link
-  whole. It refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
+  whole; an emptied seat is typed in again, which mails its own link. It refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
   ended or whose team has left it (`kontakt_row_without_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschung auf Anfrage“.
@@ -783,7 +783,7 @@ it; work through it before the second press, since the dialog closes on the ban.
 - a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
   squad list; a row taken out already is offered „Eintrag ansehen“ instead;
 - a contact seat: „Kontakte bearbeiten“ replaces or clears it on the team's season;
-- a seat on an application: „Bewerbung öffnen“, whose „Neu besetzen“ seats the replacement the
+- a seat on an application: „Bewerbung öffnen“, whose „Sitz bearbeiten“ seats the replacement the
   school names;
 - a registration: „Registrierungen ansehen“ shows a pending one, and a declined one has no link;
   no administrator decides either, its team cannot admit a barred address, and the clock erases
@@ -1471,7 +1471,7 @@ going on to name it since its hash matches nothing the record holds. Four things
 
 - **A grant made after a journalled withdrawal and before the restore's end** is in no journal, so
   the choice stays withdrawn, the safe side, until its person grants it again on the account page.
-- **A Widerspruch's replay mails nobody**: an application's submitter was told when it was made, and
+- **A Widerspruch's replay mails nobody**: an application's Ansprechperson was told when it was made, and
   a season row's seat's and a referee's tell nobody.
 - **An address change that took effect inside the window, started before the snapshot**, replays
   from its line, moving every record again; **one started inside the window** reads `left for

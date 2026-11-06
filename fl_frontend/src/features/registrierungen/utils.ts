@@ -43,7 +43,7 @@ export function formularZustand(ansicht: FLInvitationViewResponse): "valid" | "c
  */
 export function registrierungPayload(draft: RegistrierungFormDraft, token: string): FLPostRegistrierungPayload {
   return {
-    token: token,
+    token,
     first_name: draft.first_name,
     last_name: draft.last_name,
     email: draft.email,

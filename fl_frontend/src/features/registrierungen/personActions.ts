@@ -39,7 +39,7 @@ export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdre
     const { registrierung_id, spieler_id } = validated.data;
     let aufnahme;
     try {
-      aufnahme = await postRegistrierungAufnehmen(registrierung_id, { spieler_id: spieler_id });
+      aufnahme = await postRegistrierungAufnehmen(registrierung_id, { spieler_id });
     } catch (error) {
       const refusal = mapAufnahmeRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };

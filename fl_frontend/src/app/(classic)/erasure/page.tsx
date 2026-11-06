@@ -81,7 +81,7 @@ async function readState(): Promise<MailedState> {
     sentence: WORDS.question,
     action: eraseAccount,
     acts: { primary: COPY.page.accountErasure },
-    carry: { token: token, holder: subject.email },
+    carry: { token, holder: subject.email },
     // Every person holding a passkey touches it first, an administrator always among them.
     touch: passkeys > 0,
   };
@@ -106,13 +106,13 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   }
 
   const count = (label: Copy, figure: number): Fact[] =>
-    figure === 0 ? [] : [{ label: label, value: { record: formatNumber(figure) }, figures: true }];
+    figure === 0 ? [] : [{ label, value: { record: formatNumber(figure) }, figures: true }];
 
   return [
     { label: COPY.signIn.address, value: { record: email } },
     ...count(WORDS.passkeys, passkeys),
     ...[...records].map(([label, held]): Fact => ({
-      label: label,
+      label,
       value: held.length === 1 && held[0] !== undefined ? held[0] : ENTRIES.several(held),
     })),
     ...count(WORDS.addressChanges, address_change),

@@ -71,7 +71,7 @@ const LEERER_ENTWURF: Entwurf = { date: "", time: "", reason: "" };
 
 /** A Zusage carries nothing but the token: both keys are sent null rather than left out, as the endpoint requires them. */
 const zusagePayload = (token: string): FLSpielbestaetigungAnswerPayload => ({
-  token: token,
+  token,
   answer: "zugesagt",
   vorschlag: null,
   reason: null,
@@ -79,7 +79,7 @@ const zusagePayload = (token: string): FLSpielbestaetigungAnswerPayload => ({
 
 /** A proposal declines the date standing: the endpoint takes no decline without one. */
 const vorschlagPayload = (token: string, entwurf: Entwurf): FLSpielbestaetigungAnswerPayload => ({
-  token: token,
+  token,
   answer: "declined",
   vorschlag: { date: entwurf.date, time: entwurf.time },
   // An empty box is no reason, as the endpoint reads one.

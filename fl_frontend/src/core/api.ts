@@ -170,7 +170,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       isTimeout: error instanceof Error && error.name === "TimeoutError",
       url: urlObj.toString(),
       ...sent,
-      traceId: traceId,
+      traceId,
       originalError: error,
     });
 
@@ -182,14 +182,14 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       isTimeout: true,
       url: urlObj.toString(),
       ...sent,
-      traceId: traceId,
+      traceId,
     });
   }
 
   const res = await dispatchRequest(sent, async () => {
     let answered: Response;
     try {
-      answered = await fetch(urlObj, { ...customOptions, headers, signal: signal });
+      answered = await fetch(urlObj, { ...customOptions, headers, signal });
     } catch (error) {
       throw asNetworkError(error);
     }

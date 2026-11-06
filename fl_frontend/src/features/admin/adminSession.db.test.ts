@@ -166,7 +166,7 @@ describe("the administrator's guard across a server action", () => {
     requestHeaders = await signInAsAdministrator();
 
     leaveRenderPass();
-    const before = { reads: sessionReads.length, lookups: lookups };
+    const before = { reads: sessionReads.length, lookups };
     await runWithIncomingTrace(async () => {
       assert.ok(await getAdminSession(), "the guard refused the administrator, so the counts below count a refusal");
       await runAdminRead(() => Promise.resolve());

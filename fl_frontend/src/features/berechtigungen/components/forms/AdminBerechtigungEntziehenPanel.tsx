@@ -17,7 +17,7 @@ import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 /**
  * One grant's revoke, escalated where the row stands, as the ban list's removal is: a revoke keeps
- * nothing to restore, which `ConfirmDeleteModal`'s retirement wording would promise. Closed, with its
+ * nothing to restore, which a retirement's wording would promise. Closed, with its
  * reason, to an administrator holding no `owner` grant.
  */
 export function AdminBerechtigungEntziehenPanel({

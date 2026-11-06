@@ -146,7 +146,7 @@ function nachDruck(antwort: AddressChangePressed, way: FLAddressChangeWay): Addr
   if (antwort.answer === "stopped") return { state: "ended", side: "previous", art: "stopped" };
   if (antwort.effective) return { state: "ended", side: "new", art: "effective" };
 
-  return { state: "confirmed", wirksamAb: antwort.effective_from, genehmigungOffen: antwort.approval_open, way: way };
+  return { state: "confirmed", wirksamAb: antwort.effective_from, genehmigungOffen: antwort.approval_open, way };
 }
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
@@ -162,7 +162,7 @@ function useAntwort(start: AddressChangeStart, beantworten: Beantworten, onAbsch
     setGedrueckt(antwort);
     startSending(async () => {
       // A press that threw may have landed, so it is told apart from the builder's own refusal.
-      const answer = await beantworten({ token: token, antwort: antwort }).catch(() => null);
+      const answer = await beantworten({ token, antwort }).catch(() => null);
 
       // Wrapped again: React leaves an update after an `await` outside the transition.
       startSending(() => {
@@ -186,12 +186,12 @@ function useAntwort(start: AddressChangeStart, beantworten: Beantworten, onAbsch
         }
         const { zustand } = presse;
         // The decline stays open on these two, so their panel keeps the token.
-        onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { state: zustand, way: way, token } : { state: zustand });
+        onAbschluss(zustand === "expired" || zustand === "not_confirmable" ? { state: zustand, way, token } : { state: zustand });
       });
     });
   };
 
-  return { sende: sende, isPending: isPending, gedrueckt: gedrueckt };
+  return { sende, isPending, gedrueckt };
 }
 
 type Presse = ReturnType<typeof useAntwort>;

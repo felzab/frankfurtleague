@@ -89,7 +89,7 @@ export function personStructureFor(eintraege: ReadonlySet<PersonEintrag>): Sidem
     .map((eintrag) => PERSON_SIDEMENU_ENTRIES[eintrag]);
 
   // No group at all rather than an empty one: `SidemenuNavLinks` keys a group on its first entry.
-  return sub_options.length === 0 ? [] : [{ category_name: "", sub_options: sub_options }];
+  return sub_options.length === 0 ? [] : [{ category_name: "", sub_options }];
 }
 
 /**

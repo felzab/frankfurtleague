@@ -66,7 +66,7 @@ type Fehler = { email?: string; grund?: string };
 /** The box's two values as the write's own schema judges them, at the press and never between keystrokes. */
 function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
   const geprueft = FLAdresswechselVerwaltungPayloadSchema.safeParse({
-    adresse: adresse,
+    adresse,
     email: entwurf.email,
     grund: entwurf.grund,
   });
@@ -82,8 +82,7 @@ function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
 const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
   entwurf.trim() !== "" && asSignInIdentifier(entwurf) !== asSignInIdentifier(gespeicherteAdresse);
 
-// `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: AdresseKorrigieren`'s box,
-// without its `<Form>`: Enter is taken here, the press being one write of its own.
+// No `<Form>`: Enter is taken here, the press being one write of its own.
 /** The administrator's start of a change for the address the tool read. */
 export function AdresswechselBeantragen({
   adresse,
@@ -119,7 +118,7 @@ export function AdresswechselBeantragen({
   const unveraendert = !istAndereAdresse(entwurf.email, adresse);
 
   const markiere = (satz: Fehler) => {
-    setFehler({ satz: satz, zu: entwurf });
+    setFehler({ satz, zu: entwurf });
     feldRef.current?.focus();
   };
 

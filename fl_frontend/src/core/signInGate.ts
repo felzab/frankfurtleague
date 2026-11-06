@@ -30,7 +30,7 @@ export const lookUpSubject = cache((email: string): Promise<SubjectSession["reco
   runWithIncomingTrace(async () => {
     // In the body and on no query parameter: a URL carrying an address reaches the edge's access
     // line, which nothing downstream un-logs.
-    const answer = await identityGetSubject({ email: email });
+    const answer = await identityGetSubject({ email });
 
     // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
     // would carry into the session whatever else the backend ever answered.
@@ -55,7 +55,7 @@ export type SignInRecords = FLSignInResponse;
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> => {
   // In the body, for `lookUpSubject`'s reason.
-  const answer = await identityGetSignIn({ email: email });
+  const answer = await identityGetSignIn({ email });
 
   // Field by field, for `lookUpSubject`'s reason.
   return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, admin_tier: answer.admin_tier };

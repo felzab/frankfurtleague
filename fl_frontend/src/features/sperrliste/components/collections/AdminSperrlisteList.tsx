@@ -51,7 +51,7 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
       <div className={IDENTITY_STACK_CLASSES}>
         <div className={IDENTITY_HEAD_CLASSES}>
           {/* `IDENTITY_NAME_CLASSES`'s box carries `truncate`, and a clipped year is a different date, so the
-              day wears the grade `AdminBewerbungenList` gives one instead. */}
+              day wears a grade of its own instead. */}
           <span className="font-numeric fluid-sm font-semibold text-foreground">{formatSpielDatum(eintrag.created_at)}</span>
         </div>
         <span className={IDENTITY_LINE_CLASSES}>

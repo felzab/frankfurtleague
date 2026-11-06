@@ -29,7 +29,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   const [email, setEmail] = useState("");
   // The address a mailed link asked for, carried to the landing only where the allowlist holds it.
   const landing = withReturnAddress(next, useSearchParams().get(RETURN_PARAMETER));
-  const humanCheck = useBotCheck({ siteKey: siteKey, size: "compact" });
+  const humanCheck = useBotCheck({ siteKey, size: "compact" });
 
   usePreloadedAuthClient();
 
@@ -99,7 +99,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
         code={{
           label: COPY.signIn.code,
           error: inField ? codeError : null,
-          attempt: attempt,
+          attempt,
           isDisabled: checking,
           onComplete: (code) => void check(code),
         }}

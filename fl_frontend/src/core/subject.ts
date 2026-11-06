@@ -67,7 +67,7 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   if (actor === null) return null;
 
   // Off the lookup this guard already made, so the verdict costs no second read.
-  return { subject: { email: email, isAdmin: isAdminSession(served, records), records }, actor: actor };
+  return { subject: { email, isAdmin: isAdminSession(served, records), records }, actor };
 });
 
 /**

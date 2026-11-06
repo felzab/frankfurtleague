@@ -46,7 +46,7 @@ export function FormAbmeldenSection() {
     }
 
     // Read at the press: an edit of the box disarms, so the address armed on is the one sent.
-    const gesendet = { email: email };
+    const gesendet = { email };
     twoPress.press(async () => {
       // A rejected action may still have written its log row, and uncaught here it takes the page down with it.
       const res = await endAnmeldungenAction(gesendet).catch(rejectedWrite(router));

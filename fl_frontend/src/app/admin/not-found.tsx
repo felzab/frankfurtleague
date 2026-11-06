@@ -15,7 +15,7 @@ export default function AdminNotFound() {
       <StatusPage
         frame="rail"
         scope="area"
-        title={SERVER_COPY.landing.notFound}
+        title={SERVER_COPY.notFound}
         card={{ tone: "info", next: { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() } }}
       />
     </RailColumn>

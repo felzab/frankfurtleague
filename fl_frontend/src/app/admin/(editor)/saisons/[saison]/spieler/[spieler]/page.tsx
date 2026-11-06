@@ -118,7 +118,7 @@ function personFacts({ person }: FLSpielerSaisonAdminResponse): Fact[] {
 /** The Kader box's facts: the team, and for an ausgetragen row the day it left. */
 function kaderFacts({ kader }: FLSpielerSaisonAdminResponse): Fact[] {
   return [
-    { label: COPY.account.entries.facts.team, value: kader.team_name === null ? COPY.shared.noValue : { record: kader.team_name } },
+    { label: COPY.shared.facts.team, value: kader.team_name === null ? COPY.shared.noValue : { record: kader.team_name } },
     ...(kader.inactive_since === null
       ? []
       : [{ label: WORDS.deregisteredOn, value: { record: formatDate(dayOf(kader.inactive_since)) }, figures: true }]),

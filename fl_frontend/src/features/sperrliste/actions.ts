@@ -93,7 +93,7 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
     if (admin_tier !== null) return refusalResult(verwaltungAmFeld());
     if (barred) return refusalResult(schonGesperrtAmFeld());
 
-    return { success: true, view: view };
+    return { success: true, view };
   });
 }
 

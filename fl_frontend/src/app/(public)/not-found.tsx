@@ -15,7 +15,7 @@ export default function PublicNotFound() {
   return (
     <StatusCard
       tone="info"
-      title={SERVER_COPY.landing.notFound}
+      title={SERVER_COPY.notFound}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
     />
   );

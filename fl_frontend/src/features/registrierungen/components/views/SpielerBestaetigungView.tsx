@@ -104,7 +104,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
  * order is this page's, which no record cites.
  */
 const UMFANG_OPTIONEN: readonly { value: FLEinwilligungScope; label: string }[] = EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({
-  value: value,
+  value,
   label: SPIELER_WORDINGS.scope.options[value],
 }));
 
@@ -290,7 +290,7 @@ function SpielerBestaetigungForm({
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
-    token: token,
+    token,
     // None from the returning page: the press takes the stored person's (`registrierung_choices_unsuitable` refuses one sent).
     birth_date: fragtWahlen ? entwurf.birth_date : null,
     // Both choices null from the returning page, which asks neither (`registrierung_choices_unsuitable` refuses any other).
@@ -391,8 +391,8 @@ function SpielerBestaetigungForm({
             umfang={entwurf.umfang}
             media={entwurf.media}
             medienAngeboten={medienAngeboten}
-            onUmfang={(umfang) => setEntwurf({ ...entwurf, umfang: umfang })}
-            onMedien={(media) => setEntwurf({ ...entwurf, media: media })}
+            onUmfang={(umfang) => setEntwurf({ ...entwurf, umfang })}
+            onMedien={(media) => setEntwurf({ ...entwurf, media })}
             switchContentClassName={panel.switchContent()}
             switchControlClassName={panel.switchControl()}
           />

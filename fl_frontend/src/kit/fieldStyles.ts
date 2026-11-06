@@ -162,7 +162,7 @@ export const fieldButton = tv({
 
 /** A calendar's way to the month before or after: a control of its own size, since the calendar's head has no height to fill. */
 export const monthArrow = tv({
-  base: `flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:size-10 ${hoverLook({ host: "aria", answer: "full" })}`,
+  base: `flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:size-10 ${hoverLook({ host: "aria", answer: "full" })}`,
 });
 
 /** The text a combo box or a search field is typed into, filling its frame between the frame's other parts. */

@@ -35,7 +35,7 @@ const { CONFIRM_HUMAN } = await import("./turnstileToken.ts");
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), { status: status, headers: { "content-type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 const judged =
   (codes: string[]): (() => Response) =>
@@ -54,7 +54,7 @@ describe("the bot check's verdict on a submission", () => {
 
     expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
 
-    expect(asked.map(({ url, body }) => ({ url: url, secret: body.secret, response: body.response }))).toStrictEqual([
+    expect(asked.map(({ url, body }) => ({ url, secret: body.secret, response: body.response }))).toStrictEqual([
       { url: SITEVERIFY_URL, secret: TEST_SECRET, response: TEST_TOKEN },
     ]);
     expect(logs, "a judged pass wrote a line").toStrictEqual([]);
@@ -99,7 +99,7 @@ describe("a request of ours Cloudflare refuses", () => {
   /* A 4xx naming no code is still Cloudflare answering that our request is wrong, which no retry repairs. */
   for (const status of [400, 403]) {
     it(`refuses the submission on a ${String(status)} naming no code, with that sentence and one line naming the status`, async () => {
-      answers = [() => new Response("<html>", { status: status })];
+      answers = [() => new Response("<html>", { status })];
 
       expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
       expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);

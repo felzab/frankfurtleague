@@ -105,7 +105,7 @@ function rebuildOnRecovery(): void {
  */
 function logUnbuilt(index: string, failed: unknown): void {
   logger.error("auth.index_unbuilt", undefined, {
-    index: index,
+    index,
     name: failed instanceof Error ? failed.name : "unknown",
     code: failed instanceof MongoError ? failed.code : undefined,
     codeName: failed instanceof MongoError ? Reflect.get(failed, "codeName") : undefined,

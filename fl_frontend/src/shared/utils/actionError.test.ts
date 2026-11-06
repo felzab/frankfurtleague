@@ -132,8 +132,7 @@ describe("toActionErrorResult", () => {
   });
 
   it("keeps the two rail-backed refusals to one sentence about the value", () => {
-    // Their remedies are pinned where they
-    // live, in `AdminEditSpielDataForm/banners.test.ts`: a shared module may not reach a feature.
+    // Their remedies ride the editor's rail: a shared module may not reach a feature.
     for (const serverErrorCode of ["eligibility_disqualified", "spieltag_occupied"] as const) {
       const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
 

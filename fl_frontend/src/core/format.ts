@@ -67,6 +67,9 @@ export const yearsLater = (day: CalendarDay, years: number): CalendarDay => pars
  */
 export const bornBy = (today: CalendarDay, years: number): CalendarDay => yearsLater(today, -years);
 
+/** The day before `day`. */
+export const dayBefore = (day: CalendarDay): CalendarDay => parseDate(day).subtract({ days: 1 }).toString() as CalendarDay;
+
 /** The earliest birthdate at most `years` old on `today`: the day after the latest that is a year older. */
 export const bornAfter = (today: CalendarDay, years: number): CalendarDay =>
   parseDate(bornBy(today, years + 1))
@@ -121,9 +124,9 @@ export function formatDayAndTime(day: CalendarDay, time: TimeOfDay): string {
 
 /**
  * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. The
- * runtime's ICU data decides the spaces around the dash (`format.test.ts` holds Node's thin spaces), and a
- * browser's may write others, so a span is formatted on the server and handed to a client component as a
- * string: formatted during a client component's server render, it hydrates against different text.
+ * runtime's ICU data decides the spaces around the dash, and a browser's may write others, so a span is formatted on
+ * the server and handed to a client component as a string: formatted during a client component's server render, it
+ * hydrates against different text.
  */
 export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): string => DATE.formatRange(asInstant(from), asInstant(to));
 

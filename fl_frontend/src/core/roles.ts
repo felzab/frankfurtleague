@@ -71,5 +71,5 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
     ...(subject.isAdmin ? [{ kind: "administration" } satisfies AdministrationRole] : []),
   ];
 
-  return { roles: roles, unconfirmed: unconfirmed };
+  return { roles, unconfirmed };
 }

@@ -30,7 +30,7 @@ async function answer<Z extends "zugesagt" | "abgelehnt">(
     throw error;
   }
 
-  return { success: true, message: message, zustand: state };
+  return { success: true, message, zustand: state };
 }
 
 /** The referee agrees to officiate the fixture their row asks about. */
