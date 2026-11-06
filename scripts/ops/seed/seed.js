@@ -11,7 +11,7 @@
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided; its registration link open past the window's end, one squad at its
 //   cap beside a nominee and a retired nominee, and a departed club with an open fixture and a live link;
-// - a planned season: its application window open today, one group full and one with room, and
+// - a planned season: its application window open today, one group full and the others with room, and
 //   applications whose seats stand in every state;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
 //   referees, every one with the address both referee payloads require, one retired and one unanswered;
@@ -546,11 +546,8 @@ function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn =
 
 // Each state a seat stands in, as the pair of its slot and its entry, built from the `mail` `seats` hands it.
 const openSeat =
-  (firstName, lastName, { sentOn, remindedOn, email } = {}) =>
-  (mail) => {
-    const link = { ...mail, sentOn: sentOn ?? mail.sentOn };
-    return [seated(firstName, lastName, link.sentOn, mail.enteredBy, email), seatLink(link, { remindedOn })];
-  };
+  (firstName, lastName, { remindedOn, email } = {}) =>
+  (mail) => [seated(firstName, lastName, mail.sentOn, mail.enteredBy, email), seatLink(mail, { remindedOn })];
 const confirmedSeat = (firstName, lastName) => (mail) => [
   confirmedPerson(seated(firstName, lastName, mail.sentOn, mail.enteredBy), mail.sentOn + 1),
   seatLink(mail),
@@ -838,12 +835,13 @@ const PLANNED = "2028";
 
 // The window opened a month ago and runs a month on, and the registration window ends before the season's first day,
 // as its write holds it (`registrierung_window_reaches_saison_start`). Undrawn: the create writes no `spielplan` key.
+// Four groups, so a full one stands beside room for every club the journeys enter (`PLANNED_ROWS`).
 const PLANNED_SAISON = {
   _id: PLANNED,
   start_date: day(150),
   end_date: day(300),
   status: "future",
-  rules: RULES,
+  rules: { ...RULES, number_of_gruppen: 4 },
   bewerbung: { open: true, start: day(-30), end: day(30) },
   registrierung: { open: true, end: day(140) },
 };
@@ -909,16 +907,15 @@ const ACCEPTED_CLUB = application({
   outcome: { status: "accepted", decision: decided(-4) },
 });
 
-// Past its deadline, and it stands: its Ansprechperson's mail bounced, which holds it for an administrator to correct
-// the address (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`).
-const EXPIRED = application({
+// Its Ansprechperson's mail bounced, which the seat's row says, for an administrator to correct the address.
+const BOUNCED = application({
   school: clubRow("Espe", 4),
-  submittedOn: -16,
+  submittedOn: -2,
   wunschfarbe: "orange",
   states: {
     trainer: confirmedSeat("Egon", "Ehlers"),
-    ansprechperson: openSeat("Edda", "Ehlers", { remindedOn: -13 }),
-    stellvertretung: openSeat("Emil", "Ehlers", { remindedOn: -13 }),
+    ansprechperson: openSeat("Edda", "Ehlers"),
+    stellvertretung: openSeat("Emil", "Ehlers"),
   },
 });
 
@@ -989,9 +986,9 @@ const APPLICATIONS = [
       stellvertretung: openSeat("Horst", "Hahnemann"),
     },
   }),
-  EXPIRED,
-  // Past its deadline and unheld: the first pass, a minute after the frontend starts, erases it and mails the
-  // Ansprechperson, the one deletion a journey can read.
+  BOUNCED,
+  // Past its deadline: the first pass, a minute after the frontend starts, erases it and mails the Ansprechperson, the
+  // one deletion a journey can read.
   application({
     school: clubRow("Lärche", 6),
     owner: "laerche",
@@ -1019,25 +1016,25 @@ const APPLICATIONS = [
   ACCEPTED_CLUB,
 ];
 
-// The last mail owed `EXPIRED`'s Ansprechperson, as its final state leaves the row
+// The last mail owed `BOUNCED`'s Ansprechperson, as its final state leaves the row
 // (`fl_backend/app/api/outbox/services.py :: final_update`): it owes nothing and only says what became of the mail.
 const SETTLED_MAILS = [
   {
     _id: ObjectId(),
     key: "made-up/bounced",
     kind: "bewerbung_received",
-    an: EXPIRED.kontakte.ansprechperson.email,
-    reference: { collection: "bewerbungen", id: EXPIRED._id, seat: "ansprechperson" },
+    an: BOUNCED.kontakte.ansprechperson.email,
+    reference: { collection: "bewerbungen", id: BOUNCED._id, seat: "ansprechperson" },
     link: null,
     state: "sent",
-    recorded_at: new Date(`${day(-16)}T09:00:00Z`),
-    deadline: new Date(`${day(-15)}T09:00:00Z`),
+    recorded_at: new Date(`${day(-2)}T09:00:00Z`),
+    deadline: new Date(`${day(-1)}T09:00:00Z`),
     erase_at: new Date(`${day(30)}T09:00:00Z`),
     lease: null,
     leased_until: null,
     attempts: 1,
     message_id: "made-up-message",
-    delivery: { state: "undeliverable", reason: "bounced", at: new Date(`${day(-16)}T09:05:00Z`) },
+    delivery: { state: "undeliverable", reason: "bounced", at: new Date(`${day(-2)}T09:05:00Z`) },
   },
 ];
 
@@ -1046,9 +1043,10 @@ function plannedRow(clubName, gruppe, trikotFarbe, people = { kontakte: null }) 
   return { _id: ObjectId(), saison_id: PLANNED, team_id: _id, gruppe, austritt: null, trikot_farbe: trikotFarbe, ...people, name, shorthand };
 }
 
-// Group B is full and group A has room for the acceptance's journeys. The two accepted applications' clubs carry their
-// people as the acceptance copies them, and Esche stands entered with nobody yet; Ahorn, Birke, Kastanie and Weide are
-// the clubs left to enter, the journeys' rejected applications picking the first two, so neither holds a row.
+// Group B is full, group A has room for the acceptance's journeys and group C for the administration's. The two accepted
+// applications' clubs carry their people as the acceptance copies them, and Esche stands entered with nobody yet; Ahorn,
+// Birke, Kastanie and Weide are the clubs left to enter, the journeys' rejected applications picking the first two and
+// the administration's entering the others, so none holds a row.
 const PLANNED_ROWS = [
   plannedRow("Ulme", "B", "blau", { kontakte: ACCEPTED_CLUB.kontakte }),
   plannedRow("Pappel", "B", "gelb", { kontakte: ACCEPTED_NEW_SCHOOL.kontakte }),
@@ -1065,8 +1063,7 @@ const PLANNED_ROWS = [
     "schwarz",
     rowSeats("linde", -2, {
       trainer: openSeat("Lars", "Lorenz"),
-      // Past its fourteen days: a season row's link lapses and the row stands, no clock taking it.
-      ansprechperson: openSeat("Lotte", "Lorenz", { sentOn: -20 }),
+      ansprechperson: openSeat("Lotte", "Lorenz"),
       stellvertretung: confirmedSeat("Lukas", "Lorenz"),
     }),
   ),

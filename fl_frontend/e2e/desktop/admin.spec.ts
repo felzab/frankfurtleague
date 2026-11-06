@@ -1,20 +1,16 @@
 /**
  * E2E · the administration's spike pages: an administrator creates a venue in the dialog over the
  * Spielorte list and finds it there, moves a match's kick-off in the match editor and saves it, then
- * opens the match's matchday in its editor.
- * One journey, one sign-in: an administrator's second sign-in would ask for the passkey the first set
- * up, which a new browser context does not hold. Desktop alone: the administration is desktop-first,
- * and the passkey it requires is desktop's (`fl_frontend/playwright.config.ts`).
+ * opens the match's matchday in its editor, on the session `../support/administrator.setup.ts` saved.
+ * Desktop alone: the seeded match and the new venue can each be written once.
  */
 import { expect } from "@playwright/test";
 
-import { test } from "../support/journey";
-import { enrolPasskey, signInWithCode } from "../support/signIn";
+import { ADMINISTRATOR_STATE, test } from "../support/journey";
 
 import type { Page } from "@playwright/test";
 
-/** The administrator this journey alone signs in as (`scripts/ops/seed/seed.js`). */
-const ADMINISTRATOR = "admin@example.com";
+test.use({ storageState: ADMINISTRATOR_STATE });
 
 /** The seed's longest venue name, which no width of the page may break. */
 const LONG_NAME = "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord";
@@ -56,11 +52,7 @@ async function spielId(page: Page): Promise<string> {
 
 test("an administrator creates a venue over the Spielorte list, moves a match's kick-off in its editor and opens its matchday's", async ({
   page,
-  context,
 }) => {
-  await signInWithCode(page, ADMINISTRATOR);
-  await enrolPasskey(page, context);
-
   // --- Spielorte ---------------------------------------------------------------------------------
 
   await page.goto("/admin/spielorte");
