@@ -42,13 +42,15 @@ from app.api.registrierungen.services import (
     find_team_junction_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
+    kader_free,
     page_of,
     saison_nimmt_registrierungen_an,
     stored_birth_date,
     zustand_of,
 )
-from app.api.saisons.services import has_started
+from app.api.saisons.services import entry_is_a_nominee
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses, hash_barred
+from app.api.spieler.services import build_live_squad_filter
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -103,16 +105,6 @@ WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 # this exists for. The INVITE authorises instead.
 
 
-def _live_squad_filter(*, saison_id: str, team_id: Any) -> dict[str, Any]:
-    """Which rows count towards `max_kader_size`, as `app/api/spieler/services.py :: build_live_squad_filter` counts them.
-
-    Retired rows are out: a player who left gave their place back. Nothing else is excluded, a
-    registration not yet being a squad row.
-    """
-
-    return {"saison_id": saison_id, "team_id": team_id, "inactive_since": None}
-
-
 async def _open_einladung(*, invitations_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
     """The live invite a presented link opens, or a refusal.
 
@@ -163,24 +155,24 @@ async def post_invitation_view(
     # The club itself for `full_name`, which the consent copy renders and the junction does not hold.
     team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["name", "full_name"])
 
-    squad_size = await saison_spieler_collection.count_documents(_live_squad_filter(saison_id=saison_id, team_id=team_id))
-
-    # The squad create's own test, so the page tells a pupil what an entry made TODAY would store --
-    # not what a squad row written on a later day will.
-    nachnominierung = has_started(start_date=saison_raw["start_date"], today=today)
+    # What an entry submitted TODAY would store, the admission judging the submission's day.
+    nominee = entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today)
+    squad_size = await saison_spieler_collection.count_documents(
+        build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=None)
+    )
 
     return FLInvitationViewResponse(
         team=str((junction_raw or team_raw)["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=saison_id,
         saison_status=saison_raw["status"],
-        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
+        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
         allowed_stufen=list(rules.get("allowed_stufen") or []),
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
-        kader_free=squad_size < int(rules.get("max_kader_size") or 0),
-        nachnominierung=nachnominierung,
+        kader_free=kader_free(nominee=nominee, squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0)),
+        nachnominierung=nominee,
     )
 
 
@@ -274,17 +266,24 @@ async def post_registrierung(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION, session=session
         )
         rules = saison_raw.get("rules") or {}
-        refuse(find_fenster_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today))
+        refuse(find_fenster_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")))
 
-        # The ROW rather than a count: the answer's `team` is the junction's own copy of the name,
-        # which the confirmation mail addresses the pupil by, and one read serves both.
-        junction_raw = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, {"name": 1}, session=session)
         refuse(find_team_junction_refusal(entered=junction_raw is not None))
 
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 
-        squad_size = await saison_spieler_collection.count_documents(_live_squad_filter(saison_id=saison_id, team_id=team_id), session=session)
-        refuse(find_kader_refusal(squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0)))
+        squad_size = await saison_spieler_collection.count_documents(
+            build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=None), session=session
+        )
+        refuse(
+            find_kader_refusal(
+                free=kader_free(
+                    nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today),
+                    squad_size=squad_size,
+                    max_kader_size=int(rules.get("max_kader_size") or 0),
+                )
+            )
+        )
 
         barred = await hash_barred(
             ban_list,

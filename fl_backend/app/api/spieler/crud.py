@@ -40,6 +40,8 @@ async def refuse_a_full_squad(
     rules: Mapping[str, Any],
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
+    # Whether the row entering is a nominee's, which the caller reads or derives: a nominee stands outside the cap.
+    nominee: bool,
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
@@ -57,6 +59,10 @@ async def refuse_a_full_squad(
         db_filter={"_id": saison_id},
         session=session,
     )
+
+    # After the anchor: a nominee counts nothing, and still contends with a window moved under the verdict that made them one.
+    if nominee:
+        return
 
     squad_size = await saison_spieler_collection.count_documents(
         build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id), session=session

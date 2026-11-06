@@ -246,18 +246,23 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
-    """Which rows count towards `max_kader_size`.
+# The rows inside `max_kader_size`, whichever squad is counted. Retired rows are out: a player who left gave their place
+# back. Nominees are out: they stand outside the cap, so entering one neither needs a place nor takes one.
+CAPPED_SQUAD_ROW: Mapping[str, Any] = {"inactive_since": None, "is_nachnominiert": False}
 
-    Retired rows are out: a player who left gave their place back. The writing player is out so a
-    no-op -- an edit keeping the team, a reactivate of a live row -- is not refused by its own place.
+
+def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId | None) -> Mapping[str, Any]:
+    """Which rows of one squad count towards `max_kader_size`.
+
+    The writing player is out so a no-op, a reactivate of a live row, is not refused by its own place; `None` where the
+    count is asked for nobody, a registration not yet being a squad row.
     """
 
     return {
         "saison_id": saison_id,
         "team_id": team_id,
-        "inactive_since": None,
-        "spieler_id": {"$ne": excluding_spieler_id},
+        **CAPPED_SQUAD_ROW,
+        **({} if excluding_spieler_id is None else {"spieler_id": {"$ne": excluding_spieler_id}}),
     }
 
 

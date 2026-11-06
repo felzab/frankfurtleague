@@ -154,7 +154,7 @@ takes a club back out of a season and an `austritt` leaves its row occupying the
 occupancy never falls: an undraw reopens the group count and the group size upward alone, and either of them
 below what the groups already hold is refused whatever is undrawn (`rules_gruppen_in_use`, `rules_capacity_below_use`). **Not
 every bound over stored rows behaves that way**: `max_kader_size` is held above the largest squad, counted
-over rows no retirement has taken out (`rules_kader_below_use`), so retiring players lowers that cap where nothing
+over rows no retirement has taken out and no nominee holds (`rules_kader_below_use`), so retiring players lowers that cap where nothing
 lowers a group's occupancy. Only the qualifier count can skip the whole route, moving on a confirmed
 replace's own payload (`spielplan_replace_outside_its_window`) because it leaves every group as it stands. Both operations are
 held to a `future` season with nothing recorded against a fixture (`spielplan_undraw_outside_its_window`), so what they destroy
@@ -163,8 +163,8 @@ is a schedule nobody has played.
 One freeze sits outside that one:
 
 - **A started season's scoring and seeding are frozen** (`rules_saison_started`) — from its stored
-  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock, the
-  Nachnominierung and the landing read), the points, the qualifiers per group and the tie-break order hold:
+  `start_date` (`fl_backend/app/api/saisons/services.py :: has_started`, the start every start lock and the
+  landing read), the points, the qualifiers per group and the tie-break order hold:
   the table is derived from them on every read, and the bracket was seeded from the placings the order
   decides. A `past` season stays frozen whatever its start date.
 

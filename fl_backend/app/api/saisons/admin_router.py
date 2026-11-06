@@ -89,6 +89,7 @@ from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
 from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.spieler.services import CAPPED_SQUAD_ROW
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
@@ -561,7 +562,7 @@ async def patch_saison(
         largest_squad_rows = await (
             await saison_spieler_collection.aggregate(
                 [
-                    {"$match": {"saison_id": saison_id, "inactive_since": None}},
+                    {"$match": {"saison_id": saison_id, **CAPPED_SQUAD_ROW}},
                     {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
                     {"$sort": {"held": -1}},
                     {"$limit": 1},

@@ -256,9 +256,8 @@ async def reactivate_saison_spieler(
     """
     Clear a squad row's `inactive_since`, with the number and position it had.
 
-    Where a repeat create is redirected: a create reviving the row
-    would overwrite both. Refused where the squad has filled up, where its club left, or where the
-    `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
+    Refused where the squad has filled up, a nominee's row standing outside that cap, where its club
+    left, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
     """
 
     async def bring_the_player_back(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -270,7 +269,7 @@ async def reactivate_saison_spieler(
         stored_raw = await pull_one_from_db(
             collection=saison_spieler_collection,
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
-            projection=["team_id", "rolle"],
+            projection=["team_id", "rolle", "is_nachnominiert"],
             session=session,
         )
 
@@ -292,6 +291,7 @@ async def reactivate_saison_spieler(
             rules=saison_raw["rules"],
             team_id=stored_raw["team_id"],
             spieler_id=spieler_id,
+            nominee=stored_raw["is_nachnominiert"],
             session=session,
         )
 

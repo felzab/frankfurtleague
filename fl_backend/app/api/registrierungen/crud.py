@@ -102,7 +102,7 @@ async def persons_at(
 async def nummern_rows(
     *, saison_spieler_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
-    """The live squad's shirt numbers, as `app/api/spieler/services.py :: build_live_squad_filter` counts the squad."""
+    """The live squad's shirt numbers, a nominee's among them: the cap's filter leaves those out, and a nominee wears one too."""
 
     return await aggregate_many_from_db(
         collection=saison_spieler_collection,

@@ -164,7 +164,6 @@ async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, regis
         action_log_collection=database[Collection.ACTION_LOG],
         ban_list=ban_list(database),
         db=client,
-        today=TODAY,
         germany_now=NOW,
     )
 

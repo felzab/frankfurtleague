@@ -45,7 +45,7 @@ from app.api.registrierungen.services import (
     registrierung_ist_bestaetigt,
     traegt_wahlen,
 )
-from app.api.saisons.services import has_started
+from app.api.saisons.services import entry_is_a_nominee
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spieler.crud import refuse_a_full_squad
@@ -192,7 +192,6 @@ async def admit(
     action_log_collection: ActionLogCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungAdmissionResponse:
     """
@@ -206,10 +205,11 @@ async def admit(
     person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
     this admission proves again.
 
-    The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived
-    today; this person's retired row of this season is rewritten rather than a second one written, whichever team
-    it was on. The registration is deleted and its values redacted from the log in the same transaction, so a second
-    press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
+    The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
+    the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
+    row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
+    deleted and its values redacted from the log in the same transaction, so a second press meets no row. Its
+    submission key moves onto the squad row, so the submission replayed later stores nothing.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
     (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
@@ -241,9 +241,9 @@ async def admit(
         barred = await barred_addresses(ban_list, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session)
         refuse(find_barred_refusal(barred=bool(barred)))
 
-        # The one read of the season: its rules for the level and the cap, its `start_date` for the Nachnominierung marker.
+        # The one read of the season: its rules for the level and the cap, its window for the Nachnominierung marker.
         saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "start_date"], session=session
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
         )
         erlaubte_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
         refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=erlaubte_stufen))
@@ -264,6 +264,11 @@ async def admit(
         )
         refuse(find_schon_im_kader_refusal(kader_raw=kader_raw))
 
+        # The stored mark first: it is never lifted within its season, whatever the window has moved to since.
+        nominee = (kader_raw is not None and kader_raw["is_nachnominiert"]) or entry_is_a_nominee(
+            registrierung=saison_raw.get("registrierung"), day=registrierung_raw["submitted_at"]
+        )
+
         await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
@@ -271,6 +276,7 @@ async def admit(
             rules=saison_raw["rules"],
             team_id=team_id,
             spieler_id=spieler_id,
+            nominee=nominee,
             session=session,
         )
 
@@ -297,7 +303,7 @@ async def admit(
         kader_fields = compose_kader_fields(
             registrierung_raw=registrierung_raw,
             team_id=team_id,
-            is_nachnominiert=has_started(start_date=saison_raw["start_date"], today=today),
+            is_nachnominiert=nominee,
         )
         if kader_raw is None:
             await post_one_to_db(

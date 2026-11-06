@@ -150,11 +150,11 @@ describe("countLiveSquadRows", () => {
     expect(countLiveSquadRows({ spieler, saisonId: "2026", exceptSpielerId: null })[TEAM_A]).toBe(2);
   });
 
-  /* `build_live_squad_filter` reads the junction alone. Skipping a retired person here would report
-     room the endpoint refuses, which is the direction that walks an admin onto a failing press. */
-  it("counts the live row of a player the league retired", () => {
+  /* `build_live_squad_filter` leaves a nominee out, so counting one here would close a return the
+     endpoint takes. */
+  it("leaves a nominee's row out of the count", () => {
     const counts = countLiveSquadRows({
-      spieler: [person("a", [{}], "2026-04-01")],
+      spieler: [person("a", [{ is_nachnominiert: true }])],
       saisonId: "2026",
       exceptSpielerId: null,
     });

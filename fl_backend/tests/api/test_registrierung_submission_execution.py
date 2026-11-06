@@ -80,6 +80,8 @@ PUPIL_EMAIL = "thessaly@beispielschule.de"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
 OPEN_WINDOW: Mapping[str, Any] = {"open": True, "end": "2026-04-30"}
+# Its `end` the day before `TODAY`, so an entry today is a nominee's.
+PAST_WINDOW: Mapping[str, Any] = {"open": True, "end": "2026-03-31"}
 
 RULES: Mapping[str, Any] = documents.rules_document(
     number_of_gruppen=2,
@@ -127,11 +129,11 @@ def payload(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def saison_document(saison_id: str, status: str, registrierung: Any, *, start_date: str = AFTER_TODAY) -> dict[str, Any]:
+def saison_document(saison_id: str, status: str, registrierung: Any) -> dict[str, Any]:
     return documents.saison_document(
         saison_id,
         status,
-        start_date=start_date,
+        start_date=AFTER_TODAY,
         rules=dict(RULES),
         bewerbung=None,
         registrierung=None if registrierung is None else dict(registrierung),
@@ -156,7 +158,6 @@ def on_a_league(
     banned: str | None = None,
     banned_until: str = STANDING,
     saison_status: str = "active",
-    start_date: str = AFTER_TODAY,
 ) -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
 
@@ -166,7 +167,7 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung, start_date=start_date))
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
             await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
             await database[Collection.INVITATIONS].insert_many(
@@ -272,7 +273,6 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         action_log_collection=database[Collection.ACTION_LOG],
         ban_list=ban_list(database),
         db=client,
-        today=TODAY,
         germany_now=NOW,
     )
 
@@ -821,8 +821,8 @@ class TestWhatTheInvitesOwnReadAnswers:
         assert on_a_league(mongo_replica_set_url, run) is True
         assert on_a_league(mongo_replica_set_url, run, squad=RULES["max_kader_size"]) is False
 
-    def test_the_nachnominierung_verdict_turns_on_the_seasons_start(self, mongo_replica_set_url: str):
-        """False the day before it, true on it: the squad create's own test, off the season the read already holds."""
+    def test_the_nachnominierung_verdict_turns_on_the_windows_end(self, mongo_replica_set_url: str):
+        """The page tells a pupil what an entry submitted today would store, off the season the read already holds."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             return (await view(database)).nachnominierung

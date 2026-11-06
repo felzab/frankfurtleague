@@ -63,6 +63,8 @@ PAST_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 # The active season's start unless a case says so: after `TODAY`, so an admission is an ordinary entry.
 AFTER_TODAY = "2026-04-20"
+# The day every registration here was submitted, the day its marker is judged on.
+SUBMITTED_AT = "2026-03-30"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The morning before the admission, when the pupil withdrew on the account page.
 WITHDRAWN_AT = datetime(2026, 4, 1, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -115,7 +117,7 @@ def on_a_league(
     body: Body,
     *,
     squad: int = 0,
-    start_date: str = AFTER_TODAY,
+    registrierung: Any = None,
     stellvertretung_bestaetigt: bool = True,
 ) -> Any:
     """Two clubs in one active season, each with seats; `kader` live rows already on the first club.
@@ -127,7 +129,7 @@ def on_a_league(
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(
-                documents.saison_document(SAISON_ID, "active", start_date=start_date, rules=dict(RULES))
+                documents.saison_document(SAISON_ID, "active", start_date=AFTER_TODAY, rules=dict(RULES), registrierung=registrierung)
             )
             await database[Collection.TEAMS].insert_many(
                 [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QUX")]
@@ -196,7 +198,7 @@ def registrierung_document(
         first_name=first_name,
         last_name=last_name,
         token=token,
-        submitted_at="2026-03-30",
+        submitted_at=SUBMITTED_AT,
         deadline="2026-04-06",
         position=position,
         nummer=nummer,
@@ -248,7 +250,6 @@ async def admit(
         action_log_collection=database[Collection.ACTION_LOG],
         ban_list=ban_list(database),
         db=client,
-        today=TODAY,
         germany_now=NOW,
     )
 
@@ -480,15 +481,37 @@ class TestWhatAnAdmissionWrites:
 
 
 class TestTheLateEntry:
-    @pytest.mark.parametrize(("start_date", "flagged"), [("2026-03-15", True), (AFTER_TODAY, False)], ids=("after the start", "before it"))
-    def test_the_marker_is_derived_at_the_admission(self, mongo_replica_set_url: str, start_date: str, flagged: bool):
+    """The marker is judged on the day the pupil submitted, so a team admitting late costs nobody a place in the cap."""
+
+    @pytest.mark.parametrize(
+        ("window", "flagged"),
+        [({"open": True, "end": "2026-03-29"}, True), ({"open": True, "end": SUBMITTED_AT}, False), (None, False)],
+        ids=("submitted past the end", "submitted on the last day", "no window stored"),
+    )
+    def test_the_marker_is_derived_at_the_admission(self, mongo_replica_set_url: str, window: Any, flagged: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await admit(database, client, await seed(database, registrierung_document()))
             rows = await squad_rows(database, spieler_id=answer.spieler_id)
 
             return answer.is_nachnominiert, rows[0]["is_nachnominiert"]
 
-        assert on_a_league(mongo_replica_set_url, body, start_date=start_date) == (flagged, flagged)
+        assert on_a_league(mongo_replica_set_url, body, registrierung=window) == (flagged, flagged)
+
+    def test_a_retired_nominee_keeps_the_mark_whatever_the_window_has_moved_to(self, mongo_replica_set_url: str):
+        """The mark is never lifted within its season: derived afresh, a moved window would put a nominee back inside the cap."""
+
+        stored_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id))
+            await database[Collection.SAISON_SPIELER].insert_one(
+                documents.saison_spieler_document(stored_id, SAISON_ID, TEAM_OID, is_nachnominiert=True, inactive_since="2026-03-01")
+            )
+            answer = await admit(database, client, await seed(database, registrierung_document()))
+
+            return answer.is_nachnominiert
+
+        assert on_a_league(mongo_replica_set_url, body, registrierung={"open": True, "end": SUBMITTED_AT}) is True
 
 
 class TestTheStufe:
@@ -511,10 +534,20 @@ class TestTheStufe:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return (await admit(database, client, await seed(database, registrierung_document(stufe="Q2")))).stufe
 
-        assert on_a_league(mongo_replica_set_url, body, start_date="2026-03-15") == "Q2"
+        assert on_a_league(mongo_replica_set_url, body) == "Q2"
 
 
 class TestTheSquadCap:
+    def test_a_nominee_enters_a_full_squad(self, mongo_replica_set_url: str):
+        """The cap holds no nominee: refused here, a pupil the league let register late could never be admitted."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await admit(database, client, await seed(database, registrierung_document()))
+
+        answer = on_a_league(mongo_replica_set_url, body, squad=3, registrierung={"open": True, "end": "2026-03-29"})
+
+        assert answer.is_nachnominiert is True
+
     def test_the_registration_past_the_cap_is_refused_and_every_collection_stays(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
