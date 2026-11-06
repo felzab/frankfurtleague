@@ -409,7 +409,7 @@ time (`fl_backend/app/api/bewerbungen/services.py :: build_confirmed_seat_filter
 applications alone, so a cut costs it nothing. The page offers no way to the other rows: its filters narrow the rows
 it holds. A marked Dublette keeps its mark, the collision being decided on the
 server over every open application of the season, never over the rows served
-(`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), but its partner is not always among the
+(`fl_backend/app/api/bewerbungen/services.py :: build_duplicates_pipeline`), but its partner is not always among the
 rows. Unconfirmed rows clear by themselves: the sweep deletes an application a day after its earliest outstanding
 seat's deadline, which is what shortens a flood of addresses nobody answers.
 
@@ -470,7 +470,7 @@ One person can hold several — a referee is a pupil, and a contact person can b
 **Whatever the role, a pending change of their address and its owed notices are read apart.** Type
 the address on file into the address tool, `/area/admin/adresswechsel`
 (`POST /address_change/view`), the one read serving a live change's new address and reason; the
-editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`an`, and on some rows
+editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`, and on some rows
 `data.first_name`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
 `address_changes.move.new`); no page renders either, and a read-only Playground query on those fields
 finds them.
@@ -732,7 +732,7 @@ once the person's own address stands on it again**
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
 has not confirmed, save that address in the referee editor, which on a row still in service mails
 them a confirmation link first, then erase it; a confirmed row's editor refuses the save
-(`schiedsrichter_adresse_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
+(`schiedsrichter_address_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
 hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
 the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
@@ -761,8 +761,8 @@ record holds the address ([`../datenschutz.md`](../datenschutz.md#6-retention-is
 page says so too, every person page refuses the sessions as no session at all, and each is deleted the next time its browser reaches the sign-in
 page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
-administration.** A pupil's registration asks it and is refused (`registrierung_adresse_barred`), and so do
-an application naming the address on any seat (`bewerbung_adresse_barred`), an administrator's seat write or
+administration.** A pupil's registration asks it and is refused (`registrierung_address_barred`), and so do
+an application naming the address on any seat (`bewerbung_address_barred`), an administrator's seat write or
 re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging per season how many they held
 back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
@@ -1193,16 +1193,8 @@ and counts on the pass's line what it erased and the pupils it failed or passed 
 call threw fails the job, its counts on that line all the same, which `scheduler.job_failed` names
 as `erasure`.
 
-**Activating a season runs the same deletion first, inside the press, but only as far as the
-press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
-press sends no deletion call it could not wait out to its answer. Wherever more pupils are due than
-that, the run stops there: the press files the warning `erasure.activation_cut_short`, which
-needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
-`erasure.activation_failed`, an error, is a call that failed rather than ran
-out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
-can still be deleting once the press has answered only where it outlasted the backend's own deadline
-and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
-page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
+**Activating a season deletes nobody**: the first pass after it deletes the pupils the new season
+makes due.
 
 **A pupil counted `failed` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
@@ -1230,21 +1222,12 @@ an empty one or one the rule refuses to the folded address the person is establi
 mailbox's.
 
 **Two promises rest on the retention sweep's pass**
-(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
+(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAddressChange`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
 both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started with a reason takes effect its waiting time after its confirmation. While no
 pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
-its waiting time takes effect only where an approval it still owed is pressed after it. **The
-activation press's message that the next hourly pass deletes what it left („Was noch aussteht,
-löscht der nächste stündliche Durchlauf“) rests on the pupils' deletion running every pass**, and
-with it the squad cache's drop after it.
-
-**Read the season page's count before pressing the rollover.** Beside the press it says at most
-how many pupils activating the season deletes, and which season it closes. It is a bound because it
-counts the pupils the run passes over too (`stored_data_invalid` above). A figure naming more people than
-the league lost is the signal to hold the press and ask why, and a line saying the count is not
-available is a read that failed: reload the page until it gives a figure.
+its waiting time takes effect only where an approval it still owed is pressed after it.
 
 **The fixture confirmations run on every pass**
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`).
@@ -1390,6 +1373,13 @@ FLEinwilligungTextVersion`) while §2's read-back passes them, and the replay wo
 label on a withdrawal whose `given_before` keeps the old one. This lapses with the rule above, once
 the hosting holds no snapshot taken before that deploy; delete it then.
 
+**A snapshot taken before the deploy of the current stored names brings back the names that deploy's
+paste moved: once the restore has completed, run that paste again before the replay below, and once
+more after it**, since a withdrawal journalled before that deploy carries its old scope word, which
+the journal takes as a withholding value and the replay writes back as it stands. This lapses once
+the hosting holds no snapshot taken before that deploy and no journal line of the days before it;
+delete it then.
+
 **Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
 `fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
 steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
@@ -1404,8 +1394,6 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 - **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the last step.
 - **No sign-in code is mailed.** Sign in by passkey, which every administrator holds and which the
   owner's steps below ask for anyway.
-- **A season's activation still deletes**: its press runs the pupils' deletion itself, which is why
-  it comes last.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
@@ -1573,9 +1561,9 @@ undid the erasures, and which nothing re-runs:
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
 
-**Then activate again each season whose activation the snapshot predates**, last of all: its press
-runs the pupils' deletion over the state the steps above re-entered. Its deletions are re-derived
-rather than replayed: it journals none, so no listing names them.
+**Then activate again each season whose activation the snapshot predates**, last of all: the first
+pass after the hold runs the pupils' deletion over the state the steps above re-entered. Its
+deletions are re-derived rather than replayed: it journals none, so no listing names them.
 
 **Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
 and deploy (§1).** The first pass runs a minute after the boot and pings the heartbeat, and the
