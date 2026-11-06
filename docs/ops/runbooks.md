@@ -397,14 +397,15 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
 most `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
 filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`). Where more do exist it answers
 `complete: false` and the Bewerbungen list stands under a warning, „Nicht alle Bewerbungen sind geladen.“, that cannot
-be dismissed, its search and filters then reading the newest rows alone. Answering short and saying so is the
+be dismissed, its search and filters then reading the rows served: the newest, and past them every application with a
+confirmed seat. Answering short and saying so is the
 deliberate choice over refusing past a threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
 them the power to decide when the page stops working.
 
 **What truncation costs is the oldest unconfirmed rows, which is where applications submitted before a flood sit.** The
 list is newest first, so a cut-short answer keeps the newest rows, and past them every application with a confirmed
-seat, read apart because a flood's seats never confirm
-(`fl_backend/app/api/bewerbungen/services.py :: build_confirmed_seat_filter`). The Sammel-Zusage takes complete
+seat, read apart because a flood naming strangers confirms nothing; one whose sender holds the mailboxes can, a link at a
+time (`fl_backend/app/api/bewerbungen/services.py :: build_confirmed_seat_filter`). The Sammel-Zusage takes complete
 applications alone, so a cut costs it nothing. The page offers no way to the other rows: its filters narrow the rows
 it holds. A marked Dublette keeps its mark, the collision being decided on the
 server over every open application of the season, never over the rows served

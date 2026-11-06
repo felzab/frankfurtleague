@@ -1704,7 +1704,8 @@ def build_bewerbungen_sort(*, order: str) -> list[tuple[str, int]]:
 def build_confirmed_seat_filter(*, saison_id: str) -> Mapping[str, Any]:
     """Every application of the season with a confirmed seat, the list's way back past the newest rows a flood fills.
 
-    A flood's seats never confirm, since each takes a mailed link and its person's birthdate.
+    A flood naming strangers confirms nothing, each seat taking a mailed link and its person's birthdate. A sender holding
+    the mailboxes can confirm, one link at a time, and only that fills this read too.
     """
 
     return {"saison_id": saison_id, "$or": [{f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN]}

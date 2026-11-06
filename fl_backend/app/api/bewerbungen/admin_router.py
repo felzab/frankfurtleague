@@ -177,7 +177,8 @@ async def get_bewerbungen_admin(
     A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
     taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
     public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
-    Every application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.
+    Every application with a confirmed seat is served past the newest rows a flood can fill: a flood naming strangers
+    confirms nothing, and a sender confirming one seat at a time has to hold each mailbox.
     """
 
     async def newest_of(db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
