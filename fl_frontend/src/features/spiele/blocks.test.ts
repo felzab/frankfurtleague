@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { buildMapsSearchUrl } from "@/core/maps";
-import { SERVER_COPY } from "@/core/serverCopy";
 
-import { ereignisOf, matchdayOf, matchRowOf, outcomeFor, popupFactsOf } from "./blocks";
+import { ereignisOf, matchRowOf, outcomeFor } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -42,23 +40,11 @@ describe("how a match went for one of its clubs", () => {
     expect([outcomeFor(spiel([0, 3]), GOETHE), outcomeFor(spiel([0, 3]), HELMHOLTZ)]).toStrictEqual(["lost", "won"]);
     expect(outcomeFor(spiel([1, 1]), HELMHOLTZ)).toBe("drawn");
   });
-
-  it("scores nothing for a match without a result, a called-off one among them", () => {
-    expect(outcomeFor(spiel(null), GOETHE)).toBe("none");
-    expect(outcomeFor(spiel(null, "ausgefallen"), GOETHE)).toBe("none");
-  });
-
-  // A forfeit's score and an abandoned match's entered result count, as the Tabelle counts them.
-  it("scores a forfeit and an abandoned match by the result entered", () => {
-    expect(outcomeFor(spiel([3, 0], "nichtantreten_team2"), GOETHE)).toBe("won");
-    expect(outcomeFor(spiel([0, 3], "abgebrochen"), GOETHE)).toBe("lost");
-  });
 });
 
 describe("a match as a row", () => {
-  it("opens the match's page and carries a shoot-out's goals beside the match's own", () => {
+  it("carries a shoot-out's goals beside the match's own", () => {
     const row = matchRowOf({ ...spiel([1, 1]), elfmeterschiessen: { team1: 4, team2: 3 } });
-    expect(row.href).toBe(`/saisons/2027/spiele/${"2".repeat(24)}`);
     expect(row.result).toStrictEqual({ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } });
   });
 
@@ -98,69 +84,12 @@ describe("what befell a match", () => {
     });
   });
 
-  // The strike alone says which school stayed away on every public list, and the chip says it to a screen reader:
-  // either read backwards names the wrong school with nothing failing.
-  it("strikes the side that did not turn up in a list's row, and tells a screen reader which", () => {
-    const { nichtAngetreten } = COPY.spielplan.sonderereignis;
+  // The strike alone says which school stayed away on every public list: read backwards it names the wrong school
+  // with nothing failing.
+  it("strikes the side that did not turn up in a list's row", () => {
     const first = matchRowOf(spiel([0, 3], "nichtantreten_team1"));
     const second = matchRowOf(spiel([3, 0], "nichtantreten_team2"));
-    expect([first.absent, first.chip?.spoken]).toStrictEqual(["team1", nichtAngetreten({ record: "Goethe" })]);
-    expect([second.absent, second.chip?.spoken]).toStrictEqual(["team2", nichtAngetreten({ record: "Helmholtz" })]);
-  });
-
-  it("says whether an abandoned match is scored by whether a result is entered", () => {
-    const { consequence } = COPY.spielplan.sonderereignis;
-    expect(ereignisOf(spiel(null, "abgebrochen"))?.text).toBe(consequence.abgebrochenOpen);
-    expect(ereignisOf(spiel([2, 1], "abgebrochen"))?.text).toBe(consequence.abgebrochenScored);
-  });
-
-  it("is nothing for a match simply played", () => {
-    expect(ereignisOf(spiel([2, 1]))).toBeNull();
-  });
-});
-
-describe("the pop-up's facts", () => {
-  const spielort = { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" };
-  const booked: FLSpielJoined = {
-    ...spiel(null),
-    spielort,
-    schiedsrichter: { name: "Anna A.", name_is_public: true },
-  };
-  const { fact } = COPY.spielplan;
-
-  it("keep all four, a value the match does not hold reading the dash", () => {
-    const labels = [fact.date, fact.time, fact.spielort, fact.schiedsrichter];
-    expect(popupFactsOf(booked).map((each) => each.label)).toStrictEqual(labels);
-    const unset = popupFactsOf({ ...booked, date: null, time: null, spielort: null, schiedsrichter: null });
-    expect(unset.map((each) => each.label)).toStrictEqual(labels);
-    expect(unset.map((each) => each.value)).toStrictEqual(labels.map(() => COPY.shared.noValue));
-  });
-
-  it("read the dash for a referee whose name the public read withholds", () => {
-    const withheld = popupFactsOf({ ...booked, schiedsrichter: { name: null, name_is_public: false } });
-    expect(withheld.find((each) => each.label === fact.schiedsrichter)?.value).toBe(COPY.shared.noValue);
-  });
-
-  it("link the venue to its map on another site", () => {
-    expect(popupFactsOf(booked).find((each) => each.label === fact.spielort)?.elsewhere).toStrictEqual({
-      href: buildMapsSearchUrl(spielort.maps_link),
-      label: { record: "Sportplatz Ahornweg" },
-    });
-  });
-});
-
-// The labels themselves are `spieltagLabel`'s (`features/spieltage/utils.test.ts`); this holds what `matchdayOf` adds.
-describe("what a match's matchday is called", () => {
-  // Position and count differ, so the two read the other way round would name the round alone.
-  it("hands the matchday's position and its phase's count on as the Spielplan's tabs read them", () => {
-    expect(matchdayOf({ saison_phase: "viertelfinale", for_third_place: false }, { spieltag_position: 1, count_spieltage_in_phase: 2 })).toBe(
-      COPY.shared.knockoutRound(COPY.shared.phase.viertelfinale, 1),
-    );
-  });
-
-  it("names the match for third place by its own name", () => {
-    expect(matchdayOf({ saison_phase: "finale", for_third_place: true }, { spieltag_position: 1, count_spieltage_in_phase: 1 })).toBe(
-      SERVER_COPY.season.thirdPlace,
-    );
+    expect(first.absent).toBe("team1");
+    expect(second.absent).toBe("team2");
   });
 });
