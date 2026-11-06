@@ -74,7 +74,7 @@ async function hydrated(container: HTMLElement, page: ReactElement) {
 const typeInto = (root: HTMLElement, text: string) => {
   const control = root.querySelector<HTMLInputElement | HTMLTextAreaElement>('input:not([type="hidden"]), textarea');
   if (control === null) throw new Error("no text control in the markup");
-  control.value = text;
+  if (!control.readOnly) control.value = text;
 };
 
 /** Presses as the browser does before any code runs: the control flips, and no handler hears it. */
@@ -474,7 +474,27 @@ describe("a field the person left as the server drew it", () => {
   });
 });
 
-describe("a date or a time", () => {
+describe("a control whose server markup takes no edit", () => {
+  // React writes the text back while hydrating, before anything can read the edit, so a press would save nothing.
+  it("holds a stored paragraph read-only until the page's code runs", async () => {
+    const page = (
+      <TextField
+        label={WORD}
+        width="W4"
+        kind="text"
+        value="Alt"
+      />
+    );
+    const container = drawn(page, () => undefined);
+    const paragraph = container.querySelector("textarea");
+    expect(paragraph?.readOnly).toBe(true);
+
+    await hydrated(container, page);
+
+    expect(paragraph?.readOnly).toBe(false);
+    container.remove();
+  });
+
   it.each<[string, ReactElement]>([
     [
       "a date",
