@@ -26,7 +26,7 @@ export const railGlyph = tv({ base: "flex shrink-0 justify-center group-data-col
  */
 export const editorBarLook = tv({
   slots: {
-    bar: "sticky bottom-0 z-10 flex h-14 items-center border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8",
+    bar: "sticky bottom-0 z-10 flex h-14 items-center border-t border-border bg-bg px-4 [view-transition-name:bar] lg:h-(--rail-foot) lg:px-8",
     row: "mx-auto flex w-full max-w-form items-center gap-4",
   },
 });
