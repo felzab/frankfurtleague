@@ -10,12 +10,12 @@ import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
 import { TextField } from "@/kit/TextField";
+import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
-import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 
 import { NO_SECOND_SEAT, SEATS } from "./application";
 
