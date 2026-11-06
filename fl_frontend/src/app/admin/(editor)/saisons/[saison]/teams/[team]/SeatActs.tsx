@@ -91,7 +91,7 @@ export function SeatActs({
           lead={{ record: rollenText([rolle]) }}
           act={ACT}
           action={writeSeat}
-          carry={{ ...key, version: String(version) }}
+          carry={{ team_id: team, saison_id: saison, seat: rolle, version: String(version) }}
           trigger={edit}>
           <FieldPair
             short="both"
