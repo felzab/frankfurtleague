@@ -636,9 +636,8 @@ async def sweep_saison(
         failed += len(passed)
         geleert = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared) + sum(stripped_confirmations) + sum(stripped_reports)
-    # Never beside the blocks, which take the seats with them: the two shares are one budget. A `past` season's seat is the
-    # record of who was reachable while it ran, and waits for its block.
-    elif not season_has_ended(saison_status=saison_status):
+    # Never beside the blocks, which take the seats with them: the two shares are one budget.
+    else:
         lapsed, passed = await run_isolated(
             db=db,
             batch=Batch(share=LAPSED_SEAT_ROWS_PER_PASS),

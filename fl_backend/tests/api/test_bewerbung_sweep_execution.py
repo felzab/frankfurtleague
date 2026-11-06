@@ -1658,8 +1658,8 @@ class TestTheSeasonRowSeatClock:
         assert confirmation["kontakte"]["stellvertretung"] is None
         assert confirmation["kontakte"]["trainer"] is not None
 
-    def test_a_past_seasons_seat_waits_for_the_block(self, mongo_replica_set_url: str):
-        """A finished season is the record of who was reachable while it ran, so its seats go with the block."""
+    def test_a_past_seasons_seat_goes_on_its_day_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
+        """The mail's promise holds for a link minted shortly before a rollover: only a confirmed seat is the season's record."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await self.two_lapsed_seats(database)
@@ -1669,8 +1669,9 @@ class TestTheSeasonRowSeatClock:
 
         response, row = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
-        assert response.kontakt_seats_emptied == 0
-        assert row["kontakte"]["stellvertretung"] is not None
+        assert response.kontakt_seats_emptied == 2
+        assert row["kontakte"]["stellvertretung"] is None
+        assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] == MAILED_ON_THE_MARK
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
@@ -1731,6 +1732,25 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         assert (answer.erased_declined, answer.erased, answer.kontakt_seats_emptied) == (1, 1, 12)
         assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_LAPSED_OTHER_COMMANDS, names
+
+    def test_the_sweep_of_a_past_season(self, mongo_replica_set_url: str):
+        """The lapsed seats' side again where the season's own end runs too: it takes the open rows, and with them every reminder."""
+
+        lapsing = [seats for size in range(1, len(KONTAKT_ROLLEN) + 1) for seats in combinations(KONTAKT_ROLLEN, size)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            await database[Collection.SAISON_TEAMS].insert_many([lapsed_row(position, seats) for position, seats in enumerate(lapsing)])
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [open_confirmation(numbered(position)) for position, _ in enumerate(lapsing)]
+            )
+
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+        answer, names = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
+
+        assert (answer.reminded, answer.erased_declined, answer.kontakt_seats_emptied) == (0, 1, 12)
+        assert answer.erased_without_decision > 0
+        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * len(lapsing) == budget.SWEEP_PAST_LAPSED_OTHER_COMMANDS, names
 
 
 class TestAPageAndOneMoreIsDrained:
