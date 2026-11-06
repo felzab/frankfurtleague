@@ -3,10 +3,11 @@ import "server-only";
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
 import { formatDate, formatDateLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { rollenText } from "./teamVocabulary";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
-import type { Code, FLBookingResource, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
+import type { Code, FLBookingResource, FLKontaktRolle, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
 /** The route keys of the pages a search engine may list. */
@@ -34,6 +35,8 @@ const DISQUALIFIED = {
   team1: `${team1} ist aus der Saison ausgeschieden.`,
   team2: `${team2} ist aus der Saison ausgeschieden.`,
 };
+// An address the ban list holds, whichever write would mail it a link.
+const ADDRESS_BARRED = "Diese E-Mail-Adresse steht auf der Sperrliste.";
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
@@ -42,6 +45,9 @@ const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du
 // In the two parts around its day, which a mail sets semibold between them.
 const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
 const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
+// The same in an application, where a lapsed seat takes the whole application with it.
+const APPLICATION_DEADLINE = { before: ENTRY_DEADLINE.before, after: ", löschen wir die Bewerbung." };
+const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before} ${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
@@ -85,6 +91,9 @@ export const SERVER_COPY = catalogue({
     duplicate_key: COPY.shared.field.taken,
     // One rule over two codes: a match whose result no play decides carries no goals, on the fixture and in its report.
     state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.shared.tore),
+    // A rule of their own rather than a unique index: an application's seat, and a squad's one Kapitän per team.
+    bewerbung_kontakt_email_taken: COPY.shared.field.taken,
+    kader_rolle_taken: COPY.shared.field.taken,
   } satisfies Partial<Record<Code, string>>,
 
   /**
@@ -123,8 +132,20 @@ export const SERVER_COPY = catalogue({
     /** A referee retired while matches still to come name them, by the matches' numbers. */
     schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
-    /** A referee's address the ban list holds, where a create, a save or a return would mail it a link. */
-    schiedsrichter_address_barred: "Diese E-Mail-Adresse steht auf der Sperrliste.",
+    /** A referee's or a seat's address the ban list holds, where a create, a save or a return would mail it a link. */
+    schiedsrichter_address_barred: ADDRESS_BARRED,
+    bewerbung_kontakt_barred: ADDRESS_BARRED,
+    kontakt_seat_barred: ADDRESS_BARRED,
+    /** The public form's own: it names no list, as `COPY.signIn.refusal.noRecord` names none, so nobody can probe the ban list. */
+    bewerbung_address_barred: "Mit einer dieser E-Mail-Adressen ist keine Bewerbung möglich.",
+    /** A club the form or the acceptance picked that already stands in the season. */
+    bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
+    /** A repeated press of the form's submit with changed details. */
+    bewerbung_key_differing: "Deine Bewerbung ist schon abgeschickt.",
+    /** An application's club retired since the acceptance opened. */
+    team_retired: "Das Team ist stillgelegt.",
+    /** A reactivated squad row past the season's cap. */
+    kader_full: "Der Kader ist voll.",
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
@@ -233,8 +254,8 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The mail shell's own lines, and the words of the account's, the fixtures' and the referee's mails; every other
-   * mail's sentences are its template's until its area's session rewrites them.
+   * The mail shell's own lines, and the words of the account's, the fixtures', the referee's and the application's mails;
+   * every other mail's sentences are its template's until its area's session rewrites them.
    */
   mail: {
     /** The one greeting: the first name where it is known. */
@@ -321,6 +342,83 @@ export const SERVER_COPY = catalogue({
       subject: (team: string) => `${team} spielt nicht mehr mit`,
       lead: { after: (saison: string) => ` ist aus der ${COPY.shared.saisonName(saison)} ausgeschieden.` },
       fixtures: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
+    },
+
+    /**
+     * An application's mails. A link mail names no submitter, the form recording none. A name a lead sets semibold
+     * stands outside its parts, whose spaces they hold.
+     */
+    bewerbung: {
+      confirmOrOppose: "Bestätige deinen Eintrag oder widersprich ihm.",
+      /** In the two parts around its day, as `schiedsrichterConfirmation.deadline`: the builder sets the day semibold after a space. */
+      deadline: APPLICATION_DEADLINE,
+      registeredAs: "Eingetragen als",
+      /** The title of the facts the Ansprechperson is told. */
+      status: "Stand der Bewerbung",
+      /** The title of a seat's own facts. */
+      entry: "Dein Eintrag",
+
+      /**
+       * The Ansprechperson's link mail. It says an application came in, never that the reader sent it, and names no
+       * school: behind a mistyped address a stranger gets nothing to attach the names to.
+       */
+      received: {
+        subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
+        lead: (saison: string) => `Für die ${COPY.shared.saisonName(saison)} ist eine Bewerbung eingegangen.`,
+        named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du als ${rollenText(rollen)} genannt.`,
+        others: "Die anderen Kontaktpersonen bekommen je einen eigenen Link. Sag ihnen selbst Bescheid.",
+        pending: "Noch offen",
+      },
+      /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */
+      link: {
+        subject: (saison: string) => `Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
+        lead: (schule: string) => `Die Bewerbung von ${schule} nennt dich als Kontaktperson.`,
+      },
+      reminder: {
+        subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
+        lead: (schule: string) => `Deine Antwort zur Bewerbung von ${schule} fehlt noch.`,
+      },
+      zusage: {
+        subject: (saison: string) => `Zusage für die ${COPY.shared.saisonName(saison)}`,
+        /** The first sentence after the club's name, the preview; the welcome stands apart from it. */
+        lead: { after: (saison: string) => ` spielt in der ${COPY.shared.saisonName(saison)}.`, welcome: "Herzlich willkommen." },
+        fixed: "Gruppe und Trikotfarbe stehen fest.",
+        fixedNoColour: "Die Gruppe steht fest. Die Trikotfarbe teilen wir dir noch mit.",
+        /** A wish answered as one: the Spielplan is drawn after the decision, so nothing here knows whether it can be met. */
+        wunschgegner: (opponent: string) =>
+          `Als Wunschgegner für den ersten Spieltag haben wir ${opponent} notiert. Über die Paarungen entscheidet der Spielplan.`,
+        signIn: "Melde dich mit dieser Adresse an, dort findest du dein Team.",
+      },
+      absage: {
+        subject: (saison: string) => `Absage für die ${COPY.shared.saisonName(saison)}`,
+        lead: { before: "Danke für die Bewerbung von ", after: (saison: string) => ` für die ${COPY.shared.saisonName(saison)}.` },
+        decision: "In dieser Saison können wir das Team nicht aufnehmen.",
+        title: "Die Absage",
+      },
+      erasure: {
+        subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} gelöscht`,
+        lead: "Nicht alle Kontaktpersonen haben rechtzeitig bestätigt.",
+        deleted: "Wir löschen die Bewerbung mit allen Angaben.",
+        again: "Solange das Bewerbungsfenster offen ist, kann sich deine Schule neu bewerben.",
+        pending: "Nicht bestätigt",
+      },
+      objection: {
+        subject: (saison: string) => `Widerspruch zum Eintrag: ${COPY.shared.saisonName(saison)}`,
+        lead: { after: " hat dem Eintrag als Kontaktperson widersprochen." },
+        // No pronoun: „Diese Angaben“ reads correctly for every name.
+        removed: "Diese Angaben haben wir aus der Bewerbung entfernt.",
+        replace: "Soll eine andere Person übernehmen, antworte auf diese E-Mail.",
+        /** Around the day it goes. */
+        until: { before: "Sonst löschen wir die Bewerbung am ", after: "." },
+        from: "Widerspruch von",
+      },
+    },
+
+    /** A seat on a team's season: its sentences are the confirmation page's, `kontaktConfirmation`. */
+    kontakt: {
+      subject: (team: string) => `Eintrag für ${team} bestätigen`,
+      /** A closed row's button, which has nothing to confirm. */
+      toEntry: "Zum Eintrag",
     },
 
     /** The sign-in code: no button, since a link carrying the code would sign in whoever opened a forwarded mail. */
@@ -576,11 +674,11 @@ export const SERVER_COPY = catalogue({
       punkte: "Pkt.",
       name: COPY.shared.name,
       nummer: "Nr.",
-      position: "Position",
+      position: COPY.admin.spieler.position,
     },
 
     /** The Spielsuche's three filters and Teams' one, each opening on every match or club. */
-    filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, gruppe: "Gruppe", all: "Alle" },
+    filter: { phase: "Phase", team: TEAM, spieltag: COPY.spielplan.fact.spieltag, gruppe: COPY.team.gruppe, all: "Alle" },
 
     /** A club's page: its tiles, its matches and its squad. */
     club: {
@@ -651,9 +749,9 @@ export const SERVER_COPY = catalogue({
       bewerbung: {
         heading: "Bewerbung einer Schule",
         form: (kontakte: number) =>
-          `Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team, darunter ein dreistelliges Kürzel und die Anschrift der Schule, und ${formatNumber(kontakte)} Kontaktpersonen mit Name, E-Mail-Adresse und Telefonnummer; freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.`,
+          `Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team, darunter die Anschrift der Schule, und ${formatNumber(kontakte)} Kontaktpersonen mit Name, E-Mail-Adresse und Telefonnummer; freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.`,
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bekommt einen eigenen Link, über den sie ihren Eintrag innerhalb von ${formatNumber(days)} Tagen mit ihrem Geburtsdatum bestätigt oder ihm widerspricht, ebenso wenn die Liga sie selbst einträgt; das Mindestalter ist ${formatNumber(trainerAge)} Jahre als Trainer und sonst ${formatNumber(otherAge)}. Haben nach ${formatNumber(days)} Tagen nicht alle bestätigt, löschen wir die Bewerbung und schreiben das der Person, die sie eingereicht hat.`,
+          `Jede Kontaktperson bekommt einen eigenen Link, über den sie ihren Eintrag innerhalb von ${formatNumber(days)} Tagen mit ihrem Geburtsdatum bestätigt oder ihm widerspricht, ebenso wenn die Liga sie selbst einträgt; das Mindestalter ist ${formatNumber(trainerAge)} Jahre als Trainer und sonst ${formatNumber(otherAge)}. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das der Ansprechperson.`,
       },
       kader: {
         heading: "Im Kader",
@@ -837,26 +935,37 @@ export const SERVER_COPY = catalogue({
     },
   },
 
+  /** The application's public page where no form stands: a status card's title for each state, the day folded into it. */
+  bewerbung: {
+    end: {
+      opensOn: (day: CalendarDay) => `Die Bewerbung öffnet am ${formatDateLong(day)}`,
+      /** A paused window alike: the visitor can do nothing about either. */
+      closed: "Die Bewerbung ist gerade geschlossen",
+      over: "Die Saison ist vorbei",
+      none: "Keine Bewerbung für diese Saison",
+      /** The outcome replacing the form, a replayed press alike. */
+      submitted: "Bewerbung abgeschickt",
+    },
+  },
+
   // Session 6: its page reads these.
   /**
    * The fixed text of a contact person's confirmation page, `ROUTES.kontaktConfirmation`, titled
-   * `COPY.page.entryConfirmation`: who named the person and for what, what is stored and until when, what the birthdate
-   * is checked for, the deadline, what an objection does, the objection Art. 21 (4) asks to be named explicitly, since the
-   * seat rests on legitimate interest, and the privacy notice's link. The consents under it are
+   * `COPY.page.entryConfirmation`: for whose application or team the person stands and as what, what is stored and until
+   * when, what the birthdate is checked for, the deadline, what an objection does, and the privacy notice's link. The
+   * Art. 21 objection with the league's address stands in the first-contact mail. The consents under it are
    * `fl_frontend/src/core/consentWordings.ts`'s; nobody accepts the notice, which informs and asks no consent.
    */
   kontaktConfirmation: {
-    /** The first sentence, by how the seat came to be. */
+    /** The title of a closed row's page, a past season's or a departed club's, which confirms nothing. */
+    closedTitle: "Dein Eintrag",
+    /** The fact naming the seat's own last day, in a list's date form; a closed row holds none. */
+    confirmBy: "Bestätigen bis",
+    /** The first sentence, by the record the seat stands on. */
     opening: {
-      /** Named in an application by the person who submitted it. */
-      named: (submitter: Words, schule: Words, saison: string, rolle: Words) =>
-        `${textOf(submitter)} hat dich in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} genannt.`,
-      /** The submitter's own seat. */
-      self: (schule: Words, saison: string, rolle: Words) =>
-        `Du hast dich in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
-      /** Seated in an application by the league. */
-      byLeague: (schule: Words, saison: string, rolle: Words) =>
-        `Die Liga hat dich in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
+      /** A seat in an application, one text for all: it names no submitter, the form recording none. */
+      named: (schule: Words, saison: string, rolle: Words) =>
+        `Du bist in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} genannt.`,
       /** Seated by the league on a team's season, with no application. */
       seasonRow: (team: Words, saison: string, rolle: Words) =>
         `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
@@ -864,24 +973,28 @@ export const SERVER_COPY = catalogue({
     stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
     /** At the birthdate's field, by the seat's floor: Art. 13 asks the purpose where the date is asked. */
     ageCheck,
-    /** The deadline of a seat in an application, which goes whole when one seat stays unconfirmed. */
-    applicationDeadline: (kontakte: number, until: CalendarDay) =>
-      `Bestätigen nicht alle ${formatNumber(kontakte)} Kontaktpersonen bis zum ${formatDateLong(until)}, löschen wir die Bewerbung.`,
+    /** The seat's own last day: an application goes whole when one of its seats lapses. */
+    applicationDeadline,
     /** The deadline of a seat on a team's season, which goes alone. */
     seatDeadline: entryDeadline,
-    /**
-     * At the objection's control, read before the press, by how the seat came to be: an application's seat tells the
-     * person who submitted it, unless the seat is that person's own, and a season row's seat tells nobody.
-     */
+    /** At the objection's control, read before the press, by the record the seat stands on. */
     objectionEffect: {
-      application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung und schreiben das der Person, die sie eingereicht hat.",
-      self: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
+      application: "Widersprichst du, entfernen wir deine Angaben aus der Bewerbung.",
       seasonRow: OBJECTION_DELETES_ENTRY,
     },
-    /** The Art. 21 (4) sentence, its own paragraph, around the league's address, which the page sets as a link. */
-    objectionRight: OBJECTION_RIGHT,
+    /** Why a closed row's page confirms nothing, a club out of the season; a past season's is `refusalLine.saison_past`. */
+    teamDeparted: (team: Words) => `${textOf(team)} ist aus der Saison ausgeschieden.`,
     /** The last line, around the privacy notice's title, which the page sets as its link. */
     more: MORE,
+  },
+
+  /**
+   * The two ends of an entry's answer, on a contact person's page and a referee's alike, each a title; a link opened
+   * again after it titles it with the day (`COPY.shared.end.doneOn`).
+   */
+  entryConfirmation: {
+    confirmed: "Eintrag bestätigt",
+    objected: "Widersprochen",
   },
 
   /**
@@ -898,9 +1011,6 @@ export const SERVER_COPY = catalogue({
     /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
     question: (until: CalendarDay) =>
       `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
-    /** The two ends of an answer, each a title; a link opened again after it titles it with the day (`COPY.shared.end.doneOn`). */
-    confirmed: "Eintrag bestätigt",
-    objected: "Widersprochen",
   },
 
   // Session 8: its page reads these.
