@@ -40,8 +40,8 @@ from app.api.spielbestaetigungen.system_router import (
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielDataResponse
 from app.api.spiele.services import ANSETZUNG_CONFIRMED, build_spiele_pipeline
-from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload
+from app.api.teams.admin_router import replace_saison_team
+from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -59,6 +59,7 @@ from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
+from tests.team_writes import write_the_block
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -1176,18 +1177,12 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         seat: a_payload_person(first_name, f"{first_name}-Mustermann", f"+491701000000{position}")
         for position, (seat, first_name) in enumerate(SEATS[ALPHA].items())
     }
-    await patch_saison_team_kontakte(
+    await write_the_block(
+        database,
+        {**kept, "trainer": trainer, "trainer_is_also": None},
         team_id=ALPHA,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-            {"kontakte": {**kept, "trainer": trainer, "trainer_is_also": None}, "version": stored["version"]}
-        ),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
-        db=client,
+        version=stored["version"],
         today=TODAY,
         germany_now=MAIL_NOW,
     )

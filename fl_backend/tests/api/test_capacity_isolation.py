@@ -21,8 +21,8 @@ from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload
 from app.api.spieler.admin_router import reactivate_saison_spieler
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
-from app.api.teams.admin_router import patch_saison_team, post_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamPayload, FLPostSaisonTeamPayload
+from app.api.teams.admin_router import post_team_entry
+from app.api.teams.schemas import FLPostTeamEntryPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
@@ -30,6 +30,7 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.outbox import MAIL_NOW
+from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -68,7 +69,7 @@ def team_document(index: int) -> dict[str, Any]:
     return documents.team_document(
         oid(index),
         f"Schule {index}",
-        # Three letters, which is what `FLSaisonTeamResponse` holds a shorthand to.
+        # Three letters, which is what a club's write holds a shorthand to.
         f"S{chr(65 + index // 26)}{chr(65 + index % 26)}",
         full_name=f"Schule {index} Gesamtschule",
         website_url="https://example.de",
@@ -177,9 +178,11 @@ async def anchor_now(database: AsyncDatabase) -> int:
 
 
 async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, team_index: int, saisons: Any) -> Any:
-    return await post_saison_team(
-        team_id=oid(team_index),
-        saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON, gruppe="A"),
+    return await post_team_entry(
+        saison_id=SAISON,
+        entry_data=FLPostTeamEntryPayload.model_validate(
+            {"club": {"kind": "known", "team_id": oid(team_index)}, "gruppe": "A", "trikot_farbe": None}
+        ),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=saisons,
@@ -318,16 +321,7 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
     def test_the_move_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def move(saisons: Any) -> Any:
-                return await patch_saison_team(
-                    team_id=oid(30),
-                    saison_id=SAISON,
-                    saison_team_data=FLPatchSaisonTeamPayload(gruppe="A", austritt=None, trikot_farbe=None),
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=saisons,
-                    spiele_collection=database[Collection.SPIELE],
-                    db=client,
-                    today=STANDING_FIRST,
-                )
+                return await save_the_team(database, team_id=oid(30), saison_id=SAISON, gruppe="A", saisons_collection=saisons)
 
             async def the_rival_enters_the_group() -> None:
                 await enter_the_group(database, client, 21, database[Collection.SAISONS])

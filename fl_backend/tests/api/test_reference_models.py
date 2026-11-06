@@ -18,9 +18,8 @@ from app.api.spieler.services import build_ghost_spieler
 from app.api.spielorte.schemas import FLPostSpielortPayload
 from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLSpieltag
 from app.api.teams.schemas import (
+    FLAustrittPayload,
     FLKontaktpersonPayload,
-    FLPatchSaisonTeamPayload,
-    FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
@@ -210,7 +209,6 @@ STRIPPED_WRITE_FIELDS = [
     "team.full_name",
     "team.name",
     "team.shorthand",
-    "saison_team.saison_id",
     "kontaktperson.last_name",
     "kontaktperson.first_name",
     "saison_team.austritt.reason",
@@ -253,13 +251,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "phone": "+49 170 1234567",
             "einwilligung": {"scope": "kontaktdaten", "date": "2026-01-15"},
         }
-        saison_team = {
-            "gruppe": "A",
-            "austritt": {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-01"},
-            "trikot_farbe": None,
-        }
-        # The stored rows minus what only storage carries, which is what each create payload takes.
-        new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
+        austritt = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-01"}
 
         return {
             "spielort.address.stadt": (FLPostSpielortPayload, spielort, ("address", "stadt")),
@@ -272,12 +264,9 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
             "team.shorthand": (FLPostTeamPayload, team_payload, ("shorthand",)),
-            # Two independent declarations of the season id, so a strip dropped from one is
-            # invisible to the other's clauses.
-            "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
             "kontaktperson.last_name": (FLKontaktpersonPayload, kontaktperson, ("last_name",)),
             "kontaktperson.first_name": (FLKontaktpersonPayload, kontaktperson, ("first_name",)),
-            "saison_team.austritt.reason": (FLPatchSaisonTeamPayload, saison_team, ("austritt", "reason")),
+            "saison_team.austritt.reason": (FLAustrittPayload, austritt, ("reason",)),
         }
 
     @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])

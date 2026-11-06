@@ -24,8 +24,8 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, confirmation_deadline_from
 from app.api.identity.crud import roles_of
 from app.api.saisons.admin_router import activate_saison
-from app.api.teams.admin_router import invite_kontakt, patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload
+from app.api.teams.admin_router import invite_kontakt, replace_saison_team
+from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.api.teams.services import (
     compose_kontakt_bestaetigung,
 )
@@ -45,6 +45,7 @@ from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
+from tests.team_writes import write_the_block
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -224,23 +225,20 @@ async def save(
     saison_teams: Any = None,
     today: str = TODAY,
 ) -> Mailed:
-    """`PATCH .../kontakte`, composed against whatever the row holds now, and the links it owed."""
+    """The block over whatever the row holds now, and the links it owed."""
 
     row = await database[Collection.SAISON_TEAMS].find_one({"_id": ROW_OID})
     assert row is not None
 
-    answer = await patch_saison_team_kontakte(
+    answer = await write_the_block(
+        database,
+        kontakte,
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "version": row["version"]}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
-        db=database.client,
+        version=row["version"],
         today=today,
         germany_now=MAIL_NOW,
+        saison_teams_collection=saison_teams,
     )
 
     return await mailed(database, answer, answer.confirmations)

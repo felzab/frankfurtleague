@@ -5,14 +5,15 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.teams.admin_router import patch_saison_team, put_austritt
-from app.api.teams.schemas import FLAustrittPayload, FLPatchSaisonTeamPayload
+from app.api.teams.admin_router import put_austritt
+from app.api.teams.schemas import FLAustrittPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document
+from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
 from tests.outbox import MAIL_NOW
+from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -82,6 +83,7 @@ def on_a_season(
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=dict(RULES)))
+            await database[Collection.TEAMS].insert_one(team_document(ADLER, "Adler", "ADL"))
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction_document(ADLER, "A", kontakte=seeded_kontakte), junction_document(BIEBER, "B"), *junctions]
             )
@@ -91,34 +93,6 @@ def on_a_season(
             return await body(database)
 
     return on_the_seed_loop(_run())
-
-
-async def call_patch(
-    database: AsyncDatabase,
-    team_id: ObjectId = ADLER,
-    *,
-    gruppe: str = "A",
-    austritt: dict[str, Any] | None = None,
-    trikot_farbe: str | None = None,
-    saison_id: str = SAISON_ID,
-    today: str = TODAY,
-) -> Any:
-    """`gruppe` defaults to `ADLER`'s own group, so the default call moves nobody.
-
-    Every key the payload takes is sent on every call: it replaces them wholesale and defaults none.
-    No `kontakte` is among them.
-    """
-
-    return await patch_saison_team(
-        team_id=team_id,
-        saison_id=saison_id,
-        saison_team_data=FLPatchSaisonTeamPayload.model_validate({"gruppe": gruppe, "austritt": austritt, "trikot_farbe": trikot_farbe}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        db=database.client,
-        today=today,
-    )
 
 
 async def call_put(database: AsyncDatabase, austritt: dict[str, Any], *, today: str = TODAY) -> None:
@@ -158,19 +132,6 @@ class TestRecordingAnExitFromTheSeason:
 
         assert on_a_season(mongo_replica_set_url, body)["austritt"] == EXIT
 
-    def test_no_save_clears_it(self, mongo_replica_set_url: str):
-        """An exit is never lifted, so the old form's null beside a stored one leaves it standing and the echo says so."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await call_put(database, dict(EXIT))
-
-            return await _both(database, austritt=None)
-
-        response, row = on_a_season(mongo_replica_set_url, body)
-
-        assert row["austritt"] == EXIT
-        assert response.austritt is not None
-
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`saison_past`: an exit recorded on a finished season would move its table and podium after the fact."""
 
@@ -203,7 +164,7 @@ class TestRecordingAnExitFromTheSeason:
 
         assert (refusal.error_code, refusal.fields, refusal.bounds) == (
             Code.AUSTRITT_BEFORE_SAISON_START,
-            (("austritt",),),
+            (("date",),),
             {"earliest": "2026-01-01"},
         )
         assert after == before, "a refused write changed the row"
@@ -215,7 +176,7 @@ class TestMovingAClubBetweenGroups:
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as conflict:
-                await call_patch(database, gruppe="B")
+                await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
 
@@ -229,7 +190,7 @@ class TestMovingAClubBetweenGroups:
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as conflict:
-                await call_patch(database, gruppe="B")
+                await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
 
@@ -237,14 +198,6 @@ class TestMovingAClubBetweenGroups:
 
         assert code == Code.ENTRY_GRUPPE_FULL
         assert row["gruppe"] == "A"
-
-
-async def _both(database: AsyncDatabase, **overrides: Any) -> Any:
-    """The response and the row it wrote: an echo agreeing with a document nobody updated proves nothing."""
-
-    response = await call_patch(database, **overrides)
-
-    return response, await stored_row(database)
 
 
 # One filled-in block, reused: the shape is the payload's, so a field added to it fails here rather
@@ -266,17 +219,26 @@ KONTAKTE = {
 }
 
 
-class TestTheContactBlockThisPatchDoesNotOwn:
-    """`PATCH .../kontakte` writes it. The `$set` here names no `kontakte` key, so the stored block stands."""
+class TestTheContactBlockTheseWritesDoNotOwn:
+    """A seat's write stores it. No `$set` here names a `kontakte` key, so the stored block stands."""
 
-    @pytest.mark.parametrize(
-        ("change", "gruppe"),
-        [pytest.param({"gruppe": "B"}, "B", id="a group move"), pytest.param({"austritt": EXIT}, "A", id="an austritt")],
-    )
-    def test_a_stored_block_survives_either_operation(self, mongo_replica_set_url: str, change: dict[str, Any], gruppe: str):
-        """Both, because the group change takes a branch the austritt skips, and the row lands on the group the payload sent."""
+    def test_a_stored_block_survives_a_group_move(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
 
-        _, row = on_a_season(mongo_replica_set_url, lambda database: _both(database, **change), seeded_kontakte=dict(KONTAKTE))
+            return await stored_row(database)
 
-        assert row["gruppe"] == gruppe
+        row = on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
+
+        assert row["gruppe"] == "B"
+        assert row["kontakte"] == KONTAKTE
+
+    def test_a_stored_block_survives_an_exit(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            await call_put(database, dict(EXIT))
+
+            return await stored_row(database)
+
+        row = on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
+
         assert row["kontakte"] == KONTAKTE

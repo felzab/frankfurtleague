@@ -3,9 +3,7 @@ from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.teams.schemas import (
-    FLPatchSaisonTeamKontaktePayload,
-    FLPatchSaisonTeamPayload,
-    FLPatchTeamPayload,
+    FLPatchTeamSaisonPayload,
     FLPostTeamPayload,
     FLTabelleResponse,
     FLTeam,
@@ -75,46 +73,16 @@ class TestTheTabellesGroups:
 
 
 class TestTheClubsSchulform:
-    @pytest.mark.parametrize("payload", [FLPostTeamPayload, FLPatchTeamPayload])
+    @pytest.mark.parametrize("payload", [FLPostTeamPayload, FLPatchTeamSaisonPayload])
     def test_the_payloads_refuse_to_default_it(self, team, payload):
         """The club PATCH replaces wholesale too, so a defaulted key here would clear a school form and fan the clearing out as an edit."""
 
-        body = {key: value for key, value in team().items() if key in payload.model_fields}
+        body = {
+            key: value for key, value in {"gruppe": "A", "trikot_farbe": None, "version": 0, **team()}.items() if key in payload.model_fields
+        }
         del body["schulform"]
 
         with pytest.raises(ValidationError) as failure:
             payload.model_validate(body)
 
         assert [entry["loc"][-1] for entry in failure.value.errors()] == ["schulform"]
-
-
-class TestTheJunctionPatchPayload:
-    """It replaces every field it takes wholesale, so what it DEFAULTS is what a client can drop by accident."""
-
-    @pytest.mark.parametrize("field", ["gruppe", "austritt", "trikot_farbe"])
-    def test_every_writable_field_is_required(self, field):
-        """An omitted key defaulting to `None` would clear a colour nobody touched."""
-
-        body = {"gruppe": "A", "austritt": None, "trikot_farbe": None}
-        del body[field]
-
-        with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamPayload.model_validate(body)
-
-        assert [entry["loc"][-1] for entry in failure.value.errors()] == [field]
-
-
-class TestTheContactsPatchPayload:
-    """The block's own endpoint, which is where every rule about the three people now lives."""
-
-    def test_a_contact_block_missing_one_of_the_three_people_is_refused(self):
-        """The block is written whole or not at all, so a partial one is a form half filled in rather than a smaller truth."""
-
-        with pytest.raises(ValidationError):
-            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_is_also": None}})
-
-    def test_the_block_is_required_so_a_null_clears_it_deliberately(self):
-        with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate({})
-
-        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte", "version"]

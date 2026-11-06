@@ -25,7 +25,6 @@ from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielCommon,
-    FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
@@ -49,40 +48,11 @@ from app.api.spiele.schemas import (
 from app.api.teams.services import DecidedStanding, in_the_season_when_decided, offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_query, build_sort
 from app.core.exceptions import FieldPath, WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSide
-
-
-def build_spiele_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    if sort_by == "date":
-        return build_sort(sort_by=sort_by, order=order, chain=(("spiel_nr", 1),))
-    if sort_by == "spiel_nr":
-        return build_sort(sort_by=sort_by, order=order, chain=(("date", 1),))
-
-    # `date` follows the request while `spiel_nr` stays ascending: this code is what defines the
-    # order (PRE-1), and moving the asymmetry is its own change rather than a side effect of one.
-    direction = 1 if order == "asc" else -1
-    return build_sort(sort_by=sort_by, order=order, chain=(("date", direction), ("spiel_nr", 1)))
-
-
-def build_spiele_filter(filters: FLSpieleFilterParams) -> dict[str, Any]:
-    compiled: dict[str, Any] = {}
-
-    if filters.saison_phase == "playoffs":
-        compiled["saison_phase"] = {"$ne": "gruppenphase"}
-
-    if filters.team_id is not None:
-        compiled["$or"] = [
-            {"team1.team_id": filters.team_id},
-            {"team2.team_id": filters.team_id},
-        ]
-
-    return build_query(filters, terms={"saison_id", "saison_phase"}, compiled=compiled)
-
 
 SAISON_TEAMS_AS_NAME = "saison_teams_rows"
 
@@ -423,7 +393,7 @@ def _ordered(db_filter: Mapping[str, Any], sort_by: Sequence[tuple[str, int]] | 
     pipeline: list[Mapping[str, Any]] = [{"$match": db_filter}]
 
     if sort_by is not None:
-        # A dict, so `$sort` keeps its order; safe only while `build_spiele_sort` repeats no key.
+        # A dict, so `$sort` keeps its order; safe only while a caller's sort repeats no key.
         pipeline.append({"$sort": dict(sort_by)})
 
     if limit is not None:

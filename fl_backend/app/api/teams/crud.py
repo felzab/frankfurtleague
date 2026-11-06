@@ -194,8 +194,8 @@ async def write_the_club(
     club: Mapping[str, Any],
     expected_version: int | None,
     session: AsyncClientSession,
-) -> tuple[Mapping[str, Any], int]:
-    """Write a club and rewrite the name and shorthand its unfinished seasons' rows carry; the stored club and how many rows moved.
+) -> Mapping[str, Any]:
+    """Write a club and rewrite the name and shorthand its unfinished seasons' rows carry; the stored club.
 
     Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
     rewrites; a `past` season keeps the name it was played under.
@@ -224,14 +224,14 @@ async def write_the_club(
     # the retry reads the season `past`.
     await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": open_saison_ids}}, session=session)
 
-    junction = await patch_many_in_db(
+    await patch_many_in_db(
         collection=saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": {"$in": open_saison_ids}},
         update={"$set": {"name": club["name"], "shorthand": club["shorthand"]}},
         session=session,
     )
 
-    return stored, junction.modified_count
+    return stored
 
 
 async def pull_tabelle(

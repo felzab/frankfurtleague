@@ -102,9 +102,6 @@ import type {
   FLPatchKaderRowPayload,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
-  FLPatchSaisonTeamKontaktePayload,
-  FLPatchSaisonTeamKontakteResponse,
-  FLPatchSaisonTeamPayload,
   FLPatchSchiedsrichterPayload,
   FLPatchSchiedsrichterResponse,
   FLPatchSpielDataPayload,
@@ -113,8 +110,6 @@ import type {
   FLPatchSpielortPayload,
   FLPatchSpielortResponse,
   FLPatchSpieltagPayload,
-  FLPatchTeamPayload,
-  FLPatchTeamResponse,
   FLPatchTeamSaisonPayload,
   FLPatchTeamSaisonResponse,
   FLPostBewerbungPayload,
@@ -124,7 +119,6 @@ import type {
   FLPostRegistrierungResponse,
   FLPostSaisonPayload,
   FLPostSaisonResponse,
-  FLPostSaisonTeamPayload,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
   FLPostSperrlistePayload,
@@ -132,7 +126,6 @@ import type {
   FLPostSpielortPayload,
   FLPostTeamEntryPayload,
   FLPostTeamEntryResponse,
-  FLPostTeamPayload,
   FLReferencesPayload,
   FLReferencesResponse,
   FLRegistrierungAdmissionResponse,
@@ -153,7 +146,6 @@ import type {
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAnswerResponse,
-  FLSaisonTeamResponse,
   FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
   FLSchiedsrichterConfirmationPayload,
@@ -183,7 +175,6 @@ import type {
   FLSpielbestaetigungSchiedsrichterAnswerResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungViewResponse,
-  FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
   FLSpielerAdminSingleResponse,
   FLSpielerSaisonsResponse,
@@ -220,7 +211,6 @@ import type {
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
-  SpieleGetSpieleAdminParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
   SpielorteGetSpielorteParams,
@@ -4017,28 +4007,6 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
   });
 };
 
-export const getSpieleGetSpieleAdminUrl = (params?: SpieleGetSpieleAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/list/admin?${stringifiedParams}` : `/api/v0/spiele/list/admin`;
-};
-
-/**
- * List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
- *
- * Each referee carries their whole name, and each booking its money.
- * @summary Spiele for the admin surfaces
- */
-export const spieleGetSpieleAdmin = async (
-  params?: SpieleGetSpieleAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieleAdminListResponse> => {
-  return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleAdminUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpieleGetSpieleSpielplanUrl = (params: SpieleGetSpieleSpielplanParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -4729,40 +4697,6 @@ export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTrans
   });
 };
 
-export const getTeamsPostTeamUrl = () => {
-  return `/api/v0/teams`;
-};
-
-/**
- * Create a club. `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`.
- *
- * The refusal names `shorthand`.
- * @summary Create a team
- */
-export const teamsPostTeam = async (
-  fLPostTeamPayload: FLPostTeamPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLCreatedResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLCreatedResponse>(getTeamsPostTeamUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostTeamPayload),
-  });
-};
-
 export const getTeamsGetTeamsAdminUrl = (params: TeamsGetTeamsAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -4887,43 +4821,6 @@ export const teamsGetTeam = async (
   });
 };
 
-export const getTeamsPatchTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}`;
-};
-
-/**
- * Update a club, then rewrite the name and shorthand its unfinished seasons' rows carry.
- *
- * Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
- * rewrites; a `past` season keeps the name it was played under. A shorthand another club holds, a retired one included,
- * is refused `duplicate_key`, naming `shorthand`.
- * @summary Update a team and fan the rename out
- */
-export const teamsPatchTeam = async (
-  teamId: string,
-  fLPatchTeamPayload: FLPatchTeamPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchTeamResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLPatchTeamResponse>(getTeamsPatchTeamUrl(teamId), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchTeamPayload),
-  });
-};
-
 export const getTeamsReactivateTeamUrl = (teamId: string) => {
   return `/api/v0/teams/${encodeURIComponent(String(teamId))}/reactivate`;
 };
@@ -4936,81 +4833,6 @@ export const teamsReactivateTeam = async (teamId: string, options?: Parameters<t
   return adminKeyTransport<void>(getTeamsReactivateTeamUrl(teamId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getTeamsPostSaisonTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons`;
-};
-
-/**
- * Enter a team into a season, in a group, under the name the club carries today.
- *
- * A club with no row here is ABSENT from that season rather than merely unlisted.
- * @summary Enter a team into a season
- */
-export const teamsPostSaisonTeam = async (
-  teamId: string,
-  fLPostSaisonTeamPayload: FLPostSaisonTeamPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonTeamResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLSaisonTeamResponse>(getTeamsPostSaisonTeamUrl(teamId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSaisonTeamPayload),
-  });
-};
-
-export const getTeamsPatchSaisonTeamUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Rewrite a team's row for one season: group, exit record and kit colour.
- *
- * All three are required: an omitted key is a 422. The group and the colour are replaced; a null `austritt` leaves a
- * stored exit standing, since no write clears one.
- * The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
- * refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
- * (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
- * @summary Rewrite a team's season row: group, exit record and kit colour
- */
-export const teamsPatchSaisonTeam = async (
-  teamId: string,
-  saisonId: string,
-  fLPatchSaisonTeamPayload: FLPatchSaisonTeamPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonTeamResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLSaisonTeamResponse>(getTeamsPatchSaisonTeamUrl(teamId, saisonId), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSaisonTeamPayload),
   });
 };
 
@@ -5287,59 +5109,6 @@ export const teamsPostInvitationDispatch = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLInvitationMailPayload),
-  });
-};
-
-export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte`;
-};
-
-/**
- * Rewrite the three people this team is reached through for one season. Null clears the block.
- *
- * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The body carries the `version`
- * its caller was served, and a row another write has raised since is refused `version_stale` rather than overwritten,
- * an erasure between the caller's read and this write being what moves it. A `past` season's contacts stay correctable.
- * Each seat's `entered_by` and
- * `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
- * on is stored as the league's entry, unconfirmed.
- *
- * **Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own
- * transaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering
- * both seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or
- * handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
- * holds nothing live. A save newly seating an address the ban list holds is
- * refused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
- * link is how its person learns of the entry, and it takes their Widerspruch alone.
- *
- * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
- * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
- * person's own write grants one.
- * @summary Rewrite a team's season contacts, and nothing else on the row
- */
-export const teamsPatchSaisonTeamKontakte = async (
-  teamId: string,
-  saisonId: string,
-  fLPatchSaisonTeamKontaktePayload: FLPatchSaisonTeamKontaktePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchSaisonTeamKontakteResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLPatchSaisonTeamKontakteResponse>(getTeamsPatchSaisonTeamKontakteUrl(teamId, saisonId), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSaisonTeamKontaktePayload),
   });
 };
 

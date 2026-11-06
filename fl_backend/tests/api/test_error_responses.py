@@ -14,7 +14,7 @@ from httpx2 import Response
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, NetworkTimeout, PyMongoError
 
-from app.api.spiele.schemas import FLSpieleFilterParams
+from app.api.registrierungen.schemas import FLRegistrierungenFilterParams
 from app.core.codes import Code
 from app.core.exception_handlers import (
     db_exception_handler,
@@ -94,8 +94,8 @@ FILTERED_PATH = "/filtered"
 
 
 @VALIDATION_APP.get(FILTERED_PATH)
-async def read_the_query(filters: FLSpieleFilterParams = Depends()) -> dict[str, str]:
-    """The admin fixture list's query, declared as that route declares it, naming the type its `team_id` reached it as."""
+async def read_the_query(filters: FLRegistrierungenFilterParams = Depends()) -> dict[str, str]:
+    """The pending list's query, declared as its route declares it, naming the type its `team_id` reached it as."""
 
     return {"team_id": type(filters.team_id).__name__}
 

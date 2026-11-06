@@ -1588,7 +1588,7 @@ def find_austritt_refusal(
     return WriteRefusal(
         error_code=Code.AUSTRITT_BEFORE_SAISON_START,
         status=HTTPStatus.CONFLICT,
-        fields=(("austritt",),),
+        fields=(("date",),),
         bounds={"earliest": start_date},
     )
 
@@ -1756,7 +1756,7 @@ def find_replacement_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    # The LEAGUE before the season, as `post_saison_team` judges it: a club that has left the league
+    # The LEAGUE before the season, as `enter_a_club` judges it: a club that has left the league
     # is a candidate for no season at all, and picking a different one would not repair it.
     retired = find_club_entry_refusal(inactive_since=incoming_inactive_since)
     if retired is not None:

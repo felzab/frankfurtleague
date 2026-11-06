@@ -377,7 +377,7 @@ async def accept_bewerbung(
         picked_club: Any = None
         new_club: dict[str, Any] | None = None
 
-        # Read before the count, as `post_saison_team` reads it: a club's standing in the league is
+        # Read before the count, as `enter_a_club` reads it: a club's standing in the league is
         # not repaired by picking another group, so nobody is handed a capacity figure first. A
         # school being created cannot have left, so only a PICKED club is checked.
         if schule is None:
