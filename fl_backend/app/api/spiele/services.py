@@ -384,18 +384,16 @@ def _einsatz_confirmed() -> Mapping[str, Any]:
     }
 
 
-def _joined_referee(*, with_verdicts: bool) -> Mapping[str, Any]:
-    """The block with its row's name folded in, and both verdicts `with_verdicts`.
+def _joined_referee() -> Mapping[str, Any]:
+    """The block with its row's name and both verdicts folded in, conditional as `_joined_side` is, so an empty slot stays null."""
 
-    Conditional as `_joined_side` is, so an empty slot stays null.
-    """
-
-    # Null where no row answers, as on the ghost: an erased referee is served nameless.
-    joined: dict[str, Any] = {"name": {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.name"}, None]}}
-    if with_verdicts:
+    joined = {
+        # Null where no row answers, as on the ghost: an erased referee is served nameless.
+        "name": {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.name"}, None]},
         # A join answering nothing withholds: it costs a page a name, never a person theirs.
-        joined[NAME_IS_PUBLIC_KEY] = {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.{NAME_IS_PUBLIC_KEY}"}, False]}
-        joined[EINSATZ_CONFIRMED] = _einsatz_confirmed()
+        NAME_IS_PUBLIC_KEY: {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.{NAME_IS_PUBLIC_KEY}"}, False]},
+        EINSATZ_CONFIRMED: _einsatz_confirmed(),
+    }
 
     return {"$cond": [{"$eq": ["$schiedsrichter", None]}, None, {"$mergeObjects": ["$schiedsrichter", joined]}]}
 
@@ -453,23 +451,21 @@ def build_named_spiele_pipeline(
     sort_by: Sequence[tuple[str, int]] | None = None,
     limit: int | None = None,
 ) -> list[Mapping[str, Any]]:
-    """The fixtures `db_filter` selects, each name joined as `build_spiele_pipeline` joins it, and `projection` of them.
+    """The fixtures `db_filter` selects, each side and the venue named as `build_spiele_pipeline` names them, and `projection` of them.
 
     For a reader of a fixture's own fields that serves no verdict: the stored document holds no name, so a plain
-    `find` answers a side, the venue and the referee nameless. No consent gate: a reader serving the referee's name
-    beyond the referee and the administration reduces it first.
+    `find` answers a side and the venue nameless. The referee stays the stored block, an id with no name: a reader
+    of the name takes `build_spiele_pipeline`, whose join carries the consent verdict that reduces it.
     """
 
     return [
         *_ordered(db_filter, sort_by, limit),
         _season_rows_lookup(),
-        _referee_lookup(),
         _venue_lookup(),
         {
             "$set": {
                 "team1": _joined_side("team1"),
                 "team2": _joined_side("team2"),
-                "schiedsrichter": _joined_referee(with_verdicts=False),
                 "ort": _joined_venue(),
             }
         },
@@ -507,7 +503,7 @@ def build_spiele_pipeline(
                 "team1": _joined_side("team1"),
                 "team2": _joined_side("team2"),
                 ANSETZUNG_CONFIRMED: _ansetzung_confirmed(),
-                "schiedsrichter": _joined_referee(with_verdicts=True),
+                "schiedsrichter": _joined_referee(),
                 "ort": _joined_venue(),
             }
         }
