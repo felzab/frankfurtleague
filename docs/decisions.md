@@ -94,6 +94,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **swap** — Split the group swap into two writes; relax the move lock to serve it
 - **swap** — Refuse a swap for anything beyond its pair, a finished season, the season's start and its sides
   having taken place; record an exit before the season's start date, or move the start past one
+- **austritt** — Ask a passkey touch for an Austritt
 
 ## Operations
 
