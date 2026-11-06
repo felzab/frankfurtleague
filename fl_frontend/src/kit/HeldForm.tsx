@@ -22,12 +22,17 @@ const REFUSED_RESET = { onResetCapture: (event: FormEvent<HTMLFormElement>) => e
  * replays every press a slow page gathered in one task, ahead of any render, where a busy guard knows none of them, so
  * only the first presses again. React resets a form after such a press, which would take each field back to its first
  * value, so the reset is refused in the capture phase, ahead of React Aria's listener on the form, which heeds it.
+ *
+ * The browser's own check would stop a press before hydration ahead of all this, and in silence on a control it cannot
+ * show, a date's hidden input among them, so the form is `noValidate` and `onSubmit` asks for that check itself: a held
+ * press and a live one meet it on one path, and each field's listener shows what it refuses. React Aria's `aria`
+ * behaviour is no answer, since it judges a field as it is typed.
  */
 export function HeldForm({
   ref,
   onSend,
   ...form
-}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit"> & { onSend: (formData: FormData) => void }) {
+}: Omit<ComponentProps<typeof Form>, "action" | "noValidate" | "onSubmit"> & { onSend: (formData: FormData) => void }) {
   const element = useObjectRef(ref);
   const isHeld = useRef(false);
   return (
@@ -35,6 +40,7 @@ export function HeldForm({
       {...form}
       {...REFUSED_RESET}
       ref={element}
+      noValidate
       action={() => {
         if (isHeld.current) return;
         isHeld.current = true;
@@ -42,7 +48,7 @@ export function HeldForm({
       }}
       onSubmit={(event) => {
         event.preventDefault();
-        onSend(new FormData(event.currentTarget));
+        if (event.currentTarget.reportValidity()) onSend(new FormData(event.currentTarget));
       }}
     />
   );
