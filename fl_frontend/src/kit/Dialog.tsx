@@ -110,25 +110,49 @@ export function ActRow({ children }: { children: ReactNode }) {
 }
 
 /**
- * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot:
- * centred, the closing button in its corner, its title read but not drawn, its body, which is the page's
- * own body rendered on the server, and last its one act, the blocks 24 px apart as a dialog's fields and
- * acts are. It stands open while its route does; the closing button, Escape or a press outside it goes
- * Back, which closes it and leaves the page beneath as it was. Always open: Next keeps a departed route
- * in a hidden `Activity`, which hides the overlay's portal with it and runs its effects' cleanup, the
- * scroll lock's included.
+ * What a route dialog holds, read on the server: its title read but not drawn, its body, which is the page's own body,
+ * and last its one act, the blocks 24 px apart as a dialog's fields and acts are. The same parts while the read waits,
+ * placeholders as its body and act and the wait's word as its title, so the dialog is named throughout.
  */
-export function RouteDialog({
+export function RouteDialogBody({
   title,
-  beneath,
   act,
   children,
 }: {
   title: Copy;
-  /** The page it opens over, reached instead of Back where the tab's history holds nothing to go back to. */
-  beneath: Route;
   /** The way on, the kit's `Link` drawn as the primary button, which stands last and as wide as the dialog. */
   act: ReactElement;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      {/* Read, not drawn: the body's first block names the match by its two sides, which a drawn title would repeat. */}
+      <Heading
+        slot="title"
+        level={2}
+        className="sr-only">
+        {title}
+      </Heading>
+      {children}
+      <div className="grid">{act}</div>
+    </>
+  );
+}
+
+/**
+ * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot: centred, the
+ * closing button in its corner, over its `RouteDialogBody`. A read it waits for stands in a boundary inside it, around
+ * that body, never around this overlay: a boundary's swap unmounts what it holds, so the dim would start its fade again.
+ * It stands open while its route does; the closing button, Escape or a press outside it goes Back, which closes it and
+ * leaves the page beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
+ * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
+ */
+export function RouteDialog({
+  beneath,
+  children,
+}: {
+  /** The page it opens over, reached instead of Back where the tab's history holds nothing to go back to. */
+  beneath: Route;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -144,13 +168,6 @@ export function RouteDialog({
       <AriaDialog
         data-kit-focus
         className="relative grid gap-6">
-        {/* Read, not drawn: the body's first block names the match by its two sides, which a drawn title would repeat. */}
-        <Heading
-          slot="title"
-          level={2}
-          className="sr-only">
-          {title}
-        </Heading>
         {/* In the box's corner, 12 px from its edges, over whatever the first block draws there: Primer's dialog
             requires the close button and forbids hiding it. Its hover is the one layer, laid over the match head's
             band as over any ground. */}
@@ -162,7 +179,6 @@ export function RouteDialog({
           />
         </div>
         {children}
-        <div className="grid">{act}</div>
       </AriaDialog>
     </DialogOverlay>
   );

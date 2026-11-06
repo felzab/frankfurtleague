@@ -65,11 +65,11 @@ const facts = tv({
 });
 
 /**
- * The facts while the record is read: the boxed block's own box with `pairs` of its pairs, each a label's line over
- * a value's, two a row where the box is wide, as `Facts` sets them.
+ * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
+ * over a value's, two a row where `Facts` sets them so.
  */
-export function FactsPlaceholder({ pairs }: { pairs: number }) {
-  const { list, row, term, detail } = facts({ look: "boxed" });
+export function FactsPlaceholder({ pairs, look = "boxed" }: { pairs: number; look?: "boxed" | "free" }) {
+  const { list, row, term, detail } = facts({ look });
   return (
     <div className="@container grid w-full gap-2 text-sm">
       <div className={list()}>

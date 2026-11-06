@@ -1,6 +1,5 @@
 import { cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -19,35 +18,6 @@ const pillars = tv({
     text: "text-base text-fg-muted",
   },
 });
-
-/** The three cards while the landing is read: each its glyph's box, its title's line and its paragraph's three lines. */
-export function PillarsPlaceholder() {
-  const slots = pillars();
-  return (
-    <div className={slots.root()}>
-      {[0, 1, 2].map((index) => (
-        <div
-          key={index}
-          className={slots.card()}>
-          <span className={placeholderBar(slots.mark())} />
-          <PlaceholderLine
-            text={slots.title()}
-            width="w-1/2"
-          />
-          <span className="grid">
-            {["w-full", "w-full", "w-3/4"].map((width, at) => (
-              <PlaceholderLine
-                key={at}
-                text={slots.text()}
-                width={width}
-              />
-            ))}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** What the league is for, in three cards side by side from `lg` and one under another below it. */
 export function Pillars({ items }: { items: readonly [Pillar, Pillar, Pillar] }) {

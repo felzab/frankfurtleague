@@ -110,7 +110,15 @@ export function HeaderLinks({
             }>
             <div className="grid gap-1 pt-2">
               {season !== undefined && (
-                <Suspense fallback={null}>
+                <Suspense
+                  fallback={
+                    <Placeholder layout={menuEntry({ size: "phone" })}>
+                      <PlaceholderLine
+                        text="text-base"
+                        words={SAISON_WORDS}
+                      />
+                    </Placeholder>
+                  }>
                   <SeasonEntry
                     read={season}
                     look="sheet"

@@ -2,7 +2,8 @@ import { useId } from "react";
 
 import { smallCaps } from "./cardStyles";
 import { Link } from "./Link";
-import { PlaceholderLine } from "./Skeleton";
+import { PageWait } from "./PageFade";
+import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -19,11 +20,14 @@ const section = tv({
   },
 });
 
-/** A section while the landing is read: its eyebrow's and its title's lines over its block's placeholder. */
-export function LandingSectionPlaceholder({ children }: { children: ReactNode }) {
+/**
+ * A section while the read decides it: its eyebrow's and its title's lines, the line of its link on where it has one,
+ * over its block's placeholder.
+ */
+export function LandingSectionPlaceholder({ more, children }: { more?: Copy; children: ReactNode }) {
   const slots = section();
   return (
-    <div className={slots.root()}>
+    <Placeholder layout={slots.root()}>
       <div className={slots.head({ class: "w-full" })}>
         <PlaceholderLine
           text={slots.eyebrow()}
@@ -33,9 +37,32 @@ export function LandingSectionPlaceholder({ children }: { children: ReactNode })
           text={slots.title()}
           width="w-64 max-w-full"
         />
+        {more !== undefined && (
+          <PlaceholderLine
+            text="text-base"
+            words={more}
+          />
+        )}
       </div>
       {children}
-    </div>
+    </Placeholder>
+  );
+}
+
+/** A section once the read has landed: the block the page built from it, or nothing where the read leaves it out. */
+async function Decided({ block }: { block: Promise<ReactNode> }) {
+  return await block;
+}
+
+/**
+ * A section the read decides, standing as `fallback` until then in a boundary of its own: its placeholder, or the block
+ * itself in the state the page can state before the read.
+ */
+export function LandingSectionWait({ block, fallback }: { block: Promise<ReactNode>; fallback: ReactNode }) {
+  return (
+    <PageWait fallback={fallback}>
+      <Decided block={block} />
+    </PageWait>
   );
 }
 

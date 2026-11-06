@@ -1,7 +1,10 @@
 import { formatNumber } from "@/core/format";
 
+import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { Link } from "./Link";
+import { PageWait } from "./PageFade";
+import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -34,8 +37,50 @@ const steps = tv({
   },
 });
 
-/** How a school joins: the numbered steps, then the band with the application window's state. */
-export function Steps({ items, band }: { items: readonly Step[]; band: StepsBand }) {
+/** The band once the read has landed. */
+async function Band({ band }: { band: Promise<StepsBand> }) {
+  const slots = steps();
+  const { open, sentence, act } = await band;
+  return (
+    <div className={slots.band()}>
+      <p className={slots.sentence()}>{sentence}</p>
+      <Link
+        href={act.href}
+        placement="button"
+        look={open ? "primary" : "secondary"}
+        label={act.label}
+      />
+    </div>
+  );
+}
+
+/**
+ * The band while the read says whether a window is open: `sentence`, the words of the state most days are in, wraps
+ * unseen, so the box is that sentence's height at every width, and cuts the bars laid over it to the lines it holds.
+ */
+function BandPlaceholder({ sentence }: { sentence: Copy }) {
+  const slots = steps();
+  return (
+    <Placeholder layout={slots.band()}>
+      <p className={slots.sentence({ class: "relative overflow-hidden" })}>
+        <span className="invisible">{sentence}</span>
+        <span className="absolute inset-0">
+          {[0, 1, 2].map((line) => (
+            <PlaceholderLine
+              key={line}
+              text={slots.sentence()}
+              width="w-full"
+            />
+          ))}
+        </span>
+      </p>
+      <span className={buttonPlaceholder("w-28")} />
+    </Placeholder>
+  );
+}
+
+/** How a school joins: the numbered steps, which stand at once, then the band with the application window's state. */
+export function Steps({ items, band, closed }: { items: readonly Step[]; band: Promise<StepsBand>; closed: Copy }) {
   const slots = steps();
   return (
     <>
@@ -54,15 +99,9 @@ export function Steps({ items, band }: { items: readonly Step[]; band: StepsBand
           </li>
         ))}
       </ol>
-      <div className={slots.band()}>
-        <p className={slots.sentence()}>{band.sentence}</p>
-        <Link
-          href={band.act.href}
-          placement="button"
-          look={band.open ? "primary" : "secondary"}
-          label={band.act.label}
-        />
-      </div>
+      <PageWait fallback={<BandPlaceholder sentence={closed} />}>
+        <Band band={band} />
+      </PageWait>
     </>
   );
 }

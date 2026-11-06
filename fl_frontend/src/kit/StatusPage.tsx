@@ -1,9 +1,11 @@
+import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface } from "./cardStyles";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
+import { placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -120,6 +122,23 @@ function RailCardBody({ card: { tone, next, quiet, title }, scope }: { card: Rai
   );
 }
 
+/** The rail card while the page's read says which end it is: its mark, its title's line and its button, centred. */
+function RailCardPlaceholder({ scope }: { scope: RailPageHead["scope"] }) {
+  const slots = statusCard({ scope });
+  return (
+    <Waiting>
+      <div className={slots.root()}>
+        <span className={placeholderBar(slots.mark())} />
+        <PlaceholderLine
+          text={slots.railTitle({ class: "justify-center" })}
+          width="w-48"
+        />
+        <span className={buttonPlaceholder("w-full lg:w-36")} />
+      </div>
+    </Waiting>
+  );
+}
+
 /** The card once the page's read has said which end it is, in the rail form's boundary. */
 async function CardOnceRead({ card, scope }: { card: Promise<RailCard>; scope: RailPageHead["scope"] }) {
   return (
@@ -136,8 +155,8 @@ async function CardOnceRead({ card, scope }: { card: Promise<RailCard>; scope: R
  * the classic frame the card carries the page's title; in the rail frames the strip carries the page's, and the card
  * the end's where the two differ. The rail form's card is read with the page, as `/saisons` learns that the league
  * has no season yet where it does not send the reader on, so it waits in a boundary of its own under the strip,
- * drawn meanwhile as nothing; a card known before any read, as an error boundary's, which is a Client Component and
- * awaits nothing, is drawn at once.
+ * drawn meanwhile as its placeholder; a card known before any read, as an error boundary's, which is a Client Component
+ * and awaits nothing, is drawn at once.
  */
 export function StatusPage(
   props: (StatusCardProps & { frame: "classic" }) | ({ frame: "rail"; card: Promise<RailCard> | RailCard } & RailPageHead),
@@ -160,7 +179,7 @@ export function StatusPage(
       title={props.title}
       chip={props.chip}>
       {props.card instanceof Promise ? (
-        <PageWait fallback={null}>
+        <PageWait fallback={<RailCardPlaceholder scope={props.scope} />}>
           <CardOnceRead
             card={props.card}
             scope={props.scope}
