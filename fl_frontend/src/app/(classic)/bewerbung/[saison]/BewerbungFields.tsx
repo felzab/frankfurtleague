@@ -62,7 +62,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         onChange={(value) => schulform.onChange(value ?? "")}
         width="fit"
         isRequired={required.schulform}
-        options={SCHULFORMEN.map((id) => ({ id: id, label: team.schulformOption[id] }))}
+        options={SCHULFORMEN.map((id) => ({ id, label: team.schulformOption[id] }))}
       />
       <FieldSubgroup name={ADDRESS.address}>
         <FieldPair
@@ -199,7 +199,7 @@ export function BewerbungFields({
   useUnsavedChangesWarning(hasTyped);
 
   const box: Box = (name) => ({
-    name: name,
+    name,
     defaultValue: typed.get(name),
     onChange: (value) => {
       typed.set(name, value);
@@ -210,7 +210,7 @@ export function BewerbungFields({
   // With no club to pick, the new school is the one answer.
   const isListed = schulen.length > 0;
   const isNewSchool = switchedOn || !isListed;
-  const schools: Option[] = schulen.map(({ id, name }) => ({ id: id, label: { record: name } }));
+  const schools: Option[] = schulen.map(({ id, name }) => ({ id, label: { record: name } }));
   const { maxLength, required } = rules;
 
   return (

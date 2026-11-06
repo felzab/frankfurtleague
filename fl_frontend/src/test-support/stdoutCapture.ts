@@ -26,7 +26,7 @@ function beginCapture(): { written: WrittenLines; restore: () => void } {
   }) as typeof process.stdout.write;
 
   return {
-    written: written,
+    written,
     restore: () => {
       process.stdout.write = original;
     },

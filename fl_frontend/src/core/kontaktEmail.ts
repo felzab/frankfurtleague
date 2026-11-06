@@ -37,7 +37,7 @@ export function buildKontaktBestaetigungEmail(
         [opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
         [[`${DEADLINE.before} `, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
       ],
-      button: { label: COPY.page.entryConfirmation, href: href },
+      button: { label: COPY.page.entryConfirmation, href },
     };
   }
 
@@ -51,6 +51,6 @@ export function buildKontaktBestaetigungEmail(
       ],
     ],
     // Named for what the page offers: a closed row's page has nothing to confirm.
-    button: { label: SERVER_COPY.mail.kontakt.toEntry, href: href },
+    button: { label: SERVER_COPY.mail.kontakt.toEntry, href },
   };
 }

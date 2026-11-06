@@ -46,7 +46,7 @@ export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElemen
     if (antworten > 0) ergebnisRef.current?.focus();
   }, [antworten]);
 
-  return { ergebnisRef: ergebnisRef, beantwortet: () => setAntworten((bisher) => bisher + 1) };
+  return { ergebnisRef, beantwortet: () => setAntworten((bisher) => bisher + 1) };
 }
 
 /**
@@ -110,7 +110,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
   return (
     <dl className="flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
       {zeilen.map(({ label, value, unbegrenzt = false }) => {
-        const { zelle, value: wertKlasse } = fakt({ unbegrenzt: unbegrenzt });
+        const { zelle, value: wertKlasse } = fakt({ unbegrenzt });
 
         return (
           <div

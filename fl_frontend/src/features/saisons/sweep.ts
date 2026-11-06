@@ -21,5 +21,5 @@ export async function runErasureSweep() {
   }
 
   const { abgebrochen: _abgebrochen, error, ...bisher } = lauf;
-  return { count: bisher, open: bisher.failed, error: error };
+  return { count: bisher, open: bisher.failed, error };
 }

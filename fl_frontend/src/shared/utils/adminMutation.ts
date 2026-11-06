@@ -108,10 +108,10 @@ async function runGuarded<S, T extends { success: boolean }>(
     if (writeOutcomeUnknown()) {
       logger.error("mutation.outcome_unknown", undefined, { lane: guard.lane, mutation: mutationName });
 
-      return { forbidden: false, answer: outcomeUnknown(), wrote: wrote };
+      return { forbidden: false, answer: outcomeUnknown(), wrote };
     }
 
-    return { forbidden: false, answer: answer, wrote: wrote };
+    return { forbidden: false, answer, wrote };
   });
 }
 

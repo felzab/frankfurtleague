@@ -57,7 +57,7 @@ export async function postRegistrierungAufnehmen(
   registrierungId: string,
   { spieler_id }: FLRegistrierungAdmitPayload,
 ): Promise<FLRegistrierungAdmissionResponse> {
-  return registrierungenAdmit(registrierungId, { spieler_id: spieler_id });
+  return registrierungenAdmit(registrierungId, { spieler_id });
 }
 
 /** Declines one registration under a fixed reason. */

@@ -66,7 +66,7 @@ type Fehler = { email?: string; grund?: string };
 /** The box's two values as the write's own schema judges them, at the press and never between keystrokes. */
 function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
   const geprueft = FLAdresswechselVerwaltungPayloadSchema.safeParse({
-    adresse: adresse,
+    adresse,
     email: entwurf.email,
     grund: entwurf.grund,
   });
@@ -118,7 +118,7 @@ export function AdresswechselBeantragen({
   const unveraendert = !istAndereAdresse(entwurf.email, adresse);
 
   const markiere = (satz: Fehler) => {
-    setFehler({ satz: satz, zu: entwurf });
+    setFehler({ satz, zu: entwurf });
     feldRef.current?.focus();
   };
 

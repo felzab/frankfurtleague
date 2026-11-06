@@ -64,10 +64,10 @@ export function Sidemenu({
       <div className={`flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4 ${railGutter}`}>
         <SidemenuStateProvider
           state={{
-            isDesktopCollapsed: isDesktopCollapsed,
-            onMobileClose: onMobileClose,
-            linkPrefix: linkPrefix,
-            keepsSaisonQuery: keepsSaisonQuery,
+            isDesktopCollapsed,
+            onMobileClose,
+            linkPrefix,
+            keepsSaisonQuery,
           }}>
           {/* First, above the season, and kept while collapsed where the season slot is not: which Funktion the
               person is acting in frames everything below it. */}

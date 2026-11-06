@@ -58,7 +58,7 @@ export type FLKaderZeileKeyPayload = z.infer<typeof FLKaderZeileKeyPayloadSchema
  * (`fl_frontend/src/core/consentWordings.ts`): only a drifted page sends another, which `error` tells to reload.
  */
 export const textVersionsSchema = <U extends string, M extends string>(labels: { readonly scope: U; readonly media: M }, error: string) =>
-  z.object({ scope: z.literal(labels.scope, { error: error }), media: z.literal(labels.media, { error: error }) }, { error: error });
+  z.object({ scope: z.literal(labels.scope, { error }), media: z.literal(labels.media, { error }) }, { error });
 
 /** A drifted link page's labels, which the link reopened repairs. */
 export const LINK_FASSUNG_FEHLT = "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut.";

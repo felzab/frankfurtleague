@@ -84,7 +84,7 @@ const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = input instanceof Request ? input.url : String(input);
   const body = String(init?.body ?? "");
-  sent.push({ url: url, method: String(init?.method ?? "GET"), headers: new Headers(init?.headers), body: body });
+  sent.push({ url, method: String(init?.method ?? "GET"), headers: new Headers(init?.headers), body });
 
   if (nextTimesOut) {
     nextTimesOut = false;
@@ -162,7 +162,7 @@ async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSu
   return runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
     const answer = await getSubjectSession();
 
-    return { answer: answer, actor: getRequestActor() };
+    return { answer, actor: getRequestActor() };
   });
 }
 
@@ -320,7 +320,7 @@ describe("who the seam answers for", () => {
 
     for (const unconfirmed of [true, false]) {
       beginRenderPass();
-      nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unconfirmed: unconfirmed }), {
+      nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unconfirmed }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });

@@ -44,7 +44,7 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
       ? await runWithIncomingTrace(() =>
           getSpielerBestaetigungAnsicht(token).then(
             (gelesen): SpielerBestaetigungStart =>
-              gelesen.zustand === "valid" ? { zustand: "valid", ansicht: gelesen.ansicht, token: token } : gelesen,
+              gelesen.zustand === "valid" ? { zustand: "valid", ansicht: gelesen.ansicht, token } : gelesen,
             // A failed read is its own state, the dead-link panel calling a live link void.
             (error: unknown): SpielerBestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
           ),

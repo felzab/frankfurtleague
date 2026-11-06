@@ -576,7 +576,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             : {
                 userId: enrolling.user.id,
                 signIn: await enrolmentSignIn(enrolling.user.email),
-                sentAt: sentAt,
+                sentAt,
                 // Here, before the plugin spends the challenge the verify call reads.
                 challengeIssuedAt: await challengeIssuedAt(ctx),
               };

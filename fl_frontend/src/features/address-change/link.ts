@@ -73,7 +73,7 @@ export function startOf(read: AddressChangeView, token: string): AddressChangeSt
     case "invalid":
       return read;
     default:
-      return { ...read, token: token };
+      return { ...read, token };
   }
 }
 

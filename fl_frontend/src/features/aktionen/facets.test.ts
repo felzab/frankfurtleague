@@ -20,9 +20,9 @@ const HERKUNFT_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_
 /** One row, of which only the actor carries anything the facet under test reads. */
 function row(id: string, actor: FLActionLogEntry["actor"]): FLActionLogEntry {
   return {
-    id: id,
+    id,
     at: "2026-08-20T14:23:05+00:00",
-    actor: actor,
+    actor,
     trace_id: "8f14e45fceea167a",
     request: null,
     collection: "teams",
@@ -39,8 +39,8 @@ function row(id: string, actor: FLActionLogEntry["actor"]): FLActionLogEntry {
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
 function actorOf(kind: FLActionLogEntry["actor"]["kind"]): FLActionLogEntry["actor"] {
   return kind === "person_session"
-    ? { kind: kind, pseudonym: "5e".repeat(32), funktion: "kontakt" }
-    : { kind: kind, email: `${kind}@beispiel.de`, email_barred: false };
+    ? { kind, pseudonym: "5e".repeat(32), funktion: "kontakt" }
+    : { kind, email: `${kind}@beispiel.de`, email_barred: false };
 }
 
 /** One row per kind the origin map places, which its type holds to every kind the read model accepts. */

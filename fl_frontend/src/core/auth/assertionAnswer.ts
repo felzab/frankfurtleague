@@ -9,7 +9,7 @@ type AssertionAnswer = { status: true; email: string };
 
 /** The assertion's answer for the account at `email`. */
 export function assertionAnswer(email: string): AssertionAnswer {
-  return { status: true, email: email };
+  return { status: true, email };
 }
 
 /**

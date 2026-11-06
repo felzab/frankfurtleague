@@ -122,9 +122,9 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
       // The token is handed over at the press, and no form here posts its own fields.
       "response-field": false,
       language: "de",
-      size: size,
+      size,
       // A widget takes its theme at render alone, so the site's toggle renders it anew.
-      theme: theme,
+      theme,
       callback: (minted: string) => onToken(minted),
       "expired-callback": () => onExpired(),
       // True tells Cloudflare the failure is handled; without the callback its script throws into the page.

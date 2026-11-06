@@ -50,7 +50,7 @@ export function answerAt(endpoint: string, held: LookupFixture): Record<string, 
 
   return {
     unconfirmed: subject.unconfirmed ?? false,
-    account: account,
+    account,
     barred: subject.barred ?? false,
     admin_tier: subject.admin_tier ?? null,
   };

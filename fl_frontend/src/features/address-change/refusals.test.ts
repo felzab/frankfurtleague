@@ -16,7 +16,7 @@ describe("what one refused press asks the link page to show", () => {
     ["duplicate_key", "not_confirmable"],
   ] as const) {
     it(`answers ${code} as the ${state} panel`, () => {
-      expect(mapAddressChangePressRefusal(refused(code))).toStrictEqual({ state: state });
+      expect(mapAddressChangePressRefusal(refused(code))).toStrictEqual({ state });
     });
   }
 });

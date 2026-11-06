@@ -51,7 +51,7 @@ const KINDS_DOUBLE = {
   mailFor: (_kind: string, data: { grund: string }, { origin, secret }: { origin: string; secret: string | null }) => ({
     kind: "notice",
     subjectLine: "Sperre",
-    origin: origin,
+    origin,
     firstName: "",
     paragraphs: [[data.grund], ...(secret === null ? [] : [[secret]])],
   }),
@@ -73,7 +73,7 @@ const handed = (n: number, attempt = 1): FLOutboxHandout => ({
   data: { kind: "ban", grund: "Grund", barred_until_saison_id: "2627" },
   token: null,
   secret: null,
-  attempt: attempt,
+  attempt,
 });
 
 beforeEach(() => {
@@ -157,7 +157,7 @@ describe("one drain of the Postausgang", () => {
   it("opens a sealed secret under the frontend's key before its kind's builder renders it", async () => {
     const { symmetricEncrypt } = await import("better-auth/crypto");
     const secret = await symmetricEncrypt({ key: AUTH_SECRET, data: "123456" });
-    claims = [{ mails: [{ ...handed(1), secret: secret }], abandoned: 0 }];
+    claims = [{ mails: [{ ...handed(1), secret }], abandoned: 0 }];
 
     await drainOutbox();
 
@@ -196,7 +196,7 @@ describe("one drain of the Postausgang", () => {
 
     await drainOutbox();
 
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result: result, message_id: null, delivery_reason: reason }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result, message_id: null, delivery_reason: reason }]);
   });
 
   it("reports a deployment that sends nothing as held, and reaches no provider", async () => {

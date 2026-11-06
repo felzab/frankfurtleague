@@ -1362,6 +1362,9 @@ const eslintConfig = defineConfig([
       // A zero-width or line-separator character in code, a comment or a template reads as nothing and
       // changes what the line means. Plain strings stay free for the typography's no-break spaces.
       "no-irregular-whitespace": "error",
+
+      // `token` rather than `token: token`. Properties alone: a function property keeps the shape it was written in.
+      "object-shorthand": ["error", "properties"],
     },
   },
 

@@ -55,7 +55,7 @@ export const saveSpieltag = action({
         fieldErrors: { ...(start === null ? { "changes.start": required } : {}), ...(end === null ? { "changes.end": required } : {}) },
       };
     }
-    const written = await spieltagePatchSpieltag(id, { start, end: end, version });
+    const written = await spieltagePatchSpieltag(id, { start, end, version });
     return { ok: true, value: written.version };
   },
 });

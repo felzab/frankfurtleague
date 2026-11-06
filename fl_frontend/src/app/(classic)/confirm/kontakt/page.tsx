@@ -56,7 +56,7 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
 async function readView(token: string): Promise<FLBewerbungEinwilligungViewResponse | null> {
   return runWithIncomingTrace(() =>
-    bewerbungenGetEinwilligungView({ token: token }).catch((error: unknown) => {
+    bewerbungenGetEinwilligungView({ token }).catch((error: unknown) => {
       // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
       if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
         return null;
@@ -108,7 +108,7 @@ function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): Ma
     more: WORDS.more,
     action: objectKontakt,
     acts: { primary: COPY.shared.verb.oppose },
-    carry: { token: token },
+    carry: { token },
   };
 }
 
@@ -138,7 +138,7 @@ function question(view: FLBewerbungEinwilligungViewResponse, token: string, unti
     more: WORDS.more,
     action: answerKontakt,
     acts: { primary: COPY.page.entryConfirmation, secondary: COPY.shared.verb.oppose },
-    carry: { token: token },
+    carry: { token },
     children: (
       <ConfirmationFields
         ageCheck={WORDS.ageCheck(view.minimum_age)}

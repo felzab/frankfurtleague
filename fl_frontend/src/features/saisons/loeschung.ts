@@ -54,7 +54,7 @@ export async function sweepLoeschung(lauf: (after: string | null) => Promise<FLE
     } while (after !== null);
   } catch (error) {
     const { remaining: _unbekannt, ...bisher } = summe;
-    return { ...bisher, abgebrochen: true, error: error };
+    return { ...bisher, abgebrochen: true, error };
   }
 
   return { ...summe, abgebrochen: false };

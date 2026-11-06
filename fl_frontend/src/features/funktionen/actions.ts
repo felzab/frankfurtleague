@@ -133,7 +133,7 @@ export async function loeschenAufAnfrageAction(
     const gespeichert = loeschteEtwas(loeschung);
 
     // Counts and never the person: a report repeating them hands back a copy of what the erasure destroyed.
-    return { success: true, konto: konto, gespeichert: gespeichert, message: loeschungSatz(konto, gespeichert, loeschung.spiele) };
+    return { success: true, konto, gespeichert, message: loeschungSatz(konto, gespeichert, loeschung.spiele) };
   });
 }
 
@@ -177,7 +177,7 @@ export async function endAnmeldungenAction(rawPayload: FLErasureAddressPayload):
 
     return {
       success: true,
-      konto: konto,
+      konto,
       message: konto ? "Jede Anmeldung der Adresse ist beendet." : "Die Adresse hat kein Konto. Es gab nichts zu beenden.",
     };
   });

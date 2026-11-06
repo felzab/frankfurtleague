@@ -59,4 +59,4 @@ const TRIKOT_FARBE = {
 
 export const TRIKOT_FARBEN: readonly { readonly value: FLTrikotFarbe; readonly label: string; readonly hex: string }[] = Object.values(
   FLTrikotFarbe,
-).map((value) => ({ value: value, ...TRIKOT_FARBE[value] }));
+).map((value) => ({ value, ...TRIKOT_FARBE[value] }));

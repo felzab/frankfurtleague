@@ -25,8 +25,8 @@ export async function oweSignInMail(
   secret?: { readonly value: string; readonly validMs: number },
 ): Promise<void> {
   await outboxPostSignIn({
-    an: an,
-    data: data,
+    an,
+    data,
     secret: secret === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: secret.value }),
     valid_until: secret === undefined ? null : new Date(now().getTime() + secret.validMs).toISOString(),
   });
