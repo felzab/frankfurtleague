@@ -10,8 +10,8 @@ import type { Copy, RecordText } from "@/core/copy";
 const box = cardSurface({ class: "grid gap-3 p-4" });
 
 /**
- * A club's head while the club is read: its own box, the plaque and the name's line, the school's and the address's
- * lines, and the description's three lines it shows until opened, as bars.
+ * A club's head while the club is read: its own box, the plaque and the name's line, and the school's and the
+ * address's lines, as bars. It draws no description, which a club holds only where someone wrote one.
  */
 export function ClubHeadPlaceholder() {
   return (
@@ -32,15 +32,6 @@ export function ClubHeadPlaceholder() {
           text="text-sm"
           width="w-1/2"
         />
-      </div>
-      <div className="grid text-sm">
-        {["w-full", "w-full", "w-2/3"].map((width, index) => (
-          <PlaceholderLine
-            key={index}
-            text="text-sm"
-            width={width}
-          />
-        ))}
       </div>
     </div>
   );
