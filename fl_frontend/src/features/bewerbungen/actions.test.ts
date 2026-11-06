@@ -19,7 +19,7 @@ import type { Code, FLBewerbung } from "@/core/generated/client/types.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
-const PERSON = { first_name: "Anna", email: "anna@example.de" };
+const PERSON = { first_name: "Anna", last_name: "Beispiel", email: "anna@example.de", phone: "069 1234567" };
 
 /**
  * The application the three contact repairs read before their write: a proposed school, whose name
@@ -33,7 +33,7 @@ const GELESEN = {
 const GEWAEHLT = { bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: "6890a1b2c3d4e5f607182932" } };
 
 /** An acceptance of the application, whatever its group. */
-const ANNAHME = { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null, shorthand: null } as const;
+const ANNAHME = { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null, shorthand: null, version: 0 } as const;
 
 /** The triage mapper as the acceptance asks it about `GELESEN`, a proposed school. */
 const acceptanceMapped = (refusal: unknown) => mapTriageRefusal(refusal, "neue_schule");
@@ -137,7 +137,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     await assertEachAnswered({
       codes: refusalCodes("bewerbung_already_decided"),
       refuseWith: answerWith,
-      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll." }),
+      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll.", version: 0 }),
       mapped: declineMapped,
     });
   });
@@ -224,6 +224,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
  */
 const ENTSCHIEDEN: FLBewerbung = {
   id: BEWERBUNG_ID,
+  version: 0,
   saison_id: "2026",
   submitted_at: "2026-09-01",
   status: "submitted",
@@ -281,13 +282,13 @@ const DECISIONS = [
     betreff: "Absage",
     operation: ABLEHNEN_OPERATION,
     landed: (document: object) => ({ id: (document as { id: string }).id }),
-    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll." }),
+    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll.", version: 0 }),
   },
 ] as const;
 
 /** Each repair's payload, as its control sends it for the Ansprechperson's seat. */
 const ERNEUT = { id: BEWERBUNG_ID, rolle: "ansprechperson" } as const;
-const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", previous_email: PERSON.email } as const;
+const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", version: 0 } as const;
 const SITZ = {
   id: BEWERBUNG_ID,
   rolle: "ansprechperson",
@@ -295,11 +296,12 @@ const SITZ = {
   last_name: "Beispiel",
   email: "berta@example.de",
   phone: "069 1234567",
+  version: 0,
 } as const;
 
 /** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
 const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/resend`;
-const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson/email`;
+const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
 const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
 
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
@@ -364,14 +366,18 @@ describe("the application's writes", () => {
     const { id: _id, rolle: _rolle, ...person } = SITZ;
     // The writes alone: each owes its mails in the backend's own transaction, so no report of a send follows one.
     expect(requestsOf(writes)).toStrictEqual([
-      { endpoint: `${bewerbung}/accept`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe, shorthand: null } },
-      { endpoint: `${bewerbung}/decline`, method: "POST", body: { decision_reason: "Die Liga ist voll." } },
-      { endpoint: `${bewerbung}/einwilligung/ansprechperson/resend`, method: "POST", body: undefined },
-      // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.
       {
-        endpoint: `${bewerbung}/kontakte/ansprechperson/email`,
+        endpoint: `${bewerbung}/accept`,
         method: "POST",
-        body: { email: KORREKTUR.email, previous_email: PERSON.email },
+        body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe, shorthand: null, version: 0 },
+      },
+      { endpoint: `${bewerbung}/decline`, method: "POST", body: { decision_reason: "Die Liga ist voll.", version: 0 } },
+      { endpoint: `${bewerbung}/einwilligung/ansprechperson/resend`, method: "POST", body: undefined },
+      // The correction is the one seat write, the person read back beside the address typed.
+      {
+        endpoint: `${bewerbung}/kontakte/ansprechperson`,
+        method: "POST",
+        body: { first_name: PERSON.first_name, last_name: PERSON.last_name, email: KORREKTUR.email, phone: PERSON.phone, version: 0 },
       },
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
     ]);
@@ -595,11 +601,12 @@ describe("the decline's bound", () => {
      „   “ has to be refused as the empty reason it is. The backend's `min_length` does not strip, and
      the browser is where the value still can be. */
   it("refuses a reason that is only whitespace, and carries the trimmed one", () => {
-    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "   " });
+    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "   ", version: 0 });
 
     expect(parsed.success, "a whitespace-only reason parses, and would be stored and mailed as one").toBe(false);
     expect(
-      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "  Kein Platz.  " }).data?.decision_reason,
+      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "  Kein Platz.  ", version: 0 }).data
+        ?.decision_reason,
       "the reason reaches the write with the padding the administrator typed around it",
     ).toBe("Kein Platz.");
   });
@@ -608,7 +615,7 @@ describe("the decline's bound", () => {
      raw string disables the button and counts past the cap over a reason the school would have read. */
   it("takes a reason whose padding is all that carries it past the cap", () => {
     const padded = `  ${"a".repeat(BEWERBUNG_DECISION_REASON_MAX_LENGTH)}  `;
-    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: padded });
+    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: padded, version: 0 });
 
     expect(parsed.success, "a reason inside the cap once trimmed is refused by the schema").toBe(true);
     expect(parsed.data?.decision_reason.length).toBe(BEWERBUNG_DECISION_REASON_MAX_LENGTH);
@@ -731,7 +738,6 @@ describe("the corrected contact address", () => {
       "bewerbung_seat_already_answered",
       "bewerbung_kontakt_email_taken",
       "bewerbung_kontakt_barred",
-      "bewerbung_seat_differently_seated",
     )) {
       expect(answerShown(code, mapKontaktEmailRefusal), `${code} is published on the correction and reaches the admin unmapped`).not.toBe(null);
     }
@@ -741,7 +747,6 @@ describe("the corrected contact address", () => {
         "bewerbung_seat_already_answered",
         "bewerbung_kontakt_email_taken",
         "bewerbung_kontakt_barred",
-        "bewerbung_seat_differently_seated",
       ),
       refuseWith: answerWith,
       act: () => kontaktEmailKorrigierenAction(KORREKTUR),
@@ -776,6 +781,7 @@ describe("the person seated where one stepped out", () => {
           last_name: "Beispiel",
           email: "berta@example.de",
           phone: "069 1234567",
+          version: 0,
         }),
       mapped: mapKontaktSitzRefusal,
     });

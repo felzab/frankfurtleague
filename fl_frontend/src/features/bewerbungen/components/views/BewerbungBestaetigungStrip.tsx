@@ -110,6 +110,7 @@ type Bearbeitung = "korrektur" | "neubesetzung";
  */
 export function BewerbungBestaetigungStrip({
   bewerbungId,
+  version,
   staende,
   deadline: frist,
   fristAbgelaufen,
@@ -118,6 +119,7 @@ export function BewerbungBestaetigungStrip({
   onGetipptChange,
 }: {
   bewerbungId: string;
+  version: number;
   staende: readonly SitzBestaetigung[];
   /** The day an incomplete application is deleted after. */
   deadline: string;
@@ -206,6 +208,7 @@ export function BewerbungBestaetigungStrip({
             <SitzZeile
               key={sitz.rolle}
               bewerbungId={bewerbungId}
+              version={version}
               sitz={sitz}
               belegteAdressen={adressenAndererPersonen(staende, sitz)}
               hatAngebot={isOpen && angebot.has(sitz.rolle)}
@@ -244,6 +247,7 @@ export function BewerbungBestaetigungStrip({
  */
 function SitzZeile({
   bewerbungId,
+  version,
   sitz,
   belegteAdressen,
   hatAngebot,
@@ -258,6 +262,7 @@ function SitzZeile({
   onSchliessen,
 }: {
   bewerbungId: string;
+  version: number;
   sitz: SitzBestaetigung;
   belegteAdressen: readonly string[];
   /** Whether a link can still be sent to this seat, which is the one condition the pencil and the re-send stand under. */
@@ -385,6 +390,7 @@ function SitzZeile({
         <FocusSlot name="korrektur">
           <AdresseKorrigieren
             bewerbungId={bewerbungId}
+            version={version}
             rolle={sitz.rolle}
             gespeicherteAdresse={sitz.email}
             belegteAdressen={belegteAdressen}
@@ -399,6 +405,7 @@ function SitzZeile({
         <FocusSlot name="neubesetzung">
           <SitzNeuBesetzen
             bewerbungId={bewerbungId}
+            version={version}
             rolle={sitz.rolle}
             label={sitz.label}
             belegteAdressen={belegteAdressen}
@@ -419,6 +426,7 @@ function SitzZeile({
  */
 function AdresseKorrigieren({
   bewerbungId,
+  version,
   rolle,
   gespeicherteAdresse,
   belegteAdressen,
@@ -427,6 +435,7 @@ function AdresseKorrigieren({
   onFertig,
 }: {
   bewerbungId: string;
+  version: number;
   rolle: KontaktRolle;
   gespeicherteAdresse: string | null;
   belegteAdressen: readonly string[];
@@ -452,7 +461,7 @@ function AdresseKorrigieren({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
   });
 
-  const payload = { id: bewerbungId, rolle: rolle, email: email, previous_email: gespeicherteAdresse ?? "" };
+  const payload = { id: bewerbungId, rolle: rolle, email: email, version: version };
 
   useForgiveFixed({ korrektur: payload });
 
@@ -585,6 +594,7 @@ const LEERE_PERSON = { first_name: "", last_name: "", email: "", phone: "" };
 /** The box `AdresseKorrigieren` opens in, carrying four fields rather than one: this writes a whole person. */
 function SitzNeuBesetzen({
   bewerbungId,
+  version,
   rolle,
   label,
   belegteAdressen,
@@ -593,6 +603,7 @@ function SitzNeuBesetzen({
   onFertig,
 }: {
   bewerbungId: string;
+  version: number;
   rolle: KontaktRolle;
   /** The seat's own German, so the heading names the role the strip's chip beside it named. */
   label: string;
@@ -618,7 +629,7 @@ function SitzNeuBesetzen({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
-  const payload = { id: bewerbungId, rolle: rolle, ...person };
+  const payload = { id: bewerbungId, rolle: rolle, ...person, version: version };
 
   useForgiveFixed({ neubesetzung: payload });
 

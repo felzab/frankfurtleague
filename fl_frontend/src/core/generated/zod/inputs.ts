@@ -691,7 +691,10 @@ export const BewerbungenGetBewerbungParams = zod.object({
 });
 
 /**
- * Accept an application, creating the school's club where the applicant proposed a new one.
+ * Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.
+ *
+ * The bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:
+ * one request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
  *
  * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
@@ -707,6 +710,7 @@ export const BewerbungenAcceptBewerbungParams = zod.object({
 });
 
 export const bewerbungenAcceptBewerbungBodyShorthandOneRegExp = new RegExp("^\\s*[A-Za-z]{3}\\s*$");
+export const bewerbungenAcceptBewerbungBodyVersionMin = 0;
 
 export const BewerbungenAcceptBewerbungBody = zod
   .object({
@@ -741,6 +745,7 @@ export const BewerbungenAcceptBewerbungBody = zod
       ]),
       zod.null(),
     ]),
+    version: zod.int().min(bewerbungenAcceptBewerbungBodyVersionMin),
   })
   .describe("Which group the school enters, and the kit colour the league assigns it; the season is the application's own.");
 
@@ -791,9 +796,17 @@ export const BewerbungenDeclineBewerbungParams = zod.object({
 
 export const bewerbungenDeclineBewerbungBodyDecisionReasonMax = 1000;
 
+export const bewerbungenDeclineBewerbungBodyDecisionReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+export const bewerbungenDeclineBewerbungBodyVersionMin = 0;
+
 export const BewerbungenDeclineBewerbungBody = zod
   .object({
-    decision_reason: zod.string().min(1).max(bewerbungenDeclineBewerbungBodyDecisionReasonMax),
+    decision_reason: zod
+      .string()
+      .min(1)
+      .max(bewerbungenDeclineBewerbungBodyDecisionReasonMax)
+      .regex(bewerbungenDeclineBewerbungBodyDecisionReasonRegExp),
+    version: zod.int().min(bewerbungenDeclineBewerbungBodyVersionMin),
   })
   .describe("Why the application was declined.");
 
@@ -801,7 +814,7 @@ export const BewerbungenDeclineBewerbungBody = zod
  * Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.
  *
  * Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
- * The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
+ * The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
  * The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
  * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
  * decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
@@ -816,23 +829,23 @@ export const BewerbungenResendEinwilligungParams = zod.object({
 });
 
 /**
- * Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.
+ * „Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.
  *
- * It runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.
- * The record written is administrative and confirms nothing: the new person's own link is what asks them, and an
- * acceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled
- * from one press and one link answers both, and both must be empty for either to be written.
+ * One write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a
+ * Widerspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative
+ * and confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it
+ * waits on the other two. Where one person holds two seats both are written from one press and one link answers
+ * both. The link the seat's last holder was sent opens nothing afterwards, and the confirmation deadline restarts
+ * from today EVEN WHERE IT HAD PASSED: left where it was, the person would be handed a link that opens nothing.
  *
- * The link the seat's last holder was sent stops opening anything, and the application's confirmation deadline
- * restarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens
- * nothing, seating them for a confirmation they cannot give.
+ * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
+ * its notice could not arrive is a deletion candidate again once that mail is not refused.
  *
- * Refused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody
- * stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
- * (`bewerbung_seat_already_answered`); and on an address another
- * contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
- * (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
- * @summary Seat another person where a contact person stepped out
+ * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
+ * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
+ * address another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban
+ * list holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
+ * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
@@ -850,6 +863,7 @@ export const bewerbungenPostKontaktSeatBodyLastNameMax = 80;
 
 export const bewerbungenPostKontaktSeatBodyLastNameRegExp = new RegExp("^\\p{L}[\\p{L}\\-' ]*$", "u");
 export const bewerbungenPostKontaktSeatBodyPhoneRegExp = new RegExp("^([+]?[ 0-9\\-().]{2,19}[0-9])$");
+export const bewerbungenPostKontaktSeatBodyVersionMin = 0;
 
 export const BewerbungenPostKontaktSeatBody = zod
   .object({
@@ -857,44 +871,9 @@ export const BewerbungenPostKontaktSeatBody = zod
     first_name: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyFirstNameMax).regex(bewerbungenPostKontaktSeatBodyFirstNameRegExp),
     last_name: zod.string().min(1).max(bewerbungenPostKontaktSeatBodyLastNameMax).regex(bewerbungenPostKontaktSeatBodyLastNameRegExp),
     phone: zod.string().regex(bewerbungenPostKontaktSeatBodyPhoneRegExp),
+    version: zod.int().min(bewerbungenPostKontaktSeatBodyVersionMin),
   })
-  .describe("The person seated where a contact person stepped out, who has agreed to nothing yet.");
-
-/**
- * Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.
- *
- * The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
- * record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
- * deadline restarts from today exactly as a re-send restarts it.
- *
- * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
- * its notice could not arrive is a deletion candidate again once that mail is not refused.
- *
- * Refused on an application already decided (`bewerbung_already_decided`), on any seat this write would reach that is already
- * confirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included
- * (`bewerbung_seat_already_answered`) — on a seat holding another address than `previous_email`, the address the caller's page
- * showed, as after a Widerspruch and a reseat (`bewerbung_seat_differently_seated`), and on an address another contact person on this
- * application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_barred`). A path naming
- * no seat is a 404.
- * @summary Correct one contact person's email address and re-send their link
- */
-export const bewerbungenPostKontaktEmailPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const BewerbungenPostKontaktEmailParams = zod.object({
-  bewerbung_id: zod.string().regex(bewerbungenPostKontaktEmailPathBewerbungIdRegExp),
-  seat: zod.string(),
-});
-
-export const bewerbungenPostKontaktEmailBodyEmailMax = 254;
-
-export const bewerbungenPostKontaktEmailBodyPreviousEmailMax = 254;
-
-export const BewerbungenPostKontaktEmailBody = zod
-  .object({
-    email: zod.string().max(bewerbungenPostKontaktEmailBodyEmailMax),
-    previous_email: zod.string().max(bewerbungenPostKontaktEmailBodyPreviousEmailMax),
-  })
-  .describe("The corrected address and the one the page showed on the seat, and nothing else of the person.");
+  .describe("The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.");
 
 /**
  * Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.

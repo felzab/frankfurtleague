@@ -612,7 +612,7 @@ describe("the one field of a submitted application an administrator may move", (
     id: "6890a1b2c3d4e5f607190001",
     rolle: "ansprechperson" as const,
     email: "erika@schule.de",
-    previous_email: "erika.alt@schule.de",
+    version: 0,
   };
 
   const refusalFor = (payload: unknown): Record<string, string> => {
@@ -621,13 +621,13 @@ describe("the one field of a submitted application an administrator may move", (
     return parsed.success ? {} : toFieldErrors(parsed.error);
   };
 
-  it("takes an application, a seat, an address and the address the page showed, and refuses any other key", () => {
+  it("takes an application, a seat, an address and the version the page read, and refuses any other key", () => {
     expect(refusalFor(CORRECTION)).toStrictEqual({});
     expect(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...CORRECTION, first_name: "Erika" }))).toStrictEqual([
       "id",
       "rolle",
       "email",
-      "previous_email",
+      "version",
     ]);
   });
 

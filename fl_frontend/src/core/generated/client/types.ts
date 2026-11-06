@@ -86,7 +86,6 @@ export const Code = {
   bewerbung_token_past_deadline: "bewerbung_token_past_deadline",
   bewerbung_address_barred: "bewerbung_address_barred",
   bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
-  bewerbung_seat_differently_seated: "bewerbung_seat_differently_seated",
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
@@ -253,6 +252,8 @@ export interface FLAcceptBewerbungPayload {
   gruppe: FLGruppenNames;
   shorthand: string | null;
   trikot_farbe: FLTrikotFarbe | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -1392,6 +1393,7 @@ export interface FLBewerbung {
   submitted_at: string;
   team_id: string | null;
   trikot: FLBewerbungTrikot;
+  version: number;
   wunschgegner: string | null;
 }
 
@@ -1590,30 +1592,10 @@ export interface FLBewerbungKaderPayload {
   good_spieler: number;
 }
 
-/**
- * The corrected address and the one the page showed on the seat, and nothing else of the person.
- */
-export interface FLBewerbungKontaktEmailPayload {
-  /** @maxLength 254 */
-  email: string;
-  /** @maxLength 254 */
-  previous_email: string;
-}
-
-/**
- * A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write.
- */
-export interface FLBewerbungKontaktEmailResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmation_deadline: string;
-  email: string;
-  rollen: FLKontaktRolle[];
-}
-
 export type FLBewerbungKontaktMinAgeYears = 16;
 
 /**
- * The person seated where a contact person stepped out, who has agreed to nothing yet.
+ * The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.
  */
 export interface FLBewerbungKontaktSeatPayload {
   /** @maxLength 254 */
@@ -1632,6 +1614,18 @@ export interface FLBewerbungKontaktSeatPayload {
   last_name: string;
   /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
   phone: string;
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
+ * A seat's address as the write left it, and every seat it reached; the link is owed there in the same write.
+ */
+export interface FLBewerbungKontaktSeatResponse {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  confirmation_deadline: string;
+  email: string;
+  rollen: FLKontaktRolle[];
 }
 
 /**
@@ -2183,8 +2177,11 @@ export interface FLDeclineBewerbungPayload {
   /**
    * @minLength 1
    * @maxLength 1000
+   * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
   decision_reason: string;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**

@@ -2,7 +2,9 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
+from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
     find_acceptance_code_refusal,
     find_kontakt_email_refusal,
@@ -44,6 +46,18 @@ class TestOnlyTheSchoolsOwnFaultIsRefused:
 
         with pytest.raises(ZorbanaxBoom):
             find_new_club_refusal(club_document=ExplodingSchule())
+
+
+class TestADeclinesReason:
+    """The reason is stored and mailed verbatim, so a NUL or a page break an administrator pasted reaches every person it goes to."""
+
+    @pytest.mark.parametrize("reason", ["Kein\x00Platz", "Kein\x0cPlatz", "Kein\u2028Platz"])
+    def test_a_character_no_paragraph_holds_is_refused(self, reason: str):
+        with pytest.raises(ValidationError):
+            FLDeclineBewerbungPayload(decision_reason=reason, version=0)
+
+    def test_the_line_breaks_of_a_paragraph_pass(self):
+        assert FLDeclineBewerbungPayload(decision_reason="Kein Platz.\r\nNächstes Jahr gern.", version=0).decision_reason.count("\n") == 1
 
 
 class TestTheCodeAnAcceptanceTakes:

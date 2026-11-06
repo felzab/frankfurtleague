@@ -109,7 +109,6 @@ ADDRESS_FIELDS = _address_fields()
 # The payloads the rule was written for, by name: a discovery that finds none of them would leave
 # the sweep below comparing nothing and passing.
 KNOWN_ADDRESS_FIELDS = {
-    "app.api.bewerbungen.schemas.FLBewerbungKontaktEmailPayload.email",
     "app.api.identity.schemas.FLSubjectPayload.email",
     "app.api.registrierungen.schemas.FLPostRegistrierungPayload.email",
     "app.api.sperrliste.schemas.FLPostSperrlistePayload.email",

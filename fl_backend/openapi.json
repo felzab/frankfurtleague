@@ -216,7 +216,6 @@
           "bewerbung_token_past_deadline",
           "bewerbung_address_barred",
           "bewerbung_kontakt_barred",
-          "bewerbung_seat_differently_seated",
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
@@ -356,12 +355,18 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "gruppe",
           "trikot_farbe",
-          "shorthand"
+          "shorthand",
+          "version"
         ],
         "title": "FLAcceptBewerbungPayload",
         "type": "object"
@@ -3069,6 +3074,11 @@
           "trikot": {
             "$ref": "#/components/schemas/FLBewerbungTrikot"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "wunschgegner": {
             "anyOf": [
               {
@@ -3083,6 +3093,7 @@
         },
         "required": [
           "id",
+          "version",
           "saison_id",
           "submitted_at",
           "status",
@@ -3641,63 +3652,13 @@
         "title": "FLBewerbungKaderPayload",
         "type": "object"
       },
-      "FLBewerbungKontaktEmailPayload": {
-        "additionalProperties": false,
-        "description": "The corrected address and the one the page showed on the seat, and nothing else of the person.",
-        "properties": {
-          "email": {
-            "maxLength": 254,
-            "title": "Email",
-            "type": "string"
-          },
-          "previous_email": {
-            "maxLength": 254,
-            "title": "Previous Email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "previous_email"
-        ],
-        "title": "FLBewerbungKontaktEmailPayload",
-        "type": "object"
-      },
-      "FLBewerbungKontaktEmailResponse": {
-        "description": "A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write.",
-        "properties": {
-          "confirmation_deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmation Deadline",
-            "type": "string"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "email",
-          "rollen",
-          "confirmation_deadline"
-        ],
-        "title": "FLBewerbungKontaktEmailResponse",
-        "type": "object"
-      },
       "FLBewerbungKontaktMinAgeYears": {
         "const": 16,
         "type": "integer"
       },
       "FLBewerbungKontaktSeatPayload": {
         "additionalProperties": false,
-        "description": "The person seated where a contact person stepped out, who has agreed to nothing yet.",
+        "description": "The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.",
         "properties": {
           "email": {
             "maxLength": 254,
@@ -3722,15 +3683,49 @@
             "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
             "title": "Phone",
             "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "first_name",
           "last_name",
           "email",
-          "phone"
+          "phone",
+          "version"
         ],
         "title": "FLBewerbungKontaktSeatPayload",
+        "type": "object"
+      },
+      "FLBewerbungKontaktSeatResponse": {
+        "description": "A seat's address as the write left it, and every seat it reached; the link is owed there in the same write.",
+        "properties": {
+          "confirmation_deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Confirmation Deadline",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "title": "Rollen",
+            "type": "array"
+          }
+        },
+        "required": [
+          "email",
+          "rollen",
+          "confirmation_deadline"
+        ],
+        "title": "FLBewerbungKontaktSeatResponse",
         "type": "object"
       },
       "FLBewerbungKontaktePayload": {
@@ -4987,12 +4982,19 @@
           "decision_reason": {
             "maxLength": 1000,
             "minLength": 1,
+            "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
             "title": "Decision Reason",
             "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
-          "decision_reason"
+          "decision_reason",
+          "version"
         ],
         "title": "FLDeclineBewerbungPayload",
         "type": "object"
@@ -21512,7 +21514,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {
@@ -21772,7 +21774,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend": {
       "post": {
-        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.",
+        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.",
         "operationId": "bewerbungen_resend_einwilligung",
         "parameters": [
           {
@@ -21860,7 +21862,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included\n(`bewerbung_seat_already_answered`); and on an address another\ncontact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds\n(`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
+        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and the confirmation deadline restarts\nfrom today EVEN WHERE IT HAD PASSED: left where it was, the person would be handed a link that opens nothing.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -21898,7 +21900,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
+                  "$ref": "#/components/schemas/FLBewerbungKontaktSeatResponse"
                 }
               }
             },
@@ -21950,105 +21952,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Seat another person where a contact person stepped out",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
-      "post": {
-        "description": "Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on an application already decided (`bewerbung_already_decided`), on any seat this write would reach that is already\nconfirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included\n(`bewerbung_seat_already_answered`) — on a seat holding another address than `previous_email`, the address the caller's page\nshowed, as after a Widerspruch and a reseat (`bewerbung_seat_differently_seated`), and on an address another contact person on this\napplication already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_barred`). A path naming\nno seat is a 404.",
-        "operationId": "bewerbungen_post_kontakt_email",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "bewerbung_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Bewerbung Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "seat",
-            "required": true,
-            "schema": {
-              "title": "Seat",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLBewerbungKontaktEmailPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Correct one contact person's email address and re-send their link",
+        "summary": "Write the person one contact seat holds and mail them a fresh link",
         "tags": [
           "bewerbungen"
         ]

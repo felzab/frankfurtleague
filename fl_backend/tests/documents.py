@@ -337,6 +337,7 @@ def bewerbung_document(
 
     return {
         "_id": bewerbung_id,
+        "version": 0,
         "saison_id": saison_id,
         "submitted_at": submitted_at,
         "status": status,

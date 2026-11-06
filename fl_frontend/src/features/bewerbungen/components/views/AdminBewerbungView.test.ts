@@ -64,6 +64,7 @@ const OFFEN: FLBewerbung = {
   decision: null,
   confirmations: { ansprechperson: SITZ, stellvertretung: SITZ, trainer: SITZ },
   confirmation_deadline: "2099-12-31",
+  version: 0,
 };
 
 function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME) {

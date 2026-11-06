@@ -11,7 +11,7 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { ERNEUT_OHNE_ADRESSE } from "./constants";
-import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
+import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung } from "./mutations";
 import { getBewerbungById } from "./queries";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals";
 import {
@@ -26,7 +26,6 @@ import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils"
 import type {
   FLAcceptBewerbungPayload,
   FLBewerbung,
-  FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktSeatPayload,
   FLDeclineBewerbungPayload,
   FLKontaktRolle,
@@ -194,9 +193,12 @@ export async function einwilligungErneutSendenAction(rawPayload: { id: string; r
 }
 
 /** Rewrites one contact person's e-mail address and owes a fresh link to it in the same write. */
-export async function kontaktEmailKorrigierenAction(
-  rawPayload: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktEmailPayload,
-): Promise<ActionResult> {
+export async function kontaktEmailKorrigierenAction(rawPayload: {
+  id: string;
+  rolle: FLKontaktRolle;
+  email: string;
+  version: number;
+}): Promise<ActionResult> {
   return runAdminMutation("kontaktEmailKorrigierenAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
@@ -208,12 +210,19 @@ export async function kontaktEmailKorrigierenAction(
     const read = await getBewerbungById(validated.data.id);
 
     if (read === null) return { success: false, error: BEWERBUNG_WEG };
-    if (read.bewerbung.kontakte[validated.data.rolle] === null) return { success: false, error: SITZ_LEER };
+    const person = read.bewerbung.kontakte[validated.data.rolle];
+
+    if (person === null) return { success: false, error: SITZ_LEER };
     if ((await resolveBewerbungTeamName(read.bewerbung)) === null) return { success: false, error: KEIN_TEAM };
 
     let korrekturOperation;
     try {
-      korrekturOperation = await korrigierenKontaktEmail(validated.data);
+      korrekturOperation = await besetzenKontaktSitz({
+        ...validated.data,
+        first_name: person.first_name,
+        last_name: person.last_name,
+        phone: person.phone,
+      });
     } catch (error) {
       const refusal = mapKontaktEmailRefusal(error);
       if (refusal) return refusalResult(refusal);

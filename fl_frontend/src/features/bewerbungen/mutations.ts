@@ -5,7 +5,6 @@ import {
   bewerbungenGetSweepSaisons,
   bewerbungenPostBewerbung,
   bewerbungenPostEinwilligung,
-  bewerbungenPostKontaktEmail,
   bewerbungenPostKontaktSeat,
   bewerbungenResendEinwilligung,
   bewerbungenSweepSaison,
@@ -20,9 +19,8 @@ import type {
   FLBewerbungEinwilligungGiven,
   FLBewerbungEinwilligungResendResponse,
   FLBewerbungEinwilligungViewResponse,
-  FLBewerbungKontaktEmailPayload,
-  FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSeatPayload,
+  FLBewerbungKontaktSeatResponse,
   FLBewerbungSweepResponse,
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
@@ -45,8 +43,9 @@ export async function annehmenBewerbung({
   gruppe,
   trikot_farbe,
   shorthand,
+  version,
 }: { id: string } & FLAcceptBewerbungPayload): Promise<FLAcceptBewerbungResponse> {
-  return bewerbungenAcceptBewerbung(id, { gruppe: gruppe, trikot_farbe: trikot_farbe, shorthand: shorthand });
+  return bewerbungenAcceptBewerbung(id, { gruppe: gruppe, trikot_farbe: trikot_farbe, shorthand: shorthand, version: version });
 }
 
 // Moves `status` and `entscheidung` and nothing else: what the school wrote stays the record the
@@ -54,8 +53,9 @@ export async function annehmenBewerbung({
 export async function ablehnenBewerbung({
   id,
   decision_reason,
+  version,
 }: { id: string } & FLDeclineBewerbungPayload): Promise<FLDeclineBewerbungResponse> {
-  return bewerbungenDeclineBewerbung(id, { decision_reason });
+  return bewerbungenDeclineBewerbung(id, { decision_reason, version });
 }
 
 /** Records one school's application. */
@@ -93,17 +93,7 @@ export async function erneutSendenEinwilligung({
   return bewerbungenResendEinwilligung(id, rolle);
 }
 
-/** **The only field of a submitted application an administrator may move**, answered with a link the caller mails to it. */
-export async function korrigierenKontaktEmail({
-  id,
-  rolle,
-  email,
-  previous_email,
-}: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktEmailPayload): Promise<FLBewerbungKontaktEmailResponse> {
-  return bewerbungenPostKontaktEmail(id, rolle, { email: email, previous_email: previous_email });
-}
-
-/** The one path that writes a NAME onto a submitted application, and it runs on a seat its own holder emptied. */
+/** The one path that writes a person onto a submitted application. */
 export async function besetzenKontaktSitz({
   id,
   rolle,
@@ -111,12 +101,14 @@ export async function besetzenKontaktSitz({
   last_name: lastName,
   email,
   phone,
-}: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSeatPayload): Promise<FLBewerbungKontaktEmailResponse> {
+  version,
+}: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSeatPayload): Promise<FLBewerbungKontaktSeatResponse> {
   return bewerbungenPostKontaktSeat(id, rolle, {
     first_name: firstName,
     last_name: lastName,
     email: email,
     phone,
+    version,
   });
 }
 

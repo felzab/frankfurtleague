@@ -115,6 +115,7 @@ describe("which of the two an application asks the league to enter", () => {
 function bewerbung(id: string, saisonId: string): FLBewerbung {
   return {
     id,
+    version: 0,
     saison_id: saisonId,
     submitted_at: "2026-05-01",
     status: "submitted",

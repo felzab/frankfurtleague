@@ -73,6 +73,7 @@ export function AdminBewerbungView({
         <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:mx-0 xl:max-w-none">
           <BewerbungBestaetigungStrip
             bewerbungId={bewerbung.id}
+            version={bewerbung.version}
             staende={staende}
             deadline={bewerbung.confirmation_deadline}
             fristAbgelaufen={fristAbgelaufen}
@@ -92,6 +93,7 @@ export function AdminBewerbungView({
           {isOpen && (
             <AdminBewerbungAnnehmenSection
               bewerbungId={bewerbung.id}
+              version={bewerbung.version}
               teamName={teamName}
               createsTeam={bewerbung.schule !== null}
               saisonId={bewerbung.saison_id}
@@ -105,6 +107,7 @@ export function AdminBewerbungView({
           {isOpen && (
             <AdminBewerbungAblehnenSection
               bewerbungId={bewerbung.id}
+              version={bewerbung.version}
               teamName={teamName}
               saisonId={bewerbung.saison_id}
               onGetipptChange={setGrundGetippt}

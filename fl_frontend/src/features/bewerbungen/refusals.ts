@@ -172,14 +172,6 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     case "bewerbung_kontakt_barred":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
-    // A Widerspruch and a reseat since the page was read: the address typed was meant for the person replaced.
-    case "bewerbung_seat_differently_seated":
-      return {
-        error: buildRefusal({
-          reason: "Für diese Rolle ist inzwischen eine andere Adresse hinterlegt als die, die Du korrigieren wolltest",
-          repair: LADE_DIE_SEITE_NEU,
-        }),
-      };
     default:
       return null;
   }

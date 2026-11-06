@@ -6,8 +6,7 @@ import type { SentApiRequest } from "@/test-support/apiClientDouble.ts";
 /* What these cases read is what each mutation asks the client for, never what it answers. */
 const sent = doubleApiClient(() => ({}));
 
-const { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } =
-  await import("./mutations.ts");
+const { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung } = await import("./mutations.ts");
 
 const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 
@@ -27,22 +26,22 @@ beforeEach(() => {
    backend payloads forbidding an extra field. */
 describe("how each triage endpoint is addressed", () => {
   it("posts the acceptance to its own endpoint, the id in the path and out of the body", async () => {
-    await annehmenBewerbung({ id: ID, gruppe: "A", trikot_farbe: null, shorthand: null });
+    await annehmenBewerbung({ id: ID, gruppe: "A", trikot_farbe: null, shorthand: null, version: 0 });
 
     expect(lastSent()).toStrictEqual({
       endpoint: `/bewerbungen/${ID}/accept`,
       method: "POST",
-      body: { gruppe: "A", trikot_farbe: null, shorthand: null },
+      body: { gruppe: "A", trikot_farbe: null, shorthand: null, version: 0 },
     });
   });
 
   it("posts the decline to its own endpoint, the id in the path and out of the body", async () => {
-    await ablehnenBewerbung({ id: ID, decision_reason: "Die Liga ist voll." });
+    await ablehnenBewerbung({ id: ID, decision_reason: "Die Liga ist voll.", version: 0 });
 
     expect(lastSent()).toStrictEqual({
       endpoint: `/bewerbungen/${ID}/decline`,
       method: "POST",
-      body: { decision_reason: "Die Liga ist voll." },
+      body: { decision_reason: "Die Liga ist voll.", version: 0 },
     });
   });
 });
@@ -54,24 +53,14 @@ describe("how each contact repair is addressed", () => {
     expect(lastSent()).toStrictEqual({ endpoint: `/bewerbungen/${ID}/einwilligung/trainer/resend`, method: "POST", body: undefined });
   });
 
-  it("posts the correction with the seat in the path, and the address and the one the page showed in the body", async () => {
-    await korrigierenKontaktEmail({ id: ID, rolle: "ansprechperson", email: "anna.neu@example.de", previous_email: "anna@example.de" });
-
-    expect(lastSent()).toStrictEqual({
-      endpoint: `/bewerbungen/${ID}/kontakte/ansprechperson/email`,
-      method: "POST",
-      body: { email: "anna.neu@example.de", previous_email: "anna@example.de" },
-    });
-  });
-
-  /* The correction's own path with the `/email` segment dropped, and it takes a body: everything but
-     the application and the seat is typed, so a path-only request would seat nobody. */
+  /* Everything but the application and the seat is typed, so a path-only request would seat nobody. */
   it("posts the reseat with the seat in the path and the person in the body", async () => {
     const person = {
       first_name: "Berta",
       last_name: "Beispiel",
       email: "berta@example.de",
       phone: "069 1234567",
+      version: 0,
     };
 
     await besetzenKontaktSitz({ id: ID, rolle: "stellvertretung", ...person });

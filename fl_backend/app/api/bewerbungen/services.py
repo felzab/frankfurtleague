@@ -945,7 +945,7 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
 
 
 def find_kontakt_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_kontakt_barred`: an administrator's correction or reseat names an address the ban list holds.
+    """`bewerbung_kontakt_barred`: an administrator's seat write names an address the ban list holds.
 
     409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
     as the referee editor's `schiedsrichter_address_barred` is.
@@ -981,11 +981,11 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
     """Why this address cannot be the seat's, or `None`.
 
     The submission's own distinctness rule asked again -- two DIFFERENT people are not reachable at
-    one mailbox -- because a correction is the one path that could put them there afterwards.
+    one mailbox -- because a seat write is the one path that could put them there afterwards.
     """
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
-    # The seats this correction writes are left out: they are one person, and their blocks are equal
+    # The seats this write reaches are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
     others = [slots.get(seat) for seat in KONTAKT_ROLLEN if seat not in seats]
     # On the sign-in fold, as `FLBewerbungKontaktePayload` compares it: a third spelling of "one
@@ -1001,62 +1001,19 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
     return None
 
 
-def find_sitz_inhaber_refusal(*, kontakte: Any, seat: str, previous_email: str) -> WriteRefusal | None:
-    """Why this correction may not land, or `None`.
+# --- The SEAT WRITE: „Sitz bearbeiten“, one write judged by the seat's state.
 
-    A Widerspruch and a reseat since the page's read hand the seat to someone the address was not typed for.
+
+def find_seat_write_refusal(*, confirmations: Any, seats: Sequence[str]) -> WriteRefusal | None:
+    """Why no person may be written into these seats, or `None`: one of them was erased at its person's request.
+
+    Every other state takes the write, a standing seat's person replaced, a seat a Widerspruch emptied filled. The
+    erasure clears the whole entry, which is all that parts it from the slot a Widerspruch empties, and a seat the
+    league cannot reopen stays shut. EVERY seat, because a claimed pair is one person.
     """
 
-    slots = kontakte if isinstance(kontakte, Mapping) else {}
-    slot = slots.get(seat)
-    # On the sign-in fold, as `find_kontakt_email_refusal` compares one mailbox to another.
-    held = sign_in_identifier(str(slot.get("email") or "")) if isinstance(slot, Mapping) else None
-
-    if held == sign_in_identifier(previous_email):
-        return None
-
-    return WriteRefusal(
-        error_code=Code.BEWERBUNG_SEAT_DIFFERENTLY_SEATED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def compose_kontakt_email_update(*, seats: Sequence[str], email: str, today: str, confirmation_deadline: str) -> Mapping[str, Any]:
-    """The corrected address and a fresh link, in ONE `$set`.
-
-    Never two writes: between them the seat would hold the new address beside the link the old one
-    was mailed, which is the live credential the correction exists to retire.
-    """
-
-    erneut = compose_erneut_update(seats=seats, today=today, confirmation_deadline=confirmation_deadline)
-
-    return {"$set": {**{f"kontakte.{seat}.email": email for seat in seats}, **erneut["$set"]}}
-
-
-# --- The RESEAT: another person in a seat its own holder stepped out of.
-
-
-def seat_awaits_a_replacement(*, confirmations: Any, seat: str) -> bool:
-    """Whether this seat is empty because its person exercised their Widerspruch.
-
-    The ONE place an ERASED seat is refused: an erasure clears the whole entry, so the `declined_at`
-    a decline leaves behind is all that parts the two empty slots.
-    """
-
-    return _declined_on(confirmations, seat) is not None
-
-
-def find_reseat_refusal(*, confirmations: Any, seats: Sequence[str]) -> WriteRefusal | None:
-    """Why no other person may be seated here, or `None`.
-
-    Its own predicate beside `find_already_answered_refusal`, which refuses the declined seat this
-    one exists for: widening that one would let the re-send mint against an emptied slot.
-    """
-
-    # EVERY seat, because a claimed pair is one person: a mirror in another state is refused rather
-    # than written unjudged, or dropped from a write that asked for both.
     for seat in seats:
-        if not seat_awaits_a_replacement(confirmations=confirmations, seat=seat):
+        if _entry_of(confirmations, seat) is None:
             return WriteRefusal(
                 error_code=Code.BEWERBUNG_SEAT_ALREADY_ANSWERED,
                 status=HTTPStatus.CONFLICT,
@@ -1069,7 +1026,7 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
     """The other seat `trainer_is_also` claims for this person, standing or emptied.
 
     `paired_seat` without its `seat_stands` half, which answers `None` for exactly the emptied slots
-    a reseat runs on and would leave one of them holding the other's link.
+    a seat write fills and would leave one of them holding the other's link.
     """
 
     zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
@@ -1082,10 +1039,10 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
 def compose_kontakt_seat_update(
     *, seats: Sequence[str], person: Mapping[str, Any], today: str, confirmation_deadline: str
 ) -> Mapping[str, Any]:
-    """The new person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
+    """The person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
     erneut = compose_erneut_update(seats=seats, today=today, confirmation_deadline=confirmation_deadline)
-    # Born afresh: nothing of the person who stepped out travels to the one seated.
+    # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
     einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it.
@@ -1167,7 +1124,7 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
         return False
 
     # A seat gets ONE chase, and spending it on an address the provider has refused, or whose person reported the mail
-    # as spam, spends it on nobody; a correction is what makes the seat due again, its mail being the seat's last.
+    # as spam, spends it on nobody; a seat write is what makes the seat due again, its mail being the seat's last.
     if unerreichbar:
         return False
 
@@ -1233,7 +1190,7 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, undeliverab
     if not isinstance(deadline, str) or deadline >= today:
         return False
 
-    # HELD rather than erased: an administrator corrects the address, and the correction's mail makes it due again.
+    # HELD rather than erased: an administrator edits the seat, and that write's mail makes it due again.
     if undeliverable:
         return False
 

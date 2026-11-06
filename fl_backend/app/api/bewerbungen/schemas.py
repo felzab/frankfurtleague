@@ -24,17 +24,18 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
+    PARAGRAPH_PATTERN,
     SINGLE_LINE_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
     CustomShorthand,
+    CustomVersion,
     parse_empty_string_to_none,
     validate_external_url,
 )
 from app.shared.schemas.einwilligung import FLSeatTextVersions, refuse_a_stale_grant
-from app.shared.schemas.kontakt import CustomEmail
 
 # Imported rather than restated: an application's three people BECOME the junction's three people at
 # acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
@@ -141,10 +142,12 @@ class FLBewerbungDecisionRow(FLBewerbungEntscheidung):
     by_barred: bool
 
 
-class FLBewerbung(BaseModel):
+class FLBewerbung(BaseReadModel):
     """One school's application to play one season, as stored, its decision as served."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # What a decision or a seat write sends back, so one over an application another write moved since is refused as stale.
+    version: int = 0
     saison_id: str
     submitted_at: CustomDateString
     status: FLBewerbungStatus
@@ -229,6 +232,7 @@ class FLAcceptBewerbungPayload(BaseModel):
     # The club's code for a new school, null for a picked club, which holds its own. The administrator sets it here and
     # the applicant never does, so a taken one is refused on this box (`duplicate_key`, naming `shorthand`).
     shorthand: CustomShorthand | None
+    version: CustomVersion
 
 
 class FLDeclineBewerbungPayload(BaseModel):
@@ -239,8 +243,12 @@ class FLDeclineBewerbungPayload(BaseModel):
     # The ceiling counts what arrives and the floor what is left after the strip, so the published `maxLength` is what the
     # write accepts and spaces alone are no reason.
     decision_reason: Annotated[
-        str, StringConstraints(max_length=BEWERBUNG_DECISION_REASON_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+        str,
+        StringConstraints(max_length=BEWERBUNG_DECISION_REASON_MAX_LENGTH, pattern=PARAGRAPH_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
     ]
+    version: CustomVersion
 
 
 class FLBewerbungenListResponse(BaseAPIResponse):
@@ -633,24 +641,13 @@ class FLBewerbungEinwilligungResendResponse(BaseAPIResponse):
 
 
 class FLBewerbungKontaktSeatPayload(_KontaktpersonWritablePayload):
-    """The person seated where a contact person stepped out, who has agreed to nothing yet."""
+    """The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at."""
+
+    version: CustomVersion
 
 
-class FLBewerbungKontaktEmailPayload(BaseModel):
-    """The corrected address and the one the page showed on the seat, and nothing else of the person."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # `_KontaktpersonWritablePayload.email`'s declaration, so an address this refuses is one the
-    # public form refused too and a correction cannot store what a submission could not.
-    email: CustomEmail
-    # The address the page showed on the seat: a seat another person took since is refused rather than handed
-    # the address typed for the one who left (`bewerbung_seat_differently_seated`).
-    previous_email: CustomEmail
-
-
-class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
-    """A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write."""
+class FLBewerbungKontaktSeatResponse(BaseAPIResponse):
+    """A seat's address as the write left it, and every seat it reached; the link is owed there in the same write."""
 
     # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
     email: str

@@ -135,7 +135,6 @@ class Code(StrEnum):
     BEWERBUNG_TOKEN_PAST_DEADLINE = auto()
     BEWERBUNG_ADDRESS_BARRED = auto()
     BEWERBUNG_KONTAKT_BARRED = auto()
-    BEWERBUNG_SEAT_DIFFERENTLY_SEATED = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
     # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
     BOOKING_UNKNOWN_RESOURCE = auto()

@@ -51,6 +51,7 @@ export const FLAnnehmenBewerbungPayloadSchema = z.object({
   // Assigned rather than read off `trikot.wunschfarbe`: a wish is not an assignment.
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
   shorthand: z.string().nullable(),
+  version: z.number(),
 });
 
 /**
@@ -70,6 +71,7 @@ export const FLAblehnenBewerbungPayloadSchema = z.object({
     .max(BEWERBUNG_DECISION_REASON_MAX_LENGTH, {
       error: `Der Grund darf höchstens ${String(BEWERBUNG_DECISION_REASON_MAX_LENGTH)} Zeichen lang sein.`,
     }),
+  version: z.number(),
 });
 
 /**
@@ -334,9 +336,7 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
   email: KontaktEmailSchema,
-  // The address the page showed on the seat, never one read again in the action: the backend refuses a seat another
-  // person took since, which a fresh read would hand the address typed for the one who left (`bewerbung_seat_differently_seated`).
-  previous_email: KontaktEmailSchema,
+  version: z.number(),
 });
 
 /**
@@ -350,4 +350,5 @@ export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   phone: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  version: z.number(),
 });
