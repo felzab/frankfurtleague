@@ -242,6 +242,8 @@ class TestTheOwnRecord:
         ]
         assert (kader[0]["rolle"], kader[0]["is_nachnominiert"], kader[0]["inactive_since"]) == ("kapitaen", True, None)
         assert kader[1]["inactive_since"] == "2025-06-30"
+        # The other club's pupil: this pupil's club sorts first, so a join reading the season alone still names it correctly.
+        assert [row["team_name"] for row in served(mongo_replica_set_url, _read(BYSTANDER)).json()["spieler"]["kader"]] == [ROW_NAME_B]
 
     def test_an_address_spelled_otherwise_reads_the_same_record(self, mongo_replica_set_url: str):
         """One identifier and one person: the binder folds the token's address before anything matches it."""
