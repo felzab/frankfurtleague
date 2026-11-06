@@ -1089,7 +1089,11 @@ export interface FLAddressPayload {
    * @pattern ^([0-9\-abcABC]+)?$
    */
   hausnummer: string;
-  /** @pattern ^[0-9]{5}$ */
+  /**
+   * @minLength 5
+   * @maxLength 5
+   * @pattern ^[0-9]{5}$
+   */
   plz: string;
   /**
    * @minLength 1
@@ -1439,7 +1443,11 @@ export interface FLBewerbungAddressPayload {
    * @pattern ^([0-9\-abcABC]+)?$
    */
   hausnummer: string;
-  /** @pattern ^[0-9]{5}$ */
+  /**
+   * @minLength 5
+   * @maxLength 5
+   * @pattern ^[0-9]{5}$
+   */
   plz: string;
   /**
    * @minLength 1
@@ -6479,6 +6487,7 @@ export interface FLTeamRecord {
 export interface FLTeamSaisonFacts {
   begun: boolean;
   id: string;
+  registrierung_end: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
@@ -6560,6 +6569,7 @@ export interface FLTeamsAdminRow {
   /** @minimum 0 */
   seats_filled: number;
   shorthand: string;
+  trikot_farbe: FLTrikotFarbe | null;
 }
 
 /**

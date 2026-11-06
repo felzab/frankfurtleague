@@ -4,6 +4,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 
 from app.shared.schemas.bounds import (
     ADDRESS_HAUSNUMMER_MAX_LENGTH,
+    ADDRESS_PLZ_LENGTH,
     ADDRESS_STADT_MAX_LENGTH,
     ADDRESS_STADTTEIL_MAX_LENGTH,
     ADDRESS_STRASSE_MAX_LENGTH,
@@ -13,6 +14,7 @@ from app.shared.schemas.custom import CustomNonEmptyString
 # Named because the payload below redeclares the field to add a ceiling: spelling the alphabet
 # twice would let the read and the write drift apart on which characters a house number may use.
 HAUSNUMMER_PATTERN = r"^([0-9\-abcABC]+)?$"
+PLZ_PATTERN = rf"^[0-9]{{{ADDRESS_PLZ_LENGTH}}}$"
 
 
 def _join_present(parts: tuple[str, ...], separator: str) -> str:
@@ -25,7 +27,7 @@ class FLAddress(BaseModel):
     strasse: CustomNonEmptyString
     # Not every venue has one, so the pattern allows the empty string rather than being optional.
     hausnummer: str = Field(pattern=HAUSNUMMER_PATTERN)
-    plz: str = Field(pattern=r"^[0-9]{5}$")
+    plz: str = Field(pattern=PLZ_PATTERN)
     stadtteil: str
     stadt: CustomNonEmptyString
 
@@ -58,3 +60,5 @@ class FLAddressPayload(FLAddress):
     # The pattern is restated for the same reason: a redeclaration replaces the field outright, and
     # the alphabet alone bounds nothing -- a bare `+` admits a value no address line can hold.
     hausnummer: str = Field(pattern=HAUSNUMMER_PATTERN, max_length=ADDRESS_HAUSNUMMER_MAX_LENGTH)
+    # Both bounds published beside the pattern, so a form's box holds the postcode's length from the contract.
+    plz: str = Field(pattern=PLZ_PATTERN, min_length=ADDRESS_PLZ_LENGTH, max_length=ADDRESS_PLZ_LENGTH)

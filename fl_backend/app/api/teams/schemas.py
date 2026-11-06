@@ -747,6 +747,7 @@ class FLTeamsAdminRow(BaseReadModel):
     name: str
     shorthand: str
     gruppe: FLGruppenNames | None
+    trikot_farbe: FLTrikotFarbe | None
     # Counted per read off the row's seats, never stored.
     seats_filled: int = Field(ge=0)
     seats_confirmed: int = Field(ge=0)
@@ -795,6 +796,8 @@ class FLTeamSaisonFacts(BaseReadModel):
     start_date: CustomDateString
     # `app/api/saisons/services.py :: has_started`, which an exit is refused before.
     begun: bool
+    # The registration window's end, the whole of a link's expiry; null for a season storing no window.
+    registrierung_end: CustomOptionalDateString
 
 
 class FLTeamSaisonAdminResponse(BaseAPIResponse):

@@ -7,7 +7,7 @@ import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-compone
 import { Form, FormContext } from "react-aria-components/Form";
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
 
-import { COPY } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
@@ -17,7 +17,6 @@ import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
-import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
@@ -174,13 +173,13 @@ function ActForm({
   label,
   action,
   close,
+  carry = {},
+  lead,
+  tone = "primary",
   children,
-}: {
-  title: Copy;
+}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "tone" | "children"> & {
   label: Copy;
-  action: (formData: FormData) => Promise<ActionAnswer>;
   close: () => void;
-  children: ReactNode;
 }) {
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
@@ -210,7 +209,9 @@ function ActForm({
           event.preventDefault();
           // React's submit event bubbles through the portal to the outer form, whose save would run too.
           event.stopPropagation();
-          submit(new FormData(event.currentTarget));
+          const formData = new FormData(event.currentTarget);
+          for (const [name, value] of Object.entries(carry)) formData.set(name, value);
+          submit(formData);
         }}>
         <Heading
           slot="title"
@@ -218,6 +219,7 @@ function ActForm({
           className="text-xl font-semibold">
           {title}
         </Heading>
+        {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
         <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>
           <StatusLine
@@ -230,7 +232,7 @@ function ActForm({
             onPress={close}
           />
           <Button
-            variant="primary"
+            variant={tone}
             type="submit"
             label={label}
             isBusy={isPending}
@@ -262,7 +264,7 @@ type Opening =
  * noting more than it was asked leaves it open on its note, and a refused one leaves it open with the input kept and
  * the refusal shown.
  */
-export function Dialog({ title, act, trigger, open, action, children }: DialogAct & Opening) {
+export function Dialog({ act, trigger, open, ...form }: DialogAct & Opening) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const label = actLabel(act);
 
@@ -274,12 +276,10 @@ export function Dialog({ title, act, trigger, open, action, children }: DialogAc
       onOpenChange={setOpen}>
       <AriaDialog data-kit-focus>
         <ActForm
-          title={title}
+          {...form}
           label={label}
-          action={action}
-          close={() => setOpen(false)}>
-          {children}
-        </ActForm>
+          close={() => setOpen(false)}
+        />
       </AriaDialog>
     </DialogOverlay>
   );

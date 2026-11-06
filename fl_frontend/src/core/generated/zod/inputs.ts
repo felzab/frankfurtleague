@@ -416,6 +416,9 @@ export const bewerbungenPostBewerbungBodySaisonIdMax = 4;
 export const bewerbungenPostBewerbungBodySchuleOneAddressHausnummerMax = 16;
 
 export const bewerbungenPostBewerbungBodySchuleOneAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const bewerbungenPostBewerbungBodySchuleOneAddressPlzMin = 5;
+export const bewerbungenPostBewerbungBodySchuleOneAddressPlzMax = 5;
+
 export const bewerbungenPostBewerbungBodySchuleOneAddressPlzRegExp = new RegExp("^[0-9]{5}$");
 export const bewerbungenPostBewerbungBodySchuleOneAddressStadtMax = 80;
 
@@ -509,7 +512,11 @@ export const BewerbungenPostBewerbungBody = zod
                 .string()
                 .max(bewerbungenPostBewerbungBodySchuleOneAddressHausnummerMax)
                 .regex(bewerbungenPostBewerbungBodySchuleOneAddressHausnummerRegExp),
-              plz: zod.string().regex(bewerbungenPostBewerbungBodySchuleOneAddressPlzRegExp),
+              plz: zod
+                .string()
+                .min(bewerbungenPostBewerbungBodySchuleOneAddressPlzMin)
+                .max(bewerbungenPostBewerbungBodySchuleOneAddressPlzMax)
+                .regex(bewerbungenPostBewerbungBodySchuleOneAddressPlzRegExp),
               stadt: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressStadtMax),
               stadtteil: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressStadtteilMax),
               strasse: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressStrasseMax),
@@ -3266,6 +3273,9 @@ export const SpielorteGetSpielorteQueryParams = zod.object({
 export const spielortePostSpielortBodyAddressHausnummerMax = 16;
 
 export const spielortePostSpielortBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const spielortePostSpielortBodyAddressPlzMin = 5;
+export const spielortePostSpielortBodyAddressPlzMax = 5;
+
 export const spielortePostSpielortBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
 export const spielortePostSpielortBodyAddressStadtMax = 80;
 
@@ -3280,7 +3290,11 @@ export const spielortePostSpielortBodyNameMax = 120;
 export const SpielortePostSpielortBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(spielortePostSpielortBodyAddressHausnummerMax).regex(spielortePostSpielortBodyAddressHausnummerRegExp),
-    plz: zod.string().regex(spielortePostSpielortBodyAddressPlzRegExp),
+    plz: zod
+      .string()
+      .min(spielortePostSpielortBodyAddressPlzMin)
+      .max(spielortePostSpielortBodyAddressPlzMax)
+      .regex(spielortePostSpielortBodyAddressPlzRegExp),
     stadt: zod.string().min(1).max(spielortePostSpielortBodyAddressStadtMax),
     stadtteil: zod.string().max(spielortePostSpielortBodyAddressStadtteilMax),
     strasse: zod.string().min(1).max(spielortePostSpielortBodyAddressStrasseMax),
@@ -3332,6 +3346,9 @@ export const SpielortePatchSpielortParams = zod.object({
 export const spielortePatchSpielortBodyAddressHausnummerMax = 16;
 
 export const spielortePatchSpielortBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const spielortePatchSpielortBodyAddressPlzMin = 5;
+export const spielortePatchSpielortBodyAddressPlzMax = 5;
+
 export const spielortePatchSpielortBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
 export const spielortePatchSpielortBodyAddressStadtMax = 80;
 
@@ -3348,7 +3365,11 @@ export const spielortePatchSpielortBodyVersionMin = 0;
 export const SpielortePatchSpielortBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(spielortePatchSpielortBodyAddressHausnummerMax).regex(spielortePatchSpielortBodyAddressHausnummerRegExp),
-    plz: zod.string().regex(spielortePatchSpielortBodyAddressPlzRegExp),
+    plz: zod
+      .string()
+      .min(spielortePatchSpielortBodyAddressPlzMin)
+      .max(spielortePatchSpielortBodyAddressPlzMax)
+      .regex(spielortePatchSpielortBodyAddressPlzRegExp),
     stadt: zod.string().min(1).max(spielortePatchSpielortBodyAddressStadtMax),
     stadtteil: zod.string().max(spielortePatchSpielortBodyAddressStadtteilMax),
     strasse: zod.string().min(1).max(spielortePatchSpielortBodyAddressStrasseMax),
@@ -3452,6 +3473,9 @@ export const SpieltageGetSpieltagAdminParams = zod.object({
 export const teamsPostTeamBodyAddressHausnummerMax = 16;
 
 export const teamsPostTeamBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPostTeamBodyAddressPlzMin = 5;
+export const teamsPostTeamBodyAddressPlzMax = 5;
+
 export const teamsPostTeamBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
 export const teamsPostTeamBodyAddressStadtMax = 80;
 
@@ -3473,7 +3497,7 @@ export const teamsPostTeamBodyWebsiteUrlOneMax = 300;
 export const TeamsPostTeamBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(teamsPostTeamBodyAddressHausnummerMax).regex(teamsPostTeamBodyAddressHausnummerRegExp),
-    plz: zod.string().regex(teamsPostTeamBodyAddressPlzRegExp),
+    plz: zod.string().min(teamsPostTeamBodyAddressPlzMin).max(teamsPostTeamBodyAddressPlzMax).regex(teamsPostTeamBodyAddressPlzRegExp),
     stadt: zod.string().min(1).max(teamsPostTeamBodyAddressStadtMax),
     stadtteil: zod.string().max(teamsPostTeamBodyAddressStadtteilMax),
     strasse: zod.string().min(1).max(teamsPostTeamBodyAddressStrasseMax),
@@ -3520,6 +3544,9 @@ export const teamsPostTeamEntryBodyClubOneTeamIdRegExp = new RegExp("^[0-9a-fA-F
 export const teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax = 16;
 
 export const teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPostTeamEntryBodyClubTwoTeamAddressPlzMin = 5;
+export const teamsPostTeamEntryBodyClubTwoTeamAddressPlzMax = 5;
+
 export const teamsPostTeamEntryBodyClubTwoTeamAddressPlzRegExp = new RegExp("^[0-9]{5}$");
 export const teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax = 80;
 
@@ -3556,7 +3583,11 @@ export const TeamsPostTeamEntryBody = zod
                 .string()
                 .max(teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax)
                 .regex(teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerRegExp),
-              plz: zod.string().regex(teamsPostTeamEntryBodyClubTwoTeamAddressPlzRegExp),
+              plz: zod
+                .string()
+                .min(teamsPostTeamEntryBodyClubTwoTeamAddressPlzMin)
+                .max(teamsPostTeamEntryBodyClubTwoTeamAddressPlzMax)
+                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressPlzRegExp),
               stadt: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax),
               stadtteil: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamAddressStadtteilMax),
               strasse: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStrasseMax),
@@ -3660,6 +3691,9 @@ export const TeamsPatchTeamParams = zod.object({
 export const teamsPatchTeamBodyAddressHausnummerMax = 16;
 
 export const teamsPatchTeamBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPatchTeamBodyAddressPlzMin = 5;
+export const teamsPatchTeamBodyAddressPlzMax = 5;
+
 export const teamsPatchTeamBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
 export const teamsPatchTeamBodyAddressStadtMax = 80;
 
@@ -3681,7 +3715,7 @@ export const teamsPatchTeamBodyWebsiteUrlOneMax = 300;
 export const TeamsPatchTeamBody = zod.object({
   address: zod.object({
     hausnummer: zod.string().max(teamsPatchTeamBodyAddressHausnummerMax).regex(teamsPatchTeamBodyAddressHausnummerRegExp),
-    plz: zod.string().regex(teamsPatchTeamBodyAddressPlzRegExp),
+    plz: zod.string().min(teamsPatchTeamBodyAddressPlzMin).max(teamsPatchTeamBodyAddressPlzMax).regex(teamsPatchTeamBodyAddressPlzRegExp),
     stadt: zod.string().min(1).max(teamsPatchTeamBodyAddressStadtMax),
     stadtteil: zod.string().max(teamsPatchTeamBodyAddressStadtteilMax),
     strasse: zod.string().min(1).max(teamsPatchTeamBodyAddressStrasseMax),
@@ -3891,6 +3925,9 @@ export const TeamsPatchTeamSaisonParams = zod.object({
 export const teamsPatchTeamSaisonBodyAddressHausnummerMax = 16;
 
 export const teamsPatchTeamSaisonBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPatchTeamSaisonBodyAddressPlzMin = 5;
+export const teamsPatchTeamSaisonBodyAddressPlzMax = 5;
+
 export const teamsPatchTeamSaisonBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
 export const teamsPatchTeamSaisonBodyAddressStadtMax = 80;
 
@@ -3915,7 +3952,11 @@ export const TeamsPatchTeamSaisonBody = zod
   .object({
     address: zod.object({
       hausnummer: zod.string().max(teamsPatchTeamSaisonBodyAddressHausnummerMax).regex(teamsPatchTeamSaisonBodyAddressHausnummerRegExp),
-      plz: zod.string().regex(teamsPatchTeamSaisonBodyAddressPlzRegExp),
+      plz: zod
+        .string()
+        .min(teamsPatchTeamSaisonBodyAddressPlzMin)
+        .max(teamsPatchTeamSaisonBodyAddressPlzMax)
+        .regex(teamsPatchTeamSaisonBodyAddressPlzRegExp),
       stadt: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressStadtMax),
       stadtteil: zod.string().max(teamsPatchTeamSaisonBodyAddressStadtteilMax),
       strasse: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressStrasseMax),

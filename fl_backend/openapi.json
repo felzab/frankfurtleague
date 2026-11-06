@@ -2751,6 +2751,8 @@
             "type": "string"
           },
           "plz": {
+            "maxLength": 5,
+            "minLength": 5,
             "pattern": "^[0-9]{5}$",
             "title": "Plz",
             "type": "string"
@@ -3189,6 +3191,8 @@
             "type": "string"
           },
           "plz": {
+            "maxLength": 5,
+            "minLength": 5,
             "pattern": "^[0-9]{5}$",
             "title": "Plz",
             "type": "string"
@@ -19294,6 +19298,18 @@
             "title": "Id",
             "type": "string"
           },
+          "registrierung_end": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registrierung End"
+          },
           "start_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
@@ -19307,7 +19323,8 @@
           "id",
           "status",
           "start_date",
-          "begun"
+          "begun",
+          "registrierung_end"
         ],
         "title": "FLTeamSaisonFacts",
         "type": "object"
@@ -19612,6 +19629,16 @@
           "shorthand": {
             "title": "Shorthand",
             "type": "string"
+          },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTrikotFarbe"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -19619,6 +19646,7 @@
           "name",
           "shorthand",
           "gruppe",
+          "trikot_farbe",
           "seats_filled",
           "seats_confirmed",
           "austritt_type",
