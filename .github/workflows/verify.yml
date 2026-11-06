@@ -312,14 +312,19 @@ jobs:
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
       COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
+      # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
+      # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
+      # no other release finds (`scripts/tests/test_image_pins.py`), and no Dependabot ecosystem reads
+      # this string, so a bump is by hand.
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The image holds no Playwright package, so the journeys run from this install.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Install Chromium, WebKit and their system libraries
-        working-directory: fl_frontend
-        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Pull the image holding the browsers
+        run: docker pull "$PLAYWRIGHT_IMAGE"
       - name: Generate the stack's throwaway keys
         # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
         # which the runner's user is not. Nothing is printed.
@@ -352,9 +357,22 @@ jobs:
           docker compose exec -T backend python -m app.readback
       - name: Start the stack
         run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
+      # One step in the image, never a job-level `container:`: that job's steps would hold no docker to
+      # raise the stack with, and its `options` refuse `--network`. The runner's network, because the
+      # journeys' origin is `localhost`, the passkeys' relying party. The runner's user, so the mail
+      # sink and the edge log read as they read on the runner, and the report steps read what the run
+      # writes. The checkout's own path, because the install's links are absolute and the `github`
+      # reporter's annotations name files relative to it. The install's own launcher, because the
+      # image holds no pnpm; it runs under the Node `devEngines` pins rather than the image's.
       - name: Run the journeys
-        working-directory: fl_frontend
-        run: pnpm run e2e
+        run: |
+          docker run --rm --init --ipc=host --network=host \
+            --user "$(id -u):$(id -g)" \
+            --volume "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+            --workdir "${GITHUB_WORKSPACE}/fl_frontend" \
+            --env CI --env GITHUB_WORKSPACE \
+            "$PLAYWRIGHT_IMAGE" \
+            node_modules/.bin/playwright test
       - name: Keep the report of a failed run
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

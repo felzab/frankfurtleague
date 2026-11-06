@@ -29,6 +29,11 @@ services:
     # The mail sink inside `.tmp-e2e/`, so the journeys read this stack's codes and never the local stack's.
     volumes: !override
       - ./.tmp-e2e/mail:/app/.tmp-mail
+    # Cloudflare's address refuses at once inside this container, so a journey's bot check contacts no
+    # third party and passes as `fl_frontend/src/core/turnstile.ts :: turnstileRefusal` passes a
+    # submission while Cloudflare is unreachable.
+    extra_hosts:
+      - challenges.cloudflare.com=127.0.0.1
 
   backend:
     # Named for the same reason as the frontend's.

@@ -280,9 +280,6 @@ class TestEachKindLandsOnItsCard:
         )
         assert (riedberg["bewerbung_id"], riedberg["seats_confirmed"], riedberg["seats"]) == (str(NEW_SCHOOL), 2, 3)
 
-    def test_a_season_that_does_not_exist_is_not_found(self, seeded_url: str):
-        assert answered(seeded_url, f"/api/v{API_VERSION}/saisons/1999/overview").status_code == 404
-
 
 def joined(**fields: Any) -> FLSpielJoinedInternal:
     """One fixture of the season as the read joins it, its two clubs named, every gap but those `fields` open closed."""

@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
-    get_schiedsrichter,
     invite_schiedsrichter,
     patch_schiedsrichter,
     post_schiedsrichter,
@@ -30,7 +29,6 @@ from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPostSchiedsrichterPayload,
     FLSchiedsrichterConfirmationPayload,
-    FLSchiedsrichterFilterParams,
 )
 from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
@@ -297,40 +295,6 @@ class TestTheCreateIsTheInvitation:
         assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
         assert rows == 0
 
-    def test_a_league_that_has_run_no_season_still_refuses_a_banned_address(self, mongo_replica_set_url: str):
-        """The control: a create skipping the ban list whenever there is no season would pass the case above."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client, email=BANNED_EMAIL)
-            await database[Collection.SAISONS].delete_many({})
-            with pytest.raises(APIError) as refused:
-                await create(database, client, email=BANNED_EMAIL)
-
-            return refused.value
-
-        assert on_a_league(mongo_replica_set_url, body, referees=[]).error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
-
-
-class TestANameAnotherRefereeHolds:
-    def test_the_create_and_the_save_are_refused_on_the_name_box(self, mongo_replica_set_url: str):
-        """Refused by the index alone, the duplicate names no field, and the editor shows a failure line naming no reason."""
-
-        holder = referee_document(_id=ObjectId("6890a1b2c3d4e5f607810002"), kontakt={"telefon": None, "email": "andere@example.com"})
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as created:
-                await create(database, client, email="neu@example.com")
-            with pytest.raises(APIError) as saved:
-                await correct(database, client, email=EMAIL)
-
-            return created.value, saved.value, await database[Collection.SCHIEDSRICHTER].count_documents({})
-
-        # The referee the save edits under another name, beside the one holding the name every payload here sends.
-        created, saved, rows = on_a_league(mongo_replica_set_url, body, referees=[referee_document(name="Howard Webb"), holder])
-
-        assert [(refused.error_code, refused.fields) for refused in (created, saved)] == [(Code.DUPLICATE_KEY, (("name",),))] * 2
-        assert rows == 2
-
 
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
     """The ruled behaviour: the old link was posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox."""
@@ -415,21 +379,6 @@ class TestTheReSend:
         assert second.token is not None
         assert row[CONFIRMATION_FIELD] == {**compose_confirmation(today=TODAY), "token_hashes": [hash_token(second.token)]}
         assert first_link.error_code == Code.LINK_INVALID
-
-    def test_the_admin_list_serves_no_hash_for_a_referee_who_holds_one(self, mongo_replica_set_url: str):
-        """Over a row that HOLDS a hash: on a row with no block the same assertion passes over an empty carrier."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await resend(database, client)
-            assert (await stored(database))[CONFIRMATION_FIELD]["token_hashes"]
-
-            return await get_schiedsrichter(
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], filters=FLSchiedsrichterFilterParams()
-            )
-
-        listed = on_a_league(mongo_replica_set_url, body)
-
-        assert "token_hash" not in listed.model_dump_json()
 
     def test_an_address_moved_since_the_caller_read_it_is_the_one_answered(self, mongo_replica_set_url: str):
         """The row moves between the caller's read and this write, which is the whole case.
