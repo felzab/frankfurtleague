@@ -21,6 +21,8 @@ DATABASE_NAME = worker_database("fl_spieltage_write_test")
 
 SAISON_ID = "2026"
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607300001")
+# The Finale's row, seeded only where a second phase's position is what a test turns on.
+FINALE_OID = ObjectId("6890a1b2c3d4e5f607300003")
 # The later positions of the seeded matchday's own phase, for the tests judging a pair of them.
 SECOND_OID = ObjectId("6890a1b2c3d4e5f607300004")
 THIRD_OID = ObjectId("6890a1b2c3d4e5f607300005")
@@ -189,12 +191,14 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         position: int,
         beginn: str | None,
         ende: str = NEIGHBOUR_ENDE,
+        phase: str = "gruppenphase",
         saison_id: str = SAISON_ID,
     ) -> None:
         await database.spieltage.insert_one(
             spieltag_document(
                 _id=oid,
                 position=position,
+                saison_phase=phase,
                 saison_id=saison_id,
                 beginn=beginn,
                 ende=None if beginn is None else ende,
@@ -232,6 +236,21 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         refusal = on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
+
+    def test_another_phases_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
+        """Positions restart in every phase, so only a query keyed on the phase keeps a Finale out of the Gruppenphase's order.
+
+        The key gone, a knockout row tying on position can stand in for the real neighbour and let a matchday out of order through.
+        """
+
+        async def body(database: AsyncDatabase) -> Any:
+            await self._with_a_matchday(database, oid=FINALE_OID, position=2, beginn=NEIGHBOUR_BEGINN, phase="finale")
+
+            return await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
+
+        response = on_a_database(mongo_replica_set_url, body)
+
+        assert response["beginn"] == AFTER_THE_NEIGHBOUR
 
     def test_an_undated_neighbour_is_stepped_over_for_the_next_dated_one(self, mongo_replica_set_url: str):
         """A drawn matchday is undated, so stopping at the adjacent position would go blind for most of a phase being dated."""
