@@ -254,7 +254,7 @@ function settledVerdicts<TSchema extends string>(
 }
 
 /**
- * What an editor whose save can cause a consequence hands the gate. `confirm` holds the list for `ConfirmSaveModal`,
+ * What an editor whose save can cause a consequence hands the gate. `confirm` holds the list for the save's question,
  * whose own confirm runs the write directly: the draft behind that list has already been judged.
  */
 export type SubmitConfirmation = { banners: readonly RailBanner[]; confirm: (blocking: BlockingBanners) => void };
