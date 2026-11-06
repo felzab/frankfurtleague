@@ -15,8 +15,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
@@ -55,6 +53,11 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 type FLBewerbungStatus = Literal["submitted", "accepted", "declined"]
 
 
+# Where one seat of an application stands, as its link and the triage both say it. `expired` is a spent link, its deadline
+# passed or its application decided, said one way.
+FLBewerbungSeatState = Literal["valid", "confirmed", "declined", "expired"]
+
+
 class _FLBewerbungSitzStand(BaseReadModel):
     """One seat's confirmation bookkeeping, as the record and the read share it."""
 
@@ -75,8 +78,8 @@ class FLBewerbungConfirmation(_FLBewerbungSitzStand):
     # What became of the last mail owed this seat, as the read joins it from the Postausgang: no seat stores it, and null
     # where none was ever owed.
     delivery: FLOutboxStatus | None
-    # Whether `deadline` has passed today, judged on the server's date so a page reads no day of its own.
-    expired: bool
+    # Judged on the server's date, so a page reads no day of its own and derives no state.
+    state: FLBewerbungSeatState
 
 
 class FLBewerbungConfirmations(BaseModel):
@@ -188,16 +191,6 @@ class FLBewerbungRecord(FLBewerbung):
     idempotency_fingerprint: str | None = None
 
 
-class FLBewerbungenAdminFilterParams(BaseModel):
-    """Which season's applications the list reads, whole: its page narrows them, its chips and the bulk's rows counting over all."""
-
-    saison_id: str
-    # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
-    # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the
-    # ceiling rather than "everything".
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-
-
 class FLAcceptBewerbungPayload(BaseModel):
     """Which group the school enters, and the kit colour the league assigns it; the season is the application's own."""
 
@@ -244,6 +237,8 @@ class FLBewerbungEntryOffer(BaseReadModel):
     status: FLSaisonStatus
     # The groups the season's rules offer, in their order.
     gruppen: list[FLBewerbungGruppeOffer]
+    # The kit colours another row of the season holds, in the palette's order, which the dialog and the bulk card disable.
+    taken: list[FLTrikotFarbe]
 
 
 class FLBewerbungListRow(BaseReadModel):
@@ -277,7 +272,7 @@ class FLBewerbungenAdminListResponse(BaseAPIResponse):
     saison: FLBewerbungEntryOffer
     bewerbungen: list[FLBewerbungListRow]
     # Whether every row was served, which an administrator must be able to trust: this is the one list an anonymous
-    # party writes rows into.
+    # party writes rows into. A cut drops unconfirmed rows alone, the oldest first.
     complete: bool
 
 
@@ -513,17 +508,20 @@ class FLBewerbungSchuleOption(BaseModel):
 FLBewerbungSchuleOptionListAdapter = TypeAdapter(list[FLBewerbungSchuleOption])
 
 
-class FLBewerbungFormWindow(BaseModel):
-    """A season's application window as the form's page judges it."""
+# Where a season's window stands today: taking applications, opening on its `start`, shut, or over with its season.
+# `closed` folds a pause into a window past its end, which `app/api/bewerbungen/services.py :: find_window_refusal` tells no
+# anonymous visitor apart, and a pause names no day it lifts. `ended` serves nothing the rule withholds: `future` and
+# `active` answer alike, and a finished season reads as over whatever dates it stores.
+FLBewerbungWindowState = Literal["running", "upcoming", "closed", "ended"]
 
+
+class FLBewerbungFormWindow(BaseModel):
+    """A season's application window as the form's page shows it."""
+
+    # The day an `upcoming` window opens.
     start: CustomDateString
-    end: CustomDateString
-    # The whole judgement, computed server-side: a season not yet ended, today inside the span, the window not paused.
-    # Served rather than left to the client, which would re-derive it against a clock this server does not share.
-    running: bool
-    # A boolean rather than the status: `future` and `active` answer alike, so this serves nothing
-    # the rule withholds, and a finished season still reads as over whatever dates it stores.
-    saison_ended: bool
+    # The whole judgement, computed server-side, so the page reads no day of its own against a clock this server does not share.
+    state: FLBewerbungWindowState
 
 
 class FLBewerbungFormResponse(BaseAPIResponse):
@@ -531,7 +529,7 @@ class FLBewerbungFormResponse(BaseAPIResponse):
 
     # Null where the season records no window.
     window: FLBewerbungFormWindow | None
-    # Empty unless `running`: a page showing no form asks for neither, and a season not taking applications tells this
+    # Empty unless the window runs: a page showing no form asks for neither, and a season not taking applications tells this
     # tier nothing of its colours.
     schulen: list[FLBewerbungSchuleOption]
     # Taken, and by nobody this answer names.
@@ -541,14 +539,12 @@ class FLBewerbungFormResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
-# What a reopened link shows. `expired` is a spent link, its deadline passed or its application
-# decided, said one way; `barred` ranks first.
+# What a reopened link shows: where its seat stands, with `barred` ranking first.
 # `saison_past`, a season row's alone, takes a Widerspruch and no consent (`kontakt_saison_past`).
-FLBewerbungEinwilligungZustand = Literal["valid", "confirmed", "declined", "expired", "saison_past", "barred"]
+FLBewerbungEinwilligungZustand = Literal[FLBewerbungSeatState, "saison_past", "barred"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
-# the person on. The page picks its wording by it, and the route handler mails an application's
-# messages for the first alone.
+# the person on. The page picks its wording by it.
 FLEinwilligungQuelle = Literal["bewerbung", "saison"]
 
 # What an answer on either kind of link did.
@@ -580,7 +576,7 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     # The day this seat's link stops working, which the page's text names; null on a seat holding none.
     deadline: CustomOptionalDateString
     # The day the person answered, which a reopened link says; null while they have not.
-    answered_on: CustomOptionalDateString
+    answered_at: CustomOptionalDateString
     # The age from which the page offers the media switch, `media_age`'s floor.
     media_minimum_age: int = Field(gt=0)
 
@@ -621,7 +617,7 @@ FLBewerbungEinwilligungAnswerPayload = Annotated[FLBewerbungEinwilligungGiven | 
 
 
 class FLBewerbungEinwilligungAnswerResponse(BaseAPIResponse):
-    """What the answer did; a Widerspruch's notice to the submitter is owed in the same write."""
+    """What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write."""
 
     quelle: Literal["bewerbung"] = "bewerbung"
     ergebnis: FLEinwilligungErgebnis
@@ -692,7 +688,7 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     # decision.
     erased_without_decision: int
     kontakt_blocks_emptied: int
-    # A season row's seats past their own day unconfirmed, of a season that has not ended.
+    # A season row's seats past their own day unconfirmed, whatever the season's status.
     kontakt_seats_emptied: int
     redacted_action_log: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.

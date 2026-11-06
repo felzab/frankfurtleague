@@ -475,7 +475,7 @@ where the row carries the stamp the expiry reads.\
 ### `Dublette` · `duplicate` — two open applications the triage marks as colliding
 
 **Is:** two or more `submitted` applications to one season that collide on a single key, marked in the list for an administrator to choose between. Nothing stores one: the read that serves the list marks every row whose key collides.\
-**In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungListRow.duplicate` is the wire field, composed by `fl_backend/app/api/bewerbungen/services.py :: bewerbung_list_row` from `:: dubletten_schluessel_of` over `:: build_dubletten_pipeline`; the list's page shows `COPY.admin.bewerbung.teamDouble` in the status chip's place.\
+**In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungListRow.duplicate` is the wire field, composed by `fl_backend/app/api/bewerbungen/services.py :: bewerbung_list_row` from `:: build_dubletten_pipeline`; the list's page shows `COPY.admin.bewerbung.teamDouble` in the status chip's place.\
 **Trap:** the key is the season and the club id, and only a picked club has one, so two new schools are never a Dublette, whatever they call themselves, and one club applying in two seasons is two applications rather than one. It is SHOWN and never refused — no write path rejects a colliding application. And only `submitted` counts at both ends, a decided application naming the club neither making a collision nor being marked by one, which is why the row reads its own status rather than the key's.\
 **See:** the `Bewerbung` entry above for the application this hangs off.
 

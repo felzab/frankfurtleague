@@ -10,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
+    FLBewerbungWindowState,
     age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
@@ -24,7 +25,7 @@ from app.api.outbox.schemas import (
 )
 from app.api.outbox.services import OwedMail
 from app.api.sperrliste.services import withheld_actor
-from app.api.teams.schemas import FLPostTeamPayload
+from app.api.teams.schemas import FLPostTeamPayload, normalise_phone
 from app.core.codes import Code
 from app.core.collections import Collection as Sammlung
 from app.core.crud import build_sort
@@ -167,6 +168,18 @@ def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: st
         return False
 
     return str(bewerbung["start"]) <= today <= str(bewerbung["end"])
+
+
+def form_window_state(*, saison_status: Any, bewerbung: Mapping[str, Any], today: str) -> FLBewerbungWindowState:
+    """Where this stored window stands today, as the form's page says it: a pause opens on no day, so its `start` is never its promise."""
+
+    if season_has_ended(saison_status=saison_status):
+        return "ended"
+
+    if saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
+        return "running"
+
+    return "upcoming" if bewerbung["open"] and today < str(bewerbung["start"]) else "closed"
 
 
 # `season_has_ended`'s negation for a read that narrows in the query. Every write stores a season's status, which is why
@@ -749,7 +762,7 @@ def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRol
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
 
 
-def seat_answered_on(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
+def seat_answered_at(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
     """The day this seat's person answered, a stamp on the slot or a decline beside it, or `None`."""
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
@@ -869,6 +882,12 @@ def build_eigene_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
     return {"status": "submitted", **rows_seating(*identifiers)}
 
 
+# The open applications of one season an address may stand on before a press naming it mails nobody. Each press owes the
+# address a mail and each open application a reminder and a notice, so this is the ceiling on what a stranger can send one
+# mailbox past the bot check; two schools sharing a person, or a school applying twice, stay under it.
+OPEN_APPLICATIONS_PER_ADDRESS: Final = 3
+
+
 def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
     """Whether a decline of these seats is told to an Ansprechperson who still stands, in a notice naming the deletion day."""
 
@@ -893,15 +912,31 @@ def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool)
     return {"$set": written, "$unset": {"idempotency_fingerprint": ""}}
 
 
-def compose_erneut_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+def _fresh_links(*, seats: Sequence[str], today: str) -> dict[str, Any]:
+    # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
+    return {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}
+
+
+def _moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str], today: str) -> bool:
+    """Whether fresh links on these seats move `deletion_day`, the earliest day and not always the declining seat's, which a notice named."""
+
+    fresh = {**(confirmations if isinstance(confirmations, Mapping) else {}), **{seat: compose_bestaetigung(today=today) for seat in seats}}
+    unanswered = {**(kontakte if isinstance(kontakte, Mapping) else {}), **dict.fromkeys(seats)}
+
+    return deletion_day(kontakte=unanswered, confirmations=fresh) != deletion_day(kontakte=kontakte, confirmations=confirmations)
+
+
+def compose_erneut_update(*, seats: Sequence[str], today: str, kontakte: Any, confirmations: Any) -> Mapping[str, Any]:
     """A re-send: one fresh entry per seat this person holds, restarting those seats' 14 days and no other's.
 
     Both seats one person holds, as the confirmation writes both: one entry left standing would keep
     the replaced address's link alive through `paired_seat`.
     """
 
-    # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
-    return {"$set": {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}}
+    moved = _moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats, today=today)
+
+    # A day that stands keeps its announcement, since a second notice would announce one deletion twice; a moved one is told afresh.
+    return {"$set": {**_fresh_links(seats=seats, today=today), **({"erasure_announced_at": None} if moved else {})}}
 
 
 def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
@@ -921,7 +956,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
 
 
 def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names.
+    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names, or it stands on too many open applications.
 
     Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
     """
@@ -930,7 +965,8 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
         return None
 
     # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
-    # list, and 403 because what fails is who is applying rather than the season's state.
+    # list, and 403 because what fails is who is applying rather than the season's state. One code for
+    # the ban and the ceiling, since a code of its own would tell a prober which of the two answered.
     return WriteRefusal(
         error_code=Code.BEWERBUNG_ADDRESS_BARRED,
         status=HTTPStatus.FORBIDDEN,
@@ -970,27 +1006,52 @@ def find_einwilligung_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: str) -> WriteRefusal | None:
-    """Why this address cannot be the seat's, or `None`.
+def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> WriteRefusal | None:
+    """Why this submission's block holds two people reachable alike, or `None`: every box repeating an earlier person's address or number.
 
-    The submission's own distinctness rule asked again -- two DIFFERENT people are not reachable at
-    one mailbox -- because a seat write is the one path that could put them there afterwards.
+    A body's fault, judged here rather than on the payload: a model's rule can name the block alone, and the form marks
+    the box. The seat the Trainer also holds is that person and is compared with nobody; the mark lands on the later
+    seat, the box the applicant reaches next and the one to change.
+    """
+
+    addresses: set[str] = set()
+    numbers: set[str] = set()
+    boxes: list[tuple[str, ...]] = []
+
+    for seat in KONTAKT_ROLLEN:
+        if seat == kontakte["trainer_is_also"]:
+            continue
+        # On the sign-in fold: two seats one sign-in reaches are one identity.
+        address, number = sign_in_identifier(kontakte[seat]["email"]), normalise_phone(kontakte[seat]["phone"])
+        boxes += [("kontakte", seat, field) for field, seen in (("email", address in addresses), ("phone", number in numbers)) if seen]
+        addresses.add(address)
+        numbers.add(number)
+
+    if boxes:
+        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_REPEATED, status=HTTPStatus.UNPROCESSABLE_CONTENT, fields=tuple(boxes))
+
+    return None
+
+
+def find_seat_contact_refusal(*, kontakte: Any, seats: Sequence[str], email: str, phone: str) -> WriteRefusal | None:
+    """Why this address or this number cannot be the seat's, or `None`.
+
+    `find_repeated_contact_refusal`'s rule asked again -- two DIFFERENT people are not reachable alike -- because a seat
+    write is the one path that could put them there afterwards.
     """
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     # The seats this write reaches are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
-    others = [slots.get(seat) for seat in KONTAKT_ROLLEN if seat not in seats]
-    # On the sign-in fold, as `FLBewerbungKontaktePayload` compares it: a third spelling of "one
-    # mailbox" here would refuse where the form accepted, or the reverse.
-    held = {sign_in_identifier(str(slot.get("email") or "")) for slot in others if isinstance(slot, Mapping)}
+    others = [slot for seat in KONTAKT_ROLLEN if seat not in seats and isinstance(slot := slots.get(seat), Mapping)]
 
-    if sign_in_identifier(email) in held:
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN,
-            status=HTTPStatus.CONFLICT,
-            fields=(("email",),),
-        )
+    # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
+    # form accepted, or the reverse.
+    if sign_in_identifier(email) in {sign_in_identifier(str(slot.get("email") or "")) for slot in others}:
+        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT, fields=(("email",),))
+
+    if normalise_phone(phone) in {normalise_phone(str(slot.get("phone") or "")) for slot in others}:
+        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("phone",),))
 
     return None
 
@@ -1030,16 +1091,15 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
     return seat_named(zugleich) if seat == "trainer" else ("trainer" if seat == zugleich else None)
 
 
-def compose_kontakt_seat_update(*, seats: Sequence[str], person: Mapping[str, Any], today: str, confirmations: Any) -> Mapping[str, Any]:
+def compose_kontakt_seat_update(
+    *, seats: Sequence[str], person: Mapping[str, Any], today: str, kontakte: Any, confirmations: Any
+) -> Mapping[str, Any]:
     """The person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
-    erneut = compose_erneut_update(seats=seats, today=today)
-    # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced.
-    announced = (
-        {}
-        if any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
-        else {"erasure_announced_at": None}
-    )
+    # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced, on the day it named.
+    stands = any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
+    moved = _moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats, today=today)
+    announced = {} if stands and not moved else {"erasure_announced_at": None}
     # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
     einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
@@ -1048,7 +1108,7 @@ def compose_kontakt_seat_update(*, seats: Sequence[str], person: Mapping[str, An
 
     # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
     # `$set` under a null is `PathNotViable`, which aborts the transaction.
-    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"], **announced}}
+    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **_fresh_links(seats=seats, today=today), **announced}}
 
 
 # --- The retention SWEEP. Seven clocks, each a pure predicate over one document and `today`, so
@@ -1174,7 +1234,10 @@ def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[st
 
 
 def deletion_day(*, kontakte: Any, confirmations: Any) -> str | None:
-    """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names."""
+    """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names.
+
+    A write moving it takes the notice's stamp back (`compose_erneut_update`), so a stamp means the named day still holds.
+    """
 
     days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in ausstehende_seats(kontakte=kontakte)]
 
@@ -1605,9 +1668,9 @@ def seats_confirmed_of(*, kontakte: Any) -> int:
 
 
 def bewerbung_list_row(
-    *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Collection[str]
+    *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Collection[Any]
 ) -> dict[str, Any]:
-    """One stored application as `FLBewerbungListRow` serves it, `doubled` being `dubletten_schluessel_of`'s keys."""
+    """One stored application as `FLBewerbungListRow` serves it, `doubled` being the clubs `build_dubletten_pipeline` found."""
 
     return {
         "id": row["_id"],
@@ -1623,21 +1686,11 @@ def bewerbung_list_row(
         "wunschgegner": row.get("wunschgegner"),
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
         "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
-        "duplicate": row["status"] == "submitted" and f"{row.get('saison_id')} team {row.get('team_id')}" in doubled,
+        "duplicate": row["status"] == "submitted" and row.get("team_id") in doubled,
     }
 
 
-def build_bewerbungen_status_term(status: Sequence[str] | None) -> dict[str, Any]:
-    """`$in` rather than an equality, so a facet that offers all three has a request expressing any two of them.
-
-    The leading key of `app/core/constraints.py :: SUPPORT_INDEXES`' `bewerbungen_status_queue`
-    serves it either way.
-    """
-
-    return {} if status is None else {"status": {"$in": list(status)}}
-
-
-def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
+def build_bewerbungen_sort(*, order: str) -> list[tuple[str, int]]:
     """The triage queue's order, tie-broken by `_id`."""
 
     # `_id` breaks the tie in `order`'s OWN direction, so same-day rows read the way the queue does
@@ -1645,30 +1698,32 @@ def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]
     # match neither and scan the whole archive.
     direction = 1 if order == "asc" else -1
 
-    return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))
+    return build_sort(sort_by="submitted_at", order=order, chain=(("_id", direction),))
 
 
-# One club applying twice for one season. A new school names no club, so two of them never collide: the Dublette
-# is a display aid, and acceptance's unique code is what holds two clubs apart.
-DUBLETTEN_TALLY: Final[Sequence[Mapping[str, Any]]] = (
-    {"$group": {"_id": {"saison_id": "$saison_id", "team_id": "$team_id"}, "count": {"$sum": 1}}},
-    {"$match": {"count": {"$gt": 1}}},
-)
+def build_confirmed_seat_filter(*, saison_id: str) -> Mapping[str, Any]:
+    """Every application of the season with a confirmed seat, the list's way back past the newest rows a flood fills.
+
+    A flood's seats never confirm, since each takes a mailed link and its person's birthdate.
+    """
+
+    return {"saison_id": saison_id, "$or": [{f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN]}
 
 
-def build_dubletten_pipeline(beyond_status: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    """Every open application the request's other terms leave, grouped and never bounded."""
+def build_dubletten_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """Every club more than one open application of the season names, what `bewerbung_list_row` marks.
 
-    # `submitted` whatever status the page was narrowed to, and no `$limit`: the collision is a fact
-    # about the queue, and a pass stopping where the page stops leaves a split pair unseen at both ends.
-    return [{"$match": {**beyond_status, "status": "submitted", "team_id": {"$ne": None}}}, *DUBLETTEN_TALLY]
+    A new school names no club, so two of them never collide: the Dublette is a display aid, and acceptance's unique
+    code is what holds two clubs apart.
+    """
 
-
-def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Which keys more than one open application holds, composed as `bewerbung_list_row` composes a served row's."""
-
-    # Sorted, so an unchanged queue answers the same list twice.
-    return sorted(f"{cell['_id']['saison_id']} team {cell['_id']['team_id']}" for cell in cells)
+    # No `$limit`: the collision is a fact about the queue, and a pass stopping where the page stops leaves a split pair
+    # unseen at both ends.
+    return [
+        {"$match": {"saison_id": saison_id, "status": "submitted", "team_id": {"$ne": None}}},
+        {"$group": {"_id": "$team_id", "count": {"$sum": 1}}},
+        {"$match": {"count": {"$gt": 1}}},
+    ]
 
 
 def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
@@ -1711,7 +1766,11 @@ def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str
 
 
 def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus], *, today: str) -> dict[str, Any]:
-    """A stored application with each seat's last mail and whether its link ran out beside its bookkeeping, as every read serves it."""
+    """A stored application with each seat's last mail and its state beside its bookkeeping, as every read serves it.
+
+    The state is `zustand_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
+    No ban is asked: `barred` ranks a link's page, and this page's re-send and seat write judge the list themselves.
+    """
 
     confirmations = row.get("confirmations")
     if not isinstance(confirmations, Mapping):
@@ -1723,7 +1782,7 @@ def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None]
             seat: {
                 **entry,
                 "delivery": seat_lage(row=row, lagen=lagen, seat=seat),
-                "expired": _deadline_passed(deadline=entry.get("deadline"), today=today),
+                "state": zustand_of(bewerbung_raw=row, seat=seat, today=today, barred=False),
             }
             if isinstance(entry, Mapping)
             else entry

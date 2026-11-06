@@ -2,7 +2,7 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, replace
 from http import HTTPStatus
-from typing import Any, Final, NamedTuple, cast
+from typing import Any, Final, NamedTuple
 
 from app.api.bewerbungen.services import days_after, group_seats_by_mailbox, seat_named
 from app.api.outbox.schemas import (
@@ -948,7 +948,7 @@ def kontakt_address(*, kontakte: Any, seat: str) -> str | None:
     return email if isinstance(email, str) and email else None
 
 
-def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
+def link_groups(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) -> list[list[FLKontaktRolle]]:
     """The seats as links: one per seat, a mirrored Trainer sharing the link of the seat it holds too where both are among `seats`.
 
     Two seats one press answers are one thing to do, as one address is one mail
@@ -959,7 +959,7 @@ def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRo
     groups: dict[str, list[FLKontaktRolle]] = {}
     for seat in seats:
         anchor = str(zugleich) if seat == "trainer" and zugleich in seats else seat
-        groups.setdefault(anchor, []).append(cast(FLKontaktRolle, seat))
+        groups.setdefault(anchor, []).append(seat)
 
     return list(groups.values())
 

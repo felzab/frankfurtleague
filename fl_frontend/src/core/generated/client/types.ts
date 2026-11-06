@@ -82,6 +82,9 @@ export const Code = {
   confirmation_age: "confirmation_age",
   bewerbung_kontakte_unconfirmed: "bewerbung_kontakte_unconfirmed",
   bewerbung_kontakt_email_taken: "bewerbung_kontakt_email_taken",
+  bewerbung_kontakt_phone_taken: "bewerbung_kontakt_phone_taken",
+  bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",
+  trikot_farbe_taken: "trikot_farbe_taken",
   bewerbung_key_differing: "bewerbung_key_differing",
   bewerbung_address_barred: "bewerbung_address_barred",
   bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
@@ -1227,6 +1230,15 @@ export interface FLBanData {
   kind: "ban";
 }
 
+export type FLBewerbungConfirmationState = (typeof FLBewerbungConfirmationState)[keyof typeof FLBewerbungConfirmationState];
+
+export const FLBewerbungConfirmationState = {
+  valid: "valid",
+  confirmed: "confirmed",
+  declined: "declined",
+  expired: "expired",
+} as const;
+
 /**
  * One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.
  */
@@ -1235,10 +1247,10 @@ export interface FLBewerbungConfirmation {
   deadline: string;
   declined_at: string | null;
   delivery: FLOutboxStatus | null;
-  expired: boolean;
   reminded_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   sent_at: string;
+  state: FLBewerbungConfirmationState;
 }
 
 /**
@@ -1477,7 +1489,7 @@ export const FLEinwilligungErgebnis = {
 } as const;
 
 /**
- * What the answer did; a Widerspruch's notice to the submitter is owed in the same write.
+ * What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write.
  */
 export interface FLBewerbungEinwilligungAnswerResponse {
   birth_date: string | null;
@@ -1570,7 +1582,7 @@ export const FLKontaktRow = {
  */
 export interface FLBewerbungEinwilligungViewResponse {
   also_rolle: FLKontaktRolle | null;
-  answered_on: string | null;
+  answered_at: string | null;
   deadline: string | null;
   maximum_age: number;
   /** @exclusiveMinimum 0 */
@@ -1614,10 +1626,11 @@ export const FLSaisonStatus = {
 export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
   status: FLSaisonStatus;
+  taken: FLTrikotFarbe[];
 }
 
 /**
- * Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.
+ * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
  */
 export interface FLBewerbungPerson {
   first_name: string | null;
@@ -1626,7 +1639,7 @@ export interface FLBewerbungPerson {
 }
 
 /**
- * The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.
+ * The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.
  */
 export interface FLBewerbungErasureData {
   kind: "bewerbung_erasure";
@@ -1646,16 +1659,22 @@ export interface FLBewerbungSchuleOption {
   name: string;
 }
 
+export type FLBewerbungFormWindowState = (typeof FLBewerbungFormWindowState)[keyof typeof FLBewerbungFormWindowState];
+
+export const FLBewerbungFormWindowState = {
+  running: "running",
+  upcoming: "upcoming",
+  closed: "closed",
+  ended: "ended",
+} as const;
+
 /**
- * A season's application window as the form's page judges it.
+ * A season's application window as the form's page shows it.
  */
 export interface FLBewerbungFormWindow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  end: string;
-  running: boolean;
-  saison_ended: boolean;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start: string;
+  state: FLBewerbungFormWindowState;
 }
 
 /**
@@ -1790,7 +1809,7 @@ export interface FLBewerbungListRow {
 }
 
 /**
- * A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.
+ * A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -1803,7 +1822,7 @@ export interface FLBewerbungObjectionData {
 }
 
 /**
- * The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.
+ * The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer.
  */
 export interface FLBewerbungReceivedData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -6387,8 +6406,6 @@ export const Rule = {
   ergebnis_missing_tore: "ergebnis_missing_tore",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
   grant_wording_stale: "grant_wording_stale",
-  kontakt_email_twice: "kontakt_email_twice",
-  kontakt_phone_twice: "kontakt_phone_twice",
   nichtantreten_with_tore: "nichtantreten_with_tore",
   nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
@@ -6469,11 +6486,6 @@ export type AddressChangeSweepAddressChangeParams = {
 
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
 };
 
 export type IdentitySweepErasureParams = {

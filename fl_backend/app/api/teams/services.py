@@ -1157,8 +1157,8 @@ def compose_seat_block(
 def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktRolle]) -> WriteRefusal | None:
     """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
 
-    Asked of the seats this write leaves, on the sign-in fold and one spelling of a number. The seats it writes are one
-    person, so they are never compared with each other.
+    `app/api/bewerbungen/services.py :: find_repeated_contact_refusal`'s rule, asked of the seats this write leaves. The seats
+    it writes are one person, so they are never compared with each other.
     """
 
     person = kontakte[seats[0]]
@@ -1502,6 +1502,18 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(error_code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT, fields=(("shorthand",),))
+
+
+def find_trikot_farbe_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`trikot_farbe_taken` on the colour: another row of the season holds it, and a season's kit colour is one team's.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(error_code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("trikot_farbe",),))
 
 
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:

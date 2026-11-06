@@ -25,7 +25,6 @@ from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbungEinwilligungAnswerPayload,
-    FLBewerbungenAdminFilterParams,
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
@@ -113,17 +112,17 @@ RULES: Mapping[str, Any] = rules_document(number_of_gruppen=2, teams_per_gruppe=
 SEATED: Final = {"date": "2026-01-15"}
 
 
-def kontaktperson(first_name: str) -> dict[str, Any]:
+def kontaktperson(first_name: str, *, phone: str) -> dict[str, Any]:
     """One of the three people an application is filled in by, in the shape the junction stores them."""
 
-    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone=phone, birth_date="1980-05-04")
 
 
 # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
 KONTAKTE: Mapping[str, Any] = {
-    "trainer": kontaktperson("Wraxlington"),
-    "ansprechperson": kontaktperson("Quillhilde"),
-    "stellvertretung": kontaktperson("Bramblewick"),
+    "trainer": kontaktperson("Wraxlington", phone="+49 69 1111111"),
+    "ansprechperson": kontaktperson("Quillhilde", phone="+49 69 2222222"),
+    "stellvertretung": kontaktperson("Bramblewick", phone="+49 69 3333333"),
     # Null, never a seat name: the three slots hold three people, and the flag is a claim of its own.
     "trainer_is_also": None,
 }
@@ -588,11 +587,30 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
             KONTAKTE[slot]["first_name"],
             confirmed_at="2026-02-10" if stamped else None,
             einwilligung=SEATED,
-            phone="+49 69 1234567",
+            phone=KONTAKTE[slot]["phone"],
             birth_date="1980-05-04" if stamped else None,
         )
 
     return block
+
+
+@pytest.mark.db
+class TestASeasonsColourIsOneTeams:
+    """Two teams in one kit colour is a fixture nobody can tell apart, and the row's write is what would store it."""
+
+    def test_a_colour_another_row_holds_is_refused_on_its_box_and_no_colour_stays_free(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_one(
+                saison_team_document(SAISON_ID, ObjectId(), "Fremd", "FRX", gruppe="B", trikot_farbe="blau")
+            )
+            with pytest.raises(APIError) as refused:
+                await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND, trikot_farbe="blau")
+            entered = await database[Collection.SAISON_TEAMS].count_documents({})
+            await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND, trikot_farbe=None)
+
+            return refused.value.error_code, refused.value.fields, entered, await database[Collection.SAISON_TEAMS].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 1, 2)
 
 
 @pytest.mark.db
@@ -1124,7 +1142,7 @@ class TestTheQueueTheTriageIsWorkedDown:
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 teams_collection=database[Collection.TEAMS],
                 saisons_collection=database[Collection.SAISONS],
-                filters=FLBewerbungenAdminFilterParams(saison_id=SAISON_ID),
+                saison_id=SAISON_ID,
             )
 
             return [bewerbung.id for bewerbung in response.bewerbungen], {bewerbung.submitted_at for bewerbung in response.bewerbungen}
@@ -1436,12 +1454,13 @@ class TestCorrectingOneContactAddress:
         assert before is not None and before.delivery is not None and before.delivery.state == "undeliverable"
         assert after is not None and (after.state, after.delivery) == ("open", None)
 
-    def test_one_person_holding_two_seats_is_corrected_on_both(self, mongo_replica_set_url: str):
-        """A seat left on the old address keeps a live link to a mailbox the league has stopped using."""
+    @pytest.mark.parametrize("pressed", ["ansprechperson", "trainer"])
+    def test_one_person_holding_two_seats_is_corrected_on_both(self, mongo_replica_set_url: str, pressed: str):
+        """A seat left on the old address keeps a live link to a mailbox the league has stopped using, whichever seat the page posts."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client, mirrored=True)
-            await correct(database, client, "ansprechperson")
+            await correct(database, client, pressed)
 
             return await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
@@ -1488,19 +1507,27 @@ class TestCorrectingOneContactAddress:
         assert rows[-1]["operation"] == "patch_one"
         assert rows[-1]["before"]["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
 
-    def test_an_address_another_contact_person_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize(("field", "taken"), [("email", Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN), ("phone", Code.BEWERBUNG_KONTAKT_PHONE_TAKEN)])
+    def test_a_detail_another_contact_person_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, field: str, taken: Code):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+            kept = {key: before["kontakte"]["ansprechperson"][key] for key in RESEAT_PERSON}
 
             with pytest.raises(APIError) as conflict:
-                await correct(database, client, "ansprechperson", email=before["kontakte"]["stellvertretung"]["email"])
+                await write_seat(
+                    database,
+                    client,
+                    "ansprechperson",
+                    {**kept, field: before["kontakte"]["stellvertretung"][field]},
+                    bewerbung_id=CORRECTION_BEWERBUNG,
+                )
 
             return conflict.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert code == taken
         assert after == before
 
     def test_a_confirmed_seat_gives_way_and_asks_its_new_person_afresh(self, mongo_replica_set_url: str):
@@ -1755,18 +1782,34 @@ class TestAResendRacingAnAnswer:
         assert code == Code.BEWERBUNG_KONTAKT_BARRED
         assert after == before
 
-    def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):
+    def test_a_resend_moving_the_day_a_notice_named_owes_the_deletion_its_notice_again(self, mongo_replica_set_url: str):
+        """The read the re-send judged reaches its update: a stamp left on a moved day leaves the Ansprechperson told of a day that went."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": ERNEUT_BEWERBUNG},
+                {"$set": {"erasure_announced_at": "2026-03-30", "confirmations.ansprechperson.deadline": "2026-04-05"}},
+            )
+            await resend(database, "ansprechperson")
+
+            return await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        assert on_a_league(mongo_replica_set_url, body)["erasure_announced_at"] is None
+
+    @pytest.mark.parametrize("pressed", ["ansprechperson", "trainer"])
+    def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str, pressed: str):
         """The caller records the delivery and words the mail's role text from `rollen`, so one seat named would cover half the link."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_open_ansprechperson_seat(database, mirrored=True)
-            response = await resend(database, "ansprechperson")
+            response = await resend(database, pressed)
 
             return response, await drained(database, client), await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
         response, [mail], stored = on_a_league(mongo_replica_set_url, body)
 
-        assert response.rollen == ["ansprechperson", "trainer"]
+        assert sorted(response.rollen) == ["ansprechperson", "trainer"]
         assert {seat: stored["confirmations"][seat]["token_hashes"] for seat in ("ansprechperson", "trainer")} == dict.fromkeys(
             ("ansprechperson", "trainer"), [hash_token(mail.token or "")]
         )

@@ -4,15 +4,12 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
-from app.api.bewerbungen.admin_router import FLBewerbungenAdminFilters, get_bewerbung, get_bewerbungen_admin
-from app.api.bewerbungen.schemas import FLBewerbungenAdminFilterParams
+from app.api.bewerbungen.admin_router import get_bewerbung, get_bewerbungen_admin
 from app.api.bewerbungen.services import mit_zustellung
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
@@ -96,12 +93,12 @@ async def on_the_view_corpus(mongo_url: str, read: Any) -> Any:
         return await read(database)
 
 
-async def view_list(database: Any, **filters: Any) -> Any:
+async def view_list(database: Any) -> Any:
     return await get_bewerbungen_admin(
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        filters=FLBewerbungenAdminFilterParams.model_validate({"saison_id": VIEW_SAISON, **filters}),
+        saison_id=VIEW_SAISON,
     )
 
 
@@ -132,15 +129,26 @@ class TestTheSeasonsListRead:
         assert {row.name for row in answered.bewerbungen} == {"Adlerhorst", f"Schule {NEW_SCHOOL}"}
         assert [row.new_school for row in answered.bewerbungen if row.id == ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] == [True]
 
-    def test_a_list_past_the_cap_says_it_is_cut(self, mongo_url: str):
-        """The queue an anonymous form can flood: served short rather than refused, and saying so, the page's one warning."""
+    def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_url: str):
+        """The queue an anonymous form can flood: served short rather than refused, saying so, and with the rows no flood confirms."""
+
+        flood = range(1, LIST_LIMIT_DEFAULT + 2)
 
         async def read(database: Any) -> Any:
-            return await view_list(database, limit=3)
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [
+                    {**bewerbung_document(index, saison_id=VIEW_SAISON, submitted_at="2026-03-01"), "kontakte": documents.kontakte_document()}
+                    for index in flood
+                ]
+            )
+            return await view_list(database)
 
         answered = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
+        served = [row.id for row in answered.bewerbungen]
 
-        assert (len(answered.bewerbungen), answered.complete) == (3, False)
+        assert answered.complete is False
+        assert ObjectId(BEWERBUNG_ID.format(flood[0])) not in served
+        assert served[LIST_LIMIT_DEFAULT:] == [ObjectId(BEWERBUNG_ID.format(index)) for index in (DECLINED, NEW_SCHOOL, ALSO_PICKED, PICKED)]
 
     def test_two_open_rows_naming_one_club_are_marked_and_a_decided_one_is_not(self, mongo_url: str):
         answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
@@ -155,6 +163,8 @@ class TestTheSeasonsListRead:
         offer = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list)).saison
 
         assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
+        # The boxes the dialog disables, which `trikot_farbe_taken` would refuse: a row holding no colour takes none.
+        assert offer.taken == ["blau"]
 
     def test_a_row_names_the_code_of_its_club_alone(self, mongo_url: str):
         """The acceptance's closed box: a picked club's code stands in `teams`, and a new school has none until it is accepted."""
@@ -191,30 +201,39 @@ class TestTheSeasonsListRead:
         )
 
 
-# The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so
-# the real router's admin guard and collection would only stand between the query string and it.
-_probe = FastAPI()
+class TestEachSeatServesWhereItStands:
+    """The state the triage's page chips and offers a re-send on: a state served wrong there asks an administrator to chase an answered seat."""
 
+    LIVE = {"deadline": "2026-04-20", "declined_at": None}
 
-# The router's own alias and never a second spelling of it: the filling is what these cases judge.
-@_probe.get("/probe")
-def _read_filters(filters: FLBewerbungenAdminFilters) -> dict[str, Any]:
-    return {"limit": filters.limit}
+    def read(self, *, status: str = "submitted", **confirmations: Any) -> dict[str, Any]:
+        row = {
+            "_id": "bewerbung",
+            "status": status,
+            "kontakte": {
+                "trainer": documents.kontaktperson_document("Anke", confirmed_at="2026-04-02"),
+                "ansprechperson": documents.kontaktperson_document("Berta"),
+                "stellvertretung": None,
+                "trainer_is_also": None,
+            },
+            "confirmations": {"trainer": self.LIVE, "ansprechperson": self.LIVE, "stellvertretung": None, **confirmations},
+        }
 
+        return mit_zustellung(row, {}, today="2026-04-10")["confirmations"]
 
-class TestNoQueryStringReachesAnUnboundedRead:
-    """The cap is the whole bound, so a caller able to forge it past the ceiling would disarm it."""
+    def test_a_stamp_a_decline_and_a_running_link_each_read_as_their_link_does(self):
+        served = self.read(stellvertretung={"deadline": "2026-04-20", "declined_at": "2026-04-05"})
 
-    def test_an_omitted_bound_arrives_as_the_default(self):
-        with TestClient(_probe) as client:
-            assert client.get("/probe?saison_id=2027").json()["limit"] == LIST_LIMIT_DEFAULT
+        assert [served[seat]["state"] for seat in ("trainer", "ansprechperson", "stellvertretung")] == ["confirmed", "valid", "declined"]
 
-    @pytest.mark.parametrize("value", ["", "null", "none", "0", "-1", str(LIST_LIMIT_MAX + 1), "999999"])
-    def test_no_query_string_reaches_a_larger_read(self, value: str):
-        """Empty, unparseable or past either bound is a 422 -- never a read the caller sized."""
+    def test_a_link_past_its_day_is_spent(self):
+        assert self.read(ansprechperson={"deadline": "2026-04-09", "declined_at": None})["ansprechperson"]["state"] == "expired"
 
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?saison_id=2027&limit={value}").status_code == 422
+    def test_a_decision_spends_an_unanswered_link_whatever_its_day(self):
+        assert self.read(status="declined")["ansprechperson"]["state"] == "expired"
+
+    def test_an_erased_seat_serves_no_entry(self):
+        assert self.read()["stellvertretung"] is None
 
 
 class TestEachSeatReadsItsLastMail:

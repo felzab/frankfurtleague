@@ -7,7 +7,6 @@ import { COPY } from "@/core/copy";
 import { bewerbungenPostBewerbung } from "@/core/generated/client/sdk";
 import { BewerbungenPostBewerbungBody } from "@/core/generated/zod/inputs";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
-import { repeatedContacts } from "@/features/teams/kontaktePersonen";
 
 import { applicationOf, REPLAY_FIELD } from "./application";
 import { SUBMITTED } from "./ends";
@@ -34,6 +33,7 @@ export const submitBewerbung = action({
     "bewerbung_picked_team_already_entered",
     "bewerbung_address_barred",
     "bewerbung_key_differing",
+    "bewerbung_kontakt_repeated",
     "good_spieler_exceed_kader",
     "email_not_accepted",
     "url_not_accepted",
@@ -41,8 +41,11 @@ export const submitBewerbung = action({
   paths: {
     kader: "kader.good_spieler",
     "kontakte.trainer.email": "kontakte.trainer.email",
+    "kontakte.trainer.phone": "kontakte.trainer.phone",
     "kontakte.ansprechperson.email": "kontakte.ansprechperson.email",
+    "kontakte.ansprechperson.phone": "kontakte.ansprechperson.phone",
     "kontakte.stellvertretung.email": "kontakte.stellvertretung.email",
+    "kontakte.stellvertretung.phone": "kontakte.stellvertretung.phone",
     "schule.website_url": "schule.website_url",
   },
   examples: {
@@ -53,10 +56,6 @@ export const submitBewerbung = action({
     "schule.address.hausnummer": hausnummerExample,
   },
   run: async ({ [REPLAY_FIELD]: key, ...application }) => {
-    // Judged here rather than left to the write, whose refusal names the whole block and so no box.
-    const repeated = repeatedContacts(application.kontakte);
-    if (repeated.length > 0) return { ok: false, fieldErrors: Object.fromEntries(repeated.map((box) => [box, COPY.shared.field.taken])) };
-
     await bewerbungenPostBewerbung(application, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });
     return { ok: true, value: SUBMITTED };
   },

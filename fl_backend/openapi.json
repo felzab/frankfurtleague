@@ -212,6 +212,9 @@
           "confirmation_age",
           "bewerbung_kontakte_unconfirmed",
           "bewerbung_kontakt_email_taken",
+          "bewerbung_kontakt_phone_taken",
+          "bewerbung_kontakt_repeated",
+          "trikot_farbe_taken",
           "bewerbung_key_differing",
           "bewerbung_address_barred",
           "bewerbung_kontakt_barred",
@@ -3253,10 +3256,6 @@
               }
             ]
           },
-          "expired": {
-            "title": "Expired",
-            "type": "boolean"
-          },
           "reminded_at": {
             "anyOf": [
               {
@@ -3273,6 +3272,16 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Sent At",
             "type": "string"
+          },
+          "state": {
+            "enum": [
+              "valid",
+              "confirmed",
+              "declined",
+              "expired"
+            ],
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -3281,7 +3290,7 @@
           "reminded_at",
           "declined_at",
           "delivery",
-          "expired"
+          "state"
         ],
         "title": "FLBewerbungConfirmation",
         "type": "object"
@@ -3377,7 +3386,7 @@
         "type": "object"
       },
       "FLBewerbungEinwilligungAnswerResponse": {
-        "description": "What the answer did; a Widerspruch's notice to the submitter is owed in the same write.",
+        "description": "What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -3532,7 +3541,7 @@
               }
             ]
           },
-          "answered_on": {
+          "answered_at": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3542,7 +3551,7 @@
                 "type": "null"
               }
             ],
-            "title": "Answered On"
+            "title": "Answered At"
           },
           "deadline": {
             "anyOf": [
@@ -3622,7 +3631,7 @@
           "minimum_age",
           "maximum_age",
           "deadline",
-          "answered_on",
+          "answered_at",
           "media_minimum_age"
         ],
         "title": "FLBewerbungEinwilligungViewResponse",
@@ -3664,17 +3673,25 @@
           },
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "taken": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken",
+            "type": "array"
           }
         },
         "required": [
           "status",
-          "gruppen"
+          "gruppen",
+          "taken"
         ],
         "title": "FLBewerbungEntryOffer",
         "type": "object"
       },
       "FLBewerbungErasureData": {
-        "description": "The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.",
+        "description": "The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.",
         "properties": {
           "kind": {
             "const": "bewerbung_erasure",
@@ -3747,32 +3764,27 @@
         "type": "object"
       },
       "FLBewerbungFormWindow": {
-        "description": "A season's application window as the form's page judges it.",
+        "description": "A season's application window as the form's page shows it.",
         "properties": {
-          "end": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "End",
-            "type": "string"
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "saison_ended": {
-            "title": "Saison Ended",
-            "type": "boolean"
-          },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "upcoming",
+              "closed",
+              "ended"
+            ],
+            "title": "State",
             "type": "string"
           }
         },
         "required": [
           "start",
-          "end",
-          "running",
-          "saison_ended"
+          "state"
         ],
         "title": "FLBewerbungFormWindow",
         "type": "object"
@@ -4107,7 +4119,7 @@
         "type": "object"
       },
       "FLBewerbungObjectionData": {
-        "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
+        "description": "A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4146,7 +4158,7 @@
         "type": "object"
       },
       "FLBewerbungPerson": {
-        "description": "Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.",
+        "description": "Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -4176,7 +4188,7 @@
         "type": "object"
       },
       "FLBewerbungReceivedData": {
-        "description": "The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.",
+        "description": "The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -18981,8 +18993,6 @@
           "ergebnis_missing_tore",
           "good_spieler_exceed_kader",
           "grant_wording_stale",
-          "kontakt_email_twice",
-          "kontakt_phone_twice",
           "nichtantreten_with_tore",
           "nichtantreten_with_scorers",
           "registrierung_window_reaches_saison_start",
@@ -20482,24 +20492,17 @@
     },
     "/api/v0/bewerbungen": {
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.",
+        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one\nalready on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number\nare refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
             "in": "header",
             "name": "idempotency-key",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "format": "uuid4",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idempotency-Key"
+              "format": "uuid4",
+              "title": "Idempotency-Key",
+              "type": "string"
             }
           }
         ],
@@ -20841,7 +20844,7 @@
     },
     "/api/v0/bewerbungen/list/admin": {
       "get": {
-        "description": "One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`\ntaken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous\npublic form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.",
+        "description": "One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`\ntaken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous\npublic form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.\nEvery application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.",
         "operationId": "bewerbungen_get_bewerbungen_admin",
         "parameters": [
           {
@@ -20851,18 +20854,6 @@
             "schema": {
               "title": "Saison Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
             }
           }
         ],
@@ -21155,7 +21146,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nA colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {
@@ -21503,7 +21494,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
+        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,\n`bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no\nseat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {

@@ -20,6 +20,7 @@ from app.api.teams.services import (
     find_entry_refusal,
     find_gruppe_move_refusal,
     find_shorthand_refusal,
+    find_trikot_farbe_refusal,
 )
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -39,6 +40,35 @@ from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLTrikotFarbe
+
+
+async def refuse_a_taken_colour(
+    *,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    saison_id: str,
+    trikot_farbe: FLTrikotFarbe | None,
+    # The row the write saves, whose own colour is no other's; `None` for an entry.
+    own_id: Any,
+    # REQUIRED, for `refuse_a_full_gruppe`'s reason: the anchor closes the race.
+    session: AsyncClientSession,
+) -> None:
+    """Refuse `trikot_farbe_taken`: another row of the season holds this colour, a club that left it among them.
+
+    A row that left keeps its colour until an administrator clears it (`app/api/bewerbungen/services.py ::
+    build_form_pipeline`). No colour is free for any number of rows. Reached from two packages, as the capacity rule is.
+    """
+
+    if trikot_farbe is None:
+        return
+
+    # The capacity rule's anchor: a count is a read, so two writes naming one colour pass unless they meet in one write set.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+    other_rows = {} if own_id is None else {"_id": {"$ne": own_id}}
+    held = await saison_teams_collection.count_documents(
+        {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, limit=1, session=session
+    )
+    refuse(find_trikot_farbe_refusal(taken=held > 0))
 
 
 async def refuse_a_full_gruppe(
@@ -262,20 +292,18 @@ async def pull_tabelle(
     return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)
 
 
-async def _pull_team_field(
-    *, teams_collection: ReadCollection, team_ids: Iterable[Any], field: str, session: AsyncClientSession | None
-) -> dict[Any, str]:
-    """One field of these clubs' `teams` documents, one read and no command for none; a club no document holds is absent."""
+async def _pull_team_fields(
+    *, teams_collection: ReadCollection, team_ids: Iterable[Any], fields: list[str], session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """These fields of these clubs' `teams` documents, one read and no command for none; a club no document holds is absent."""
 
     wanted = list({team_id for team_id in team_ids if team_id is not None})
     if not wanted:
-        return {}
+        return []
 
-    teams = await pull_many_from_db(
-        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=[field], limit=LIST_LIMIT_MAX, session=session
+    return await pull_many_from_db(
+        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=fields, limit=LIST_LIMIT_MAX, session=session
     )
-
-    return {team["_id"]: str(team.get(field) or "") for team in teams}
 
 
 async def pull_team_names(
@@ -283,13 +311,17 @@ async def pull_team_names(
 ) -> dict[Any, str]:
     """These clubs' names off their `teams` documents."""
 
-    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="name", session=session)
+    teams = await _pull_team_fields(teams_collection=teams_collection, team_ids=team_ids, fields=["name"], session=session)
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}
 
 
-async def pull_team_codes(*, teams_collection: ReadCollection, team_ids: Iterable[Any]) -> dict[Any, str]:
-    """These clubs' codes off their `teams` documents."""
+async def pull_team_names_and_codes(*, teams_collection: ReadCollection, team_ids: Iterable[Any]) -> tuple[dict[Any, str], dict[Any, str]]:
+    """These clubs' names and their codes off their `teams` documents, in one read."""
 
-    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="shorthand", session=None)
+    teams = await _pull_team_fields(teams_collection=teams_collection, team_ids=team_ids, fields=["name", "shorthand"], session=None)
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}, {team["_id"]: str(team.get("shorthand") or "") for team in teams}
 
 
 async def void_moved_seats(

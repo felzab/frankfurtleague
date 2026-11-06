@@ -175,7 +175,7 @@ function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
               seat={seat}
               rollen={rollen}
               person={person}
-              sendable={state === "open" || state === "expired"}
+              sendable={state === "valid" || state === "expired"}
               rules={SEAT_RULES}
             />
           ),

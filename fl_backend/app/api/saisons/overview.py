@@ -17,7 +17,6 @@ from pydantic import BaseModel, Field
 from app.api.bewerbungen.services import (
     ausstehende_seats,
     build_bewerbungen_sort,
-    build_bewerbungen_status_term,
 )
 from app.api.spielberichte.schemas import FLSpielberichtBericht
 from app.api.spielberichte.services import FLSpielberichtOpenState, bericht_state_of, build_state_pipeline, is_open
@@ -238,10 +237,10 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                     {
                         "$match": {
                             "saison_id": saison_id,
-                            **build_bewerbungen_status_term(["submitted"]),
+                            "status": "submitted",
                         }
                     },
-                    {"$sort": dict(build_bewerbungen_sort(sort_by="submitted_at", order="asc"))},
+                    {"$sort": dict(build_bewerbungen_sort(order="asc"))},
                     {
                         "$lookup": {
                             "from": Collection.TEAMS,

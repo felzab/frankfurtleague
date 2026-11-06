@@ -67,8 +67,8 @@ function rowOf(row: FLBewerbungListRow, saison: string): TableRow {
 }
 
 /**
- * The season's applications, read whole, and what the address narrows them to: where an application stands has no field
- * a read could narrow on, and the Sammel-Zusage counts the season's whole, whatever the filters leave.
+ * The season's applications, read together, and what the address narrows them to: where an application stands has no
+ * field a read could narrow on, and the Sammel-Zusage counts every row served, whatever the filters leave.
  */
 async function readList(params: Props["params"], searchParams: Props["searchParams"]) {
   const { saison } = await params;

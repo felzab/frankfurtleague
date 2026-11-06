@@ -17,8 +17,9 @@ const declined = BewerbungenDeclineBewerbungBody.shape;
 
 /**
  * Accepts the application on the version its page read: enters the club into the season, creating it for a new school,
- * and owes every person the acceptance, in one write. A code another club holds is refused on its box; a club the
- * season already holds or the league retired on the status line; anything else that moved since as the stale page it is.
+ * and owes every person the acceptance, in one write. A code another club holds and a colour another row of the season
+ * holds are refused on their boxes; a club the season already holds or the league retired on the status line; anything
+ * else that moved since as the stale page it is.
  * The dialog sends one, and the Sammel-Zusage one per card.
  */
 export const acceptBewerbung = action({
@@ -32,8 +33,8 @@ export const acceptBewerbung = action({
     shorthand: z.preprocess((value) => value ?? "", blankIsNull(accepted.shorthand)),
     version: numberBox(accepted.version),
   }),
-  ownWords: ["duplicate_key", "bewerbung_picked_team_already_entered", "team_retired"],
-  paths: { shorthand: "shorthand" },
+  ownWords: ["duplicate_key", "trikot_farbe_taken", "bewerbung_picked_team_already_entered", "team_retired"],
+  paths: { shorthand: "shorthand", trikot_farbe: "trikot_farbe" },
   examples: { shorthand: COPY.team.shorthandExample },
   run: async ({ id, ...body }) => {
     await bewerbungenAcceptBewerbung(id, body);

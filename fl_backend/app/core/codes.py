@@ -130,6 +130,9 @@ class Code(StrEnum):
     CONFIRMATION_AGE = auto()
     BEWERBUNG_KONTAKTE_UNCONFIRMED = auto()
     BEWERBUNG_KONTAKT_EMAIL_TAKEN = auto()
+    BEWERBUNG_KONTAKT_PHONE_TAKEN = auto()
+    BEWERBUNG_KONTAKT_REPEATED = auto()
+    TRIKOT_FARBE_TAKEN = auto()
     BEWERBUNG_KEY_DIFFERING = auto()
     BEWERBUNG_ADDRESS_BARRED = auto()
     BEWERBUNG_KONTAKT_BARRED = auto()
@@ -342,8 +345,6 @@ type Rule = Literal[
     "ergebnis_missing_tore",
     "good_spieler_exceed_kader",
     "grant_wording_stale",
-    "kontakt_email_twice",
-    "kontakt_phone_twice",
     "nichtantreten_with_tore",
     "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",

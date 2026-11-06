@@ -826,11 +826,13 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
  * is answered.
  *
- * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
+ * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
+ * already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number
+ * are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -963,6 +965,7 @@ export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewer
  * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
  * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
  * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
+ * Every application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdmin = async (
@@ -1045,6 +1048,7 @@ export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
  * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
  * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
+ * A colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.
  * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */
@@ -1185,13 +1189,11 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
  * both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
  * EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
  *
- * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
- * its notice could not arrive is a deletion candidate again once that mail is not refused.
- *
  * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
  * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
- * address another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban
- * list holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
+ * address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
+ * `bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no
+ * seat is a 404.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeat = async (

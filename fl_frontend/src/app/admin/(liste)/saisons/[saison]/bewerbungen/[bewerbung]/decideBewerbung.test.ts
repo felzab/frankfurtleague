@@ -104,9 +104,12 @@ describe("a seat's write", () => {
     expect(answer).toMatchObject({ ok: true, note: COPY.admin.schiedsrichter.sentTo("stored@example.de") });
   });
 
-  it("answers an address another person holds on its box", async () => {
-    state.refusal = refusal("bewerbung_kontakt_email_taken", ["email"]);
+  it.each([
+    ["bewerbung_kontakt_email_taken", "email"],
+    ["bewerbung_kontakt_phone_taken", "phone"],
+  ] as const)("answers %s on its box", async (code, box) => {
+    state.refusal = refusal(code, [box]);
 
-    expect(await writeSeat(person)).toMatchObject({ ok: false, fieldErrors: { email: COPY.shared.field.taken } });
+    expect(await writeSeat(person)).toMatchObject({ ok: false, fieldErrors: { [box]: COPY.shared.field.taken } });
   });
 });

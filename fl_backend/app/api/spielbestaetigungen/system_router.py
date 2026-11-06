@@ -202,11 +202,11 @@ class _Links:
         return {seat: address for address, seats in self.groups for seat in seats}
 
 
-def _links_of(*, kontakte: Any, seats: Iterable[str], barred: set[str]) -> _Links:
+def _links_of(*, kontakte: Any, seats: Iterable[FLKontaktRolle], barred: set[str]) -> _Links:
     """One link per person over the occupied `seats` no ban holds; a barred seat is counted and written nothing, so it stays due."""
 
-    occupied = [seat for seat in seats if kontakt_address(kontakte=kontakte, seat=seat) is not None]
-    reachable = [seat for seat in occupied if kontakt_address(kontakte=kontakte, seat=seat) not in barred]
+    occupied: list[FLKontaktRolle] = [seat for seat in seats if kontakt_address(kontakte=kontakte, seat=seat) is not None]
+    reachable: list[FLKontaktRolle] = [seat for seat in occupied if kontakt_address(kontakte=kontakte, seat=seat) not in barred]
 
     return _Links(
         groups=[
@@ -634,7 +634,7 @@ async def sweep_spielbestaetigungen(
 
                 kontakte = junctions[party["team_id"]].get("kontakte")
                 if existing is None:
-                    seats: list[str] = list(KONTAKT_ROLLEN)
+                    seats: list[FLKontaktRolle] = list(KONTAKT_ROLLEN)
                 # An answered or closed row, or one past its deadline, takes no link: its next press is refused.
                 elif existing.get("answer") is None and existing.get("closed") is None and today <= existing["deadline"]:
                     entries = existing.get("kontakte") or {}

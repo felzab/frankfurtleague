@@ -6,11 +6,11 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { deliveryChip } from "./zustellLage";
 
 import type { Copy } from "@/core/copy";
-import type { FLBewerbung, FLKontaktperson, FLKontaktRolle } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson, FLKontaktRolle } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
-/** Where a seat's answer stands. An application decided since leaves an unanswered seat `expired`: its link opens nothing. */
-type SeatState = "confirmed" | "open" | "expired" | "objected" | "erased";
+/** Where a seat's answer stands, as the link's own page says it, and an erasure's entry, which the read serves as none. */
+type SeatState = FLBewerbungConfirmation["state"] | "erased";
 
 /** One person's row on an application: the seat its writes name, every seat they hold, and where those stand. */
 export type SeatView = {
@@ -29,24 +29,25 @@ const WORDS = COPY.admin.schiedsrichter;
 
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
   confirmed: { tone: "success", label: COPY.admin.confirmed },
-  open: { tone: "warn", label: COPY.template.open },
+  valid: { tone: "warn", label: COPY.template.open },
   expired: { tone: "neutral", label: COPY.admin.expired },
-  objected: { tone: "danger", label: SERVER_COPY.entryConfirmation.objected },
+  declined: { tone: "danger", label: SERVER_COPY.entryConfirmation.objected },
   erased: { tone: "neutral", label: COPY.admin.erased },
 };
 
-/** One seat's state and its day. A Widerspruch and an erasure leave the same empty slot, parted by the day the first keeps. */
-function standOf({ status, kontakte, confirmations }: FLBewerbung, seat: FLKontaktRolle): { state: SeatState; day: Copy | null } {
-  const person = kontakte[seat];
-  const entry = confirmations[seat];
-  const confirmedAt = person?.einwilligung.confirmed_at ?? null;
-  if (confirmedAt !== null) return { state: "confirmed", day: WORDS.confirmedOn(dayOf(confirmedAt)) };
-  if (entry?.declined_at != null) return { state: "objected", day: WORDS.objectedOn(dayOf(entry.declined_at)) };
-  if (person === null || entry === null) return { state: "erased", day: null };
-  if (status !== "submitted") return { state: "expired", day: null };
-  return entry.expired
-    ? { state: "expired", day: WORDS.expiredOn(dayOf(entry.deadline)) }
-    : { state: "open", day: WORDS.openUntil(dayOf(entry.deadline)) };
+/** The day the seat's state dates from, a decided application's spent link naming none: its deadline is not why it ended. */
+function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktRolle, entry: FLBewerbungConfirmation): Copy | null {
+  const confirmedAt = kontakte[seat]?.einwilligung.confirmed_at ?? null;
+  switch (entry.state) {
+    case "confirmed":
+      return confirmedAt === null ? null : WORDS.confirmedOn(dayOf(confirmedAt));
+    case "declined":
+      return entry.declined_at === null ? null : WORDS.objectedOn(dayOf(entry.declined_at));
+    case "expired":
+      return status === "submitted" ? WORDS.expiredOn(dayOf(entry.deadline)) : null;
+    case "valid":
+      return WORDS.openUntil(dayOf(entry.deadline));
+  }
 }
 
 /**
@@ -57,8 +58,11 @@ export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
   const { kontakte, confirmations } = bewerbung;
   const also = kontakte.trainer_is_also;
   return KONTAKT_ROLLEN.filter(({ value }) => also === null || value !== "trainer").map(({ value: seat }) => {
-    const { state, day } = standOf(bewerbung, seat);
-    const delivery = deliveryChip(confirmations[seat]?.delivery ?? null);
+    const entry = confirmations[seat];
+    // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
+    const state = entry?.state ?? "erased";
+    const day = entry === null ? null : dayOfState(bewerbung, seat, entry);
+    const delivery = deliveryChip(entry?.delivery ?? null);
     return {
       seat,
       rollen: seat === also ? [seat, "trainer"] : [seat],
