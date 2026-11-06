@@ -3,7 +3,7 @@ import json
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
-from typing import Any, Final, Literal, cast, get_args
+from typing import Any, Final, Literal, TypeIs, get_args
 
 from pydantic import BaseModel, ValidationError
 
@@ -422,10 +422,16 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {"$or": [{f"confirmations.{seat}.token_hashes": token_hash} for seat in KONTAKT_ROLLEN]}
 
 
-def seat_named(value: Any) -> FLKontaktRolle | None:
-    """The seat this value names, or `None`: a path segment and a stored key are both only as trustworthy as whatever wrote them."""
+def is_seat(value: object) -> TypeIs[FLKontaktRolle]:
+    """Whether this value names a seat: a path segment and a stored key are both only as trustworthy as whatever wrote them."""
 
-    return cast(FLKontaktRolle, value) if value in get_args(FLKontaktRolle.__value__) else None
+    return value in KONTAKT_ROLLEN
+
+
+def seat_named(value: Any) -> FLKontaktRolle | None:
+    """The seat this value names, or `None`."""
+
+    return value if is_seat(value) else None
 
 
 def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKontaktRolle | None:
@@ -724,7 +730,7 @@ def compose_saison_decline_update(*, seats: Sequence[str], today: str) -> Mappin
 def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
     """Every seat without a stamp, in declaration order. An emptied slot counts: the application cannot complete without it."""
 
-    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_ROLLEN if not _seat_is_confirmed(kontakte, seat)]
+    return [seat for seat in KONTAKT_ROLLEN if not _seat_is_confirmed(kontakte, seat)]
 
 
 def find_unconfirmed_kontakte_refusal(*, kontakte: Any) -> WriteRefusal | None:
@@ -752,11 +758,7 @@ def seat_stands(*, kontakte: Any, confirmations: Any, seat: str) -> bool:
 def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRolle | None:
     """The other seat the same person still holds, or `None`: one click answers for the person, not for one of their two seats."""
 
-    zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
-    if zugleich is None:
-        return None
-
-    other = seat_named(zugleich) if seat == "trainer" else (cast(FLKontaktRolle, "trainer") if seat == zugleich else None)
+    other = claimed_pair_seat(kontakte=kontakte, seat=seat)
 
     # An emptied seat is nobody's: a dotted `$set` under its null slot or its null entry is
     # `PathNotViable`, and the abort takes the answer for the seat that IS this person's with it.
@@ -804,9 +806,9 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
         return None, []
 
     # One inbox is one stored address, each the fold every payload stores.
-    held = [seat for seat in KONTAKT_ROLLEN if addresses.get(seat) == anchor]
+    held: list[FLKontaktRolle] = [seat for seat in KONTAKT_ROLLEN if addresses.get(seat) == anchor]
 
-    return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
+    return anchor, held
 
 
 def compose_confirmation_update(
@@ -1033,7 +1035,7 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
     if zugleich is None:
         return None
 
-    return seat_named(zugleich) if seat == "trainer" else (cast(FLKontaktRolle, "trainer") if seat == zugleich else None)
+    return seat_named(zugleich) if seat == "trainer" else ("trainer" if seat == zugleich else None)
 
 
 def compose_kontakt_seat_update(
@@ -1143,13 +1145,13 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unerreichbar
     kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
 
     return [
-        seat_named(seat) or cast(FLKontaktRolle, seat)
+        seat
         for seat in KONTAKT_ROLLEN
         if seat_reminder_is_due(kontakte=kontakte, confirmations=confirmations, seat=seat, today=today, unerreichbar=seat in unerreichbar)
     ]
 
 
-def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple[str, list[FLKontaktRolle]]]:
+def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) -> list[tuple[str, list[FLKontaktRolle]]]:
     """The seats as the mails go out: one message per stored address, in first-seen order."""
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
@@ -1161,7 +1163,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
         if not email:
             continue
         address, held = grouped.setdefault(email, (email, []))
-        held.append(seat_named(seat) or cast(FLKontaktRolle, seat))
+        held.append(seat)
 
     return list(grouped.values())
 
@@ -1351,13 +1353,13 @@ def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewer
     for seat in KONTAKT_ROLLEN:
         if seat not in seats or (seat == "trainer" and zugleich in seats):
             continue
-        rollen = [seat, "trainer"] if seat == zugleich and "trainer" in seats else [seat]
-        personen.append(FLBewerbungPerson(first_name=first_name_of(kontakte=kontakte, seat=seat), rollen=cast(list[FLKontaktRolle], rollen)))
+        rollen: list[FLKontaktRolle] = [seat, "trainer"] if seat == zugleich and "trainer" in seats else [seat]
+        personen.append(FLBewerbungPerson(first_name=first_name_of(kontakte=kontakte, seat=seat), rollen=rollen))
 
     return personen
 
 
-def people_with_address(*, kontakte: Any, seats: Sequence[str] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
+def people_with_address(*, kontakte: Any, seats: Sequence[FLKontaktRolle] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
     """Each person these seats name who holds an address, with the seats they hold, the Trainer last.
 
     One address is one person (the submission refuses two people at one), so the seats sharing an address are the one
