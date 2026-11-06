@@ -110,7 +110,7 @@ export default function SaisonSettingsPage({ params }: Props) {
 
 async function readEditor(params: Props["params"]) {
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_teams: incoming_clubs, shapes, spielplan, refusals, invitations }, { saisons }, judged] = await Promise.all([
+  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, judged] = await Promise.all([
     readSaison(params),
     getAdminSaisons(),
     judgeAdminRequest(),
@@ -151,7 +151,7 @@ async function readEditor(params: Props["params"]) {
         groupTakenPlace: team.group_spiel_taken_place,
         takenPlace: team.spiel_taken_place,
       }))}
-      incoming={incoming_clubs.map((club) => ({ id: club.id, name: club.name }))}
+      incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
       links={{
         rows: invitations.map((row) => ({
           id: row.team_id,
