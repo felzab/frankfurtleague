@@ -27,8 +27,6 @@ type TableColumn = {
   figures?: boolean;
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
-  /** Text a person wrote, such as a Begründung, which keeps the line breaks it was written with. */
-  written?: boolean;
   /**
    * What the column holds, which sets the least it takes, on a table that waits: its values are the read's, so without
    * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
@@ -108,9 +106,9 @@ export type TableProps = {
    */
   prose?: boolean;
   /**
-   * A table whose cells hold more than a phone's row shares with its name, such as the match editor's report and its
-   * answers: on a phone each row stacks, its name line over its cells and every cell after its column's label, the
-   * cells wrapping under it.
+   * A table whose cells hold more than a phone's row shares with its name, such as the match editor's report: on a
+   * phone each row stacks, its name line over its cells and every cell after its column's label, the cells wrapping
+   * under it.
    */
   stack?: boolean;
   /**
@@ -217,11 +215,6 @@ const table = tv({
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
-    // Text a person wrote keeps its breaks: one line per written line, as every cell keeps its line, and wrapping
-    // inside its lines where a prose table or a stacked phone row wraps its cells (the compound rules below).
-    written: {
-      true: { cell: "whitespace-pre" },
-    },
     linked: {
       true: { row: cardHover() },
     },
@@ -246,8 +239,6 @@ const table = tv({
     // end, spanning every cell's line so it is centred on the row's height (`Table`'s `phoneCells`).
     { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
     { stack: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
-    { written: true, prose: true, class: { cell: "whitespace-pre-line" } },
-    { written: true, stack: true, class: { cell: "max-lg:whitespace-pre-line" } },
   ],
 });
 
@@ -527,7 +518,6 @@ export function Table({
                       ...columnLook(column),
                       figures: column.figures === true,
                       strong: column.strong === true,
-                      written: column.written === true,
                       compact,
                       prose,
                       stack,

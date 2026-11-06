@@ -864,7 +864,6 @@ export const COPY = catalogue({
       span: (start: CalendarDay | null, end: CalendarDay | null) => (start === null || end === null ? DATE_OPEN : formatPeriod(start, end)),
 
       /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
-      spielberichtUndBestaetigungen: "Spielbericht und Bestätigungen",
       spielbericht: "Spielbericht",
       bestaetigungen: "Bestätigungen",
       /** The Vorschau under the editor's title: the match as stored, its pairing, when it is played and its result. */
@@ -887,10 +886,8 @@ export const COPY = catalogue({
       /** The report's goals as rows: what happened, the minute, and the score it made. */
       event: "Ereignis",
       minute: "Minute",
-      /** The answers as rows: whose, their answer and what a declining club proposed. */
-      party: "Partei",
-      answer: "Antwort",
-      reason: "Grund",
+      /** What a declining club proposed, after its answer's date on the party's line. */
+      proposed: (when: Copy) => `Vorschlag ${when}`,
       zugesagt: "Zugesagt",
       /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */
       abgelehnt: "Abgelehnt",
