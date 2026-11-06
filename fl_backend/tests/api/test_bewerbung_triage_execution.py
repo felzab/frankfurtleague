@@ -881,6 +881,24 @@ class TestADeclineTouchesNothingElse:
         assert (stored["status"], stored["decision"]) == ("submitted", None), "the refused decline still decided the application"
 
 
+@pytest.mark.db
+class TestWhoADeclineMails:
+    def test_a_seat_never_mailed_hears_nothing(self, mongo_replica_set_url: str):
+        """That person has heard of no application, and an administrator declining down a flood would mail them once a row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": PICKED_BEWERBUNG}, {"$set": {"confirmations.stellvertretung.sent_at": None}}
+            )
+            await decline(database, PICKED_BEWERBUNG)
+
+            return await drained(database, client)
+
+        mails = on_a_league(mongo_replica_set_url, body)
+
+        assert sorted(mail.to for mail in mails) == sorted([KONTAKTE["trainer"]["email"], KONTAKTE["ansprechperson"]["email"]])
+
+
 async def take_decision(kind: str, database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> Any:
     """Either endpoint by name, so the pairs below read as the sequence an administrator would press."""
 

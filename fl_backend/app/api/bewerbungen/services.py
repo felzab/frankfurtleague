@@ -799,6 +799,12 @@ def _was_mailed(confirmations: Any, seat: str) -> bool:
     return (_entry_of(confirmations, seat) or {}).get("sent_at") is not None
 
 
+def mailed_seats(*, confirmations: Any) -> list[FLKontaktRolle]:
+    """The seats a mail has reached. A seat past `OPEN_LINKS_PER_MAILBOX` is none of them: its person has heard of no application."""
+
+    return [seat for seat in KONTAKT_ROLLEN if _was_mailed(confirmations, seat)]
+
+
 def ansprechperson_mailbox(*, kontakte: Any, confirmations: Any) -> tuple[str | None, list[FLKontaktRolle]]:
     """The Ansprechperson's address as stored, and every seat that same inbox holds.
 

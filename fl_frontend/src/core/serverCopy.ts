@@ -370,7 +370,7 @@ export const SERVER_COPY = catalogue({
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
         lead: (saison: string) => `Für die ${COPY.shared.saisonName(saison)} ist eine Bewerbung eingegangen.`,
         named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du als ${rollenText(rollen)} genannt.`,
-        others: "Die anderen Kontaktpersonen bestätigen über einen eigenen Link. Sag ihnen selbst Bescheid.",
+        others: "Die anderen Kontaktpersonen bestätigen selbst. Sag ihnen Bescheid.",
         pending: "Noch offen",
       },
       /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */
@@ -556,7 +556,7 @@ export const SERVER_COPY = catalogue({
       },
       confirm: {
         title: "Kontaktpersonen bestätigen",
-        text: (days: number) => `Jede Kontaktperson bekommt einen Link und bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen.`,
+        text: (days: number) => `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link.`,
       },
       decision: {
         title: "Zusage der Liga",
@@ -755,7 +755,7 @@ export const SERVER_COPY = catalogue({
         heading: "Bewerbung einer Schule",
         form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle, Trainerin oder Trainer, Ansprechperson und Stellvertretung, fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab; eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bekommt einen eigenen Link, über den sie ihren Eintrag innerhalb von ${formatNumber(days)} Tagen mit ihrem Geburtsdatum bestätigt oder ihm widerspricht, ebenso wenn die Liga sie selbst einträgt. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das der Ansprechperson, wenn sie noch eingetragen ist. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das der Ansprechperson, wenn sie noch eingetragen ist und ihren Link bekommen hat. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
       },
       kader: {
         heading: "Im Kader",
