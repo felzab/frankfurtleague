@@ -5309,16 +5309,6 @@ export interface FLSpielPageResponse {
   standings: FLSpielSideStandings;
 }
 
-export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
-
-export const FLSpielStatus = {
-  from_today: "from_today",
-  past: "past",
-  today: "today",
-  cancelled: "cancelled",
-  unknown: "unknown",
-} as const;
-
 /**
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
@@ -6624,7 +6614,6 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
 export type SpieleGetSpieleAdminParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | FLSaisonPhase | null;
-  spiel_status?: FLSpielStatus | null;
   team_id?: string | null;
   /**
    * @minimum 1

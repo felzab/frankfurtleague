@@ -36,20 +36,13 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-type FLSpielStatus = Literal["from_today", "past", "today", "cancelled", "unknown"]
-
 # Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
 # boolean would make independent consumers agree by accident, and a field telling five events apart
 # has a different right answer per consumer.
 
-# Two sides of ONE partition -- did the fixture use up its slot, or does it record a non-event?
+# The fixtures that used up their slot: an abandoned match used the ground and the referee, and every other event
+# records a non-event.
 SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "abgebrochen")
-SONDEREREIGNIS_RECORDING_AN_ABSENCE: tuple[FLSonderereignis, ...] = (
-    "ausgefallen",
-    "nichtantreten_team1",
-    "nichtantreten_team2",
-    "annulliert",
-)
 
 # `state_ergebnis_on_a_non_event`'s subject, and by construction also the fixtures that can never award a point: a
 # state barred from carrying a result reaches no figure the table is scored on.
@@ -695,7 +688,6 @@ class FLSpieleFilterParams(BaseModel):
     # route can make (`get_spiele_admin`).
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
-    spiel_status: FLSpielStatus | None = None
     team_id: CustomObjectId | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)

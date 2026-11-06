@@ -12,7 +12,6 @@ from app.api.spiele.schemas import (
     PHASE_RANK,
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_NO_SHOW,
-    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLBracketFault,
     FLBracketFaultBooking,
@@ -70,22 +69,11 @@ def build_spiele_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
     return build_sort(sort_by=sort_by, order=order, chain=(("date", direction), ("spiel_nr", 1)))
 
 
-def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, Any]:
+def build_spiele_filter(filters: FLSpieleFilterParams) -> dict[str, Any]:
     compiled: dict[str, Any] = {}
 
     if filters.saison_phase == "playoffs":
         compiled["saison_phase"] = {"$ne": "gruppenphase"}
-
-    match filters.spiel_status:
-        case "today":
-            compiled["date"] = today
-        case "past":
-            compiled["date"] = {"$lt": today}
-        case "from_today":
-            compiled["date"] = {"$gte": today}
-        case "cancelled":
-            # An abandonment is not among them: it took place, so it keeps whatever the date says.
-            compiled["sonderereignis"] = {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}
 
     if filters.team_id is not None:
         compiled["$or"] = [

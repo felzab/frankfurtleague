@@ -1,66 +1,35 @@
-from typing import get_args
-
 from bson import ObjectId
 
-from app.api.spiele.schemas import SONDEREREIGNIS_RECORDING_AN_ABSENCE, FLSpieleFilterParams
+from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spiele.services import build_spiele_filter
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage
-from app.shared.schemas.literals import FLSonderereignis
-
-TODAY = "2026-07-31"
 
 
 class TestSpieleFilter:
-    def test_the_cancelled_status_selects_every_fixture_recording_an_absence(self):
-        """The only `spiel_status` branch that is not about time, and the only one nothing pinned."""
-
-        compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "cancelled"}), today=TODAY)
-
-        assert compiled["sonderereignis"] == {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}
-        assert "date" not in compiled
-
-    def test_an_abandoned_fixture_is_not_cancelled(self):
-        """The distinction the branch exists to draw: an abandonment took place, so its date still decides its status."""
-
-        compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "cancelled"}), today=TODAY)
-
-        assert "abgebrochen" in get_args(FLSonderereignis.__value__)
-        assert "abgebrochen" not in compiled["sonderereignis"]["$in"]
-
     def test_passes_saison_id_through_under_its_own_name(self):
         """`saison_id` is a real field on the document here, so it needs no alias — unlike on `saisons`."""
         filters = FLSpieleFilterParams.model_validate({"saison_id": "2526"})
 
-        assert build_spiele_filter(filters=filters, today=TODAY)["saison_id"] == "2526"
+        assert build_spiele_filter(filters=filters)["saison_id"] == "2526"
 
     def test_omits_saison_id_when_unset(self):
         """Reachable only in tests: the router resolves the current season before the builder ever runs."""
         filters = FLSpieleFilterParams.model_validate({})
 
-        assert "saison_id" not in build_spiele_filter(filters=filters, today=TODAY)
+        assert "saison_id" not in build_spiele_filter(filters=filters)
 
     def test_playoffs_phase_becomes_a_negation(self):
         """`playoffs` is a query-only alias and must compile to "not gruppenphase", never a stored value."""
         filters = FLSpieleFilterParams.model_validate({"saison_phase": "playoffs"})
 
-        assert build_spiele_filter(filters=filters, today=TODAY)["saison_phase"] == {"$ne": "gruppenphase"}
-
-    def test_status_maps_to_a_date_comparison_against_today(self):
-        """`from_today` is `$gte` by intent: the upcoming list must show today's fixtures, so a tightening to `$gt` is the regression."""
-        past = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "past"}), today=TODAY)
-        from_today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "from_today"}), today=TODAY)
-        today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "today"}), today=TODAY)
-
-        assert past["date"] == {"$lt": TODAY}
-        assert from_today["date"] == {"$gte": TODAY}
-        assert today["date"] == TODAY
+        assert build_spiele_filter(filters=filters)["saison_phase"] == {"$ne": "gruppenphase"}
 
     def test_team_id_matches_either_side_of_the_fixture_as_an_objectid(self):
         """Both sides via `$or`, and as a real `ObjectId`: a string here would match nothing and return empty."""
         filters = FLSpieleFilterParams.model_validate({"team_id": "6890a1b2c3d4e5f607182930"})
 
-        assert build_spiele_filter(filters=filters, today=TODAY)["$or"] == [
+        assert build_spiele_filter(filters=filters)["$or"] == [
             {"team1.team_id": ObjectId("6890a1b2c3d4e5f607182930")},
             {"team2.team_id": ObjectId("6890a1b2c3d4e5f607182930")},
         ]

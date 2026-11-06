@@ -2816,7 +2816,6 @@ export const SpieleGetSpieleAdminQueryParams = zod.object({
   saison_phase: zod
     .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
     .optional(),
-  spiel_status: zod.union([zod.enum(["from_today", "past", "today", "cancelled", "unknown"]), zod.null()]).optional(),
   team_id: zod.union([zod.string().regex(spieleGetSpieleAdminQueryTeamIdOneRegExp), zod.null()]).optional(),
   limit: zod.int().min(1).max(spieleGetSpieleAdminQueryLimitMax).default(spieleGetSpieleAdminQueryLimitDefault),
   sort_by: zod.enum(["date", "time", "spiel_nr", "saison_phase"]).default(spieleGetSpieleAdminQuerySortByDefault),

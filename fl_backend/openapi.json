@@ -14634,16 +14634,6 @@
         "title": "FLSpielSideStandings",
         "type": "object"
       },
-      "FLSpielStatus": {
-        "enum": [
-          "from_today",
-          "past",
-          "today",
-          "cancelled",
-          "unknown"
-        ],
-        "type": "string"
-      },
       "FLSpielTeamFieldJoined": {
         "description": "One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not.",
         "properties": {
@@ -28630,22 +28620,6 @@
                 }
               ],
               "title": "Saison Phase"
-            }
-          },
-          {
-            "in": "query",
-            "name": "spiel_status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLSpielStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Spiel Status"
             }
           },
           {
