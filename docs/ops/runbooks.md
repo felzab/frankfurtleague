@@ -1193,16 +1193,8 @@ and counts on the pass's line what it erased and the pupils it failed or passed 
 call threw fails the job, its counts on that line all the same, which `scheduler.job_failed` names
 as `erasure`.
 
-**Activating a season runs the same deletion first, inside the press, but only as far as the
-press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
-press sends no deletion call it could not wait out to its answer. Wherever more pupils are due than
-that, the run stops there: the press files the warning `erasure.activation_cut_short`, which
-needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
-`erasure.activation_failed`, an error, is a call that failed rather than ran
-out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
-can still be deleting once the press has answered only where it outlasted the backend's own deadline
-and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
-page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
+**Activating a season deletes nobody**: the first pass after it deletes the pupils the new season
+makes due.
 
 **A pupil counted `failed` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
@@ -1235,16 +1227,7 @@ that a change whose step lapsed ends „innerhalb einer Stunde“, and the word,
 both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started with a reason takes effect its waiting time after its confirmation. While no
 pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
-its waiting time takes effect only where an approval it still owed is pressed after it. **The
-activation press's message that the next hourly pass deletes what it left („Was noch aussteht,
-löscht der nächste stündliche Durchlauf“) rests on the pupils' deletion running every pass**, and
-with it the squad cache's drop after it.
-
-**Read the season page's count before pressing the rollover.** Beside the press it says at most
-how many pupils activating the season deletes, and which season it closes. It is a bound because it
-counts the pupils the run passes over too (`stored_data_invalid` above). A figure naming more people than
-the league lost is the signal to hold the press and ask why, and a line saying the count is not
-available is a read that failed: reload the page until it gives a figure.
+its waiting time takes effect only where an approval it still owed is pressed after it.
 
 **The fixture confirmations run on every pass**
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`).
@@ -1404,8 +1387,6 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 - **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the last step.
 - **No sign-in code is mailed.** Sign in by passkey, which every administrator holds and which the
   owner's steps below ask for anyway.
-- **A season's activation still deletes**: its press runs the pupils' deletion itself, which is why
-  it comes last.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
@@ -1573,9 +1554,9 @@ undid the erasures, and which nothing re-runs:
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
 
-**Then activate again each season whose activation the snapshot predates**, last of all: its press
-runs the pupils' deletion over the state the steps above re-entered. Its deletions are re-derived
-rather than replayed: it journals none, so no listing names them.
+**Then activate again each season whose activation the snapshot predates**, last of all: the first
+pass after the hold runs the pupils' deletion over the state the steps above re-entered. Its
+deletions are re-derived rather than replayed: it journals none, so no listing names them.
 
 **Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
 and deploy (§1).** The first pass runs a minute after the boot and pings the heartbeat, and the
