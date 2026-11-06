@@ -200,6 +200,15 @@
   }
 }
 
+/* A placeholder's bar (`kit/Skeleton.tsx`): its base fill, one step off the ground it stands on (`--bg-hover`), so a bar
+   shows on the page, a card and a card's head alike, with a lighter band sweeping across it every two seconds, under
+   reduced motion too. One utility, so a page waiting in hundreds of bars carries one class for all of this rather than
+   its every class on each bar. Its first property sorts it ahead of the single-property utilities, so a bar's own size,
+   corners or fill, set beside it, win. */
+@utility skeleton-bar {
+  @apply relative block shrink-0 overflow-hidden rounded-md bg-bg-hover after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)];
+}
+
 /* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
    value is, the tint fading to the place's own background. */
 @keyframes kit-target {

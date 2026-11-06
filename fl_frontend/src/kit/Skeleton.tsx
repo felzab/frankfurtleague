@@ -20,10 +20,9 @@ const placeholder = tv({
     // so nothing in it answers the pointer: a placeholder drawn with a control's or a row's recipe borrows its box, never
     // its hover or its hand, and `pointer-events` is inherited, so this holds for every part inside.
     root: "pointer-events-none opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
-    // The base fill, one step off the ground the bar stands on (`--bg-hover`), so a bar shows on the page, a card and
-    // a card's head alike, the head redeclaring the step as its own (`cardStyles.ts :: headGround`); with a lighter
-    // band sweeping across it every two seconds, under reduced motion too: a loading indicator that stops reads as stuck.
-    bar: "relative block shrink-0 overflow-hidden rounded-md bg-bg-hover after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)]",
+    // The fill and the sweep (`tokens.css`), a card's head redeclaring the fill's step as its own (`cardStyles.ts ::
+    // headGround`). The sweep runs under reduced motion too: a loading indicator that stops reads as stuck.
+    bar: "skeleton-bar",
     // One line of text: as tall as the line the text's own size sets (`1lh`), the bar inside it a little taller than
     // the letters' height, so a line of placeholders stands where the line of words will.
     line: "flex h-lh min-w-0 items-center",
