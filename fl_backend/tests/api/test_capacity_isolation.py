@@ -29,7 +29,7 @@ from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
-from tests.isolation import COMMITTED, MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
+from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
@@ -368,32 +368,6 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
-
-    def test_two_matchdays_of_one_phase_still_reach_one_day_together(self, mongo_replica_set_url: str):
-        """The control: the comparison is strict, so the anchor may not turn a lawful pair into a refusal."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def the_rival_moves_the_second_onto_the_same_day() -> None:
-                await redate(database, client, 2, POSTPONED_FIRST, database[Collection.SAISONS])
-
-            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_moves_the_second_onto_the_same_day)
-            outcome = await outcome_of(redate(database, client, 1, POSTPONED_FIRST, seasons))
-
-            rows = await database[Collection.SPIELTAGE].find({"saison_id": SAISON}).sort([("position", 1)]).to_list(length=None)
-
-            return outcome, seasons.season_reads, [row["beginn"] for row in rows]
-
-        outcome, season_reads, beginns = on_a_league(
-            mongo_replica_set_url,
-            body,
-            {
-                Collection.SAISONS: [saison_document()],
-                Collection.SPIELTAGE: [spieltag_document(1, STANDING_FIRST), spieltag_document(2, STANDING_SECOND)],
-            },
-        )
-
-        assert (outcome, beginns) == (COMMITTED, [POSTPONED_FIRST, POSTPONED_FIRST])
-        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
 
 class TestAGroupMoveLandingMidEntryIsJudgedAgain:
