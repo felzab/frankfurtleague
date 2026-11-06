@@ -942,7 +942,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=3), a_team(2, punkte=3)]
         decided = standing(teams, [played(9, 1, 2)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -953,7 +953,7 @@ class TestSeedingTheSlot:
         """A typo, not an outcome: erasing a team over a number nobody can resolve destroys more than it reports."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 5}, spiel, stored=stored)
 
@@ -967,7 +967,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=6, geschossen=5, kassiert=5), a_team(2, punkte=6, geschossen=5, kassiert=5)]
         decided = standing(teams, [played(1, 1, 2, 1, 1)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -978,7 +978,7 @@ class TestSeedingTheSlot:
         """Idempotence across the group-seeded half too."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 

@@ -287,10 +287,10 @@ def joined(**fields: Any) -> FLSpielJoinedInternal:
     closed = {
         "date": "2026-04-01",
         "time": "18:00:00",
-        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20, "name_is_public": True},
-        "team1": {"team_id": HOME, "name": "Lessing", "shorthand": "LES", "tore": None},
-        "team2": {"team_id": AWAY, "name": "Goethe", "shorthand": "GOE", "tore": None},
+        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20, "name_is_public": True},
+        "team1": {"team_id": HOME, "tore": None},
+        "team2": {"team_id": AWAY, "tore": None},
     }
     stored = documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON, spiel_nr=1, spieltag_id=ObjectId(), **{**closed, **fields})
 

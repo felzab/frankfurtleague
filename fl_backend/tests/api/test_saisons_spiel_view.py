@@ -32,8 +32,8 @@ def adopted_match() -> dict[str, Any]:
         saison_id=SAISON,
         spiel_nr=1,
         spieltag_id=ObjectId("6890a1b2c3d4e5f607430031"),
-        team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALP", "tore": 2},
-        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BET", "tore": 0},
+        team1={"team_id": HOME, "tore": 2},
+        team2={"team_id": AWAY, "tore": 0},
         ergebnis="2:0",
     )
 

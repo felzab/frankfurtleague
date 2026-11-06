@@ -153,14 +153,14 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "inactive_since": None,
         },
         "spiele": {
-            "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LEX"},
-            "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"},
+            "team1": {"team_id": TEAM_OID, "tore": 2},
+            "team2": {"team_id": SPIELER_OID, "tore": 1},
             "team1_quelle": None,
             "team2_quelle": None,
             "date": "2026-03-15",
             "time": "18:00:00",
-            "ort": {"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
-            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": "A. Referee", "payment": 20},
+            "ort": {"spielort_id": SPIELORT_OID, "mietpreis": 80},
+            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "payment": 20},
             "ergebnis": "2:1",
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_OID,
@@ -313,11 +313,11 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 saison_id=SAISON_ID,
                 spiel_nr=1,
                 spieltag_id=SPIELTAG_OID,
-                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX", "tore": None},
-                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HEX", "tore": None},
+                team1={"team_id": TEAM_OID, "tore": None},
+                team2={"team_id": OTHER_TEAM_OID, "tore": None},
                 date="2026-03-15",
                 time="18:00:00",
-                ort={"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
+                ort={"spielort_id": SPIELORT_OID, "mietpreis": 80},
             ),
             party={"kind": "team", "team_id": TEAM_OID},
             _id=SPIELBESTAETIGUNG_OID,
@@ -995,9 +995,7 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
 
 async def the_report_kader(database: AsyncDatabase) -> Issued:
-    await database[Collection.SPIELE].insert_one(
-        valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"})
-    )
+    await database[Collection.SPIELE].insert_one(valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "tore": 1}))
 
     return await sent_by(
         database,

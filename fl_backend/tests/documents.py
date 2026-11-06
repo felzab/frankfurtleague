@@ -179,17 +179,25 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
 def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
     """`spiel` as `build_spiele_pipeline` serves it, for a report judging joined fixtures without the database.
 
-    Each side's club still in its season, nobody asked to confirm, no match for third place. The names are whatever
-    `spiel` carries where a read would join them.
+    Each side's club still in its season, nobody asked to confirm, no match for third place. A stored document holds no
+    name, so each joined name is a stand-in unless `spiel` states the one a case reads.
     """
 
     def side(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        return None if stored is None else {"austritt": None, "austritt_type": None, **stored}
+        return None if stored is None else {"name": "Carl-Schurz", "shorthand": "CSX", "austritt": None, "austritt_type": None, **stored}
+
+    def ground(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        return None if stored is None else {"name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", **stored}
+
+    def referee(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        return None if stored is None else {"name": "A. Referee", **stored}
 
     return {
         **spiel,
         "team1": side(spiel.get("team1")),
         "team2": side(spiel.get("team2")),
+        "ort": ground(spiel.get("ort")),
+        "schiedsrichter": referee(spiel.get("schiedsrichter")),
         "ansetzung_confirmed": None,
         "for_third_place": False,
     }

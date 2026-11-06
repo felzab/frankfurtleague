@@ -65,12 +65,12 @@ def stored_document() -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALX", "tore": 2},
-        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BEX", "tore": 1},
+        team1={"team_id": HOME, "tore": 2},
+        team2={"team_id": AWAY, "tore": 1},
         date="2026-03-15",
         time="14:00:00",
-        ort={"spielort_id": SPIELORT_ID, "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
-        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": SCHIEDSRICHTER_NAME, "payment": PAYMENT},
+        ort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
+        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
 
@@ -92,12 +92,13 @@ def joined_document() -> dict[str, Any]:
 
     return {
         **document,
-        "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
-        "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
+        "team1": {**document["team1"], "name": "Alpha", "shorthand": "ALX", "austritt": None, AUSTRITT_TYPE_KEY: None},
+        "team2": {**document["team2"], "name": "Beta", "shorthand": "BEX", "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
+        "ort": {**document["ort"], "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt"},
         "ansetzung_confirmed": None,
         "for_third_place": False,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
-        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_confirmed": True},
+        "schiedsrichter": {**document["schiedsrichter"], "name": SCHIEDSRICHTER_NAME, "name_is_public": True, "einsatz_confirmed": True},
     }
 
 

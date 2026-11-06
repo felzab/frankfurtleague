@@ -57,7 +57,7 @@ def fixture_document(team_id: ObjectId) -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_OID,
-        team1={"team_id": team_id, "name": "Adler-Schule", "shorthand": "ASX", "tore": None},
+        team1={"team_id": team_id, "tore": None},
     )
 
 

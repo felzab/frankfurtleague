@@ -711,13 +711,10 @@ A_NOTE = "Platz gesperrt"
 # accept rather than one this file invented.
 A_BOOKED_ORT: dict[str, Any] = {
     "spielort_id": ObjectId("6890a1b2c3d4e5f607760101"),
-    "name": "Sporthalle Nord",
-    "maps_link": "https://maps.test/nord",
     "mietpreis": 120,
 }
 A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
     "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607760102"),
-    "name": "R. Mustermann",
     "payment": 40,
 }
 
@@ -793,8 +790,8 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
+        team1={"team_id": home, "tore": None},
+        team2={"team_id": ObjectId(), "tore": None},
         date="2026-05-01",
         time="18:00:00",
     )
@@ -1009,7 +1006,7 @@ async def a_reportable_fixture(database: AsyncDatabase) -> ObjectId:
     assert spiel is not None, "the premise: the season is drawn"
     await database[Collection.SPIELE].update_one(
         {"_id": spiel["_id"]},
-        {"$set": {"date": PLAYED_ON, "schiedsrichter": {"schiedsrichter_id": REPORTING_REFEREE, "name": "Otto Gruber", "payment": 20}}},
+        {"$set": {"date": PLAYED_ON, "schiedsrichter": {"schiedsrichter_id": REPORTING_REFEREE, "payment": 20}}},
     )
 
     return spiel["_id"]

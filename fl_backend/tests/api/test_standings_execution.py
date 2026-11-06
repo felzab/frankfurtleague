@@ -63,7 +63,7 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
 
 
 def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": NAMES[team_id], "shorthand": NAMES[team_id][:3].upper(), "tore": tore}
+    return {"team_id": team_id, "tore": tore}
 
 
 def spiel_document(

@@ -60,9 +60,9 @@ def spiel(**fields: Any) -> dict[str, Any]:
         "saison_phase": "gruppenphase",
         "date": TODAY,
         "time": "18:00:00",
-        "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
-        "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": None},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Otto Gruber"},
+        "team1": {"team_id": TEAM1, "tore": None},
+        "team2": {"team_id": TEAM2, "tore": None},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER},
         "sonderereignis": None,
         "ergebnis": None,
         "elfmeterschiessen": None,
@@ -171,8 +171,8 @@ def saved(**fields: Any) -> FLSpielberichtBericht:
 
 def gespielt(team1: int, team2: int, **fields: Any) -> dict[str, Any]:
     return spiel(
-        team1={"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": team1},
-        team2={"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": team2},
+        team1={"team_id": TEAM1, "tore": team1},
+        team2={"team_id": TEAM2, "tore": team2},
         ergebnis=f"{team1}:{team2}",
         **fields,
     )

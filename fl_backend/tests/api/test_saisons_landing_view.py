@@ -22,8 +22,8 @@ ALPHA, BETA = ObjectId("6890a1b2c3d4e5f607440001"), ObjectId("6890a1b2c3d4e5f607
 FINALE_DAY = ObjectId("6890a1b2c3d4e5f607440013")
 
 
-def side(team_id: ObjectId, name: str, tore: int | None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": name, "shorthand": name[:3].upper(), "tore": tore}
+def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
+    return {"team_id": team_id, "tore": tore}
 
 
 def match(
@@ -38,7 +38,7 @@ def match(
     """Alpha against Beta unless `names` says otherwise, any other name a club of its own."""
 
     ids = {"Alpha": ALPHA, "Beta": BETA}
-    home, away = (side(ids.get(name) or ObjectId(), name, None if tore is None else tore[index]) for index, name in enumerate(names))
+    home, away = (side(ids.get(name) or ObjectId(), None if tore is None else tore[index]) for index, name in enumerate(names))
 
     return documents.spiel_document(
         spiel_id=ObjectId(),
@@ -100,7 +100,7 @@ def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_dec
             ],
             Collection.SPIELTAGE: [spieltag(FINALE_DAY, 1, "finale")],
             Collection.SPIELE: [
-                {**match(2, FINALE_DAY, "2026-03-01", (0, 3), names=("Cara", "Dora"), saison_phase="finale"), "team1": side(cara, "Cara", 0)},
+                {**match(2, FINALE_DAY, "2026-03-01", (0, 3), names=("Cara", "Dora"), saison_phase="finale"), "team1": side(cara, 0)},
                 match(3, FINALE_DAY, "2026-03-01", (2, 1), saison_phase="finale"),
             ],
         },

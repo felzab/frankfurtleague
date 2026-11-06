@@ -78,8 +78,8 @@ SPIEL = spiel_document(
     saison_id=ACTIVE_SAISON,
     spiel_nr=1,
     spieltag_id=ObjectId("6890a1b2c3d4e5f607840042"),
-    team1={"team_id": TEAM_A_OID, "name": ROW_NAME_A_ACTIVE, "tore": None, "shorthand": "HEX"},
-    team2={"team_id": TEAM_B_OID, "name": ROW_NAME_B, "tore": None, "shorthand": "LEX"},
+    team1={"team_id": TEAM_A_OID, "tore": None},
+    team2={"team_id": TEAM_B_OID, "tore": None},
 )
 
 # `NOW` in UTC, as evidence spells its instant.

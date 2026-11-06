@@ -192,7 +192,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                         saison_id=SAISON,
                         spiel_nr=NAME_IS_PUBLIC.index(case) + 1,
                         spieltag_id=_oid(99),
-                        schiedsrichter={"schiedsrichter_id": _schiedsrichter_oid_for(case), "name": "Ada Kern", "payment": 20},
+                        schiedsrichter={"schiedsrichter_id": _schiedsrichter_oid_for(case), "payment": 20},
                     )
                     for case in NAME_IS_PUBLIC
                 ]

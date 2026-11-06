@@ -95,7 +95,7 @@ SPIEL = spiel_document(
     saison_id="2026",
     spiel_nr=1,
     spieltag_id=ObjectId("6890a1b2c3d4e5f607850042"),
-    schiedsrichter={"schiedsrichter_id": REFEREE_OID, "name": "Ortrud Zwiebelmayer", "payment": 20},
+    schiedsrichter={"schiedsrichter_id": REFEREE_OID, "payment": 20},
 )
 ADULT_BIRTHDATE = "2000-05-09"
 SEVENTEEN_BIRTHDATE = "2008-10-04"

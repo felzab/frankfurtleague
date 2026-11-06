@@ -25,7 +25,7 @@ DISQUALIFIED = {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "
 
 
 def side(name: str, tore: int | None) -> dict[str, Any]:
-    return {"team_id": CLUBS[name], "name": name, "shorthand": name[:3].upper(), "tore": tore}
+    return {"team_id": CLUBS[name], "tore": tore}
 
 
 def spiel(spiel_nr: int, home: str, away: str, ergebnis: str | None = None) -> dict[str, Any]:

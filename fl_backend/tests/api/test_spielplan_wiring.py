@@ -190,8 +190,8 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
         played.append(
             {
                 **raw,
-                "team1": {"team_id": one.team_id, "tore": 1, "name": one.name, "shorthand": one.shorthand},
-                "team2": {"team_id": other.team_id, "tore": 0, "name": other.name, "shorthand": other.shorthand},
+                "team1": {"team_id": one.team_id, "tore": 1},
+                "team2": {"team_id": other.team_id, "tore": 0},
                 "ergebnis": "1:0",
             }
         )

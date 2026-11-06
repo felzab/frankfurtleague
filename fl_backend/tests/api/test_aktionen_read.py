@@ -21,9 +21,9 @@ from tests.bans import ban_list
 # in a list. A pass over the top level alone would leave every id that actually breaks serialization.
 STORED_SPIEL = {
     "_id": ObjectId("6890a1b2c3d4e5f607200010"),
-    "team1": {"team_id": ObjectId("6890a1b2c3d4e5f607200011"), "name": "Lessing", "tore": 2},
-    "ort": {"spielort_id": ObjectId("6890a1b2c3d4e5f607200012"), "name": "Sportplatz Ost"},
-    "schiedsrichter": {"schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607200013"), "name": "A. Referee"},
+    "team1": {"team_id": ObjectId("6890a1b2c3d4e5f607200011"), "tore": 2},
+    "ort": {"spielort_id": ObjectId("6890a1b2c3d4e5f607200012")},
+    "schiedsrichter": {"schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607200013")},
     "mitwirkende": [ObjectId("6890a1b2c3d4e5f607200014")],
     "ergebnis": "2:1",
 }
@@ -83,7 +83,6 @@ class TestARecordedRowSurvivesTheResponseModel:
 
         # One document, never the array a removal stores: this row records a patch.
         assert isinstance(before, dict)
-        assert before["team1"]["name"] == "Lessing"
         assert before["team1"]["tore"] == 2
 
     @pytest.mark.parametrize(

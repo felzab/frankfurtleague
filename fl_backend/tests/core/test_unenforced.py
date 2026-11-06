@@ -105,31 +105,31 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
 
     return FLSpielJoinedInternalListAdapter.validate_python(
         [
-            spiel(
-                _id=MATCH_ID.format(FEEDER_NR),
-                spiel_nr=FEEDER_NR,
-                spieltag_id=SPIELTAG_ONE,
-                saison_phase="viertelfinale",
-                date=FEEDER_DATE,
-                team1=_joined_side(ADLER, "Adler", disqualified_from=EXIT_BEFORE_THE_FIXTURE, tore=2),
-                team2=_joined_side(BIEBER, "Bieber", tore=1),
-                ergebnis="2:1",
-                ansetzung_confirmed=None,
-                for_third_place=False,
+            joined_spiel_document(
+                spiel(
+                    _id=MATCH_ID.format(FEEDER_NR),
+                    spiel_nr=FEEDER_NR,
+                    spieltag_id=SPIELTAG_ONE,
+                    saison_phase="viertelfinale",
+                    date=FEEDER_DATE,
+                    team1=_joined_side(ADLER, "Adler", disqualified_from=EXIT_BEFORE_THE_FIXTURE, tore=2),
+                    team2=_joined_side(BIEBER, "Bieber", tore=1),
+                    ergebnis="2:1",
+                )
             ),
-            spiel(
-                _id=MATCH_ID.format(SLOT_NR),
-                spiel_nr=SLOT_NR,
-                spieltag_id=SPIELTAG_TWO,
-                saison_phase="halbfinale",
-                team1=_joined_side(ADLER, "Adler", disqualified_from=EXIT_BEFORE_THE_FIXTURE),
-                team1_quelle={"type": "spiel", "spiel_nr": FEEDER_NR, "ausgang": "sieger"},
-                # Empty rather than filled: a second occupant would put a second entry in the report
-                # and blur which slot it names.
-                team2=None,
-                ergebnis=None,
-                ansetzung_confirmed=None,
-                for_third_place=False,
+            joined_spiel_document(
+                spiel(
+                    _id=MATCH_ID.format(SLOT_NR),
+                    spiel_nr=SLOT_NR,
+                    spieltag_id=SPIELTAG_TWO,
+                    saison_phase="halbfinale",
+                    team1=_joined_side(ADLER, "Adler", disqualified_from=EXIT_BEFORE_THE_FIXTURE),
+                    team1_quelle={"type": "spiel", "spiel_nr": FEEDER_NR, "ausgang": "sieger"},
+                    # Empty rather than filled: a second occupant would put a second entry in the report
+                    # and blur which slot it names.
+                    team2=None,
+                    ergebnis=None,
+                )
             ),
         ]
     )

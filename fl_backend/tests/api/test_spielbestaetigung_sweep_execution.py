@@ -1521,7 +1521,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             return ObjectId(f"6890a1b2c3d4e5f6071{position:05d}")
 
         def club_side(position: int) -> dict[str, Any]:
-            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VEX", "tore": None}
+            return {"team_id": club(position), "tore": None}
 
         def seats(position: int) -> dict[str, Any]:
             return {

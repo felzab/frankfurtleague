@@ -17,9 +17,9 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "_id": ObjectId("650000000000000000000009"),
         "date": "2027-05-14",
         "time": "18:30:00",
-        "ort": {"spielort_id": SPIELORT, "name": "Halle", "maps_link": "x", "mietpreis": 40},
-        "team1": {"team_id": TEAM1, "name": "Eins", "shorthand": "EIX", "tore": None},
-        "team2": {"team_id": TEAM2, "name": "Zwei", "shorthand": "ZWX", "tore": None},
+        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "team1": {"team_id": TEAM1, "tore": None},
+        "team2": {"team_id": TEAM2, "tore": None},
         "ergebnis": None,
         "note": None,
         **overrides,
@@ -50,6 +50,6 @@ class TestTheStandNamesOneAnsetzung:
     def test_what_is_no_input_leaves_it(self):
         """A result, a note or a renamed side is no new Ansetzung, and must not void a confirmation."""
 
-        renamed = {"team_id": TEAM1, "name": "Umbenannt", "shorthand": "UMX", "tore": 2}
+        renamed = {"team_id": TEAM1, "tore": 2}
 
         assert ansetzung_stand_of(spiel(ergebnis="2:1", note="x", team1=renamed)) == ansetzung_stand_of(spiel())

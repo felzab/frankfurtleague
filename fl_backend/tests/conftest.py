@@ -126,17 +126,17 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
 
 @pytest.fixture
 def spiel_team_field() -> PayloadFactory:
-    return _factory({"team_id": TEAM_ID, "name": "Carl-Schurz", "tore": 2, "shorthand": "CSX"})
+    return _factory({"team_id": TEAM_ID, "tore": 2})
 
 
 @pytest.fixture
 def spiel_ort_field() -> PayloadFactory:
-    return _factory({"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80})
+    return _factory({"spielort_id": SPIELORT_ID, "mietpreis": 80})
 
 
 @pytest.fixture
 def spiel_schiedsrichter_field() -> PayloadFactory:
-    return _factory({"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "A. Referee", "payment": 20})
+    return _factory({"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": 20})
 
 
 @pytest.fixture
@@ -149,7 +149,7 @@ def spiel(
         {
             "_id": SPIEL_ID,
             "team1": spiel_team_field(),
-            "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LEX", tore=1),
+            "team2": spiel_team_field(team_id=SPIELER_ID, tore=1),
             # A group-phase fixture: both sides are drawn by the schedule, so neither has a source.
             "team1_quelle": None,
             "team2_quelle": None,

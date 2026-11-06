@@ -65,8 +65,7 @@ PEOPLE = {TEAM1: ("Ida", "Albers"), TEAM2: ("Lea", "Dietz")}
 
 
 def side(team_id: ObjectId) -> dict[str, Any]:
-    name, shorthand = NAMES[team_id]
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
+    return {"team_id": team_id, "tore": None}
 
 
 def fixture(*, spiel_id: ObjectId = SPIEL, saison_id: str = SAISON_ID, **fields: Any) -> dict[str, Any]:
@@ -83,8 +82,8 @@ def fixture(*, spiel_id: ObjectId = SPIEL, saison_id: str = SAISON_ID, **fields:
             "team2": side(TEAM2),
             "date": DATE,
             "time": "18:00:00",
-            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Otto Gruber", "payment": 20},
-            "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
+            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
+            "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
             **fields,
         },
     )
@@ -376,9 +375,7 @@ class BerichteRunningARivalBeforeTheirWrite(InterleavedCollection):
 
 
 async def take_the_referee_off(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one(
-        {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": ANDERER, "name": "Ella Engel", "payment": 20}}}
-    )
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": ANDERER, "payment": 20}}})
 
 
 async def take_lina_out_of_the_squad(database: AsyncDatabase) -> None:
@@ -731,7 +728,7 @@ async def a_reported_quarter_final(database: AsyncDatabase, client: AsyncMongoCl
             "$set": {
                 "spieltag_id": ObjectId(),
                 "date": DATE,
-                "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Otto Gruber", "payment": 20},
+                "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
             }
         },
     )

@@ -60,9 +60,7 @@ BERICHT_VERSION = 2
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
-    name, shorthand = NAMES[team_id]
-
-    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
+    return {"team_id": team_id, "tore": tore}
 
 
 def bracket() -> list[dict[str, Any]]:
@@ -79,8 +77,8 @@ def bracket() -> list[dict[str, Any]]:
         ergebnis="1:3",
         date="2026-05-01",
         time="18:00:00",
-        ort={"spielort_id": SPIELORT, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
-        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER, "name": "Ada Kern", "payment": 20},
+        ort={"spielort_id": SPIELORT, "mietpreis": 80},
+        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
     )
     halbfinale = documents.spiel_document(
         spiel_id=HALBFINALE,

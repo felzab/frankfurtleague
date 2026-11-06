@@ -453,8 +453,8 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
+        team1={"team_id": home, "tore": None},
+        team2={"team_id": ObjectId(), "tore": None},
         date="2026-05-01",
         time="18:00:00",
     )
