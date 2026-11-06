@@ -248,29 +248,28 @@ class TestWhatASubmissionStores:
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
             assert "birth_date" in stored["kontakte"][seat] and stored["kontakte"][seat]["birth_date"] is None
 
-    def test_the_named_opponent_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
-        """A free string and never a reference: nothing resolves it against a club, at the write or afterwards."""
+    def test_every_answer_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
+        """The document is spelled field by field, so an answer lost here is lost in silence."""
+
+        answers = {
+            "team_id": None,
+            "schule": schule_block(),
+            "trikot": {"existing_satz": "12 blaue Trikots", "wunschfarbe": "blau"},
+            "kader": {"expected_size": 17, "good_spieler": 5},
+            "stufengroesse": 118,
+            "wunschgegner": "Zorbanax-Gesamtschule",
+        }
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-            response = await submit(database, wunschgegner="Zorbanax-Gesamtschule")
+            response = await submit(database, **answers)
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
             assert stored is not None
             return stored
 
-        assert on_a_league(mongo_replica_set_url, body)["wunschgegner"] == "Zorbanax-Gesamtschule"
+        stored = on_a_league(mongo_replica_set_url, body)
 
-    def test_the_year_group_the_school_named_is_stored(self, mongo_replica_set_url: str):
-        """The write is the only thing putting this key in the document."""
-
-        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-            response = await submit(database, stufengroesse=118)
-            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
-
-            assert stored is not None
-            return stored
-
-        assert on_a_league(mongo_replica_set_url, body)["stufengroesse"] == 118
+        assert {field: stored[field] for field in answers} == answers
 
 
 async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:

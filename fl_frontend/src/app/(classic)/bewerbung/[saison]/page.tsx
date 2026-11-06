@@ -1,15 +1,14 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { FieldPlaceholder } from "@/kit/FieldPair";
 import { MailedPage } from "@/kit/MailedPage";
-import { SwitchPlaceholder } from "@/kit/Switch";
 
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
 import { orMissing } from "@/core/errors";
 import { bewerbungenGetForm } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -28,9 +27,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/bewerbung/[saison]">;
 
 const SUBMIT = COPY.shared.withObject(COPY.bewerbung.object, "submit");
-
-/** A seat's box while the page is read: its four boxes. */
-const SEAT_ROWS = ["field", "field", "field", "field"] as const;
 
 /**
  * The form's read, `null` for an address naming no season. `cache`, never `"use cache"`: the metadata and the body read
@@ -79,42 +75,14 @@ async function readState(params: Props["params"]): Promise<MailedState> {
 /**
  * `/bewerbung/<saison>`, the public application form: one page of five boxes sent once through the one-shot submit, its
  * outcome replacing the form. Where no form stands, the page is its status card: not yet open, closed or paused, the
- * season over, no window.
+ * season over, no window. The card is what the page lands most days of a year, so the wait draws it and the footer
+ * stands still; the form's few weeks grow the page under the footer when it lands.
  */
 export default function BewerbungPage({ params }: Props) {
   return (
     <MailedPage
       page={readState(params)}
-      act={SUBMIT}
-      boxes={[
-        [
-          "field",
-          <SwitchPlaceholder
-            key="not-listed"
-            label={COPY.bewerbung.schoolNotListed}
-          />,
-          <FieldPlaceholder
-            key="stufe"
-            width="C5"
-          />,
-        ],
-        [...SEAT_ROWS, "field"],
-        SEAT_ROWS,
-        SEAT_ROWS,
-        [
-          "field",
-          "field",
-          <FieldPlaceholder
-            key="kader"
-            width="C5"
-          />,
-          <FieldPlaceholder
-            key="good"
-            width="C5"
-          />,
-          "field",
-        ],
-      ]}
+      end={{ title: SERVER_COPY.bewerbung.end.closed, next: COPY.shared.end.toHome }}
     />
   );
 }

@@ -1,6 +1,7 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
-import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { erasureLinkStands } from "@/core/auth/accounts";
 import { getAccountSession } from "@/core/auth/guards";
@@ -26,7 +27,8 @@ import type { Metadata, ResolvingMetadata, Route } from "next";
 /** A row no crawler fetches, under the mailed pages' referrer. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.accountErasure;
-  return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
+  const title = mailedTitle(await readState(), row.title);
+  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 
 const WORDS = SERVER_COPY.accountErasure;
@@ -47,7 +49,8 @@ export default function AccountErasurePage() {
   );
 }
 
-async function readState(): Promise<MailedState> {
+// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`, which would hand one person's list to another.
+const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
   if (token === null || !(await erasureLinkStands(token))) return { state: "invalid", next: TO_ACCOUNT };
@@ -85,7 +88,7 @@ async function readState(): Promise<MailedState> {
     // Every person holding a passkey touches it first, an administrator always among them.
     touch: passkeys > 0,
   };
-}
+});
 
 /** What goes, one row per label, the records the erasure view reads under it: the list a deletion erases. */
 function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResponse): Fact[] {

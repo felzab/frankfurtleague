@@ -48,7 +48,7 @@ export default function SaisonsPage() {
     <ListPage
       head={{ scope: "area", title: { route: "adminSaisons" } }}
       create={readCreate(read)}
-      list={{ kind: "table", head: HEAD, content: readSaisons(read) }}
+      list={{ kind: "table", head: HEAD, wait: 4, content: readSaisons(read) }}
     />
   );
 }

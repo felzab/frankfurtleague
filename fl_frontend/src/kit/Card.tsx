@@ -66,20 +66,25 @@ export function Card({ title, count, chip, action, body = "rows", children, line
 /**
  * A card while its records are read: its own box and head, the title where the page knows it and a bar where the
  * record names it, a bar where the count will stand, and over its body the placeholders the page's rows draw, such
- * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place at the head's end, where the card carries one.
+ * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place at the head's end, where the card carries one,
+ * `line` the line under the title's, and `body` is the body's kind, as `Card`'s.
  */
 export function CardPlaceholder({
   title,
   count = false,
   chip = false,
+  line = false,
+  body = "rows",
   children,
 }: {
   title?: Words;
   count?: boolean;
   chip?: boolean;
+  line?: boolean;
+  body?: "rows" | "fields";
   children?: ReactNode;
 }) {
-  const s = card();
+  const s = card({ body });
   const name =
     title === undefined ? (
       <PlaceholderLine
@@ -102,6 +107,12 @@ export function CardPlaceholder({
           <span className={s.count()}>
             <span className={placeholderBar("h-3 w-4")} />
           </span>
+        )}
+        {line && (
+          <PlaceholderLine
+            text={s.line()}
+            width="w-1/4"
+          />
         )}
       </div>
       {children !== undefined && <div className={s.body()}>{children}</div>}

@@ -839,11 +839,13 @@ def compose_confirmation_update(
     whatsapp: bool,
     media: bool,
     at: str,
+    takes_the_notice_back: bool,
 ) -> Mapping[str, Any]:
     """The ONE update a confirmation is, on every seat the person holds.
 
     The date and the stamp land together, which is why
-    this is one update and never two.
+    this is one update and never two. `takes_the_notice_back` where the answer moves the day a deletion notice named
+    (`leaving_moves_the_deletion_day`).
     """
 
     written: dict[str, Any] = {}
@@ -862,6 +864,8 @@ def compose_confirmation_update(
                 text_versions=text_versions,
             )
         )
+    if takes_the_notice_back:
+        written["erasure_announced_at"] = None
 
     return {"$set": written}
 
@@ -1009,6 +1013,18 @@ def _moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequenc
     unanswered = {**(kontakte if isinstance(kontakte, Mapping) else {}), **dict.fromkeys(seats)}
 
     return deletion_day(kontakte=unanswered, confirmations=fresh) != deletion_day(kontakte=kontakte, confirmations=confirmations)
+
+
+def leaving_moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str]) -> bool:
+    """Whether these seats going moves `deletion_day`, whose earliest may be theirs.
+
+    A confirmed seat stops counting, and an erased one holds no day.
+    """
+
+    outstanding = ausstehende_seats(kontakte=kontakte)
+    staying = [seat for seat in outstanding if seat not in seats]
+
+    return _earliest_deadline(confirmations=confirmations, seats=staying) != _earliest_deadline(confirmations=confirmations, seats=outstanding)
 
 
 def compose_erneut_update(*, seats: Sequence[str], today: str, kontakte: Any, confirmations: Any) -> Mapping[str, Any]:
@@ -1317,15 +1333,19 @@ def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[st
     return {"$set": {f"confirmations.{seat}.reminded_at": today for seat in seats}}
 
 
+def _earliest_deadline(*, confirmations: Any, seats: Iterable[str]) -> str | None:
+    days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in seats]
+
+    return min((day for day in days if isinstance(day, str)), default=None)
+
+
 def deletion_day(*, kontakte: Any, confirmations: Any) -> str | None:
     """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names.
 
-    A write moving it takes the notice's stamp back (`compose_erneut_update`), so a stamp means the named day still holds.
+    Every write moving it takes the notice's stamp back, so a stamp means the named day still holds.
     """
 
-    days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in ausstehende_seats(kontakte=kontakte)]
-
-    return min((day for day in days if isinstance(day, str)), default=None)
+    return _earliest_deadline(confirmations=confirmations, seats=ausstehende_seats(kontakte=kontakte))
 
 
 def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:

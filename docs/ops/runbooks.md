@@ -651,8 +651,9 @@ their Widerspruch.** On an application, which of the three cases below you are i
 that seat's own link, not by the person's role; a seat on a team's season row is the fourth:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
-  page the link opens, empties the seat at once and tells the Ansprechperson so the school can name
-  somebody else (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
+  page the link opens, empties the seat at once and tells the Ansprechperson, where one stands and is
+  not the person objecting, so the school can name somebody else
+  (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
   link** (`bewerbung_kontakt_barred`), and the link it already holds opens on the ban's sentence alone,
@@ -675,7 +676,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   them (`docs/glossary.md :: Bestätigung`). A lost link is sent again, and a lapsed one until the
   hourly pass empties its seat, with „Link senden“ on that seat's row in the team's editor
   (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`), which replaces the old link
-  whole; an emptied seat is typed in again, which mails its own link. It refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
+  whole; an emptied seat is typed in again, which mails its own link. „Link senden“ refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
   ended or whose team has left it (`kontakt_row_without_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschung auf Anfrage“.

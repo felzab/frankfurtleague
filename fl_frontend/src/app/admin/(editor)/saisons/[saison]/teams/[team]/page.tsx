@@ -14,9 +14,9 @@ import { adminTeamChip } from "@/features/teams/constants";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamSaisonAdmin } from "@/features/teams/queries";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { saveTeam } from "./saveTeam";
 import { seatsOf } from "./seats";
@@ -43,7 +43,7 @@ const SELECT = (
 
 /** The club the address names in its season, retired or not: `null` for a malformed id and for one no record holds. */
 async function find(params: Props["params"]) {
-  const [{ saison }, id] = await Promise.all([params, objectIdParamOf(params, "team")]);
+  const [{ saison }, id] = await Promise.all([params, adminIdParamOf(params, "team")]);
   return id === null ? null : getTeamSaisonAdmin(id, saison);
 }
 
@@ -59,19 +59,49 @@ export default function TeamEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         sections: [
-          ["pair", "field", SELECT, "field", { titled: "W4" }],
+          [
+            "pair",
+            "field",
+            SELECT,
+            "field",
+            <FieldPlaceholder
+              key="description"
+              width="W4"
+            />,
+          ],
           ["pair", "pair", "field"],
-          [SELECT, SELECT],
+          // A club that left: the box says since when, over the exit's three facts.
+          {
+            note: LINK_WORDS.lockedSinceStart,
+            rows: [
+              SELECT,
+              SELECT,
+              <FactsPlaceholder
+                key="austritt"
+                pairs={3}
+              />,
+            ],
+          },
           [<SeatRowsPlaceholder key="seats" />],
+          // A live link's three acts.
           [
             <FactsPlaceholder
               key="link"
               pairs={2}
             />,
             { act: COPY.shared.withObject(COPY.account.address.link, "send") },
+            { act: COPY.shared.withObject(COPY.account.address.link, "replace") },
+            { act: COPY.shared.withObject(COPY.account.address.link, "withdraw") },
           ],
         ],
-        danger: [COPY.shared.verb.remove, COPY.shared.verb.retire],
+        danger: [
+          { name: WORDS.austrittAct, consequence: WORDS.austrittRowLine, act: COPY.shared.verb.remove },
+          {
+            name: COPY.shared.withObject(COPY.shared.facts.team, "retire"),
+            consequence: WORDS.retireConsequence,
+            act: COPY.shared.verb.retire,
+          },
+        ],
       }}
       editor={readEditor(params)}
     />

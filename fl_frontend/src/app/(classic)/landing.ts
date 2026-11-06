@@ -19,9 +19,9 @@ export type LandingSaison = NonNullable<FLLandingResponse["saison"]>;
 type SaisonState = ComponentProps<typeof SaisonBlock>["state"];
 
 /**
- * The landing's one read: the season the site is on, its state, figures and schools, and the application window
- * open today, which the backend judges by the rule the submission refuses on. Cached under the site-wide tag for
- * minutes, as every league read is, so a save clears it.
+ * The landing's one read: the season the site is on, its state, figures and schools, the application window open
+ * today, which the backend judges by the rule the submission refuses on, and the day the next one opens. Cached under
+ * the site-wide tag for minutes, as every league read is, so a save clears it.
  */
 export async function readLanding(): Promise<FLLandingResponse> {
   "use cache";

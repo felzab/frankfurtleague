@@ -16,9 +16,9 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ereignisOf, quelleWords, vorschauOf } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { createSpielort } from "../../../../../createSpielort";
 import { SPIELORT_RULES } from "../../../../../spielortRules";
@@ -79,7 +79,7 @@ const read = cache(getAdminSpiel);
  * and for one of another season.
  */
 async function findSpiel(params: Props["params"]): Promise<FLSpieleAdminSingleResponse | null> {
-  const spiel = await objectIdParamOf(params, "spiel");
+  const spiel = await adminIdParamOf(params, "spiel");
   const { saison } = await params;
   const view = spiel === null ? null : await read(spiel);
   return view === null || view.spiel.saison_id !== saison ? null : view;

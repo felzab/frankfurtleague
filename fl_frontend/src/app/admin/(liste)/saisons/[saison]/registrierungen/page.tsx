@@ -121,6 +121,7 @@ export default function RegistrierungenPage({ params, searchParams }: Props) {
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
         head: HEAD,
+        wait: 30,
         content: season.then(({ saison, filters, shown }) => ({
           table: {
             label: ROUTES.adminRegistrierungen.title,

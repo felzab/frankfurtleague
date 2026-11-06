@@ -50,9 +50,7 @@ export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElemen
   return { ergebnisRef, beantwortet: () => setAntworten((bisher) => bisher + 1) };
 }
 
-/**
- * One section of the page, a contact meeting the same box on every link page of the workflow.
- */
+/** One section of a link page. */
 export function BestaetigungAbschnitt({ titel, children }: { titel: string; children: ReactNode }) {
   const panel = formPanel();
 

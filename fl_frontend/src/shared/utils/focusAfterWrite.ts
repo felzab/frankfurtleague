@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 const SECTION = "data-focus-section";
 const ROW = "data-focus-row";
 const SLOT = "data-focus-slot";

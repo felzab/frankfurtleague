@@ -7,8 +7,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
+import { ClassicPage } from "./ClassicPage";
 import { actLabel } from "./dialogAct";
 import { ListPage } from "./ListPage";
+import { RailPage } from "./RailFrame";
 
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
 import type { ComponentProps } from "react";
@@ -42,6 +44,35 @@ async function declarationsFor(classes: readonly string[]): Promise<{ decl: Decl
   return found;
 }
 
+// The harm: Chrome restores a reload by a selector it saved inside `main`, which finds the wrong element in the
+// placeholders, and only a reload while scrolled shows the page landing elsewhere.
+describe("the frames' `main`", () => {
+  it.each([
+    [
+      "a rail page",
+      <RailPage
+        key="rail"
+        scope="saison"
+        title={{ route: "spielplan" }}>
+        {null}
+      </RailPage>,
+    ],
+    [
+      "a classic page",
+      <ClassicPage
+        key="classic"
+        width="form">
+        {null}
+      </ClassicPage>,
+    ],
+  ])("saves no scroll anchor on %s", async (_, frame) => {
+    const page = document.createElement("div");
+    page.innerHTML = renderToString(frame);
+    const declared = await declarationsFor([...(page.querySelector("main")?.classList ?? [])]);
+    expect(declared.filter(({ decl }) => decl.prop === "overflow-anchor").map(({ decl }) => decl.value)).toStrictEqual(["none"]);
+  });
+});
+
 describe("the list's create act", () => {
   // The harm: a dialog's trigger around the locked button would open the create form behind the reason.
   it("answers a press with its reason while locked, never its form", async () => {
@@ -51,7 +82,7 @@ describe("the list's create act", () => {
       <ListPage
         head={{ scope: "saison", title: { route: "spielplan" } }}
         create={{ title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null, locked: reason }}
-        list={{ kind: "spieltage", content: new Promise(() => undefined) }}
+        list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: new Promise(() => undefined) }}
       />,
     );
 
@@ -72,7 +103,7 @@ describe("the list template's wait", () => {
     page.innerHTML = renderToString(
       <ListPage
         head={{ scope: "saison", title: { route: "spielplan" } }}
-        list={{ kind: "spieltage", content: new Promise(() => undefined) }}
+        list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: new Promise(() => undefined) }}
       />,
     );
     const declared = await declarationsFor([...(page.querySelector("[aria-busy]")?.classList ?? [])]);

@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { FLActionLogEntryHerkunft, FLActionLogEntryOperation } from "@/core/generated/client/types";
 import { pickedOf, readFacetSelectionFromRoute } from "@/shared/utils/facets";
 

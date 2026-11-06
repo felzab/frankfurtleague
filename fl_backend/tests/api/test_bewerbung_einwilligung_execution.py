@@ -606,6 +606,25 @@ class TestWhatAWiderspruchOwesTheAnsprechperson:
 
         assert on_a_league(mongo_replica_set_url, body).get("erasure_announced_at") is None
 
+    @pytest.mark.parametrize(
+        ("answering", "announced"),
+        [pytest.param("trainer", None, id="the earliest seat moves the day"), pytest.param("ansprechperson", "2026-03-30", id="a later seat")],
+    )
+    def test_a_confirmation_takes_the_notice_back_only_where_the_day_it_named_moves(
+        self, mongo_replica_set_url: str, answering: str, announced: str | None
+    ):
+        """A person told a day that has since moved is told again; a second notice for a day that stands announces one deletion twice."""
+
+        application = bewerbung_document(erasure_announced_at="2026-03-30")
+        application["confirmations"]["trainer"]["deadline"] = "2026-04-02"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW[answering])
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[application])["erasure_announced_at"] == announced
+
     def test_no_other_seats_address_reaches_the_answer(self, mongo_replica_set_url: str):
         """The answer is the browser's: an address or a name in it is one nothing here would send to."""
 

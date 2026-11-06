@@ -43,7 +43,7 @@ export default function SpielortePage() {
         action: createSpielort,
         children: <SpielortFields rules={SPIELORT_RULES} />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSpielorte() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 8, content: readSpielorte() }}
     />
   );
 }

@@ -238,6 +238,17 @@ class TestTheOneSave:
 
         assert answered == served
 
+    def test_a_corrected_birthdate_lands(self, mongo_replica_set_url: str):
+        """Written through a list of the person's fields, so a date falling out of it answers the save and keeps the wrong day."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            spieler_id = await self.seated(database)
+            await save(database, spieler_id, birth_date="2008-05-18")
+
+            return await database.spieler.find_one({"_id": spieler_id})
+
+        assert on_a_database(mongo_replica_set_url, body)["birth_date"] == "2008-05-18"
+
     def test_a_part_left_as_stored_is_not_written(self, mongo_replica_set_url: str):
         """Written anyway, every name's correction would log a squad edit nobody made."""
 

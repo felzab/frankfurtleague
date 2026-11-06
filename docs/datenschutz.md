@@ -456,7 +456,7 @@ cannot reach is section 5's list, each bounded by its own period.
 | 2026-10-26 | A delivery state stored on the Postausgang row                                                                                                                                                                                                      |
 | 2026-11-04 | One wording per consent, each choice evidenced under its label; a consent's label is its whole sentence; every confirmation link 14 days; a withdrawal by mail; media taken down on withdrawal; Art. 22 before the switch                           |
 | 2026-11-05 | A fixture answer names its answerer by seat alone; an erasure or a Widerspruch clears the reasons typed from the seats it empties                                                                                                                   |
-| 2026-11-06 | An application goes on its day whether or not the Ansprechperson's mail arrived; a mailbox past the forms' bound is mailed nothing                                                                                                                  |
+| 2026-11-06 | An application goes on its day whether or not the Ansprechperson's mail arrived; a season row's unconfirmed seat goes on its day whatever the season's status; a mailbox past the forms' bound is mailed nothing                                    |
 
 ## 11. Open, and owed a decision
 
@@ -528,7 +528,7 @@ procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
     § 18(2) MStV; and which basis the notice and the page's description should cite, they citing
     § 5 DDG where this record cites § 18(1) MStV first.
 20. **The objection line's place**: whether a footer of 12 px under the Impressum and privacy links
-    in each first-contact mail, and no longer on the confirmation page, is „presented clearly and
+    in each first-contact mail, and not on the confirmation page, is „presented clearly and
     separately from any other information“ under Art. 21(4).
 21. **A Widerspruch and naming the person again**: after one, an administrator can seat the same
     person and a new application can name them, which mails them again; nothing checks it and only

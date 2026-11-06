@@ -12,9 +12,9 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
 import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { reactivateSchiedsrichter, retireSchiedsrichter, sendSchiedsrichterLink } from "./retireSchiedsrichter";
 import { saveSchiedsrichter } from "./saveSchiedsrichter";
@@ -36,7 +36,7 @@ const read = cache(getSchiedsrichterById);
 
 /** The referee the address names, retired or not: `null` for a malformed id and for one no referee holds. */
 async function findSchiedsrichter(params: Props["params"]) {
-  const id = await objectIdParamOf(params, "schiedsrichter");
+  const id = await adminIdParamOf(params, "schiedsrichter");
   return id === null ? null : read(id);
 }
 
@@ -81,7 +81,13 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
             />,
           ],
         ],
-        danger: [COPY.shared.verb.retire],
+        danger: [
+          {
+            name: COPY.shared.withObject(COPY.shared.schiedsrichter, "retire"),
+            consequence: WORDS.retireConsequence,
+            act: COPY.shared.verb.retire,
+          },
+        ],
       }}
       editor={readEditor(params)}
     />

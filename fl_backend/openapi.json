@@ -7780,6 +7780,18 @@
       "FLLandingResponse": {
         "description": "The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures.",
         "properties": {
+          "bewerbung_opens_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bewerbung Opens On"
+          },
           "bewerbung_window": {
             "anyOf": [
               {
@@ -7826,6 +7838,7 @@
         "required": [
           "saison",
           "bewerbung_window",
+          "bewerbung_opens_on",
           "counts"
         ],
         "title": "FLLandingResponse",
@@ -23719,7 +23732,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks\nbelow do not run for a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: `reminded_at` is stamped and the\nreminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded\nshare of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is\nmade inside a transaction and takes its log rows with it.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `failed` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks\nbelow do not run for a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:\n`reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that\ninbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every\nremoval names this season alone, is made inside a transaction and takes its log rows with it.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `failed` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -24119,7 +24132,7 @@
     },
     "/api/v0/saisons/landing": {
       "get": {
-        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, and the league's figures over\nevery season the public reads, counted on every read. The figures are read beside the season's two steps rather\nthan after them, so they add no step to the read.",
+        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, the day the next one opens by\nthe judgement the form's page serves, and the league's figures over every season the public reads, counted on every\nread. The windows and the figures are read beside the season's two steps rather than after them, so they add no step\nto the read.",
         "operationId": "saisons_get_landing",
         "responses": {
           "200": {

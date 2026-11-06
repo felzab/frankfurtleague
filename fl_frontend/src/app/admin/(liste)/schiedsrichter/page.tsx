@@ -67,7 +67,7 @@ export default function SchiedsrichterPage() {
         action: createSchiedsrichter,
         children: <SchiedsrichterFields />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSchiedsrichter() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 8, content: readSchiedsrichter() }}
     />
   );
 }

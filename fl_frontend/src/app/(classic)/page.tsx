@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { Doors } from "@/kit/Doors";
+import { Doors, DoorsPlaceholder } from "@/kit/Doors";
 import { EmptyState } from "@/kit/EmptyState";
 import { InfoCards } from "@/kit/InfoCards";
 import { OrganizationJsonLd } from "@/kit/JsonLd";
@@ -41,7 +41,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 
 /** What the doors say in every state, which is all they say while no window is open. */
-const DOORS: Pick<ComponentProps<typeof Doors>, "eyebrow" | "more" | "question"> = {
+const DOORS = {
   eyebrow: words.doors.eyebrow,
   more: { label: COPY.page.contact, href: ROUTES.contact.path() },
   // The question's door: the league's address and its two networks.
@@ -51,7 +51,7 @@ const DOORS: Pick<ComponentProps<typeof Doors>, "eyebrow" | "more" | "question">
     instagram: INSTAGRAM_URL,
     threads: THREADS_URL,
   },
-};
+} satisfies Pick<ComponentProps<typeof Doors>, "eyebrow" | "more" | "question">;
 
 /** The landing's read, on a request: the countdown seeds from the server's clock, and the build reaches no backend. */
 async function readOnRequest(): Promise<FLLandingResponse> {
@@ -94,16 +94,17 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
   };
 }
 
-/** The band under the steps, with the application window's state. */
+/** The band under the steps, with the application window's state: an upcoming one in the words of the form's page. */
 async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof Steps>["band"] {
-  const { bewerbung_window: window } = await read;
-  return window === null
-    ? { open: false, sentence: words.join.closed, act: ABOUT }
-    : {
-        open: true,
-        sentence: words.saison.windowUntil(dayOf(window.end)),
-        act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
-      };
+  const { bewerbung_window: window, bewerbung_opens_on: opensOn } = await read;
+  if (window !== null) {
+    return {
+      open: true,
+      sentence: words.saison.windowUntil(dayOf(window.end)),
+      act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+    };
+  }
+  return { open: false, sentence: opensOn === null ? words.join.closed : SERVER_COPY.bewerbung.end.opensOn(dayOf(opensOn)), act: ABOUT };
 }
 
 /** The league's figures, once a season is read by the public. */
@@ -235,13 +236,18 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
       </LandingSection>
       <LandingSectionWait
         block={doorsOf(read)}
-        fallback={<Doors {...DOORS} />}
+        fallback={
+          <DoorsPlaceholder
+            more={DOORS.more.label}
+            question={DOORS.question}
+          />
+        }
       />
       <LandingSectionWait
         block={schoolsOf(read)}
         fallback={
           <LandingSectionPlaceholder more={COPY.page.teams}>
-            <SchoolTilesPlaceholder count={8} />
+            <SchoolTilesPlaceholder count={24} />
           </LandingSectionPlaceholder>
         }
       />

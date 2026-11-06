@@ -351,6 +351,15 @@ html:has([data-app-shell]) {
   scrollbar-gutter: stable both-edges;
 }
 
+/* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
+   saved, found by a selector, before the saved offset, and a placeholder is never the content's DOM, so
+   the selector lands on the wrong element and nothing corrects it once the content arrives. With no
+   element saved inside `main` the browser restores by offset at the first layout, and anchors live on the
+   frame outside it alone: a classic page's footer, which absorbs what the content adds. */
+@utility overflow-anchor-none {
+  overflow-anchor: none;
+}
+
 /* Reserving a scrollbar's space is the opposite concern, spelled at the call site with
    `scrollbar-gutter-stable`. */
 @utility scrollbar-hide {

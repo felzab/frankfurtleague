@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { withoutSearchQuery } from "./searchQuery";
 
 /**

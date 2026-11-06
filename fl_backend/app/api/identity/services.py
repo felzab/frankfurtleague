@@ -120,6 +120,9 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "team_id": 1,
                 "name": 1,
                 "confirmations": 1,
+                # What the clearing judges a deletion notice's day by (`leaving_moves_the_deletion_day`).
+                "erasure_announced_at": 1,
+                **{f"kontakte.{slot}.einwilligung.confirmed_at": 1 for slot in KONTAKT_ROLLEN},
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ERASURE_SEAT_FIELDS},
             }
         },

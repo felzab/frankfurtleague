@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 /** One choosable value of a facet, and no count of its own: `countFacetOptions` answers those against the rows on hand. */
 export type FacetOption = {
   value: string;

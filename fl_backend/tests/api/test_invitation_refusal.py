@@ -49,6 +49,27 @@ class TestWhoALinkIsMailedTo:
         # The FIRST seat in seat order, so the message addresses the person as the role they lead with.
         assert empfaenger[0].rolle == "trainer"
 
+    def test_an_unconfirmed_first_seat_leaves_the_next_one_addressed(self):
+        """The seats are read in turn, so stopping at the Trainer would keep the link from a person who confirmed."""
+
+        block = kontakte(
+            trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=None),
+            ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
+        )
+
+        assert [(entry.rolle, entry.first_name, entry.email) for entry in bestaetigte_empfaenger(kontakte=block)] == [
+            ("ansprechperson", "Quillhilde", "quillhilde@example.com")
+        ]
+
+    def test_a_repeated_address_leaves_the_seat_after_it_addressed(self):
+        block = kontakte(
+            trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON),
+            ansprechperson=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON),
+            stellvertretung=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
+        )
+
+        assert [entry.email for entry in bestaetigte_empfaenger(kontakte=block)] == ["bramblewick@example.com", "quillhilde@example.com"]
+
 
 class TestATeamTheBanListKeepsTheLinkFrom:
     """The mailer sends a barred address nothing and records nothing, so the plan reads the ban itself."""
