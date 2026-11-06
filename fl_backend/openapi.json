@@ -3534,7 +3534,7 @@
               }
             ]
           },
-          "answered_on": {
+          "answered_at": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3544,7 +3544,7 @@
                 "type": "null"
               }
             ],
-            "title": "Answered On"
+            "title": "Answered At"
           },
           "deadline": {
             "anyOf": [
@@ -3624,7 +3624,7 @@
           "minimum_age",
           "maximum_age",
           "deadline",
-          "answered_on",
+          "answered_at",
           "media_minimum_age"
         ],
         "title": "FLBewerbungEinwilligungViewResponse",
@@ -3759,32 +3759,27 @@
         "type": "object"
       },
       "FLBewerbungFormWindow": {
-        "description": "A season's application window as the form's page judges it.",
+        "description": "A season's application window as the form's page shows it.",
         "properties": {
-          "end": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "End",
-            "type": "string"
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "saison_ended": {
-            "title": "Saison Ended",
-            "type": "boolean"
-          },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "upcoming",
+              "closed",
+              "ended"
+            ],
+            "title": "State",
             "type": "string"
           }
         },
         "required": [
           "start",
-          "end",
-          "running",
-          "saison_ended"
+          "state"
         ],
         "title": "FLBewerbungFormWindow",
         "type": "object"

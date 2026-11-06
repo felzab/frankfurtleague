@@ -486,17 +486,20 @@ class FLBewerbungSchuleOption(BaseModel):
 FLBewerbungSchuleOptionListAdapter = TypeAdapter(list[FLBewerbungSchuleOption])
 
 
-class FLBewerbungFormWindow(BaseModel):
-    """A season's application window as the form's page judges it."""
+# Where a season's window stands today: taking applications, opening on its `start`, shut, or over with its season.
+# `closed` folds a pause into a window past its end, which `app/api/bewerbungen/services.py :: find_window_refusal` tells no
+# anonymous visitor apart, and a pause names no day it lifts. `ended` serves nothing the rule withholds: `future` and
+# `active` answer alike, and a finished season reads as over whatever dates it stores.
+FLBewerbungWindowState = Literal["running", "upcoming", "closed", "ended"]
 
+
+class FLBewerbungFormWindow(BaseModel):
+    """A season's application window as the form's page shows it."""
+
+    # The day an `upcoming` window opens.
     start: CustomDateString
-    end: CustomDateString
-    # The whole judgement, computed server-side: a season not yet ended, today inside the span, the window not paused.
-    # Served rather than left to the client, which would re-derive it against a clock this server does not share.
-    running: bool
-    # A boolean rather than the status: `future` and `active` answer alike, so this serves nothing
-    # the rule withholds, and a finished season still reads as over whatever dates it stores.
-    saison_ended: bool
+    # The whole judgement, computed server-side, so the page reads no day of its own against a clock this server does not share.
+    state: FLBewerbungWindowState
 
 
 class FLBewerbungFormResponse(BaseAPIResponse):
@@ -505,7 +508,7 @@ class FLBewerbungFormResponse(BaseAPIResponse):
     saison_id: str
     # Null where the season records no window.
     window: FLBewerbungFormWindow | None
-    # Empty unless `running`: a page showing no form asks for neither, and a season not taking applications tells this
+    # Empty unless the window runs: a page showing no form asks for neither, and a season not taking applications tells this
     # tier nothing of its colours.
     schulen: list[FLBewerbungSchuleOption]
     # Taken, and by nobody this answer names.
@@ -553,7 +556,7 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     # The day this seat's link stops working, which the page's text names; null on a seat holding none.
     deadline: CustomOptionalDateString
     # The day the person answered, which a reopened link says; null while they have not.
-    answered_on: CustomOptionalDateString
+    answered_at: CustomOptionalDateString
     # The age from which the page offers the media switch, `media_age`'s floor.
     media_minimum_age: int = Field(gt=0)
 

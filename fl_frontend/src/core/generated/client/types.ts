@@ -1572,7 +1572,7 @@ export const FLKontaktRow = {
  */
 export interface FLBewerbungEinwilligungViewResponse {
   also_rolle: FLKontaktRolle | null;
-  answered_on: string | null;
+  answered_at: string | null;
   deadline: string | null;
   maximum_age: number;
   /** @exclusiveMinimum 0 */
@@ -1649,16 +1649,22 @@ export interface FLBewerbungSchuleOption {
   name: string;
 }
 
+export type FLBewerbungFormWindowState = (typeof FLBewerbungFormWindowState)[keyof typeof FLBewerbungFormWindowState];
+
+export const FLBewerbungFormWindowState = {
+  running: "running",
+  upcoming: "upcoming",
+  closed: "closed",
+  ended: "ended",
+} as const;
+
 /**
- * A season's application window as the form's page judges it.
+ * A season's application window as the form's page shows it.
  */
 export interface FLBewerbungFormWindow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  end: string;
-  running: boolean;
-  saison_ended: boolean;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start: string;
+  state: FLBewerbungFormWindowState;
 }
 
 /**

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
+    FLBewerbungWindowState,
     age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
@@ -167,6 +168,18 @@ def saison_nimmt_bewerbungen_an(*, saison_status: Any, bewerbung: Any, today: st
         return False
 
     return str(bewerbung["start"]) <= today <= str(bewerbung["end"])
+
+
+def form_window_state(*, saison_status: Any, bewerbung: Mapping[str, Any], today: str) -> FLBewerbungWindowState:
+    """Where this stored window stands today, as the form's page says it: a pause opens on no day, so its `start` is never its promise."""
+
+    if season_has_ended(saison_status=saison_status):
+        return "ended"
+
+    if saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
+        return "running"
+
+    return "upcoming" if bewerbung["open"] and today < str(bewerbung["start"]) else "closed"
 
 
 # `season_has_ended`'s negation for a read that narrows in the query. Every write stores a season's status, which is why
@@ -749,7 +762,7 @@ def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRol
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
 
 
-def seat_answered_on(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
+def seat_answered_at(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
     """The day this seat's person answered, a stamp on the slot or a decline beside it, or `None`."""
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None

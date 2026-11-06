@@ -34,7 +34,7 @@ async function stateFor(view: Partial<FLBewerbungEinwilligungViewResponse>): Pro
     minimum_age: 18,
     maximum_age: 99,
     deadline: "2026-11-18",
-    answered_on: null,
+    answered_at: null,
     media_minimum_age: 18,
     ...view,
   };
@@ -52,7 +52,7 @@ async function stateFor(view: Partial<FLBewerbungEinwilligungViewResponse>): Pro
 // review of the page meets one of these states at most, each needing a link of its own.
 describe("a contact's link, opened again", () => {
   it("says the seat was confirmed, and when, leading to the account", async () => {
-    expect(await stateFor({ state: "confirmed", answered_on: DAY })).toMatchObject({
+    expect(await stateFor({ state: "confirmed", answered_at: DAY })).toMatchObject({
       state: "alreadyDone",
       title: COPY.shared.end.doneOn(END.confirmed.title, DAY),
       next: TO_ACCOUNT,
@@ -60,7 +60,7 @@ describe("a contact's link, opened again", () => {
   });
 
   it("says the seat was objected to, and when, on the declined tint, leading home", async () => {
-    expect(await stateFor({ state: "declined", answered_on: DAY })).toMatchObject({
+    expect(await stateFor({ state: "declined", answered_at: DAY })).toMatchObject({
       state: "alreadyDone",
       title: COPY.shared.end.doneOn(END.objected.title, DAY),
       next: TO_HOME,

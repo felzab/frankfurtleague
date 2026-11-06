@@ -54,18 +54,17 @@ from app.api.bewerbungen.services import (
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
+    form_window_state,
     mindestalter_for,
     objection_is_announced,
     owed_at_submission,
     paired_seat,
     payload_fingerabdruck,
     saison_link_pair,
-    saison_nimmt_bewerbungen_an,
     saison_schule,
     saison_zustand_of,
-    season_has_ended,
     seat_addresses,
-    seat_answered_on,
+    seat_answered_at,
     seat_deadline_of,
     seat_first_name,
     seat_holding,
@@ -83,7 +82,7 @@ from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
@@ -150,21 +149,27 @@ async def get_form(
     nothing more (`READ-BEWERBUNG-001`).
     """
 
-    seasons = await aggregate_many_from_db(collection=saisons_collection, pipeline=build_form_pipeline(saison_id=saison_id))
+    # The whole read under the league's collation, its one name-ordered list being the clubs of the `$lookup`.
+    seasons = await aggregate_many_from_db(
+        collection=saisons_collection, pipeline=build_form_pipeline(saison_id=saison_id), collation=GERMAN_COLLATION
+    )
     if not seasons:
         raise DocumentNotFoundError()
 
     saison_raw = seasons[0]
-    window, saison_status = saison_raw.get("bewerbung"), saison_raw["status"]
-    running = saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=window, today=today)
+    stored = saison_raw.get("bewerbung")
+    window = (
+        None
+        if stored is None
+        else FLBewerbungFormWindow(
+            start=str(stored["start"]), state=form_window_state(saison_status=saison_raw["status"], bewerbung=stored, today=today)
+        )
+    )
+    running = window is not None and window.state == "running"
 
     return FLBewerbungFormResponse(
         saison_id=saison_id,
-        window=None
-        if window is None
-        else FLBewerbungFormWindow(
-            start=str(window["start"]), end=str(window["end"]), running=running, saison_ended=season_has_ended(saison_status=saison_status)
-        ),
+        window=window,
         schulen=FLBewerbungSchuleOptionListAdapter.validate_python(saison_raw["schulen"]) if running else [],
         taken=assigned_trikot_farben(stored=[row["_id"] for row in saison_raw["colours"]]) if running else [],
     )
@@ -401,7 +406,7 @@ async def _saison_ansicht(
         minimum_age=mindestalter_for(seats),
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
-        answered_on=seat_answered_on(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
+        answered_at=seat_answered_at(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
@@ -468,7 +473,7 @@ async def get_einwilligung_view(
         minimum_age=mindestalter_for(seats),
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
-        answered_on=seat_answered_on(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
+        answered_at=seat_answered_at(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 

@@ -398,7 +398,7 @@ class TestTheDaysTheViewNames:
         trainer, ansprechperson = on_a_league(mongo_replica_set_url, body, documents=[fresher])
 
         assert (trainer.deadline, ansprechperson.deadline) == ("2026-04-09", "2026-04-03")
-        assert (trainer.answered_on, trainer.maximum_age) == (None, BEWERBUNG_KONTAKT_MAX_AGE_YEARS)
+        assert (trainer.answered_at, trainer.maximum_age) == (None, BEWERBUNG_KONTAKT_MAX_AGE_YEARS)
 
     @pytest.mark.parametrize("given", [pytest.param({}, id="a confirmation"), pytest.param({"answer": "declined"}, id="a Widerspruch")])
     def test_a_reopened_link_names_the_day_it_was_answered(self, mongo_replica_set_url: str, given: Mapping[str, Any]):
@@ -407,7 +407,7 @@ class TestTheDaysTheViewNames:
 
             return await read_view(database, RAW["stellvertretung"])
 
-        assert on_a_league(mongo_replica_set_url, body).answered_on == TODAY
+        assert on_a_league(mongo_replica_set_url, body).answered_at == TODAY
 
 
 class TestTheLinkIsSpentByTheStamp:
