@@ -1,5 +1,5 @@
 import { DateField } from "@/kit/DateField";
-import { FieldColumns } from "@/kit/FieldColumns";
+import { FieldRows } from "@/kit/FieldRows";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -82,23 +82,20 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
 /** The create dialog's boxes, starting from the days the newest season suggests. */
 function CreateFields({ next }: { next: NextSaison }) {
   return (
-    <>
-      {/* A season's two days, sharing their row at every width. */}
-      <FieldColumns>
-        <DateField
-          label={WORDS.start}
-          name="start_date"
-          isRequired={CREATE_REQUIRED.start}
-          defaultValue={next.start}
-        />
-        <DateField
-          label={WORDS.end}
-          name="end_date"
-          isRequired={CREATE_REQUIRED.end}
-          defaultValue={next.end}
-        />
-      </FieldColumns>
-    </>
+    <FieldRows>
+      <DateField
+        label={WORDS.start}
+        name="start_date"
+        isRequired={CREATE_REQUIRED.start}
+        defaultValue={next.start}
+      />
+      <DateField
+        label={WORDS.end}
+        name="end_date"
+        isRequired={CREATE_REQUIRED.end}
+        defaultValue={next.end}
+      />
+    </FieldRows>
   );
 }
 

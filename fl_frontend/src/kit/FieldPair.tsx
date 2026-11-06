@@ -63,7 +63,7 @@ export function FieldPairPlaceholder() {
  * fills it there: the long side takes the room the short one leaves, and two short sides share it, each growing from
  * its own width. Any other pair stands one field per row on a phone, as every field does. The address writes the
  * number after its street but the postcode before its town, which is why `short` names a side. Two fields holding
- * values of one kind stand as `FieldColumns` instead.
+ * values of one kind, or a span's two ends, stand as `FieldRows` instead.
  */
 export function FieldPair({
   short,

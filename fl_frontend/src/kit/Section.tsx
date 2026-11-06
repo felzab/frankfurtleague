@@ -4,8 +4,8 @@ import { textOf } from "@/core/copy";
 
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
-import { FieldColumns, subgroup } from "./FieldColumns";
 import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
+import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
 import { statusLine } from "./fieldStyles";
 import { HelpPopover } from "./HelpPopover";
 import { PlaceholderLine } from "./Skeleton";
@@ -64,11 +64,11 @@ export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 
 
 /**
  * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
- * sets them, `FieldColumns`' short fields of one kind at their width class, a subgroup's name over the rows after it,
+ * sets them, `FieldRows`' rows of one kind at their width class, a subgroup's name over the rows after it,
  * an act of the section (`SectionAct`) by its label, its status line under it, or the placeholder of whatever else the
  * section holds, such as its facts' or a table's.
  */
-export type FieldRow = "field" | "pair" | "subhead" | { columns: 2 | 3; width: "C2" | "C10" } | { act: Copy } | ReactElement;
+export type FieldRow = "field" | "pair" | "subhead" | { rows: 2 | 3; width: "C2" | "C10" } | { act: Copy } | ReactElement;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
   if (isValidElement(row)) return row;
@@ -89,13 +89,12 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
         <span className={statusLine({ placement: "column" })} />
       </>
     );
-  const [first, second, ...rest] = Array.from({ length: row.columns }, (_, index) => (
-    <FieldPlaceholder
-      key={index}
+  return (
+    <FieldRowsPlaceholder
+      rows={row.rows}
       width={row.width}
     />
-  ));
-  return <FieldColumns>{[first, second, ...rest]}</FieldColumns>;
+  );
 }
 
 /**
