@@ -33,7 +33,7 @@ type Shared = {
 };
 
 /**
- * The message line under the field: always there, so a message appearing or going moves nothing; or, on the
+ * The message line under the field: always there, so a message that fits it moves nothing; or, on the
  * sign-in's one-field view whose two acts stand right under the field, there only with the error, so the field
  * and its acts read as one block and move down together. A line that is not always there describes nothing.
  */

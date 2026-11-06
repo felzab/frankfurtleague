@@ -88,8 +88,8 @@ place that means the same thing.
 
 ## Each kind of string has a ceiling
 
-A message is written short enough for the narrowest place it appears, since it must fit one line
-there.
+A message is written short enough for the narrowest place it appears: one longer than its field wraps
+and takes a second line, which moves what stands below it.
 
 | Kind                    | Ceiling                                                  | Shape                                                                                         |
 | ----------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -97,11 +97,11 @@ there.
 | Page or section heading | 4 words                                                  | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence    |
 | Field label             | 3 words                                                  | a noun, no colon                                                                              |
 | Button                  | 3 words                                                  | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)          |
-| Field description       | 1 sentence, 90 characters, one visible line              | says what the thing is; none where the label suffices; no field has a placeholder             |
+| Field description       | 1 sentence, 90 characters                                | says what the thing is; none where the label suffices; no field has a placeholder             |
 | Box description         | 1 sentence, 90 characters, one visible line              | says what a Konto box holds, under its title                                                  |
 | Tooltip                 | 5 words                                                  | names an icon-only control, or says why a locked act cannot run                               |
 | Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
-| Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
+| Field error             | one phrase, 80 characters                                | a fixed pattern                                                                               |
 | Form refusal            | 1 short sentence, the status line's two lines on a phone | a plain fact about the whole form, or about a field no pattern words, naming that field       |
 | Failure line            | 1 short sentence, the status line's two lines on a phone | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
 | Empty state             | 1 sentence plus at most one button                       | which narrowing emptied it                                                                    |

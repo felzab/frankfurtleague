@@ -28,17 +28,17 @@ export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" })
 export const requiredMark = tv({ base: "text-danger" });
 
 /**
- * One line, always there, so a message appearing or going moves nothing. The one line is cut, and its words
- * add nothing to the width a field is laid out at, so a long message never widens a field sized by its
- * content, such as a pair's short side. The code's line holds a refusal of two sentences, so it wraps and
- * grows from its one line rather than cutting the refusal off.
+ * At least one line, always there, so a message that fits it moves nothing. A longer one wraps at its field's width
+ * and takes a second line rather than being cut, since its end is what a person acts on. Its words add nothing to the
+ * width a field is laid out at, so it never widens a field sized by its content, such as a pair's short side; a note
+ * inside a list's entry sets its own width instead, the entry being sized by its words.
  */
 export const messageLine = tv({
-  base: "text-xs",
+  base: "min-h-4 text-xs",
   variants: {
-    lines: {
-      one: "h-4 truncate contain-inline-size",
-      several: "min-h-4",
+    width: {
+      field: "contain-inline-size",
+      words: "",
     },
     tone: {
       description: "text-fg-muted",
@@ -46,7 +46,7 @@ export const messageLine = tv({
       error: "text-danger",
     },
   },
-  defaultVariants: { lines: "one" },
+  defaultVariants: { width: "field" },
 });
 
 /**

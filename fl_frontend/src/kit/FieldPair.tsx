@@ -6,18 +6,18 @@ import type { ReactNode } from "react";
 
 /**
  * Where a side's message line may run past its field, on desktop, where a short field such as a score or a count
- * is narrower than „Zwischen 1 und 16“: the line is cut at the field's width otherwise, its words adding nothing to
+ * is narrower than „Zwischen 1 und 16“: the line wraps at the field's width otherwise, its words adding nothing to
  * the width a field is laid out at (`fieldStyles.ts :: messageLine`). The first side's line runs on under the second
  * side while the second side's own line stands empty, so two messages never overlap; the second side of two short
- * fields runs on into the row the pair leaves after it. A side at the row's end, a long field's partner, keeps its
- * cut. On a phone each side of a pair is as wide as its share of the row, which holds its message.
+ * fields runs on into the row the pair leaves after it. A side at the row's end, a long field's partner, wraps, and so
+ * does each side on a phone, at its share of the row.
  */
 const reach = tv({
   variants: {
     side: {
       first:
-        "lg:[&_[data-kit-message]]:overflow-visible lg:group-has-[[data-pair-side=second]_[data-kit-message]:not(:empty)]/pair:[&_[data-kit-message]]:overflow-hidden",
-      second: "lg:[&_[data-kit-message]]:overflow-visible",
+        "lg:[&_[data-kit-message]]:whitespace-nowrap lg:group-has-[[data-pair-side=second]_[data-kit-message]:not(:empty)]/pair:[&_[data-kit-message]]:whitespace-normal",
+      second: "lg:[&_[data-kit-message]]:whitespace-nowrap",
       none: "",
     },
   },

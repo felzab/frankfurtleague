@@ -103,7 +103,7 @@ export function CodeField({
           answers the code just typed. Empty, the line holds its place. */}
       <div
         role="alert"
-        className={messageLine({ tone: "error", lines: "several" })}>
+        className={messageLine({ tone: "error" })}>
         {error !== undefined && <FieldError>{error}</FieldError>}
       </div>
     </TextField>
