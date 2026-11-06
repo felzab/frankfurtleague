@@ -2,11 +2,6 @@ import type {
   FLBewerbung,
   FLBewerbungEinwilligungViewResponse,
   FLBewerbungEinwilligungViewResponseQuelle,
-  FLBewerbungKontaktpersonPayload,
-  FLBewerbungSchulePayload,
-  FLSchulform,
-  FLTrainerAlso,
-  FLTrikotFarbe,
 } from "@/core/generated/client/types";
 
 /** A club as the triage needs to know it, so any read carrying the two fields answers. */
@@ -22,57 +17,6 @@ export type AdminBewerbungRow = FLBewerbung & {
   // row: `fl_frontend/src/shared/utils/facets.ts :: Facet` sees nothing but the item.
   inSelectedSaison: boolean;
 };
-
-/**
- * One contact person mid-entry. Every field is typed, so an unanswered one is the empty string and
- * the schema is what turns it into a field error rather than a type error.
- */
-export type BewerbungKontaktpersonDraft = FLBewerbungKontaktpersonPayload & {
-  // `given` starts `false`, which `z.literal(true)` refuses: an untouched box is an acknowledgement
-  // nobody made, and the payload type admits no other value.
-  einwilligung: { given: boolean };
-};
-
-/** The three seats mid-entry. All three are present: an application is what three reachable people submitted. */
-export type BewerbungKontakteDraft = {
-  trainer: BewerbungKontaktpersonDraft;
-  ansprechperson: BewerbungKontaktpersonDraft;
-  stellvertretung: BewerbungKontaktpersonDraft;
-  trainer_is_also: FLTrainerAlso | null;
-};
-
-/**
- * A new school mid-entry. `schulform` is widened to `null` so the picker can stand unanswered; the
- * payload admits no null, and the schema is what turns an unanswered one into a field error.
- */
-export type BewerbungSchuleDraft = Omit<FLBewerbungSchulePayload, "schulform"> & { schulform: FLSchulform | null };
-
-/**
- * The public form's whole draft. **`auswahl` is the whole of „welche Schule“**: one field holds a
- * club id or the sentinel, so the both-at-once shape `bewerbung_submission_subject_unresolved` refuses cannot be composed.
- * A widened null is a control nobody has answered.
- */
-export type BewerbungFormDraft = {
-  saison_id: string;
-  auswahl: string | null;
-  schule: BewerbungSchuleDraft;
-  kontakte: BewerbungKontakteDraft;
-  trikot: { existing_satz: string; wunschfarbe: FLTrikotFarbe | null };
-  kader: { expected_size: number | null; good_spieler: number | null };
-  // The head count of the Abi-Jahrgang the team comes from, never the whole school. Beside `kader`
-  // rather than inside it: it counts a cohort, and the squad is drawn from that cohort.
-  stufengroesse: number | null;
-  // A STRING mid-entry where the payload's is `string | null`: `""` is a box nobody filled in, and
-  // `bewerbungPayload` is the one place that turns it into null. Normalising per keystroke would
-  // eat a space as it was typed.
-  wunschgegner: string;
-};
-
-/**
- * Which state the page renders. `unlesbar` is not `fensterZustand`'s: the read failed, and a page
- * that answered "abgelaufen" there would state a deadline it never learnt.
- */
-export type FensterZustand = "running" | "noch-nicht" | "closed" | "vorbei" | "keine-frist";
 
 /**
  * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a

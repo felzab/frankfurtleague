@@ -126,3 +126,19 @@ export function kontaktePersonenRegeln<P extends Person>({
     }
   };
 }
+
+/**
+ * The boxes, by the names they post under, holding an address or a number another person of the block holds: the rule
+ * above for a form whose fields post, which no schema of its own judges, the backend's refusal naming the block and so
+ * no box. The seat the Trainer also holds is that person and is compared with nobody.
+ */
+export function repeatedContacts(kontakte: Record<Sitz, Person> & { trainer_is_also: Sitz | null }): readonly string[] {
+  return KONTAKT_PAARE.flatMap(([erste, zweite]) => {
+    if (zweite === "trainer" && erste === kontakte.trainer_is_also) return [];
+    const [eine, andere] = [kontakte[erste], kontakte[zweite]];
+    return [
+      ...(gleicheAdresse(eine.email, andere.email) ? [`kontakte.${zweite}.email`] : []),
+      ...(gleicheNummer(eine.phone, andere.phone) ? [`kontakte.${zweite}.phone`] : []),
+    ];
+  });
+}

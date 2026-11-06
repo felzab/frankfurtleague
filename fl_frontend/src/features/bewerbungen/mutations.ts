@@ -3,13 +3,11 @@ import {
   bewerbungenDeclineBewerbung,
   bewerbungenGetEinwilligungView,
   bewerbungenGetSweepSaisons,
-  bewerbungenPostBewerbung,
   bewerbungenPostEinwilligung,
   bewerbungenPostKontaktSeat,
   bewerbungenResendEinwilligung,
   bewerbungenSweepSaison,
 } from "@/core/generated/client/sdk";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
 import type {
   FLAcceptBewerbungPayload,
@@ -22,11 +20,9 @@ import type {
   FLBewerbungKontaktSeatPayload,
   FLBewerbungKontaktSeatResponse,
   FLBewerbungSweepResponse,
-  FLCreatedResponse,
   FLDeclineBewerbungPayload,
   FLDeclineBewerbungResponse,
   FLKontaktRolle,
-  FLPostBewerbungPayload,
   FLSaisonTeamEinwilligungAnswerResponse,
   FLSweepSaisonsResponse,
   FLTokenPayload,
@@ -56,11 +52,6 @@ export async function ablehnenBewerbung({
   version,
 }: { id: string } & FLDeclineBewerbungPayload): Promise<FLDeclineBewerbungResponse> {
   return bewerbungenDeclineBewerbung(id, { decision_reason, version });
-}
-
-/** Records one school's application. */
-export async function postBewerbung(payload: FLPostBewerbungPayload, idempotencyKey: string | null): Promise<FLCreatedResponse> {
-  return bewerbungenPostBewerbung(payload, { headers: idempotencyKey === null ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } });
 }
 
 /**
