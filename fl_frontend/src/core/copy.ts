@@ -120,7 +120,7 @@ const KADER = "Kader";
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 const PRIVACY_NOTICE = "Datenschutz";
 // The danger box over a record's retiring: a venue's, a referee's and a club's alike.
-const STILLLEGUNG = "Stilllegung";
+const RETIREMENT = "Stilllegung";
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
@@ -262,12 +262,12 @@ export const COPY = catalogue({
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `state` the club's
-     * resulting state, `kuerzel` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
+     * resulting state, `shorthand` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
      * one record differently.
      */
     austritt: {
-      disqualifikation: { label: "Disqualifikation", state: "Disqualifiziert", kuerzel: "DQ" },
-      rueckzug: { label: "Rückzug", state: "Zurückgezogen", kuerzel: "RZ" },
+      disqualifikation: { label: "Disqualifikation", state: "Disqualifiziert", shorthand: "DQ" },
+      rueckzug: { label: "Rückzug", state: "Zurückgezogen", shorthand: "RZ" },
     },
     /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `state` and the day it took effect. */
     austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDate(day)}`,
@@ -378,7 +378,7 @@ export const COPY = catalogue({
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
     /** Under the address: the promise `docs/datenschutz.md` section 4 records the form makes. */
     addressPublic: "Steht nach der Aufnahme öffentlich auf der Teamseite",
-    trikotSatzDescription: "Zum Beispiel 15 rote Trikots",
+    trikotSetDescription: "Zum Beispiel 15 rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: "Für den ersten Spieltag",
     /** The name of the combo's arrow. */
@@ -419,7 +419,7 @@ export const COPY = catalogue({
     trikotFarbe: "Trikotfarbe",
     wunschfarbe: "Wunschfarbe",
     stufengroesse: "Größe der Stufe",
-    trikotSatz: "Vorhandene Trikotsätze",
+    trikotSet: "Vorhandene Trikotsätze",
     expectedKader: "Voraussichtliche Kadergröße",
     goodSpieler: "Davon im Verein",
     wunschgegner: "Wunschgegner",
@@ -707,7 +707,7 @@ export const COPY = catalogue({
 
     /** The Übersicht's acts done in a dialog from a card's row: the objects they name, and the Zusage's inputs. */
     overview: {
-      termin: "Termin",
+      appointment: "Termin",
       zusage: "Zusage",
       vorschlag: "Vorschlag",
       /** Which of the row's open parties agreed: one segment each. */
@@ -777,7 +777,7 @@ export const COPY = catalogue({
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
     facts: { before: "Bisher", after: "Neu", fromNow: "Ab sofort", mailTo: "E-Mail an" },
     /** A venue's and a referee's danger box, holding the act retiring the record or bringing it back. */
-    stilllegung: STILLLEGUNG,
+    retirement: RETIREMENT,
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
@@ -814,7 +814,7 @@ export const COPY = catalogue({
       startFixed: "Steht fest, seit ein Spiel stattgefunden hat",
 
       /** The span a season runs from its start to its end: the list's column and the editor's first box. */
-      zeitraum: "Zeitraum",
+      period: "Zeitraum",
       /** A span's two days, the season's, each window's and a matchday's alike. */
       start: "Beginn",
       end: "Ende",
@@ -830,7 +830,7 @@ export const COPY = catalogue({
       bewerbungsfenster: "Bewerbungsfenster",
       registrierungsfenster: "Registrierungsfenster",
       gruppentausch: "Gruppentausch",
-      ersatz: "Ersatz",
+      replacement: "Ersatz",
       registrierungslinks: "Registrierungslinks",
       /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
       dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
@@ -966,9 +966,9 @@ export const COPY = catalogue({
 
       /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
       spielbericht: "Spielbericht",
-      bestaetigungen: "Bestätigungen",
+      confirmations: "Bestätigungen",
       /** The Vorschau under the editor's title: the match as stored, its pairing, when it is played and its result. */
-      vorschau: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
+      preview: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
       noResult: "Noch kein Ergebnis",
       /** A club picked by hand over the side's source, which the side no longer follows once saved. */
       replacesQuelle: (quelle: Copy) => `Ersetzt ${quelle}`,
@@ -991,7 +991,7 @@ export const COPY = catalogue({
       proposed: (when: Copy) => `Vorschlag ${when}`,
       zugesagt: "Zugesagt",
       /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */
-      abgelehnt: "Abgelehnt",
+      declined: "Abgelehnt",
       cancelled: "Abgesagt",
       /** A rejection's and a club's exit's stated reason: its box and its fact. */
       reason: "Grund",
@@ -1066,7 +1066,7 @@ export const COPY = catalogue({
       descriptionNote: "Steht auf der Teamseite",
       austrittType: "Art",
       austrittFrom: "Wirksam ab",
-      registrierungslink: "Registrierungslink",
+      registrierungLink: "Registrierungslink",
       linkValidUntil: "Gültig bis",
       registrierungEnd: (day: CalendarDay) => `Ende der Registrierung, ${formatDate(day)}`,
       /** The one copy button's name, over a link shown once. */
@@ -1076,7 +1076,7 @@ export const COPY = catalogue({
       linkVoidConsequence: "Der bisherige Link gilt nicht mehr.",
       /** The danger box's title, by what its rows are about: the exit, the retiring, or both. */
       dangerBox: (austritt: boolean, retirement: boolean) =>
-        austritt && retirement ? `Austritt und ${STILLLEGUNG}` : austritt ? "Austritt" : STILLLEGUNG,
+        austritt && retirement ? `Austritt und ${RETIREMENT}` : austritt ? "Austritt" : RETIREMENT,
       /** The exit's row and its dialog's title. */
       austrittAct: "Aus der Saison nehmen",
       austrittRowLine: "Das Team scheidet aus dieser Saison aus.",

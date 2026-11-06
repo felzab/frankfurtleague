@@ -11,20 +11,20 @@ function armAlternations(arms: string): string[][] {
   return arms
     .split("\n")
     .filter((line) => line.trim().startsWith('"~'))
-    .map((line) => [...line.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((treffer) => (treffer[1] ?? "").split("|")));
+    .map((line) => [...line.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((match) => (match[1] ?? "").split("|")));
 }
 
 /** The query-parameter names the edge redacts in EVERY arm of its map. */
 function redactedParameterNames(): string[] {
   const config = readFileSync(EDGE_CONFIG, "utf8");
   const block = config.slice(config.indexOf("map $request_uri $credential_free_uri {"));
-  const [first, ...weitere] = armAlternations(block.slice(0, block.indexOf("}")));
+  const [first, ...rest] = armAlternations(block.slice(0, block.indexOf("}")));
 
   // The intersection rather than the union: the first arm keeps the path and replaces the query
   // alone, so a name only the arms below it hold costs every access line its path.
 
   // Empty where the map was read as having no arm at all, which the floor below reports.
-  return first === undefined ? [] : first.filter((name) => weitere.every((arm) => arm.includes(name)));
+  return first === undefined ? [] : first.filter((name) => rest.every((arm) => arm.includes(name)));
 }
 
 /**

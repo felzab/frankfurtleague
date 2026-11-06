@@ -43,12 +43,12 @@ export async function runPersonMutation<T extends { success: boolean }>(
 
   const resolve = async (): Promise<PersonHeld | null> => {
     const subject = await getSubjectSession();
-    const [erster, ...weitere] =
+    const [first, ...rest] =
       subject === null || typeof teamId !== "string" || typeof saisonId !== "string"
         ? []
         : rolesOf(subject).roles.filter((funktion) => isSeatAt(funktion, teamId, saisonId));
 
-    if (subject !== null && erster !== undefined) return { subject, seats: [erster, ...weitere] };
+    if (subject !== null && first !== undefined) return { subject, seats: [first, ...rest] };
 
     verdict.grund = subject === null ? "no_session" : "no_seat";
     logRefused(mutationName, verdict.grund);

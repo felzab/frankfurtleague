@@ -5,8 +5,8 @@ import { ANTWORT_UNKLAR, UNKLAR_TITEL } from "./publicSubmit";
 
 import type { PublicEnvelope } from "./publicSubmit";
 
-/** A link confirmation's refused answer: one naming the link's own state carries it as `zustand`. */
-type RefusedConfirmation<Z> = PublicEnvelope & { success: false; zustand?: Z };
+/** A link confirmation's refused answer: one naming the link's own state carries it as `state`. */
+type RefusedConfirmation<Z> = PublicEnvelope & { success: false; state?: Z };
 
 /** Every link confirmation's reading of a refused answer; `onRefusal` raises what is left, the form's own. */
 export function reportRefusedConfirmation<Z>(
@@ -21,8 +21,8 @@ export function reportRefusedConfirmation<Z>(
   }
 
   // The link died between the open and the press: the answer is the panel, never a toast.
-  if (response.zustand !== undefined) {
-    onState(response.zustand);
+  if (response.state !== undefined) {
+    onState(response.state);
     return;
   }
 

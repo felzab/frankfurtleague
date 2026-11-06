@@ -3,7 +3,7 @@ import { COPY } from "@/core/copy";
 import type { FLOutboxDeliveryState, FLOutboxStatus, FLOutboxStatusState } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
-// Redesign: from here to `zustellungChip` goes with its last importer, `components/ui/LinkStandAngaben.tsx`.
+// Redesign: from here to `oldDeliveryChip` goes with its last importer, `components/ui/LinkStandAngaben.tsx`.
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
 type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
 
@@ -11,7 +11,7 @@ type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
  * What the provider reported about the last message, or `null` where it says nothing an administrator acts on: a
  * delivery is the ordinary course, and a chip for it would grade every row.
  */
-const EREIGNIS_CHIP: Readonly<Record<FLOutboxDeliveryState, Chip | null>> = {
+const EVENT_CHIP: Readonly<Record<FLOutboxDeliveryState, Chip | null>> = {
   delivered: null,
   // What the administrator can act on is that the link has not arrived, not yet the address refusing for good.
   delayed: { label: "Noch nicht zugestellt", tone: "warning" },
@@ -42,10 +42,10 @@ const STAND_CHIP: Readonly<Record<FLOutboxStatusState, Chip | null>> = {
  * The old pages' reading of a link's delivery, `deliveryChip` below the kit's: the provider's event where it reported one, else
  * the outbox's own state, `null` where neither says anything to act on or no mail was ever owed.
  */
-export function zustellungChip(lage: FLOutboxStatus | null): Chip | null {
-  if (lage === null) return null;
+export function oldDeliveryChip(status: FLOutboxStatus | null): Chip | null {
+  if (status === null) return null;
 
-  return lage.delivery === null ? STAND_CHIP[lage.state] : EREIGNIS_CHIP[lage.delivery.state];
+  return status.delivery === null ? STAND_CHIP[status.state] : EVENT_CHIP[status.delivery.state];
 }
 
 const DELIVERY = COPY.admin.delivery;

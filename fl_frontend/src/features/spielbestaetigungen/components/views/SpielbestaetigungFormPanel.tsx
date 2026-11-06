@@ -12,12 +12,8 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { ABSATZ_CLASSES } from "@/features/bewerbungen/components/ui/Gefuellt";
-import {
-  ANTWORT_NICHT_GESPEICHERT,
-  ANTWORT_NICHT_GESPEICHERT_SATZ,
-  BestaetigungAbschnitt,
-} from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { PARAGRAPH_CLASSES } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { ANSWER_NOT_SAVED, ANSWER_NOT_SAVED_SENTENCE, ConfirmationSection } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { FLSpielbestaetigungAnswerPayloadSchema } from "@/features/spielbestaetigungen/schemas";
 import { SPIELBESTAETIGUNG_REASON_MAX_LENGTH } from "@/features/spiele/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -47,19 +43,19 @@ const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type SpielbestaetigungAbschluss =
-  | { zustand: "zugesagt-neu" }
-  | { zustand: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungAppointment }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungBy }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungBy }
-  | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
-  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> };
+  | { state: "zugesagt-neu" }
+  | { state: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungAppointment }
+  | { state: "zugesagt"; answered_by: FLSpielbestaetigungBy }
+  | { state: "declined"; answered_by: FLSpielbestaetigungBy }
+  | { state: "discarded"; appointment: FLSpielbestaetigungAppointment }
+  | { state: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> };
 
 /** The route's answer: the echo of what was stored, or a refusal naming the link's state where the link died. */
 export type SpielbestaetigungAnswer =
-  | { success: true; zustand: FLSpielbestaetigungAnswerKind; vorschlag: FLSpielbestaetigungAppointment | null }
+  | { success: true; state: FLSpielbestaetigungAnswerKind; vorschlag: FLSpielbestaetigungAppointment | null }
   | (PublicEnvelope & {
       success: false;
-      zustand?: SpielbestaetigungLinkZustand;
+      state?: SpielbestaetigungLinkZustand;
       answered_by?: FLSpielbestaetigungBy;
       appointment?: FLSpielbestaetigungAppointment;
     });
@@ -96,10 +92,10 @@ function spentAbschluss(
   appointment: FLSpielbestaetigungAppointment | undefined,
 ): SpielbestaetigungAbschluss {
   // As an answered state without its seat: a discard read back without the date it kept claims nothing either.
-  if (state === "discarded") return appointment === undefined ? { zustand: "invalid" } : { zustand: state, appointment };
-  if (state !== "zugesagt" && state !== "declined") return { zustand: state };
+  if (state === "discarded") return appointment === undefined ? { state: "invalid" } : { state, appointment };
+  if (state !== "zugesagt" && state !== "declined") return { state };
   // A route answering an answered state without its seat is the dead-link panel's: claiming nothing about who answered.
-  return answeredBy === undefined ? { zustand: "invalid" } : { zustand: state, answered_by: answeredBy };
+  return answeredBy === undefined ? { state: "invalid" } : { state, answered_by: answeredBy };
 }
 
 /**
@@ -121,7 +117,7 @@ export function SpielbestaetigungFormPanel({
   // refusing at rules the endpoint does not, on the day the two disagree.
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { answer: FLSpielbestaetigungAnswerPayloadSchema },
-    failureTitle: ANTWORT_NICHT_GESPEICHERT,
+    failureTitle: ANSWER_NOT_SAVED,
   });
 
   useForgiveFixed({ answer: vorschlagPayload(token, entwurf) });
@@ -134,7 +130,7 @@ export function SpielbestaetigungFormPanel({
     if (!sent.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(sent.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, { description: sent.error });
+      appToast.danger(sent.wroteNothing ? ANSWER_NOT_SAVED : UNKLAR_TITEL, { description: sent.error });
       return;
     }
 
@@ -150,12 +146,12 @@ export function SpielbestaetigungFormPanel({
             reportSubmitFailure(
               {
                 success: false,
-                error: response.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
+                error: response.error ?? ANSWER_NOT_SAVED_SENTENCE,
                 fieldErrors: response.fieldErrors,
                 unplacedError: response.unplacedError,
               },
               { answer: payload },
-              { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+              { raise: (shown) => appToast.failure(ANSWER_NOT_SAVED, shown) },
             ),
         });
         return;
@@ -163,11 +159,11 @@ export function SpielbestaetigungFormPanel({
 
       setSubmitFieldErrors({}, {});
       // A stored decline always carries its proposal; one answered without it reads as the Zusage it cannot be.
-      if (response.zustand === "declined" && response.vorschlag !== null) {
-        onAbschluss({ zustand: "abgelehnt-neu", vorschlag: response.vorschlag });
+      if (response.state === "declined" && response.vorschlag !== null) {
+        onAbschluss({ state: "abgelehnt-neu", vorschlag: response.vorschlag });
         return;
       }
-      onAbschluss(response.zustand === "zugesagt" ? { zustand: "zugesagt-neu" } : { zustand: "invalid" });
+      onAbschluss(response.state === "zugesagt" ? { state: "zugesagt-neu" } : { state: "invalid" });
     });
   };
 
@@ -195,7 +191,7 @@ export function SpielbestaetigungFormPanel({
       data-required-marks="on"
       className="flex w-full flex-col gap-6"
       onSubmit={sendeVorschlag}>
-      <BestaetigungAbschnitt titel="Deine Antwort">
+      <ConfirmationSection titel="Deine Antwort">
         <ConfirmActionRow confirm={zusage}>
           <ConfirmPressButton
             confirm={zusage}
@@ -241,7 +237,9 @@ export function SpielbestaetigungFormPanel({
             <Disclosure.Content>
               <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
                 {/* The one thing a reader gets wrong here: a proposal is the club's answer, not a question beside it. */}
-                <p className={ABSATZ_CLASSES}>Mit einem Vorschlag sagst Du den Termin oben ab. Über den neuen Termin entscheidet die Liga.</p>
+                <p className={PARAGRAPH_CLASSES}>
+                  Mit einem Vorschlag sagst Du den Termin oben ab. Über den neuen Termin entscheidet die Liga.
+                </p>
 
                 <div className={FIELD_PAIR_CLASSES}>
                   <AppDatePicker
@@ -291,7 +289,7 @@ export function SpielbestaetigungFormPanel({
             </Disclosure.Content>
           </Disclosure>
         </div>
-      </BestaetigungAbschnitt>
+      </ConfirmationSection>
     </Form>
   );
 }

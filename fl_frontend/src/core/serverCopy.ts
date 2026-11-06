@@ -599,7 +599,7 @@ export const SERVER_COPY = catalogue({
       eyebrow: "Organisation",
       title: "Wer dahintersteht",
       /** What each organiser does, under their first name. */
-      role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", kommunikation: "Kommunikation" },
+      role: { vorstand: "Vorstand", spielbetrieb: SPIELBETRIEB, website: "Website", communication: "Kommunikation" },
     },
 
     /** The eyebrow over the sponsors' section, whose title is the sponsors page's own. */

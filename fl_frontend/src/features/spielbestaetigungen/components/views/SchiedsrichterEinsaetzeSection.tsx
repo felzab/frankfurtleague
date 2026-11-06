@@ -82,7 +82,7 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
   const panel = formPanel();
   // Split as the read ordered them, which judged the day: the ones to come first, then the past, the latest first.
   const kommend = einsaetze.filter((einsatz) => !einsatz.past);
-  const vergangen = einsaetze.filter((einsatz) => einsatz.past);
+  const past = einsaetze.filter((einsatz) => einsatz.past);
 
   return (
     <section
@@ -124,13 +124,13 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
           </ul>
         )}
 
-        {vergangen.length > 0 && (
+        {past.length > 0 && (
           <div className="flex w-full flex-col gap-3">
             <h3 className={FORM_SECTION_HEADING_CLASSES}>{VERGANGENE_EINSAETZE}</h3>
             <ul
               aria-label="Liste Deiner vergangenen Einsätze"
               className="flex w-full flex-col gap-3">
-              {vergangen.map((einsatz) => (
+              {past.map((einsatz) => (
                 <EinsatzKarte
                   key={einsatz.id}
                   einsatz={einsatz}

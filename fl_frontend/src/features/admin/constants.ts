@@ -70,7 +70,7 @@ export const ADMIN_SHELL_UNLISTED_SECTIONS = {} as const satisfies Readonly<Reco
  * The old pages' name for the fixtures waiting on an entry, which the administrator's Übersicht shows: named in the
  * erasure's and the rollover's sentences until their pages are rebuilt, and in no menu.
  */
-export const HANDLUNGSBEDARF_EINTRAG = {
+export const ACTION_REQUIRED_ENTRY = {
   id: "action_required",
   label: "Handlungsbedarf",
   iconName: "ExclamationShape",
@@ -81,7 +81,7 @@ export const HANDLUNGSBEDARF_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The season list's entry, named where a taken season id sends a reader to the existing season, so a rename reaches both. */
-const SAISONS_EINTRAG = {
+const SAISONS_ENTRY = {
   id: "saisons",
   label: "Saisons",
   iconName: "Sliders",
@@ -93,7 +93,7 @@ const SAISONS_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The club list's entry, named where an application's refusal sends a reader to it, so a rename reaches both. */
-const TEAMS_EINTRAG = {
+const TEAMS_ENTRY = {
   id: "teams",
   label: "Teams",
   iconName: "Persons",
@@ -105,7 +105,7 @@ const TEAMS_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The ban list's entry, named where a refused address sends a reader to lift its ban, so a rename reaches both. */
-export const SPERRLISTE_EINTRAG = {
+export const BAN_LIST_ENTRY = {
   id: "sperrliste",
   label: "Sperrliste",
   iconName: "Ban",
@@ -120,7 +120,7 @@ export const SPERRLISTE_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The erasure page's sign-out panel and its press, named by the page's hint: one spelling, so a renamed panel takes the hint with it. */
-export const UEBERALL_ABMELDEN = "Überall abmelden";
+export const EVERYWHERE_SIGN_OUT = "Überall abmelden";
 
 /** The erasure page's entry, named where another page sends a reader to it, so a rename reaches both. */
 const LOESCHUNG_EINTRAG = {
@@ -132,7 +132,7 @@ const LOESCHUNG_EINTRAG = {
     points: [
       { term: "Die Adresse", detail: "gibst Du zweimal ein, zum Anzeigen und zum Bestätigen." },
       // The page's second panel, which its label does not name: an admin opening the menu for a sign-out finds it here.
-      { term: `„${UEBERALL_ABMELDEN}“`, detail: "beendet jede Anmeldung einer Adresse, ohne ihre Daten zu löschen." },
+      { term: `„${EVERYWHERE_SIGN_OUT}“`, detail: "beendet jede Anmeldung einer Adresse, ohne ihre Daten zu löschen." },
     ],
     // What an admin comes here to do and cannot: no control on this page takes an erasure back.
     note: "Eine Löschung lässt sich nicht zurücknehmen.",
@@ -140,7 +140,7 @@ const LOESCHUNG_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The address tool's entry, named where an editor and a refusal send a reader to it, so a rename reaches both. */
-export const ADRESSWECHSEL_EINTRAG = {
+export const ADDRESS_CHANGE_ENTRY = {
   id: "adresswechsel",
   label: "Adressänderung auf Anfrage",
   iconName: "At",
@@ -160,7 +160,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // nor a rule for an empty name.
   {
     category_name: "",
-    sub_options: [SAISONS_EINTRAG],
+    sub_options: [SAISONS_ENTRY],
   },
 
   // Grouped by what an admin DOES here: a queue worked down to nothing, where every list below is one to look
@@ -185,7 +185,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Vereine",
     sub_options: [
-      TEAMS_EINTRAG,
+      TEAMS_ENTRY,
       {
         id: "kontakte",
         label: "Kontakte",
@@ -225,7 +225,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Zugang",
     sub_options: [
-      SPERRLISTE_EINTRAG,
+      BAN_LIST_ENTRY,
       {
         id: "administratoren",
         label: ADMINISTRATOREN_TITEL,
@@ -243,7 +243,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // things done, each answering a person's request.
   {
     category_name: "Datenschutz",
-    sub_options: [LOESCHUNG_EINTRAG, ADRESSWECHSEL_EINTRAG],
+    sub_options: [LOESCHUNG_EINTRAG, ADDRESS_CHANGE_ENTRY],
   },
 
   {

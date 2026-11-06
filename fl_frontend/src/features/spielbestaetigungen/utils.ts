@@ -15,8 +15,8 @@ export function answeredBy(by: FLSpielbestaetigungBy): string {
   return KONTAKT_ROLLEN.find((entry) => entry.value === by.rolle)?.langform ?? NICHT_HINTERLEGT;
 }
 
-export const terminText = (termin: FLSpielbestaetigungAppointment): string =>
-  `${formatSpielDatum(termin.date)} um ${formatUhrzeit(termin.time)} Uhr`;
+export const terminText = (appointment: FLSpielbestaetigungAppointment): string =>
+  `${formatSpielDatum(appointment.date)} um ${formatUhrzeit(appointment.time)} Uhr`;
 
 /**
  * What one link opens, narrowed before the page: an answerable link carries the whole view, an
@@ -24,24 +24,24 @@ export const terminText = (termin: FLSpielbestaetigungAppointment): string =>
  */
 export type SpielbestaetigungAnsicht =
   // A member per state, never one for the pair: a union keyed on a union of literals narrows on neither.
-  | { zustand: "valid"; ansicht: FLSpielbestaetigungViewResponse }
-  | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungBy }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungBy }
+  | { state: "valid"; ansicht: FLSpielbestaetigungViewResponse }
+  | { state: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse }
+  | { state: "zugesagt"; answered_by: FLSpielbestaetigungBy }
+  | { state: "declined"; answered_by: FLSpielbestaetigungBy }
   // The date the league kept, which its sentence points at: the link's mail named it already.
-  | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
+  | { state: "discarded"; appointment: FLSpielbestaetigungAppointment }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
-  | { zustand: "expired" | "termin-vorbei" | "invalid" | "cancelled" | "barred" };
+  | { state: "expired" | "termin-vorbei" | "invalid" | "cancelled" | "barred" };
 
 /** Every state a link opens on once no press can spend it. */
-export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["zustand"], "valid" | "vorschlag">;
+export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["state"], "valid" | "vorschlag">;
 
 /** A press the backend refused, as the route answers it: a link's state, a box's message, or a sentence. */
 export type SpielbestaetigungRefusal = {
   error?: string;
   fieldErrors?: FieldErrors;
   unplacedError?: string;
-  zustand?: SpielbestaetigungLinkZustand;
+  state?: SpielbestaetigungLinkZustand;
   /** The route's instruction to read the link back, never a key the page receives. */
   nachlesen?: true;
 };
@@ -57,7 +57,7 @@ export function mapAnsetzungAnsichtRefusal(error: unknown): "invalid" | null {
 
   if (error.serverErrorCode === "payload_refused") return "invalid";
 
-  // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
+  // Every rule's refusal alike: a spent link answers its own `state` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.
   return isRuleRefusal(error) ? "invalid" : null;
 }
@@ -79,7 +79,7 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
     // which tells a guessed link nothing about a row.
     case "link_invalid":
     case "ansetzung_changed":
-      return { zustand: "invalid" };
+      return { state: "invalid" };
     // Each covers several states the read tells apart: `ansetzung_answered` both answers, where „zugesagt“ would tell a
     // club that declined in another window it confirmed; `ansetzung_closed` every closing reason, so the press shows
     // the panel a reload would.
@@ -91,7 +91,7 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
       return { nachlesen: true };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "link_barred":
-      return { zustand: "barred" };
+      return { state: "barred" };
     // The proposal's refusals spend nothing: each lands on the box that caused it, and the typed
     // proposal survives it.
     case "ansetzung_vorschlag_past":

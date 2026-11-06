@@ -5,7 +5,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import { SpielerAngaben } from "../ui/SpielerAngaben";
+import { SpielerDetails } from "../ui/SpielerAngaben";
 
 import type { FLSpielerSelf } from "@/core/generated/client/types";
 
@@ -28,9 +28,9 @@ export function SpielerSelfView({ spieler }: { spieler: FLSpielerSelf }) {
             />
           </div>
           <div className={panel.body()}>
-            <SpielerAngaben
+            <SpielerDetails
               spieler={spieler}
-              kaderEbene="h3"
+              kaderLevel="h3"
             />
 
             <p className="fluid-sm font-medium text-foreground">

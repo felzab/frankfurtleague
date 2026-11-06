@@ -4,14 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
-  BestaetigungErgebnis,
-  FaktenBanner,
-  FrageStellen,
-  LINK_UNLESBAR_TITEL,
-  LinkUnlesbar,
+  AskQuestion,
+  ConfirmationResult,
+  FactsBanner,
+  LINK_UNREADABLE_TITLE,
+  LinkUnreadable,
   useLinkSeite,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
@@ -39,7 +39,7 @@ const TITEL: Record<Stand, string> = {
   "team-fehlt": "Team nicht eingetragen",
   closed: "Registrierung geschlossen",
   invalid: "Link ungültig",
-  unlesbar: LINK_UNLESBAR_TITEL,
+  unlesbar: LINK_UNREADABLE_TITLE,
 };
 
 /** What the page knows about the team, or `null` where it may name nobody. */
@@ -50,7 +50,7 @@ type Geoeffnet = { stand: Stand; ansicht: FLInvitationViewResponse | null };
 // in hand.
 function standVon(start: RegistrierungStart, istTot: boolean): Geoeffnet {
   if (istTot) return { stand: "invalid", ansicht: null };
-  if (start.zustand === "invalid" || start.zustand === "unlesbar") return { stand: start.zustand, ansicht: null };
+  if (start.state === "invalid" || start.state === "unlesbar") return { stand: start.state, ansicht: null };
 
   return { stand: formularZustand(start.ansicht), ansicht: start.ansicht };
 }
@@ -63,21 +63,21 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
   const [istTot, setIstTot] = useState(false);
   const { stand, ansicht: view } = standVon(start, istTot);
 
-  const { ergebnisRef, beantwortet } = useLinkSeite(stand);
+  const { ergebnisRef, answered } = useLinkSeite(stand);
 
   return (
     <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
         {/* No dot: the invite's read carries the season's id and its status, and „läuft“ on the chip
             is a claim about the season rather than about the registration window. */}
-        {view !== null && <SaisonChip isLaufend={false}>Saison {view.saison_id}</SaisonChip>}
+        {view !== null && <SaisonChip isRunning={false}>Saison {view.saison_id}</SaisonChip>}
         <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand]}</h1>
 
         {view !== null && (
-          <FaktenBanner
-            zeilen={[
+          <FactsBanner
+            rows={[
               { label: "Team", value: view.team },
-              { label: "Schule", value: view.schule, unbegrenzt: true },
+              { label: "Schule", value: view.schule, unbounded: true },
               { label: "Saison", value: view.saison_id },
             ]}
           />
@@ -86,13 +86,13 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         {/* Said before anything is typed, because it changes what the registration means rather than
             whether it is accepted: the squad's own entries closed when the season began, on its start date. */}
         {stand === "valid" && view !== null && view.nachnominierung && (
-          <p className={ABSATZ_CLASSES}>
-            Die Saison hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
+          <p className={PARAGRAPH_CLASSES}>
+            Die Saison hat schon begonnen. Du wirst deshalb <Value>nachnominiert</Value>. Am Mitspielen ändert das nichts.
           </p>
         )}
 
         {stand === "valid" && (
-          <p className={ABSATZ_CLASSES}>
+          <p className={PARAGRAPH_CLASSES}>
             Was mit Deinen Angaben passiert, steht in der{" "}
             <Link
               href="/datenschutz"
@@ -107,7 +107,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         {/* Its own paragraph, before anything is typed: Art. 21(4) DSGVO asks the objection to reach
             a person at the first contact and apart from every other piece of information. */}
         {stand === "valid" && (
-          <p className={ABSATZ_CLASSES}>
+          <p className={PARAGRAPH_CLASSES}>
             Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen
             Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an{" "}
             <Link
@@ -120,65 +120,67 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         )}
       </header>
 
-      {stand === "valid" && start.zustand === "valid" && (
+      {stand === "valid" && start.state === "valid" && (
         <RegistrierungFormPanel
           token={start.token}
           ansicht={start.ansicht}
           siteKey={siteKey}
           onLinkTot={() => {
             setIstTot(true);
-            beantwortet();
+            answered();
           }}
         />
       )}
 
       {stand === "kader-voll" && (
-        <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
+        <ConfirmationResult tone="notice">
+          <p className={PARAGRAPH_CLASSES}>
             Der Kader dieses Teams ist für diese Saison voll, deshalb können wir gerade keine weitere Registrierung annehmen.
           </p>
-          <p className={ABSATZ_CLASSES}>Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen.</p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
+          <p className={PARAGRAPH_CLASSES}>Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen.</p>
+          <AskQuestion />
+        </ConfirmationResult>
       )}
 
       {/* The season's own list and nothing a pupil can act on alone, so the sentence sends them to
           the one place that can repair it and says nothing about why the team is missing. */}
       {stand === "team-fehlt" && (
-        <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
+        <ConfirmationResult tone="notice">
+          <p className={PARAGRAPH_CLASSES}>
             Dieses Team spielt in dieser Saison nicht mit, deshalb können wir für den Link keine Registrierung annehmen.
           </p>
-          <p className={ABSATZ_CLASSES}>Frag in Deinem Team nach. Sobald es eingetragen ist, funktioniert derselbe Link.</p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
+          <p className={PARAGRAPH_CLASSES}>Frag in Deinem Team nach. Sobald es eingetragen ist, funktioniert derselbe Link.</p>
+          <AskQuestion />
+        </ConfirmationResult>
       )}
 
       {/* „geschlossen“ and never „ungültig“: an invite pasted after the window shut is a working link
           whose season is over, and a reader told otherwise goes away believing their team misled them. */}
       {stand === "closed" && (
-        <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
+        <ConfirmationResult tone="notice">
+          <p className={PARAGRAPH_CLASSES}>
             Für diese Saison ist die Registrierung geschlossen. Der Link Deines Teams funktioniert, das Fenster nicht.
           </p>
-          <p className={ABSATZ_CLASSES}>Zur nächsten Saison öffnet die Registrierung wieder, und Dein Team bekommt dafür einen neuen Link.</p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
+          <p className={PARAGRAPH_CLASSES}>
+            Zur nächsten Saison öffnet die Registrierung wieder, und Dein Team bekommt dafür einen neuen Link.
+          </p>
+          <AskQuestion />
+        </ConfirmationResult>
       )}
 
       {/* No team and no school from here on: a dead link may have been forwarded, and it identifies
           nobody. */}
       {stand === "invalid" && (
-        <BestaetigungErgebnis
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>Dieser Link gilt nicht mehr. Dein Team hat ihn entweder ersetzt, oder er war nie vollständig.</p>
-          <p className={ABSATZ_CLASSES}>Frag in Deinem Team nach dem aktuellen Link.</p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
+          tone="notice">
+          <p className={PARAGRAPH_CLASSES}>Dieser Link gilt nicht mehr. Dein Team hat ihn entweder ersetzt, oder er war nie vollständig.</p>
+          <p className={PARAGRAPH_CLASSES}>Frag in Deinem Team nach dem aktuellen Link.</p>
+          <AskQuestion />
+        </ConfirmationResult>
       )}
 
-      {stand === "unlesbar" && <LinkUnlesbar />}
+      {stand === "unlesbar" && <LinkUnreadable />}
     </section>
   );
 }

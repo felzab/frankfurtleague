@@ -14,7 +14,7 @@ import type { FunktionZiel } from "../../utils";
  * A person holding no Funktion holds a session only because the sign-in gate found a record of theirs,
  * so `konto` offers the account page rather than an empty landing, even where that record has gone since.
  */
-export type FunktionenZustand = { zustand: "konto"; unbestaetigt: boolean } | { zustand: "auswahl"; ziele: readonly FunktionZiel[] };
+export type FunktionenZustand = { state: "konto"; unconfirmed: boolean } | { state: "auswahl"; ziele: readonly FunktionZiel[] };
 
 /** One place the landing offers, drawn alike whichever kind of place it is. */
 function ZielKarte({ href, titel, detail }: { href: string; titel: string; detail: string }) {
@@ -44,7 +44,7 @@ export function FunktionenView(props: FunktionenZustand) {
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
         {/* Names neither the record nor its team: on a mailbox somebody else typed by mistake, either
             would tell a stranger which club entered them. */}
-        {props.zustand === "konto" && props.unbestaetigt && (
+        {props.state === "konto" && props.unconfirmed && (
           <Callout
             severity="info"
             title="Noch nicht bestätigt">
@@ -52,7 +52,7 @@ export function FunktionenView(props: FunktionenZustand) {
           </Callout>
         )}
 
-        {props.zustand === "konto" && (
+        {props.state === "konto" && (
           <ul className="flex flex-col gap-4">
             <ZielKarte
               href={ROUTES.account.path()}
@@ -62,7 +62,7 @@ export function FunktionenView(props: FunktionenZustand) {
           </ul>
         )}
 
-        {props.zustand === "auswahl" && (
+        {props.state === "auswahl" && (
           <ul className="flex flex-col gap-4">
             {props.ziele.map((ziel) => (
               <ZielKarte

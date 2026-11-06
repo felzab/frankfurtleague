@@ -6,16 +6,16 @@ import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatu
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** The four fields a seat holder edits on one squad row, the number as the box holds it. */
-export type FLKaderZeileDraftFields = {
+export type FLKaderRowDraftFields = {
   nummer: string;
   position: FLSpielerPosition | null;
   stufe: FLSpielerStufe | null;
   rolle: FLSpielerRolle | null;
 };
 
-type FLKaderZeileFieldGroup = "Kadereintrag";
+type FLKaderRowFieldGroup = "Kadereintrag";
 
-export type FLKaderZeileDraftStatus = FLDraftStatus<FLKaderZeileFieldGroup>;
+export type FLKaderRowDraftStatus = FLDraftStatus<FLKaderRowFieldGroup>;
 
 /** The club and the Nachnominierung have no row: the stored row keeps both, and no payload of this lane carries either. */
 const FIELD_DESCRIPTORS = [
@@ -24,18 +24,18 @@ const FIELD_DESCRIPTORS = [
   { path: "stufe", label: "Stufe", group: "Kadereintrag", read: (source) => source.stufe },
   // `null` where no role is held, so giving one up reads as a removal in the change list.
   { path: "rolle", label: "Rolle", group: "Kadereintrag", read: (source) => (source.rolle === null ? null : rolleLabel(source.rolle)) },
-] as const satisfies readonly FLFieldDescriptor<FLKaderZeileDraftFields, FLKaderZeileFieldGroup>[];
+] as const satisfies readonly FLFieldDescriptor<FLKaderRowDraftFields, FLKaderRowFieldGroup>[];
 
-export type KaderZeileFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
+export type KaderRowFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 
-export function deriveKaderZeileDraftStatus({
+export function deriveKaderRowDraftStatus({
   stored,
   draft,
   fieldErrors,
 }: {
-  stored: FLKaderZeileDraftFields;
-  draft: FLKaderZeileDraftFields;
+  stored: FLKaderRowDraftFields;
+  draft: FLKaderRowDraftFields;
   fieldErrors: FieldErrors;
-}): FLKaderZeileDraftStatus {
+}): FLKaderRowDraftStatus {
   return deriveDraftStatus({ descriptors: FIELD_DESCRIPTORS, stored, draft, fieldErrors });
 }

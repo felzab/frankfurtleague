@@ -14,7 +14,7 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ereignisOf, quelleWords, vorschauOf } from "@/features/spiele/blocks";
+import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -225,7 +225,7 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
   const event = sonderereignis ?? NO_SONDEREREIGNIS;
   // A no-show's goals are the award the write composes: the proposal names the side that stayed away alone.
   if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") {
-    const words = ereignisOf({ ...spiel, sonderereignis, ergebnis: null });
+    const words = eventOf({ ...spiel, sonderereignis, ergebnis: null });
     return words === null
       ? null
       : {
@@ -283,7 +283,7 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
             { record: team.name },
             team.shorthand,
             openRowOf(rows, (row) => row.party.kind === "team" && row.party.team_id === team.team_id),
-            WORDS.abgelehnt,
+            WORDS.declined,
           ),
         ];
   const booked = spiel.schiedsrichter;
@@ -333,7 +333,7 @@ async function readEditor(params: Props["params"]) {
   return (
     <SpielEditor
       title={nameOf(saved)}
-      vorschau={vorschauOf(saved)}
+      preview={previewOf(saved)}
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}
       phase={saved.saison_phase}

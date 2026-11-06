@@ -12,13 +12,13 @@ describe("the birth date the page's own schema accepts", () => {
      refusal. The bound is worked out here from the day, never read back off the helper the schema calls. */
   it("takes the latest date the floor allows and refuses the day after it", () => {
     const mindestalter = 16;
-    const spaeteste = parseDate(getGermanTodayStr()).subtract({ years: mindestalter });
+    const latest = parseDate(getGermanTodayStr()).subtract({ years: mindestalter });
     const schema = buildRegistrierungBestaetigungPayloadSchema(mindestalter, "confirmation_spieler");
     const answer = { token: "kein-echtes-token", scope: "internal", media: false, text_versions: SPIELER_TEXT_VERSIONS };
 
-    expect(schema.safeParse({ ...answer, birth_date: spaeteste.toString() }).success, "the latest date the floor allows is refused").toBe(true);
+    expect(schema.safeParse({ ...answer, birth_date: latest.toString() }).success, "the latest date the floor allows is refused").toBe(true);
     expect(
-      schema.safeParse({ ...answer, birth_date: spaeteste.add({ days: 1 }).toString() }).success,
+      schema.safeParse({ ...answer, birth_date: latest.add({ days: 1 }).toString() }).success,
       "a day younger than the floor is accepted",
     ).toBe(false);
   });

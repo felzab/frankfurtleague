@@ -16,25 +16,25 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SPIELER_TEXT_VERSIONS, SPIELER_WORDINGS } from "@/core/consentWordings";
 import { ROUTES } from "@/core/routes";
-import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
-import { EinwilligungZeile } from "@/features/bewerbungen/components/views/BestaetigungHinweise";
+import { EinwilligungRow } from "@/features/bewerbungen/components/views/BestaetigungHinweise";
 import {
-  AdresseGesperrt,
-  ANTWORT_NICHT_GESPEICHERT,
-  ANTWORT_NICHT_GESPEICHERT_SATZ,
-  BestaetigungAbschnitt,
-  BestaetigungErgebnis,
-  FaktenBanner,
-  FrageStellen,
-  GespeicherteAngaben,
-  LINK_UNLESBAR_TITEL,
-  LinkUnlesbar,
-  medienZeile,
+  AddressBarred,
+  ANSWER_NOT_SAVED,
+  ANSWER_NOT_SAVED_SENTENCE,
+  AskQuestion,
+  ConfirmationResult,
+  ConfirmationSection,
+  FactsBanner,
+  LINK_UNREADABLE_TITLE,
+  LinkUnreadable,
+  mediaRow,
+  SavedDetails,
+  ToLiga,
   useLinkSeite,
-  ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
-import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
+import { birthDateSpan } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { Callout } from "@/shared/components/ui/Callout";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
@@ -71,10 +71,10 @@ import type { SpielerBestaetigungGespeichert, SpielerBestaetigungStart, SpielerL
 
 // The words ride with the two states that show them, so neither can render without them.
 type Stand =
-  | (Extract<SpielerBestaetigungStart, { zustand: "valid" }> & { wording: SpielerSeitenFassung })
-  | Exclude<SpielerBestaetigungStart, { zustand: "valid" }>
+  | (Extract<SpielerBestaetigungStart, { state: "valid" }> & { wording: SpielerSeitenFassung })
+  | Exclude<SpielerBestaetigungStart, { state: "valid" }>
   | {
-      zustand: "erfolg";
+      state: "erfolg";
       ansicht: FLRegistrierungConfirmationViewResponse;
       gespeichert: SpielerBestaetigungGespeichert;
       wording: SpielerSeitenFassung;
@@ -82,19 +82,19 @@ type Stand =
 
 /** An open link whose words could not be read is a page nobody can answer, which the failed read's panel says. */
 function anfang(start: SpielerBestaetigungStart, fassung: SpielerSeitenFassung | null): Stand {
-  if (start.zustand !== "valid") return start;
+  if (start.state !== "valid") return start;
 
-  return fassung === null ? { zustand: "unlesbar" } : { ...start, wording: fassung };
+  return fassung === null ? { state: "unlesbar" } : { ...start, wording: fassung };
 }
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
-const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
+const TITEL: Record<Exclude<Stand["state"], "barred">, string> = {
   valid: "Registrierung bestätigen",
   erfolg: "Registrierung bestätigt",
   confirmed: "Schon erledigt",
   expired: "Link ungültig",
   invalid: "Link ungültig",
-  unlesbar: LINK_UNLESBAR_TITEL,
+  unlesbar: LINK_UNREADABLE_TITLE,
 };
 
 /**
@@ -117,13 +117,13 @@ function toCalendarDate(stored: string): CalendarDate | null {
 function wahlZeilen(umfang: FLEinwilligungScope | null, media: boolean | null) {
   return [
     ...(umfang === null ? [] : [{ label: "Auf der Website", value: SPIELER_WORDINGS.scope.options[umfang] }]),
-    ...(media === null ? [] : [medienZeile(media)]),
+    ...(media === null ? [] : [mediaRow(media)]),
   ];
 }
 
 type Antwort =
   | { success: true; ergebnis: "confirmed"; birth_date: string | null; umfang: FLEinwilligungScope | null; media: boolean | null }
-  | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
+  | (PublicEnvelope & { success: false; state?: SpielerLinkZustand });
 
 /**
  * The pupil's own confirmation.
@@ -139,57 +139,57 @@ export function SpielerBestaetigungView({
   wording: SpielerSeitenFassung | null;
 }) {
   const [stand, setStand] = useState<Stand>(() => anfang(start, fassung));
-  const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
+  const { ergebnisRef, answered } = useLinkSeite(stand.state);
 
-  if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
+  if (stand.state === "barred") return <AddressBarred panelRef={ergebnisRef} />;
 
   // Off the CURRENT state and never the one the page opened on: a link the write found dead is
   // answered by a panel that names nobody, and the banner beside it would name the team anyway.
-  const ansicht = stand.zustand === "valid" || stand.zustand === "erfolg" ? stand.ansicht : null;
+  const ansicht = stand.state === "valid" || stand.state === "erfolg" ? stand.ansicht : null;
 
   return (
     <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
-        {ansicht !== null && <SaisonChip isLaufend={false}>Saison {ansicht.saison_id}</SaisonChip>}
-        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
+        {ansicht !== null && <SaisonChip isRunning={false}>Saison {ansicht.saison_id}</SaisonChip>}
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.state]}</h1>
 
-        {stand.zustand === "valid" && (
-          <FaktenBanner
-            zeilen={[
+        {stand.state === "valid" && (
+          <FactsBanner
+            rows={[
               { label: "Team", value: stand.ansicht.team },
-              { label: "Schule", value: stand.ansicht.schule, unbegrenzt: true },
+              { label: "Schule", value: stand.ansicht.schule, unbounded: true },
               { label: "Saison", value: stand.ansicht.saison_id },
             ]}
           />
         )}
       </header>
 
-      {stand.zustand === "valid" && (
+      {stand.state === "valid" && (
         <SpielerBestaetigungForm
           token={stand.token}
           ansicht={stand.ansicht}
           wording={stand.wording}
           onAbschluss={(abschluss) => {
-            beantwortet();
+            answered();
             setStand(
-              abschluss.zustand === "erfolg"
-                ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert, wording: stand.wording }
-                : { zustand: abschluss.zustand },
+              abschluss.state === "erfolg"
+                ? { state: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert, wording: stand.wording }
+                : { state: abschluss.state },
             );
           }}
         />
       )}
 
-      {stand.zustand === "erfolg" && (
-        <BestaetigungErgebnis
+      {stand.state === "erfolg" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="erfolg">
-          <p className={ABSATZ_CLASSES}>
-            Danke. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
+          tone="success">
+          <p className={PARAGRAPH_CLASSES}>
+            Danke. Deine Registrierung für <Value>{stand.ansicht.team}</Value> ist bestätigt.
           </p>
           {stand.wording.page === "confirmation_spieler" ? (
-            <GespeicherteAngaben
-              zeilen={[
+            <SavedDetails
+              rows={[
                 ...(stand.gespeichert.birth_date === null
                   ? []
                   : [{ label: "Geburtsdatum", value: formatSpielDatum(stand.gespeichert.birth_date) }]),
@@ -197,46 +197,46 @@ export function SpielerBestaetigungView({
               ]}
             />
           ) : (
-            <p className={ABSATZ_CLASSES}>Deine gespeicherten Angaben gelten weiter. Du siehst sie in Deinem Konto.</p>
+            <p className={PARAGRAPH_CLASSES}>Deine gespeicherten Angaben gelten weiter. Du siehst sie in Deinem Konto.</p>
           )}
-          <p className={ABSATZ_CLASSES}>
+          <p className={PARAGRAPH_CLASSES}>
             Dein Team entscheidet jetzt über die Aufnahme in den Kader. Du musst nichts weiter tun und bekommst Bescheid.
           </p>
-          <p className={ABSATZ_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          <p className={PARAGRAPH_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
       {/* No name and no team from here on: a consumed or dead link may have been forwarded, and a
           dead link identifies nobody. */}
-      {stand.zustand === "confirmed" && (
-        <BestaetigungErgebnis
+      {stand.state === "confirmed" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="erfolg">
-          <p className={ABSATZ_CLASSES}>Diese Registrierung ist schon bestätigt. Du musst nichts weiter tun.</p>
-          <p className={ABSATZ_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          tone="success">
+          <p className={PARAGRAPH_CLASSES}>Diese Registrierung ist schon bestätigt. Du musst nichts weiter tun.</p>
+          <p className={PARAGRAPH_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
       {/* One wording for both: after the deletion the record is gone and the two cannot be told
           apart, and telling them apart would tell a guessed link that a record once existed. */}
-      {(stand.zustand === "expired" || stand.zustand === "invalid") && (
-        <BestaetigungErgebnis
+      {(stand.state === "expired" || stand.state === "invalid") && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
-          <p className={ABSATZ_CLASSES}>Du kannst Dich über den Link Deines Teams einfach erneut registrieren.</p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
+          tone="notice">
+          <p className={PARAGRAPH_CLASSES}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
+          <p className={PARAGRAPH_CLASSES}>Du kannst Dich über den Link Deines Teams einfach erneut registrieren.</p>
+          <AskQuestion />
+        </ConfirmationResult>
       )}
 
-      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
+      {stand.state === "unlesbar" && <LinkUnreadable panelRef={ergebnisRef} />}
     </section>
   );
 }
 
-type Abschluss = { zustand: "erfolg"; gespeichert: SpielerBestaetigungGespeichert } | { zustand: SpielerLinkZustand };
+type Abschluss = { state: "erfolg"; gespeichert: SpielerBestaetigungGespeichert } | { state: SpielerLinkZustand };
 
 /**
  * The answers and the press.
@@ -273,19 +273,17 @@ function SpielerBestaetigungForm({
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
       schemas: { bestaetigung: bestaetigungSchema },
-      failureTitle: ANTWORT_NICHT_GESPEICHERT,
+      failureTitle: ANSWER_NOT_SAVED,
     });
 
-  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.minimum_age);
+  const { earliest, latest } = birthDateSpan(getGermanTodayStr(), ansicht.minimum_age);
 
   const fragtWahlen = fassung.page === "confirmation_spieler";
 
   // Off the date the age check reads, at the served media age: with no date yet the age is unknown,
   // and a switch offered then would be one the write refuses for anybody under it.
   const medienAngeboten =
-    fragtWahlen &&
-    entwurf.birth_date !== "" &&
-    entwurf.birth_date <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.media_minimum_age).spaeteste;
+    fragtWahlen && entwurf.birth_date !== "" && entwurf.birth_date <= birthDateSpan(getGermanTodayStr(), ansicht.media_minimum_age).latest;
 
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
@@ -305,7 +303,7 @@ function SpielerBestaetigungForm({
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // telling a 190-year-old to ask their team for a place is the wrong repair.
-  const istZuJung = fieldErrors.birth_date !== undefined && entwurf.birth_date !== "" && entwurf.birth_date > spaeteste;
+  const istZuJung = fieldErrors.birth_date !== undefined && entwurf.birth_date !== "" && entwurf.birth_date > latest;
 
   const sende = () => {
     const body = payload();
@@ -314,7 +312,7 @@ function SpielerBestaetigungForm({
       const gesendet = await postPublicForm<Antwort>("/api/bestaetigung/spieler", body);
 
       if (!gesendet.answered) {
-        appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, {
+        appToast.danger(gesendet.wroteNothing ? ANSWER_NOT_SAVED : UNKLAR_TITEL, {
           description: gesendet.error,
         });
         return;
@@ -327,18 +325,18 @@ function SpielerBestaetigungForm({
       startSending(() => {
         if (!antwort.success) {
           reportRefusedConfirmation(antwort, {
-            onState: (zustand) => onAbschluss({ zustand }),
+            onState: (state) => onAbschluss({ state }),
             // The hook owns the press's one toast: none where a field shows the refusal.
             onRefusal: () =>
               reportSubmitFailure(
                 {
                   success: false,
-                  error: antwort.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
+                  error: antwort.error ?? ANSWER_NOT_SAVED_SENTENCE,
                   fieldErrors: antwort.fieldErrors,
                   unplacedError: antwort.unplacedError,
                 },
                 { bestaetigung: body },
-                { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+                { raise: (shown) => appToast.failure(ANSWER_NOT_SAVED, shown) },
               ),
           });
           return;
@@ -346,7 +344,7 @@ function SpielerBestaetigungForm({
 
         setSubmitFieldErrors({}, {});
         onAbschluss({
-          zustand: "erfolg",
+          state: "erfolg",
           gespeichert: { birth_date: antwort.birth_date, umfang: antwort.umfang, media: antwort.media },
         });
       });
@@ -361,7 +359,7 @@ function SpielerBestaetigungForm({
       onSubmit={() => {
         guardSubmit({ bestaetigung: payload() }, sende);
       }}>
-      <BestaetigungAbschnitt titel="Deine Antwort">
+      <ConfirmationSection titel="Deine Antwort">
         <section className="flex flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
 
@@ -375,14 +373,14 @@ function SpielerBestaetigungForm({
                 onChange={(next) => setEntwurf({ ...entwurf, birth_date: next?.toString() ?? "" })}
                 onBlur={() => validatePaths("bestaetigung", payload(), ["birth_date"])}
                 hint={`Daran prüfen wir, ob Du mindestens ${String(ansicht.minimum_age)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
-                minValue={parseDate(frueheste)}
-                maxValue={parseDate(spaeteste)}
+                minValue={parseDate(earliest)}
+                maxValue={parseDate(latest)}
               />
             </div>
           ) : (
             // Neither asked nor shown: asking again invites a second answer to a question settled once,
             // and whoever holds the link is not yet known to be the person whose date it is.
-            <p className={ABSATZ_CLASSES}>Dein Geburtsdatum ist bei uns schon gespeichert. Du siehst es in Deinem Konto.</p>
+            <p className={PARAGRAPH_CLASSES}>Dein Geburtsdatum ist bei uns schon gespeichert. Du siehst es in Deinem Konto.</p>
           )}
         </section>
 
@@ -399,7 +397,7 @@ function SpielerBestaetigungForm({
         ) : (
           <section className="flex flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Einwilligung</h3>
-            <p className={ABSATZ_CLASSES}>
+            <p className={PARAGRAPH_CLASSES}>
               <Link
                 href={ROUTES.account.path()}
                 prefetch={false}
@@ -432,7 +430,7 @@ function SpielerBestaetigungForm({
             {isPending ? "Sendet..." : "Registrierung bestätigen"}
           </Button>
         </div>
-      </BestaetigungAbschnitt>
+      </ConfirmationSection>
     </Form>
   );
 }
@@ -496,7 +494,7 @@ function WahlenAbschnitte({
           <Input className="hidden" />
           <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
-        <EinwilligungZeile line={SPIELER_WORDINGS.scope.line} />
+        <EinwilligungRow line={SPIELER_WORDINGS.scope.line} />
       </section>
 
       <section className="flex flex-col gap-y-3">
@@ -516,7 +514,7 @@ function WahlenAbschnitte({
             </Switch.Content>
           </Switch>
         )}
-        {medienAngeboten && <EinwilligungZeile line={SPIELER_WORDINGS.media.line} />}
+        {medienAngeboten && <EinwilligungRow line={SPIELER_WORDINGS.media.line} />}
       </section>
     </>
   );

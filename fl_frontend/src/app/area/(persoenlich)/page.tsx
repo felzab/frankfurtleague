@@ -14,14 +14,14 @@ export default async function PersoenlichStartPage() {
   // sign-in or its passkey step, which the sign-in's landing sends it on to, not a person's landing.
   if (!subject.isAdmin && subject.records.admin_tier !== null) redirect(ROUTES.signInLanding.path());
 
-  const { roles, unconfirmed: unbestaetigt } = rolesOf(subject);
+  const { roles, unconfirmed } = rolesOf(subject);
   const ziele = zieleOf(roles);
 
   if (ziele.length === 0)
     return (
       <FunktionenView
-        zustand="konto"
-        unbestaetigt={unbestaetigt}
+        state="konto"
+        unconfirmed={unconfirmed}
       />
     );
 
@@ -31,7 +31,7 @@ export default async function PersoenlichStartPage() {
 
   return (
     <FunktionenView
-      zustand="auswahl"
+      state="auswahl"
       ziele={ziele}
     />
   );

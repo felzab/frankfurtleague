@@ -73,14 +73,14 @@ async function carryTheAccount(): Promise<void> {
  * Session 7: the administrator's way answered from its old view, the new mailbox's confirmation and decline and the
  * address on file's stop, each answering what the view shows next.
  */
-export const verwaltungswegBeantworten = action({
+export const answerByAdminRoute = action({
   lane: "public",
-  name: "verwaltungswegBeantworten",
+  name: "answerByAdminRoute",
   input: z.object({ token, antwort: z.enum(["confirmed", "declined", "stopped"]) }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer or its stop.",
   run: async ({ token: link, antwort }): Promise<ActionAnswer<AdresswechselPresse>> => {
     if (antwort === "confirmed" && (await accountAtNewAddress({ token: link }))) {
-      return { ok: true, value: { zustand: "not_confirmable" } };
+      return { ok: true, value: { state: "not_confirmable" } };
     }
 
     try {
@@ -89,17 +89,17 @@ export const verwaltungswegBeantworten = action({
         return {
           ok: true,
           value: {
-            gedrueckt: { answer: "stopped", effective: false, effective_from: null, approval_open: false },
+            pressed: { answer: "stopped", effective: false, effective_from: null, approval_open: false },
           },
         };
       }
       const answered = await postAddressChangeAnswer({ token: link, answer: antwort });
       if (answered.effective) afterTheResponse(runAddressChangeMoves);
-      return { ok: true, value: { gedrueckt: answered } };
+      return { ok: true, value: { pressed: answered } };
     } catch (error) {
       const refusal = mapAddressChangePressRefusal(error);
       if (refusal === null) throw error;
-      if ("state" in refusal) return { ok: true, value: { zustand: refusal.state } };
+      if ("state" in refusal) return { ok: true, value: { state: refusal.state } };
       if (!("neuLesen" in refusal)) return { ok: false, reason: COPY.shared.failure.stale };
 
       // The change ended or this link was answered since the page opened: the link's own read says how, so the view

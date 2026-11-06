@@ -6,19 +6,18 @@ import type { FLErasureSweepResponse } from "@/core/generated/client/types";
  * Every call of one pass summed, the last answered call's season and remainder beside the sums. A pass reaches each
  * person once, so the sums count persons; one who failed stays due for the next pass.
  */
-type LoeschungSumme = Omit<FLErasureSweepResponse, "after">;
+type ErasureSum = Omit<FLErasureSweepResponse, "after">;
 
 /** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
-export type LoeschungSweep =
-  (LoeschungSumme & { abgebrochen: false }) | (Omit<LoeschungSumme, "remaining"> & { abgebrochen: true; error: unknown });
+export type ErasureSweep = (ErasureSum & { abgebrochen: false }) | (Omit<ErasureSum, "remaining"> & { abgebrochen: true; error: unknown });
 
 // A loop and no request, so outside `mutations.ts`, whose every export the step-up reader takes for one.
 /**
  * One pass, each call handed the `after` the call before it answered. Settles rather than throws, so a caller words
  * what the calls before a failure erased.
  */
-export async function sweepLoeschung(lauf: (after: string | null) => Promise<FLErasureSweepResponse>): Promise<LoeschungSweep> {
-  let summe: LoeschungSumme = {
+export async function sweepErasure(run: (after: string | null) => Promise<FLErasureSweepResponse>): Promise<ErasureSweep> {
+  let summe: ErasureSum = {
     completed_saison_id: null,
     spieler: 0,
     saison_spieler: 0,
@@ -31,7 +30,7 @@ export async function sweepLoeschung(lauf: (after: string | null) => Promise<FLE
   try {
     let after: string | null = null;
     do {
-      const response = await lauf(after);
+      const response = await run(after);
       summe = {
         completed_saison_id: response.completed_saison_id,
         spieler: summe.spieler + response.spieler,
@@ -53,8 +52,8 @@ export async function sweepLoeschung(lauf: (after: string | null) => Promise<FLE
       after = response.after;
     } while (after !== null);
   } catch (error) {
-    const { remaining: _unbekannt, ...bisher } = summe;
-    return { ...bisher, abgebrochen: true, error };
+    const { remaining: _unknown, ...previous } = summe;
+    return { ...previous, abgebrochen: true, error };
   }
 
   return { ...summe, abgebrochen: false };

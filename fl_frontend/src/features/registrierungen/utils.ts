@@ -1,6 +1,6 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { isRecordMissing } from "@/core/errors";
-import { medienNochNicht } from "@/features/bewerbungen/utils";
+import { mediaNotYet } from "@/features/bewerbungen/utils";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -60,7 +60,7 @@ export function registrierungPayload(draft: RegistrierungFormDraft, token: strin
  */
 export function mapRegistrierungSubmitRefusal(
   error: unknown,
-): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: "invalid"; schonAngekommen?: true } | null {
+): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; state?: "invalid"; schonAngekommen?: true } | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
@@ -72,7 +72,7 @@ export function mapRegistrierungSubmitRefusal(
     // The link died between the page loading and this press, or the season or the club it names is
     // gone: the whole page is the answer, since a banner over a form nothing accepts invites a second attempt.
     case "document_not_found":
-      return { zustand: "invalid" };
+      return { state: "invalid" };
     // Each reachable only where the season moved after this page loaded, and the team's link reopens
     // onto a page read since: the window's or the team's own panel, or the Stufen offered now.
     case "registrierung_closed":
@@ -131,12 +131,12 @@ const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
 });
 
 /** What one refused confirmation asks its caller to do. */
-export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
+export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; state?: SpielerLinkZustand };
 
 /** The link's own view, read again after a refused press: its floors where it is open, its state where not. A failed read is `null` beside it. */
 export type GelesenerLink =
-  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly media_minimum_age: number } }
-  | { readonly zustand: SpielerLinkZustand };
+  | { readonly state: "valid"; readonly ansicht: { readonly minimum_age: number; readonly media_minimum_age: number } }
+  | { readonly state: SpielerLinkZustand };
 
 // A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller
 // reading the view in front of the switch spends a second backend read on each of them.
@@ -149,18 +149,18 @@ export type GelesenerLink =
 export async function mapBestaetigungRefusal(
   error: unknown,
   gesendet: Pick<FLRegistrierungConfirmationPayload, "birth_date">,
-  gelesen: () => Promise<GelesenerLink | null>,
+  read: () => Promise<GelesenerLink | null>,
 ): Promise<BestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
 
   const ansicht = async () => {
-    const link = await gelesen();
-    return link?.zustand === "valid" ? link.ansicht : null;
+    const link = await read();
+    return link?.state === "valid" ? link.ansicht : null;
   };
   // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
   const stand = async (sonst: SpielerLinkZustand): Promise<SpielerLinkZustand> => {
-    const link = await gelesen();
-    return link === null || link.zustand === "valid" ? sonst : link.zustand;
+    const link = await read();
+    return link === null || link.state === "valid" ? sonst : link.state;
   };
 
   switch (error.serverErrorCode) {
@@ -172,26 +172,26 @@ export async function mapBestaetigungRefusal(
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "media_age":
-      return { error: medienNochNicht((await ansicht())?.media_minimum_age ?? null) };
+      return { error: mediaNotYet((await ansicht())?.media_minimum_age ?? null) };
     // Answers the page did not ask, or none where it asked: a drifted client, or a page whose person changed since
     // it opened first, a new pupil's page asking both choices and a returning pupil's neither. The mail's link
     // reopens it.
     case "registrierung_choices_unsuitable":
       return { error: ANTWORT_NEU_OEFFNEN };
     case "link_invalid":
-      return { zustand: "invalid" };
+      return { state: "invalid" };
     // Judged ahead of a confirmation and of the ban, which the view ranks first: a link confirmed in another window,
     // or an address barred since, reads as a reload shows it.
     case "link_expired":
-      return { zustand: await stand("expired") };
+      return { state: await stand("expired") };
     // Judged ahead of the ban, which the view ranks first.
     case "confirmation_exists":
-      return { zustand: await stand("confirmed") };
+      return { state: await stand("confirmed") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "link_barred":
-      return { zustand: "barred" };
+      return { state: "barred" };
     // The one refusal that spends no token, so a typed date's refusal lands on its field and the date survives it;
-    // a `zustand` here would swap a live form for a dead-link panel.
+    // a `state` here would swap a live form for a dead-link panel.
     case "confirmation_age": {
       // No date sent is the returning pupil's stored one judged: their page asks none (`registrierung_choices_unsuitable`).
       if (gesendet.birth_date === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };

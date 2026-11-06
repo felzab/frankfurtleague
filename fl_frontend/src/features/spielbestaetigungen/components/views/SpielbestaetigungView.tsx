@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 
-import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
-  AdresseGesperrt,
-  BestaetigungErgebnis,
-  FaktenBanner,
-  FrageStellen,
-  GespeicherteAngaben,
-  LINK_UNLESBAR_TITEL,
-  LinkUnlesbar,
+  AddressBarred,
+  AskQuestion,
+  ConfirmationResult,
+  FactsBanner,
+  LINK_UNREADABLE_TITLE,
+  LinkUnreadable,
+  SavedDetails,
+  ToLiga,
   useLinkSeite,
-  ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { answeredBy, terminText } from "@/features/spielbestaetigungen/utils";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
@@ -30,20 +30,20 @@ import type { SpielbestaetigungAbschluss } from "./SpielbestaetigungFormPanel";
  * state is a panel that names no fixture, and an answered one the seat that answered alone.
  */
 export type SpielbestaetigungStart =
-  | { zustand: "valid"; ansicht: FLSpielbestaetigungViewResponse; token: string }
-  | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse; token: string }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungBy }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungBy }
-  | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
-  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> | "unlesbar" };
+  | { state: "valid"; ansicht: FLSpielbestaetigungViewResponse; token: string }
+  | { state: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse; token: string }
+  | { state: "zugesagt"; answered_by: FLSpielbestaetigungBy }
+  | { state: "declined"; answered_by: FLSpielbestaetigungBy }
+  | { state: "discarded"; appointment: FLSpielbestaetigungAppointment }
+  | { state: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> | "unlesbar" };
 
 type Stand =
   | SpielbestaetigungStart
-  | { zustand: "zugesagt-neu"; ansicht: FLSpielbestaetigungViewResponse }
-  | { zustand: "abgelehnt-neu"; ansicht: FLSpielbestaetigungViewResponse; vorschlag: FLSpielbestaetigungAppointment };
+  | { state: "zugesagt-neu"; ansicht: FLSpielbestaetigungViewResponse }
+  | { state: "abgelehnt-neu"; ansicht: FLSpielbestaetigungViewResponse; vorschlag: FLSpielbestaetigungAppointment };
 
 /** One heading per state, in the other link pages' words where the state is theirs. A barred link's page has none. */
-const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
+const TITEL: Record<Exclude<Stand["state"], "barred">, string> = {
   valid: "Spieltermin bestätigen",
   vorschlag: "Spieltermin bestätigen",
   "zugesagt-neu": "Termin bestätigt",
@@ -55,7 +55,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
   "termin-vorbei": "Link ungültig",
   invalid: "Link ungültig",
   cancelled: "Spiel abgesagt",
-  unlesbar: LINK_UNLESBAR_TITEL,
+  unlesbar: LINK_UNREADABLE_TITLE,
 };
 
 /** The two clubs, ours first: the page is the reader's club's answer about its own fixture. */
@@ -68,9 +68,9 @@ function vereine(view: FLSpielbestaetigungViewResponse): { eigenes: string; ande
 function Ansetzung({ ansicht }: { ansicht: FLSpielbestaetigungViewResponse }) {
   const { ansetzung } = ansicht;
   return (
-    <FaktenBanner
-      zeilen={[
-        { label: "Spiel", value: `${ansetzung.team1_name} vs. ${ansetzung.team2_name}`, unbegrenzt: true },
+    <FactsBanner
+      rows={[
+        { label: "Spiel", value: `${ansetzung.team1_name} vs. ${ansetzung.team2_name}`, unbounded: true },
         { label: "Datum", value: formatSpielDatum(ansetzung.date) },
         { label: "Anpfiff", value: formatUhrzeit(ansetzung.time) },
         { label: "Spielort", value: ansetzung.spielort?.name ?? NICHT_HINTERLEGT },
@@ -81,8 +81,8 @@ function Ansetzung({ ansicht }: { ansicht: FLSpielbestaetigungViewResponse }) {
 
 /** The press's answer folded into the page's state, carrying the read the receipt still names the fixture from. */
 function afterAnswer(abschluss: SpielbestaetigungAbschluss, view: FLSpielbestaetigungViewResponse): Stand {
-  if (abschluss.zustand === "zugesagt-neu") return { zustand: "zugesagt-neu", ansicht: view };
-  if (abschluss.zustand === "abgelehnt-neu") return { zustand: "abgelehnt-neu", ansicht: view, vorschlag: abschluss.vorschlag };
+  if (abschluss.state === "zugesagt-neu") return { state: "zugesagt-neu", ansicht: view };
+  if (abschluss.state === "abgelehnt-neu") return { state: "abgelehnt-neu", ansicht: view, vorschlag: abschluss.vorschlag };
   // The link died between the open and the press: its panel names the fixture no more than a fresh open would.
   return abschluss;
 }
@@ -93,147 +93,147 @@ function afterAnswer(abschluss: SpielbestaetigungAbschluss, view: FLSpielbestaet
  */
 export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart }) {
   const [stand, setStand] = useState<Stand>(start);
-  const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
+  const { ergebnisRef, answered } = useLinkSeite(stand.state);
 
-  if (stand.zustand === "barred") return <AdresseGesperrt panelRef={ergebnisRef} />;
+  if (stand.state === "barred") return <AddressBarred panelRef={ergebnisRef} />;
 
   return (
     <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
-        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.state]}</h1>
 
-        {(stand.zustand === "valid" || stand.zustand === "vorschlag") && (
+        {(stand.state === "valid" || stand.state === "vorschlag") && (
           <>
             <Ansetzung ansicht={stand.ansicht} />
-            <p className={ABSATZ_CLASSES}>
-              Du antwortest für <Wert>{vereine(stand.ansicht).eigenes}</Wert>. Antworte bis zum {formatSpielDatum(stand.ansicht.deadline)}.
+            <p className={PARAGRAPH_CLASSES}>
+              Du antwortest für <Value>{vereine(stand.ansicht).eigenes}</Value>. Antworte bis zum {formatSpielDatum(stand.ansicht.deadline)}.
               Danach legt die Verwaltung der Liga den Termin fest.
             </p>
           </>
         )}
 
         {/* The opponent's proposal and nothing of how they reasoned it: the reader still answers the date standing. */}
-        {stand.zustand === "vorschlag" && stand.ansicht.vorschlag !== null && (
-          <p className={ABSATZ_CLASSES}>
-            <Wert>{vereine(stand.ansicht).anderes}</Wert> hat einen anderen Termin vorgeschlagen: {terminText(stand.ansicht.vorschlag)}. Über
+        {stand.state === "vorschlag" && stand.ansicht.vorschlag !== null && (
+          <p className={PARAGRAPH_CLASSES}>
+            <Value>{vereine(stand.ansicht).anderes}</Value> hat einen anderen Termin vorgeschlagen: {terminText(stand.ansicht.vorschlag)}. Über
             eine Verlegung entscheidet die Liga. Bis dahin gilt der Termin oben.
           </p>
         )}
       </header>
 
-      {(stand.zustand === "valid" || stand.zustand === "vorschlag") && (
+      {(stand.state === "valid" || stand.state === "vorschlag") && (
         <SpielbestaetigungFormPanel
           token={stand.token}
           onAbschluss={(abschluss) => {
-            beantwortet();
+            answered();
             setStand(afterAnswer(abschluss, stand.ansicht));
           }}
         />
       )}
 
-      {stand.zustand === "zugesagt-neu" && (
-        <BestaetigungErgebnis
+      {stand.state === "zugesagt-neu" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="erfolg">
-          <p className={ABSATZ_CLASSES}>
-            Danke. Für <Wert>{vereine(stand.ansicht).eigenes}</Wert> ist der Termin bestätigt.
+          tone="success">
+          <p className={PARAGRAPH_CLASSES}>
+            Danke. Für <Value>{vereine(stand.ansicht).eigenes}</Value> ist der Termin bestätigt.
           </p>
-          <p className={ABSATZ_CLASSES}>Du musst nichts weiter tun. Wird das Spiel verlegt, kommt eine neue E-Mail.</p>
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          <p className={PARAGRAPH_CLASSES}>Du musst nichts weiter tun. Wird das Spiel verlegt, kommt eine neue E-Mail.</p>
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
-      {stand.zustand === "abgelehnt-neu" && (
-        <BestaetigungErgebnis
+      {stand.state === "abgelehnt-neu" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="erfolg">
-          <p className={ABSATZ_CLASSES}>
-            Danke. Dein Vorschlag für <Wert>{vereine(stand.ansicht).eigenes}</Wert> ist bei der Liga.
+          tone="success">
+          <p className={PARAGRAPH_CLASSES}>
+            Danke. Dein Vorschlag für <Value>{vereine(stand.ansicht).eigenes}</Value> ist bei der Liga.
           </p>
-          <GespeicherteAngaben
-            zeilen={[
+          <SavedDetails
+            rows={[
               { label: "Neues Datum", value: formatSpielDatum(stand.vorschlag.date) },
               { label: "Neuer Anpfiff", value: formatUhrzeit(stand.vorschlag.time) },
             ]}
           />
-          <p className={ABSATZ_CLASSES}>Über den Termin entscheidet die Liga. Wird das Spiel verlegt, kommt eine neue E-Mail.</p>
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          <p className={PARAGRAPH_CLASSES}>Über den Termin entscheidet die Liga. Wird das Spiel verlegt, kommt eine neue E-Mail.</p>
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
       {/* No club and no date from here on: an answered link may have been forwarded, and names the seat alone. */}
-      {stand.zustand === "zugesagt" && (
-        <BestaetigungErgebnis
+      {stand.state === "zugesagt" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="erfolg">
+          tone="success">
           {/* The league's own entry once the deadline passed is no answer of the team's, and says so beside the readout. */}
-          <p className={ABSATZ_CLASSES}>
+          <p className={PARAGRAPH_CLASSES}>
             {stand.answered_by.kind === "admin"
               ? "Für dieses Spiel hat die Verwaltung der Liga den Termin für Dein Team bestätigt. Du musst nichts weiter tun."
               : "Für dieses Spiel hat Dein Team schon zugesagt. Du musst nichts weiter tun."}
           </p>
-          <GespeicherteAngaben zeilen={[{ label: "Zugesagt von", value: answeredBy(stand.answered_by) }]} />
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          <SavedDetails rows={[{ label: "Zugesagt von", value: answeredBy(stand.answered_by) }]} />
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
-      {stand.zustand === "declined" && (
-        <BestaetigungErgebnis
+      {stand.state === "declined" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="erfolg">
-          <p className={ABSATZ_CLASSES}>Für dieses Spiel hat Dein Team den Termin schon abgesagt. Über den Termin entscheidet die Liga.</p>
-          <GespeicherteAngaben zeilen={[{ label: "Abgesagt von", value: answeredBy(stand.answered_by) }]} />
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          tone="success">
+          <p className={PARAGRAPH_CLASSES}>Für dieses Spiel hat Dein Team den Termin schon abgesagt. Über den Termin entscheidet die Liga.</p>
+          <SavedDetails rows={[{ label: "Abgesagt von", value: answeredBy(stand.answered_by) }]} />
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
       {/* The decline's own sentence said the league decides, so this one says it has, under the date it kept. */}
-      {stand.zustand === "discarded" && (
-        <BestaetigungErgebnis
+      {stand.state === "discarded" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="erfolg">
-          <GespeicherteAngaben zeilen={[{ label: "Termin", value: terminText(stand.appointment) }]} />
-          <p className={ABSATZ_CLASSES}>Die Liga hat entschieden: Der Termin oben bleibt.</p>
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          tone="success">
+          <SavedDetails rows={[{ label: "Termin", value: terminText(stand.appointment) }]} />
+          <p className={PARAGRAPH_CLASSES}>Die Liga hat entschieden: Der Termin oben bleibt.</p>
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
       {/* One wording for both, though the view tells them apart: each sentence names one case's way on, and a guessed
           link, read `ungueltig`, passes for a real one before its day. A day gone by has the panel below. */}
-      {(stand.zustand === "expired" || stand.zustand === "invalid") && (
-        <BestaetigungErgebnis
+      {(stand.state === "expired" || stand.state === "invalid") && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
+          tone="notice">
+          <p className={PARAGRAPH_CLASSES}>
             Dieser Link ist ungültig oder abgelaufen. Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist
             vorbei, legt die Verwaltung der Liga den Termin fest.
           </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
+          <AskQuestion />
+        </ConfirmationResult>
       )}
 
       {/* Whatever the team answered: an agreement shown here would send it to a ground nobody plays on. */}
-      {stand.zustand === "cancelled" && (
-        <BestaetigungErgebnis
+      {stand.state === "cancelled" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
+          tone="notice">
+          <p className={PARAGRAPH_CLASSES}>
             Dieses Spiel ist abgesagt. Du musst nichts weiter tun. Wird es neu angesetzt, kommt eine neue E-Mail.
           </p>
-          <ZurLiga />
-        </BestaetigungErgebnis>
+          <ToLiga />
+        </ConfirmationResult>
       )}
 
-      {stand.zustand === "termin-vorbei" && (
-        <BestaetigungErgebnis
+      {stand.state === "termin-vorbei" && (
+        <ConfirmationResult
           panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>Dieser Link ist abgelaufen: Der Spieltermin ist vorbei.</p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
+          tone="notice">
+          <p className={PARAGRAPH_CLASSES}>Dieser Link ist abgelaufen: Der Spieltermin ist vorbei.</p>
+          <AskQuestion />
+        </ConfirmationResult>
       )}
 
-      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
+      {stand.state === "unlesbar" && <LinkUnreadable panelRef={ergebnisRef} />}
     </section>
   );
 }

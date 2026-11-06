@@ -6,7 +6,7 @@ import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types.t
 
 const { mailFor } = await import("./mailKinds.ts");
 const { renderMail } = await import("./emailShell.ts");
-const { kontaktBestaetigungsLink } = await import("./kontaktLink.ts");
+const { kontaktConfirmationLink } = await import("./kontaktLink.ts");
 const { SERVER_COPY } = await import("./serverCopy.ts");
 
 const ORIGIN = "http://localhost:3000";
@@ -16,7 +16,7 @@ const data = (row: FLKontaktRow = "open", rollen: FLKontaktLinkData["rollen"] = 
   ({ kind: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", rollen, deadline: "2026-10-17", row }) as const;
 
 const rendered = (facts: ReturnType<typeof data>) => {
-  const mail = mailFor("kontakt_confirmation", facts, { token: "beispiel-eins", secret: null, origin: ORIGIN });
+  const mail = mailFor("kontakt_confirmation", facts, { token: "example-one", secret: null, origin: ORIGIN });
   if (mail === undefined) throw new Error("the kind has no builder");
 
   return { mail, text: renderMail(mail).text };
@@ -27,7 +27,7 @@ describe("a season row's contact link", () => {
     const { mail, text } = rendered(data());
 
     expect(text).toContain(SERVER_COPY.mail.bewerbung.confirmOrOppose);
-    expect(mail.button).toStrictEqual({ label: COPY.page.entryConfirmation, href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
+    expect(mail.button).toStrictEqual({ label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(ORIGIN, "example-one") });
   });
 
   /* A closed row's link takes the Widerspruch alone, so its mail asks no confirmation the page would then refuse. */
@@ -35,6 +35,6 @@ describe("a season row's contact link", () => {
     const { mail, text } = rendered(data(row));
 
     expect(text).not.toContain(SERVER_COPY.mail.bewerbung.confirmOrOppose);
-    expect(mail.button).toStrictEqual({ label: SERVER_COPY.mail.kontakt.toEntry, href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
+    expect(mail.button).toStrictEqual({ label: SERVER_COPY.mail.kontakt.toEntry, href: kontaktConfirmationLink(ORIGIN, "example-one") });
   });
 });

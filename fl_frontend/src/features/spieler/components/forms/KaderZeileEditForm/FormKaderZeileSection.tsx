@@ -16,13 +16,13 @@ import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { Key } from "@heroui/react/rac";
-import type { KaderZeileFieldPath } from "./kaderZeileDraftStatus";
+import type { KaderRowFieldPath } from "./kaderZeileDraftStatus";
 
 /** Names the role chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
-const ROLLE_LABEL_ID = "kaderzeile-rolle";
+const ROLLE_LABEL_ID = "kader-row-rolle";
 
 /** The four fields a seat holder edits; the club is the address, so no picker offers another. */
-export function FormKaderZeileSection({
+export function FormKaderRowSection({
   nummer,
   onNummerChange,
   position,
@@ -62,7 +62,7 @@ export function FormKaderZeileSection({
 
       <div className={panel.body()}>
         <NummerField
-          label={<FieldLabel<KaderZeileFieldPath> path="nummer">Nummer</FieldLabel>}
+          label={<FieldLabel<KaderRowFieldPath> path="nummer">Nummer</FieldLabel>}
           value={nummer}
           onChange={onNummerChange}
           onBlur={() => onValidateFields(["nummer"])}
@@ -75,7 +75,7 @@ export function FormKaderZeileSection({
           value={rolle ?? ""}
           onChange={() => undefined}
           className="flex w-full flex-col gap-y-1">
-          <FieldLabel<KaderZeileFieldPath> path="rolle">
+          <FieldLabel<KaderRowFieldPath> path="rolle">
             <span id={ROLLE_LABEL_ID}>Rolle</span>
           </FieldLabel>
           {/* A group rather than a switch: three states, and pressing the held one again gives a role up. */}
@@ -109,7 +109,7 @@ export function FormKaderZeileSection({
 
         <div className={FIELD_PAIR_CLASSES}>
           <div className="flex w-full flex-col gap-y-1">
-            <FieldLabel<KaderZeileFieldPath> path="position">Position</FieldLabel>
+            <FieldLabel<KaderRowFieldPath> path="position">Position</FieldLabel>
             <ClosedSetSelect
               value={position}
               onChange={onPositionChange}
@@ -122,7 +122,7 @@ export function FormKaderZeileSection({
           </div>
 
           <div className="flex w-full flex-col gap-y-1">
-            <FieldLabel<KaderZeileFieldPath> path="stufe">Stufe</FieldLabel>
+            <FieldLabel<KaderRowFieldPath> path="stufe">Stufe</FieldLabel>
             <ClosedSetSelect
               value={stufe}
               onChange={onStufeChange}

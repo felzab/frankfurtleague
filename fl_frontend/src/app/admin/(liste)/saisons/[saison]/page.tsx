@@ -20,7 +20,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { TerminDialog } from "./TerminDialog";
+import { AppointmentDialog } from "./TerminDialog";
 import { VorschlagActs } from "./VorschlagActs";
 import { ZusageDialog } from "./ZusageDialog";
 
@@ -169,7 +169,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
             discard={{
               consequence: WORDS.discardConsequence,
               facts: [
-                { label: COPY.admin.overview.termin, value: from },
+                { label: COPY.admin.overview.appointment, value: from },
                 { label: COPY.admin.overview.vorschlag, value: to },
                 ...mailTo(row.discard_recipients),
               ],
@@ -184,9 +184,9 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
       return { line: faultLine(row.fault) };
     case "appointment_missing":
       return {
-        line: WORDS.missing(COPY.admin.overview.termin),
+        line: WORDS.missing(COPY.admin.overview.appointment),
         acts: (
-          <TerminDialog
+          <AppointmentDialog
             spiel={spiel.id}
             version={spiel.version}
             date={dayOf(spiel.date)}
@@ -246,7 +246,7 @@ async function readOverview(params: Props["params"]) {
  * a club's proposed date are each done on their row; everything else opens the fixture's editor, or the application's
  * page.
  */
-export default function UebersichtPage({ params }: Props) {
+export default function OverviewPage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminOverview" } }}
@@ -255,7 +255,7 @@ export default function UebersichtPage({ params }: Props) {
         wait: [
           { title: WORDS.card.due, acts: [COPY.shared.withObject(COPY.admin.overview.zusage, "enter")] },
           { title: WORDS.card.ergebnisse },
-          { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.termin, "set")] },
+          { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.appointment, "set")] },
           { title: WORDS.card.bewerbungen },
         ],
         content: readOverview(params),

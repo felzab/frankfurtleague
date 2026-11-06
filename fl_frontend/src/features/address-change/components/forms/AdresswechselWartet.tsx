@@ -10,7 +10,7 @@ import TrashBin from "@gravity-ui/icons/TrashBin";
 import { Button } from "@heroui/react/button";
 
 import { einladeAdresswechselAction, verwirfAdresswechselAction } from "@/features/address-change/actions";
-import { LinkStandAngaben, zeitpunktText } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
+import { instantText, LinkStateDetails } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -124,7 +124,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
 
   const titel =
     offen.waits_on === "waiting_period" && offen.effective_from !== null
-      ? `Neue Adresse gilt ab ${zeitpunktText(offen.effective_from)}`
+      ? `Neue Adresse gilt ab ${instantText(offen.effective_from)}`
       : WARTET[offen.waits_on];
   const { approval: genehmigung } = offen;
 
@@ -159,29 +159,29 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
         {/* Only this step sent a link to the new mailbox: the request before it went to the address on file, and a
               confirmed change's link is spent. */}
         {offen.waits_on === "new_address" && offen.valid_until !== null && (
-          <LinkStandAngaben
-            verschicktAm={offen.sent_at}
+          <LinkStateDetails
+            sentAt={offen.sent_at}
             deadline={offen.valid_until}
             fristArt="zeitpunkt"
-            istAbgelaufen={offen.expired}
-            zustellung={offen.delivery}
+            isExpired={offen.expired}
+            delivery={offen.delivery}
           />
         )}
         {offen.waits_on === "previous_address" && (
           <>
             <Angabe label="Anfrage gesendet am">{formatSpielDatum(offen.sent_at)}</Angabe>
-            {offen.valid_until !== null && <Angabe label="Freigabe bis">{zeitpunktText(offen.valid_until)}</Angabe>}
+            {offen.valid_until !== null && <Angabe label="Freigabe bis">{instantText(offen.valid_until)}</Angabe>}
           </>
         )}
         {/* The address on file's own step, which the administrator reads off before trusting the new mailbox's. */}
-        {offen.released_at !== null && <Angabe label="Freigegeben am">{zeitpunktText(offen.released_at)}</Angabe>}
-        {offen.confirmed_at !== null && <Angabe label="Bestätigt am">{zeitpunktText(offen.confirmed_at)}</Angabe>}
-        {offen.effective_from !== null && <Angabe label="Wirksam ab">{zeitpunktText(offen.effective_from)}</Angabe>}
+        {offen.released_at !== null && <Angabe label="Freigegeben am">{instantText(offen.released_at)}</Angabe>}
+        {offen.confirmed_at !== null && <Angabe label="Bestätigt am">{instantText(offen.confirmed_at)}</Angabe>}
+        {offen.effective_from !== null && <Angabe label="Wirksam ab">{instantText(offen.effective_from)}</Angabe>}
         {genehmigung !== null && (
           <Angabe label="Genehmigung">
             {genehmigung.approved_at === null ? (
               <>
-                Offen bis {zeitpunktText(genehmigung.until)}.{" "}
+                Offen bis {instantText(genehmigung.until)}.{" "}
                 {/* Pressed on the grant's own row, where granting and revoking already are: one place for the approval. */}
                 <Link
                   href={saisonHref("/area/admin/administratoren")}
@@ -191,7 +191,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
                 </Link>
               </>
             ) : (
-              `Erteilt am ${zeitpunktText(genehmigung.approved_at)}`
+              `Erteilt am ${instantText(genehmigung.approved_at)}`
             )}
           </Angabe>
         )}

@@ -124,9 +124,9 @@ describe("the Spielsuche's matches", () => {
 });
 
 describe("Teams' tiles", () => {
-  const tile = (id: string, name: string, kuerzel: string) => ({
-    tile: { name: { record: name }, plaque: { record: kuerzel }, href: `/saisons/2027/teams/${id}` as const },
-    words: `${name} ${kuerzel}`,
+  const tile = (id: string, name: string, shorthand: string) => ({
+    tile: { name: { record: name }, plaque: { record: shorthand }, href: `/saisons/2027/teams/${id}` as const },
+    words: `${name} ${shorthand}`,
   });
 
   // A club is known by its Kürzel as much as by its name: the plaques on every match row show the Kürzel alone.

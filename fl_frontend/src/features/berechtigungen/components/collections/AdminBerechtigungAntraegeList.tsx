@@ -21,7 +21,7 @@ import type { ReactNode } from "react";
 /** The eyebrow naming the fact at the fact, as the grants' own cards carry it. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 
-function Fakt({ label, children, numeric = false }: { label: string; children: ReactNode; numeric?: boolean }) {
+function Fact({ label, children, numeric = false }: { label: string; children: ReactNode; numeric?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className={FACT_LABEL_CLASSES}>{label}</span>
@@ -53,7 +53,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
         {antraege.map((antrag) => {
           const gestelltAm = formatInstant(antrag.asked_at);
           // What each control's name tells the row apart by: the address, or the request's moment where it is withheld.
-          const zeile = antrag.address ?? `Antrag vom ${gestelltAm}`;
+          const row = antrag.address ?? `Antrag vom ${gestelltAm}`;
           return (
             <li
               key={antrag.id}
@@ -78,34 +78,34 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
               </div>
 
               <div className="grid w-full grid-cols-1 gap-3 border-t border-border/50 pt-3 sm:grid-cols-2">
-                <Fakt label={BEANTRAGT_LABEL}>{ANTRAG_WAS[antrag.admin_tier]}</Fakt>
-                <Fakt
+                <Fact label={BEANTRAGT_LABEL}>{ANTRAG_WAS[antrag.admin_tier]}</Fact>
+                <Fact
                   label={OFFEN_BIS_LABEL}
                   numeric>
                   {formatInstant(antrag.until)}
-                </Fakt>
-                <Fakt label={GESTELLT_VON_LABEL}>
+                </Fact>
+                <Fact label={GESTELLT_VON_LABEL}>
                   <VonOderGesperrt
                     von={antrag.started_by}
                     gesperrt={antrag.started_by_barred}
                   />
-                </Fakt>
-                <Fakt
+                </Fact>
+                <Fact
                   label={GESTELLT_AM_LABEL}
                   numeric>
                   {gestelltAm}
-                </Fakt>
+                </Fact>
               </div>
 
               {/* Both on every request, each closed with its reason where this reader may not press it, as a grant's revoke is. */}
               <div className="-mx-1 flex flex-col gap-3 border-t border-border/50 pt-2">
                 <AdminBerechtigungAntragGenehmigenPanel
                   antrag={antrag}
-                  zeile={zeile}
+                  row={row}
                 />
                 <AdminBerechtigungAntragAblehnenPanel
                   antrag={antrag}
-                  zeile={zeile}
+                  row={row}
                 />
               </div>
             </li>

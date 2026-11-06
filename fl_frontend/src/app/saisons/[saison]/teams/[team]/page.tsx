@@ -13,7 +13,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
-import { austrittChip, austrittZustand } from "@/features/teams/constants";
+import { austrittChip, austrittState } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -139,7 +139,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         team.austritt === null
           ? null
           : {
-              title: COPY.shared.austrittSince(austrittZustand(team.austritt.type), dayOf(team.austritt.date)),
+              title: COPY.shared.austrittSince(austrittState(team.austritt.type), dayOf(team.austritt.date)),
               text: { record: team.austritt.reason },
             },
     },

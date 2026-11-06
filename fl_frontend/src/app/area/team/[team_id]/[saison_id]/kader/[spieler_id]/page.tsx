@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { teamHref } from "@/features/funktionen/teamSeats";
-import { KaderZeileAusgetragen } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen";
-import { KaderZeileEditForm } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm";
+import { KaderRowRetired } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen";
+import { KaderRowEditForm } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm";
 import { kaderName, orderStufen } from "@/features/spieler/constants";
 import { getKader } from "@/features/spieler/queries";
 
@@ -23,14 +23,14 @@ export default async function KaderZeilePage({ params }: NextPageProps<{ team_id
   if ("forbidden" in read) return read.forbidden;
   const kader = read.data;
 
-  const zeile = kader.kader.find((candidate) => candidate.spieler_id === spieler_id);
-  if (zeile === undefined) notFound();
+  const row = kader.kader.find((candidate) => candidate.spieler_id === spieler_id);
+  if (row === undefined) notFound();
 
   const kaderHref = `${teamHref(team_id, saison_id)}/kader`;
-  if (zeile.inactive_since !== null) {
+  if (row.inactive_since !== null) {
     return (
-      <KaderZeileAusgetragen
-        zeile={{ ...zeile, inactive_since: zeile.inactive_since }}
+      <KaderRowRetired
+        row={{ ...row, inactive_since: row.inactive_since }}
         kaderHref={kaderHref}
       />
     );
@@ -44,12 +44,12 @@ export default async function KaderZeilePage({ params }: NextPageProps<{ team_id
 
   return (
     // Keyed by the stored row, so the refresh after a write draws the draft anew from what was saved.
-    <KaderZeileEditForm
-      key={JSON.stringify(zeile)}
+    <KaderRowEditForm
+      key={JSON.stringify(row)}
       teamId={team_id}
       saisonId={saison_id}
-      zeile={zeile}
-      erlaubteStufen={orderStufen(kader.allowed_stufen)}
+      row={row}
+      allowedStufen={orderStufen(kader.allowed_stufen)}
       heldRollen={heldRollen}
       kaderHref={kaderHref}
     />

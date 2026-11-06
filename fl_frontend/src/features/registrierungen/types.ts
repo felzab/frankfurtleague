@@ -12,12 +12,12 @@ import type {
  * either buys nothing.
  */
 export type RegistrierungStart =
-  | { zustand: "valid"; ansicht: FLInvitationViewResponse; token: string }
-  | { zustand: "closed"; ansicht: FLInvitationViewResponse }
+  | { state: "valid"; ansicht: FLInvitationViewResponse; token: string }
+  | { state: "closed"; ansicht: FLInvitationViewResponse }
   // One member per tag rather than one carrying both: a union-valued discriminant narrows on the
   // positive branch alone, so the two-in-one shape leaves `ansicht` unreachable after the guard.
-  | { zustand: "invalid" }
-  | { zustand: "unlesbar" };
+  | { state: "invalid" }
+  | { state: "unlesbar" };
 
 /**
  * The registration form mid-entry. Every field is typed and a widened `null` is a control nobody has
@@ -40,12 +40,11 @@ export type RegistrierungFormDraft = {
  */
 export type SpielerLinkZustand = "confirmed" | "expired" | "invalid" | "barred";
 
-export type SpielerBestaetigungAnsicht =
-  { zustand: "valid"; ansicht: FLRegistrierungConfirmationViewResponse } | { zustand: SpielerLinkZustand };
+export type SpielerBestaetigungAnsicht = { state: "valid"; ansicht: FLRegistrierungConfirmationViewResponse } | { state: SpielerLinkZustand };
 
 /** What the confirmation page opens on, the token riding only with a link a press can still spend. */
 export type SpielerBestaetigungStart =
-  { zustand: "valid"; ansicht: FLRegistrierungConfirmationViewResponse; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
+  { state: "valid"; ansicht: FLRegistrierungConfirmationViewResponse; token: string } | { state: SpielerLinkZustand | "unlesbar" };
 
 /**
  * What a confirmed pupil's answer panel states: what this page asked and they sent, so nothing at all on the
