@@ -99,7 +99,7 @@ there.
 | Button                  | 3 words                                                  | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)          |
 | Field description       | 1 sentence, 90 characters, one visible line              | says what the thing is; none where the label suffices; no field has a placeholder             |
 | Box description         | 1 sentence, 90 characters, one visible line              | says what a Konto box holds, under its title                                                  |
-| Tooltip                 | 5 words                                                  | names an icon-only control, nothing more                                                      |
+| Tooltip                 | 5 words                                                  | names an icon-only control, or says why a locked act cannot run                               |
 | Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
 | Field error             | one phrase, one line, 80 characters                      | a fixed pattern                                                                               |
 | Form refusal            | 1 short sentence, the status line's two lines on a phone | a plain fact about the whole form, or about a field no pattern words, naming that field       |

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -51,7 +51,7 @@ describe("a section's act", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: LABEL }));
-    expect(within(await screen.findByRole("dialog")).getByText(reason)).toBeTruthy();
+    expect((await screen.findByRole("tooltip")).textContent).toBe(reason);
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });
