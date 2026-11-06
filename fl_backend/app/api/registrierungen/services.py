@@ -577,12 +577,17 @@ def build_unconfirmed_filter(*, saison_id: str, today: str) -> Mapping[str, Any]
     return {"saison_id": saison_id, "status": SUBMITTED, **_UNBESTAETIGT, "confirmation.deadline": {"$lt": today}}
 
 
-def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every unchased row at its mark, as `erinnerung_is_due` judges it."""
+def build_erinnerung_filter(*, saison_id: str, today: str, team_ids: Sequence[Any]) -> Mapping[str, Any]:
+    """Every unchased row at its mark, as `erinnerung_is_due` judges it, of a club still holding the season.
+
+    `team_ids` are those clubs. A club's exit or replacement closes its rows' links, so a reminder there is a false mail;
+    in the query, since a page of such rows would fill the read and the stall refuse the pass.
+    """
 
     return {
         "saison_id": saison_id,
         "status": SUBMITTED,
+        "team_id": {"$in": list(team_ids)},
         **_UNBESTAETIGT,
         "confirmation.reminded_at": None,
         "confirmation.deadline": {"$gte": today},

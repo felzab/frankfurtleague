@@ -471,6 +471,34 @@ def test_the_geloescht_seats_link_goes_with_the_person_and_no_other_seats_does(m
 
 
 @pytest.mark.db
+@pytest.mark.parametrize(
+    ("their_day", "announced"),
+    [pytest.param("2026-04-02", None, id="the earliest day goes with them"), pytest.param("2026-04-04", "2026-03-30", id="a later day")],
+)
+def test_an_erasure_takes_the_notice_back_only_where_the_day_it_named_moves(mongo_replica_set_url: str, their_day: str, announced: str | None):
+    """A person told a day that has since moved is told again; a second notice for a day that stands announces one deletion twice."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.BEWERBUNGEN].update_one(
+            {"_id": BEWERBUNG_OID},
+            {
+                "$set": {
+                    "erasure_announced_at": "2026-03-30",
+                    "kontakte.trainer.einwilligung.confirmed_at": None,
+                    "kontakte.ansprechperson.einwilligung.confirmed_at": None,
+                    "confirmations.trainer.deadline": "2026-04-03",
+                    "confirmations.ansprechperson.deadline": their_day,
+                }
+            },
+        )
+        await call_erasure(database, client)
+
+        return (await stored_rows(database))[BEWERBUNG_OID]
+
+    assert on_a_league(mongo_replica_set_url, body)["erasure_announced_at"] == announced
+
+
+@pytest.mark.db
 def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
     """Kills a clearing that nulls the seat's bookkeeping unconditionally: a dotted `$set` into an absent block creates one."""
 

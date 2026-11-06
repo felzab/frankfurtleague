@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.admin_router import get_bewerbungen_admin
-from app.api.bewerbungen.services import mit_zustellung
+from app.api.bewerbungen.services import mit_zustellung, zustand_of
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
@@ -143,6 +143,13 @@ class TestTheSeasonsListRead:
         assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
         # The boxes the dialog disables, which `trikot_farbe_taken` would refuse: a row holding no colour takes none.
         assert offer.taken == ["blau"]
+
+
+class TestWhatAReopenedLinkReads:
+    def test_a_barred_address_reads_barred(self):
+        """The press refuses it anyway, so anything else shows a form nobody can send."""
+
+        assert zustand_of(bewerbung_raw=bewerbung_document(1), seat="trainer", today="2026-02-02", barred=True) == "barred"
 
 
 class TestEachSeatServesWhereItStands:

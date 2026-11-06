@@ -657,6 +657,15 @@ class TestWhoMayArrive:
         assert code == Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS
         assert row is not None
 
+    def test_a_club_the_season_already_holds_is_refused(self, mongo_replica_set_url: str):
+        """`saison_teams` holds one row a club, and the row handed over would be its second."""
+
+        code, row, spiele = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=RIVAL))
+
+        assert code == Code.REPLACE_INCOMING_ALREADY_ENTERED
+        assert row is not None
+        assert spiele[1]["team1"] == side(WITHDRAWN)
+
     def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
         """The entry gate's own code, because a replacement is one more way of bringing a club into a season."""
 

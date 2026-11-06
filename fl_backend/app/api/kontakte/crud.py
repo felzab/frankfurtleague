@@ -6,6 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
+from app.api.bewerbungen.services import deletion_was_announced, leaving_moves_the_deletion_day
 from app.api.kontakte.services import (
     PersonName,
     build_clearing_update,
@@ -52,7 +53,13 @@ async def clear_seats(
         if not slots:
             continue
 
-        update = build_clearing_update(slots, confirmations=isinstance(row.get("confirmations"), Mapping))
+        update = build_clearing_update(
+            slots,
+            confirmations=isinstance(row.get("confirmations"), Mapping),
+            # The seat a notice named may be the one going: the application then falls on a later day nobody was told.
+            takes_the_notice_back=deletion_was_announced(bewerbung_raw=row)
+            and leaving_moves_the_deletion_day(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seats=slots),
+        )
         await patch_one_in_db(
             collection=collection,
             db_filter={"_id": row["_id"]},
