@@ -1021,7 +1021,7 @@ export const COPY = catalogue({
       incomplete: "Unvollständig",
       complete: "Vollständig",
       accepted: "Angenommen",
-      /** Stands in the status chip's place on an undecided row: its `Dublette`. */
+      /** An undecided application's `Dublette`, in the status chip's place on its row and beside it on its review page. */
       teamDouble: "Team doppelt",
       /** The origin filter, whose options are `newSchool` and `existingTeam`. */
       origin: "Herkunft",

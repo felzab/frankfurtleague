@@ -231,6 +231,7 @@ export function RailPage({
   scope,
   title,
   chip,
+  flag,
   action,
   bar,
   children,
@@ -240,6 +241,8 @@ export function RailPage({
   title: PageTitle | null;
   /** The record's status, directly after its name. */
   chip?: ChipProps;
+  /** What that status leaves unsaid, after it. Neither chip gives way on a phone: the title takes what they leave and wraps. */
+  flag?: ChipProps;
   /**
    * The page's one icon-only way on beside its title, after its chip, such as the Spielplan's magnifier to
    * the Spielsuche: the kit's link, which its tooltip names. It may wait for the page's address, as the
@@ -269,7 +272,12 @@ export function RailPage({
         ) : (
           <h1 className={heading()}>{titleOf(title)}</h1>
         )}
-        {chip !== undefined && <Chip {...chip} />}
+        {chip !== undefined && (
+          <span className="flex shrink-0 items-center gap-2">
+            <Chip {...chip} />
+            {flag !== undefined && <Chip {...flag} />}
+          </span>
+        )}
         {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
         {scope === "saison" && (
           <nav

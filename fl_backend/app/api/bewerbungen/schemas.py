@@ -276,7 +276,7 @@ class FLBewerbungListRow(BaseReadModel):
     expected_kader: int
     wunschgegner: str | None
     seats_confirmed: int
-    # The people its seats name, one person holding two counting once: whom a decision mails.
+    # The people its seats name, one person holding two counting once: whom an acceptance mails.
     people: int
     # Whether this open application and another one for the season name the same club (`Dublette`).
     duplicate: bool
@@ -313,6 +313,8 @@ class FLBewerbungSingleResponse(BaseAPIResponse):
     # The code of the club it names, which the acceptance shows closed; null for a new school until it is accepted.
     shorthand: str | None
     seats_confirmed: int
+    # What `FLBewerbungListRow.duplicate` says of this application, which that row's one chip may leave unsaid.
+    duplicate: bool
     saison: FLBewerbungEntryOffer
 
 

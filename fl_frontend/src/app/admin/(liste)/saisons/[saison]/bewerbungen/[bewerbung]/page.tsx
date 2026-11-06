@@ -10,7 +10,7 @@ import { ROUTES } from "@/core/routes";
 import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/fieldRules";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
-import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
+import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -193,6 +193,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   return {
     title: { record: name },
     chip: STANDING_CHIP[standing],
+    flag: read.duplicate ? TEAM_DOUBLE : undefined,
     groups: [
       { title: COPY.bewerbung.object, kind: "facts", facts: applicationFacts(read) },
       { title: COPY.team.kontakte, kind: "seats", label: COPY.team.kontakte, rows: seatRowsOf(bewerbung) },

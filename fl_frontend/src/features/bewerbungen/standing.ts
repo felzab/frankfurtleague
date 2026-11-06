@@ -19,6 +19,9 @@ export const STANDING_CHIP: Readonly<Record<Standing, ChipProps>> = {
   declined: { tone: "danger", label: COPY.admin.spiel.declined },
 };
 
+/** An open `Dublette`: in the standing's place on a list's row, beside it on the review page. */
+export const TEAM_DOUBLE: ChipProps = { tone: "warn", label: WORDS.teamDouble };
+
 export function standingOf({ status, seats_confirmed: confirmed }: { status: FLBewerbungStatus; seats_confirmed: number }): Standing {
   if (status === "accepted" || status === "declined") return status;
   return confirmed === SEATS ? "complete" : "incomplete";

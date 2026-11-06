@@ -1860,6 +1860,7 @@ export interface FLBewerbungSchulePayload {
  */
 export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;
+  duplicate: boolean;
   entry: FLBewerbungEntry | null;
   name: string;
   saison: FLBewerbungEntryOffer;

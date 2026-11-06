@@ -5,12 +5,13 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.bewerbungen.admin_router import get_bewerbungen_admin
+from app.api.bewerbungen.admin_router import get_bewerbung, get_bewerbungen_admin
 from app.api.bewerbungen.services import with_delivery, zustand_of
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
@@ -101,6 +102,40 @@ async def view_list(database: Any) -> Any:
         saisons_collection=database[Collection.SAISONS],
         saison_id=VIEW_SAISON,
     )
+
+
+async def view_one(database: Any, bewerbung_id: ObjectId) -> Any:
+    return await get_bewerbung(
+        bewerbung_id=bewerbung_id,
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        outbox_collection=database[Collection.OUTBOX],
+        ban_list=ban_list(database),
+        today="2026-02-02",
+    )
+
+
+class TestTheReviewPagesRead:
+    pytestmark = pytest.mark.db
+
+    def test_it_says_what_the_list_says_of_a_dublette(self, mongo_url: str):
+        """A row's one chip can hide the Dublette, so this read is where an administrator deciding on it learns of the collision."""
+
+        async def read(database: Any) -> Any:
+            listed = await view_list(database)
+            return {row.id: row.duplicate for row in listed.bewerbungen}, {
+                row.id: (await view_one(database, row.id)).duplicate for row in listed.bewerbungen
+            }
+
+        listed, reviewed = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
+
+        assert (
+            reviewed
+            == listed
+            == {ObjectId(BEWERBUNG_ID.format(index)): index in (PICKED, ALSO_PICKED) for index in (PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED)}
+        )
 
 
 class TestTheSeasonsListRead:

@@ -1855,10 +1855,16 @@ def holds_an_unmailed_seat(*, row: Mapping[str, Any]) -> bool:
     )
 
 
+def is_duplicate(*, row: Mapping[str, Any], doubled: Container[Any]) -> bool:
+    """Whether this stored application is a `Dublette`, `doubled` being the clubs `build_duplicates_pipeline` found."""
+
+    return row["status"] == "submitted" and row.get("team_id") in doubled
+
+
 def bewerbung_list_row(
     *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Container[Any]
 ) -> dict[str, Any]:
-    """One stored application as `FLBewerbungListRow` serves it, `doubled` being the clubs `build_duplicates_pipeline` found."""
+    """One stored application as `FLBewerbungListRow` serves it."""
 
     return {
         "id": row["_id"],
@@ -1874,7 +1880,7 @@ def bewerbung_list_row(
         "wunschgegner": row.get("wunschgegner"),
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
         "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
-        "duplicate": row["status"] == "submitted" and row.get("team_id") in doubled,
+        "duplicate": is_duplicate(row=row, doubled=doubled),
         "unmailed": holds_an_unmailed_seat(row=row),
     }
 
@@ -1901,7 +1907,7 @@ def build_confirmed_seat_filter(*, saison_id: str) -> Mapping[str, Any]:
 
 
 def build_duplicates_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
-    """Every club more than one open application of the season names, what `bewerbung_list_row` marks.
+    """Every club more than one open application of the season names, what `is_duplicate` marks.
 
     A new school names no club, so two of them never collide: the Dublette is a display aid, and acceptance's unique
     code is what holds two clubs apart.
