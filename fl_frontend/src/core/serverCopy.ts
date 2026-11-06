@@ -154,13 +154,6 @@ export const SERVER_COPY = catalogue({
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
     spielplan_gruppen_off_rules: COPY.admin.saison.gruppenOffRules,
-    // Redesign: goes with the old team editor, its last reader; the season editor answers the code as a stale page.
-    /**
-     * A fixture of either club the group swap would trade has taken place, as
-     * `fl_backend/app/api/teams/services.py :: has_taken_place` judges it: a result, a recorded no-show or
-     * abandonment, or one side's goals.
-     */
-    swap_sides_taken_place: "Ein Spiel der beiden Teams hat schon stattgefunden.",
     activate_target_undrawn: COPY.admin.saison.noDraw,
     activate_saison_unfinished: COPY.admin.saison.unfinished,
     activate_spieltage_undated: COPY.admin.saison.undated,

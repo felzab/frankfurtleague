@@ -9,14 +9,12 @@ import { APINetworkError } from "@/core/errors.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
-import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
-import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal } from "../teams/refusals.ts";
+import { mapAlreadyEnteredRefusal } from "../teams/refusals.ts";
 import { ADRESSE_KORRIGIEREN, BEWERBUNG_DECISION_REASON_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
 import type { Code, FLBewerbung } from "@/core/generated/client/types.ts";
-import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const PERSON = { first_name: "Anna", last_name: "Beispiel", email: "anna@example.de", phone: "069 1234567" };
@@ -428,45 +426,7 @@ function renderedBy(where: string, answer: string | { error?: string; fieldError
   return [{ where: where, rendered: texts.flatMap((text) => text.split(/(?<=\.)\s+/)).filter((sentence) => sentence !== "") }];
 }
 
-/**
- * The season panel's own answer to the same stored state, built rather than read: which of its three
- * bodies stands is picked from `saisonStatus`, and no branch of it names the server's code.
- */
-const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): RenderingSource[] => {
-  const banner = buildTeamBanners({
-    isRetired: true,
-    saisonId: "2026",
-    saisonStatus: saisonStatus,
-    isMember: false,
-    storedAustritt: null,
-    hasAustritt: false,
-    draftGrund: "",
-    isGruppeLocked: false,
-    isGruppeChanged: false,
-  }).find(({ id }) => id === "team.not-in-saison-retired");
-
-  // Dropped rather than rendered empty: a banner the panel stopped raising is what the count above
-  // catches, and an empty string would satisfy every case below without carrying a word.
-  if (banner === undefined) return [];
-
-  // Both halves: the title carries the season and the noun, the body the state word and the repair.
-  const rendered = [banner.title, banner.body ?? ""].filter((line) => line !== "");
-
-  return [{ where: `the banner on a ${saisonStatus} season`, rendered: rendered }];
-};
-
-/**
- * Named against the union, so a status renamed out of it fails here rather than quietly dropping a
- * rendering. A status ADDED to it is caught by neither this nor the count, and stays review's.
- */
-const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
-
-const RETIRED_RENDERINGS = renderingsOf([
-  ...renderedBy("the triage", mapTriageRefusal(refused("team_retired"), "bestehendes_team")),
-  ...renderedBy("the club editor's entry", mapEntryRefusal(refused("team_retired"))),
-  ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refused("team_retired"))),
-  ...SAISON_STATUSES.flatMap(retiredBannerOn),
-]);
+const RETIRED_RENDERINGS = renderingsOf([...renderedBy("the triage", mapTriageRefusal(refused("team_retired"), "bestehendes_team"))]);
 
 /** Every determiner a neuter noun takes. One in front of „Team“ that is not here is the disagreement. */
 const NEUTER_ARTICLES = ["Das", "das", "Dieses", "dieses", "Ein", "ein", "Kein", "kein", "Sein", "sein", "Jedes", "jedes"];
@@ -526,8 +486,8 @@ describe("the German one refusal code is given", () => {
   it("finds every rendering of the retired-club refusal before judging one", () => {
     expect(
       RETIRED_RENDERINGS.length,
-      `team_retired is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the six this case reads`,
-    ).toBe(6);
+      `team_retired is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the one this case reads`,
+    ).toBe(1);
     for (const { where, sentences } of RETIRED_RENDERINGS) {
       expect(sentences.length, `${where} holds no rendered sentence`).not.toBe(0);
     }
@@ -552,46 +512,6 @@ describe("the German one refusal code is given", () => {
      indicative „nimmst“ pass every case above. */
   it("keeps the agreement a neuter Team forces, and the imperative a repair is written in", () => {
     for (const { where, sentences } of RETIRED_RENDERINGS) assertTheGermanAgrees(where, sentences);
-  });
-});
-
-/**
- * The entry rules an acceptance and the club editor both answer. `entry_gruppe_locked` is not among them:
- * it guards a group MOVE, which no acceptance performs.
- */
-const SHARED_ENTRY_CODES: Code[] = ["entry_saison_not_future", "entry_gruppe_not_offered", "entry_gruppe_full"];
-
-const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
-  code: code,
-  renderings: renderingsOf([
-    ...renderedBy("the triage", acceptanceMapped(refused(code))),
-    ...renderedBy("the club editor", mapEntryRefusal(refused(code))),
-  ]),
-}));
-
-describe("the sentence both entry surfaces render for one code", () => {
-  for (const { code, renderings } of ENTRY_RENDERINGS) {
-    /* The opening sentence and not the whole message: a repair names a control, and the two surfaces
-       have different ones — the triage declines an application, the club editor picks a season. */
-    it(`opens ${code} with one sentence, spelled the same on both`, () => {
-      // Before the comparison: a cut that stopped matching leaves one side empty, and two empty
-      // sides are equal.
-      expect(renderings.length, `${code} is rendered in ${String(renderings.length)} places, not the two this case reads`).toBe(2);
-      for (const { where, sentences } of renderings) {
-        expect(sentences.length, `${where} was cut to something holding no rendered sentence for ${code}`).not.toBe(0);
-      }
-
-      const [first, second] = renderings;
-
-      expect(second?.sentences[0], `the two surfaces open ${code} with different sentences`).toBe(first?.sentences[0]);
-    });
-  }
-
-  /* Equality above leaves the repair unread, and a repair is the half each surface writes alone. */
-  it("keeps the agreement and the imperative in every entry refusal, repair included", () => {
-    for (const { renderings } of ENTRY_RENDERINGS) {
-      for (const { where, sentences } of renderings) assertTheGermanAgrees(where, sentences);
-    }
   });
 });
 

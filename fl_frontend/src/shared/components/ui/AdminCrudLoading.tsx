@@ -12,7 +12,7 @@ import { skeletonBlock } from "./skeleton";
 import type { AdminCrudShape } from "./AdminCrudFallback";
 
 /** The bar beside the trigger takes what the trigger leaves, so a stand-in of any other width moves it when the trigger arrives. */
-export function CreateTriggerPlaceholder({ label }: { label: string }) {
+function CreateTriggerPlaceholder({ label }: { label: string }) {
   return (
     // The trigger's own classes, HeroUI's half included, around its own glyph and words, laid out and never
     // painted: HeroUI's rule pulls the glyph in at both sides, so a stand-in for it is a box of another width.

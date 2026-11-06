@@ -15,7 +15,7 @@ export type SeatRow = {
   id: string;
   name: Words;
   /** The seat's state, and beside it, where the last mail met trouble, the delivery's. */
-  chips: readonly [ChipProps, ...ChipProps[]];
+  chips: ReadonlyArray<ChipProps>;
   /** The muted line: the seats held, the address and where the answer stands (`COPY.admin.seatLine`). */
   line: Words;
   /** The row's one or two icon acts, the page's own. */

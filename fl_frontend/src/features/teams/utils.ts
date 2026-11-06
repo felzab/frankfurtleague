@@ -1,16 +1,8 @@
-import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
+import { GRUPPEN_OPTIONS, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
-import type {
-  FLKontaktperson,
-  FLSaison,
-  FLSaisonRules,
-  FLSaisonTeamKontakte,
-  FLTeamMembership,
-  FLTeamWithMemberships,
-  FLTrikotFarbe,
-} from "@/core/generated/client/types";
+import type { FLSaisonRules, FLTeamMembership, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { TrikotFarbeOption } from "./constants";
-import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
+import type { GruppeOffer } from "./types";
 
 /**
  * Every junction row counts — a disqualified team never leaves its season. The pickers disable what
@@ -30,135 +22,6 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaisonRules, members
     capacity: rules.teams_per_gruppe,
   }));
 };
-
-/**
- * A blank contact person, for the moment the editor's contact block is switched on. The stamp and the
- * date stay unanswered: whether the person answered, and when, is the one thing nobody may guess for the league.
- */
-export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
-  first_name: "",
-  last_name: "",
-  email: "",
-  phone: "",
-  birth_date: "",
-  einwilligung: {
-    scope: EINWILLIGUNG_UMFANG,
-    date: "",
-    // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
-    // has none and the blank is the truth rather than a value still to be filled in.
-    confirmed_at: null,
-    media: false,
-    // The save that seats the person stamps who seated them; no payload carries it, so the form never guesses.
-    entered_by: null,
-    evidence: { scope: null, media: null },
-  },
-});
-
-/**
- * The three blank seats, for the same moment. All three are PRESENT: a new block asks for three whole
- * people, and a seat left empty is one the admin switches off rather than the state it starts in.
- */
-export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
-  trainer: buildEmptyKontaktperson(),
-  ansprechperson: buildEmptyKontaktperson(),
-  stellvertretung: buildEmptyKontaktperson(),
-  trainer_is_also: null,
-});
-
-/**
- * Two shapes store nobody on file — `null` on a row nobody filled in, three empty seats on one switched
- * off or erased — and both are read alike. The claim is not read: over nobody it names nobody.
- */
-export function holdsNobody(kontakte: FLSaisonTeamKontakte | SaisonTeamKontakteDraft | null): boolean {
-  return kontakte === null || KONTAKT_ROLLEN.every(({ value }) => kontakte[value] === null);
-}
-
-/**
- * Whether two seats really hold one person. The flag alone is an assertion the backend never checks,
- * so badging on it would state as fact that two different people are the same one.
- */
-const isSamePerson = (a: FLKontaktperson | null, b: FLKontaktperson | null): boolean =>
-  a !== null && b !== null && a.first_name === b.first_name && a.last_name === b.last_name && a.email === b.email && a.phone === b.phone;
-
-/**
- * **One row per club**, never per seat: `kontakte` is embedded on `saison_teams`, so a seat has no id
- * and a per-seat row orders on a key nothing owns. A club with nothing on file contributes none: an
- * empty row answers "who can be reached" wrongly.
- */
-export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saisonId: string | undefined): AdminKontakteRow[] {
-  return teams.flatMap((team) => {
-    const kontakte = team.memberships.find((membership) => membership.saison_id === saisonId)?.kontakte ?? null;
-    if (kontakte === null || holdsNobody(kontakte)) return [];
-
-    const seats: AdminKontaktSeat[] = KONTAKT_ROLLEN.map(({ value, label }) => {
-      const person = kontakte[value];
-
-      return {
-        rolle: value,
-        label: label,
-        // `birth_date` is left behind, no cell here rendering it.
-        person:
-          person === null
-            ? null
-            : {
-                first_name: person.first_name,
-                last_name: person.last_name,
-                email: person.email,
-                phone: person.phone,
-                einwilligung: person.einwilligung,
-              },
-        // The seat the block NAMES, so the badge follows the claim wherever it points rather than to
-        // one hardcoded seat. Never the flag alone: two different people would then read as one.
-        istTrainerZugleich: kontakte.trainer_is_also === value && isSamePerson(kontakte.trainer, person),
-      };
-    });
-
-    return [
-      {
-        id: team.id,
-        teamId: team.id,
-        teamName: team.name,
-        teamShorthand: team.shorthand,
-        seats: seats,
-        besetzt: seats.filter((seat) => seat.person !== null).length,
-      },
-    ];
-  });
-}
-
-/**
- * The season whose club page (`fl_frontend/src/core/routes.ts :: ROUTES.team`) shows a club, or `null`
- * where that page would 404. A planned season is withheld from the public tier, so a club picked in one
- * is shown in the running season.
- */
-export function publicTeamSaisonId(
-  saisons: readonly Pick<FLSaison, "id" | "status">[],
-  selectedSaisonId: string | undefined,
-  memberships: readonly Pick<FLTeamMembership, "saison_id">[],
-): string | null {
-  const selected = saisons.find((saison) => saison.id === selectedSaisonId);
-  const shown = selected?.status === "future" ? saisons.find((saison) => saison.status === "active") : selected;
-
-  // The strict junction join: a club with no row in the shown season is no team there at all
-  // (`docs/glossary.md :: Team`).
-  return shown !== undefined && memberships.some((membership) => membership.saison_id === shown.id) ? shown.id : null;
-}
-
-/**
- * `retire_blocked` mirrored, so neither the list nor the editor offers a retirement the write path refuses: no running
- * or planned season may hold the club.
- */
-export function isRetireable(
-  saisons: readonly Pick<FLSaison, "id" | "status">[],
-  memberships: readonly Pick<FLTeamMembership, "saison_id">[],
-): boolean {
-  const statusBySaisonId = new Map(saisons.map((saison) => [saison.id, saison.status]));
-
-  return !memberships.some((membership) => {
-    const status = statusBySaisonId.get(membership.saison_id);
-    return status === "active" || status === "future";
-  });
-}
 
 /**
  * What a website box reports upward: the whole URL, or `null` for a box nobody filled. **The one

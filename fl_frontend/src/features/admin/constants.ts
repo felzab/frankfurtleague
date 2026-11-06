@@ -124,7 +124,7 @@ export const SPERRLISTE_EINTRAG = {
 export const UEBERALL_ABMELDEN = "Überall abmelden";
 
 /** The erasure page's entry, named where another page sends a reader to it, so a rename reaches both. */
-export const LOESCHUNG_EINTRAG = {
+const LOESCHUNG_EINTRAG = {
   id: "loeschung",
   label: "Löschung auf Anfrage",
   iconName: "PersonXmark",

@@ -3,7 +3,6 @@ import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { parseDate } from "@internationalized/date";
 import { assert, describe, expect, it } from "vitest";
 
-import { TEAM_FACETS } from "@/features/teams/facets";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 
 import { BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
@@ -449,15 +448,10 @@ describe("the submission's refusals against the codes its endpoint publishes", (
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
-     exists or its state. The vocabulary is the teams list's status facet, so a status added there is
-     covered here too. */
+     exists or its state. */
   it("keeps both roster-facing refusals free of every status word the app uses", () => {
-    const statuses = (TEAM_FACETS.find((facet) => facet.param === "status")?.options ?? []).map((option) => option.label);
-
-    assert.ok(statuses.length > 0, "no status vocabulary was read, so this test compares nothing");
-
-    // Beyond the table: words that disclose a club's existence or its past without naming a status.
-    const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "removed", "reaktiv"];
+    // Beyond the states: words that disclose a club's existence or its past without naming one.
+    const telltale = ["Aktiv", "Ausgeschieden", "Stillgelegt", "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "removed", "reaktiv"];
 
     for (const code of ["bewerbung_picked_team_unusable"] as const) {
       const refusalText = Object.values(mapBewerbungSubmitRefusal(refused(code))?.fieldErrors ?? {}).join(" ");

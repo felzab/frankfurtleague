@@ -326,7 +326,7 @@ const BACKGROUND_PASSES = [
   {
     operations: ["identity_sweep_erasure"],
     wrapper: { file: "src/features/saisons/mutations.ts", names: ["postLoeschungSweep"] },
-    runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
+    runners: ["src/features/saisons/sweep.ts"],
   },
   {
     operations: ["spielbestaetigungen_get_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
@@ -716,7 +716,6 @@ const SOURCE_BANS = [
         "aktionen",
         "bewerbungen",
         "funktionen",
-        "invitations",
         "registrierungen",
         "schiedsrichter",
         "sperrliste",

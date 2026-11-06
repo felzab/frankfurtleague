@@ -12,7 +12,7 @@ import type { FLAddressChangeViewableDenied } from "@/core/generated/client/type
 const ZUR_AENDERUNG = "Zur Änderung";
 
 /** The one line every editor shows under an address a change is pending at, one change for every record it holds. */
-export function AdresswechselOffen({
+function AdresswechselOffen({
   adresswechselId,
   adresse,
   denied,

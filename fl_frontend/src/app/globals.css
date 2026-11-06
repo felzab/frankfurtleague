@@ -951,7 +951,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     @apply border border-brand font-bold;
   }
 
-  /* The chosen day, in the pair `StufenPicker` already carries. */
+  /* The chosen day, in the brand's solid pair. */
   .calendar__cell[data-selected="true"],
   .calendar-year-picker__year-cell[data-selected="true"],
   .calendar-year-picker__year-cell[aria-selected="true"] {
