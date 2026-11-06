@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
-import { useState } from "react";
+import { cloneElement, useLayoutEffect, useState } from "react";
 
 import { act } from "@testing-library/react";
-import { Form } from "react-aria-components/Form";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -16,6 +15,7 @@ import { ComboBox } from "./ComboBox";
 import { DateField } from "./DateField";
 import { EditorPage } from "./EditorPage";
 import { FieldRows } from "./FieldRows";
+import { HeldForm } from "./HeldForm";
 import { LeaveGuardProvider, useLeaveGuard } from "./LeaveGuard";
 import { RadioGroup } from "./RadioGroup";
 import { SearchField } from "./SearchField";
@@ -24,7 +24,7 @@ import { Switch } from "./Switch";
 import { TextField } from "./TextField";
 import { TimeField } from "./TimeField";
 import { useEditor } from "./useEditor";
-import { formSend } from "./useFormAction";
+import { useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { ReactElement } from "react";
@@ -59,14 +59,14 @@ function drawn(page: ReactElement, edit: (root: HTMLElement) => void) {
   return container;
 }
 
-/** Hydrates `page` over `container`, and renders it once more: a render is what writes React's state over a field. */
+/**
+ * Hydrates `page` over `container`, and renders it once more: a render is what writes React's state over a field. The
+ * copy of the element is what makes it a render, since React bails out of the element it already holds.
+ */
 async function hydrated(container: HTMLElement, page: ReactElement) {
   const mismatches: unknown[] = [];
-  await act(async () => {
-    const root = hydrateRoot(container, page, { onRecoverableError: (error) => mismatches.push(error) });
-    await Promise.resolve();
-    root.render(page);
-  });
+  const root = await act(async () => hydrateRoot(container, page, { onRecoverableError: (error) => mismatches.push(error) }));
+  await act(async () => root.render(cloneElement(page)));
   expect(mismatches).toStrictEqual([]);
 }
 
@@ -74,7 +74,7 @@ async function hydrated(container: HTMLElement, page: ReactElement) {
 const typeInto = (root: HTMLElement, text: string) => {
   const control = root.querySelector<HTMLInputElement | HTMLTextAreaElement>('input:not([type="hidden"]), textarea');
   if (control === null) throw new Error("no text control in the markup");
-  control.value = text;
+  if (!control.readOnly) control.value = text;
 };
 
 /** Presses as the browser does before any code runs: the control flips, and no handler hears it. */
@@ -313,6 +313,50 @@ describe("what a person did to a field before the page hydrated", () => {
     container.remove();
   });
 
+  it("leaves the caret where the person left it", async () => {
+    const page = (
+      <TextField
+        label={WORD}
+        width="W3"
+        kind="text"
+      />
+    );
+    const container = drawn(page, (root) => {
+      typeInto(root, "Lena");
+      const control = root.querySelector("input");
+      control?.focus();
+      control?.setSelectionRange(1, 3);
+    });
+
+    await hydrated(container, page);
+
+    const control = container.querySelector("input");
+    expect([control?.selectionStart, control?.selectionEnd]).toStrictEqual([1, 3]);
+    container.remove();
+  });
+
+  // An address box exposes no caret and throws on being handed one, which the run reports as an unhandled error.
+  it("reaches the owner of a focused address box", async () => {
+    const onChange = vi.fn();
+    const page = (
+      <TextField
+        label={WORD}
+        width="W3"
+        kind="email"
+        onChange={onChange}
+      />
+    );
+    const container = drawn(page, (root) => {
+      typeInto(root, "lena@example.com");
+      root.querySelector("input")?.focus();
+    });
+
+    await hydrated(container, page);
+
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("lena@example.com");
+    container.remove();
+  });
+
   it("reaches React's state, not only the owner's", async () => {
     function Revealing() {
       const [isOn, setOn] = useState(false);
@@ -474,7 +518,27 @@ describe("a field the person left as the server drew it", () => {
   });
 });
 
-describe("a date or a time", () => {
+describe("a control whose server markup takes no edit", () => {
+  // React writes the text back while hydrating, before anything can read the edit, so a press would save nothing.
+  it("holds a stored paragraph read-only until the page's code runs", async () => {
+    const page = (
+      <TextField
+        label={WORD}
+        width="W4"
+        kind="text"
+        value="Alt"
+      />
+    );
+    const container = drawn(page, () => undefined);
+    const paragraph = container.querySelector("textarea");
+    expect(paragraph?.readOnly).toBe(true);
+
+    await hydrated(container, page);
+
+    expect(paragraph?.readOnly).toBe(false);
+    container.remove();
+  });
+
   it.each<[string, ReactElement]>([
     [
       "a date",
@@ -513,7 +577,7 @@ const replayed = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)
 function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
   const [email, setEmail] = useState("");
   return (
-    <Form {...formSend((formData) => send(formData.get("email")))}>
+    <HeldForm onSend={(formData) => send(formData.get("email"))}>
       <TextField
         label={WORD}
         name="email"
@@ -522,7 +586,7 @@ function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
         value={email}
         onChange={setEmail}
       />
-    </Form>
+    </HeldForm>
   );
 }
 
@@ -635,17 +699,57 @@ describe("a press held across hydration over a field edited before it", () => {
     container.remove();
   });
 
+  // React takes the held press's function at the hydrating commit, so run through it the replay would miss the first send.
+  it("sends one code for a press landing between the hydrating commit and the replay of a held one", async () => {
+    const mailed = Promise.withResolvers<ActionAnswer>();
+    const mail = vi.fn((_: string) => mailed.promise);
+    function Address() {
+      const [value, setValue] = useState("");
+      const send = useFormAction(mail, { resetOnLeave: false });
+      useLayoutEffect(() => queueMicrotask(() => press(document.body)), []);
+      return (
+        <SignInPage
+          view="address"
+          title={COPY.signIn.title}
+          row={null}
+          address={{ label: WORD, value, onChange: setValue }}
+          check={null}
+          send={{
+            label: COPY.signIn.sendCode,
+            onPress: (address) => {
+              if (!send.isPending) send.submit(address);
+            },
+          }}
+          or={COPY.signIn.or}
+          passkey={{ label: COPY.signIn.withPasskey, onPress: () => undefined }}
+        />
+      );
+    }
+    const container = drawn(<Address />, (root) => {
+      typeInto(root, "lena@example.com");
+      press(root);
+    });
+
+    await hydrated(container, <Address />);
+    await replayed();
+
+    // `useActionState` runs a second send once the first has answered.
+    await act(async () => mailed.resolve({ ok: true, value: undefined }));
+    expect(mail).toHaveBeenCalledExactlyOnceWith("lena@example.com");
+    container.remove();
+  });
+
   it("keeps an uncontrolled field's text through the same press", async () => {
     const send = vi.fn();
     const page = (
-      <Form {...formSend((formData) => void send(formData.get("name")))}>
+      <HeldForm onSend={(formData) => void send(formData.get("name"))}>
         <TextField
           label={WORD}
           name="name"
           width="W3"
           kind="text"
         />
-      </Form>
+      </HeldForm>
     );
     const container = drawn(page, (root) => {
       typeInto(root, "Lena");

@@ -4,6 +4,7 @@ import { useContext, useId } from "react";
 
 import { FieldErrorContext } from "react-aria-components/FieldError";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
+import { useIsSSR } from "react-aria/SSRProvider";
 
 import { COPY, textOf } from "@/core/copy";
 
@@ -107,6 +108,26 @@ function LineWithError({ constraints }: { constraints: Constraints }) {
 }
 
 /**
+ * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
+ * what a person typed there, so `./useEarlyEdit.ts` has nothing to raise and a press would save nothing under
+ * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
+ * does and keeps its Tab stop and the caret a click leaves, where `inert` takes both. An empty one keeps its replay,
+ * since React writes nothing there.
+ */
+function ParagraphBox({ isStored, className }: { isStored: boolean; className: string }) {
+  // Upstream: goes with `useEarlyEdit`, since React's own replay writes nothing over a `textarea` it hydrates.
+  const isWaiting = useIsSSR();
+  return (
+    <TextArea
+      data-kit-focus="field"
+      rows={4}
+      readOnly={isWaiting && isStored}
+      className={className}
+    />
+  );
+}
+
+/**
  * Type text or a number: the label above, an asterisk after it on a required field, the field at its
  * width class, then its message line as `line` sets it. An error first shows once the value is
  * committed or the form submitted, never while typing.
@@ -133,9 +154,8 @@ export function TextField(props: TextFieldProps) {
   const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" });
   const field =
     width === "W4" ? (
-      <TextArea
-        data-kit-focus="field"
-        rows={4}
+      <ParagraphBox
+        isStored={Boolean(props.value ?? props.defaultValue)}
         className={frame}
       />
     ) : (

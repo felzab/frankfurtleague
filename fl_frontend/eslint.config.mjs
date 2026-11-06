@@ -893,7 +893,7 @@ const DESIGN_BANS = [
   kitImport(
     {
       // The package's root is in the list too, since it exports every one of them.
-      regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorField|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
+      regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorArea|ColorField|ColorSlider|ColorThumb|ColorWheel|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
       message:
         "A field on a native control holds `useEarlyEdit` on its root and a row of `src/kit/useEarlyEdit.test.tsx`, then joins this list.",
     },
@@ -971,6 +971,12 @@ const DESIGN_BANS = [
       "The overlay is `Dialog`'s, `ConfirmDialog`'s and `Sheet`'s alone.",
     ],
     [[String.raw`UNSTABLE_Toast\w*`], "Toast", ["src/kit/Toast.tsx"], "A toast is `appToast` through the kit's `Toast`."],
+    [
+      ["DateInput", "DateSegment"],
+      "(?:DateField|DatePicker|DateRangePicker|TimeField)",
+      ["src/kit/dateParts.tsx"],
+      "A date's segments are `Segments`' alone, which stand `inert` until the page's code runs: a digit typed sooner fails hydration.",
+    ],
   ].map(([names, subpath, homes, message]) =>
     kitImport(
       {

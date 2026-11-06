@@ -3,8 +3,6 @@
 import { createContext, startTransition, useContext, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "react-aria-components/Form";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
@@ -15,11 +13,12 @@ import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
+import { HeldForm } from "./HeldForm";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { formSend, statusOf, useFormAction } from "./useFormAction";
+import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
@@ -307,16 +306,16 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
 
   return (
     <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
-      <Form
+      <HeldForm
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
         onInvalid={block}
-        {...formSend((formData) => {
+        onSend={(formData) => {
           // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
           if (isBusy || locked !== undefined) return;
           setRowStatus(null);
           send(carried(formData));
-        })}>
+        }}>
         <div className={held.head()}>{words}</div>
         {children !== undefined && (
           <BoxLine value={setRowStatus}>
@@ -338,7 +337,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
             />
           )}
         </div>
-      </Form>
+      </HeldForm>
     </section>
   );
 }

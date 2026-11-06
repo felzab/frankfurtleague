@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 
-import { Form } from "react-aria-components/Form";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
@@ -13,9 +11,9 @@ import { ActRow } from "./Dialog";
 import { Facts, FactsPlaceholder } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { statusLine } from "./fieldStyles";
+import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
 import { tv } from "./tv";
-import { formSend } from "./useFormAction";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
@@ -55,11 +53,11 @@ export function StepCard({
       title={title}
       line={line}
       body="fields">
-      <Form
+      <HeldForm
         className={body()}
         validationErrors={fieldErrors}
         onInvalid={() => setBlocked(true)}
-        {...formSend(onNext)}>
+        onSend={onNext}>
         <Facts facts={facts} />
         <div className={inputs()}>{children}</div>
         <ActRow>
@@ -79,7 +77,7 @@ export function StepCard({
             onPress={() => setBlocked(false)}
           />
         </ActRow>
-      </Form>
+      </HeldForm>
     </Card>
   );
 }

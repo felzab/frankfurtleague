@@ -2,16 +2,15 @@
 
 import { createContext, useContext, useRef, useState } from "react";
 
-import { Form } from "react-aria-components/Form";
-
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { StatusLine } from "./FieldParts";
+import { HeldForm } from "./HeldForm";
 import { StatusPage } from "./StatusPage";
 import { useBotCheck } from "./useBotCheck";
-import { formSend, statusOf, useFormAction } from "./useFormAction";
+import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
@@ -158,13 +157,13 @@ export function OneShotForm({
   return (
     <ClassicPage width="form">
       {head}
-      <Form
+      <HeldForm
         ref={form}
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
-        {...formSend((formData) => {
+        onSend={(formData) => {
           if (!isBusy) send(formData, "primary");
-        })}
+        }}
         className="grid gap-6">
         {children !== undefined && <div className={boxes ? "grid gap-6" : "grid justify-items-start gap-4"}>{children}</div>}
         {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
@@ -195,7 +194,7 @@ export function OneShotForm({
             />
           </div>
         </div>
-      </Form>
+      </HeldForm>
     </ClassicPage>
   );
 }
