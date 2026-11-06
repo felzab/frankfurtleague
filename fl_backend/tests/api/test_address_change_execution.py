@@ -1964,6 +1964,8 @@ class TestWhatTheEffectLeavesTheLoeschung:
             return call(get_confirmation_view, database, client, view_data=payload, today=TODAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # The registration's club stands in the season: a club holding no row takes no answer from any link.
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX"))
             before = await view(database, client)
             await confirmed_and_moved(database, client)
             return before, await refused_code(view(database, client))
