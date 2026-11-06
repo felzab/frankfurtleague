@@ -52,7 +52,7 @@ export type TableRow = {
   /** The record's name; with `href` the whole row opens the record. */
   name: Words;
   href?: Route;
-  /** A club's plaque before its name. */
+  /** A club's plaque before its name, or before a name of the club's own, such as a scorer's. */
   plaque?: Plaque;
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
@@ -110,13 +110,19 @@ export type TableProps = {
    * since its cells hold the chevron, so `compact` does not decide it.
    */
   chevronOnPhone?: boolean;
+  /**
+   * Whether each row's name is its plaque's own club, as the Tabelle's: on a phone the plaque then stands for the club,
+   * the name read but not drawn. Every other table draws the name beside its plaque, since a plaque says nothing of a
+   * scorer.
+   */
+  plaqueAlone?: boolean;
 };
 
 /**
  * What a table is before its rows are read: its heads, its columns and how its cells set. A page states it once,
  * beside the rows it reads, so the table and its placeholder are drawn from the one declaration.
  */
-export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" | "compact" | "chevronOnPhone">;
+export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone">;
 
 /** A table's rows once read: everything but its head. */
 export type TableBody = Omit<TableProps, keyof TableHead>;
@@ -318,8 +324,8 @@ const nameWords = tv({
 /**
  * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then the chip, which keeps
  * its size and its line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
- * the row's link; the link's stretched box still covers it, so on a phone, where the plaque alone is drawn, a press on it
- * opens the row's record, which the link names by the club's full name.
+ * the row's link; the link's stretched box still covers it, so a press on it opens the row's record, which on a phone,
+ * where a club's plaque may stand alone, the link names by the club's full name.
  */
 function NameCell({
   row,
@@ -327,17 +333,20 @@ function NameCell({
   compact,
   prose,
   stack,
+  plaqueAlone,
 }: {
   row: TableRow;
   barred: TableRow["qualifies"];
   compact: boolean;
   prose: boolean;
   stack: boolean;
+  plaqueAlone: boolean;
 }) {
   const s = table({ qualifies: barred, compact, prose, stack });
   const { plaque } = row;
+  const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
-  const words = plaque === undefined ? name : <span className={s.clubName()}>{name}</span>;
+  const words = lonePlaque ? <span className={s.clubName()}>{name}</span> : name;
   return (
     <td
       role="cell"
@@ -351,7 +360,7 @@ function NameCell({
         )}
         <CutText
           text={name}
-          className={nameWords({ cut: !prose, lonePlaque: plaque !== undefined })}>
+          className={nameWords({ cut: !prose, lonePlaque })}>
           {row.href === undefined ? (
             words
           ) : (
@@ -386,6 +395,7 @@ export function Table({
   prose = false,
   stack = false,
   chevronOnPhone = true,
+  plaqueAlone = false,
 }: TableProps) {
   const nameHead = table({ align: "start", compact, prose, stack }).head();
   const isLinked = rows.some((row) => row.href !== undefined);
@@ -472,6 +482,7 @@ export function Table({
                     compact={compact}
                     prose={prose}
                     stack={stack}
+                    plaqueAlone={plaqueAlone}
                   />
                   {columns.map((column) => {
                     const s = table({
@@ -536,14 +547,14 @@ export function TablePlaceholder({
 }: {
   head: TableHead;
   rows: number;
-  /** Whether each row names a club, its plaque before its name, which alone stands for the club on a phone. */
+  /** Whether each row holds a plaque before its name. */
   plaques?: boolean;
   bare?: boolean;
   /** Whether the rows lead on, each ending in its chevron. */
   linked?: boolean;
   stack?: boolean;
 }) {
-  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true } = head;
+  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false } = head;
   const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
   return (
     <div className={bare ? "w-full overflow-hidden" : cardSurface({ class: "w-full overflow-hidden" })}>
@@ -576,7 +587,7 @@ export function TablePlaceholder({
                 <span className="flex min-w-0 items-center gap-2">
                   {plaques && <span className={placeholderBar("h-6 w-10")} />}
                   <PlaceholderLine
-                    text={plaques ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
+                    text={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
                     width="w-1/2"
                   />
                 </span>
