@@ -130,6 +130,6 @@ export async function confirmSeat(page: Page, link: string): Promise<void> {
 /** An administrator's way to one application: its row in the season's list, which opens its review page. */
 export async function openApplication(page: Page, school: string): Promise<void> {
   await page.goto(`/admin/saisons/${SAISON}/bewerbungen`);
-  await page.getByRole("main").getByRole("link", { name: school }).click();
+  await page.getByRole("main").getByRole("link", { name: school, exact: true }).click();
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: school })).toBeVisible();
 }

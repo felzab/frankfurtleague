@@ -95,7 +95,7 @@ export default defineConfig<JourneyOptions>({
         twoDevices: "gustav.gerber@example.com",
         mover: "dora.dahl@example.com",
         leaver: "ingo.imhof@example.com",
-        applicants: { accepted: "Pappel", declined: "Birke", objected: "Erle" },
+        applicants: { accepted: "Tanne", declined: "Birke", objected: "Fichte" },
         departing: { club: "Esche", fixture: "Esche vs. Birke" },
         entered: "Weide",
         squadded: "Lena",
