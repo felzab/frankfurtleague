@@ -1,4 +1,5 @@
 import { columnHead } from "./cardStyles";
+import { PlaceholderLine } from "./Skeleton";
 
 import type { Copy } from "@/core/copy";
 
@@ -10,4 +11,17 @@ import type { Copy } from "@/core/copy";
 export function GroupHead({ text, inset }: { text: Copy; inset?: "cells" | "rows" }) {
   const slots = columnHead({ inset });
   return <h3 className={slots.text({ class: `flex items-center ${slots.rule()}` })}>{text}</h3>;
+}
+
+/** A group's head while what it names is read: its line as a bar at the head's height. */
+export function GroupHeadPlaceholder({ inset }: { inset?: "cells" | "rows" }) {
+  const slots = columnHead({ inset });
+  return (
+    <div className={slots.text({ class: `flex items-center ${slots.rule()}` })}>
+      <PlaceholderLine
+        text=""
+        width="w-24"
+      />
+    </div>
+  );
 }

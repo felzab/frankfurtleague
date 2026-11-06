@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { Doors } from "@/kit/Doors";
+import { Doors, DoorsPlaceholder } from "@/kit/Doors";
 import { EmptyState } from "@/kit/EmptyState";
 import { InfoCards } from "@/kit/InfoCards";
 import { OrganizationJsonLd } from "@/kit/JsonLd";
@@ -41,7 +41,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 
 /** What the doors say in every state, which is all they say while no window is open. */
-const DOORS: Pick<ComponentProps<typeof Doors>, "eyebrow" | "more" | "question"> = {
+const DOORS = {
   eyebrow: words.doors.eyebrow,
   more: { label: COPY.page.contact, href: ROUTES.contact.path() },
   // The question's door: the league's address and its two networks.
@@ -51,7 +51,7 @@ const DOORS: Pick<ComponentProps<typeof Doors>, "eyebrow" | "more" | "question">
     instagram: INSTAGRAM_URL,
     threads: THREADS_URL,
   },
-};
+} satisfies Pick<ComponentProps<typeof Doors>, "eyebrow" | "more" | "question">;
 
 /** The landing's read, on a request: the countdown seeds from the server's clock, and the build reaches no backend. */
 async function readOnRequest(): Promise<FLLandingResponse> {
@@ -235,13 +235,18 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
       </LandingSection>
       <LandingSectionWait
         block={doorsOf(read)}
-        fallback={<Doors {...DOORS} />}
+        fallback={
+          <DoorsPlaceholder
+            more={DOORS.more.label}
+            question={DOORS.question}
+          />
+        }
       />
       <LandingSectionWait
         block={schoolsOf(read)}
         fallback={
           <LandingSectionPlaceholder more={COPY.page.teams}>
-            <SchoolTilesPlaceholder count={8} />
+            <SchoolTilesPlaceholder count={24} />
           </LandingSectionPlaceholder>
         }
       />

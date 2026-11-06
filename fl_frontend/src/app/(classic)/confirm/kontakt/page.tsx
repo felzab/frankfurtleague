@@ -1,9 +1,13 @@
 import { cache } from "react";
 
+import { CheckboxPlaceholder } from "@/kit/Checkbox";
+import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { requires } from "@/core/action";
 import { now } from "@/core/clock";
+import { SEAT_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { bornAfter, bornBy, dayIn, dayOf, formatDate } from "@/core/format";
@@ -38,6 +42,18 @@ const WORDS = SERVER_COPY.kontaktConfirmation;
 
 const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
+/**
+ * The question's paragraph for the wait, as an application's seat reads it, the link most mails carry, a school's name
+ * standing as words about as long, and never shown: set unseen, so the paragraph stands as many lines as it will at every
+ * width.
+ */
+const SENTENCE_WORDS = `${WORDS.text(
+  WORDS.opening.named(COPY.team.fullName, "2027", { record: rollenText(["trainer"]) }),
+  WORDS.stored,
+  WORDS.applicationDeadline("2027-01-31"),
+  WORDS.objectionEffect.application,
+)} ${WORDS.more.before}${COPY.page.privacyNotice}${WORDS.more.after}`;
+
 /** Whether the confirmation's write asks the date, which posts nothing while unanswered. */
 const BIRTH_DATE_REQUIRED = requires(BewerbungenPostEinwilligungBody.options[0].shape.birth_date, null);
 
@@ -52,6 +68,18 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
     <MailedPage
       page={readState(searchParams)}
       act={COPY.page.entryConfirmation}
+      second={COPY.shared.verb.oppose}
+      sentence={SENTENCE_WORDS}
+      fields={
+        <>
+          <FieldPlaceholder
+            width="C10"
+            description={WORDS.ageCheck(18)}
+          />
+          <CheckboxPlaceholder label={SEAT_WORDINGS.scope.label} />
+          <ConsentLinePlaceholder line={SEAT_WORDINGS.scope.line} />
+        </>
+      }
     />
   );
 }
