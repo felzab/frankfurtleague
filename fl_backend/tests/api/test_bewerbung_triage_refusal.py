@@ -76,9 +76,12 @@ class TestWhatASeatWriteMoves:
         assert not any("ansprechperson" in path or "stellvertretung" in path for path in written)
 
     def test_filling_the_last_declined_seat_takes_the_announcement_back(self):
-        """The notice named a deletion this write calls off, so the next deletion is announced afresh."""
+        """The notice named a deletion this write calls off, so the next deletion is announced afresh.
 
-        assert self.written(trainer={**self.SEAT, "declined_at": "2026-03-20"})["erasure_announced_at"] is None
+        Another seat holds the same day, as all three do from the submission, so the objection's end decides and no moved day does.
+        """
+
+        assert self.written(trainer={**self.SEAT, "declined_at": "2026-03-20"}, stellvertretung=self.SEAT)["erasure_announced_at"] is None
 
     def test_an_objection_on_another_seat_keeps_the_announcement(self):
         """That seat still takes the application on the day the notice named, and a second notice would announce one deletion twice."""
