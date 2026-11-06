@@ -2,6 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 
+import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
+
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
@@ -12,7 +14,6 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
-import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 

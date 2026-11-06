@@ -3,7 +3,7 @@
  * the league's stack does and contacts no third party (https://playwright.dev/docs/best-practices#avoid-testing-third-party-dependencies).
  * `docker-compose.e2e.yml` keeps the check's server half off Cloudflare the same way.
  *
- * It answers the three calls `fl_frontend/src/shared/hooks/useTurnstile.tsx` makes of `window.turnstile`, and a widget
+ * It answers the three calls `fl_frontend/src/kit/useBotCheck.tsx` makes of `window.turnstile`, and a widget
  * mints as the published test site keys do (https://developers.cloudflare.com/turnstile/troubleshooting/testing/): on
  * render and on each reset, after the call has returned, the one dummy token. The browser still takes the script from
  * Cloudflare's address, under the edge's Content-Security-Policy. Nothing in the application knows a journey is running.

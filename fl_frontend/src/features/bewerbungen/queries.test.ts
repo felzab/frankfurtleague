@@ -38,7 +38,7 @@ describe("the two admin-tier triage reads", () => {
 });
 
 describe("the one path segment a caller interpolates", () => {
-  /* `fl_frontend/src/core/apiPath.ts :: isPathAsSpelled` cannot see an id carrying a plain `/`: it
+  /* `fl_frontend/src/core/api.ts :: isPathAsSpelled` cannot see an id carrying a plain `/`: it
      survives parsing untouched and reads as a nested endpoint, so the generated path builder
      percent-encodes it before the client sees it. */
   it("encodes the id rather than letting it open a path segment", async () => {

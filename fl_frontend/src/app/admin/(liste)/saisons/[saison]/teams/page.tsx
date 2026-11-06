@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -28,14 +29,13 @@ const WORDS = COPY.admin.team;
 const TEAM = COPY.account.entries.facts.team;
 const ACT = { verb: "enter", object: TEAM } as const;
 
-/** One value of a parameter the address may hold, what it holds only where it is one of `allowed`. */
-const oneOf = <Value extends string>(raw: string | string[] | undefined, allowed: Readonly<Record<string, Value>>): Value | null =>
-  Object.values(allowed).find((value) => value === raw) ?? null;
+/** What a read takes as a filter's options, its enum's values: the read's own answer says which of them the list offers. */
+const taken = <Value extends string>(allowed: Readonly<Record<string, Value>>) => Object.values(allowed).map((id) => ({ id }));
 
 /** What the address asks of the list, read off the values the read takes, so a hand-typed one narrows nothing. */
 async function queryOf(searchParams: Props["searchParams"]) {
   const { state, gruppe } = await searchParams;
-  return { state: oneOf(state, FLTeamListState), gruppe: oneOf(gruppe, FLGruppenNames) };
+  return { state: filterValue(state, taken(FLTeamListState)), gruppe: filterValue(gruppe, taken(FLGruppenNames)) };
 }
 
 async function read({ params, searchParams }: Pick<Props, "params" | "searchParams">): Promise<FLTeamsAdminListResponse | null> {

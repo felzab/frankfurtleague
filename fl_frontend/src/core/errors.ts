@@ -160,6 +160,17 @@ export function isRecordMissing(error: unknown): boolean {
 }
 
 /**
+ * A read's answer, `null` where the API answered that the record it names does not exist, which its page says as not
+ * found. Called inside a `"use cache"` scope, never around one: an error thrown out of a scope reaches its caller
+ * redacted to a digest, which nothing can recognise.
+ */
+export const orMissing = <Read>(read: Promise<Read>): Promise<Read | null> =>
+  read.catch((error: unknown) => {
+    if (isRecordMissing(error)) return null;
+    throw error;
+  });
+
+/**
  * The backend answering against what this frontend was built for, such as a registry running no label
  * on a page this frontend serves, or a sweep answering a place not past the one it was sent. Named,
  * because a job's or a drain's failure line records an error's name alone, never its message: the name

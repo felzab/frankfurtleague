@@ -12,6 +12,7 @@ import { ActRow } from "./Dialog";
 import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { Table } from "./Table";
+import { formSend } from "./useFormAction";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
@@ -52,10 +53,7 @@ export function StepCard({
         className="grid gap-4"
         validationErrors={fieldErrors}
         onInvalid={() => setBlocked(true)}
-        onSubmit={(event) => {
-          event.preventDefault();
-          onNext(new FormData(event.currentTarget));
-        }}>
+        {...formSend(onNext)}>
         <Facts facts={facts} />
         <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>

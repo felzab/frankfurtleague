@@ -13,6 +13,7 @@ import { AccountBox } from "./AccountBox";
 import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
 import { OneShotForm } from "./OneShot";
 import { SignInPage } from "./SignInPage";
+import { StepCard } from "./StepCard";
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
@@ -59,6 +60,18 @@ describe("a form a visitor reaches before hydration", () => {
         action={refused}
         acts={{ primary: WORDS.sendCode }}
       />,
+    ],
+    [
+      "a run's card",
+      <StepCard
+        key="step"
+        title={WORDS.title}
+        line={WORDS.title}
+        facts={[]}
+        onNext={() => undefined}
+        onSkip={() => undefined}>
+        <p />
+      </StepCard>,
     ],
   ])("hands %s to React, never the browser", (_, form) => {
     const held = document.createElement("div");

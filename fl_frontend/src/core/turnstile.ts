@@ -43,7 +43,10 @@ export const CHECK_DISRUPTED = COPY.shared.failure.unexpected;
 type Answer =
   { readonly passed: boolean; readonly codes: readonly string[]; readonly status: number } | { readonly refusedStatus: number } | null;
 
-/** Too many requests is Cloudflare declining to answer, not judging ours. */
+/**
+ * Too many requests is Cloudflare declining to judge, which garbage tokens sent at the action pair's rate can bring on
+ * while the site stands: let through, a flood would switch the check off for itself.
+ */
 const TOO_MANY_REQUESTS = 429;
 
 /** Logged once per submission let through unjudged; never the token, which passes the check until spent. */
@@ -60,9 +63,10 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
   try {
     const response = await fetch(SITEVERIFY_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: request, signal });
     status = response.status;
+    if (status === TOO_MANY_REQUESTS) return { refusedStatus: status };
     // A 4xx is Cloudflare refusing our request, which every later one repeats; a 5xx is it failing. Cloudflare
     // names a wrong secret or a malformed request in a 400's codes, read where its body parses.
-    if (status >= 400 && status < 500 && status !== TOO_MANY_REQUESTS) {
+    if (status >= 400 && status < 500) {
       const refusal = SiteverifyAnswerSchema.safeParse(await response.json().catch(() => null));
       const codes = refusal.success ? refusal.data["error-codes"] : [];
       return codes.length > 0 ? { passed: false, codes: codes, status: status } : { refusedStatus: status };
@@ -82,7 +86,7 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
 
 /**
  * The catalogue's sentence a submission carrying `token` is refused with, or `null` where it may go on to send its
- * mail. Only an unreachable Cloudflare lets a submission through unjudged: it fronts the whole site anyway.
+ * mail. Only a Cloudflare unreachable or failing lets a submission through unjudged: it fronts the whole site anyway.
  */
 export async function turnstileRefusal(token: string | null): Promise<Copy | null> {
   // Refused without asking: Cloudflare would answer either with a judgement against the token.
