@@ -62,7 +62,7 @@ BEWERBUNG_TOKEN_MAX_LENGTH: Final = 128
 # What kit the school already owns, in its own words. Bounded on the pair that earns
 # `BEWERBUNG_DECISION_REASON_MAX_LENGTH` its own: an anonymous caller writes it, and it is stored. Lower,
 # because a colour, a count and a size need nothing like a page.
-BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH: Final = 500
+BEWERBUNG_TRIKOT_SET_MAX_LENGTH: Final = 500
 
 # A club's short name, on the public application and the admin payloads alike: both tiers refuse at
 # one ceiling. `name` reaches the junction row, every fixture side and the league table.

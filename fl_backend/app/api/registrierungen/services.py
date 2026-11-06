@@ -210,7 +210,7 @@ def compose_bestaetigung(*, today: str, deadline: str) -> dict[str, Any]:
 
 
 # --- The SUBMISSION KEY, as the application's submission keeps it
-# (`app/api/bewerbungen/services.py :: payload_fingerabdruck`).
+# (`app/api/bewerbungen/services.py :: payload_fingerprint`).
 
 
 def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:

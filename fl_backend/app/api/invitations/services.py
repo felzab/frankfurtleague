@@ -39,7 +39,7 @@ def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
     )
 
 
-def find_saison_vorbei_refusal(*, saison_status: Any) -> WriteRefusal | None:
+def find_invitation_saison_past_refusal(*, saison_status: Any) -> WriteRefusal | None:
     """`saison_past`: the season has ended.
 
     A `future` season mints: an administrator prepares the links before the window opens, and the
@@ -145,10 +145,10 @@ def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
     return entry if is_confirmed(entry.get("einwilligung")) else None
 
 
-def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLInvitationRecipient]:
+def confirmed_recipients(*, kontakte: Any) -> list[FLInvitationRecipient]:
     """The mailboxes a link may be sent to, one entry per stored address, each the fold every payload stores."""
 
-    empfaenger: list[FLInvitationRecipient] = []
+    recipients: list[FLInvitationRecipient] = []
     seen: set[str] = set()
 
     for seat in KONTAKT_ROLLEN:
@@ -162,9 +162,9 @@ def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLInvitationRecipient]:
             continue
 
         seen.add(address)
-        empfaenger.append(FLInvitationRecipient(rolle=rolle, first_name=str(entry.get("first_name") or ""), email=address))
+        recipients.append(FLInvitationRecipient(rolle=rolle, first_name=str(entry.get("first_name") or ""), email=address))
 
-    return empfaenger
+    return recipients
 
 
 class InvitationDispatchPlan(NamedTuple):
@@ -191,13 +191,13 @@ def plan_invitation_dispatch(
     if not isinstance(kontakte, Mapping):
         return InvitationDispatchPlan([], "no_kontakt_block")
 
-    empfaenger = bestaetigte_empfaenger(kontakte=kontakte)
-    if not empfaenger:
+    recipients = confirmed_recipients(kontakte=kontakte)
+    if not recipients:
         return InvitationDispatchPlan([], "no_confirmed_kontaktperson")
 
     # Ahead of the mail's state, which a barred address's mail settles `barred`: a team reached by
     # nobody else would lose its link to a fresh mint at every press while the ban stands.
-    if all(person.email in barred for person in empfaenger):
+    if all(person.email in barred for person in recipients):
         return InvitationDispatchPlan([], "kontakte_barred")
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
@@ -205,4 +205,4 @@ def plan_invitation_dispatch(
     if invitation_is_sent(invitation_raw) and not resend:
         return InvitationDispatchPlan([], "already_sent")
 
-    return InvitationDispatchPlan(empfaenger, None)
+    return InvitationDispatchPlan(recipients, None)

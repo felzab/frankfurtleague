@@ -55,7 +55,7 @@ from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
 from app.api.schiedsrichter.services import compose_decline_update as compose_referee_decline_update
 from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
-from app.api.spielbestaetigungen.services import HeldSeats, kontakte_ohne, seat_void_of
+from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.core import clock
 from app.core.clock import german_day
@@ -338,7 +338,7 @@ async def _plan_objection(
                     saison_id=row["saison_id"],
                     team_id=row["team_id"],
                     stored_kontakte=row.get("kontakte"),
-                    kontakte=kontakte_ohne(row.get("kontakte"), open),
+                    kontakte=kontakte_without(row.get("kontakte"), open),
                 )
             ]
             await void_moved_seats(spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN], voids=voids, session=session)

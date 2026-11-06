@@ -152,10 +152,10 @@ async def ensure_ghost_spieler(
     await ensure_one_in_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
 
 
-class PersonGeloescht(NamedTuple):
+class PersonErased(NamedTuple):
     spieler: int
     saison_spieler: int
-    redacted_aktionen: int
+    redacted_action_log: int
 
 
 async def erase_person_in_session(
@@ -169,7 +169,7 @@ async def erase_person_in_session(
     stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
-) -> PersonGeloescht:
+) -> PersonErased:
     """Repoint the person's report entries at the sentinel, remove the person and their squad rows, then redact the log.
 
     Whether they may be erased is the caller's to judge; the sentinel must stand already
@@ -195,8 +195,8 @@ async def erase_person_in_session(
 
     # The squad rows first: the public read starts from them and drops a row whose person its `$lookup` cannot
     # find, so a row left behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
-    geloescht_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-    geloescht_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
+    erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
+    erased_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 
     # Last, and it passes over the two rows the removals above just recorded: those carry a
     # filter and a count and no `document_id`, so the erasure stays legible as an action.
@@ -208,4 +208,4 @@ async def erase_person_in_session(
         session=session,
     )
 
-    return PersonGeloescht(spieler=geloescht_person.deleted_count, saison_spieler=geloescht_rows.deleted_count, redacted_aktionen=redacted)
+    return PersonErased(spieler=erased_person.deleted_count, saison_spieler=erased_rows.deleted_count, redacted_action_log=redacted)

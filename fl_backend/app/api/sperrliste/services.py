@@ -7,7 +7,7 @@ spelling would file rows no check can match, and nothing would report it.
 
 import hashlib
 import hmac
-from collections.abc import Collection, Iterable
+from collections.abc import Container, Iterable
 from http import HTTPStatus
 from typing import Final
 
@@ -37,7 +37,7 @@ def address_hash(address: str, *, key: SecretStr) -> str:
     return hmac.new(derive_sub_key(key, BAN_LIST_KEY_VERSION), ban_key(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def withheld_actor(actor: str | None, barred: Collection[str]) -> str | None:
+def withheld_actor(actor: str | None, barred: Container[str]) -> str | None:
     """An actor field with a barred address withheld, compared on the fold the barred set holds."""
 
     if actor is None or sign_in_identifier(actor) in barred:

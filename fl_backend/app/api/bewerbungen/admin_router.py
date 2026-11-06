@@ -34,13 +34,13 @@ from app.api.bewerbungen.services import (
     bewerbung_list_row,
     build_bewerbungen_sort,
     build_confirmed_seat_filter,
-    build_dubletten_pipeline,
+    build_duplicates_pipeline,
     build_entry_offer_pipeline,
-    build_erneut_filter,
+    build_resend_filter,
     claimed_pair_seat,
-    compose_erneut_update,
     compose_kontakt_seat_update,
     compose_new_club,
+    compose_resend_update,
     confirmation_deadline_from,
     decider_addresses,
     find_acceptance_code_refusal,
@@ -54,7 +54,6 @@ from app.api.bewerbungen.services import (
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     mit_vorenthaltener_entscheidung,
-    mit_zustellung,
     owed_link,
     paired_seat,
     parse_new_club,
@@ -62,6 +61,7 @@ from app.api.bewerbungen.services import (
     schule_name,
     seat_named,
     seats_confirmed_of,
+    with_delivery,
 )
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
@@ -155,12 +155,12 @@ async def _as_served(
     today: str,
 ) -> list[dict[str, Any]]:
     # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
-    barred, lagen = await asyncio.gather(
+    barred, states = await asyncio.gather(
         barred_addresses(ban_list, decider_addresses(rows)),
         states_of(outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
     )
 
-    return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen, today=today) for row in rows]
+    return [with_delivery(mit_vorenthaltener_entscheidung(row, barred), states, today=today) for row in rows]
 
 
 # Two static segments, matching `GET /saisons/list/admin`.
@@ -192,7 +192,7 @@ async def get_bewerbungen_admin(
 
     offer, doubled, read, confirmed = await asyncio.gather(
         _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
-        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(saison_id=saison_id)),
+        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_duplicates_pipeline(saison_id=saison_id)),
         newest_of({"saison_id": saison_id}),
         newest_of(build_confirmed_seat_filter(saison_id=saison_id)),
     )
@@ -250,7 +250,7 @@ async def get_bewerbung(
     )
 
 
-def _entscheidung(*, today: str, by: str, reason: str | None) -> dict[str, Any]:
+def _decision(*, today: str, by: str, reason: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
     return {"made_at": today, "by": by, "reason": reason}
@@ -268,8 +268,8 @@ async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: As
     return str((club or {}).get("name") or "")
 
 
-def _key(bewerbung_id: Any, *teile: str) -> str:
-    return "/".join([str(Collection.BEWERBUNGEN), str(bewerbung_id), *teile])
+def _key(bewerbung_id: Any, *parts: str) -> str:
+    return "/".join([str(Collection.BEWERBUNGEN), str(bewerbung_id), *parts])
 
 
 @router.post(
@@ -279,7 +279,7 @@ def _key(bewerbung_id: Any, *teile: str) -> str:
 )
 async def accept_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    annahme_data: Annotated[FLAcceptBewerbungPayload, Body()],
+    acceptance_data: Annotated[FLAcceptBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -321,7 +321,7 @@ async def accept_bewerbung(
         # the retry rather than lost, and the block copied into `saison_teams` below then carries
         # every person's own date and stamp.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
-        refuse(find_acceptance_code_refusal(new_school=schule is not None, shorthand=annahme_data.shorthand))
+        refuse(find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand))
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -352,7 +352,7 @@ async def accept_bewerbung(
         else:
             # Composed beside the guard that judges it, and reaching for no field of the application
             # itself: nothing here may raise before the refusal below has had its say.
-            new_club = compose_new_club(schule=schule, shorthand=annahme_data.shorthand)
+            new_club = compose_new_club(schule=schule, shorthand=acceptance_data.shorthand)
             # Asked where the picked club's standing is asked, and for that reason: a school whose
             # own details make no club is not repaired by picking another group.
             refuse(find_new_club_refusal(club_document=new_club))
@@ -370,7 +370,7 @@ async def accept_bewerbung(
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
-            gruppe=annahme_data.gruppe,
+            gruppe=acceptance_data.gruppe,
             saison_status=str(saison_raw["status"]),
             # Validated, not read raw: a season missing the capacity keys fails here rather than
             # admitting a school against a bound nobody chose.
@@ -381,7 +381,7 @@ async def accept_bewerbung(
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
-            trikot_farbe=annahme_data.trikot_farbe,
+            trikot_farbe=acceptance_data.trikot_farbe,
             own_id=None,
             session=session,
         )
@@ -403,9 +403,9 @@ async def accept_bewerbung(
             document={
                 "saison_id": saison_id,
                 "team_id": team_id,
-                "gruppe": annahme_data.gruppe,
+                "gruppe": acceptance_data.gruppe,
                 "austritt": None,
-                "trikot_farbe": annahme_data.trikot_farbe,
+                "trikot_farbe": acceptance_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
                 # application was, and the team editor reads them from here. Copied whole, each seat
                 # confirmed by its own person before acceptance was allowed (`bewerbung_kontakte_unconfirmed`).
@@ -427,9 +427,9 @@ async def accept_bewerbung(
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
-            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, by=by, reason=None)}},
+            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _decision(today=today, by=by, reason=None)}},
             session=session,
-            expected_version=annahme_data.version,
+            expected_version=acceptance_data.version,
             return_document=ReturnDocument.BEFORE,
         )
         await enqueue_mails(
@@ -445,8 +445,8 @@ async def accept_bewerbung(
                         shorthand=shorthand,
                         saison_id=saison_id,
                         rollen=seats,
-                        gruppe=annahme_data.gruppe,
-                        trikot_farbe=annahme_data.trikot_farbe,
+                        gruppe=acceptance_data.gruppe,
+                        trikot_farbe=acceptance_data.trikot_farbe,
                         # As the school submitted it, which the acceptance's payload never carries.
                         wunschgegner=bewerbung_raw.get("wunschgegner"),
                     ),
@@ -460,8 +460,8 @@ async def accept_bewerbung(
             team_id=team_id,
             created_team=schule is not None,
             saison_id=saison_id,
-            gruppe=annahme_data.gruppe,
-            trikot_farbe=annahme_data.trikot_farbe,
+            gruppe=acceptance_data.gruppe,
+            trikot_farbe=acceptance_data.trikot_farbe,
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
@@ -509,7 +509,7 @@ async def decline_bewerbung(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={"$set": {"status": "declined", "decision": _entscheidung(today=today, by=by, reason=ablehnung_data.reason)}},
+            update={"$set": {"status": "declined", "decision": _decision(today=today, by=by, reason=ablehnung_data.reason)}},
             session=session,
             expected_version=ablehnung_data.version,
             return_document=ReturnDocument.BEFORE,
@@ -622,8 +622,8 @@ async def resend_einwilligung(
             governing_saison_id = await ban_list_saison(ban_list, session=session)
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
-                db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-                update=compose_erneut_update(
+                db_filter=build_resend_filter(bewerbung_id=bewerbung_id, seats=seats),
+                update=compose_resend_update(
                     seats=seats, today=today, kontakte=stored.get("kontakte"), confirmations=stored.get("confirmations")
                 ),
                 session=session,
@@ -680,7 +680,7 @@ async def resend_einwilligung(
 async def post_kontakt_seat(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
-    sitz_data: Annotated[FLBewerbungKontaktSeatPayload, Body()],
+    seat_data: Annotated[FLBewerbungKontaktSeatPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
@@ -708,7 +708,7 @@ async def post_kontakt_seat(
 
     # Outside the transaction, whose callback may run again, as the referee editor reads both
     # (`app/api/sperrliste/crud.py :: address_is_barred`).
-    hashed = ban_list.hash_of(sitz_data.email)
+    hashed = ban_list.hash_of(seat_data.email)
     governing_saison_id = await ban_list_saison(ban_list)
     # Outside the callback, for the re-send's reason.
     nonce = secrets.token_hex(8)
@@ -741,7 +741,7 @@ async def post_kontakt_seat(
 
         # Asked over the seats this write does NOT reach: a mirrored pair is one person, and comparing them against
         # each other would refuse every such write.
-        refuse(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email, phone=sitz_data.phone))
+        refuse(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
         barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
         refuse(find_kontakt_barred_refusal(barred=barred))
 
@@ -753,13 +753,13 @@ async def post_kontakt_seat(
             update=compose_kontakt_seat_update(
                 seats=seats,
                 # The person as the slot stores them, so a sixth field added here reaches storage.
-                person=sitz_data.model_dump(mode="json", exclude={"version"}),
+                person=seat_data.model_dump(mode="json", exclude={"version"}),
                 today=today,
                 kontakte=kontakte,
                 confirmations=confirmations,
             ),
             session=session,
-            expected_version=sitz_data.version,
+            expected_version=seat_data.version,
             return_document=ReturnDocument.AFTER,
         )
         await enqueue_mails(
@@ -779,7 +779,7 @@ async def post_kontakt_seat(
             now=germany_now,
         )
 
-        return FLBewerbungKontaktSeatResponse(email=sitz_data.email)
+        return FLBewerbungKontaktSeatResponse(email=seat_data.email)
 
     # A transaction where the re-send beside it takes none: this write moves a person as well as a credential, so a
     # decision landing mid-request must leave neither half standing.

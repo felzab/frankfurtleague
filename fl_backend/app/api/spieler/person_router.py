@@ -87,7 +87,7 @@ async def _read_the_squad(
     return [FLKaderRow.model_validate(row) for row in mark_shared_nummern(rows)]
 
 
-async def _erlaubte_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
+async def _allowed_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
     # `find_one` rather than `pull_one_from_db`: every caller passed `refuse_without_a_seat` first on this
     # session, which read this season for the seat, and no season is ever deleted, so a miss is a broken
     # invariant rather than a 404.
@@ -110,9 +110,9 @@ async def _the_row_as_written(
     """Read back inside the write's own transaction, so the shirt marker is the squad's after this write and before any other."""
 
     kader = await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
-    [zeile] = [zeile for zeile in kader if zeile.spieler_id == spieler_id]
+    [row] = [row for row in kader if row.spieler_id == spieler_id]
 
-    return zeile
+    return row
 
 
 @router.get(SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder")
@@ -143,7 +143,7 @@ async def get_kader(
         return FLKaderResponse(
             team_id=team_id,
             saison_id=saison_id,
-            allowed_stufen=await _erlaubte_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
+            allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
             kader=await _read_the_squad(
                 saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session
             ),
@@ -159,7 +159,7 @@ async def patch_kader_row(
     team_id: CustomRouteObjectId,
     saison_id: str,
     spieler_id: CustomRouteObjectId,
-    zeile_data: Annotated[FLPatchKaderRowPayload, Body()],
+    row_data: Annotated[FLPatchKaderRowPayload, Body()],
     identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
@@ -189,9 +189,9 @@ async def patch_kader_row(
 
         refuse(
             find_kader_stufe_refusal(
-                stufe=zeile_data.stufe,
+                stufe=row_data.stufe,
                 stored_stufe=stored_raw.get("stufe"),
-                allowed_stufen=await _erlaubte_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
+                allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
             )
         )
 
@@ -203,7 +203,7 @@ async def patch_kader_row(
             saison_id=saison_id,
             team_id=team_id,
             spieler_id=spieler_id,
-            rolle=zeile_data.rolle,
+            rolle=row_data.rolle,
             session=session,
         )
 
@@ -211,8 +211,8 @@ async def patch_kader_row(
         await patch_one_in_db(
             collection=saison_spieler_collection,
             db_filter=row,
-            update={"$set": zeile_data.model_dump(mode="json", exclude={"version"})},
-            expected_version=zeile_data.version,
+            update={"$set": row_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=row_data.version,
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
@@ -328,7 +328,7 @@ async def patch_einwilligung(
     name is served, and nothing here can.
     """
 
-    eigener_eintrag = build_self_pupil_filter(identifier)
+    own_entry = build_self_pupil_filter(identifier)
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
     # One instant for the evidence and its journal line, so a replay stamps the moment the person pressed.
     at = log_stamp(germany_now)
@@ -336,7 +336,7 @@ async def patch_einwilligung(
 
     @journal.attempted
     async def write(session: AsyncClientSession) -> None:
-        row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "birth_date": 1}, session=session)
+        row = await spieler_collection.find_one(own_entry, projection={"einwilligung": 1, "birth_date": 1}, session=session)
         refuse(find_own_entry_refusal(held=row is not None and is_own_spieler(row)))
         assert row is not None
         saved = row["einwilligung"]

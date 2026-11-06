@@ -43,7 +43,7 @@ router = APIRouter(
 )
 
 
-def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
+def _as_seat(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
     person = kontakte.get(slot)
     if not isinstance(person, Mapping):
         return FLTeamSeat.model_validate({"rolle": slot, "name": None, "confirmed": False})
@@ -87,7 +87,7 @@ async def get_team_seats(
         )
         kontakte = (row or {}).get("kontakte") or {}
 
-    return FLTeamSeatsResponse(team_id=team_id, saison_id=saison_id, seats=[_as_sitz(kontakte, slot) for slot in KONTAKT_ROLLEN])
+    return FLTeamSeatsResponse(team_id=team_id, saison_id=saison_id, seats=[_as_seat(kontakte, slot) for slot in KONTAKT_ROLLEN])
 
 
 @router.patch(
