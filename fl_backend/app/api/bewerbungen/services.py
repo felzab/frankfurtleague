@@ -1205,7 +1205,9 @@ def compose_kontakt_seat_update(
     # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced, on the day it named.
     stands = any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
     moved = _moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats, today=today)
-    announced = {} if stands and not moved else {"erasure_announced_at": None}
+    # The notice told the mailbox this write may replace, and a mistyped one told nobody: the person now seated is owed it.
+    told = "ansprechperson" not in seats
+    announced = {} if stands and not moved and told else {"erasure_announced_at": None}
     # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
     einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
@@ -1291,7 +1293,7 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
         return False
 
     # A seat gets ONE chase, and spending it on an address the provider has refused, or whose person reported the mail
-    # as spam, spends it on nobody; a seat write is what makes the seat due again, its mail being the seat's last.
+    # as spam, spends it on nobody: the clock closes it (`closed_chases`), and a re-send or a seat write opens it again.
     if unreachable:
         return False
 
@@ -1314,6 +1316,17 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable:
         for seat in KONTAKT_ROLLEN
         if seat_reminder_is_due(kontakte=kontakte, confirmations=confirmations, seat=seat, today=today, unreachable=seat in unreachable)
     ]
+
+
+def closed_chases(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: Container[str]) -> list[FLKontaktRolle]:
+    """The seats due today but for a last mail that did not arrive, whose one chase the clock stamps over.
+
+    No query reads the Postausgang, so unstamped they stay in the clock's read until their deadline, and a page of them
+    hides every newer row. The stamp costs nobody a link: the next one a seat is mailed comes from a re-send or a seat
+    write, each replacing the entry with the stamp in it.
+    """
+
+    return [seat for seat in reminder_seats(bewerbung_raw=bewerbung_raw, today=today, unreachable=()) if seat in unreachable]
 
 
 def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) -> list[tuple[str, list[FLKontaktRolle]]]:
@@ -1348,7 +1361,8 @@ def _earliest_deadline(*, confirmations: Any, seats: Iterable[str]) -> str | Non
 def deletion_day(*, kontakte: Any, confirmations: Any) -> str | None:
     """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names.
 
-    Every write moving it takes the notice's stamp back, so a stamp means the named day still holds.
+    Every write moving it takes the notice's stamp back, and so does one seating an Ansprechperson, so a stamp means the
+    named day still holds and the person in that seat was told it.
     """
 
     return _earliest_deadline(confirmations=confirmations, seats=pending_seats(kontakte=kontakte))

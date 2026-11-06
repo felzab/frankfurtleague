@@ -215,8 +215,9 @@ async def sweep_registrierungen(
             session=session,
             mails=[
                 OwedMail(
-                    # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
-                    key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
+                    # The pass's instant: an address change owes the moved row its reminder again, on the first one's day too,
+                    # and that row's links are dead until this mail goes. Every attempt of a pass shares it.
+                    key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{stamp}",
                     to=str(row["email"]),
                     data=FLRegistrierungLinkData(
                         kind="registrierung_reminder",

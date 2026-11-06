@@ -67,6 +67,8 @@ class _FLBewerbungSeatState(BaseReadModel):
     # The day this seat's link stops working, counted from that mail, and the application goes with it if its person
     # never answers. NOT the season's `Bewerbungsfrist`, which is the window the form is open in.
     deadline: CustomDateString
+    # The day this seat's one chase ended: its reminder was owed, or its last mail had not arrived and none could reach it
+    # (`app/api/bewerbungen/services.py :: closed_chases`). A re-send and a seat write clear it.
     reminded_at: CustomOptionalDateString
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.

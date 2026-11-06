@@ -35,14 +35,14 @@ from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.schemas.confirmation import FLTokenPayload
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.delivery import a_mail_that_bounced
+from tests.delivery import a_mail_that_bounced, mails_that_bounced
 from tests.documents import (
     SEAT_TEXT_VERSIONS,
     ban_document,
@@ -260,6 +260,10 @@ async def refuse_the_ansprechpersons_address(database: AsyncDatabase, client: As
     """The Ansprechperson's last mail, sent and refused by the provider: what the clocks read is what a drain and a real event leave."""
 
     await a_mail_that_bounced(database, client, bewerbung_id=bewerbung_id, seat="ansprechperson", to="wraxlington@example.com")
+
+
+# The seats the corpus's applications mail, `kontakte`'s Trainer reading the seat it mirrors.
+BOTH_MAILBOXES: Mapping[FLKontaktRolle, str] = {"ansprechperson": "wraxlington@example.com", "stellvertretung": "bramblewick@example.com"}
 
 
 CONFIRMED_BIRTH_DATE = "1994-07-19"
@@ -1397,6 +1401,32 @@ class TestEachCappedClockMakesProgressAcrossPasses:
         per_pass(taken, REMINDERS_PER_PASS, overflow)
         assert stamped == overflow
 
+    def test_a_page_of_seats_no_mail_reaches_leaves_the_read_and_the_newer_row_is_chased(self, mongo_replica_set_url: str):
+        """Oldest first, the bounced rows fill the read: left there they refuse the pass, its erasure's count with it, until their deadline."""
+
+        bounced = [numbered(position) for position in range(SWEEP_PAGE + 1)]
+        newer, lapsed = numbered(SWEEP_PAGE + 1), numbered(SWEEP_PAGE + 2)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [
+                    *[application(row_id, submitted_at="2026-03-19") for row_id in bounced],
+                    application(newer, submitted_at="2026-03-20"),
+                    application(lapsed, confirmation_deadline=YESTERDAY),
+                ]
+            )
+            await mails_that_bounced(database, bewerbung_ids=bounced, seats=BOTH_MAILBOXES)
+            first = await sweep(database, client, now=MAIL_NOW)
+            second = await sweep(database, client, now=MAIL_NOW)
+            spent = await database[Collection.BEWERBUNGEN].count_documents(
+                {"_id": {"$in": bounced}, **{f"confirmations.{seat}.reminded_at": TODAY for seat in KONTAKT_ROLLEN}}
+            )
+
+            return first.erased, first.reminded, second.reminded, await reminded(database), spent
+
+        assert on_a_league(mongo_replica_set_url, body) == (1, 0, 1, {newer}, SWEEP_PAGE + 1)
+
     def test_the_contact_blocks_are_cleared_a_share_a_pass_until_none_is_left(self, mongo_replica_set_url: str):
         overflow = BLOCKS_CLEARED_PER_PASS + 5
 
@@ -1638,7 +1668,7 @@ class TestARefusedReminderCostsThePassNothing:
 ROUND_TRIPS_A_ROW = 3
 
 # The worst call's commands beside its rows, and a past season's, whose own end leaves no reminder.
-SWEEP_OTHER_COMMANDS = 69
+SWEEP_OTHER_COMMANDS = 75
 SWEEP_PAST_LAPSED_OTHER_COMMANDS = 43
 
 
@@ -1651,7 +1681,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
         """Every clock takes a page, every conditional read is made: two applications name a club, the images take all three shapes.
 
-        Two cleared clubs hold open confirmations, the void at its widest; the strip meets its worst images.
+        Two cleared clubs hold open confirmations, the void at its widest; the strip meets its worst images. One application
+        no mail reaches closes the chase of every seat.
         """
 
         link = {"token_hash": "a" * 64, "sent_at": "2026-03-02", "deadline": "2026-03-16", "declined_at": None, "delivery": None}
@@ -1670,6 +1701,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many([open_confirmation(CLUB_OID), open_confirmation(numbered(2))])
             await images_of_every_strip_edit_set(database, client)
             await report_images_of_every_shape(database, client)
+            await database[Collection.BEWERBUNGEN].insert_one(application(numbered(3)))
+            await mails_that_bounced(database, bewerbung_ids=[numbered(3)], seats=BOTH_MAILBOXES)
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 

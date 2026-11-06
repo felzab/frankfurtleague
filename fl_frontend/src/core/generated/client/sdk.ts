@@ -870,8 +870,8 @@ export const getBewerbungenPostEinwilligungUrl = () => {
 /**
  * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
  *
- * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
- * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
+ * A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
+ * naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
  * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `media_age`, and
  * on a team's season row `link_expired` and `kontakt_saison_past`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
