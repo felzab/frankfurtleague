@@ -42,9 +42,9 @@ async function sendFromHere(page: Page, address: string): Promise<void> {
   const field = page.getByLabel("E-Mail-Adresse");
   // Tapped first, as a person reaches the field: once the page's code runs, React hydrates what a
   // press lands on during the press itself (https://github.com/reactwg/react-18/discussions/37).
-  // Before that, text in the field is the browser's alone: a press keeps it, React replaying the
-  // press with what the form held (`fl_frontend/src/kit/useFormAction.ts :: formSend`), and without
-  // one hydration empties the field, since React Aria's render writes its own empty value over it.
+  // Before that, text in the field is the browser's until the field replays it on hydrating
+  // (`fl_frontend/src/kit/useEarlyEdit.ts`), and React replays a press held with it
+  // (`fl_frontend/src/kit/useFormAction.ts :: holdPress`).
   await field.click();
   await field.fill(address);
 

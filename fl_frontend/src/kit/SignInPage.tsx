@@ -341,8 +341,6 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
           // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
           // its form in this line, as a malformed one meets the browser's.
           value={address.value}
-          // A press replayed after hydration resets the form, and a refused address stays for its correction.
-          defaultValue={address.value}
           onChange={address.onChange}
         />
         {check}

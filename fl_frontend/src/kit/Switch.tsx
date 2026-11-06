@@ -6,6 +6,7 @@ import { MessageLine } from "./FieldParts";
 import { switchThumb, switchTrack, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { placeholderBar, PlaceholderSentence } from "./Skeleton";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 
@@ -46,8 +47,10 @@ export function Switch({
   defaultSelected?: boolean;
   onChange?: (isSelected: boolean) => void;
 }) {
+  const root = useEarlyEdit();
   return (
     <SwitchField
+      ref={root}
       className={toggleField()}
       name={name}
       isSelected={isSelected}

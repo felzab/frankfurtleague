@@ -16,10 +16,11 @@ import { StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
 import { formColumn, RailPage } from "./RailFrame";
 import { dangerRow, Section } from "./Section";
+import { holdPress } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
 import type { DialogAct } from "./dialogAct";
@@ -119,6 +120,16 @@ function DangerRow({ act }: { act: DangerAct }) {
   );
 }
 
+/** The editor's form. Enter in a lone text box submits a form with no submit button, which `holdPress` holds before hydration. */
+function HeldForm({ onHeldPress, ...form }: ComponentProps<typeof Form> & { onHeldPress: () => void }) {
+  return (
+    <Form
+      {...form}
+      {...holdPress(onHeldPress)}
+    />
+  );
+}
+
 /**
  * The editor template: its sections one under another in the column of at most 760 px centred in the
  * content (`formColumn`, as the read page's), each a box exactly as tall as its content under its 16-px
@@ -180,19 +191,19 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           />
         ) : undefined
       }>
-      <Form
+      <HeldForm
         ref={form}
-        // Enter in a lone text box submits a form with no submit button, and before hydration that is a GET carrying the
-        // field (`formSend`). A function `action` holds the press; hydration has emptied what was typed, so the replay
-        // finds nothing to save and does nothing, where `editor.submit()` would report a save of no change. A hydrated
-        // press stays on `onSubmit`.
-        action={() => undefined}
+        // React takes the held press's function at the hydrating commit, whose `editor` knows no early edit yet
+        // (`./useEarlyEdit.ts`), so it presses again, onto `onSubmit` and the draft the replayed changes left.
+        onHeldPress={() => form.current?.requestSubmit()}
         validationErrors={editor.fieldErrors}
         // The browser judges each field's own rules first; a field it keeps back points the status line at it.
         onInvalid={() => editor.block()}
         onSubmit={(event) => {
           event.preventDefault();
-          editor.submit();
+          // The bar's busy button is not the whole guard: Enter in a field submits too, and a second save mid-flight
+          // would go on the version the first stores past, its refusal standing over a save that went through.
+          if (!editor.isPending) editor.submit();
         }}
         className={formColumn()}>
         {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
@@ -221,7 +232,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
             )}
           </DraftUnsaved>
         </FormClosed>
-      </Form>
+      </HeldForm>
     </RailPage>
   );
 }

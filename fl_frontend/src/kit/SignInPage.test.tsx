@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -37,29 +37,5 @@ describe("the sign-in template", () => {
     send.focus();
     rerender(addressView({ email: refusal }));
     expect(document.activeElement).toBe(field);
-  });
-
-  // React resets the form after a press it replays, and a refused address would go with the refusal standing over it.
-  it("keeps the address through a form reset", () => {
-    const onChange = vi.fn();
-    const addressView = (value: string) => (
-      <SignInPage
-        view="address"
-        title={WORDS.title}
-        row={null}
-        address={{ label: WORDS.address, value, onChange }}
-        check={null}
-        send={{ label: WORDS.sendCode, onPress: () => undefined }}
-        or={WORDS.or}
-        passkey={{ label: WORDS.withPasskey, onPress: () => undefined }}
-      />
-    );
-    // Mounted empty, as hydration finds the address's state, the address arriving with the press.
-    const { rerender } = render(addressView(""));
-    rerender(addressView("lena@example.com"));
-
-    act(() => screen.getByRole<HTMLInputElement>("textbox", { name: WORDS.address }).form?.reset());
-
-    expect(onChange).not.toHaveBeenCalledWith("");
   });
 });
