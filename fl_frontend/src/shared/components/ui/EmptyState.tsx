@@ -40,7 +40,7 @@ export function EmptyState({
 }: {
   title: string;
   hint?: string;
-  /** The way out of the empty state where it has one, inside the panel as `BewerbungView`'s state panels carry theirs. */
+  /** The way out of the empty state where it has one, inside the panel. */
   aktion?: { href: string; label: string };
   tone?: "neutral" | "positive";
   className?: string;

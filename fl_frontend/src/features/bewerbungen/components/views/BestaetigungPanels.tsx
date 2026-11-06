@@ -50,9 +50,7 @@ export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElemen
 }
 
 /**
- * One section of the page, in the shell every panel of the application form wears
- * (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx`): a
- * contact meets the same box on both ends of the workflow.
+ * One section of the page, a contact meeting the same box on every link page of the workflow.
  */
 export function BestaetigungAbschnitt({ titel, children }: { titel: string; children: ReactNode }) {
   const panel = formPanel();
@@ -160,10 +158,8 @@ export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: stri
 }
 
 /**
- * The receipt panel at both ends of the application — this page's states and the form's own
- * „eingegangen“ box
- * (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx`) — one
- * formula for both tones, a second spelling being one nobody re-measures against the scheme.
+ * The receipt panel: one formula for both tones, a second spelling being one nobody re-measures
+ * against the scheme.
  */
 const ergebnisPanel = tv({
   base: "flex w-full flex-col items-center gap-y-4 rounded-2xl border p-6 text-center shadow-sm outline-none sm:p-8",

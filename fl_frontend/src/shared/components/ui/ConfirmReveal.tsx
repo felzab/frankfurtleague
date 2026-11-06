@@ -5,9 +5,8 @@ import { PANEL_REVEAL_CLASSES } from "./motion";
 import type { ReactNode } from "react";
 
 /**
- * The tinted box under both danger escalations, this reveal and the delete dialog's step two
- * (`fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx`). The gap is not in it: the two
- * seat different content, and a rhythm shared here would set one of them wrong.
+ * The tinted box under the danger escalations. The gap is not in it: each seats different content,
+ * and a rhythm shared here would set one of them wrong.
  */
 // `wrap-break-word`, inherited by every sentence inside: one may name an address or a team, a word
 // wider than the box on a phone.

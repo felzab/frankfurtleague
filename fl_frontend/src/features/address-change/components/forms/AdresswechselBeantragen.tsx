@@ -82,8 +82,7 @@ function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
 const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
   entwurf.trim() !== "" && asSignInIdentifier(entwurf) !== asSignInIdentifier(gespeicherteAdresse);
 
-// `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: AdresseKorrigieren`'s box,
-// without its `<Form>`: Enter is taken here, the press being one write of its own.
+// No `<Form>`: Enter is taken here, the press being one write of its own.
 /** The administrator's start of a change for the address the tool read. */
 export function AdresswechselBeantragen({
   adresse,

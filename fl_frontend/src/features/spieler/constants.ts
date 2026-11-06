@@ -72,8 +72,8 @@ export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zu
 export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
 
 /**
- * The shared-shirt marker, in `fl_frontend/src/features/bewerbungen/duplicates.ts`' voice for a pair
- * that collides. A state rather than a refusal: two pupils may wear one number until somebody repairs it.
+ * The shared-shirt marker, for a pair that collides. A state rather than a refusal: two pupils may
+ * wear one number until somebody repairs it.
  */
 export const NUMMER_DOPPELT = "Nummer doppelt";
 
