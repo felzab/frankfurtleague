@@ -28,8 +28,9 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   reach holds nothing to lose only if the server's markup takes no edit until the page's code runs:
   a `textarea` holding text stands `readOnly` (`fl_frontend/src/kit/TextField.tsx :: ParagraphBox`),
   since React writes that text back while hydrating, before any effect reads the edit; a
-  `contenteditable` control stands `inert` (`fl_frontend/src/kit/dateParts.tsx :: Segments`), since a
-  changed text fails hydration and discards its whole boundary. Pages call the kit: React Aria and
+  `contenteditable` control stands `inert` (`fl_frontend/src/kit/dateParts.tsx :: Segments`, which the
+  lint keeps React Aria's date segments in), since a changed text fails hydration and discards its
+  whole boundary. Pages call the kit: React Aria and
   a raw control are banned outside it. The old HeroUI pages keep the loss until their session rebuilds them.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
