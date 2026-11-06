@@ -13,7 +13,8 @@
  * - No retry. A journey that passes on its second try failed on its first, and a retry would report
  *   that as green.
  * - Everything a run writes lands in `../.tmp-playwright/`, which `.gitignore` covers with every
- *   other `.tmp-*` directory.
+ *   other `.tmp-*` directory, but for the administrator's session, which stays with the stack's keys
+ *   (`e2e/support/journey.ts :: ADMINISTRATOR_STATE`).
  */
 import { defineConfig, devices } from "@playwright/test";
 
@@ -28,9 +29,18 @@ const BASE_URL = "http://localhost:3000";
  * The passkey ceremonies are desktop's alone. Playwright's WebKit has no WebAuthn of its own and
  * supplies `PublicKeyCredential` as a plain object, which `@simplewebauthn/browser`'s support check
  * refuses before any ceremony starts, so a phone passkey journey would test Playwright's stand-in
- * rather than WebKit. The phone follows an administrator's mailed code as far as the passkey card.
+ * rather than WebKit. The phone follows an administrator's mailed code as far as the passkey card, and
+ * reads the Verwaltung under the session the `administrator` project below sets up in Chromium.
  */
-const EVERY_PROJECT = ["signin.spec.ts", "spielplan.spec.ts", "accountActs.spec.ts", "legal.spec.ts"];
+const EVERY_PROJECT = [
+  "signin.spec.ts",
+  "spielplan.spec.ts",
+  "accountActs.spec.ts",
+  "legal.spec.ts",
+  "applicant.spec.ts",
+  "austritt.spec.ts",
+  "administration.spec.ts",
+];
 
 export default defineConfig<JourneyOptions>({
   testDir: "./e2e",
@@ -51,8 +61,16 @@ export default defineConfig<JourneyOptions>({
     trace: "retain-on-failure",
   },
   projects: [
+    // A setup project, as Playwright's guide names one (https://playwright.dev/docs/auth): every administration journey of
+    // both projects reads the session it saves.
+    {
+      name: "administrator",
+      testMatch: "support/administrator.setup.ts",
+      use: devices["Desktop Chrome"],
+    },
     {
       name: "desktop",
+      dependencies: ["administrator"],
       testMatch: [...EVERY_PROJECT, "desktop/**/*.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
@@ -60,10 +78,15 @@ export default defineConfig<JourneyOptions>({
         twoDevices: "frieda.falk@example.com",
         mover: "clara.kranz@example.com",
         leaver: "hanna.hahn@example.com",
+        applicants: { accepted: "Zeder", declined: "Ahorn", objected: "Buche" },
+        departing: { club: "Linde", fixture: "Birke vs. Linde" },
+        entered: "Kastanie",
+        squadded: "Jonas",
       },
     },
     {
       name: "phone",
+      dependencies: ["administrator"],
       testMatch: [...EVERY_PROJECT, "phone/**/*.spec.ts"],
       // The profile `playwright open --mobile` takes in WebKit, Playwright's newest iPhone.
       use: {
@@ -72,7 +95,19 @@ export default defineConfig<JourneyOptions>({
         twoDevices: "gustav.gerber@example.com",
         mover: "dora.dahl@example.com",
         leaver: "ingo.imhof@example.com",
+        applicants: { accepted: "Pappel", declined: "Birke", objected: "Erle" },
+        departing: { club: "Esche", fixture: "Esche vs. Birke" },
+        entered: "Eiche",
+        squadded: "Lena",
       },
+    },
+    // Behind both projects above, which outlast the minute from the frontend's boot to the scheduler's first pass: only
+    // a whole run orders a journey behind that timer without raising a test's time budget.
+    {
+      name: "first-pass",
+      dependencies: ["desktop", "phone"],
+      testMatch: "firstPass.spec.ts",
+      use: devices["Desktop Chrome"],
     },
   ],
 });
