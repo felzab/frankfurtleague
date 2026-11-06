@@ -5,7 +5,7 @@ import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
-import { PlaceholderLine } from "./Skeleton";
+import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -78,10 +78,17 @@ const facts = tv({
 const endsOdd = (count: number): boolean => count > 1 && count % 2 === 1;
 
 /**
- * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
- * over a value's, two a row where `Facts` sets them so.
+ * A venue's name while the match is read, set unseen for a placeholder's size alone: it wraps in a narrow box as a
+ * real venue does and stands on one line in a wide one. Never shown.
  */
-export function FactsPlaceholder({ pairs, look = "boxed" }: { pairs: number; look?: "boxed" | "free" }) {
+export const SPIELORT_WORDS = "Sportanlage am Riederwald";
+
+/**
+ * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
+ * over a value's, two a row where `Facts` sets them so. `spielort` is the place of a pair holding a venue, whose value
+ * wraps.
+ */
+export function FactsPlaceholder({ pairs, look = "boxed", spielort }: { pairs: number; look?: "boxed" | "free"; spielort?: number }) {
   const { list, row, term, detail } = facts({ look, oddCount: endsOdd(pairs) });
   return (
     <div className="@container grid w-full gap-2 text-sm">
@@ -94,10 +101,18 @@ export function FactsPlaceholder({ pairs, look = "boxed" }: { pairs: number; loo
               text={term()}
               width="w-1/4"
             />
-            <PlaceholderLine
-              text={detail()}
-              width="w-1/2"
-            />
+            {index === spielort ? (
+              <PlaceholderSentence
+                text={detail()}
+                words={SPIELORT_WORDS}
+                lines={2}
+              />
+            ) : (
+              <PlaceholderLine
+                text={detail()}
+                width="w-1/2"
+              />
+            )}
           </div>
         ))}
       </div>

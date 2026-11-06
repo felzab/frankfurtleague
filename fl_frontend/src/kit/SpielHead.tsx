@@ -244,6 +244,7 @@ function PopupPlaceholder() {
         <FactsPlaceholder
           look="free"
           pairs={4}
+          spielort={2}
         />
       </Waiting>
     </RouteDialogBody>
