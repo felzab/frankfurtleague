@@ -1229,6 +1229,15 @@ export interface FLBanData {
   kind: "ban";
 }
 
+export type FLBewerbungConfirmationState = (typeof FLBewerbungConfirmationState)[keyof typeof FLBewerbungConfirmationState];
+
+export const FLBewerbungConfirmationState = {
+  valid: "valid",
+  confirmed: "confirmed",
+  declined: "declined",
+  expired: "expired",
+} as const;
+
 /**
  * One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.
  */
@@ -1237,10 +1246,10 @@ export interface FLBewerbungConfirmation {
   deadline: string;
   declined_at: string | null;
   delivery: FLOutboxStatus | null;
-  expired: boolean;
   reminded_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   sent_at: string;
+  state: FLBewerbungConfirmationState;
 }
 
 /**

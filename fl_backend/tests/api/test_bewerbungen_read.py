@@ -199,6 +199,41 @@ class TestTheSeasonsListRead:
         )
 
 
+class TestEachSeatServesWhereItStands:
+    """The state the triage's page chips and offers a re-send on: a state served wrong there asks an administrator to chase an answered seat."""
+
+    LIVE = {"deadline": "2026-04-20", "declined_at": None}
+
+    def read(self, *, status: str = "submitted", **confirmations: Any) -> dict[str, Any]:
+        row = {
+            "_id": "bewerbung",
+            "status": status,
+            "kontakte": {
+                "trainer": documents.kontaktperson_document("Anke", confirmed_at="2026-04-02"),
+                "ansprechperson": documents.kontaktperson_document("Berta"),
+                "stellvertretung": None,
+                "trainer_is_also": None,
+            },
+            "confirmations": {"trainer": self.LIVE, "ansprechperson": self.LIVE, "stellvertretung": None, **confirmations},
+        }
+
+        return mit_zustellung(row, {}, today="2026-04-10")["confirmations"]
+
+    def test_a_stamp_a_decline_and_a_running_link_each_read_as_their_link_does(self):
+        served = self.read(stellvertretung={"deadline": "2026-04-20", "declined_at": "2026-04-05"})
+
+        assert [served[seat]["state"] for seat in ("trainer", "ansprechperson", "stellvertretung")] == ["confirmed", "valid", "declined"]
+
+    def test_a_link_past_its_day_is_spent(self):
+        assert self.read(ansprechperson={"deadline": "2026-04-09", "declined_at": None})["ansprechperson"]["state"] == "expired"
+
+    def test_a_decision_spends_an_unanswered_link_whatever_its_day(self):
+        assert self.read(status="declined")["ansprechperson"]["state"] == "expired"
+
+    def test_an_erased_seat_serves_no_entry(self):
+        assert self.read()["stellvertretung"] is None
+
+
 class TestEachSeatReadsItsLastMail:
     """The join the reads serve `delivery` by: one person is sent one mail for two seats, read by the seat it mirrors."""
 

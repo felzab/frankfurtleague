@@ -692,7 +692,7 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
         "confirmations": {
-            seat: {**entry, "delivery": None, "expired": False}
+            seat: {**entry, "delivery": None, "state": "valid"}
             for seat, entry in minted_confirmations(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
         },
         **overrides,

@@ -53,6 +53,11 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 type FLBewerbungStatus = Literal["submitted", "accepted", "declined"]
 
 
+# Where one seat of an application stands, as its link and the triage both say it. `expired` is a spent link, its deadline
+# passed or its application decided, said one way.
+FLBewerbungSeatState = Literal["valid", "confirmed", "declined", "expired"]
+
+
 class _FLBewerbungSitzStand(BaseReadModel):
     """One seat's confirmation bookkeeping, as the record and the read share it."""
 
@@ -73,8 +78,8 @@ class FLBewerbungConfirmation(_FLBewerbungSitzStand):
     # What became of the last mail owed this seat, as the read joins it from the Postausgang: no seat stores it, and null
     # where none was ever owed.
     delivery: FLOutboxStatus | None
-    # Whether `deadline` has passed today, judged on the server's date so a page reads no day of its own.
-    expired: bool
+    # Judged on the server's date, so a page reads no day of its own and derives no state.
+    state: FLBewerbungSeatState
 
 
 class FLBewerbungConfirmations(BaseModel):
@@ -518,10 +523,9 @@ class FLBewerbungFormResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
-# What a reopened link shows. `expired` is a spent link, its deadline passed or its application
-# decided, said one way; `barred` ranks first.
+# What a reopened link shows: where its seat stands, with `barred` ranking first.
 # `saison_past`, a season row's alone, takes a Widerspruch and no consent (`kontakt_saison_past`).
-FLBewerbungEinwilligungZustand = Literal["valid", "confirmed", "declined", "expired", "saison_past", "barred"]
+FLBewerbungEinwilligungZustand = Literal[FLBewerbungSeatState, "saison_past", "barred"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
 # the person on. The page picks its wording by it.

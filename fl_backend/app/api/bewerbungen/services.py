@@ -1766,7 +1766,11 @@ def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str
 
 
 def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus], *, today: str) -> dict[str, Any]:
-    """A stored application with each seat's last mail and whether its link ran out beside its bookkeeping, as every read serves it."""
+    """A stored application with each seat's last mail and its state beside its bookkeeping, as every read serves it.
+
+    The state is `zustand_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
+    No ban is asked: `barred` ranks a link's page, and this page's re-send and seat write judge the list themselves.
+    """
 
     confirmations = row.get("confirmations")
     if not isinstance(confirmations, Mapping):
@@ -1778,7 +1782,7 @@ def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None]
             seat: {
                 **entry,
                 "delivery": seat_lage(row=row, lagen=lagen, seat=seat),
-                "expired": _deadline_passed(deadline=entry.get("deadline"), today=today),
+                "state": zustand_of(bewerbung_raw=row, seat=seat, today=today, barred=False),
             }
             if isinstance(entry, Mapping)
             else entry
