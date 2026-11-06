@@ -1,6 +1,11 @@
 import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
+import { CheckboxPlaceholder } from "@/kit/Checkbox";
+import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
+import { FactsPlaceholder } from "@/kit/Facts";
+import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
+import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDatum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -144,16 +149,30 @@ async function EntriesContent() {
   );
 }
 
-/** Deine Einträge: each record of the person's own, with its consents. */
+/**
+ * Deine Einträge: each record of the person's own, with its consents. It waits in one box of the commonest kind, a
+ * pupil's, in that kind's own words: which records stand is what the read decides.
+ */
 export default function AccountEntriesPage() {
   return (
     <AccountPage
       route="accountEntries"
       wait={
         <AccountBoxPlaceholder
-          rows={2}
-          foot
-        />
+          description={WORDS.description.spieler}
+          foot={COPY.shared.verb.save}>
+          <FactsPlaceholder
+            pairs={2}
+            look="free"
+          />
+          <RadioGroupPlaceholder
+            label={SPIELER_WORDINGS.scope.question}
+            choices={Object.values(SPIELER_WORDINGS.scope.options)}
+          />
+          <ConsentLinePlaceholder line={SPIELER_WORDINGS.scope.line} />
+          <CheckboxPlaceholder label={SPIELER_WORDINGS.media.label} />
+          <ConsentLinePlaceholder line={SPIELER_WORDINGS.media.line} />
+        </AccountBoxPlaceholder>
       }>
       <EntriesContent />
     </AccountPage>

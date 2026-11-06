@@ -8,17 +8,16 @@ import { Form } from "react-aria-components/Form";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
+import { buttonLook, buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, headGround, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
-import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { lockedLine } from "./lockedLine";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
-import { PlaceholderLine } from "./Skeleton";
+import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -117,20 +116,28 @@ const box = tv({
 });
 
 /**
- * A Konto box while the person's records are read: the box's own shape, its title's and its sentence's lines, then
- * `fields` fields or `rows` of `AccountRows`' rows, and the footer band with its button where the box has an act; or,
- * `inline`, the one row of words beside a control that acts at once.
+ * A Konto box while the person's records are read: the box's own shape, its title's line and its sentence, then its
+ * content, the placeholders `children` names or `rows` of `AccountRows`' rows, and the footer band with its button
+ * where the box has an act; or, with `control`, the one row of words beside a control that acts at once.
  */
 export function AccountBoxPlaceholder({
-  fields = 0,
+  description,
   rows = 0,
-  foot = false,
-  inline = false,
+  foot,
+  danger = false,
+  control,
+  children,
 }: {
-  fields?: number;
+  /** The box's sentence, or the commonest form of one the read words, which wraps as the sentence will. */
+  description: Copy;
   rows?: number;
-  foot?: boolean;
-  inline?: boolean;
+  /** The footer band's button's label, where the box has an act. */
+  foot?: Copy;
+  /** The box is a danger box, its edge in the danger hue before it lands. */
+  danger?: boolean;
+  /** The placeholder of the control that acts at once. */
+  control?: ReactElement;
+  children?: ReactNode;
 }) {
   const slots = box();
   const words = (
@@ -139,34 +146,30 @@ export function AccountBoxPlaceholder({
         text="text-base font-semibold"
         width="w-1/3"
       />
-      <PlaceholderLine
+      <PlaceholderSentence
         text={slots.description()}
-        width="w-2/3"
+        words={description}
       />
     </>
   );
-  if (inline)
+  if (control !== undefined)
     return (
       <div className={slots.root()}>
         <div className={slots.inline()}>
-          <div className={slots.words({ class: "min-w-0 flex-1" })}>{words}</div>
-          <span className={buttonPlaceholder("w-28")} />
+          <div className={slots.words()}>{words}</div>
+          {control}
         </div>
       </div>
     );
   const row = rowLook();
-  const held = boxHead({ ruled: fields > 0 || rows > 0 });
+  const hasContent = children !== undefined || rows > 0;
+  const held = boxHead({ ruled: hasContent });
   return (
-    <div className={slots.root()}>
+    <div className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <div className={held.head()}>{words}</div>
-      {(fields > 0 || rows > 0) && (
+      {hasContent && (
         <div className={held.content({ class: "gap-4" })}>
-          {Array.from({ length: fields }, (_, index) => (
-            <FieldPlaceholder
-              key={index}
-              width="W3"
-            />
-          ))}
+          {children}
           {rows > 0 && (
             <div className={row.list()}>
               {Array.from({ length: rows }, (_, index) => (
@@ -183,16 +186,23 @@ export function AccountBoxPlaceholder({
                       width="w-1/3"
                     />
                   </span>
+                  {[0, 1].map((act) => (
+                    <span
+                      key={act}
+                      className={buttonLook({ look: "icon", host: "aria" })}>
+                      <span className={placeholderBar("size-4")} />
+                    </span>
+                  ))}
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
-      {foot && (
+      {foot !== undefined && (
         <div className={slots.foot()}>
           <span className="min-h-5 min-w-0 flex-1" />
-          <span className={buttonPlaceholder("w-28")} />
+          <span className={buttonPlaceholder()}>{foot}</span>
         </div>
       )}
     </div>

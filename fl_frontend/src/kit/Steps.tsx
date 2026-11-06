@@ -1,10 +1,11 @@
+import { COPY } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { Link } from "./Link";
 import { PageWait } from "./PageFade";
-import { Placeholder, PlaceholderLine } from "./Skeleton";
+import { Placeholder, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -55,26 +56,18 @@ async function Band({ band }: { band: Promise<StepsBand> }) {
 }
 
 /**
- * The band while the read says whether a window is open: `sentence`, the words of the state most days are in, wraps
- * unseen, so the box is that sentence's height at every width, and cuts the bars laid over it to the lines it holds.
+ * The band while the read says whether a window is open: `sentence` is the words of the state most days are in, so
+ * the box is that sentence's height at every width.
  */
 function BandPlaceholder({ sentence }: { sentence: Copy }) {
   const slots = steps();
   return (
     <Placeholder layout={slots.band()}>
-      <p className={slots.sentence({ class: "relative overflow-hidden" })}>
-        <span className="invisible">{sentence}</span>
-        <span className="absolute inset-0">
-          {[0, 1, 2].map((line) => (
-            <PlaceholderLine
-              key={line}
-              text={slots.sentence()}
-              width="w-full"
-            />
-          ))}
-        </span>
-      </p>
-      <span className={buttonPlaceholder("w-28")} />
+      <PlaceholderSentence
+        text={slots.sentence()}
+        words={sentence}
+      />
+      <span className={buttonPlaceholder()}>{COPY.page.about}</span>
     </Placeholder>
   );
 }

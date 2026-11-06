@@ -62,7 +62,6 @@ const trigger = tv({
 export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "band" }) {
   const holds = useHoldsSaison();
   const { place, root, lines, arrow, glyph } = trigger({ placement });
-  const ground = placement === "band" ? "band" : "page";
   if (!holds) return null;
   return (
     <Placeholder layout={place()}>
@@ -87,11 +86,10 @@ export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "ba
           <PlaceholderLine
             text="text-sm"
             words={SAISON_WORDS}
-            ground={ground}
           />
         )}
         <span className={arrow()}>
-          <span className={placeholderBar("size-4", ground)} />
+          <span className={placeholderBar("size-4")} />
         </span>
       </span>
     </Placeholder>
