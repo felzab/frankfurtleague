@@ -11,7 +11,7 @@ import { ADDRESS_CHANGE_STOP } from "@/core/addressChangeAnswers";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { formatInstant } from "@/core/format";
 import { startOf } from "@/features/address-change/link";
-import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AddressBarred,
@@ -24,7 +24,7 @@ import {
   LinkUnreadable,
   ToLiga,
   useLinkSeite,
-} from "@/features/bewerbungen/components/views/BestaetigungPanels";
+} from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { appToast } from "@/shared/utils/appToast";

@@ -16,9 +16,9 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SPIELER_TEXT_VERSIONS, SPIELER_WORDINGS } from "@/core/consentWordings";
 import { ROUTES } from "@/core/routes";
-import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
-import { EinwilligungRow } from "@/features/bewerbungen/components/views/BestaetigungHinweise";
+import { EinwilligungRow } from "@/features/bewerbungen/components/views/ConfirmationNotices";
 import {
   AddressBarred,
   ANSWER_NOT_SAVED,
@@ -33,7 +33,7 @@ import {
   SavedDetails,
   ToLiga,
   useLinkSeite,
-} from "@/features/bewerbungen/components/views/BestaetigungPanels";
+} from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { birthDateSpan } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { Callout } from "@/shared/components/ui/Callout";

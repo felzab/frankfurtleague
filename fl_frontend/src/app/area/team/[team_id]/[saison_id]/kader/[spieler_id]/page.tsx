@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { teamHref } from "@/features/funktionen/teamSeats";
-import { KaderRowRetired } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen";
-import { KaderRowEditForm } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm";
+import { KaderRowEditForm } from "@/features/spieler/components/forms/KaderRowEditForm/KaderRowEditForm";
+import { KaderRowRetired } from "@/features/spieler/components/forms/KaderRowEditForm/KaderRowRetired";
 import { kaderName, orderStufen } from "@/features/spieler/constants";
 import { getKader } from "@/features/spieler/queries";
 
@@ -14,7 +14,7 @@ import type { NextPageProps } from "@/shared/types/types";
  * One squad row on its seat holder's panel: its editor while the row is live, and read-only once it
  * is ausgetragen. Read off the squad, whose other rows say who holds each captaincy.
  */
-export default async function KaderZeilePage({ params }: NextPageProps<{ team_id: string; saison_id: string; spieler_id: string }>) {
+export default async function KaderRowPage({ params }: NextPageProps<{ team_id: string; saison_id: string; spieler_id: string }>) {
   const seats = await requireTeamSeats(params);
   if (seats === null) return null;
 

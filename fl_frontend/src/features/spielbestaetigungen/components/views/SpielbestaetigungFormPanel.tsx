@@ -12,8 +12,8 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { PARAGRAPH_CLASSES } from "@/features/bewerbungen/components/ui/Gefuellt";
-import { ANSWER_NOT_SAVED, ANSWER_NOT_SAVED_SENTENCE, ConfirmationSection } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { PARAGRAPH_CLASSES } from "@/features/bewerbungen/components/ui/Filled";
+import { ANSWER_NOT_SAVED, ANSWER_NOT_SAVED_SENTENCE, ConfirmationSection } from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { FLSpielbestaetigungAnswerPayloadSchema } from "@/features/spielbestaetigungen/schemas";
 import { SPIELBESTAETIGUNG_REASON_MAX_LENGTH } from "@/features/spiele/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";

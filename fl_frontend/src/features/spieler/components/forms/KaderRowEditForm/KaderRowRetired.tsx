@@ -9,7 +9,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 
-import { KADER_ROW_PLACE } from "./FormKaderZeileAustragenSection";
+import { KADER_ROW_PLACE } from "./FormKaderRowRetireSection";
 
 import type { FLKaderRow } from "@/core/generated/client/types";
 

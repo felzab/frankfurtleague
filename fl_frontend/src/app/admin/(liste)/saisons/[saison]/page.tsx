@@ -20,7 +20,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { AppointmentDialog } from "./TerminDialog";
+import { AppointmentDialog } from "./AppointmentDialog";
 import { VorschlagActs } from "./VorschlagActs";
 import { ZusageDialog } from "./ZusageDialog";
 

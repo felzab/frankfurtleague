@@ -1,5 +1,5 @@
 import { formatAktionZeitpunkt } from "@/features/aktionen/utils";
-import { oldDeliveryChip } from "@/features/bewerbungen/zustellLage";
+import { oldDeliveryChip } from "@/features/bewerbungen/deliveryState";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formatSpielDatum } from "@/shared/utils/format";

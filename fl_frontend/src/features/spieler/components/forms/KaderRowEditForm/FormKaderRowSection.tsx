@@ -16,7 +16,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { Key } from "@heroui/react/rac";
-import type { KaderRowFieldPath } from "./kaderZeileDraftStatus";
+import type { KaderRowFieldPath } from "./kaderRowDraftStatus";
 
 /** Names the role chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const ROLLE_LABEL_ID = "kader-row-rolle";

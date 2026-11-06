@@ -3,7 +3,7 @@ import { COPY } from "@/core/copy";
 import type { FLOutboxDeliveryState, FLOutboxStatus, FLOutboxStatusState } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
-// Redesign: from here to `oldDeliveryChip` goes with its last importer, `components/ui/LinkStandAngaben.tsx`.
+// Redesign: from here to `oldDeliveryChip` goes with its last importer, `components/ui/LinkStateDetails.tsx`.
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
 type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
 

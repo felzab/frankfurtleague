@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AddressBarred,
@@ -14,7 +14,7 @@ import {
   SavedDetails,
   ToLiga,
   useLinkSeite,
-} from "@/features/bewerbungen/components/views/BestaetigungPanels";
+} from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { answeredBy, terminText } from "@/features/spielbestaetigungen/utils";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";

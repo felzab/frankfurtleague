@@ -1,8 +1,8 @@
 import { assert, describe, expect, it } from "vitest";
 
-import { runningDot } from "./laufendDot.ts";
+import { runningDot } from "./runningDot.ts";
 
-import type { RunningDotStep } from "./laufendDot.ts";
+import type { RunningDotStep } from "./runningDot.ts";
 
 /**
  * Spelled out rather than read off the recipe, which is what the cases below grade: a list derived

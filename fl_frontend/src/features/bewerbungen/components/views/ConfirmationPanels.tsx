@@ -6,7 +6,7 @@ import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";

@@ -22,12 +22,12 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
-import { FormKaderRowRetireSection } from "./FormKaderZeileAustragenSection";
-import { FormKaderRowSection } from "./FormKaderZeileSection";
-import { deriveKaderRowDraftStatus } from "./kaderZeileDraftStatus";
+import { FormKaderRowRetireSection } from "./FormKaderRowRetireSection";
+import { FormKaderRowSection } from "./FormKaderRowSection";
+import { deriveKaderRowDraftStatus } from "./kaderRowDraftStatus";
 
 import type { FLKaderRow, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
-import type { FLKaderRowDraftFields } from "./kaderZeileDraftStatus";
+import type { FLKaderRowDraftFields } from "./kaderRowDraftStatus";
 
 /**
  * A seat holder's editor over one live squad row. No undo is offered: the person lane has no replay

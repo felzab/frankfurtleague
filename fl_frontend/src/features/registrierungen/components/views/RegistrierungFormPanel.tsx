@@ -9,7 +9,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { ConfirmationResult } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { ConfirmationResult } from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { orderStufen } from "@/features/spieler/constants";

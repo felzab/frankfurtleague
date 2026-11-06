@@ -1,4 +1,4 @@
-import { runningDot } from "@/features/saisons/components/ui/laufendDot";
+import { runningDot } from "@/features/saisons/components/ui/runningDot";
 import { PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 
 import type { ReactNode } from "react";

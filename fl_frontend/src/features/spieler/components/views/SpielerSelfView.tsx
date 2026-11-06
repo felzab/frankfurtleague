@@ -5,7 +5,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import { SpielerDetails } from "../ui/SpielerAngaben";
+import { SpielerDetails } from "../ui/SpielerDetails";
 
 import type { FLSpielerSelf } from "@/core/generated/client/types";
 

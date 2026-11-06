@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AskQuestion,
@@ -13,7 +13,7 @@ import {
   LINK_UNREADABLE_TITLE,
   LinkUnreadable,
   useLinkSeite,
-} from "@/features/bewerbungen/components/views/BestaetigungPanels";
+} from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { textLink } from "@/shared/components/ui/textLink";
