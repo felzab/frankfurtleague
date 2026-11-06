@@ -39,7 +39,12 @@ const ENTRIES = COPY.account.entries;
  * sign in; another account's is refused at the press, nothing on a signed-out request naming whose it is.
  */
 export default function AccountErasurePage() {
-  return <MailedPage page={readState()} />;
+  return (
+    <MailedPage
+      page={readState()}
+      act={COPY.page.accountErasure}
+    />
+  );
 }
 
 async function readState(): Promise<MailedState> {

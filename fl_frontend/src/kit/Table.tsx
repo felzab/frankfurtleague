@@ -72,7 +72,7 @@ export type TableRow = {
    * bracket seeds none of them.
    */
   qualifies?: "settled" | "level";
-  /** A row that no longer counts, such as a disqualified team's: its text muted. */
+  /** A row that no longer counts, such as a disqualified team's: its text and its plaque muted. */
   muted?: boolean;
   /** The row's fragment, so a link elsewhere, such as a club's line in a match head, opens the page at it. */
   anchor?: string;
@@ -331,16 +331,32 @@ const nameWords = tv({
 });
 
 /** A side's plaque: a button opening the club where the side names its page, else the plaque drawn. */
-function PlaqueOf({ plaque, href, name, line }: { plaque: Plaque; href: Route | undefined; name: Words; line: Copy | undefined }) {
+function PlaqueOf({
+  plaque,
+  href,
+  name,
+  line,
+  muted,
+}: {
+  plaque: Plaque;
+  href: Route | undefined;
+  name: Words;
+  line: Copy | undefined;
+  muted: boolean;
+}) {
   return "record" in plaque && href !== undefined ? (
     <PlaquePopover
       plaque={plaque}
       name={name}
       href={href}
+      muted={muted}
       {...(line === undefined ? {} : { line })}
     />
   ) : (
-    <TeamPlaque plaque={plaque} />
+    <TeamPlaque
+      plaque={plaque}
+      muted={muted}
+    />
   );
 }
 
@@ -379,6 +395,7 @@ function NameCell({
             href={row.plaqueHref}
             name={row.name}
             line={row.plaqueLine}
+            muted={row.muted === true}
           />
         )}
         <CutText

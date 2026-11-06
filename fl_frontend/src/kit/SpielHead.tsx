@@ -209,12 +209,10 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
       title={title}
       act={act}>
       <SpielHead {...pairing} />
-      {facts.length > 0 && (
-        <Facts
-          look="free"
-          facts={facts}
-        />
-      )}
+      <Facts
+        look="free"
+        facts={facts}
+      />
       {sonderereignis !== null && (
         <Callout
           tone="danger"

@@ -9,6 +9,7 @@ import { Popover } from "react-aria-components/Popover";
 import { COPY, textOf } from "@/core/copy";
 
 import { popoverSurface } from "./fieldStyles";
+import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { plaqueLook } from "./TeamPlaque";
@@ -19,10 +20,10 @@ import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { IconName } from "./Icon";
 
-// A menu's entry, as tall as every control under a mouse and under a finger, taking the one hover layer under the pointer.
+// A menu's entry, as tall as every control under a mouse and under a finger, taking the one hover layer.
 const entry = tv({
   extend: menuEntry,
-  base: "hover:bg-layer pointer-coarse:h-10 pointer-coarse:text-base",
+  base: `pointer-coarse:h-10 pointer-coarse:text-base ${hoverLook({ host: "link" })}`,
 });
 
 /** One way on from the club: its glyph, then its words. */
@@ -51,7 +52,19 @@ function Entry({ href, icon, label }: { href: Route; icon: IconName; label: Copy
  * over, anchored under the plaque. The button is positioned above a row's stretched link, so a press on the plaque
  * opens the club's pop-up rather than the row's record.
  */
-export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText; name: Words; href: Route; line?: Copy }) {
+export function PlaquePopover({
+  plaque,
+  name,
+  href,
+  line,
+  muted,
+}: {
+  plaque: RecordText;
+  name: Words;
+  href: Route;
+  line?: Copy;
+  muted: boolean;
+}) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   return (
     <DialogTrigger
@@ -59,7 +72,7 @@ export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText
       onOpenChange={setOpen}>
       <AriaButton
         data-kit-focus="ring"
-        className={plaqueLook({ known: true, class: "relative z-10 cursor-pointer data-hovered:bg-layer data-pressed:bg-layer" })}>
+        className={plaqueLook({ known: true, muted, class: `relative z-10 cursor-pointer ${hoverLook({ host: "aria" })}` })}>
         {plaque.record}
       </AriaButton>
       <Popover

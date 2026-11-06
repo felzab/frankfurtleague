@@ -685,7 +685,13 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
 // On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
 // The way back reads a step bolder than the band's links, being the band's one act there, and answers the pointer as they do.
 const back = tv({
-  base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand hover:underline",
+  base: "-ms-2 flex h-10 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-semibold text-on-brand",
+  variants: {
+    host: {
+      link: hoverLook({ host: "link", answer: "underline" }),
+      aria: hoverLook({ host: "aria", answer: "underline" }),
+    },
+  },
 });
 
 /**
@@ -710,7 +716,7 @@ export function BackControl({ href }: { href: Route }) {
       <NextLink
         href={href}
         data-kit-focus="ring"
-        className={back()}>
+        className={back({ host: "link" })}>
         {content}
       </NextLink>
     );
@@ -728,7 +734,7 @@ export function BackControl({ href }: { href: Route }) {
       trigger={
         <AriaButton
           data-kit-focus="ring"
-          className={back()}>
+          className={back({ host: "aria" })}>
           {content}
         </AriaButton>
       }
