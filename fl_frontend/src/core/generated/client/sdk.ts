@@ -1840,7 +1840,8 @@ export const getOutboxPostEventUrl = () => {
  * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
  * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
  * one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
- * would retry for hours.
+ * would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
+ * its address, in the same transaction.
  * @summary Record one delivery event on its mail's row
  */
 export const outboxPostEvent = async (

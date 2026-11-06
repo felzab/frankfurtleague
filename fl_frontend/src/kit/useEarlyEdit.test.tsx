@@ -840,6 +840,51 @@ describe("a press held across hydration over a field edited before it", () => {
     container.remove();
   });
 
+  // The browser's own check would refuse the press with no code running, and a control it cannot show refuses in silence.
+  it.each([
+    {
+      field: "a date, whose required input the browser cannot show",
+      control: (
+        <DateField
+          label={WORD}
+          name="field"
+          isRequired
+        />
+      ),
+    },
+    {
+      field: "a text field",
+      control: (
+        <TextField
+          label={WORD}
+          name="field"
+          width="W3"
+          kind="text"
+          isRequired
+        />
+      ),
+    },
+  ])("shows a held press on $field left empty its refusal, and sends nothing", async ({ control }) => {
+    const send = vi.fn();
+    const refused = vi.fn();
+    const page = (
+      <HeldForm
+        onInvalid={refused}
+        onSend={send}>
+        {control}
+      </HeldForm>
+    );
+    const container = drawn(page, press);
+
+    await hydrated(container, page);
+    await replayed();
+
+    expect(container.textContent).toContain(COPY.shared.field.required);
+    expect(refused).toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    container.remove();
+  });
+
   it("answers a press with no early edit as a hydrated press does", async () => {
     const heldSave = refusedSave();
     const heldPage = <EditorWithWayBack save={heldSave} />;

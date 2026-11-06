@@ -69,8 +69,7 @@ class _FLBewerbungSeatState(BaseReadModel):
     # The day this seat's link stops working, counted from that mail, and the application goes with it if its person
     # never answers. NOT the season's `Bewerbungsfrist`, which is the window the form is open in.
     deadline: CustomDateString
-    # The day this seat's one chase ended: its reminder was owed, or its last mail had not arrived and none could reach it
-    # (`app/api/bewerbungen/services.py :: closed_chases`). A re-send and a seat write clear it.
+    # The day this seat's one reminder was owed. A re-send and a seat write clear it.
     reminded_at: CustomOptionalDateString
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
@@ -177,6 +176,10 @@ class FLBewerbungConfirmationRecord(_FLBewerbungSeatState):
     """One seat's bookkeeping as `bewerbungen` stores it: the hash of every link it was mailed, each live until a re-send."""
 
     token_hashes: list[str]
+    # The day the clock closed this seat's chase, its last mail not having arrived (`app/api/bewerbungen/services.py ::
+    # closed_chases`), which takes it out of the clock's read. A delivered mail to the seat's address, a re-send and a seat
+    # write clear it. Served to nobody: the page reads the seat's last mail. A row stored without the key reads as null.
+    chase_closed_at: CustomOptionalDateString = None
 
 
 class FLBewerbungConfirmationsRecord(FLBewerbungConfirmations):

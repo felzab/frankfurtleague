@@ -422,8 +422,10 @@ within the 15 days:** a real school's seat can stand behind a stranger's three p
 its day with nobody told. An answer frees its link, each form counts its own and each season its own. The count holds for
 presses at once as for presses in sequence: a press with room to mail writes that mailbox's `mailbox_anchors` document, so its
 rivals retry and read its row. A press finding the mailbox full writes nothing, so a burst contends only until the third link,
-about five seconds at production's round trip, and a press naming another mailbox meets none of it; some 300 presses at once
-on one mailbox pass the request's deadline and answer 500, storing and mailing nothing. A registration counts the same way
+about five seconds at production's round trip, and a press naming another mailbox meets none of it. On a development machine
+some 300 presses at once on one mailbox pass the request's deadline, the time going on conflict retries in one process, which
+a larger pool hardly shortens: most answer 500 having stored and mailed nothing, and a few commit with the answer lost, which
+the same key replays. Whether production's one process reaches that deadline is not measured. A registration counts the same way
 (`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`), reads the same on its list and has no „Link
 senden“: its row lapses on its deadline, and a press after that is mailed.
 

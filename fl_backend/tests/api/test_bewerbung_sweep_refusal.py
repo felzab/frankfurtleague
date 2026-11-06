@@ -15,6 +15,7 @@ from app.api.bewerbungen.services import (
     one_month_after,
     owed_erasure,
     reminder_seats,
+    reopened_chases,
     schule_name,
     seat_reminder_is_due,
     unreachable_seats,
@@ -145,6 +146,12 @@ class TestTheReminderMark:
                 "reminded once",
                 id="reminded once",
             ),
+            pytest.param(
+                kontakte(),
+                confirmations(trainer={**confirmations()["trainer"], "chase_closed_at": YESTERDAY}),
+                "chase closed",
+                id="chase closed",
+            ),
             pytest.param(kontakte(trainer=None), confirmations(trainer=None), "erased", id="erased"),
         ],
     )
@@ -197,6 +204,56 @@ class TestTheReminderMark:
             "ansprechperson",
             "stellvertretung",
         ]
+
+
+ADDRESS = "ansgar.reopened@example.com"
+
+
+def closed_chase(**seats: Any) -> dict[str, Any]:
+    """The Ansprechperson's chase closed, any entry replaced by a case's own."""
+
+    return confirmations(**{"ansprechperson": {**confirmations()["ansprechperson"], "chase_closed_at": YESTERDAY}, **seats})
+
+
+def reachable(**seats: Any) -> dict[str, Any]:
+    """The Ansprechperson at `ADDRESS`, any slot replaced by a case's own."""
+
+    return kontakte(**{"ansprechperson": {**kontaktperson_document("Ansgar"), "email": ADDRESS}, **seats})
+
+
+class TestAMailDeliveredToAClosedChase:
+    def test_it_opens_every_closed_seat_holding_its_address(self):
+        """The Trainer mirrors the seat by holding its address, so the one mail answers for both."""
+
+        stored = application(
+            kontakte=reachable(trainer={**kontaktperson_document("Ansgar"), "email": ADDRESS}, trainer_is_also="ansprechperson"),
+            confirmations=closed_chase(trainer={**confirmations()["trainer"], "chase_closed_at": YESTERDAY}),
+        )
+
+        assert reopened_chases(bewerbung_raw=stored, to=ADDRESS) == ["ansprechperson", "trainer"]
+
+    @pytest.mark.parametrize(
+        ("kontakte_block", "bookkeeping", "to"),
+        [
+            pytest.param(reachable(), closed_chase(), "another@example.com", id="another address"),
+            pytest.param(reachable(), confirmations(), ADDRESS, id="no chase closed"),
+            pytest.param(kontakte(ansprechperson=None), closed_chase(ansprechperson=None), ADDRESS, id="an erased seat"),
+            pytest.param(
+                reachable(ansprechperson={**kontaktperson_document("Ansgar", confirmed_at=YESTERDAY), "email": ADDRESS}),
+                closed_chase(),
+                ADDRESS,
+                id="a confirmed seat",
+            ),
+            pytest.param(
+                reachable(),
+                closed_chase(ansprechperson={**closed_chase()["ansprechperson"], "declined_at": YESTERDAY}),
+                ADDRESS,
+                id="a declined seat",
+            ),
+        ],
+    )
+    def test_it_leaves_every_other_seat_as_it_stands(self, kontakte_block: Any, bookkeeping: Any, to: str):
+        assert reopened_chases(bewerbung_raw=application(kontakte=kontakte_block, confirmations=bookkeeping), to=to) == []
 
     @pytest.mark.parametrize("stand", ["delivered", "delayed"])
     def test_a_seat_a_later_message_may_still_reach_is_chased(self, stand: str):

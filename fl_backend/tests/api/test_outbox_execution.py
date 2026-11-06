@@ -393,7 +393,14 @@ class TestTheDeliveryEvent:
 
             async def event(state: FLOutboxDeliveryState, row: ObjectId = row_id) -> bool:
                 payload = FLOutboxEventPayload(id=row, state=state, reason=None, at=NOW)
-                return (await post_event(event_data=payload, outbox_collection=database[Collection.OUTBOX])).applied
+                return (
+                    await post_event(
+                        event_data=payload,
+                        outbox_collection=database[Collection.OUTBOX],
+                        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                        db_client=client,
+                    )
+                ).applied
 
             # The provider's event can outrun the send's own report, which has then recorded nothing of the message.
             first = await event("undeliverable")
