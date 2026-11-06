@@ -17,6 +17,7 @@ import { Link } from "./Link";
 import { PlaceholderLine, Waiting } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
+import { formSend } from "./useFormAction";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -47,7 +48,8 @@ type AddressView = Head & {
   };
   /** The bot check guarding the send, standing before it as Cloudflare's example places it. */
   check: ReactNode;
-  send: Act;
+  /** The send, handed the address the press left in the field. */
+  send: Omit<Act, "onPress"> & { onPress: (address: string) => void };
   or: Copy;
   passkey: Act;
 };
@@ -326,10 +328,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         ref={form}
         validationErrors={address.error}
         // The send's press is the form's submit, so `Enter` in the field sends too.
-        onSubmit={(event) => {
-          event.preventDefault();
-          send();
-        }}
+        {...formSend((formData) => send(String(formData.get("email"))))}
         className={slots.form()}>
         <TextField
           label={address.label}
@@ -342,6 +341,8 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
           // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
           // its form in this line, as a malformed one meets the browser's.
           value={address.value}
+          // A press replayed after hydration resets the form, and a refused address stays for its correction.
+          defaultValue={address.value}
           onChange={address.onChange}
         />
         {check}

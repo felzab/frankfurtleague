@@ -19,7 +19,7 @@ import { boxHead, dangerEdge, SectionTitle } from "./Section";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { statusOf, useFormAction } from "./useFormAction";
+import { formSend, statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
@@ -277,22 +277,16 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   const form = useRef<HTMLFormElement>(null);
   const locked = useLocked(act.locked);
 
-  const posted = () => {
-    const formData = new FormData(form.current ?? undefined);
+  const carried = (formData: FormData) => {
     for (const [name, value] of Object.entries(act.carry ?? {})) formData.set(name, value);
     return formData;
-  };
-
-  const press = () => {
-    setRowStatus(null);
-    send(posted());
   };
 
   // A question's act runs inside the question, which shows its refusal and words a throw; the line says what a done one
   // moved beyond the box, as `lineOf` words a done act.
   const confirmed = async () => {
     setRowStatus(null);
-    const answered = await act.run(posted());
+    const answered = await act.run(carried(new FormData(form.current ?? undefined)));
     if (answered.ok && act.done !== undefined) appToast("success", act.done);
     const { note } = answered.ok ? answered : { note: undefined };
     // An update after the `await` lands outside the press's transition unless it opens one of its own.
@@ -317,11 +311,12 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
         onInvalid={block}
-        onSubmit={(event) => {
-          event.preventDefault();
+        {...formSend((formData) => {
           // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
-          if (!isBusy && locked === undefined) press();
-        }}>
+          if (isBusy || locked !== undefined) return;
+          setRowStatus(null);
+          send(carried(formData));
+        })}>
         <div className={held.head()}>{words}</div>
         {children !== undefined && (
           <BoxLine value={setRowStatus}>
