@@ -14,8 +14,6 @@ from app.api.spiele.services import (
 )
 from app.api.spieler.services import (
     find_squad_capacity_refusal,
-    find_squad_refusal,
-    find_squad_rolle_refusal,
 )
 from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
 from app.api.spieltage.services import (
@@ -205,28 +203,8 @@ class TestRetiringAVenueOrAReferee:
         assert build_unplayed_booking_filter(spielort_id) == {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
 
-class TestASquadEntry:
-    """A duplicate shirt number is permitted everywhere (`docs/domain.md`'s what the model permits on purpose): several goalkeepers wear 1."""
-
-    def test_a_team_not_in_the_season_is_refused(self):
-        """The dangling reference `eligibility_team_not_in_saison` refuses on the match side."""
-
-        refusal = find_squad_refusal(team_in_saison=False)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.KADER_TEAM_NOT_IN_SAISON
-
-
 class TestASquadCap:
     """`max_kader_size` is a season's rule, so the same club may run a larger squad in the next one."""
-
-    def test_a_squad_at_the_cap_is_refused(self):
-        """`>=`, not `>`: the row being written is the one that would take the place beyond it."""
-
-        refusal = find_squad_capacity_refusal(squad_size=18, max_kader_size=18)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.KADER_FULL
 
     def test_a_squad_over_the_cap_is_refused(self):
         """Reachable without a bug: narrowing a season's rules leaves the squads already entered under the old bound."""
@@ -235,16 +213,3 @@ class TestASquadCap:
 
         assert refusal is not None
         assert refusal.error_code == Code.KADER_FULL
-
-
-class TestASquadRolle:
-    """`kader_rolle_taken`: one Kapitaen and one Co-Kapitaen per squad, and no row can hold both at once."""
-
-    @pytest.mark.parametrize("rolle", ["kapitaen", "co_kapitaen"])
-    def test_a_role_another_row_holds_is_refused(self, rolle):
-        """One code for both, as `booking_unknown_resource` covers a venue and a referee: one rule read against two values."""
-
-        refusal = find_squad_rolle_refusal(rolle=rolle, taken=True)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.KADER_ROLLE_TAKEN

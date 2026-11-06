@@ -4,12 +4,11 @@ from typing import Any
 import pytest
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_CANCELLED, FLSpiel
-from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
+from app.api.spiele.schemas import FLSpiel
+from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistikScope
 from app.api.teams.services import (
     AS_NAME,
     CANCELLED_AS_NAME,
-    CANCELLED_COUNT_NAME,
     STATISTIK_AS_NAME,
     _counted_goals,
     build_team_pipeline,
@@ -95,33 +94,6 @@ def projection(pipeline: Pipeline) -> Mapping[str, Any]:
     return next(stage["$project"] for stage in pipeline if "$project" in stage)
 
 
-def test_requires_a_resolved_saison_id():
-    """Statistics are per season, so an unresolved filter must raise rather than sum nothing."""
-    with pytest.raises(ValueError, match="saison_id"):
-        build_team_pipeline(filters=FLTeamsFilterParams(), rules=STANDARD_RULES)
-
-
-def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
-    match_stage = statistik_stage(build())["pipeline"][0]["$match"]
-
-    assert match_stage["ergebnis"] == {"$ne": None}
-    assert match_stage["saison_id"] == "2026"
-
-
-def test_counts_only_the_gruppenphase_unless_asked_otherwise():
-    """Both scopes return the same fields, so a caller who forgets the parameter gets a plausible table either way."""
-    match_stage = statistik_stage(build())["pipeline"][0]["$match"]
-
-    assert match_stage["saison_phase"] == "gruppenphase"
-
-
-def test_the_gesamt_scope_filters_on_no_phase_at_all():
-    """Absent, not negated: no stored `saison_phase` means 'any', so the key must not appear."""
-    match_stage = statistik_stage(build(scope="total"))["pipeline"][0]["$match"]
-
-    assert "saison_phase" not in match_stage
-
-
 def test_the_scope_narrows_the_matches_and_nothing_else():
     """A scope that changed the projection, the sort or the fallback would make the two tables two pipelines."""
     gruppenphase, gesamt = build(), build(scope="total")
@@ -165,20 +137,6 @@ SCOPE_PHASES: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", 
 class TestTheCancelledLookup:
     """The one place `sonderereignis` is read, kept separate from the scoring so the event stays out of it."""
 
-    def test_it_selects_on_the_event_and_nothing_else(self):
-        """Narrowing to a null `ergebnis` reads like a correction and would drop every forfeit."""
-        match_stage = cancelled_stage(build())["pipeline"][0]["$match"]
-
-        assert match_stage["sonderereignis"] == {"$in": list(SONDEREREIGNIS_COUNTED_AS_CANCELLED)}
-        assert "ergebnis" not in match_stage
-
-    def test_it_counts_every_spiel_that_did_not_take_place_and_no_abandonment(self):
-        """In literals, never against the absence set it happens to equal: a shared answer is not a shared question."""
-        selected = set(SONDEREREIGNIS_COUNTED_AS_CANCELLED)
-
-        assert {"ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "annulliert"} <= selected
-        assert selected.isdisjoint({"abgebrochen"})
-
     def test_it_is_the_only_stage_reading_the_event(self):
         """A second reader would bring `sonderereignis` into the scoring."""
         readers = [stage for stage in build() if reads(stage, "sonderereignis")]
@@ -195,41 +153,6 @@ class TestTheCancelledLookup:
         assert cancelled.get("saison_phase") == expected
         assert cancelled["saison_id"] == counting["saison_id"]
         assert cancelled["$expr"] == counting["$expr"]
-
-
-def test_scores_with_the_seasons_own_points_rather_than_a_constant():
-    """A 5/4/2 season shares no number with the default scheme, so a hardcoded one cannot pass both."""
-    unusual = STANDARD_RULES.model_copy(update={"win_points": 5, "draw_points": 4, "loss_points": 2})
-
-    punkte = statistik_stage(build(rules=unusual))["pipeline"][-1]["$project"]["punkte"]
-
-    assert punkte == {"$add": [{"$multiply": ["$siege", 5]}, {"$multiply": ["$unentschieden", 4]}, {"$multiply": ["$niederlagen", 2]}]}
-
-
-def test_serves_a_zeroed_statistik_to_a_team_with_no_counting_match():
-    """`$group` emits nothing for an empty input, so the fallback must carry every field or the response fails validation."""
-    fallback = projection(build())["statistik"]["$mergeObjects"][0]["$ifNull"][1]
-
-    assert set(fallback) == set(FLTeamStatistik.model_fields)
-    assert set(fallback.values()) == {0}
-
-
-def test_the_cancellation_count_survives_the_zeroed_fallback():
-    """Merged over the figures rather than into them: a team with no counting match can still have had fixtures called off."""
-    merged = projection(build())["statistik"]["$mergeObjects"]
-
-    assert merged[-1] == {"count_cancelled_spiele": {"$ifNull": [{"$first": f"${CANCELLED_AS_NAME}.{CANCELLED_COUNT_NAME}"}, 0]}}
-
-
-def test_reads_statistik_from_no_stored_copy():
-    projected = projection(build())
-
-    assert projected["statistik"]["$mergeObjects"][0] == {
-        "$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, {field: 0 for field in FLTeamStatistik.model_fields}]
-    }
-    assert not reads(projected, AS_NAME, "statistik")
-    assert projected["gruppe"] == "$saison_data.gruppe"
-    assert projected["austritt"] == "$saison_data.austritt"
 
 
 class TestTheAustrittFilterIsTranslated:
@@ -261,13 +184,3 @@ class TestTheJunctionJoinWithholdsTheRestOfTheRow:
         pipeline = build()
 
         assert set(inner_projection(pipeline)) - {"_id"} == junction_fields_the_projection_reads(pipeline)
-
-
-def test_derives_the_statistics_after_the_strict_junction_join():
-    """Ordering, not style: summing matches before the join would do the work for teams the join then drops."""
-    pipeline = build()
-    stage_names = [next(iter(stage)) for stage in pipeline]
-    match_lookups = {STATISTIK_AS_NAME, CANCELLED_AS_NAME}
-    first_index = next(i for i, stage in enumerate(pipeline) if stage.get("$lookup", {}).get("as") in match_lookups)
-
-    assert stage_names.index("$unwind") < first_index

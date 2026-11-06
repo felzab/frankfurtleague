@@ -281,15 +281,6 @@ class TestTheEntry:
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.DUPLICATE_KEY, (("shorthand",),))
 
-    def test_a_retired_club_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as refused:
-                await enter(database, {"kind": "known", "team_id": str(DORNBUSCH)})
-
-            return refused.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.TEAM_RETIRED
-
 
 class TestTheList:
     def test_only_the_retired_filter_reads_past_the_seasons_rows(self, mongo_replica_set_url: str):

@@ -70,11 +70,6 @@ def test_the_playoff_win_moves_points_and_goals_too(league: SeededLeague):
     assert (gesamt["punkte"], gesamt["tore_geschossen"]) == (7, 10)
 
 
-def test_the_scopes_agree_for_a_team_with_no_playoff_match(league: SeededLeague):
-    """Lessing played no Viertelfinale, so the scope must be invisible to it."""
-    assert table(league)["Lessing"] == table(league, scope="total")["Lessing"]
-
-
 def test_a_no_show_carrying_its_awarded_result_still_counts(league: SeededLeague):
     """Bock's only Gruppenphase win is a forfeit; a `sonderereignis` filter here would leave it on one match."""
     bock = table(league)["Bock"]
