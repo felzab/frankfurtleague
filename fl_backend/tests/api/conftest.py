@@ -173,8 +173,6 @@ def _spiel(
     }
 
 
-# Module level, so `test_corpus_shape.py` can hold the rows to a rule no single document carries without a
-# database (`tests/conftest.py :: mongo_database`).
 TEAMS = [
     _team("Helmholtz", "HGX", name="Helmholtz-Gymnasium"),
     _team("Bock", "BOX"),
@@ -249,8 +247,7 @@ def league(mongo_database: Database) -> SeededLeague:
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
 
-    # Copies: `insert_many` writes `_id` into each mapping it is handed, and the module-level rows
-    # are read by `test_corpus_shape.py` as the fixture declares them.
+    # Copies: `insert_many` writes `_id` into each mapping it is handed, and the module-level rows are shared.
     mongo_database.teams.insert_many([dict(row) for row in TEAMS])
     mongo_database.saison_teams.insert_many([dict(row) for row in SAISON_TEAMS])
     mongo_database.spiele.insert_many([dict(row) for row in SPIELE])
