@@ -931,7 +931,10 @@ def _moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequenc
 
 
 def leaving_moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str]) -> bool:
-    """Whether these seats going moves `deletion_day`, whose earliest may be theirs: a confirmed seat stops counting, an erased one holds no day."""
+    """Whether these seats going moves `deletion_day`, whose earliest may be theirs.
+
+    A confirmed seat stops counting, and an erased one holds no day.
+    """
 
     outstanding = ausstehende_seats(kontakte=kontakte)
     staying = [seat for seat in outstanding if seat not in seats]
