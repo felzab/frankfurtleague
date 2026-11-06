@@ -31,11 +31,18 @@ type TableColumn = {
    * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
    */
   width?: "count" | "pair" | "marked" | "date" | "phone" | "line";
-} & (
-  | { /** Left out on a phone, where the row keeps its name and two facts. */ hideOnPhone?: boolean; phoneOnly?: never }
-  /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
-  | { phoneOnly: true; hideOnPhone?: never }
-);
+} &
+  /** Left out on a phone, whose row is its name, its chip and at most a narrow column. */
+  (
+    | { hideOnPhone?: boolean; phoneOnly?: never; narrow?: never }
+    /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
+    | { phoneOnly: true; hideOnPhone?: never; narrow?: never }
+    /**
+     * The fact short enough to stand beside a name and its chip on a phone, left out of a box too narrow to hold the
+     * three. A list marks at most one column so and leaves its others out.
+     */
+    | { narrow: true; hideOnPhone?: never; phoneOnly?: never }
+  );
 
 /** A club's won, drawn and lost counts. */
 export type Counts = readonly [won: number, drawn: number, lost: number];
@@ -141,9 +148,8 @@ const table = tv({
     // A row a link may point to by its fragment, marked while the address names it.
     row: `kit-target relative h-14 ${stacked()} lg:h-13`,
     cell: "px-3 whitespace-nowrap",
-    // The name takes the room the facts leave and is cut with „…“ where it is longer (`max-w-0` lets a cell
-    // of an automatic table layout shrink below its content, so the cut can happen at all).
-    name: "w-full max-w-0 px-3 py-2",
+    // The name takes the room the facts leave and is cut with „…“ where it is longer (`nameLine`).
+    name: "w-full px-3 py-2",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
     clubName: "max-lg:sr-only",
     // A linked row's last cell, as narrow as the chevron that says the row leads on.
@@ -177,6 +183,9 @@ const table = tv({
     phone: {
       hidden: { head: "max-lg:hidden", cell: "max-lg:hidden" },
       only: { head: "lg:hidden", cell: "lg:hidden" },
+      // Judged by the box's own width: a column has one width over all its rows, so no row's name can decide. From
+      // 20 rem a date column, the chevron, the padding and a chip leave a name some nine characters.
+      narrow: { head: "@max-xs:hidden", cell: "@max-xs:hidden" },
       shown: {},
     },
     // A column's least width, on its head cell, which the table and its placeholder draw alike, so their edges agree
@@ -198,7 +207,7 @@ const table = tv({
       true: {
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:gap-1 max-lg:px-3 max-lg:py-3",
-        name: "w-auto max-w-none py-3 align-top max-lg:col-start-1 max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
+        name: "w-auto py-3 align-top max-lg:col-start-1 max-lg:px-0 max-lg:py-0 max-lg:font-semibold",
         cell: "py-3 align-top whitespace-normal max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0",
         label: "text-xs text-fg-muted lg:hidden",
       },
@@ -210,7 +219,7 @@ const table = tv({
       true: {
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:grid-cols-1 max-lg:gap-1 max-lg:px-3 max-lg:py-3",
-        name: "max-lg:col-start-1 max-lg:w-auto max-lg:max-w-none max-lg:px-0 max-lg:py-0",
+        name: "max-lg:col-start-1 max-lg:w-auto max-lg:px-0 max-lg:py-0",
         cell: "max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start max-lg:whitespace-normal",
         label: "text-xs text-fg-muted lg:hidden",
       },
@@ -262,8 +271,12 @@ export function RecordFigures({ counts }: { counts: Counts }) {
   );
 }
 
-/** Whether a column stands on a phone: left out, drawn there alone, or drawn at every width. */
-const phoneOf = (column: TableColumn) => (column.hideOnPhone === true ? "hidden" : column.phoneOnly === true ? "only" : "shown");
+/** Whether a column stands on a phone: left out, drawn there alone, drawn where it fits, or drawn at every width. */
+function phoneOf(column: TableColumn) {
+  if (column.hideOnPhone === true) return "hidden";
+  if (column.phoneOnly === true) return "only";
+  return column.narrow === true ? "narrow" : "shown";
+}
 
 /** How a column sets, for its head and its cells alike, in the table and in its placeholder. */
 const columnLook = (column: TableColumn) =>
@@ -309,6 +322,27 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
   );
 }
 
+/**
+ * A row's name line. The name's track grows to the name and stops at the room the line has, so a chip stands directly
+ * after a short name and a long one is cut. Its least size of nothing leaves the name out of the line's least width
+ * while the plaque and the chip, in tracks of their own size, count towards it, so the table can narrow the column to
+ * no less than they need and a chip never lies over the next cell, however little the facts leave the name.
+ */
+const nameLine = tv({
+  base: "min-w-0 items-center gap-2",
+  variants: {
+    shape: {
+      // A prose table's name wraps, and its longest word is the least width of its column.
+      wraps: "flex",
+      name: "grid auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)]",
+      plaque: "grid auto-cols-max grid-flow-col grid-cols-[max-content_minmax(0,max-content)]",
+    },
+    // A flex row on a phone, where a lone plaque's name draws nothing: a margin takes back a gap in a flex row alone,
+    // since a grid's track stands where it stands whatever its item's margin.
+    lonePlaque: { true: "max-lg:flex" },
+  },
+});
+
 /** The span holding a row's names and its link. */
 const nameWords = tv({
   base: "min-w-0",
@@ -347,11 +381,12 @@ function NameCell({
   const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
   const words = lonePlaque ? <span className={s.clubName()}>{name}</span> : name;
+  const shape = prose ? "wraps" : plaque === undefined ? "name" : "plaque";
   return (
     <td
       role="cell"
       className={s.name()}>
-      <span className="flex min-w-0 items-center gap-2">
+      <span className={nameLine({ shape, lonePlaque })}>
         {plaque !== undefined && (
           <TeamPlaque
             plaque={plaque}
@@ -380,7 +415,8 @@ function NameCell({
 /**
  * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a head of
  * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
- * and chip, then a few facts. The table, its rows, its heads and its cells carry their table roles in writing, since a
+ * and chip, then a few facts, of which a list's phone row keeps a narrow column where it fits, the name cut before its
+ * chip gives way. The table, its rows, its heads and its cells carry their table roles in writing, since a
  * prose row's `display: grid` on a phone drops the semantics an engine infers from the elements alone.
  */
 export function Table({
@@ -415,7 +451,7 @@ export function Table({
   );
   return (
     // `w-full`: a Section's grid starts its children, which would shrink the table and cut its cells.
-    <div className={bare ? "w-full overflow-x-auto" : cardSurface({ class: "w-full overflow-x-auto" })}>
+    <div className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
@@ -557,7 +593,7 @@ export function TablePlaceholder({
   const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false } = head;
   const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
   return (
-    <div className={bare ? "w-full overflow-hidden" : cardSurface({ class: "w-full overflow-hidden" })}>
+    <div className={bare ? "@container w-full overflow-hidden" : cardSurface({ class: "@container w-full overflow-hidden" })}>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className={columnHead().rule()}>
