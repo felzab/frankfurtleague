@@ -7,7 +7,7 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, payload_fingerprint
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, mailbox_anchor_ids, payload_fingerprint
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -55,11 +55,12 @@ from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_add
 from app.api.spieler.services import build_live_squad_filter
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import anchor_mailboxes_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     InvitationsCollection,
     InvitationsReadCollection,
+    MailboxAnchorsCollection,
     OutboxCollection,
     RegistrierungenCollection,
     RegistrierungenReadCollection,
@@ -219,6 +220,7 @@ async def post_registrierung(
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     outbox_collection: OutboxCollection,
+    mailbox_anchors_collection: MailboxAnchorsCollection,
     ban_list: BanListLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
@@ -332,6 +334,14 @@ async def post_registrierung(
             session=session,
         )
         mailed = waiting < OPEN_LINKS_PER_MAILBOX
+        # As the application's press judges it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
+        if mailed:
+            await anchor_mailboxes_in_db(
+                collection=mailbox_anchors_collection,
+                ids=mailbox_anchor_ids(addresses=[str(registrierung_data.email)], key=ban_list.key),
+                at=germany_now,
+                session=session,
+            )
 
         deadline = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
 
@@ -384,7 +394,7 @@ async def post_registrierung(
         return FLPostRegistrierungResponse(registrierung_id=registrierung_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
-    # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
+    # found, and one committed after it makes the anchor or the insert a write conflict `with_transaction` retries.
     async with transaction_session(db) as session:
         return await session.with_transaction(store_or_replay)
 

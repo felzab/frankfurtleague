@@ -13,7 +13,13 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchulePayload,
     FLPostBewerbungPayload,
 )
-from app.api.bewerbungen.services import assigned_trikot_farben, compose_kontakte, find_repeated_contact_refusal
+from app.api.bewerbungen.services import (
+    assigned_trikot_farben,
+    compose_kontakte,
+    find_repeated_contact_refusal,
+    open_links_on,
+    seats_past_the_bound,
+)
 from app.api.teams.schemas import FLKontaktperson, normalise_phone
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
@@ -374,6 +380,36 @@ class TestTheOpponentTheSchoolWants:
 
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"Zorbanax{refused}Entscheidung: Absage"))
+
+
+def tagged_seat(tag: str, *, confirmed_at: str | None = None) -> dict[str, Any]:
+    return {"email": f"victim+{tag}@example.com", "einwilligung": {"confirmed_at": confirmed_at}}
+
+
+class TestOneApplicationsTagsOfOneMailbox:
+    """A school may run all three seats on tags of one mailbox, which the bound counts a link each."""
+
+    def test_three_tagged_seats_with_no_other_link_open_are_all_mailed(self):
+        """Its third person would otherwise stand unmailed with nothing saying why, and the application go on its day."""
+
+        block = {"trainer": tagged_seat("t"), "ansprechperson": tagged_seat("a"), "stellvertretung": tagged_seat("s"), "trainer_is_also": None}
+
+        assert seats_past_the_bound(kontakte=block, open_links={"victim@example.com": 0}) == []
+
+    def test_only_a_seat_mailed_and_unanswered_holds_a_link(self):
+        """An answer frees its link, so a seat beside the open one that counted anyway would leave a real person unmailed early."""
+
+        row = {
+            "kontakte": {
+                "trainer": tagged_seat("open"),
+                "ansprechperson": tagged_seat("answered", confirmed_at=TODAY),
+                "stellvertretung": tagged_seat("unmailed"),
+                "trainer_is_also": None,
+            },
+            "confirmations": {"trainer": {"sent_at": TODAY}, "ansprechperson": {"sent_at": TODAY}, "stellvertretung": {"sent_at": None}},
+        }
+
+        assert open_links_on(row=row, mailbox="victim@example.com") == 1
 
 
 class TestTheColoursASeasonHasAlreadyAssigned:

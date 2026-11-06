@@ -1802,6 +1802,7 @@ export interface FLBewerbungListRow {
   stufengroesse: number;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   submitted_at: string;
+  unmailed: boolean;
   version: number;
   wunschfarbe: FLTrikotFarbe;
   wunschgegner: string | null;
@@ -4358,6 +4359,7 @@ export interface FLRegistrierungAdminRow {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string | null;
+  unmailed: boolean;
 }
 
 /**

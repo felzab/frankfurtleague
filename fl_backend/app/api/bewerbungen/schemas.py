@@ -1,9 +1,11 @@
+from datetime import datetime
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLTrainerAlso, _KontaktpersonWritablePayload
+from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -194,6 +196,14 @@ class FLBewerbungRecord(FLBewerbung):
     idempotency_fingerprint: str | None = None
 
 
+class FLMailboxAnchorRecord(Anchored):
+    """One mailbox a public form named, as `mailbox_anchors` stores it; no read serves it."""
+
+    # `app/api/bewerbungen/services.py :: mailbox_anchor_ids`, never the address.
+    id: str = Field(validation_alias="_id")
+    anchored_at: datetime
+
+
 class FLAcceptBewerbungPayload(BaseModel):
     """Which group the school enters, and the kit colour the league assigns it; the season is the application's own."""
 
@@ -267,6 +277,9 @@ class FLBewerbungListRow(BaseReadModel):
     people: int
     # Whether this open application and another one for the season name the same club (`Dublette`).
     duplicate: bool
+    # Whether this open application holds a seat past `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`, which the
+    # sweep erases with the application unless an administrator sends its link.
+    unmailed: bool
 
 
 class FLBewerbungenAdminListResponse(BaseAPIResponse):

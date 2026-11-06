@@ -109,9 +109,14 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   three unanswered links of the season (`fl_backend/app/api/bewerbungen/services.py ::
 OPEN_LINKS_PER_MAILBOX`), its plus-tagged forms among them, is sent no link by the next
   application or registration naming it, and that press stores as any other and is answered alike.
+  Each form counts its own and each season its own, so a mailbox named on both forms, or in two
+  running seasons, can hold three of each.
   The seat stands unmailed, owed no reminder and no notice, until an administrator sends its link;
   unsent, it goes with its application on the application's day, and a registration on its own.
-  The count is a plain read, so presses at once can pass it by what is in flight.
+  A real person's seat can stand so behind a stranger's presses, which both administrators' lists
+  say on its row („Nicht gesendet“).
+  Presses at once count exactly: `mailbox_anchors` holds one document per mailbox, a keyed hash of
+  it and the last press's time, for an hour after that press (section 6).
 
 ## 3. The processing activities
 
@@ -299,7 +304,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     minted (`fl_backend/app/api/outbox/services.py :: row_of`,
     `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`);
   - a registration link's entry, which names no subject, and the action log's rows written under an
-    earlier address's pseudonym, until the log's twelve months.
+    earlier address's pseudonym, until the log's twelve months;
+  - a mailbox's keyed hash in `mailbox_anchors`, for its hour (section 6).
 - **A retired row is never removed because of its age**: a confirmed referee who stopped, a club
   that left and a past season keep their rows; a person's row goes only by an erasure or by section
   6's clocks, a pupil's season rule and a referee's unconfirmed entry. **Datenschutzexperte consulted.**
@@ -333,6 +339,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | A session                                    | A person's 14 days unused, 30 at most; an administrator's 1 hour unused, 24 at most                                                                                                   | `fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`                                                                                       |
 | A sign-in code; the code counts              | 10 minutes; failed codes a day and requested codes an hour, under a keyed hash                                                                                                        | `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                                         |
 | A Postausgang row                            | No facts once sent or given up; deleted 30 days after that, a row carrying a secret when it lapses                                                                                    | `fl_backend/app/api/outbox/services.py :: RETENTION`, `:: row_of`                                                                                                        |
+| A mailbox's document                         | An hour after the last press with room to mail it; a keyed hash, never the address                                                                                                    | `fl_backend/app/shared/schemas/bounds.py :: MAILBOX_ANCHOR_RETENTION_SECONDS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                       |
 | The action log                               | 12 months a row                                                                                                                                                                       | `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS`                                                                                          |
 | The edge's access and error logs             | 8 days, host files                                                                                                                                                                    | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                         |
 | The application logs                         | The runtime's size rotation while they run; 30 days as each deploy's copy                                                                                                             | `scripts/ops/deploy.sh :: LOG_DIR`                                                                                                                                       |
@@ -397,7 +404,7 @@ the host's, which rests on its signed agreement.
   only the records under their own address.
 - **The origin.** A remotely managed tunnel is the only route to the origin, so every request
   passes Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
-- **Pseudonymisation.** A ban, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
+- **Pseudonymisation.** A ban, a mailbox's document, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
   one master secret by its own label (`fl_backend/app/api/sperrliste/services.py :: address_hash`;
   [`ops/runbooks.md`](ops/runbooks.md#16-the-secret-files)).
 - **Minimisation.** No birthdate reaches a public read; a public row names no record id that links a

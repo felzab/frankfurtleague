@@ -66,6 +66,9 @@ class Collection(StrEnum):
     #: Every mail the league owes, one row per recipient, each written in the transaction of the write owing it and settled
     #: by the drain that sends it; a settled row says what became of its message until its TTL index removes it.
     OUTBOX = "outbox"
+    #: One mailbox a public form named, under a keyed hash and never its address: a press writes it in its transaction, so
+    #: that mailbox's presses run one after another, and its TTL index removes it once they stop.
+    MAILBOX_ANCHORS = "mailbox_anchors"
 
 
 # The collections a person edits through a form, one member per line: every update of one raises its `version`, and a

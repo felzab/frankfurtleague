@@ -169,6 +169,10 @@ APPROVAL_DAYS: Final = 7
 # How long an ended change's record is kept, holding no address, so each link answers what became of it.
 ADDRESS_CHANGE_RETENTION_DAYS: Final = 30
 
+# How long a mailbox's document outlives the last press naming it: far past a transaction's life, the one thing it must
+# outlast, and a document gone costs the next press an insert, which conflicts as the update does.
+MAILBOX_ANCHOR_RETENTION_SECONDS: Final = 60 * 60
+
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
 SPIEL_CONFIRMATION_DEADLINE_DAYS: Final = 7

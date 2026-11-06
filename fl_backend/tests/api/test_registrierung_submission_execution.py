@@ -230,6 +230,7 @@ async def register(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         outbox_collection=database[Collection.OUTBOX],
+        mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
         ban_list=ban_list(database),
         db=client,
         today=TODAY,
@@ -507,7 +508,7 @@ class TestTheSubmissionKey:
         assert after == before and len(before) == 2
 
     def test_a_press_whose_lookup_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
-        """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the insert as a write conflict."""
+        """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the mailbox's anchor as a write conflict."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             committed = asyncio.Event()
@@ -527,8 +528,8 @@ class TestTheSubmissionKey:
         first, second, lookups, failures, stored = on_a_league(mongo_replica_set_url, body)
 
         assert (second, stored) == (first, 1)
-        # 112 is `WriteConflict`, which `with_transaction` retries: the second run's lookup finds the row.
-        assert (lookups, failures) == (2, ["OperationFailure:112"])
+        # `with_transaction` retries the anchor's `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
+        assert (lookups, failures) == (2, [])
 
     def test_the_lookup_the_endpoint_sends_is_the_one_its_index_serves(self, mongo_replica_set_url: str):
         """A bare equality scans the collection (`fl_backend/tests/core/test_constraints_execution.py`)."""
@@ -646,6 +647,83 @@ class TestAMailboxPastTheBound:
             for _ in range(OPEN_LINKS_PER_MAILBOX):
                 await register(database, client)
             await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": {"einwilligung": {"confirmed_at": TODAY}}})
+            await register(database, client)
+
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
+
+    def test_two_presses_at_once_stop_at_the_bound(self, mongo_replica_set_url: str):
+        """The second read its count before the first committed, so only a conflict sends it back to the first's row.
+
+        Tags of one mailbox, its document gone as a mailbox's is after an hour, so the two meet on the insert and on one key.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
+            first, second_address = "victim+first@example.com", "victim+second@example.com"
+            for tag in range(OPEN_LINKS_PER_MAILBOX - 1):
+                await register(database, client, email=f"victim+{tag}@example.com")
+            await database[Collection.MAILBOX_ANCHORS].delete_many({})
+            committed = asyncio.Event()
+            held = HoldsAfterItsLookup(database[Collection.REGISTRIERUNGEN], committed)
+            second = asyncio.create_task(register(database, client, registrierungen=held, email=second_address))
+            await held.until_held(second)
+
+            try:
+                await register(database, client, email=first)
+            except BaseException:
+                await held.abandon(second)
+                raise
+            committed.set()
+            await second
+            days = {row["email"]: row["confirmation"]["sent_at"] for row in await rows_of(database)}
+
+            return [days[first], days[second_address]]
+
+        assert on_a_league(mongo_replica_set_url, body) == [TODAY, None]
+
+    def test_a_press_finding_the_mailbox_full_writes_no_document(self, mongo_replica_set_url: str):
+        """A write would conflict with every rival, at one press a second a mailbox, and a flood's presses would fail a real pupil's."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            before = await database[Collection.MAILBOX_ANCHORS].find().to_list(length=None)
+            await register(database, client)
+
+            return before, await database[Collection.MAILBOX_ANCHORS].find().to_list(length=None)
+
+        before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert after == before
+        assert before and not any("@" in row["_id"] for row in before)
+
+    def test_rows_left_unmailed_hold_no_link(self, mongo_replica_set_url: str):
+        """A flood's stored rows hold nothing of the mailbox once its mailed links are answered."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(2 * OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            await database[Collection.REGISTRIERUNGEN].update_many(
+                {"confirmation.sent_at": TODAY}, {"$set": {"einwilligung": {"confirmed_at": TODAY}}}
+            )
+            await register(database, client)
+
+            return (await rows_of(database))[-1]["confirmation"]["sent_at"]
+
+        assert on_a_league(mongo_replica_set_url, body) == TODAY
+
+    @pytest.mark.parametrize(
+        "moved",
+        [pytest.param({"status": "declined"}, id="a registration decided"), pytest.param({"saison_id": "2025"}, id="another season's")],
+    )
+    def test_only_the_seasons_open_registrations_count(self, mongo_replica_set_url: str, moved: dict[str, str]):
+        """A team's decline leaves the pupil free to register again, and a person keeps their address from one season to the next."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await register(database, client)
+            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": moved})
             await register(database, client)
 
             return (await rows_of(database))[-1]["confirmation"]["sent_at"]

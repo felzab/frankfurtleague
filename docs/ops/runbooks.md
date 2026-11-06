@@ -417,11 +417,15 @@ seat's deadline, which is what shortens a flood of addresses nobody answers.
 among them, that already holds `OPEN_LINKS_PER_MAILBOX` unanswered links of the season stores like any other and is answered
 alike, so its answer tells a stranger nothing about the address
 (`fl_backend/app/api/bewerbungen/public_router.py :: post_bewerbung`). That seat is owed no link, no reminder and no notice, it
-reads „Nicht gesendet“ on its application, and „Link senden“ reaches it. The count is a plain read: it holds for presses in
-sequence, presses at once pass it by what is in flight, at most the edge's burst, and the rows they store then hold that
-mailbox shut until its links are answered or lapse. A registration counts the same way
-(`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`) and has no „Link senden“: its row lapses on its
-deadline, and a press after that is mailed.
+reads „Nicht gesendet“ on its application and on the list's row, and „Link senden“ reaches it. **Read the list for that chip
+within the 15 days:** a real school's seat can stand behind a stranger's three presses, and the sweep erases the application on
+its day with nobody told. An answer frees its link, each form counts its own and each season its own. The count holds for
+presses at once as for presses in sequence: a press with room to mail writes that mailbox's `mailbox_anchors` document, so its
+rivals retry and read its row. A press finding the mailbox full writes nothing, so a burst contends only until the third link,
+about five seconds at production's round trip, and a press naming another mailbox meets none of it; some 300 presses at once
+on one mailbox pass the request's deadline and answer 500, storing and mailing nothing. A registration counts the same way
+(`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`), reads the same on its list and has no „Link
+senden“: its row lapses on its deadline, and a press after that is mailed.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
 decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`), so an operator who declines down the queue and sees the

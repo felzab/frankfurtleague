@@ -1,11 +1,12 @@
 import hashlib
+import hmac
 import json
 from collections.abc import Container, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, TypeIs, get_args
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, SecretStr, ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungDecision,
@@ -43,6 +44,7 @@ from app.shared.schemas.bounds import (
     SIGNATORY_MIN_AGE_YEARS,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
+from app.shared.sub_keys import derive_sub_key
 
 
 def find_triage_refusal(*, status: str) -> WriteRefusal | None:
@@ -906,13 +908,19 @@ def build_own_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
 # The form's unanswered links of one season a mailbox may hold before a press naming it mails that mailbox nothing. What a
 # stranger can do through a public form is make the league mail an address, and each link owes a reminder and a notice
 # after it, so this bounds the mail and refuses nobody: a refusal would be a lock a stranger can aim at a real school. An
-# answer frees its link, so a real person is never held at it; two schools sharing a person stay under it. The application
-# form and the registration form each count their own.
-# A plain read in the press, so it holds for presses in sequence, and presses at once can pass it by what is in flight,
-# which the edge's burst bounds; the rows they store then hold the mailbox shut until its links are answered or lapse. No
-# write conflict makes it exact, because one on the season document lets a burst stall every school's press and every
-# season write past the request's deadline, and a bound on mail is a rate bound.
+# answer frees its link, and two schools sharing a person stay under it. A real person's seat can still stand past it behind a
+# stranger's presses, unmailed until an administrator sends its link, which is why both lists say so. The application form
+# and the registration form each count their own and each season its own, so two forms or two running seasons double it.
+# The count is exact: a press it leaves room writes that mailbox's document (`mailbox_anchor_ids`), so a rival committed
+# since the transaction's snapshot, which the count read, is a write conflict and the retry reads its row. After the count
+# and never before it, the snapshot keeping that order exact: a press finding the mailbox full mails nothing and so writes
+# nothing, and a flood contends only until the bound, where a write ahead of the count serves one mailbox one press a second
+# at production's round trip and fails the rest, a real school's among them, at the request's deadline. One document a
+# mailbox, because one on the season stalls every school's press and every season write the same way.
 OPEN_LINKS_PER_MAILBOX: Final = 3
+
+# One label per purpose (`app/api/sperrliste/services.py :: BAN_LIST_KEY_VERSION`).
+MAILBOX_ANCHOR_KEY_VERSION: Final = "mailbox-anchor-v1"
 
 
 def mailbox_of(address: str) -> str:
@@ -921,6 +929,17 @@ def mailbox_of(address: str) -> str:
     local, _, domain = address.rpartition("@")
 
     return f"{local.partition('+')[0]}@{domain}"
+
+
+def mailbox_anchor_ids(*, addresses: Iterable[str], key: SecretStr) -> list[str]:
+    """Each of these addresses' mailbox as its document's `_id`, sorted so two presses meet in one order.
+
+    Keyed, as a ban is (`app/api/sperrliste/services.py :: address_hash`): an address is a dictionary word.
+    """
+
+    sub_key = derive_sub_key(key, MAILBOX_ANCHOR_KEY_VERSION)
+
+    return sorted({hmac.new(sub_key, mailbox_of(address).encode("utf-8"), hashlib.sha256).hexdigest() for address in addresses})
 
 
 def mailbox_pattern(address: str) -> str:
@@ -1774,6 +1793,7 @@ def build_entry_offer_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
 # shows none.
 BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
     **_per_seat("kontakte", "einwilligung.confirmed_at"),
+    **_per_seat("confirmations", "sent_at"),
     "version": 1,
     "saison_id": 1,
     "status": 1,
@@ -1790,6 +1810,16 @@ BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
 
 def seats_confirmed_of(*, kontakte: Any) -> int:
     return len(KONTAKT_ROLLEN) - len(pending_seats(kontakte=kontakte))
+
+
+def holds_an_unmailed_seat(*, row: Mapping[str, Any]) -> bool:
+    """Whether this open application holds a seat the submission owed no mail, an erased seat, which holds no entry, not among them."""
+
+    confirmations = row.get("confirmations")
+
+    return row["status"] == "submitted" and any(
+        _entry_of(confirmations, seat) is not None and not _was_mailed(confirmations, seat) for seat in KONTAKT_ROLLEN
+    )
 
 
 def bewerbung_list_row(
@@ -1812,6 +1842,7 @@ def bewerbung_list_row(
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
         "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
         "duplicate": row["status"] == "submitted" and row.get("team_id") in doubled,
+        "unmailed": holds_an_unmailed_seat(row=row),
     }
 
 

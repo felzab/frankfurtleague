@@ -163,6 +163,7 @@ async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbunge
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
+        mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
         ban_list=ban_list(database),
         db=database.client,
         today=TODAY,
@@ -501,7 +502,7 @@ class TestTheSubmissionKey:
         assert (after, stored) == (before, 3)
 
     def test_a_press_whose_lookup_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
-        """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the insert as a write conflict."""
+        """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the anchors as a write conflict."""
 
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
@@ -528,8 +529,8 @@ class TestTheSubmissionKey:
         first, second, lookups, failures, stored = on_a_league(mongo_replica_set_url, body)
 
         assert (second, stored) == (first, 1)
-        # 112 is `WriteConflict`, which `with_transaction` retries: the second run's lookup finds the row.
-        assert (lookups, failures) == (2, ["OperationFailure:112"])
+        # `with_transaction` retries the anchors' `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
+        assert (lookups, failures) == (2, [])
 
     def test_the_lookup_the_endpoint_sends_is_the_one_its_index_serves(self, mongo_replica_set_url: str):
         """A bare equality scans the collection (`fl_backend/tests/core/test_constraints_execution.py`)."""
@@ -877,6 +878,73 @@ class TestAMailboxPastTheBound:
             return await sent_days(database, await submit(database))
 
         assert on_a_league(mongo_replica_set_url, body) == {"trainer": TODAY, "ansprechperson": None, "stellvertretung": None}
+
+    def test_two_presses_at_once_stop_at_the_bound(self, mongo_replica_set_url: str):
+        """The second read its count before the first committed, so only a conflict sends it back to the first's row.
+
+        Tags of one mailbox, its documents gone as a mailbox's are after an hour, so the two meet on the insert and on one key.
+        """
+
+        def tagged(tag: Any) -> dict[str, Any]:
+            # The other seats each its own, so the trainer's mailbox alone joins the two.
+            return naming(trainer=f"victim+{tag}@example.com", ansprechperson=f"a{tag}@example.com", stellvertretung=f"s{tag}@example.com")
+
+        async def body(database: AsyncDatabase) -> tuple[dict[str, Any], dict[str, Any]]:
+            for tag in range(OPEN_LINKS_PER_MAILBOX - 1):
+                await submit(database, kontakte=tagged(tag))
+            await database[Collection.MAILBOX_ANCHORS].delete_many({})
+            committed = asyncio.Event()
+            held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
+            second = asyncio.create_task(submit(database, bewerbungen=held, kontakte=tagged("second")))
+            await held.until_held(second)
+
+            try:
+                first = await submit(database, kontakte=tagged("first"))
+            except BaseException:
+                await held.abandon(second)
+                raise
+            committed.set()
+
+            return await sent_days(database, first), await sent_days(database, await second)
+
+        first, second = on_a_league(mongo_replica_set_url, body)
+
+        assert first == dict.fromkeys(KONTAKT_ROLLEN, TODAY)
+        assert second == {"trainer": None, "ansprechperson": TODAY, "stellvertretung": TODAY}
+
+    def test_a_press_finding_the_mailbox_full_writes_no_document(self, mongo_replica_set_url: str):
+        """A write would conflict with every rival, at one press a second a mailbox, and a flood's presses would fail a real school's."""
+
+        async def body(database: AsyncDatabase) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+            for _ in range(OPEN_LINKS_PER_MAILBOX):
+                await submit(database)
+            before = await database[Collection.MAILBOX_ANCHORS].find().sort("_id", 1).to_list(length=None)
+            await submit(database)
+
+            return before, await database[Collection.MAILBOX_ANCHORS].find().sort("_id", 1).to_list(length=None)
+
+        before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert after == before
+        assert before and not any("@" in row["_id"] for row in before)
+
+    @pytest.mark.parametrize("answered_first", [True, False], ids=["the older rows answered", "the newer rows answered"])
+    def test_answered_rows_hide_no_open_link(self, mongo_replica_set_url: str, answered_first: bool):
+        """The read is bounded by what stands open, so answered rows cannot fill it and leave the press counting nothing."""
+
+        async def body(database: AsyncDatabase) -> dict[str, Any]:
+            for _ in range(2 * OPEN_LINKS_PER_MAILBOX):
+                await submit(database)
+            await database[Collection.BEWERBUNGEN].update_many({}, {"$set": {"confirmations.trainer.sent_at": TODAY}})
+            ids = [row["_id"] async for row in database[Collection.BEWERBUNGEN].find({}, {"_id": 1}).sort("_id", 1)]
+            answered = ids[:OPEN_LINKS_PER_MAILBOX] if answered_first else ids[OPEN_LINKS_PER_MAILBOX:]
+            await database[Collection.BEWERBUNGEN].update_many(
+                {"_id": {"$in": answered}}, {"$set": {"kontakte.trainer.einwilligung.confirmed_at": TODAY}}
+            )
+
+            return await sent_days(database, await submit(database))
+
+        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
 
     @pytest.mark.parametrize("mailed_first", [True, False], ids=["the older rows mailed", "the newer rows mailed"])
     def test_rows_left_unmailed_hide_no_mailed_link(self, mongo_replica_set_url: str, mailed_first: bool):

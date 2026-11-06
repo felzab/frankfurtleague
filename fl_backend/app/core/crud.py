@@ -14,12 +14,13 @@ and a write shaped like one of those would escape the log.
 
 import re
 from collections.abc import Mapping, Sequence, Set
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
 
 import bson
 from pydantic import BaseModel, Field
-from pymongo import ReturnDocument
+from pymongo import ReturnDocument, UpdateOne
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
@@ -317,6 +318,26 @@ async def anchor_in_db(
 
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
+
+
+async def anchor_mailboxes_in_db(
+    *,
+    collection: AsyncCollection,
+    ids: Sequence[str],
+    at: datetime,
+    # REQUIRED, as `anchor_in_db`'s is.
+    session: AsyncClientSession,
+) -> None:
+    """`anchor_in_db` over documents nothing else creates: a press makes its own, and each lapses by the `at` last written."""
+
+    if not ids:
+        return
+
+    # One command, so a press naming three mailboxes pays one round trip.
+    await collection.bulk_write(
+        [UpdateOne({"_id": anchor_id}, {"$inc": {ANCHOR_FIELD: 1}, "$set": {"anchored_at": at}}, upsert=True) for anchor_id in ids],
+        session=session,
+    )
 
 
 async def stamp_in_db(

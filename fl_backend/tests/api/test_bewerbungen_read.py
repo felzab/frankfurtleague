@@ -117,6 +117,25 @@ class TestTheSeasonsListRead:
         assert {row.name for row in answered.bewerbungen} == {"Adlerhorst", f"Schule {NEW_SCHOOL}"}
         assert [row.new_school for row in answered.bewerbungen if row.id == ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] == [True]
 
+    def test_a_row_says_it_holds_a_seat_never_mailed(self, mongo_url: str):
+        """The sweep erases that application on its day, so the list must say so; a seat an erasure cleared and a decided row ask nothing."""
+
+        def row_id(index: int) -> ObjectId:
+            return ObjectId(BEWERBUNG_ID.format(index))
+
+        async def read(database: Any) -> Any:
+            for index, update in (
+                (PICKED, {"confirmations.stellvertretung.sent_at": None}),
+                (NEW_SCHOOL, {"confirmations.trainer": None}),
+                (DECLINED, {"confirmations.trainer.sent_at": None}),
+            ):
+                await database[Collection.BEWERBUNGEN].update_one({"_id": row_id(index)}, {"$set": update})
+            return await view_list(database)
+
+        served = {row.id: row.unmailed for row in on_the_seed_loop(on_the_view_corpus(mongo_url, read)).bewerbungen}
+
+        assert served == {row_id(PICKED): True, row_id(ALSO_PICKED): False, row_id(NEW_SCHOOL): False, row_id(DECLINED): False}
+
     def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_url: str):
         """The queue an anonymous form can flood: served short rather than refused, saying so, and with the season's confirmed rows."""
 

@@ -1428,7 +1428,8 @@ export const RegistrierungenGetOpenRegistrierungenQueryParams = zod.object({
  * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
  *
  * The page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.
- * `confirmed` says whether the pupil answered their own link. 404 where no season holds that id. Degrades rather than
+ * `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
+ * `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
  * refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
  * tripwire would hand them the power to 500 this page, and `complete` reports the cut.
  * @summary One Saison's pending Registrierungen for its list
