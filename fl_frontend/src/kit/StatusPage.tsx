@@ -5,7 +5,7 @@ import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
+import { placeholderBar, Waiting } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -122,17 +122,16 @@ function RailCardBody({ card: { tone, next, quiet, title }, scope }: { card: Rai
   );
 }
 
-/** The rail card while the page's read says which end it is: its mark, its title's line and its button, centred. */
-function RailCardPlaceholder({ scope }: { scope: RailPageHead["scope"] }) {
-  const slots = statusCard({ scope });
+/**
+ * The rail card while the page's read says which end it is: its mark and its button, centred, as a boundary with no page
+ * of its own lands. An end carrying its own title stands only where the league has no season yet.
+ */
+function RailCardPlaceholder() {
+  const slots = statusCard();
   return (
     <Waiting>
       <div className={slots.root()}>
         <span className={placeholderBar(slots.mark())} />
-        <PlaceholderLine
-          text={slots.railTitle({ class: "justify-center" })}
-          width="w-48"
-        />
         <span className={buttonPlaceholder("w-full lg:w-36")} />
       </div>
     </Waiting>
@@ -179,7 +178,7 @@ export function StatusPage(
       title={props.title}
       chip={props.chip}>
       {props.card instanceof Promise ? (
-        <PageWait fallback={<RailCardPlaceholder scope={props.scope} />}>
+        <PageWait fallback={<RailCardPlaceholder />}>
           <CardOnceRead
             card={props.card}
             scope={props.scope}
