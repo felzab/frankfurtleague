@@ -4092,25 +4092,6 @@
         "title": "FLBewerbungListRow",
         "type": "object"
       },
-      "FLBewerbungNoWindowResponse": {
-        "description": "A season that records no application window: its id, and `window` always null.",
-        "properties": {
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "window": {
-            "title": "Window",
-            "type": "null"
-          }
-        },
-        "required": [
-          "saison_id",
-          "window"
-        ],
-        "title": "FLBewerbungNoWindowResponse",
-        "type": "object"
-      },
       "FLBewerbungObjectionData": {
         "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
         "properties": {
@@ -4353,22 +4334,6 @@
         "title": "FLBewerbungSchulePayload",
         "type": "object"
       },
-      "FLBewerbungSchulenResponse": {
-        "properties": {
-          "schulen": {
-            "items": {
-              "$ref": "#/components/schemas/FLBewerbungSchuleOption"
-            },
-            "title": "Schulen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "schulen"
-        ],
-        "title": "FLBewerbungSchulenResponse",
-        "type": "object"
-      },
       "FLBewerbungSingleResponse": {
         "description": "One application as its review page shows it.",
         "properties": {
@@ -4476,28 +4441,6 @@
         "title": "FLBewerbungTrikot",
         "type": "object"
       },
-      "FLBewerbungTrikotFarbenResponse": {
-        "description": "Which kit colours one season has already assigned, naming no club.",
-        "properties": {
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "taken": {
-            "items": {
-              "$ref": "#/components/schemas/FLTrikotFarbe"
-            },
-            "title": "Taken",
-            "type": "array"
-          }
-        },
-        "required": [
-          "saison_id",
-          "taken"
-        ],
-        "title": "FLBewerbungTrikotFarbenResponse",
-        "type": "object"
-      },
       "FLBewerbungTrikotPayload": {
         "additionalProperties": false,
         "properties": {
@@ -4535,42 +4478,6 @@
           "end"
         ],
         "title": "FLBewerbungWindow",
-        "type": "object"
-      },
-      "FLBewerbungWindowResponse": {
-        "description": "One season's application window and whether that season has ended, and nothing else about it.",
-        "properties": {
-          "end": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "End",
-            "type": "string"
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "saison_ended": {
-            "title": "Saison Ended",
-            "type": "boolean"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "start": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Start",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "start",
-          "end",
-          "running",
-          "saison_ended"
-        ],
-        "title": "FLBewerbungWindowResponse",
         "type": "object"
       },
       "FLBewerbungZusageData": {
@@ -21909,73 +21816,6 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/schulen": {
-      "get": {
-        "description": "Every club still in the league, as `{id, name}` and nothing else, sorted by name.\n\n`FLBewerbungSchuleOption` decides the wire (`READ-BEWERBUNG-001`) and the projection below\ndecides what leaves the database. Both are pinned.",
-        "operationId": "bewerbungen_get_schulen",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungSchulenResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "The clubs a public application may name",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
     "/api/v0/bewerbungen/sweep": {
       "get": {
         "description": "Every season's id, oldest first, for the caller to sweep one at a time.",
@@ -22116,170 +21956,6 @@
           }
         ],
         "summary": "Run one season's retention clocks",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/trikotfarben/{saison_id}": {
-      "get": {
-        "description": "Answer which kit colours this season has assigned, so the form can offer the rest.\n\n404 unless that season takes applications today, which is the one state the form reads this in.\nThe SET alone, naming no club (`READ-BEWERBUNG-001`).",
-        "operationId": "bewerbungen_get_trikotfarben",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungTrikotFarbenResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "The kit colours a Saison has already assigned",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/window/{saison_id}": {
-      "get": {
-        "description": "Return one season's application window, or that it records none; 404 only where no season carries the id.\n\nA CLOSED window is served rather than hidden: the page says the deadline has passed, which a\n404 could not tell from a mistyped id. A season with no window recorded is served for the same\nreason, and its existence is the whole of what this tier learns about it.",
-        "operationId": "bewerbungen_get_window",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/FLBewerbungWindowResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/FLBewerbungNoWindowResponse"
-                    }
-                  ],
-                  "title": "Response Bewerbungen Get Window"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "One Saison's application window",
         "tags": [
           "bewerbungen"
         ]
