@@ -41,7 +41,8 @@ const namesIn = (element: ReactElement): string[] => {
 const spelledIn = (...files: readonly string[]): Set<string> => {
   const source = files.map((file) => readFileSync(path.join(process.cwd(), "src", file), "utf8")).join("\n");
   const carried = [...source.matchAll(/carry(?:: |=\{)\{([^}]*)\}/g)].flatMap(([, keys = ""]) =>
-    [...keys.matchAll(/(\w+):/g)].map(([, key = ""]) => key),
+    // Each entry's key, a shorthand's among them; a value's own words are no key.
+    keys.split(",").flatMap((entry) => /^\s*(\w+)\s*(?::|$)/.exec(entry)?.[1] ?? []),
   );
   const spelled = [...source.matchAll(/\bname="([\w.]+)"|\.set\("([\w.]+)"/g)].map(([, box, set]) => box ?? set ?? "");
   return new Set([...spelled, ...carried]);
@@ -150,6 +151,12 @@ describe("each form's posted names meet its lane's keys", () => {
       "@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs",
       "writeSeat",
       ["features/teams/components/forms/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx"],
+    ],
+    [
+      "an application's „Sitz bearbeiten“",
+      "@/app/admin/(liste)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat",
+      "writeSeat",
+      ["features/teams/components/forms/SeatActs.tsx", "app/admin/(liste)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx"],
     ],
   ])("loses no key of %s", async (_, module, lane, files) => {
     const loaded = (await import(/* @vite-ignore */ module)) as Record<string, unknown>;
