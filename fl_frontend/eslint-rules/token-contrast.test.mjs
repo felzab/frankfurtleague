@@ -38,7 +38,10 @@ const MEASURED = new Set(PAIRS.map(([ink, ground]) => `${ink} on ${ground}`));
  * while its label lost its contrast.
  */
 describe("a button's label on its fill", () => {
-  const cases = Object.keys(buttonLook.variants.look).flatMap((look) => ["aria", "link"].map((host) => ({ look, host })));
+  // A placeholder's label stands unseen, sizing the bar, so it has no contrast to measure.
+  const cases = Object.keys(buttonLook.variants.look)
+    .filter((look) => look !== "placeholder")
+    .flatMap((look) => ["aria", "link"].map((host) => ({ look, host })));
 
   it.each(cases)("is a measured pair for a $look button as $host, in every state", ({ look, host }) => {
     const classes = buttonLook({ look, host });
