@@ -666,7 +666,7 @@ export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
 });
 
 /**
- * Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+ * Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
  * The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
  * again by the next pass. 404 where no season has the id.

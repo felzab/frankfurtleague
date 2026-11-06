@@ -4,6 +4,7 @@ import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
+from itertools import combinations
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
@@ -525,9 +526,9 @@ class TestTheFourteenDayClock:
 
 
 class TestAnApplicationWhoseNoticeCannotArrive:
-    """Held past the deadline for an administrator, never erased on a notice that cannot reach the submitter."""
+    """The stated day holds: the people named were promised it, and a mail to the Ansprechperson that bounced changes nothing of it."""
 
-    def test_the_pass_holds_it_and_owes_no_notice(self, mongo_replica_set_url: str):
+    def test_the_pass_takes_it_and_owes_the_notice_as_for_any_address(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await refuse_the_submitters_address(database, client, DELETE_OID)
             response = await sweep(database, client, now=MAIL_NOW)
@@ -536,9 +537,8 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
         erased_count, document, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert erased_count == 0
-        assert document is not None, "an application whose deletion notice cannot be delivered was erased anyway"
-        assert notices == []
+        assert (erased_count, document) == (1, None)
+        assert [notice["an"] for notice in notices] == ["wraxlington@example.com"]
 
     def test_a_seat_the_provider_refuses_is_not_reminded(self, mongo_replica_set_url: str):
         """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
@@ -759,19 +759,6 @@ class TestTheSeasonsOwnEndClock:
 
         assert (response.reminded, response.erased, mails) == (0, 0, 0)
         assert response.erased_without_decision == 2
-
-    def test_an_application_whose_notice_the_provider_refuses_goes_with_the_season(self, mongo_replica_set_url: str):
-        """The hold that has no other end: `deletion_is_due` drops a refused address, so nothing else ever reaches this row."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await refuse_the_submitters_address(database, client, DELETE_OID)
-            response = await sweep(database, client)
-
-            return response, await stored(database, DELETE_OID)
-
-        response, document = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
-
-        assert (response.erased_without_decision, document) == (2, None)
 
     def test_a_second_pass_the_same_day_finds_nothing_left(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1533,6 +1520,21 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 
         assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
+    def test_a_row_of_lapsed_seats(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(due: int) -> int:
+                await database[Collection.BEWERBUNGEN].delete_many({})
+                await database[Collection.SAISON_TEAMS].delete_many({})
+                await database[Collection.SAISON_TEAMS].insert_many([lapsed_row(position, KONTAKT_ROLLEN) for position in range(due)])
+
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+            return await counted(FEW), await counted(2 * FEW)
+
+        few, twice = on_a_league(mongo_replica_set_url, body)
+
+        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
+
     def test_an_geloescht_application_costs_nothing_a_row(self, mongo_replica_set_url: str):
         """The fourteen-day clock writes a page in its commands, never a command a row: no share bounds it."""
 
@@ -1575,6 +1577,102 @@ def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
     )
 
 
+def lapsed_row(position: int, seats: tuple[str, ...]) -> dict[str, Any]:
+    """A season row of three people, these seats past their day and the others still running."""
+
+    links = documents.minted_confirmations(hashes=first_hashes(f"row-{position}"), today=MAILED_ON_THE_MARK)
+
+    return {
+        **junction_row(),
+        "_id": numbered(position),
+        "team_id": numbered(position),
+        "kontakte": {
+            "trainer": person(f"Trainer{position}"),
+            "ansprechperson": person(f"Ansprechperson{position}"),
+            "stellvertretung": person(f"Stellvertretung{position}"),
+            "trainer_is_also": None,
+        },
+        "confirmations": {seat: {**entry, "deadline": YESTERDAY} if seat in seats else entry for seat, entry in links.items()},
+    }
+
+
+class TestTheSeasonRowSeatClock:
+    """A season row's seat its person never confirmed: the mail and the page promise it goes on its day."""
+
+    @staticmethod
+    async def two_lapsed_seats(database: AsyncDatabase) -> None:
+        """One person confirmed as the Trainer and lapsed in the seat beside it, a second lapsed with a reason typed from their seat."""
+
+        links = documents.minted_confirmations(hashes=first_hashes("row"), today=MAILED_ON_THE_MARK)
+        await database[Collection.SAISON_TEAMS].update_one(
+            {"_id": JUNCTION_OID},
+            {
+                "$set": {
+                    "kontakte": {**kontakte(), "trainer": person("Wraxlington", confirmed_at=MAILED_ON_THE_MARK)},
+                    "confirmations": {seat: {**entry, "deadline": YESTERDAY} for seat, entry in links.items()},
+                }
+            },
+        )
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
+            {**open_confirmation(CLUB_OID), "answer": documents.kontakt_answer_document("stellvertretung", reason="Wir sind auf Klassenfahrt")}
+        )
+        # A recorded write, so the log holds an image of the seats as they stand now.
+        await patch_one_in_db(
+            collection=database[Collection.SAISON_TEAMS],
+            db_filter={"_id": JUNCTION_OID},
+            update={"$set": {"gruppe": "A"}},
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+    def test_the_first_pass_past_its_day_empties_it_and_leaves_the_confirmed_seat(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await self.two_lapsed_seats(database)
+            response = await sweep(database, client)
+            with pytest.raises(APIError) as refused:
+                await view(database, "row-stellvertretung")
+
+            return (
+                response,
+                await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
+                await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
+                await database[Collection.SPIELBESTAETIGUNGEN].find_one({}),
+                refused.value.error_code,
+            )
+
+        response, row, images, confirmation, refusal = on_a_league(mongo_replica_set_url, body)
+
+        assert (row["kontakte"]["ansprechperson"], row["kontakte"]["stellvertretung"]) == (None, None)
+        assert (row["confirmations"]["ansprechperson"], row["confirmations"]["stellvertretung"]) == (None, None)
+        assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] == MAILED_ON_THE_MARK
+        assert row["confirmations"]["trainer"] is not None
+        assert response.kontakt_seats_emptied == 2
+        assert refusal == Code.LINK_INVALID
+
+        # Every image, the emptying write's own pre-image among them.
+        assert images and not any("Bramblewick" in str(image["before"]) for image in images)
+        # The person stands on in the seat they confirmed, whose images are their consent trail.
+        assert all(image["before"]["kontakte"]["trainer"] is not None for image in images)
+
+        assert confirmation["answer"]["reason"] is None
+        assert confirmation["kontakte"]["stellvertretung"] is None
+        assert confirmation["kontakte"]["trainer"] is not None
+
+    def test_a_past_seasons_seat_waits_for_the_block(self, mongo_replica_set_url: str):
+        """A finished season is the record of who was reachable while it ran, so its seats go with the block."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await self.two_lapsed_seats(database)
+            response = await sweep(database, client)
+
+            return response, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+
+        response, row = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
+
+        assert response.kontakt_seats_emptied == 0
+        assert row["kontakte"]["stellvertretung"] is not None
+
+
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     """`tests/api/test_bewerbung_sweep_refusal.py`'s budget, its rows at the per-row cost and the rest as it names them.
 
@@ -1611,6 +1709,28 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         assert (answer.erased_declined, answer.erased_accepted, answer.erased, rows) == (1, 1, 1, 4)
         assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_OTHER_COMMANDS, names
+
+    def test_the_sweep_of_a_season_still_to_end(self, mongo_replica_set_url: str):
+        """The lapsed seats' side of the blocks' branch: every set of seats lapsing, so the void and the redaction each write apart."""
+
+        lapsing = [seats for size in range(1, len(KONTAKT_ROLLEN) + 1) for seats in combinations(KONTAKT_ROLLEN, size)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            await database[Collection.BEWERBUNGEN].update_many(
+                {"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": {"team_id": CLUB_OID, "schule": None}}
+            )
+            await database[Collection.SAISON_TEAMS].insert_many([lapsed_row(position, seats) for position, seats in enumerate(lapsing)])
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [open_confirmation(numbered(position)) for position, _ in enumerate(lapsing)]
+            )
+
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+        answer, names = on_a_league(mongo_replica_set_url, body)
+        rows = answer.reminded + len(lapsing)
+
+        assert (answer.erased_declined, answer.erased, answer.kontakt_seats_emptied) == (1, 1, 12)
+        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_LAPSED_OTHER_COMMANDS, names
 
 
 class TestAPageAndOneMoreIsDrained:

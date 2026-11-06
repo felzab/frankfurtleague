@@ -4402,6 +4402,10 @@
             "title": "Kontakt Blocks Emptied",
             "type": "integer"
           },
+          "kontakt_seats_emptied": {
+            "title": "Kontakt Seats Emptied",
+            "type": "integer"
+          },
           "redacted_action_log": {
             "title": "Redacted Action Log",
             "type": "integer"
@@ -4423,6 +4427,7 @@
           "erased_accepted",
           "erased_without_decision",
           "kontakt_blocks_emptied",
+          "kontakt_seats_emptied",
           "redacted_action_log",
           "failed"
         ],
@@ -21452,7 +21457,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nThe drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met\nagain by the next pass. 404 where no season has the id.",
+        "description": "Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nThe drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met\nagain by the next pass. 404 where no season has the id.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {

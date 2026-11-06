@@ -1,21 +1,26 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Set
 from datetime import datetime
 from typing import Any, Final
 
 from fastapi import APIRouter, Depends
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import redact_images_in_session
+from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
 from app.api.bewerbungen.schemas import FLBewerbungSweepResponse
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     acceptance_loeschung_is_due,
+    addresses_leaving,
     build_deletion_filter,
     build_erinnerung_filter,
+    build_lapsed_seats_filter,
     compose_erinnerung_update,
+    compose_lapsed_seats_update,
     decline_loeschung_is_due,
     deletion_is_due,
+    lapsed_seats,
     latest_decision_due,
     next_saison_id,
     owed_link,
@@ -28,12 +33,13 @@ from app.api.bewerbungen.services import (
     undecided_loeschung_is_due,
     unerreichbare_seats,
 )
-from app.api.kontakte.services import contact_block_image_edits
+from app.api.kontakte.crud import remove_the_seats_reasons
+from app.api.kontakte.services import contact_block_image_edits, departing_names, seat_image_edits
 from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielberichte.crud import strip_the_seasons_reports
-from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
-from app.api.spielbestaetigungen.services import seat_void_of
+from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images, strip_the_seasons_confirmations
+from app.api.spielbestaetigungen.services import HeldSeats, kontakte_ohne, seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -64,13 +70,15 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other 88: 265 commands at 36 ms plus 1.38 ms take 9.91 s
-# of `app/core/middlewares.py :: REQUEST_DEADLINE_S`. 37 would make 268, 10.02 s.
+# Both shares at three commands a row beside the worst call's other 69: 246 commands at 36 ms plus 1.38 ms take 9.20 s
+# of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 36
 
-# The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not: 24
-# would make 268 commands, 10.02 s. A season at capacity takes more passes.
+# Beside the reminders', which owe a deadline a block's deletion does not. A season at capacity takes more passes.
 BLOCKS_CLEARED_PER_PASS: Final = 23
+
+# The blocks' share: a pass runs the one clock or the other, each row at the same three commands.
+LAPSED_SEAT_ROWS_PER_PASS: Final = BLOCKS_CLEARED_PER_PASS
 
 
 def _ended_after(saison_id: str) -> dict[str, Any]:
@@ -111,6 +119,34 @@ async def pull_the_season_after(
     return later_saison_status
 
 
+async def redact_the_lapsed(
+    *,
+    action_log_collection: AsyncCollection,
+    # By season row, on the fold: what each row's seats held, and no other row's.
+    leaving: Mapping[Any, Set[str]],
+    stamp: str,
+    session: AsyncClientSession,
+) -> int:
+    """Each row's lapsed people out of that row's log images alone, their links with them, in one read for the whole share.
+
+    Row by row, as `app/api/kontakte/crud.py :: redact_seats_in_documents` is not: the same person may sit confirmed on
+    another row of the share.
+    """
+
+    if not leaving:
+        return 0
+
+    db_filter = build_redaction_filter([(Collection.SAISON_TEAMS, list(leaving))])
+    rows = await read_imaged_rows(action_log_collection=action_log_collection, db_filter=db_filter, session=session)
+    names = {document: departing_names(rows, addresses).get(document, frozenset()) for document, addresses in leaving.items()}
+
+    def judge(image: Mapping[str, Any]) -> dict[str, None]:
+        document = image.get("_id")
+        return seat_image_edits(image, leaving.get(document, ()), links=True, names=names.get(document, frozenset()))
+
+    return await redact_rows_in_session(action_log_collection=action_log_collection, rows=rows, judge=judge, stamp=stamp, session=session)
+
+
 @router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSweepSaisonsResponse:
     """Every season's id, oldest first, for the caller to sweep one at a time."""
@@ -141,7 +177,7 @@ async def sweep_saison(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepResponse:
-    """Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+    """Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
 
     The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
     again by the next pass. 404 where no season has the id.
@@ -273,7 +309,7 @@ async def sweep_saison(
         return len(taken)
 
     async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The fourteen-day clock: owe the submitter the notice, erase, then redact, in one transaction.
+        """The fourteen-day clock: owe the Ansprechperson the notice, erase, then redact, in one transaction.
 
         Read in-session, so a retry re-judges.
         """
@@ -286,15 +322,9 @@ async def sweep_saison(
                 session=session,
             )
         )
-        # The submitter's last mail, read in the same transaction: a bounce it reports holds the application for the
-        # administrator to correct the address.
-        lagen = await states_of(
-            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
-        )
 
         def due(row: Mapping[str, Any]) -> bool:
-            unzustellbar = "ansprechperson" in unerreichbare_seats(row=row, lagen=lagen)
-            return deletion_is_due(bewerbung_raw=row, today=today, undeliverable=unzustellbar)
+            return deletion_is_due(bewerbung_raw=row, today=today)
 
         # Each notice built before anything is written, so a row whose stored data refuses one is passed over whole.
         owed = batch.judged(
@@ -444,6 +474,62 @@ async def sweep_saison(
 
         return len(cleared), redacted
 
+    async def clear_the_lapsed_seats(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
+        """A season row's seat past its own day unconfirmed, a share of rows a pass. Read in-session, so a retry re-judges."""
+
+        rows = await batch.saw(
+            pull_many_from_db(
+                collection=saison_teams_collection,
+                db_filter=batch.within(build_lapsed_seats_filter(saison_id=saison_id, today=today)),
+                projection=["team_id", "kontakte", "confirmations"],
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
+        )
+        # An emptied seat leaves the filter, so the rows past the share are the next pass's.
+        taken = batch.took(rows[: batch.share])
+
+        emptied = 0
+        held: list[HeldSeats] = []
+        voids = []
+        leaving: dict[Any, set[str]] = {}
+        for row in taken:
+            stored_kontakte = row.get("kontakte")
+            seats = lapsed_seats(kontakte=stored_kontakte, confirmations=row.get("confirmations"), today=today)
+            # `patch_one_in_db` per row, for `clear_the_blocks`' reason: the redaction matches the rows it logs.
+            await patch_one_in_db(
+                collection=saison_teams_collection,
+                db_filter={"_id": row["_id"]},
+                update=compose_lapsed_seats_update(kontakte=stored_kontakte, seats=seats),
+                session=session,
+                expected_version=None,
+                return_document=ReturnDocument.BEFORE,
+            )
+            emptied += len(seats)
+            held.append(HeldSeats(saison_id=saison_id, team_id=row["team_id"], seats=tuple(seats)))
+            voids.append(
+                seat_void_of(
+                    saison_id=saison_id, team_id=row["team_id"], stored_kontakte=stored_kontakte, kontakte=kontakte_ohne(stored_kontakte, seats)
+                )
+            )
+            if addresses := addresses_leaving(kontakte=stored_kontakte, seats=seats):
+                leaving[row["_id"]] = addresses
+
+        # Once for the share, as the blocks' void is: the seats' people leave as a Widerspruch's do.
+        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        redacted = await redact_seat_entries_in_images(action_log_collection=action_log_collection, voids=voids, stamp=stamp, session=session)
+        await remove_the_seats_reasons(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            action_log_collection=action_log_collection,
+            held=held,
+            stamp=stamp,
+            session=session,
+        )
+        # LAST, so it reaches the pre-images the patches above just filed.
+        redacted += await redact_the_lapsed(action_log_collection=action_log_collection, leaving=leaving, stamp=stamp, session=session)
+
+        return emptied, redacted
+
     async def strip_the_confirmations(session: AsyncClientSession, batch: Batch) -> int:
         """The season-and-one clock's last part, a transaction apart from the blocks' share, so a failing strip holds back no block."""
 
@@ -503,7 +589,7 @@ async def sweep_saison(
     )
     failed += len(passed)
 
-    angenommene, geleert, redacted_accepted = 0, 0, 0
+    angenommene, geleert, seats_emptied, redacted_accepted = 0, 0, 0, 0
     # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
     if season_after_has_ended(later_saison_status=later_saison_status):
         angenommene, redacted_accepted, passed = await drain(
@@ -550,6 +636,21 @@ async def sweep_saison(
         failed += len(passed)
         geleert = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared) + sum(stripped_confirmations) + sum(stripped_reports)
+    # Never beside the blocks, which take the seats with them: the two shares are one budget. A `past` season's seat is the
+    # record of who was reachable while it ran, and waits for its block.
+    elif not season_has_ended(saison_status=saison_status):
+        lapsed, passed = await run_isolated(
+            db=db,
+            batch=Batch(share=LAPSED_SEAT_ROWS_PER_PASS),
+            attempt=clear_the_lapsed_seats,
+            moved=lambda seats: seats[0],
+            owes=False,
+            what="Season team",
+            clock="lapsed seat",
+        )
+        failed += len(passed)
+        seats_emptied = sum(seats for seats, _ in lapsed)
+        redacted_accepted += sum(redacted for _, redacted in lapsed)
 
     # The fourteen-day clock after the season's end and before the reminder: an application erased leaves nobody to
     # chase, and a season that has ended took its undecided rows already.
@@ -581,6 +682,7 @@ async def sweep_saison(
         erased_accepted=angenommene,
         erased_without_decision=ohne_entscheidung,
         kontakt_blocks_emptied=geleert,
+        kontakt_seats_emptied=seats_emptied,
         redacted_action_log=redacted_declined + redacted_accepted + redacted_undecided + redacted_unconfirmed,
         failed=failed,
     )
