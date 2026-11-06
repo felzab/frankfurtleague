@@ -1638,7 +1638,7 @@ def build_entry_offer_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
         {
             "$lookup": {
                 "from": Sammlung.SAISON_TEAMS,
-                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"gruppe": 1}}],
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"gruppe": 1, "trikot_farbe": 1}}],
                 "as": "rows",
             }
         },

@@ -163,6 +163,8 @@ class TestTheSeasonsListRead:
         offer = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list)).saison
 
         assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
+        # The boxes the dialog disables, which `trikot_farbe_taken` would refuse: a row holding no colour takes none.
+        assert offer.taken == ["blau"]
 
     def test_a_row_names_the_code_of_its_club_alone(self, mongo_url: str):
         """The acceptance's closed box: a picked club's code stands in `teams`, and a new school has none until it is accepted."""

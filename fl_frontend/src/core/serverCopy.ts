@@ -95,6 +95,7 @@ export const SERVER_COPY = catalogue({
     bewerbung_kontakt_email_taken: COPY.shared.field.taken,
     bewerbung_kontakt_phone_taken: COPY.shared.field.taken,
     bewerbung_kontakt_repeated: COPY.shared.field.taken,
+    trikot_farbe_taken: COPY.shared.field.taken,
     kontakt_email_taken: COPY.shared.field.taken,
     kontakt_phone_taken: COPY.shared.field.taken,
     kader_rolle_taken: COPY.shared.field.taken,

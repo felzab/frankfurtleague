@@ -19,6 +19,7 @@ from app.api.teams.services import (
     find_entry_refusal,
     find_gruppe_move_refusal,
     find_shorthand_refusal,
+    find_trikot_farbe_refusal,
 )
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -38,6 +39,35 @@ from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLTrikotFarbe
+
+
+async def refuse_a_taken_colour(
+    *,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    saison_id: str,
+    trikot_farbe: FLTrikotFarbe | None,
+    # The row the write saves, whose own colour is no other's; `None` for an entry.
+    own_id: Any,
+    # REQUIRED, for `refuse_a_full_gruppe`'s reason: the anchor closes the race.
+    session: AsyncClientSession,
+) -> None:
+    """Refuse `trikot_farbe_taken`: another row of the season holds this colour, a club that left it among them.
+
+    A row that left keeps its colour until an administrator clears it (`app/api/bewerbungen/services.py ::
+    build_form_pipeline`). No colour is free for any number of rows. Reached from two packages, as the capacity rule is.
+    """
+
+    if trikot_farbe is None:
+        return
+
+    # The capacity rule's anchor: a count is a read, so two writes naming one colour pass unless they meet in one write set.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+    other_rows = {} if own_id is None else {"_id": {"$ne": own_id}}
+    held = await saison_teams_collection.count_documents(
+        {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, limit=1, session=session
+    )
+    refuse(find_trikot_farbe_refusal(taken=held > 0))
 
 
 async def refuse_a_full_gruppe(

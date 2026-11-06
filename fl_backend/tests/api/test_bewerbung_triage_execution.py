@@ -595,6 +595,25 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
 
 
 @pytest.mark.db
+class TestASeasonsColourIsOneTeams:
+    """Two teams in one kit colour is a fixture nobody can tell apart, and the row's write is what would store it."""
+
+    def test_a_colour_another_row_holds_is_refused_on_its_box_and_no_colour_stays_free(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_one(
+                saison_team_document(SAISON_ID, ObjectId(), "Fremd", "FRX", gruppe="B", trikot_farbe="blau")
+            )
+            with pytest.raises(APIError) as refused:
+                await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND, trikot_farbe="blau")
+            entered = await database[Collection.SAISON_TEAMS].count_documents({})
+            await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND, trikot_farbe=None)
+
+            return refused.value.error_code, refused.value.fields, entered, await database[Collection.SAISON_TEAMS].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),), 1, 2)
+
+
+@pytest.mark.db
 class TestAcceptanceWaitsForEverySeat:
     """`bewerbung_kontakte_unconfirmed` reaching the acceptance, inside its transaction."""
 

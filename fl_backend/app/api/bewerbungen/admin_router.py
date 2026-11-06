@@ -30,6 +30,7 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     BEWERBUNG_LIST_FIELDS,
     WITHOUT_TOKEN_HASHES,
+    assigned_trikot_farben,
     bewerbung_list_row,
     build_bewerbungen_sort,
     build_confirmed_seat_filter,
@@ -67,7 +68,7 @@ from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
-from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe
+from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
 from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -130,6 +131,7 @@ async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollect
             FLBewerbungGruppeOffer(gruppe=gruppe, free=max(rules.teams_per_gruppe - occupied[gruppe], 0))
             for gruppe in offered_gruppen(rules.number_of_gruppen)
         ],
+        taken=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in saison_raw["rows"]]),
     )
 
 
@@ -299,6 +301,7 @@ async def accept_bewerbung(
     `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
     confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
     A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
+    A colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.
     The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
     """
 
@@ -373,6 +376,14 @@ async def accept_bewerbung(
             # Validated, not read raw: a season missing the capacity keys fails here rather than
             # admitting a school against a bound nobody chose.
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+            session=session,
+        )
+        await refuse_a_taken_colour(
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            saison_id=saison_id,
+            trikot_farbe=annahme_data.trikot_farbe,
+            own_id=None,
             session=session,
         )
 

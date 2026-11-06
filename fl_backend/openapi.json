@@ -214,6 +214,7 @@
           "bewerbung_kontakt_email_taken",
           "bewerbung_kontakt_phone_taken",
           "bewerbung_kontakt_repeated",
+          "trikot_farbe_taken",
           "bewerbung_key_differing",
           "bewerbung_address_barred",
           "bewerbung_kontakt_barred",
@@ -3676,12 +3677,20 @@
           },
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "taken": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken",
+            "type": "array"
           }
         },
         "required": [
           "saison_id",
           "status",
-          "gruppen"
+          "gruppen",
+          "taken"
         ],
         "title": "FLBewerbungEntryOffer",
         "type": "object"
@@ -21394,7 +21403,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nA colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {

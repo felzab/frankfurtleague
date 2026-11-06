@@ -1051,6 +1051,7 @@ export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
  * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
  * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
+ * A colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.
  * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */

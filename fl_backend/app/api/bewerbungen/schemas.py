@@ -238,6 +238,8 @@ class FLBewerbungEntryOffer(BaseReadModel):
     status: FLSaisonStatus
     # The groups the season's rules offer, in their order.
     gruppen: list[FLBewerbungGruppeOffer]
+    # The kit colours another row of the season holds, in the palette's order, which the dialog and the bulk card disable.
+    taken: list[FLTrikotFarbe]
 
 
 class FLBewerbungListRow(BaseReadModel):

@@ -1510,6 +1510,18 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
     return WriteRefusal(error_code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT, fields=(("shorthand",),))
 
 
+def find_trikot_farbe_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`trikot_farbe_taken` on the colour: another row of the season holds it, and a season's kit colour is one team's.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(error_code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("trikot_farbe",),))
+
+
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
     """Why this CLUB may not be entered into any season, or `None`.
 

@@ -84,6 +84,7 @@ export const Code = {
   bewerbung_kontakt_email_taken: "bewerbung_kontakt_email_taken",
   bewerbung_kontakt_phone_taken: "bewerbung_kontakt_phone_taken",
   bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",
+  trikot_farbe_taken: "trikot_farbe_taken",
   bewerbung_key_differing: "bewerbung_key_differing",
   bewerbung_address_barred: "bewerbung_address_barred",
   bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
@@ -1626,6 +1627,7 @@ export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
   saison_id: string;
   status: FLSaisonStatus;
+  taken: FLTrikotFarbe[];
 }
 
 /**
