@@ -9,7 +9,7 @@ const page = tv({
     // At least the first screen under the classic header, whose height the frame declares, so on every page
     // the footer starts just below the screen and is reached by scrolling. The gutter stands here, outside
     // the column, so the column's width is its content's.
-    main: "flex min-h-[calc(100dvh-var(--classic-header))] w-full flex-1 flex-col px-4 py-8 lg:py-12",
+    main: "flex min-h-[calc(100dvh-var(--classic-header))] w-full flex-1 flex-col px-4 py-8 overflow-anchor-none lg:py-12",
     column: "mx-auto flex w-full flex-1 flex-col gap-6",
   },
   variants: {
