@@ -188,6 +188,8 @@ class Code(StrEnum):
     ROLE_NOT_HELD = auto()
     KONTAKT_SEAT_WITHOUT_CONFIRMATION = auto()
     KONTAKT_SEAT_BARRED = auto()
+    KONTAKT_EMAIL_TAKEN = auto()
+    KONTAKT_PHONE_TAKEN = auto()
     KONTAKT_ROW_WITHOUT_SAISON = auto()
     KONTAKT_SAISON_PAST = auto()
     # 403 and not 409, `grant_only_owner`'s precedent: the refusal is about who asks. An administrator's

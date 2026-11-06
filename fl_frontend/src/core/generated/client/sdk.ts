@@ -87,6 +87,8 @@ import type {
   FLKaderResponse,
   FLKaderRow,
   FLKontaktInviteResponse,
+  FLKontaktSeatPayload,
+  FLKontaktSeatResponse,
   FLKoRundeResponse,
   FLLandingResponse,
   FLOpenRegistrierungenResponse,
@@ -5338,6 +5340,55 @@ export const teamsPatchSaisonTeamKontakte = async (
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLPatchSaisonTeamKontaktePayload),
+  });
+};
+
+export const getTeamsPutKontaktSeatUrl = (teamId: string, saisonId: string, seat: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}`;
+};
+
+/**
+ * „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
+ *
+ * The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
+ * `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
+ * in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
+ * last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+ * stay correctable, and such a link takes the person's Widerspruch alone.
+ *
+ * Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
+ * on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
+ * claim, and the seat it named keeps its person. Left out, the claim stands.
+ *
+ * Refused `version_stale` on a row moved since the read, `kontakt_email_taken` and `kontakt_phone_taken` where another
+ * seat's person holds the address or the number, and `kontakt_seat_barred` where the ban list holds the address of a
+ * person newly seated. 404 for a team and season holding no row, and for a path naming no seat.
+ * @summary Write the person one contact seat holds
+ */
+export const teamsPutKontaktSeat = async (
+  teamId: string,
+  saisonId: string,
+  seat: string,
+  fLKontaktSeatPayload: FLKontaktSeatPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKontaktSeatResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLKontaktSeatResponse>(getTeamsPutKontaktSeatUrl(teamId, saisonId, seat), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLKontaktSeatPayload),
   });
 };
 

@@ -40,6 +40,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
     CustomShorthand,
+    CustomVersion,
     parse_empty_string_to_none,
     validate_external_url,
 )
@@ -699,6 +700,15 @@ class FLReplaceSaisonTeamPayload(BaseModel):
     incoming_team_id: CustomObjectId
 
 
+class FLKontaktSeatPayload(_KontaktpersonWritablePayload):
+    """The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet."""
+
+    # The Trainer's own claim, so read on their seat alone: sent there, it replaces the stored one, null ending it, and
+    # left out it stands, so a dialog offering no choice claims nothing.
+    trainer_is_also: FLTrainerAlso | None = None
+    version: CustomVersion
+
+
 class FLTeamsFilterParams(BaseModel):
     """What a club read narrows on: the season views' and the club page's reads, each built in code."""
 
@@ -874,6 +884,15 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
     kontakte: FLSaisonTeamKontakte | None
     # Empty where the save seated nobody new: a seat keeping its person keeps their link.
     confirmations: list[FLKontaktMint]
+
+
+class FLKontaktSeatResponse(BaseAPIResponse):
+    """Where the seat write's link went, and the row's count of writes after it."""
+
+    # The address the fresh link is owed to, as stored. Null where the seat keeps its person, who keeps their link.
+    email: str | None
+    # What the next seat write on this row sends.
+    version: int
 
 
 class FLKontaktInviteResponse(BaseAPIResponse):
