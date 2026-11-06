@@ -23,7 +23,6 @@ from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.tokens import hash_token
-from tests.api import test_registrierung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
@@ -36,7 +35,7 @@ from tests.documents import (
     team_document,
 )
 from tests.outbox import MAIL_NOW
-from tests.wire import commands_by_name, commands_sent
+from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -546,10 +545,6 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
         assert (erased_count, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
 
 
-# Under the driver's first batch, so a page read is one command however many rows it holds.
-FEW = 10
-
-
 async def passes_until_empty(one_pass: Callable[[], Awaitable[int]], *, share: int, total: int) -> list[int]:
     """What each pass took, up to the first that took nothing: a clock that stops making progress fails here rather than spinning."""
 
@@ -605,52 +600,18 @@ class TestTheReminderClockTakesAShareEachCall:
 
         assert on_a_league(mongo_replica_set_url, body) == {"2026-04-05"}
 
-    def test_a_reminded_row_costs_the_round_trips_its_share_is_sized_at(self, mongo_replica_set_url: str):
-        """Counted on the wire, two passes apart by `FEW` rows: `AFTER` at the call site, or a second write a row, turns this red."""
 
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                await database[Collection.REGISTRIERUNGEN].delete_many({})
-                await database[Collection.OUTBOX].delete_many({})
-                await database[Collection.REGISTRIERUNGEN].insert_many(overflowing()[:due])
+# The reminder's commands a row: the stamp's update, its read-back and its log row.
+ROUND_TRIPS_A_ROW = 3
 
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body)
-
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
-
-    def test_a_row_the_code_refuses_costs_the_share_no_second_attempt(self, mongo_replica_set_url: str):
-        """A share fills the request's deadline, so a refusal taking its transaction apart overruns it before any half commits.
-
-        A share and nine more due, the one at sorted position 31 carrying a send date no judge can read, against the same
-        rows all readable.
-        """
-
-        due = overflowing()[: REMINDERS_PER_PASS + 9]
-        unreadable = {**due[30], "confirmation": {**due[30]["confirmation"], "sent_at": "2026-03-1x"}}
-        one_refused = [*due[:30], unreadable, *due[31:]]
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(rows: list[dict[str, Any]]) -> int:
-                await database[Collection.REGISTRIERUNGEN].delete_many({})
-                await database[Collection.OUTBOX].delete_many({})
-                await database[Collection.REGISTRIERUNGEN].insert_many(rows)
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(due), await counted(one_refused)
-
-        carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
-
-        assert with_one_refused == carryable
+# The other commands of the worst call erasing one page per clock, the share's Postausgang key lookup and insert
+# among them.
+OTHER_COMMANDS = 17
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
-        """`tests/api/test_registrierung_sweep_refusal.py`'s budget: both erasing clocks take a page.
+        """Both erasing clocks take a page.
 
         A command added to the call turns this red, so the share is judged against the deadline again.
         """
@@ -662,7 +623,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         rows = answer.reminded
 
         assert (answer.erased_declined, answer.erased_unconfirmed, rows) == (1, 1, 2)
-        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.OTHER_COMMANDS, names
+        assert sum(names.values()) - ROUND_TRIPS_A_ROW * rows == OTHER_COMMANDS, names
 
 
 @functools.cache

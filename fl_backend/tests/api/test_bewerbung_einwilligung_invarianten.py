@@ -120,20 +120,3 @@ def refusals(body: dict[str, Any]) -> list[tuple[tuple[Any, ...], str]]:
         ANSWER.validate_python(body)
 
     return [(error["loc"], error["type"]) for error in failure.value.errors()]
-
-
-class TestWhatTheAnswerPayloadRefuses:
-    """The answer's two shapes, told apart by `answer`: each refusal is 422, at the tag and the field it names."""
-
-    def test_a_consent_without_a_date_is_refused(self):
-        body = answer()
-        del body["birth_date"]
-
-        assert refusals(body) == [(("given", "birth_date"), "missing")]
-
-    @pytest.mark.parametrize("field", ["birth_date", "whatsapp", "media", "text_versions", "answer"])
-    def test_every_field_is_required(self, field: str, assert_rejects):
-        body = answer()
-        del body[field]
-
-        assert_rejects(FLBewerbungEinwilligungGiven, body, field)

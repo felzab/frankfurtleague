@@ -176,7 +176,7 @@ describe("an editor's own acts", () => {
       await userEvent.type(screen.getByRole("textbox"), " Nord");
       await userEvent.click(screen.getByRole("button", { name }));
 
-      expect(within(await screen.findByRole("dialog")).getByText(COPY.template.draftUnsaved)).toBeTruthy();
+      expect((await screen.findByRole("tooltip")).textContent).toBe(COPY.template.draftUnsaved);
       // A dialog's trigger around the locked button would open the question behind the reason.
       expect(screen.queryByRole("alertdialog")).toBeNull();
       expect(act).not.toHaveBeenCalled();

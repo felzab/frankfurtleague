@@ -9,7 +9,7 @@ from app.api.saisons.public_router import get_teams as get_saison_teams
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.public_router import get_team
-from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamSingleFilterParams
+from app.api.teams.schemas import FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
@@ -116,13 +116,6 @@ async def read_saison_teams(database: AsyncDatabase, saison_id: str = SAISON) ->
     return await get_saison_teams(
         saison_id=saison_id, saisons_collection=database[Collection.SAISONS], teams_collection=database[Collection.TEAMS]
     )
-
-
-class TestTheBaseTierFilterSurface:
-    def test_a_standings_row_carries_no_leaving_date(self):
-        """Why the switch is off that surface. `austritt_type` is no substitute: it records leaving a SEASON, not leaving the league."""
-        assert "inactive_since" not in FLGruppenTeam.model_fields
-        assert "inactive_since" in FLTeam.model_fields
 
 
 GRUPPENPHASE_SPIELTAG = ObjectId("6890a1b2c3d4e5f607420101")

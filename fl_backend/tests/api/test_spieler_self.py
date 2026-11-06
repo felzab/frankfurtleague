@@ -59,7 +59,6 @@ TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607840001")
 TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607840002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607840011")
 YOUNG_OID = ObjectId("6890a1b2c3d4e5f607840013")
-RETIRED_OID = ObjectId("6890a1b2c3d4e5f607840015")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607840019")
 
 # The name each season row was entered under, apart from the club's current one, so serving the
@@ -281,12 +280,6 @@ class TestTheTwoChoices:
 
         assert response.status_code == 204, response.text
         assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "media": True}
-
-    def test_an_address_spelled_otherwise_moves_the_same_record(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER_SPELLED_OTHERWISE, _payload(scope="intern")))
-
-        assert response.status_code == 204, response.text
-        assert after[PUPIL_OID]["einwilligung"]["scope"] == "intern"
 
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:

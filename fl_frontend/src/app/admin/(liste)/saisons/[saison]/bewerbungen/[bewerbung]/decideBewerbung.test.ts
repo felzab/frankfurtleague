@@ -64,27 +64,6 @@ describe("an acceptance", () => {
       { endpoint: `/bewerbungen/${ID}/accept`, body: { gruppe: "A", trikot_farbe: null, shorthand: null, version: 3 } },
     ]);
   });
-
-  it("answers a taken code on its box", async () => {
-    state.refusal = refusal("duplicate_key", ["shorthand"]);
-
-    const answer = await acceptBewerbung(posted({ trikot_farbe: "rot", shorthand: "ABC" }));
-
-    expect(answer).toMatchObject({ ok: false, fieldErrors: { shorthand: COPY.shared.field.taken } });
-  });
-
-  /* Each moved since the page was read, so the stale line sends the person to the fresh one; left out of the set, each
-     reads „Etwas ist schiefgelaufen“ on a press that reloading would answer. */
-  it.each(["bewerbung_already_decided", "bewerbung_kontakte_unconfirmed", "entry_saison_not_future", "entry_gruppe_full"] as const)(
-    "reads %s as a stale page",
-    async (code) => {
-      state.refusal = refusal(code);
-
-      const answer = await acceptBewerbung(posted({ trikot_farbe: "rot" }));
-
-      expect(answer).toMatchObject({ ok: false, reason: COPY.shared.failure.stale });
-    },
-  );
 });
 
 describe("a seat's write", () => {

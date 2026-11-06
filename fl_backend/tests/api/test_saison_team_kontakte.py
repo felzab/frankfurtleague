@@ -41,7 +41,7 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607240001")
 TEAM_NAME = "Adler"
 TEAM_SHORTHAND = "ADX"
 
-# The three fields this endpoint must not reach, each seeded to a value entry never writes: a `$set`
+# The three fields the block's write must not reach, each seeded to a value entry never writes: a `$set`
 # carrying the whole payload would answer with `None` for all three.
 GRUPPE = "C"
 TRIKOT_FARBE = "bordeaux"
@@ -109,7 +109,7 @@ def born(sent: dict[str, Any]) -> dict[str, Any]:
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
-    """What the endpoint writes from a payload whose seats no row already holds: every seat born afresh."""
+    """What the block's write stores from a payload whose seats no row already holds: every seat born afresh."""
 
     return {
         seat: ({**value, "birth_date": None, "einwilligung": born(value)} if isinstance(value, dict) else value)
@@ -181,7 +181,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_KONTAKTE) -> Any:
-    """`constraints=True`, so what this endpoint stores is judged by the database's own indexes rather than by Pydantic alone."""
+    """`constraints=True`, so what the block's write stores is judged by the database's own indexes rather than by Pydantic alone."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
@@ -331,7 +331,7 @@ class TestTheProvenanceIsTheServers:
 
 @pytest.mark.db
 class TestNothingElseOnTheRowMoves:
-    """The whole reason the endpoint exists: two editors write one row and must not clobber each other."""
+    """Two editors write one row, so the block's write leaves every other field alone."""
 
     def test_the_group_the_exit_and_the_kit_colour_are_left_exactly_as_seeded(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -384,7 +384,7 @@ class TestTheWriteIsRecorded:
 class TestAnLoeschungLandingMidSaveIsNotUndone:
     """Two administrators on one row: an erasure empties a seat while the editor holds the block it rendered.
 
-    The editor replaces the block whole, so its payload puts the seat back unless the endpoint
+    The editor replaces the block whole, so its payload puts the seat back unless the write
     judges the row first.
     """
 

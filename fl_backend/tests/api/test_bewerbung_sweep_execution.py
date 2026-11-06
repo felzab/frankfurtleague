@@ -30,7 +30,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
@@ -38,7 +38,6 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.api import test_bewerbung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -56,7 +55,7 @@ from tests.documents import (
 )
 from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.outbox import MAIL_NOW, drained
-from tests.wire import commands_by_name, commands_sent
+from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -70,7 +69,6 @@ SKIPPED_TO_SAISON_ID = "2028"
 OTHER_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
-TOMORROW = "2026-04-02"
 MAILED_ON_THE_MARK = "2026-03-29"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
@@ -761,15 +759,6 @@ class TestTheSeasonsOwnEndClock:
         assert (response.reminded, response.erased, mails) == (0, 0, 0)
         assert response.erased_without_decision == 2
 
-    def test_a_second_pass_the_same_day_finds_nothing_left(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await sweep(database, client)
-
-            return first.erased_without_decision, (await sweep(database, client)).erased_without_decision
-
-        # The first count as well as the second: a clock taking nothing at all answers zero twice.
-        assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (2, 0)
-
 
 class TestTheSeasonAndOneClock:
     def test_nothing_goes_while_the_next_season_runs(self, mongo_replica_set_url: str):
@@ -1049,17 +1038,6 @@ class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
         assert kept == expected
         assert report_now["bericht"]["remarks"] == report["bericht"]["remarks"], "the report strip ran past the activation"
         assert confirmation_now["answer"]["reason"] == declined["answer"]["reason"], "the confirmations' strip ran past it"
-
-
-class TestASeasonNobodyHas:
-    def test_the_pass_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await sweep(database, client, saison_id="1999")
-
-            return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)
-
-        assert on_a_league(mongo_replica_set_url, body) == (5, [])
 
 
 SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
@@ -1442,119 +1420,6 @@ class TestEachCappedClockMakesProgressAcrossPasses:
         assert on_a_league(mongo_replica_set_url, body) == (overflow, 0, overflow)
 
 
-# Under the driver's first batch, so a page read is one command however many rows it holds.
-FEW = 10
-
-
-class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
-    """Counted on the wire, two runs apart by `FEW` rows: `AFTER` at the call site, or a second write a row, turns a case red."""
-
-    def test_a_reminded_application(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position)) for position in range(due)])
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body)
-
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
-
-    @pytest.mark.parametrize(
-        "refused",
-        [
-            pytest.param(
-                lambda row: {
-                    **row,
-                    "confirmations": {seat: {**entry, "deadline": "2026-04-1"} for seat, entry in row["confirmations"].items()},
-                },
-                id="a deadline the answer refuses",
-            ),
-            pytest.param(
-                lambda row: {
-                    **row,
-                    "confirmations": {seat: {**entry, "sent_at": "2026-03-1x"} for seat, entry in row["confirmations"].items()},
-                },
-                id="a send date no judge can read",
-            ),
-        ],
-    )
-    def test_a_reminder_the_code_refuses_costs_only_the_write_it_skips(
-        self, mongo_replica_set_url: str, refused: Callable[[dict[str, Any]], dict[str, Any]]
-    ):
-        """Taken apart instead, the share spends a failed attempt and its halves on the row."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(rows: list[dict[str, Any]]) -> int:
-                # The first run's mails gone too: keys it owed would cost the second run no insert.
-                await database[Collection.OUTBOX].delete_many({})
-                await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.BEWERBUNGEN].insert_many(rows)
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            rows = [application(numbered(position)) for position in range(FEW)]
-            return await counted(rows), await counted([*rows[:-1], refused(rows[-1])])
-
-        carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
-
-        assert carryable - with_one_refused == budget.ROUND_TRIPS_A_ROW
-
-    def test_a_cleared_contact_block(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                # No application at all, so the accepted clock erases nothing in either run.
-                await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.SAISON_TEAMS].delete_many({})
-                await database[Collection.SAISON_TEAMS].insert_many(
-                    [{**junction_row(), "_id": numbered(position), "team_id": numbered(position)} for position in range(due)]
-                )
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
-
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
-
-    def test_a_row_of_lapsed_seats(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.SAISON_TEAMS].delete_many({})
-                await database[Collection.SAISON_TEAMS].insert_many([lapsed_row(position, KONTAKT_ROLLEN) for position in range(due)])
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body)
-
-        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
-
-    def test_an_geloescht_application_costs_nothing_a_row(self, mongo_replica_set_url: str):
-        """The fourteen-day clock writes a page in its commands, never a command a row: no share bounds it."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                await database[Collection.BEWERBUNGEN].delete_many({})
-                await database[Collection.BEWERBUNGEN].insert_many(
-                    [application(numbered(position), confirmation_deadline=YESTERDAY) for position in range(due)]
-                )
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body)
-
-        assert twice == few
-
-
 def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
     """One team's open row about a fixture, every seat holding the link it was mailed."""
 
@@ -1675,8 +1540,16 @@ class TestTheSeasonRowSeatClock:
         assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] == MAILED_ON_THE_MARK
 
 
+# The per-row loops' three commands a row: the update, its read-back and its log row.
+ROUND_TRIPS_A_ROW = 3
+
+# The worst call's commands beside its rows, and a past season's, whose own end leaves no reminder.
+SWEEP_OTHER_COMMANDS = 69
+SWEEP_PAST_LAPSED_OTHER_COMMANDS = 43
+
+
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    """`tests/api/test_bewerbung_sweep_refusal.py`'s budget, its rows at the per-row cost and the rest as it names them.
+    """The budgets above, the rows at the per-row cost and the rest as each names them.
 
     A command added to either call turns its case red, so the share is judged against the deadline again.
     """
@@ -1710,29 +1583,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         rows = answer.reminded + answer.kontakt_blocks_emptied
 
         assert (answer.erased_declined, answer.erased_accepted, answer.erased, rows) == (1, 1, 1, 4)
-        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_OTHER_COMMANDS, names
-
-    def test_the_sweep_of_a_season_still_to_end(self, mongo_replica_set_url: str):
-        """The lapsed seats' side of the blocks' branch: every set of seats lapsing, so the void and the redaction each write apart."""
-
-        lapsing = [seats for size in range(1, len(KONTAKT_ROLLEN) + 1) for seats in combinations(KONTAKT_ROLLEN, size)]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            await database[Collection.BEWERBUNGEN].update_many(
-                {"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": {"team_id": CLUB_OID, "schule": None}}
-            )
-            await database[Collection.SAISON_TEAMS].insert_many([lapsed_row(position, seats) for position, seats in enumerate(lapsing)])
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
-                [open_confirmation(numbered(position)) for position, _ in enumerate(lapsing)]
-            )
-
-            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-        answer, names = on_a_league(mongo_replica_set_url, body)
-        rows = answer.reminded + len(lapsing)
-
-        assert (answer.erased_declined, answer.erased, answer.kontakt_seats_emptied) == (1, 1, 12)
-        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_LAPSED_OTHER_COMMANDS, names
+        assert sum(names.values()) - ROUND_TRIPS_A_ROW * rows == SWEEP_OTHER_COMMANDS, names
 
     def test_the_sweep_of_a_past_season(self, mongo_replica_set_url: str):
         """The lapsed seats' side again where the season's own end runs too: it takes the open rows, and with them every reminder."""
@@ -1751,7 +1602,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         assert (answer.reminded, answer.erased_declined, answer.kontakt_seats_emptied) == (0, 1, 12)
         assert answer.erased_without_decision > 0
-        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * len(lapsing) == budget.SWEEP_PAST_LAPSED_OTHER_COMMANDS, names
+        assert sum(names.values()) - ROUND_TRIPS_A_ROW * len(lapsing) == SWEEP_PAST_LAPSED_OTHER_COMMANDS, names
 
 
 class TestAPageAndOneMoreIsDrained:

@@ -84,7 +84,7 @@ describe("a locked Konto box", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
-    expect(within(await screen.findByRole("dialog")).getByText(reason)).toBeTruthy();
+    expect((await screen.findByRole("tooltip")).textContent).toBe(reason);
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });

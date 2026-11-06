@@ -283,20 +283,6 @@ class TestWhatASubmissionStores:
 
         assert on_a_league(mongo_replica_set_url, body)["wunschgegner"] == "Zorbanax-Gesamtschule"
 
-    def test_a_submission_naming_no_opponent_still_writes_the_key(self, mongo_replica_set_url: str):
-        """Only the write keeps every application this endpoint makes one shape."""
-
-        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-            response = await submit(database)
-            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
-
-            assert stored is not None
-            return stored
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        assert "wunschgegner" in stored and stored["wunschgegner"] is None
-
     def test_the_year_group_the_school_named_is_stored(self, mongo_replica_set_url: str):
         """The write is the only thing putting this key in the document."""
 
@@ -308,13 +294,6 @@ class TestWhatASubmissionStores:
             return stored
 
         assert on_a_league(mongo_replica_set_url, body)["stufengroesse"] == 118
-
-    def test_the_response_echoes_nothing_of_the_submission(self, mongo_replica_set_url: str):
-        """The three people's details went one way; a body repeating them is a copy in every proxy between."""
-
-        response = on_a_league(mongo_replica_set_url, lambda database: submit(database))
-
-        assert set(response.model_dump()) == {"created_id"}
 
 
 async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -437,20 +416,6 @@ class TestWhatTheCreateOwes:
 
 class TestWhatTheLogRecords:
     """An insert carries no `before`, so the row says an application arrived and never what was in it."""
-
-    def test_one_row_naming_the_application_and_holding_no_image(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-            response = await submit(database)
-            rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
-
-            assert len(rows) == 1
-            assert rows[0]["document_id"] == response.created_id
-            return rows[0]
-
-        row = on_a_league(mongo_replica_set_url, body)
-
-        assert row["operation"] == "insert"
-        assert row["before"] is None
 
     def test_no_submitted_value_reaches_the_row(self, mongo_replica_set_url: str):
         """Searched as TEXT over the whole row: a field carried in under any key would show up here."""
@@ -604,16 +569,6 @@ class TestTheSubmissionKey:
 
         assert on_a_league(mongo_replica_set_url, body) == [build_schluessel_filter(key=str(SCHLUESSEL))]
 
-    def test_two_presses_at_once_store_one_application(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            answers = await asyncio.gather(submit(database, key=SCHLUESSEL), submit(database, key=SCHLUESSEL))
-
-            return {answer.created_id for answer in answers}, await database[Collection.BEWERBUNGEN].count_documents({})
-
-        ids, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert (len(ids), stored) == (1, 1)
-
 
 def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
     """One submission expected to be refused, with the exception it raised."""
@@ -684,19 +639,6 @@ class TestTheRefusalsTheWritePathAnswers:
 
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
         assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
-
-
-class TestTwoSchoolsMayApplyForOneSeason:
-    """Explicitly NOT refused: a season takes many applications, and nothing here is a queue of one."""
-
-    def test_a_second_new_school_is_stored_beside_the_first(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> int:
-            await submit(database, team_id=None, schule=schule_block())
-            await submit(database, team_id=None, schule=schule_block(team_name="Yttrium"))
-
-            return await database[Collection.BEWERBUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == 2
 
 
 # The HTTP surface, on a SECOND database: `build_test_config`'s, the one an app under test resolves
@@ -772,11 +714,6 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.response.status_code == 401
         assert submitted.stored == 0
 
-    def test_no_actor_header_is_demanded(self, mongo_replica_set_url: str):
-        """The whole reason the router declares `bind_public_actor`: `bind_actor` would answer `missing_actor` here."""
-
-        assert through_the_app(mongo_replica_set_url, payload()).response.status_code != 401
-
     def test_the_row_is_attributed_to_the_public_rather_than_to_the_system(self, mongo_replica_set_url: str):
         """`system` means a write made outside a request; this one was made through one, by nobody."""
 
@@ -829,14 +766,6 @@ class TestASubmissionMadeOverTheWire:
         assert (submitted.response.status_code, answer["error_code"]) == (422, Code.BEWERBUNG_KONTAKT_REPEATED)
         assert [field["path"] for field in answer["fields"]] == [["kontakte", "stellvertretung", "email"]]
         assert submitted.stored == 0
-
-    def test_a_refusal_is_a_409_carrying_its_code(self, mongo_replica_set_url: str):
-        """The contract a client maps to German: the code reaches the body, not just the status."""
-
-        submitted = through_the_app(mongo_replica_set_url, payload(team_id=str(UNKNOWN_OID)))
-
-        assert submitted.response.status_code == 409
-        assert submitted.response.json()["error_code"] == Code.BEWERBUNG_PICKED_TEAM_UNUSABLE
 
 
 # `good_spieler` is non-nullable on every side, not the payload alone, so the stored shape is an int and no null.

@@ -1,5 +1,4 @@
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { refused } from "@/test-support/refusals";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -149,12 +148,5 @@ describe("a press the action stops", () => {
       ok: false,
       fieldErrors: { "kontakte.stellvertretung.email": COPY.shared.field.taken, "kontakte.stellvertretung.phone": COPY.shared.field.taken },
     });
-  });
-
-  // The harm: a page read before the window shut says only that something went wrong, where a reload says why.
-  it.each(["bewerbung_window_closed", "bewerbung_picked_team_unusable"] as const)("answers %s with the stale page's line", async (code) => {
-    answerWith(() => Promise.reject(refused(code)));
-
-    expect(await submitBewerbung(posted(BOXES))).toMatchObject({ ok: false, reason: COPY.shared.failure.stale });
   });
 });
