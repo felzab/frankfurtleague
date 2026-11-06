@@ -212,7 +212,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   `scope` `kader_oeffentlich` and its `confirmed_at` stamped. Every other row is a nameless slot
   keeping its number and position, and carries no record id that would link its seasons. The gate
   fails closed. The player editor shows the stored consent read-only and gates nothing
-  (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx`).
+  (`fl_frontend/src/app/admin/(editor)/saisons/[saison]/spieler/[spieler]/SpielerEditor.tsx`).
 - **A referee's name stands on a fixture only on their own consent, and only once they agreed to
   the booking** (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, through the same
   predicate), and no fixture carries the referee's record id

@@ -120,6 +120,25 @@ async def pull_whole_from_db(
 VERSION_FIELD: Final = "version"
 
 
+def composite_version(*documents: Mapping[str, Any]) -> int:
+    """The one count an editor saving two documents reads and saves on: theirs added.
+
+    Each only ever rises, so their sum stands exactly where none has moved, and a page holds one number for its one
+    save (`fl_frontend/src/kit/useEditor.ts :: EditorRecord`).
+    """
+
+    return sum(int(document.get(VERSION_FIELD) or 0) for document in documents)
+
+
+def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> WriteRefusal | None:
+    """`version_stale`: one of the documents an editor saves together has moved since it read them."""
+
+    if composite_version(*documents) == version:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
 def _versioned(collection: AsyncCollection, update: Mapping[str, Any]) -> Mapping[str, Any]:
     """`update` raising the version, on a collection whose documents count their writes."""
 

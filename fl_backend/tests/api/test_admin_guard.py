@@ -176,7 +176,7 @@ ADMIN_READS = [
     ("/api/v0/teams/{team_id}/saisons/{saison_id}/invitation", "get"),
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
     # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.
-    ("/api/v0/registrierungen", "get"),
+    ("/api/v0/registrierungen/list/admin", "get"),
     # A team's squad with every surname whole, served to its own seat holders: a revert to
     # `verify_access_base` hands it to every visitor, past the initial `READ-PUPIL-001` keeps for them.
     ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),

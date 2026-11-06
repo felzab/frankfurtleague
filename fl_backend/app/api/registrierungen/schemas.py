@@ -1,9 +1,9 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -35,7 +35,6 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # One key, and it is the one the collection's queue index sorts on: rows arrive from a public form
 # and a second order would plan a blocking sort over a list nothing bounds.
-FLRegistrierungenSortOptions = Literal["submitted_at"]
 
 
 class FLRegistrierungEntscheidung(BaseModel):
@@ -44,14 +43,6 @@ class FLRegistrierungEntscheidung(BaseModel):
     made_at: CustomDateString
     by: CustomNonEmptyString
     reason: str | None
-
-
-class FLRegistrierungDecisionRow(FLRegistrierungEntscheidung):
-    """A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."""
-
-    # Null exactly where `by_barred` is set, as the grants list withholds its actors.
-    by: CustomNonEmptyString | None
-    by_barred: bool
 
 
 class FLRegistrierungEinwilligung(FLEinwilligung, BaseReadModel):
@@ -94,22 +85,6 @@ class _RegistrierungStored(BaseModel):
     einwilligung: FLRegistrierungEinwilligung | None
 
 
-class FLRegistrierung(_RegistrierungStored):
-    """One pupil's registration for one team's season, as stored, its decision as served.
-
-    Its pupil fills and withdraws `einwilligung` and fills `birth_date`; a decline writes `status` and `decision`.
-    """
-
-    confirmation: FLConfirmation | None
-    # As served, so a row reaches the wire only through
-    # `app/api/registrierungen/services.py :: mit_vorenthaltener_entscheidung`.
-    decision: FLRegistrierungDecisionRow | None
-    # Composed by the read rather than left to a consumer to derive from `einwilligung`: no
-    # unconfirmed registration may be admitted, and two readers deriving that differently is how an
-    # unconfirmed pupil gets a squad row.
-    confirmed: bool
-
-
 class FLRegistrierungBestaetigungRecord(FLConfirmation):
     """One registration's bookkeeping as `registrierungen` stores it: the hash of every link it was mailed, each live."""
 
@@ -124,9 +99,6 @@ class FLRegistrierungRecord(_RegistrierungStored):
     # The submission's replay key and digest.
     idempotency_key: str | None = None
     idempotency_fingerprint: str | None = None
-
-
-FLRegistrierungListAdapter = TypeAdapter(list[FLRegistrierung])
 
 
 class FLInvitationViewResponse(BaseAPIResponse):
@@ -175,28 +147,24 @@ class FLPostRegistrierungResponse(BaseAPIResponse):
     registrierung_id: CustomObjectId
 
 
-class FLRegistrierungenFilterParams(BaseModel):
-    """What the pending list may narrow on."""
+class FLRegistrierungAdminRow(BaseReadModel):
+    """One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them."""
 
-    saison_id: Annotated[str, StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)] | None = None
-    team_id: CustomObjectId | None = None
-    # ONE value rather than a list: this read is opened per team and season, where the application
-    # triage's multi-select answers a queue spanning both.
-    status: FLRegistrierungStatus | None = None
-    # Bounded on BOTH sides and no null sentinel, as the application queue's is: an anonymous party
-    # writes these rows, so the cap holds a caller naming more rather than obeying it.
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: FLRegistrierungenSortOptions = Field(default="submitted_at")
-    order: FLSortOrder = Field(default="desc")
+    id: CustomObjectId
+    first_name: CustomNonEmptyString
+    last_name: CustomNonEmptyString
+    team_id: CustomObjectId
+    # The name the club plays the season under; null for a club no longer standing in the season.
+    team_name: str | None
+    submitted_at: CustomDateString
+    # Composed by the read, off the consent record's own stamp (`registrierung_ist_bestaetigt`).
+    confirmed: bool
 
 
-class FLRegistrierungenListResponse(BaseAPIResponse):
-    """The pending rows, newest first, and whether that is the whole of them."""
+class FLRegistrierungenAdminListResponse(BaseAPIResponse):
+    """One season's pending registrations, newest first."""
 
-    registrierungen: list[FLRegistrierung]
-    # German, unlike the envelope fields around it, for the reason the application queue's is: this
-    # flag decides whether an administrator may trust the list.
-    complete: bool
+    registrierungen: list[FLRegistrierungAdminRow]
 
 
 # --- The CONFIRMATION. The token is the whole credential, as it is for the application's link, so

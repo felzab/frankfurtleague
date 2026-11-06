@@ -326,8 +326,8 @@ no later feature can come to depend on a flag.
   decided score counts for the table.
 - **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
   (`confirmation_age`); entering or bringing back a squad row judges none.
-- **A person holding no squad row.** Reachable only by a database edit: `GET /spieler/saisons` serves such a
-  person with an empty list, and a registration through a team's link gives them a row.
+- **A person holding no squad row.** Reachable only by a database edit: the administration's lists read a
+  season's squad rows, so such a person stands in none until a registration through a team's link gives them a row.
 - **A retired row kept indefinitely.** No sweep selects on `inactive_since`, which records when a row retired
   and never when it may go; every admin list badges the day it retired.
 - **A stored action-log image no current model accepts.** An image is what a document looked like when it was

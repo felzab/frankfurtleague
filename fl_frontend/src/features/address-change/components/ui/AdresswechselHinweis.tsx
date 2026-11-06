@@ -3,7 +3,6 @@
 import Link from "next/link";
 
 import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
-import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
@@ -49,42 +48,5 @@ export function AdresswechselOffen({
         EINSEHBAR_VERWEHRT[denied]
       )}
     </p>
-  );
-}
-
-/**
- * Under a sign-in address on the pupil and referee editors, the same words on each: they read the address and its
- * pending change and change neither. One tool for every editor, so a change is seen from each.
- */
-export function AdresswechselHinweis({
-  adresswechselId,
-  denied,
-}: {
-  adresswechselId: string | null;
-  denied: FLAddressChangeViewableDenied | null;
-}) {
-  const saisonHref = useSaisonHref();
-
-  return (
-    <div className="flex flex-col gap-1">
-      {adresswechselId !== null && (
-        <AdresswechselOffen
-          adresswechselId={adresswechselId}
-          adresse={null}
-          denied={denied}
-        />
-      )}
-      <p className="muted-hint text-pretty">
-        Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Sagt sie, dass sie sich nicht mehr anmelden
-        kann, ändert die Verwaltung sie unter{" "}
-        <Link
-          href={saisonHref("/area/admin/adresswechsel")}
-          prefetch={false}
-          className={textLink()}>
-          „{ADRESSWECHSEL_EINTRAG.label}“
-        </Link>
-        .
-      </p>
-    </div>
   );
 }

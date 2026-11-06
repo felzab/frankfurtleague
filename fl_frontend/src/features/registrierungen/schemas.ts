@@ -7,7 +7,7 @@ import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
-  FLPatchSaisonSpielerPayloadSchema,
+  FLPatchKaderZeilePayloadSchema,
   FLSpielerPositionSchema,
   FLSpielerStufeSchema,
   LINK_FASSUNG_FEHLT,
@@ -49,7 +49,7 @@ export const FLPostRegistrierungPayloadSchema = z.object({
   position: FLSpielerPositionSchema.nullable(),
   // The squad payload's own field, never a second regex: a pupil types the number an administrator
   // later edits, and two spellings are how one tier starts refusing what the other takes.
-  nummer: FLPatchSaisonSpielerPayloadSchema.shape.nummer,
+  nummer: FLPatchKaderZeilePayloadSchema.shape.nummer,
   stufe: FLSpielerStufeSchema.nullable(),
 });
 

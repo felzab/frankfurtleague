@@ -8,15 +8,9 @@ import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/r
 
 import { alterAusserhalb } from "./constants";
 
-import type {
-  FLInvitationViewResponse,
-  FLPostRegistrierungPayload,
-  FLRegistrierung,
-  FLRegistrierungConfirmationPayload,
-} from "@/core/generated/client/types";
-import type { NamedTeam } from "@/features/bewerbungen/types";
+import type { FLInvitationViewResponse, FLPostRegistrierungPayload, FLRegistrierungConfirmationPayload } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { AdminRegistrierungRow, RegistrierungFormDraft, SpielerLinkZustand } from "./types";
+import type { RegistrierungFormDraft, SpielerLinkZustand } from "./types";
 
 /**
  * Which state the invite puts the registration page in.
@@ -210,27 +204,6 @@ export async function mapBestaetigungRefusal(
     default:
       return null;
   }
-}
-
-/**
- * The administrator's list as its view receives it. Field by field and never a spread of the row: the
- * served row carries the pupil's address and birthdate, and a field the backend adds would ride
- * along to the browser unseen.
- */
-export function buildAdminRegistrierungRows(registrierungen: readonly FLRegistrierung[], teams: readonly NamedTeam[]): AdminRegistrierungRow[] {
-  const teamNamen = new Map(teams.map((team) => [team.id, team.name]));
-
-  return registrierungen.map((registrierung) => ({
-    id: registrierung.id,
-    first_name: registrierung.first_name,
-    last_name: registrierung.last_name,
-    submitted_at: registrierung.submitted_at,
-    team_id: registrierung.team_id,
-    teamName: teamNamen.get(registrierung.team_id) ?? null,
-    saison_id: registrierung.saison_id,
-    stufe: registrierung.stufe,
-    confirmed: registrierung.confirmed,
-  }));
 }
 
 /** The registrations page with nothing pending: a decided queue and one nobody joined read alike. */

@@ -800,7 +800,7 @@ class FLTeamSaisonFacts(BaseReadModel):
 class FLTeamSaisonAdminResponse(BaseAPIResponse):
     """What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet."""
 
-    # The one count this page saves on (`app/api/teams/services.py :: composite_version`).
+    # The one count this page saves on (`app/core/crud.py :: composite_version`).
     version: int = Field(ge=0)
     team: FLTeamRecord
     saison: FLTeamSaisonFacts
