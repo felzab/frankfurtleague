@@ -22,7 +22,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
   await page.getByRole("button", { name: "Team eintragen" }).click();
   const dialog = page.getByRole("dialog", { name: "Team eintragen" });
   await choose(page, dialog, /^Team/, entered);
-  await choose(page, dialog, /^Gruppe/, /^Gruppe B/);
+  await choose(page, dialog, /^Gruppe/, /^Gruppe C/);
   await dialog.getByRole("button", { name: "Eintragen" }).click();
   await expect(dialog).toBeHidden();
 

@@ -11,7 +11,7 @@
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided; its registration link open past the window's end, one squad at its
 //   cap beside a nominee and a retired nominee, and a departed club with an open fixture and a live link;
-// - a planned season: its application window open today, one group full and one with room, and
+// - a planned season: its application window open today, one group full and the others with room, and
 //   applications whose seats stand in every state;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
 //   referees, every one with the address both referee payloads require, one retired and one unanswered;
@@ -838,12 +838,13 @@ const PLANNED = "2028";
 
 // The window opened a month ago and runs a month on, and the registration window ends before the season's first day,
 // as its write holds it (`registrierung_window_reaches_saison_start`). Undrawn: the create writes no `spielplan` key.
+// Four groups, so a full one stands beside room for every club the journeys enter (`PLANNED_ROWS`).
 const PLANNED_SAISON = {
   _id: PLANNED,
   start_date: day(150),
   end_date: day(300),
   status: "future",
-  rules: RULES,
+  rules: { ...RULES, number_of_gruppen: 4 },
   bewerbung: { open: true, start: day(-30), end: day(30) },
   registrierung: { open: true, end: day(140) },
 };
@@ -1046,9 +1047,10 @@ function plannedRow(clubName, gruppe, trikotFarbe, people = { kontakte: null }) 
   return { _id: ObjectId(), saison_id: PLANNED, team_id: _id, gruppe, austritt: null, trikot_farbe: trikotFarbe, ...people, name, shorthand };
 }
 
-// Group B is full and group A has room for the acceptance's journeys. The two accepted applications' clubs carry their
-// people as the acceptance copies them, and Esche stands entered with nobody yet; Ahorn, Birke, Kastanie and Weide are
-// the clubs left to enter, the journeys' rejected applications picking the first two, so neither holds a row.
+// Group B is full, group A has room for the acceptance's journeys and group C for the administration's. The two accepted
+// applications' clubs carry their people as the acceptance copies them, and Esche stands entered with nobody yet; Ahorn,
+// Birke, Kastanie and Weide are the clubs left to enter, the journeys' rejected applications picking the first two and
+// the administration's entering the others, so none holds a row.
 const PLANNED_ROWS = [
   plannedRow("Ulme", "B", "blau", { kontakte: ACCEPTED_CLUB.kontakte }),
   plannedRow("Pappel", "B", "gelb", { kontakte: ACCEPTED_NEW_SCHOOL.kontakte }),

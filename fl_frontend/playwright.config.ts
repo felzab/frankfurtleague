@@ -97,7 +97,7 @@ export default defineConfig<JourneyOptions>({
         leaver: "ingo.imhof@example.com",
         applicants: { accepted: "Pappel", declined: "Birke", objected: "Erle" },
         departing: { club: "Esche", fixture: "Esche vs. Birke" },
-        entered: "Eiche",
+        entered: "Weide",
         squadded: "Lena",
       },
     },
