@@ -347,6 +347,17 @@ jobs:
           docker load --input "${RUNNER_TEMP}/images/backend.tar"
           docker tag frankfurtleague-verify:frontend frankfurtleague-e2e-frontend
           docker tag frankfurtleague-verify:backend frankfurtleague-e2e-backend
+      # Chromium reads every address change in its network namespace as the network changing and fails
+      # the requests still waiting for a connection with `net::ERR_NETWORK_CHANGED`, loopback's too, so
+      # a page loses a chunk and never hydrates. The journeys share the runner's namespace, where the
+      # bridge and the veths of a container gain a link-local address whose duplicate check ends one to
+      # two seconds after the link comes up: nginx starts last, so that is the first journey's first
+      # page. `default` reaches only interfaces made from here on, before any of Docker's for this
+      # stack, and leaves the runner's own IPv6 as it is. No Docker option reaches a veth's host side,
+      # and Chromium ignores no interface on Linux. A wait for the check would leave a restarted
+      # container's address to fail a later journey.
+      - name: Keep Docker's interfaces from changing an address under the browser
+        run: sudo sysctl --write net.ipv6.conf.default.addr_gen_mode=1
       - name: Start the database and the backend
         run: docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
       - name: Load the made-up seed and judge it
@@ -357,6 +368,16 @@ jobs:
           docker compose exec -T backend python -m app.readback
       - name: Start the stack
         run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
+      # A runner image or an engine that gives a veth its address after all would otherwise surface as a
+      # journey failing now and then on a chunk, naming nothing of this.
+      - name: Judge that no veth holds an IPv6 address
+        run: |
+          addresses="$(ip -6 -oneline address show type veth)"
+          if [ -n "$addresses" ]; then
+            printf '%s\n' "$addresses"
+            echo "::error::A veth holds an IPv6 address, so Chromium can read a change of it as the network changing."
+            exit 1
+          fi
       # One step in the image, never a job-level `container:`: that job's steps would hold no docker to
       # raise the stack with, and its `options` refuse `--network`. The runner's network, because the
       # journeys' origin is `localhost`, the passkeys' relying party. The runner's user, so the mail
