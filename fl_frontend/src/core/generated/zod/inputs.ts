@@ -1391,8 +1391,8 @@ export const RegistrierungenPatchEinwilligungBody = zod
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
- * Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `media_age`,
- * `link_barred` and `registrierung_choices_unsuitable`.
+ * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
+ * `confirmation_exists`, `confirmation_age`, `media_age`, `link_barred` and `registrierung_choices_unsuitable`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmationBodyBirthDateOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1427,8 +1427,8 @@ export const RegistrierungenPostConfirmationBody = zod
  * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
- * and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
- * (`link_invalid`).
+ * a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+ * pupil's page; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationViewBodyTokenMax = 128;
@@ -1693,7 +1693,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         open: zod.boolean(),
       })
       .describe(
-        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),

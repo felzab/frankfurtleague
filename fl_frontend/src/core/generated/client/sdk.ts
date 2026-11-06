@@ -2172,8 +2172,8 @@ export const getRegistrierungenPostConfirmationUrl = () => {
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
- * Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `media_age`,
- * `link_barred` and `registrierung_choices_unsuitable`.
+ * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
+ * `confirmation_exists`, `confirmation_age`, `media_age`, `link_barred` and `registrierung_choices_unsuitable`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmation = async (
@@ -2208,8 +2208,8 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
  * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
- * and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
- * (`link_invalid`).
+ * a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+ * pupil's page; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationView = async (

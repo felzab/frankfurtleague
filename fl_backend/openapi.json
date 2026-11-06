@@ -12134,7 +12134,7 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -17578,7 +17578,7 @@
         "type": "object"
       },
       "FLSpielerWithMemberships": {
-        "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
+        "description": "The person as stored, plus every squad row they hold, a player in two seasons staying one entry.",
         "properties": {
           "address_change_id": {
             "anyOf": [
@@ -24727,7 +24727,7 @@
     },
     "/api/v0/registrierungen/confirmation": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `media_age`,\n`link_barred` and `registrierung_choices_unsuitable`.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,\n`confirmation_exists`, `confirmation_age`, `media_age`, `link_barred` and `registrierung_choices_unsuitable`.",
         "operationId": "registrierungen_post_confirmation",
         "requestBody": {
           "content": {
@@ -24804,7 +24804,7 @@
     },
     "/api/v0/registrierungen/confirmation/view": {
       "post": {
-        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,\nand `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused\n(`link_invalid`).",
+        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,\na link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning\npupil's page; only a token no registration holds is refused (`link_invalid`).",
         "operationId": "registrierungen_get_confirmation_view",
         "requestBody": {
           "content": {
