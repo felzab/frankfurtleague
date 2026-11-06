@@ -101,7 +101,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
     { key: "team", label: COPY.account.entries.facts.team, narrow: true, width: "phone" },
-    { key: "received", label: COPY.admin.bewerbung.received, figures: true, hideOnPhone: true, width: "date" },
+    { key: "received", label: COPY.admin.bewerbung.received, hideOnPhone: true, width: "date" },
   ],
 };
 

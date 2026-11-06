@@ -203,7 +203,8 @@ const table = tv({
     // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
     // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
     // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“, a count with its mark's
-    // slots, a date ten characters, a phone number 20, a line of an address 35.
+    // slots, a date ten characters, a phone number 20, a line of an address 35. A date stands at the start in the body's
+    // face, never as `figures`, which would centre it and set it apart from every other date column.
     width: {
       count: { head: "min-w-12" },
       pair: { head: "min-w-16 max-lg:min-w-13" },
