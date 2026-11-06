@@ -21,11 +21,11 @@ doubleActionRequest();
 vi.doMock("@/core/config.ts", () => CONFIG);
 vi.doMock("@/features/teams/queries.ts", () => TEAMS);
 
-const { mailEinladungAction } = await import("./actions.ts");
+const { mailInvitationAction } = await import("./actions.ts");
 
 const SAISON_ID = "2627";
 const TEAM_ID = "a".repeat(24);
-const EINLADUNG_ID = "b".repeat(24);
+const INVITATION_ID = "b".repeat(24);
 
 const empfaenger = (email: string) => ({ rolle: "trainer", first_name: "Erika", email: email });
 
@@ -33,7 +33,7 @@ const teamsHolding = (kontakte: unknown) => () => ({
   teams: [{ id: TEAM_ID, name: "Ernst-Reuter-Schule", memberships: [{ saison_id: SAISON_ID, kontakte: kontakte }] }],
 });
 
-const press = () => mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID });
+const press = () => mailInvitationAction({ team_id: TEAM_ID, saison_id: SAISON_ID, invitation_id: INVITATION_ID });
 
 const sentence = (res: { success: boolean; message?: string; error?: string }): string => res.message ?? res.error ?? "";
 
@@ -44,13 +44,13 @@ beforeEach(() => {
 
 describe("what the single invite press answers", () => {
   it("names how many addresses the link is owed to, off the endpoint's own answer", async () => {
-    apiAnswer = () => ({ invitation_id: EINLADUNG_ID, recipient: [empfaenger("jonas@beispiel.de"), empfaenger("erika@beispiel.de")] });
+    apiAnswer = () => ({ invitation_id: INVITATION_ID, recipient: [empfaenger("jonas@beispiel.de"), empfaenger("erika@beispiel.de")] });
 
     const res = await press();
 
     expect(res.success).toBe(true);
     expect(sentence(res)).toBe("Der Link ist an alle 2 Adressen unterwegs.");
-    expect(calls.map((call): unknown => JSON.parse(call.body ?? "null"))).toStrictEqual([{ invitation_id: EINLADUNG_ID }]);
+    expect(calls.map((call): unknown => JSON.parse(call.body ?? "null"))).toStrictEqual([{ invitation_id: INVITATION_ID }]);
   });
 
   it("refuses a team holding no contact block before anything is owed", async () => {
@@ -63,7 +63,7 @@ describe("what the single invite press answers", () => {
   });
 
   it("refuses where nobody has confirmed a seat, the endpoint having owed nobody", async () => {
-    apiAnswer = () => ({ invitation_id: EINLADUNG_ID, recipient: [] });
+    apiAnswer = () => ({ invitation_id: INVITATION_ID, recipient: [] });
 
     const res = await press();
 

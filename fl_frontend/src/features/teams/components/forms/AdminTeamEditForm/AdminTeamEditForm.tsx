@@ -29,7 +29,7 @@ import { buildTeamBanners } from "./banners";
 import { describeSaisonTeamsFanOut } from "./fanOutNotes";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAustrittSection } from "./FormAustrittSection";
-import { FormEinladungSection } from "./FormEinladungSection";
+import { FormInvitationSection } from "./FormInvitationSection";
 import { FormKontakteLinkSection } from "./FormKontakteLinkSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
@@ -42,7 +42,7 @@ import type {
   FLTeamWithMemberships,
   FLTrikotFarbe,
 } from "@/core/generated/client/types";
-import type { TeamEinladungState } from "@/features/einladungen/types";
+import type { TeamInvitationState } from "@/features/invitations/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamDraftFields, TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
@@ -60,7 +60,7 @@ export function AdminTeamEditForm({
   gruppeLocked,
   gruppeOffer,
   swap,
-  einladung,
+  invitation,
   pageHeader,
 }: {
   team: FLTeamWithMemberships;
@@ -68,7 +68,7 @@ export function AdminTeamEditForm({
   saison: TeamSaisonMembership;
   today: string;
   /** `null` where the club holds no junction row for the season, which is where the page issues no read. */
-  einladung: TeamEinladungState | null;
+  invitation: TeamInvitationState | null;
   /** The page's answer to "may the group move": whether the club holds a fixture in this season. */
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
@@ -365,14 +365,14 @@ export function AdminTeamEditForm({
 
           {/* Under the contacts link, which is where the addresses this link is mailed to are
               edited, and above the Austritt panel, which has to close the page. */}
-          {storedMembership !== null && einladung !== null && (
-            <FormEinladungSection
+          {storedMembership !== null && invitation !== null && (
+            <FormInvitationSection
               teamId={team.id}
               saisonId={saison.saisonId}
               isMember
               isFinishedSaison={saison.saisonStatus === "past"}
-              einladung={einladung.einladung}
-              laeuft={einladung.laeuft}
+              invitation={invitation.invitation}
+              laeuft={invitation.laeuft}
             />
           )}
 

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
-import { EinladungLinkHolder } from "@/features/einladungen/components/EinladungLinkHolder";
-import { getEinladung } from "@/features/einladungen/queries";
+import { InvitationLinkHolder } from "@/features/invitations/components/InvitationLinkHolder";
+import { getInvitation } from "@/features/invitations/queries";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { buildGruppenSwapContext } from "@/features/saisons/utils";
@@ -14,7 +14,7 @@ import { buildGruppeOffer, isRetireable } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
-import type { TeamEinladungState } from "@/features/einladungen/types";
+import type { TeamInvitationState } from "@/features/invitations/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
@@ -64,20 +64,20 @@ async function AdminTeamEditContent({
   // counts them; the other two are the swap control's: `swap_saison_started` and `swap_spieltag_clash`.
   /* The invite's state joins the group rather than waiting behind it: nothing here depends on
      another's answer, and read after them it would add its own round trip to the page's wait. */
-  const [teamSpieleRes, playoffSpieleRes, gruppenSpieleRes, einladungRes] = await Promise.all([
+  const [teamSpieleRes, playoffSpieleRes, gruppenSpieleRes, invitationRes] = await Promise.all([
     membership === null ? Promise.resolve(null) : getAdminSpiele({ saison_id: selectedSaison.id, team_id: teamId, limit: 1 }),
     getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "playoffs" }),
     getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "gruppenphase" }),
     // Asked only for a club that holds the season's junction row: the endpoint answers
     // `invitation_team_not_entered` for one that does not, and a page cannot render a refusal it asked for.
-    membership === null ? Promise.resolve(null) : getEinladung(teamId, selectedSaison.id),
+    membership === null ? Promise.resolve(null) : getInvitation(teamId, selectedSaison.id),
   ]);
   // Whatever the season's status, because a `future` season is drawn before it is activated, so a
   // drawn one is the ordinary pre-activation state rather than an unreachable one (`entry_gruppe_locked`).
   const gruppeLocked = (teamSpieleRes?.spiele.length ?? 0) > 0;
 
-  const einladung: TeamEinladungState | null =
-    einladungRes === null ? null : { einladung: einladungRes.invitation, laeuft: einladungRes.running };
+  const invitation: TeamInvitationState | null =
+    invitationRes === null ? null : { invitation: invitationRes.invitation, laeuft: invitationRes.running };
 
   const saison: TeamSaisonMembership = {
     saisonId: selectedSaison.id,
@@ -121,7 +121,7 @@ async function AdminTeamEditContent({
   return (
     // OUTSIDE the key, which is the whole of what it is for: a save on any panel re-keys the view
     // below, and the minted link is the one value on this page no read can serve back.
-    <EinladungLinkHolder scope={`${teamId}:${selectedSaison.id}`}>
+    <InvitationLinkHolder scope={`${teamId}:${selectedSaison.id}`}>
       {/* Keyed by the state the drafts mirror. */}
       <AdminTeamEditView
         key={JSON.stringify({ team, saison, gruppeLocked })}
@@ -130,10 +130,10 @@ async function AdminTeamEditContent({
         gruppeLocked={gruppeLocked}
         gruppeOffer={gruppeOffer}
         swap={swap}
-        einladung={einladung}
+        invitation={invitation}
         isRetireable={isRetireable(saisonsRes.saisons, team.memberships)}
         today={getGermanTodayStr()}
       />
-    </EinladungLinkHolder>
+    </InvitationLinkHolder>
   );
 }

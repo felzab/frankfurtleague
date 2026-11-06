@@ -19,14 +19,14 @@ beforeEach(beginRenderPass);
 
 const { calls } = doubleApiAnswers(() => Promise.resolve({ saison_id: SAISON_ID, team_id: TEAM_ID, invitation: null, running: true }));
 
-const { getEinladung } = await import("./queries.ts");
+const { getInvitation } = await import("./queries.ts");
 
 const TEAM_ID = "a".repeat(24);
 const SAISON_ID = "2627";
 
 describe("the invite slice's reads", () => {
   it("addresses one team's invite by both ids in the path", async () => {
-    await getEinladung(TEAM_ID, SAISON_ID);
+    await getInvitation(TEAM_ID, SAISON_ID);
 
     expect(requestsOf(calls)).toStrictEqual([
       { endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/invitation`, method: "GET", body: undefined },
@@ -45,7 +45,7 @@ describe("one team's invite across a render pass", () => {
   it("goes to the backend once per team and season in one pass", async () => {
     const before = calls.length;
 
-    await Promise.all([getEinladung(TEAM_ID, SAISON_ID), getEinladung(TEAM_ID, SAISON_ID), getEinladung(OTHER_TEAM_ID, SAISON_ID)]);
+    await Promise.all([getInvitation(TEAM_ID, SAISON_ID), getInvitation(TEAM_ID, SAISON_ID), getInvitation(OTHER_TEAM_ID, SAISON_ID)]);
 
     expect(endpointsSince(before).sort()).toStrictEqual([
       `/teams/${TEAM_ID}/saisons/${SAISON_ID}/invitation`,
@@ -55,12 +55,12 @@ describe("one team's invite across a render pass", () => {
 
   /* 0 would be the cross-request leak `"use cache"` opens, reporting an open window after it shut. */
   it("is fetched again in the next pass, so no request is served another's copy", async () => {
-    await getEinladung(TEAM_ID, SAISON_ID);
+    await getInvitation(TEAM_ID, SAISON_ID);
     const before = calls.length;
 
     beginRenderPass();
-    await getEinladung(TEAM_ID, SAISON_ID);
-    await getEinladung(TEAM_ID, SAISON_ID);
+    await getInvitation(TEAM_ID, SAISON_ID);
+    await getInvitation(TEAM_ID, SAISON_ID);
 
     expect(endpointsSince(before)).toStrictEqual([`/teams/${TEAM_ID}/saisons/${SAISON_ID}/invitation`]);
   });

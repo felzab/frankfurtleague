@@ -5,7 +5,7 @@ import type { FLInvitationRow } from "@/core/generated/client/types";
  * on it**: the window's verdict is a judgement about today and belongs to no invite, which carries
  * no expiry date of its own.
  */
-export type TeamEinladungState = {
-  einladung: FLInvitationRow | null;
+export type TeamInvitationState = {
+  invitation: FLInvitationRow | null;
   laeuft: boolean;
 };

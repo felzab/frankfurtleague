@@ -9,7 +9,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
  * the season's and the junction's, and which press met one is nothing an administrator acts on
  * differently.
  */
-export function mapEinladungRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+export function mapInvitationRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {

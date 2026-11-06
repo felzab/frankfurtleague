@@ -14,8 +14,8 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { zustellungChip } from "@/features/bewerbungen/zustellLage";
-import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
-import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
+import { deleteInvitationAction, mailInvitationAction, postInvitationAction } from "@/features/invitations/actions";
+import { useInvitationLink } from "@/features/invitations/components/InvitationLinkHolder";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
 import { SAISON_ABSCHNITT } from "@/features/teams/constants";
 import { Leer } from "@/shared/components/ui/Angabe";
@@ -41,7 +41,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { REGISTRIERUNGSLINK_TITLE, reportLinkDispatch } from "@/shared/utils/linkDispatchToast";
 
 import type { FLInvitationRow } from "@/core/generated/client/types";
-import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
+import type { FreshInvitation } from "@/features/invitations/components/InvitationLinkHolder";
 import type { Key } from "@heroui/react/rac";
 
 /**
@@ -60,22 +60,22 @@ const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn vo
  * The place the first mint's control, the managing press and the new link's copy control share: whichever
  * stands first takes the focus once a write takes another away.
  */
-const EINLADUNG_PLACE = "einladung";
+const INVITATION_PLACE = "invitation";
 
 /** Which of the two writes the armed press performs, picked before arming rather than raced between two controls. */
 type Operation = "ersetzen" | "zurueckziehen";
 
 /**
  * The team's registration link for one season, on `POST`, `DELETE` and `GET
- * /teams/{team_id}/saisons/{saison_id}/einladung`. **Minting and mailing are two presses, and no
+ * /teams/{team_id}/saisons/{saison_id}/invitation`. **Minting and mailing are two presses, and no
  * contact seat reaches either**: both are an administrator's.
  */
-export function FormEinladungSection({
+export function FormInvitationSection({
   teamId,
   saisonId,
   isMember,
   isFinishedSaison,
-  einladung,
+  invitation,
   laeuft,
 }: {
   teamId: string;
@@ -84,13 +84,13 @@ export function FormEinladungSection({
   isMember: boolean;
   /** `saison_past`: a finished season hands out no further links, and the panel explains instead of offering. */
   isFinishedSaison: boolean;
-  einladung: FLInvitationRow | null;
+  invitation: FLInvitationRow | null;
   /** Whether the registration window is open today, which is the link's only expiry. */
   laeuft: boolean;
 }) {
   // Held outside this panel's own subtree, which the editor re-keys on every stored value a save
-  // moves (`fl_frontend/src/features/einladungen/components/EinladungLinkHolder.tsx`).
-  const { frisch, setFrisch } = useEinladungLink();
+  // moves (`fl_frontend/src/features/invitations/components/InvitationLinkHolder.tsx`).
+  const { fresh, setFrisch } = useInvitationLink();
   const linkHeadingId = useId();
   const [gewaehlt, setGewaehlt] = useState<Operation | null>(null);
   // Its own transition beside the shared hook, for the FIRST mint alone: that press destroys
@@ -110,7 +110,7 @@ export function FormEinladungSection({
   // shared place, so the landing is read at the press and handed in.
   const mint = async (landing: ReturnType<typeof focusAfterWrite>) => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
-    const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
+    const res = await postInvitationAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
     if (!res.success) {
       appToast.failure("Registrierungslink nicht angelegt", res.outcome === "unknown" ? { ...res, error: MINT_UNKLAR } : res);
@@ -121,14 +121,14 @@ export function FormEinladungSection({
     // Wrapped again: both callers run this inside a transition, and React leaves an update after an
     // `await` outside it.
     startTransition(() => {
-      setFrisch({ einladungId: res.einladung_id, token: res.token, link: res.link });
+      setFrisch({ invitationId: res.invitation_id, token: res.token, link: res.link });
       appToast.success("Registrierungslink angelegt", { description: res.message });
     });
   };
 
   const widerrufen = async (landing: ReturnType<typeof focusAfterWrite>) => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
-    const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
+    const res = await deleteInvitationAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
     if (!res.success) {
       appToast.failure("Link nicht zurückgezogen", res);
@@ -161,15 +161,15 @@ export function FormEinladungSection({
     });
   };
 
-  const versenden = (offen: FrischeEinladung) => {
+  const versenden = (offen: FreshInvitation) => {
     // It mails a bearer link to the club's seats.
     mailStepUp.confirmThen(true, () =>
       startMailing(async () => {
         // A rejected action may still have saved, and uncaught here it takes the page down with it.
-        const res = await mailEinladungAction({
+        const res = await mailInvitationAction({
           team_id: teamId,
           saison_id: saisonId,
-          einladung_id: offen.einladungId,
+          invitation_id: offen.invitationId,
         }).catch(rejectedWrite(router));
 
         if (!res.success) {
@@ -182,7 +182,7 @@ export function FormEinladungSection({
     );
   };
 
-  const kopieren = (offen: FrischeEinladung) => {
+  const kopieren = (offen: FreshInvitation) => {
     void copyTextToClipboard(offen.link).then((copied) =>
       copied
         ? appToast.success("Link kopiert", { description: "Der Link liegt in der Zwischenablage." })
@@ -190,7 +190,7 @@ export function FormEinladungSection({
     );
   };
 
-  const zustellung = einladung?.delivery ?? null;
+  const zustellung = invitation?.delivery ?? null;
   const versandText = zustellung === null ? <Leer>Noch nicht gesendet</Leer> : (zustellungChip(zustellung)?.label ?? "Gesendet");
 
   const restingLabel = gewaehlt === "zurueckziehen" ? "Link zurückziehen" : "Neuen Link anlegen";
@@ -199,7 +199,7 @@ export function FormEinladungSection({
   return (
     <section
       className={panel.root()}
-      {...focusSection("einladung")}>
+      {...focusSection("invitation")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -248,20 +248,20 @@ export function FormEinladungSection({
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Offener Link"
-                  value={einladung === null ? <Leer>Keiner</Leer> : `seit ${formatSpielDatum(einladung.created_at)}`}
+                  value={invitation === null ? <Leer>Keiner</Leer> : `seit ${formatSpielDatum(invitation.created_at)}`}
                 />
-                {einladung !== null && (
+                {invitation !== null && (
                   <ConfirmReadoutRow
                     label="Angelegt von"
                     value={
                       <VonOderGesperrt
-                        von={einladung.created_by}
-                        gesperrt={einladung.created_by_barred}
+                        von={invitation.created_by}
+                        gesperrt={invitation.created_by_barred}
                       />
                     }
                   />
                 )}
-                {einladung !== null && (
+                {invitation !== null && (
                   <ConfirmReadoutRow
                     label="Versand"
                     value={versandText}
@@ -270,7 +270,7 @@ export function FormEinladungSection({
               </dl>
             </div>
 
-            {frisch !== null && (
+            {fresh !== null && (
               <div className="flex w-full flex-col gap-y-2">
                 <h3
                   id={linkHeadingId}
@@ -283,7 +283,7 @@ export function FormEinladungSection({
                   readOnly
                   aria-labelledby={linkHeadingId}
                   rows={2}
-                  value={frisch.link}
+                  value={fresh.link}
                   className={`${FIELD_TEXTAREA_CLASSES} w-full break-all`}
                 />
                 {/* Beside the box rather than under the failed press: a reader whose browser refuses
@@ -297,8 +297,8 @@ export function FormEinladungSection({
                     type="button"
                     variant="secondary"
                     isDisabled={busy}
-                    {...focusSlot(EINLADUNG_PLACE)}
-                    onPress={() => kopieren(frisch)}
+                    {...focusSlot(INVITATION_PLACE)}
+                    onPress={() => kopieren(fresh)}
                     className={`${formButton({ intent: "cancel", stacks: true })} gap-x-2`}>
                     <Copy
                       className="size-4.5"
@@ -312,7 +312,7 @@ export function FormEinladungSection({
                     variant="primary"
                     isPending={isMailing || mailStepUp.isPrompting}
                     isDisabled={!isMailing && busy}
-                    onPress={() => versenden(frisch)}
+                    onPress={() => versenden(fresh)}
                     className={`${formButton({ stacks: true })} gap-x-2`}>
                     <Envelope
                       className="size-4.5"
@@ -325,13 +325,13 @@ export function FormEinladungSection({
               </div>
             )}
 
-            {einladung === null ? (
+            {invitation === null ? (
               <Button
                 type="button"
                 variant="primary"
                 isPending={isMinting}
                 isDisabled={!isMinting && (isFinishedSaison || busy)}
-                {...focusSlot(EINLADUNG_PLACE)}
+                {...focusSlot(INVITATION_PLACE)}
                 onPress={() => {
                   const landing = focusAfterWrite();
                   startMinting(() => mint(landing));
@@ -390,7 +390,7 @@ export function FormEinladungSection({
                 )}
 
                 <ConfirmActionRow confirm={twoPress}>
-                  <FocusSlot name={EINLADUNG_PLACE}>
+                  <FocusSlot name={INVITATION_PLACE}>
                     <ConfirmPressButton
                       confirm={twoPress}
                       reason={

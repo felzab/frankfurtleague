@@ -14,7 +14,7 @@ import { useReactivation } from "@/shared/hooks/useReactivation";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import type { FLTeamWithMemberships } from "@/core/generated/client/types";
-import type { TeamEinladungState } from "@/features/einladungen/types";
+import type { TeamInvitationState } from "@/features/invitations/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 
@@ -28,7 +28,7 @@ export function AdminTeamEditView({
   gruppeLocked,
   gruppeOffer,
   swap,
-  einladung,
+  invitation,
   isRetireable,
   today,
 }: {
@@ -40,7 +40,7 @@ export function AdminTeamEditView({
   /** The selected season's swap state, for the club editor's entry point into it. */
   swap: SaisonGruppenSwapContext;
   /** `null` where the club holds no junction row for the season, which is where the page issues no read. */
-  einladung: TeamEinladungState | null;
+  invitation: TeamInvitationState | null;
   /** Over EVERY season the club is in, never the selected one alone: `fl_frontend/src/features/teams/utils.ts :: isRetireable`. */
   isRetireable: boolean;
   today: string;
@@ -60,7 +60,7 @@ export function AdminTeamEditView({
         gruppeLocked={gruppeLocked}
         gruppeOffer={gruppeOffer}
         swap={swap}
-        einladung={einladung}
+        invitation={invitation}
         pageHeader={{
           title: team.name,
           // Retirement outranks the Kürzel: the Kürzel is a field of the form below, the day is nowhere else.

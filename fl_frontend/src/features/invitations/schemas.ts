@@ -8,12 +8,12 @@ import { CustomObjectIdStringSchema } from "@/shared/schemas";
  * Which team's invite, in a season. Both ids travel in the PATH on the wire; they are carried here
  * because the action has to know whose invite it is minting.
  */
-export const FLEinladungKeyPayloadSchema = z.object({
+export const InvitationKeySchema = z.object({
   team_id: CustomObjectIdStringSchema,
   saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
 });
 
 /** The live invite the panel shows, so a link replaced or withdrawn since is refused rather than another one mailed. */
-export const EinladungMailenEingabeSchema = FLEinladungKeyPayloadSchema.extend({
-  einladung_id: CustomObjectIdStringSchema,
+export const InvitationMailSchema = InvitationKeySchema.extend({
+  invitation_id: CustomObjectIdStringSchema,
 });

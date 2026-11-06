@@ -10,11 +10,11 @@ import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/uti
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { adressenSatz } from "./meldungen";
-import { deleteEinladung, mailEinladung, postEinladung } from "./mutations";
-import { getEinladung } from "./queries";
-import { mapEinladungRefusal } from "./refusals";
-import { EinladungMailenEingabeSchema, FLEinladungKeyPayloadSchema } from "./schemas";
+import { deleteInvitation, mailInvitation, postInvitation } from "./mutations";
+import { getInvitation } from "./queries";
+import { mapInvitationRefusal } from "./refusals";
+import { InvitationKeySchema, InvitationMailSchema } from "./schemas";
+import { addressSentence } from "./sentences";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { z } from "zod";
@@ -24,11 +24,11 @@ import type { z } from "zod";
  * value is answered once and stored nowhere**, so the panel showing it holds the only copy an
  * administrator will ever see.
  */
-export async function postEinladungAction(
-  rawPayload: z.input<typeof FLEinladungKeyPayloadSchema>,
-): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
-  return runAdminMutation("postEinladungAction", async (session) => {
-    const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
+export async function postInvitationAction(
+  rawPayload: z.input<typeof InvitationKeySchema>,
+): Promise<ActionResult<{ invitation_id: string; token: string; link: string }>> {
+  return runAdminMutation("postInvitationAction", async (session) => {
+    const validated = InvitationKeySchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
@@ -36,22 +36,22 @@ export async function postEinladungAction(
 
     // A mint voiding a standing link is a step-up write and the first mint is not, so a read decides; made
     // only for a session past the window, the one it can refuse.
-    const standing = isFreshlySignedIn(session) ? null : (await getEinladung(validated.data.team_id, validated.data.saison_id)).invitation;
+    const standing = isFreshlySignedIn(session) ? null : (await getInvitation(validated.data.team_id, validated.data.saison_id)).invitation;
     const unconfirmed = standing === null ? null : refuseUnconfirmed(session);
     if (unconfirmed !== null) return unconfirmed;
 
     let mintOperation;
     try {
-      mintOperation = await postEinladung(validated.data);
+      mintOperation = await postInvitation(validated.data);
     } catch (error) {
-      const refusal = mapEinladungRefusal(error);
+      const refusal = mapInvitationRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
 
     return {
       success: true,
-      einladung_id: mintOperation.invitation_id,
+      invitation_id: mintOperation.invitation_id,
       token: mintOperation.token,
       // Spelled here and never in the panel: `frontend_config.AUTH_URL` is server-only, and a link
       // built in the browser would carry whichever host the page was opened on.
@@ -66,9 +66,9 @@ export async function postEinladungAction(
  * shown for copying first, and this is what puts it in an inbox. Each mail mints a link of its own when it leaves, so
  * the copied one stays valid beside them.
  */
-export async function mailEinladungAction(rawPayload: z.input<typeof EinladungMailenEingabeSchema>): Promise<ActionResult> {
-  return runAdminMutation("mailEinladungAction", { stepUp: true }, async () => {
-    const validated = EinladungMailenEingabeSchema.safeParse(rawPayload);
+export async function mailInvitationAction(rawPayload: z.input<typeof InvitationMailSchema>): Promise<ActionResult> {
+  return runAdminMutation("mailInvitationAction", { stepUp: true }, async () => {
+    const validated = InvitationMailSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
@@ -93,7 +93,7 @@ export async function mailEinladungAction(rawPayload: z.input<typeof EinladungMa
 
     let versandOperation;
     try {
-      versandOperation = await mailEinladung(validated.data);
+      versandOperation = await mailInvitation(validated.data);
     } catch (error) {
       // A panel left open while somebody else replaced or withdrew the link names a row that opens nothing.
       if (isRecordMissing(error)) {
@@ -119,20 +119,20 @@ export async function mailEinladungAction(rawPayload: z.input<typeof EinladungMa
       };
     }
 
-    return { success: true, message: adressenSatz(gesamt, gesamt) };
+    return { success: true, message: addressSentence(gesamt, gesamt) };
   });
 }
 
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
-export async function deleteEinladungAction(rawPayload: z.input<typeof FLEinladungKeyPayloadSchema>): Promise<ActionResult> {
-  return runAdminMutation("deleteEinladungAction", { stepUp: true }, async () => {
-    const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
+export async function deleteInvitationAction(rawPayload: z.input<typeof InvitationKeySchema>): Promise<ActionResult> {
+  return runAdminMutation("deleteInvitationAction", { stepUp: true }, async () => {
+    const validated = InvitationKeySchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    await deleteEinladung(validated.data);
+    await deleteInvitation(validated.data);
 
     return { success: true, message: "Der Link öffnet ab sofort nichts mehr." };
   });

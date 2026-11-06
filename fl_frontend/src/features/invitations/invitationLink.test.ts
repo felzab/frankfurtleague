@@ -17,11 +17,11 @@ doubleActionRequest();
 const mint = doubleApiAnswers(() => Promise.resolve({}));
 /** Answers the write a case presses with `next`. */
 const answerTheWrite = (next: () => Promise<unknown>): void => mint.answerWith(() => next());
-const { postEinladungAction } = await import("./actions.ts");
+const { postInvitationAction } = await import("./actions.ts");
 
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
 const SAISON_ID = "2627";
-const EINLADUNG_ID = "b".repeat(24);
+const INVITATION_ID = "b".repeat(24);
 
 describe("the invite link the mail carries", () => {
   it("puts the token on the origin it was handed, under the registration page's path", () => {
@@ -41,14 +41,14 @@ describe("the origin each press mints its invite link on", () => {
       Promise.resolve({
         saison_id: SAISON_ID,
         team_id: TEAM_ID,
-        einladung_id: EINLADUNG_ID,
+        invitation_id: INVITATION_ID,
         token: "token-mint",
         erstellt_am: "2026-09-01",
         erstellt_von: "vorstand@example.org",
       }),
     );
 
-    const result = await postEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID });
+    const result = await postInvitationAction({ team_id: TEAM_ID, saison_id: SAISON_ID });
 
     expect(result.success ? result.link : result.error).toBe(`${ORIGIN}/registrierung?token=token-mint`);
   });

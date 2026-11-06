@@ -882,7 +882,7 @@
       "count": 2
     }
   },
-  "src/features/einladungen/actions.ts": {
+  "src/features/invitations/actions.ts": {
     "fl/server-action": {
       "count": 3
     },
@@ -890,7 +890,7 @@
       "count": 3
     }
   },
-  "src/features/einladungen/refusals.ts": {
+  "src/features/invitations/refusals.ts": {
     "no-restricted-syntax": {
       "count": 2
     }
@@ -2076,7 +2076,7 @@
       "count": 4
     }
   },
-  "src/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
+  "src/features/teams/components/forms/AdminTeamEditForm/FormInvitationSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 21
     },
