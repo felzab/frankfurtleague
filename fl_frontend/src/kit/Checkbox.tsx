@@ -9,6 +9,7 @@ import { messageLine, toggleBox, toggleField, toggleLine, toggleRow } from "./fi
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { placeholderBar, PlaceholderSentence } from "./Skeleton";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 
@@ -65,8 +66,10 @@ export function Checkbox({
   defaultSelected?: boolean;
   onChange?: (isSelected: boolean) => void;
 }) {
+  const root = useEarlyEdit();
   return (
     <CheckboxField
+      ref={root}
       className={toggleField()}
       aria-describedby={described["aria-describedby"]}
       name={name}

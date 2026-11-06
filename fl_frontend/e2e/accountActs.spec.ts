@@ -73,8 +73,7 @@ test("a person changes their address: the address on file confirms first, then t
   await page.goto("/account/signin");
   const before = await filedMessages();
   const field = page.getByLabel("Neue E-Mail-Adresse");
-  // Tapped first, as `e2e/support/signIn.ts :: sendFromHere` taps its field: a bare `fill` before WebKit has hydrated
-  // the field leaves React's state empty, and the form refuses the press as a missing address.
+  // Tapped first, as a person reaches the field and `e2e/support/signIn.ts :: sendFromHere` taps its own.
   await field.click();
   await field.fill(newAddress);
   // The start's own end, before any mail is waited for: the box stands as the pending change, which a refusal never

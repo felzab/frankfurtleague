@@ -20,5 +20,14 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   table (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`), which moves the token into a
   cookie before the page renders. Turnstile's script hands the whole address to Cloudflare's frame,
   and a sign-in's return address travels through every page of the sign-in.
+- What a person did to a server-drawn field before the page hydrated is never lost. A kit field on a
+  native `input` or `textarea` puts `fl_frontend/src/kit/useEarlyEdit.ts :: useEarlyEdit`'s ref on its
+  root and takes a row in `fl_frontend/src/kit/useEarlyEdit.test.tsx`; without it, React's next render
+  writes its state over the edit and `tsc`, the build and every field's own tests pass. The lint's
+  list of React Aria's field modules names the files that have done so. A control with no native
+  value holds nothing to lose only if the server's markup takes no edit: a `contenteditable` one
+  stands `inert` until the page's code runs (`fl_frontend/src/kit/dateParts.tsx :: Segments`), since
+  a changed text fails hydration and discards its whole boundary. Pages call the kit: React Aria and
+  a raw control are banned outside it. The old HeroUI pages keep the loss until their session rebuilds them.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.

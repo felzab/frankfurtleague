@@ -828,11 +828,9 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The six code boxes are each an input, so the focus file's field rule draws the active box's edge;
-      // the table block is the one that writes a table; the kit's link writes the one plain anchor, its
+      // The table block is the one that writes a table; the kit's link writes the one plain anchor, its
       // full-document load, which neither Next's link nor React Aria's under the app's router makes.
       {
-        input: { allow: ["src/kit/CodeField.tsx"] },
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
         tr: TABLE_BLOCK,
@@ -889,6 +887,28 @@ const DESIGN_BANS = [
     ),
     PRODUCTION,
     { allow: ["src/kit/EditorPage.tsx"] },
+  ),
+  // A field on a native control loses what a person did before hydration unless its root holds `useEarlyEdit`, so the
+  // file of a new one joins this list having done that (`.claude/rules/frontend.md`), and its field joins the hook's test.
+  kitImport(
+    {
+      // The package's root is in the list too, since it exports every one of them.
+      regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorField|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
+      message:
+        "A field on a native control holds `useEarlyEdit` on its root and a row of `src/kit/useEarlyEdit.test.tsx`, then joins this list.",
+    },
+    KIT,
+    {
+      allow: [
+        "src/kit/Checkbox.tsx",
+        "src/kit/CodeField.tsx",
+        "src/kit/ComboBox.tsx",
+        "src/kit/RadioGroup.tsx",
+        "src/kit/SearchField.tsx",
+        "src/kit/Switch.tsx",
+        "src/kit/TextField.tsx",
+      ],
+    },
   ),
   // React Aria, the icon set and Next's link only inside the kit.
   ...[

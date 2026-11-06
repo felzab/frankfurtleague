@@ -152,8 +152,6 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           // would mail a second code.
           if (send.isPending) return;
           setPasskeyError(null);
-          // A press before hydration is the one place the address is kept: hydration leaves this state empty.
-          setEmail(address);
           send.submit(address);
         },
       }}

@@ -8,6 +8,7 @@ import { FieldLabel, MessageLine } from "./FieldParts";
 import { choiceCard, fieldLabel, fieldRoot, messageLine, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { placeholderBar, PlaceholderSentence } from "./Skeleton";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Choice } from "./FieldParts";
@@ -89,8 +90,10 @@ export function RadioGroup({
   defaultValue?: string | null;
   onChange?: (id: string) => void;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
+  const root = useEarlyEdit();
   return (
     <AriaRadioGroup
+      ref={root}
       className={fieldRoot()}
       aria-describedby={describedBy}
       name={name}

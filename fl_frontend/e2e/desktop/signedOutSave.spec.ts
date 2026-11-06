@@ -28,7 +28,7 @@ test("a save the proxy finds signed out lands on the sign-in page", async ({ pag
   await context.clearCookies();
 
   // Tapped first, as `pressSend` taps the address field: React hydrates what a press lands on during the press
-  // itself, and a bare `fill` into a field not yet hydrated is lost (`../support/signIn.ts`).
+  // itself, so the bar's save below finds its handler (`../support/signIn.ts`).
   await rent.click();
   await rent.fill("45");
   // Still the editor: nothing but the save below may be what meets the proxy signed out.

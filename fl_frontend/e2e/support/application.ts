@@ -43,8 +43,7 @@ export function personOf(school: string, seat: Seat): Person {
 }
 
 /**
- * Types into a box. Tapped first, as `./signIn.ts :: sendFromHere` taps its field: a bare `fill` before React has hydrated
- * the box leaves its state empty.
+ * Types into a box. Tapped first, as a person reaches it and `./signIn.ts :: sendFromHere` taps its field.
  */
 export async function typeInto(box: Locator, value: string): Promise<void> {
   await box.click();

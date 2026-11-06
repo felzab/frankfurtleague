@@ -12,6 +12,7 @@ import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
 import type { Option } from "./OptionList";
@@ -68,8 +69,10 @@ export function ComboBox({
   const [chosen, setChosen] = useState(defaultValue ?? null);
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
+  const root = useEarlyEdit();
   return (
     <AriaComboBox
+      ref={root}
       className={fieldRoot()}
       name={name}
       // The form receives the chosen record's id, not the text typed to find it, unless the text is the answer.

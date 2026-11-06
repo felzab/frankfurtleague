@@ -63,15 +63,32 @@ export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolea
 }
 
 /**
- * A kit form's submit, handing `send` the fields as the press left them. Unheld, a press before hydration is the
- * browser's own, a GET carrying every field in the URL. A function `action` has React's server output keep that press
- * and replay it once the form hydrates, its `FormData` by then the one copy of what was typed. A hydrated press stays
- * on `onSubmit`, whose `preventDefault` spares it the form reset that follows `action` and would empty a React Aria
- * field. A replayed press takes that reset, so a field that must outlast it names its value as its `defaultValue` too.
+ * Holds a press before hydration. Unheld, it is the browser's own, a GET carrying every field in the URL. A function
+ * `action` has React's server output keep the press and replay it once the form hydrates, after each field has replayed
+ * its change (`./useEarlyEdit.ts`). React replays every press a slow page gathered in one task, each through the same
+ * render's function, whose busy state knows none of them, so they run as one, the person's last. React resets a form
+ * after such a press, which would take each field back to its first value, so the reset is refused in the capture
+ * phase, ahead of React Aria's listener on the form, which heeds it.
+ */
+export function holdPress(action: (formData: FormData) => void) {
+  let held: FormData | undefined;
+  return {
+    action: (formData: FormData) => {
+      if (held === undefined) queueMicrotask(() => action(held ?? formData));
+      held = formData;
+    },
+    onResetCapture: (event: FormEvent<HTMLFormElement>) => event.preventDefault(),
+  };
+}
+
+/**
+ * A kit form's submit, handing `send` the fields as the press left them, one press or a held one (`holdPress`), which
+ * applies once, to state and `FormData` alike. A hydrated press stays on `onSubmit`, whose `preventDefault` keeps it
+ * out of `action`.
  */
 export function formSend(send: (formData: FormData) => void) {
   return {
-    action: send,
+    ...holdPress(send),
     onSubmit: (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       send(new FormData(event.currentTarget));

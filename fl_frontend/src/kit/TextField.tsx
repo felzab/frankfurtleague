@@ -10,6 +10,7 @@ import { COPY, textOf } from "@/core/copy";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
+import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
@@ -145,9 +146,11 @@ export function TextField(props: TextFieldProps) {
     );
   const unit = fieldUnit();
   const unitId = useId();
+  const root = useEarlyEdit();
 
   return (
     <AriaTextField
+      ref={root}
       className={fieldRoot()}
       aria-label={labelHidden ? textOf(label) : undefined}
       name={props.name}
