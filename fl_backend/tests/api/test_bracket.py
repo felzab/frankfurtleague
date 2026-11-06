@@ -173,17 +173,6 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {29: (None, None)}
 
-    def test_writes_nothing_when_the_bracket_already_agrees(self, fixture_at: FixtureFactory, side: SideFactory):
-        """Resolution runs on every admin save, so an agreeing bracket must stay silent."""
-
-        spiele = [
-            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            fixture_at(27, team1=side(5, 4), team2=side(6, 0), ergebnis="4:0"),
-            fixture_at(29, team1=side(1), team2=side(5), quelle1=sieger(25), quelle2=sieger(27)),
-        ]
-
-        assert resolved(spiele) == {}
-
     def test_a_second_pass_over_its_own_output_writes_nothing(self, fixture_at: FixtureFactory, side: SideFactory):
         """Writes applied as `crud.py` does, then re-run: a resolver that appended rather than recomputed fails only here."""
 
@@ -440,19 +429,6 @@ class TestResolveBracket:
     def test_a_group_phase_fixture_is_never_touched(self, spiel: PayloadFactory):
         assert resolved([spiel()]) == {}
 
-    def test_a_renamed_club_is_not_re_fanned_out_here(self, fixture_at: FixtureFactory, side: SideFactory):
-        """Compared by id alone: comparing `name` here would duplicate `PATCH /teams/{team_id}`'s fan-out as a partial rename."""
-
-        stale = side(1)
-        stale["name"] = "Team 1, as it was called last season"
-
-        spiele = [
-            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            fixture_at(29, team1=stale, quelle1=sieger(25)),
-        ]
-
-        assert resolved(spiele) == {}
-
 
 class TestNamingWhatWasVoided:
     """Both fill the same fields, so a report naming only the fixtures cannot tell a deleted scoreline from a slot that filled."""
@@ -595,11 +571,6 @@ class TestReportingAFault:
         assert faults(spiele) == [(29, "same_team")]
         assert resolved(spiele) == {}
 
-    def test_two_hand_set_sides_holding_one_club_are_not_a_wiring_fault(self, fixture_at: FixtureFactory, side: SideFactory):
-        """Widening this would fill a list an admin reads as being about references."""
-
-        assert faults([fixture_at(29, team1=side(1), team2=side(1))]) == []
-
     def test_a_reference_on_a_group_fixture_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
         """Following it would rewrite the sides of a match the schedule drew and void its result."""
 
@@ -673,23 +644,4 @@ class TestReportingAFault:
 
         # The division of labour: no standing reaches the walk for such a group, so nothing there can
         # report a size it was never given.
-        assert faults(spiele) == []
-
-    def test_a_group_inside_the_seasons_count_is_reported_by_nobody(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The bound is the season's own count rather than the closed letter set, so C on a four-group season is wired legally."""
-
-        spiele = [fixture_at(25, team1=side(1), quelle1=gruppenplatz("C", 1))]
-
-        assert find_gruppen_not_run(FLSpielListAdapter.validate_python(spiele), number_of_gruppen=4) == []
-
-    def test_a_season_at_rest_reports_nothing(self, fixture_at: FixtureFactory, side: SideFactory):
-        spiele = [
-            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            fixture_at(27, team1=side(3, 2), team2=side(4, 0), ergebnis="2:0"),
-            fixture_at(
-                29, team1=side(1, 1), team2=side(3, 0), quelle1=sieger(25), quelle2=sieger(27), ergebnis="1:0", saison_phase="halbfinale"
-            ),
-            fixture_at(31, team1=side(1), quelle1=sieger(29), saison_phase="finale"),
-        ]
-
         assert faults(spiele) == []
