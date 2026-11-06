@@ -206,7 +206,18 @@
    its every class on each bar. Its first property sorts it ahead of the single-property utilities, so a bar's own size,
    corners or fill, set beside it, win. */
 @utility skeleton-bar {
-  @apply relative block shrink-0 overflow-hidden rounded-md bg-bg-hover after:absolute after:inset-0 after:animate-[kit-shimmer_2s_linear_infinite] after:bg-linear-to-r after:from-transparent after:via-[rgb(255_255_255/0.55)] after:to-transparent dark:after:via-[rgb(255_255_255/0.09)];
+  @apply relative block shrink-0 overflow-hidden rounded-md bg-bg-hover;
+
+  &::after {
+    @apply absolute inset-0 animate-[kit-shimmer_2s_linear_infinite] bg-linear-to-r from-transparent via-[rgb(255_255_255/0.55)] to-transparent;
+    content: "";
+  }
+
+  @variant dark {
+    &::after {
+      @apply via-[rgb(255_255_255/0.09)];
+    }
+  }
 }
 
 /* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen

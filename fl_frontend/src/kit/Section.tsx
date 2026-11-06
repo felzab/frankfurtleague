@@ -60,7 +60,7 @@ export const boxHead = tv({
  * One flat row of an editor's danger box: its name and its consequence at the left, its button at the right, parted
  * from the row above by the hairline every stacked part takes.
  */
-export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
+const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
 
 /**
  * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
