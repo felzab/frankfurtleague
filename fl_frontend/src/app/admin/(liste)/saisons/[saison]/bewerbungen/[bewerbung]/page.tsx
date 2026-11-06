@@ -11,6 +11,7 @@ import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
+import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -18,7 +19,7 @@ import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { AcceptFields } from "./AcceptFields";
 import { AcceptDialog, DeclineDialog } from "./DecisionDialogs";
-import { SeatActs } from "./SeatActs";
+import { sendSeatLink, writeSeat } from "./writeSeat";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLBewerbung, FLBewerbungSchule, FLBewerbungSingleResponse } from "@/core/generated/client/types";
@@ -170,13 +171,12 @@ function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
       ? {
           acts: (
             <SeatActs
-              id={bewerbung.id}
-              version={bewerbung.version}
-              seat={seat}
               rollen={rollen}
               person={person}
-              sendable={state === "open" || state === "expired"}
               rules={SEAT_RULES}
+              write={writeSeat}
+              carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
+              link={state === "open" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null}
             />
           ),
         }

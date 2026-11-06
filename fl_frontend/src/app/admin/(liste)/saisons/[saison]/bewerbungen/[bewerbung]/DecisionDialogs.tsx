@@ -1,5 +1,3 @@
-"use client";
-
 import { Button } from "@/kit/Button";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
@@ -9,7 +7,6 @@ import { COPY } from "@/core/copy";
 
 import { acceptBewerbung, declineBewerbung } from "./decideBewerbung";
 
-import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
 
 const OBJECT = COPY.bewerbung.object;
@@ -25,16 +22,12 @@ type Decided = { id: string; version: number };
  * mails.
  */
 export function AcceptDialog({ id, version, children }: Decided & { children: ReactNode }) {
-  const accept = (form: FormData): Promise<ActionAnswer> => {
-    form.set("id", id);
-    form.set("version", String(version));
-    return acceptBewerbung(form);
-  };
   return (
     <Dialog
       title={COPY.shared.withObject(OBJECT, "accept")}
       act={{ verb: "accept" }}
-      action={accept}
+      action={acceptBewerbung}
+      carry={{ id, version: String(version) }}
       trigger={
         <Button
           variant="primary"
@@ -49,16 +42,12 @@ export function AcceptDialog({ id, version, children }: Decided & { children: Re
 
 /** „Ablehnen“ beside it: the reason, which the mail hands over as typed, and whom it mails. */
 export function DeclineDialog({ id, version, required, max }: Decided & { required: boolean; max: number }) {
-  const decline = (form: FormData): Promise<ActionAnswer> => {
-    form.set("id", id);
-    form.set("version", String(version));
-    return declineBewerbung(form);
-  };
   return (
     <Dialog
       title={COPY.shared.withObject(OBJECT, "decline")}
       act={{ verb: "decline" }}
-      action={decline}
+      action={declineBewerbung}
+      carry={{ id, version: String(version) }}
       trigger={
         <Button
           variant="secondary"
