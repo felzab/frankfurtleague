@@ -8,6 +8,7 @@ import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
 import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
 import { statusLine } from "./fieldStyles";
 import { HelpPopover } from "./HelpPopover";
+import { ScoreRowsPlaceholder } from "./ScoreRows";
 import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -64,16 +65,18 @@ export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 
 
 /**
  * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
- * sets them, `FieldRows`' rows of one kind at their width class, a subgroup's name over the rows after it,
- * an act of the section (`SectionAct`) by its label, its status line under it, or the placeholder of whatever else the
- * section holds, such as its facts' or a table's.
+ * sets them, `FieldRows`' rows of one kind at their width class, a match's score, a subgroup's name over the rows
+ * after it, an act of the section (`SectionAct`) by its label, its status line under it, or the placeholder of whatever
+ * else the section holds, such as its facts' or a table's.
  */
-export type FieldRow = "field" | "pair" | "subhead" | { rows: 2 | 3; width: "C2" | "C10" } | { act: Copy } | ReactElement;
+export type FieldRow =
+  "field" | "pair" | "subhead" | "score" | { rows: 2 | 3; width: "C2" | "C10" } | { act: Copy } | ReactElement;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
   if (isValidElement(row)) return row;
   if (row === "pair") return <FieldPairPlaceholder />;
   if (row === "field") return <FieldPlaceholder width="W3" />;
+  if (row === "score") return <ScoreRowsPlaceholder />;
   if (row === "subhead")
     return (
       <PlaceholderLine

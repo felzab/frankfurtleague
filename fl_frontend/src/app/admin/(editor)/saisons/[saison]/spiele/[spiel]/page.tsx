@@ -92,7 +92,10 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 export default function SpielEditorPage({ params }: Props) {
   return (
     <EditorShell
-      wait={{ lead: true, sections: [["pair", "pair", "pair"], ["field", "pair"], ["field"], ["field"], ["field", "field"]] }}
+      wait={{
+        lead: true,
+        sections: [["pair", "pair", "pair"], ["field", "score"], ["field"], ["field"], ["field", "field"]],
+      }}
       editor={readEditor(params)}
     />
   );
