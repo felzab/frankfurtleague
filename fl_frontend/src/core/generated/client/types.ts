@@ -495,7 +495,6 @@ export interface FLAccountSpielerEinwilligung {
   evidence_state: FLEinwilligungState;
   /** @minLength 1 */
   first_name: string;
-  givable: boolean;
   last_name: string | null;
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
@@ -3869,10 +3868,11 @@ export interface FLSaisonBewerbungPayload {
 }
 
 /**
- * When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
+ * When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.
  *
  * No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
- * saison_nimmt_registrierungen_an`); `open` pauses the link alone. Its own model rather than an alias of
+ * saison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee
+ * (`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of
  * `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
  */
 export interface FLSaisonRegistrierung {

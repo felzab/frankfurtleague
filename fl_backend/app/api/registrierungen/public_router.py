@@ -109,6 +109,18 @@ WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 # this exists for. The INVITE authorises instead.
 
 
+async def _club_departed(
+    *, saison_teams_collection: ReadCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None = None
+) -> bool:
+    """Whether this registration's club has left the season, on the record's presence as `find_team_departed_refusal` reads it."""
+
+    junction_raw = await saison_teams_collection.find_one(
+        {"saison_id": registrierung_raw["saison_id"], "team_id": registrierung_raw["team_id"]}, JUNCTION_PROJECTION, session=session
+    )
+
+    return (junction_raw or {}).get("austritt") is not None
+
+
 async def _open_invitation(*, invitations_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
     """The live invite a presented link opens, or a refusal.
 
@@ -373,6 +385,7 @@ async def get_confirmation_view(
     view_data: Annotated[FLTokenPayload, Body()],
     registrierungen_collection: RegistrierungenReadCollection,
     teams_collection: TeamsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
     spieler_collection: SpielerReadCollection,
     ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
@@ -380,8 +393,8 @@ async def get_confirmation_view(
     """What the confirmation page renders for the registration this token opens, and nothing of the pupil.
 
     A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
-    and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
-    (`link_invalid`).
+    a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+    pupil's page; only a token no registration holds is refused (`link_invalid`).
     """
 
     token_hash = hash_token(view_data.token)
@@ -402,9 +415,10 @@ async def get_confirmation_view(
     page = page_of(registrierung_raw=raw, person_raw=person)
 
     barred = await barred_addresses(ban_list, [str(raw.get("email") or "")])
+    departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
 
     return FLRegistrierungConfirmationViewResponse(
-        state=zustand_of(registrierung_raw=raw, today=today, barred=bool(barred)),
+        state=zustand_of(registrierung_raw=raw, departed=departed, today=today, barred=bool(barred)),
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
@@ -422,6 +436,7 @@ async def get_confirmation_view(
 async def post_confirmation(
     answer_data: Annotated[FLRegistrierungConfirmationPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
     ban_list: BanListLookup,
     db: DBClient,
@@ -430,8 +445,8 @@ async def post_confirmation(
 ) -> FLRegistrierungConfirmationResponse:
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
 
-    Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `media_age`,
-    `link_barred` and `registrierung_choices_unsuitable`.
+    Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
+    `confirmation_exists`, `confirmation_age`, `media_age`, `link_barred` and `registrierung_choices_unsuitable`.
     """
 
     token_hash = hash_token(answer_data.token)
@@ -451,7 +466,8 @@ async def post_confirmation(
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
 
-        refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), today=today))
+        departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
+        refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         # In-session, so a person confirmed, erased or re-dated since the view was read moves the page and
         # the date this press is judged against, and the page it showed is told to reload rather than

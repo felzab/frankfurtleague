@@ -54,7 +54,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             scope: spieler.einwilligung.scope,
             media: spieler.einwilligung.media,
             evidence: spieler.evidence_state,
-            givable: spieler.givable,
+            givable: true,
             mediaFrom: mediaFrom(spieler.media_offered, spieler.media_minimum_age),
           },
         ];

@@ -300,11 +300,13 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "_id": 0,
 }
 
-# Narrower than the view's: the press judges the link, the stamp, the address the ban list is asked
-# of and the name its page is resolved by, and names no team.
+# Narrower than the view's: the press judges the link, the stamp, the club's row, the address the ban
+# list is asked of and the name its page is resolved by, and names no team.
 BESTAETIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
     "confirmation.deadline": 1,
     "status": 1,
+    "saison_id": 1,
+    "team_id": 1,
     "einwilligung.confirmed_at": 1,
     "email": 1,
     "first_name": 1,
@@ -316,10 +318,11 @@ def deadline_of(confirmation: Any) -> Any:
     return confirmation.get("deadline") if isinstance(confirmation, Mapping) else None
 
 
-def link_is_over(*, confirmation: Any, status: Any, today: str) -> bool:
-    """Whether the link is over: the registration was decided, or its deadline has passed."""
+def link_is_over(*, confirmation: Any, status: Any, departed: bool, today: str) -> bool:
+    """Whether the link is over: the registration was decided, its club has left the season, or its deadline has passed."""
 
-    if status != SUBMITTED:
+    # A departed club takes no one in, so a link still asking would collect an answer nobody can admit.
+    if status != SUBMITTED or departed:
         return True
 
     # No readable deadline is OVER rather than running: nothing about such a block can say it runs.
@@ -330,7 +333,7 @@ def link_is_over(*, confirmation: Any, status: Any, today: str) -> bool:
     return not isinstance(deadline, str) or deadline < today
 
 
-def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str, barred: bool) -> FLConfirmationState:
+def zustand_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str, barred: bool) -> FLConfirmationState:
     """What a reopened link shows: the ban first, then a stamp over the deadline.
 
     A pupil who answered on the last valid day is shown that they did.
@@ -342,7 +345,9 @@ def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str, barred: bool
     if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
         return "confirmed"
 
-    over = link_is_over(confirmation=registrierung_raw.get("confirmation"), status=registrierung_raw.get("status"), today=today)
+    over = link_is_over(
+        confirmation=registrierung_raw.get("confirmation"), status=registrierung_raw.get("status"), departed=departed, today=today
+    )
 
     return "expired" if over else "valid"
 
@@ -363,10 +368,10 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     )
 
 
-def find_expired_token_refusal(*, confirmation: Any, status: Any, today: str) -> WriteRefusal | None:
+def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> WriteRefusal | None:
     """Why this link is over, or `None`. Judged before the stamp: a registration decided while the link stood open takes no answer either."""
 
-    if not link_is_over(confirmation=confirmation, status=status, today=today):
+    if not link_is_over(confirmation=confirmation, status=status, departed=departed, today=today):
         return None
 
     return WriteRefusal(
