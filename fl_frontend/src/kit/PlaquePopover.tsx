@@ -66,9 +66,8 @@ export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText
         placement="bottom start"
         offset={4}
         data-kit-focus
-        // The menu's 4-px inset around its entries, and the control edge, which stands apart from the row's
-        // own surface where the hairline is lost on it.
-        className={popoverSurface({ width: "fit", class: "border-border-control p-1" })}>
+        // The menu's 4-px inset around its entries.
+        className={popoverSurface({ width: "fit", class: "p-1" })}>
         <AriaDialog
           aria-label={textOf(name)}
           data-kit-focus
