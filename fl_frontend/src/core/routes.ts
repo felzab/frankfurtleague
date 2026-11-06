@@ -300,6 +300,12 @@ export const ROUTES = {
     title: COPY.page.teams,
     crawl: "disallow",
   },
+  /** One club in one season, named by the club. */
+  adminTeam: {
+    path: (saison: string, team: string) => `/admin/saisons/${saison}/teams/${team}` as const,
+    title: null,
+    crawl: "disallow",
+  },
   // Session 6: its page is built.
   adminSpieler: {
     path: (saison: string) => `/admin/saisons/${saison}/spieler` as const,

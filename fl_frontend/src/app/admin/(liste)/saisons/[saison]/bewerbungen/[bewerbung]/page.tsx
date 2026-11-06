@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { Button } from "@/kit/Button";
+import { Link } from "@/kit/Link";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
@@ -109,11 +110,22 @@ function lockedReason(status: FLBewerbungSingleResponse["saison"]["status"], sta
   return standing === "complete" ? undefined : WORDS.awaitsConfirmations;
 }
 
-/** The decision's verbs under the facts they decide on, while the application stands undecided. */
+/** The decision's verbs under the facts they decide on, while the application stands undecided, and an accepted one's way to its team. */
 function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
   const { bewerbung, shorthand, saison } = read;
-  const { id, version } = bewerbung;
-  if (bewerbung.status !== "submitted") return [];
+  const { id, version, status, saison_id: saisonId, team_id: teamId } = bewerbung;
+  if (status === "accepted" && teamId !== null) {
+    return [
+      <Link
+        key="team"
+        href={ROUTES.adminTeam.path(saisonId, teamId)}
+        placement="button"
+        look="secondary"
+        label={COPY.shared.toTeam}
+      />,
+    ];
+  }
+  if (status !== "submitted") return [];
   const locked = lockedReason(saison.status, standing);
   return [
     locked === undefined ? (
