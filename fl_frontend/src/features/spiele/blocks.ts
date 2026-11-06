@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { dayOf, formatDateWithWeekday, formatTime, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekdayAndYear, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -184,29 +184,31 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
 }
 
 /**
- * The pop-up's facts under its head, each led by its glyph and each only where it holds a value: when and
- * where the match is played, and who referees it. The matchday stands in the head and the result in its
- * score, so neither is repeated here.
+ * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when and where the
+ * match is played, and who referees it. The matchday stands in the head and the result in its score, so
+ * neither is repeated here.
  */
 export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const { fact } = COPY.spielplan;
+  const { noValue } = COPY.shared;
   const day = dayOf(spiel.date);
   const time = timeOf(spiel.time);
-  const facts: (Fact | null)[] = [
-    day === null ? null : { label: fact.date, glyph: "calendar", value: { record: formatDateWithWeekday(day) }, figures: true },
-    time === null ? null : { label: fact.time, glyph: "time", value: { record: formatTime(time) }, figures: true },
+  return [
+    { label: fact.date, glyph: "calendar", value: day === null ? noValue : { record: formatDateWithWeekdayAndYear(day) }, figures: true },
+    { label: fact.time, glyph: "time", value: time === null ? noValue : { record: formatTime(time) }, figures: true },
     spiel.ort === null
-      ? null
+      ? { label: fact.spielort, glyph: "spielorte", value: noValue }
       : {
           label: fact.spielort,
           glyph: "spielorte",
           elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), label: { record: spiel.ort.name } },
         },
-    spiel.schiedsrichter?.name == null
-      ? null
-      : { label: fact.schiedsrichter, glyph: "schiedsrichter", value: { record: spiel.schiedsrichter.name } },
+    {
+      label: fact.schiedsrichter,
+      glyph: "schiedsrichter",
+      value: spiel.schiedsrichter?.name == null ? noValue : { record: spiel.schiedsrichter.name },
+    },
   ];
-  return facts.filter((each) => each !== null);
 }
 
 /** What befell a match in a visitor's words: a no-show names the side that did not turn up. */
