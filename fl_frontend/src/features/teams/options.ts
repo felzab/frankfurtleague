@@ -24,5 +24,14 @@ export const gruppeOptions = (offers: readonly FLTeamGruppeOffer[], own: FLGrupp
     return full && gruppe !== own ? { ...option, isDisabled: true, note: COPY.admin.team.gruppeFull } : option;
   });
 
-/** The kit colours in their sheet's order. */
-export const TRIKOT_OPTIONS: readonly Option[] = [NONE, ...TRIKOT_FARBEN.map(({ value, label }) => ({ id: value, label: { record: label } }))];
+/**
+ * The kit colours in their sheet's order, each one `taken` closed, as the public form closes it: a season's colour is
+ * one team's, and the write refuses a second. The empty entry stays open, a club without a colour taking none.
+ */
+export const trikotOptions = (taken: readonly string[]): readonly Option[] => [
+  NONE,
+  ...TRIKOT_FARBEN.map(({ value, label }) => {
+    const option = { id: value, label: { record: label } };
+    return taken.includes(value) ? { ...option, isDisabled: true } : option;
+  }),
+];

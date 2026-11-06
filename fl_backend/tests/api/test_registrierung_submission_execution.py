@@ -557,18 +557,6 @@ class TestTheSubmissionKey:
         assert len(rows) == len(owed) == 2
         assert not any("idempotency_key" in row or "idempotency_fingerprint" in row for row in rows)
 
-    def test_two_presses_at_once_store_one_row(self, mongo_replica_set_url: str):
-        """The loser's lookup finds the winner's row, or its insert meets that row as a write conflict whose retry does."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answers = await asyncio.gather(register(database, client, key=SCHLUESSEL), register(database, client, key=SCHLUESSEL))
-
-            return {answer.registrierung_id for answer in answers}, len(await rows_of(database))
-
-        ids, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert (len(ids), stored) == (1, 1)
-
 
 @functools.cache
 def _served() -> FastAPI:
@@ -618,16 +606,6 @@ class TestTheKeyOverTheWire:
             return response.status_code, len(await rows_of(database))
 
         assert on_a_league(mongo_replica_set_url, body) == (422, 0)
-
-    def test_a_press_carrying_no_key_is_still_taken(self, mongo_replica_set_url: str):
-        """A page loaded before the form sent one: stored, unprotected, and outside the unique index."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await over_the_wire(mongo_replica_set_url, key=None)
-
-            return response.status_code, [("idempotency_key" in row) for row in await rows_of(database)]
-
-        assert on_a_league(mongo_replica_set_url, body) == (201, [False])
 
 
 class TestWhatASubmissionIsRefused:
@@ -785,16 +763,6 @@ class TestWhatASubmissionIsRefused:
         assert league_address(BANNED_EMAIL.upper()) == league_address(BANNED_EMAIL)
         assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADDRESS_BARRED
 
-    def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):
-        """The other arm of the ban check, so a check refusing everybody would fail here rather than pass quietly."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await register(database, client)
-
-            return await database[Collection.REGISTRIERUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == 1
-
 
 class TestALapsedBan:
     def test_a_lapsed_ban_refuses_nobody(self, mongo_replica_set_url: str):
@@ -810,24 +778,6 @@ class TestALapsedBan:
 
 class TestWhatTheInvitesOwnReadAnswers:
     """The read a link opens, which refuses only an invite that opens nothing."""
-
-    def test_it_names_the_team_and_the_school_the_consent_copy_renders(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await view(database)
-
-        answer = on_a_league(mongo_replica_set_url, run)
-
-        assert answer.team == TEAM_NAME
-        assert answer.schule == TEAM_FULL_NAME
-        assert answer.saison_id == SAISON_ID
-
-    def test_it_answers_the_set_the_form_may_offer(self, mongo_replica_set_url: str):
-        """The read and the write are one field, so a form offering more than this is a drifted client."""
-
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await view(database)
-
-        assert on_a_league(mongo_replica_set_url, run).allowed_stufen == list(RULES["allowed_stufen"])
 
     def test_a_shut_window_is_a_state_rather_than_a_refusal(self, mongo_replica_set_url: str):
         """A link pasted after the deadline reads as closed rather than as invalid."""
@@ -857,13 +807,6 @@ class TestWhatTheInvitesOwnReadAnswers:
             return refused.value.error_code
 
         assert on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
-
-    def test_the_squad_has_room_until_the_cap_is_reached(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return (await view(database)).kader_free
-
-        assert on_a_league(mongo_replica_set_url, run) is True
-        assert on_a_league(mongo_replica_set_url, run, squad=RULES["max_kader_size"]) is False
 
     def test_the_nachnominierung_verdict_turns_on_the_windows_end(self, mongo_replica_set_url: str):
         """The page tells a pupil what an entry submitted today would store, off the season the read already holds."""

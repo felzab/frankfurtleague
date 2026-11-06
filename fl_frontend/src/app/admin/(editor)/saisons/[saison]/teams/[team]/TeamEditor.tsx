@@ -18,7 +18,7 @@ import { FLAustrittType } from "@/core/generated/client/types";
 import { KONTAKT_ROLLE_LONG_FORM } from "@/core/teamVocabulary";
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
-import { schulformOptions, TRIKOT_OPTIONS } from "@/features/teams/options";
+import { schulformOptions } from "@/features/teams/options";
 
 import { FormInvitationSection } from "./FormInvitationSection";
 import { reactivateTeam, recordAustritt, retireTeam, sendSeatLink, writeSeat } from "./teamActs";
@@ -51,6 +51,8 @@ export type TeamRow = {
   gruppeLocked: boolean;
   /** Under the group while a draw alone fixes it. */
   gruppeNote?: Copy;
+  /** The colours open to the club: every one but those another row of the season holds. */
+  colours: readonly Option[];
   /** The colour is fixed with it once the club left. */
   colourLocked: boolean;
   /** The exit's facts, once the club left. */
@@ -221,7 +223,7 @@ export function TeamEditor({
                   name="trikot_farbe"
                   width="fit"
                   isDisabled={row.colourLocked}
-                  options={TRIKOT_OPTIONS}
+                  options={row.colours}
                   value={draft.trikot_farbe}
                   onChange={(colour) => set("trikot_farbe", colour ?? "")}
                 />

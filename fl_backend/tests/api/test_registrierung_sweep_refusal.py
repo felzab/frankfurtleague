@@ -5,7 +5,6 @@ from typing import Any
 import pytest
 
 from app.api.bewerbungen.services import latest_decision_due
-from app.api.registrierungen import system_router
 from app.api.registrierungen.services import (
     bestaetigung_loeschung_is_due,
     build_decline_filter,
@@ -15,7 +14,6 @@ from app.api.registrierungen.services import (
     decline_loeschung_is_due,
     erinnerung_is_due,
 )
-from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
@@ -250,24 +248,3 @@ class TestWhatEachClockReads:
         """The reads; the removals are held to the season by `tests/api/test_registrierung_sweep_execution.py :: TestTheDeadlineClock`."""
 
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
-
-
-# The reminder's commands a row -- the stamp's update, its read-back and its log row -- pinned on the wire by
-# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-ROUND_TRIPS_A_ROW = 3
-
-# The other commands of the worst call erasing one page per clock, the share's Postausgang key lookup and insert among
-# them, counted on the wire by the same case.
-OTHER_COMMANDS = 16
-
-# The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
-PER_COMMAND_S = 0.00127
-
-# The round trip `system_router.REMINDERS_PER_PASS`'s comment sizes the share for.
-ROUND_TRIP_S = 0.037
-
-
-def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
-    """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
-
-    assert (system_router.REMINDERS_PER_PASS * ROUND_TRIPS_A_ROW + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

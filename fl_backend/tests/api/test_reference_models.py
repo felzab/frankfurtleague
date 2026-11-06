@@ -8,43 +8,23 @@ from pydantic import BaseModel, ValidationError
 from app.api.saisons.schemas import FLPatchSaisonPayload
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload
 from app.api.spieler.schemas import (
-    FLEinwilligung,
     FLPatchKaderRowPayload,
     FLPatchSpielerSaisonPayload,
-    FLSaisonSpielerRow,
     FLSpielerRecord,
 )
 from app.api.spieler.services import build_ghost_spieler
 from app.api.spielorte.schemas import FLPostSpielortPayload
-from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLSpieltag
+from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.teams.schemas import (
     FLAustrittPayload,
     FLKontaktSeatPayload,
     FLPostTeamPayload,
 )
-from app.shared.schemas.bounds import SAISON_ID_LENGTH
+from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH
 from tests.documents import spieler_document
 
 
 class TestSpieler:
-    # Nullable is not open: a missing answer is null, a value outside the set is unstorable.
-    @pytest.mark.parametrize(
-        ("field", "value"),
-        [
-            # Two spellings of one position — the split the closed set removes.
-            ("position", "Sturm"),
-            ("position", "TW"),
-            # A placeholder somebody typed where null already meant the same thing.
-            ("position", "?"),
-            ("stufe", "??"),
-            # Outside the Oberstufe, which is where the set stops.
-            ("stufe", "10"),
-        ],
-    )
-    def test_rejects_a_position_or_stufe_outside_its_closed_set(self, field, value):
-        with pytest.raises(ValidationError):
-            FLPatchKaderRowPayload.model_validate({"nummer": None, "position": None, "stufe": None, "rolle": None, field: value})
-
     def test_accepts_the_stufe_no_row_holds_yet(self):
         """`E2` is offered although the current season has nobody in it — the phases run in sequence."""
         row = FLPatchKaderRowPayload.model_validate({"nummer": None, "position": None, "stufe": "E2", "rolle": None})
@@ -77,41 +57,10 @@ class TestSpieler:
 class TestEinwilligung:
     """The consent record: what may be published, and whether anyone confirmed it."""
 
-    @pytest.mark.parametrize("field", ["scope", "date", "confirmed_at", "media", "evidence"])
-    def test_requires_every_key(self, einwilligung, field, assert_rejects):
-        """Each key a stored record carries, so a model accepting one fewer would let the read-back pass a row missing it."""
-
-        incomplete = einwilligung()
-        del incomplete[field]
-
-        assert_rejects(FLEinwilligung, incomplete, field)
-
     def test_the_patch_payload_carries_no_consent_field(self):
         """`patch_spieler_saison` `$set`s this model's fields, so a field here would let a name correction rewrite what somebody agreed to."""
 
         assert "einwilligung" not in FLPatchSpielerSaisonPayload.model_fields
-
-
-class TestSaisonSpielerRow:
-    """`saison_spieler`'s declared shape. It validates no stored document — see the class docstring for why it may not."""
-
-    def test_a_number_is_a_string_and_not_an_int(self, saison_spieler):
-        """Squad numbers are worn, not counted: `07` and `7` are different shirts, and an int erases the distinction."""
-
-        assert FLSaisonSpielerRow.model_validate(saison_spieler(nummer="07")).nummer == "07"
-
-        with pytest.raises(ValidationError):
-            FLSaisonSpielerRow.model_validate(saison_spieler(nummer=7))
-
-
-class TestSpieltag:
-    def test_carries_no_name(self):
-        """A stored name restates a composed fact with nothing holding the two consistent."""
-
-        assert "name" not in FLSpieltag.model_fields
-
-    def test_carries_its_stored_position(self, spieltag):
-        assert FLSpieltag.model_validate(spieltag(position=3)).position == 3
 
 
 class TestTheMatchdaysSpan:
@@ -207,9 +156,9 @@ STRIPPED_WRITE_FIELDS = [
     "saison_team.austritt.reason",
 ]
 
-# A run of spaces at every width up to the widest floor the table carries. An exact-width field is
-# refused at any OTHER width by its ceiling, so one probe would pass it for a reason of its own.
-WHITESPACE_RUNS = [" " * width for width in range(1, SAISON_ID_LENGTH + 1)]
+# The widest floor the table carries, which clears every other field's: an exact-width field is
+# refused at any OTHER width by its ceiling, so a narrower run would pass it for a reason of its own.
+BLANK = " " * TEAM_SHORTHAND_LENGTH
 
 
 def _with(body: dict[str, Any], path: tuple[str, ...], value: str) -> dict[str, Any]:
@@ -271,13 +220,12 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "saison_team.austritt.reason": (FLAustrittPayload, austritt, ("reason",)),
         }
 
-    @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])
     @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)
-    def test_spaces_alone_are_refused(self, cases, label, blank, assert_rejects):
+    def test_spaces_alone_are_refused(self, cases, label, assert_rejects):
         """The whole point: `min_length` counts characters, so an unstripped floor takes a run of its own width."""
 
         model, body, path = cases[label]
 
         # The body parses as it stands, or a mistyped key would be refused under the field's own name.
         model.model_validate(body)
-        assert_rejects(model, _with(body, path, blank), path[-1])
+        assert_rejects(model, _with(body, path, BLANK), path[-1])

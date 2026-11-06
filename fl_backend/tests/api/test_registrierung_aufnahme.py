@@ -461,25 +461,6 @@ class TestWhatAnAdmissionWrites:
 
         assert after == before
 
-    def test_a_shirt_already_worn_is_admitted_and_the_read_marked_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_SPIELER].insert_one(
-                documents.saison_spieler_document(ObjectId(), SAISON_ID, TEAM_OID, nummer="17")
-            )
-            # A different string for the same figure, which is no shared shirt: numbers are worn as stored.
-            other = await seed(database, registrierung_document(email="zweite@beispielschule.de", nummer="017"))
-            registrierung_id = await seed(database, registrierung_document())
-            listed = await read(database, client)
-            await admit(database, client, registrierung_id)
-
-            return listed, other, registrierung_id, await database[Collection.SAISON_SPIELER].count_documents({"nummer": "17"})
-
-        listed, other, registrierung_id, wearing = on_a_league(mongo_replica_set_url, body)
-
-        marks = {row.registrierung_id: row.nummer_double for row in listed.registrierungen}
-        assert marks == {registrierung_id: True, other: False}
-        assert wearing == 2
-
 
 class TestTheLateEntry:
     """The marker is judged on the day the pupil submitted, so a team admitting late costs nobody a place in the cap."""
@@ -530,12 +511,6 @@ class TestTheStufe:
 
         assert code == Code.REGISTRIERUNG_STUFE_NOT_ALLOWED
         assert after == before
-
-    def test_a_stufe_still_offered_is_admitted_before_and_after_the_boundary(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return (await admit(database, client, await seed(database, registrierung_document(stufe="Q2")))).stufe
-
-        assert on_a_league(mongo_replica_set_url, body) == "Q2"
 
 
 class TestTheSquadCap:

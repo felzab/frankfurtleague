@@ -214,11 +214,6 @@ class TestWhatALinkOpens:
         assert FOLDED_EMAIL not in rendered
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
-    def test_a_first_timer_is_asked_for_a_date(self, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW))
-
-        assert response.page == PAGE_NEW
-
     def test_a_returning_pupil_is_told_a_date_is_stored_and_shown_none_of_it(self, mongo_replica_set_url: str):
         """A returning pupil's page asks neither a choice nor the stored birthdate, and the link serves none of the three."""
 

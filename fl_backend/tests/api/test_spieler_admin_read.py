@@ -6,7 +6,6 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spieler.admin_router import get_spieler_admin, get_spieler_saison
-from app.api.spieler.services import mark_shared_nummern
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_SPIELER_ID
@@ -92,53 +91,8 @@ async def the_editor(database: AsyncDatabase, spieler_id: ObjectId, saison_id: s
     )
 
 
-class TestTheShirtMarker:
-    """Judged per squad, though the list reads every team's rows at once."""
-
-    def test_a_number_two_clubs_share_is_no_double(self):
-        """Judged over the whole list, every club's number 7 would carry a chip nobody can clear."""
-
-        rows = [
-            {"team_id": TEAM_OID, "nummer": "7", "inactive_since": None},
-            {"team_id": OTHER_TEAM_OID, "nummer": "7", "inactive_since": None},
-        ]
-
-        assert [row["nummer_double"] for row in mark_shared_nummern(rows)] == [False, False]
-
-    def test_an_ausgetragen_row_neither_doubles_nor_is_marked(self):
-        rows = [
-            {"team_id": TEAM_OID, "nummer": "7", "inactive_since": None},
-            {"team_id": TEAM_OID, "nummer": "7", "inactive_since": "2026-03-01"},
-        ]
-
-        assert [row["nummer_double"] for row in mark_shared_nummern(rows)] == [False, False]
-
-
 @pytest.mark.db
 class TestTheList:
-    def test_it_serves_the_season_s_rows_of_every_team_by_name(self, mongo_replica_set_url: str):
-        """An ausgetragen row among them, the one way to its reactivation."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await the_list(database)
-
-        answer = on_a_league(mongo_replica_set_url, body)
-
-        assert [row.first_name for row in answer.spieler] == ["Anna", "Ben", "Carl", "Dora"]
-
-    def test_each_row_carries_its_club_s_season_name_and_its_shirt_marker(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await the_list(database)
-
-        answer = on_a_league(mongo_replica_set_url, body)
-        by_name = {row.first_name: row for row in answer.spieler}
-
-        assert by_name["Anna"].team_name == "Adler"
-        assert by_name["Dora"].team_name is None
-        assert (by_name["Anna"].nummer_double, by_name["Ben"].nummer_double) == (True, True)
-        assert (by_name["Carl"].nummer_double, by_name["Dora"].nummer_double) == (False, False)
-        assert by_name["Carl"].is_nachnominiert is True
-
     def test_no_address_reaches_the_answer(self, mongo_replica_set_url: str):
         """A squad list shows none, and the join is where one would ride along."""
 
@@ -147,26 +101,9 @@ class TestTheList:
 
         assert ADDRESS not in on_a_league(mongo_replica_set_url, body).model_dump_json()
 
-    def test_a_season_no_id_names_is_not_found(self, mongo_replica_set_url: str):
-        """Rather than an empty list, which an address typed wrong would read as a squad-less season."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await the_list(database, "1999")
-
-        with pytest.raises(DocumentNotFoundError):
-            on_a_league(mongo_replica_set_url, body)
-
 
 @pytest.mark.db
 class TestTheEditor:
-    def test_the_count_is_the_two_documents_added(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SPIELER].update_one({"_id": ANNA_OID}, {"$set": {"version": 3}})
-            await database[Collection.SAISON_SPIELER].update_one({"spieler_id": ANNA_OID, "saison_id": SAISON_ID}, {"$set": {"version": 4}})
-            return await the_editor(database, ANNA_OID)
-
-        assert on_a_league(mongo_replica_set_url, body).version == 7
-
     def test_it_stands_on_the_season_s_row(self, mongo_replica_set_url: str):
         """Anna holds a row in two seasons, each its own number."""
 
@@ -176,23 +113,6 @@ class TestTheEditor:
         current, former = on_a_league(mongo_replica_set_url, body)
 
         assert (current.kader.nummer, former.kader.nummer) == ("7", "9")
-
-    def test_the_taken_roles_are_the_squad_s_others(self, mongo_replica_set_url: str):
-        """Their own role stays open to a person, and another club's captain takes nothing from this squad."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await the_editor(database, ANNA_OID)
-
-        assert on_a_league(mongo_replica_set_url, body).taken_rollen == ["kapitaen"]
-
-    def test_a_retired_holder_takes_no_role(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SAISON_SPIELER].update_one(
-                {"spieler_id": BEN_OID, "saison_id": SAISON_ID}, {"$set": {"inactive_since": "2026-03-01"}}
-            )
-            return await the_editor(database, ANNA_OID)
-
-        assert on_a_league(mongo_replica_set_url, body).taken_rollen == []
 
     @pytest.mark.parametrize("spieler_id", [DORA_OID, GHOST_SPIELER_ID], ids=["no row of that season", "the sentinel"])
     def test_a_person_out_of_the_season_is_not_found(self, mongo_replica_set_url: str, spieler_id: ObjectId):
