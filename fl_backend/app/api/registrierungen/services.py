@@ -252,13 +252,20 @@ def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
     return is_confirmed(einwilligung)
 
 
+def registrierung_was_left_unmailed(*, confirmation: Any) -> bool:
+    """Whether the submission owed this row no mail: its mailbox stood past `OPEN_LINKS_PER_MAILBOX`, which the block's null `sent_at` keeps."""
+
+    return isinstance(confirmation, Mapping) and confirmation.get("sent_at") is None
+
+
 # The admin read's projection, an EXCLUSION for the reason `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is one: an inclusion list would restate every field a registration holds.
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"confirmation.token_hashes": 0}
 
 
-# What the admin list reads of a row, the consent's stamp alone of its record, which `registrierung_ist_bestaetigt` judges.
-REGISTRIERUNG_LIST_FIELDS: Final = ("first_name", "last_name", "team_id", "submitted_at", "einwilligung.confirmed_at")
+# What the admin list reads of a row, the consent's stamp alone of its record, which `registrierung_ist_bestaetigt` judges,
+# and the mail's, which `registrierung_was_left_unmailed` does.
+REGISTRIERUNG_LIST_FIELDS: Final = ("first_name", "last_name", "team_id", "submitted_at", "einwilligung.confirmed_at", "confirmation.sent_at")
 
 
 def build_registrierungen_sort(*, order: str) -> list[tuple[str, int]]:

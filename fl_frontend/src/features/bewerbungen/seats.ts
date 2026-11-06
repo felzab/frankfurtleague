@@ -27,8 +27,8 @@ export type SeatView = {
 
 const WORDS = COPY.admin.schiedsrichter;
 
-/** A seat the submission owed no mail, its mailbox holding too many unanswered links: „Link senden“ is what reaches it. */
-const NOT_SENT: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
+/** What the submission owed no mail, its mailbox holding too many unanswered links, on a seat and on the lists' rows. */
+export const NOT_SENT: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
 
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
   confirmed: { tone: "success", label: COPY.admin.confirmed },

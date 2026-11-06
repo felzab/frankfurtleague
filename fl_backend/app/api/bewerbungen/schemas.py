@@ -275,6 +275,9 @@ class FLBewerbungListRow(BaseReadModel):
     people: int
     # Whether this open application and another one for the season name the same club (`Dublette`).
     duplicate: bool
+    # Whether this open application holds a seat past `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`, which the
+    # sweep erases with the application unless an administrator sends its link.
+    unmailed: bool
 
 
 class FLBewerbungenAdminListResponse(BaseAPIResponse):

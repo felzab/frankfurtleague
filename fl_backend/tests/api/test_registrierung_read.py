@@ -119,6 +119,17 @@ class TestWhetherThePupilConfirmed:
 
         assert (by_id[OFFEN_OID].confirmed, by_id[BESTAETIGT_OID].confirmed) == (False, True)
 
+    def test_a_row_owed_no_mail_says_so(self, mongo_replica_set_url: str):
+        """An administrator cannot otherwise tell a pupil who has not answered from one who was never asked."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.REGISTRIERUNGEN].update_one({"_id": OFFEN_OID}, {"$set": {"confirmation.sent_at": None}})
+            return await read(database)
+
+        by_id = {row.id: row for row in on_a_league(mongo_replica_set_url, body).registrierungen}
+
+        assert (by_id[OFFEN_OID].unmailed, by_id[BESTAETIGT_OID].unmailed) == (True, False)
+
 
 class TestWhatTheReadServes:
     def test_a_list_past_the_cap_says_it_is_cut(self, mongo_replica_set_url: str):

@@ -41,7 +41,8 @@ reads like a constant of this league is nearly always one some season chose for 
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and a grant waiting on a
   second administrator's approval (`berechtigungen_antraege`), one mail the league owes one
-  recipient (`outbox`), and one recorded write (`aktionen`).
+  recipient (`outbox`), one mailbox a public form named (`mailbox_anchors`), and one recorded write
+  (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.

@@ -4087,6 +4087,10 @@
             "title": "Submitted At",
             "type": "string"
           },
+          "unmailed": {
+            "title": "Unmailed",
+            "type": "boolean"
+          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -4120,7 +4124,8 @@
           "wunschgegner",
           "seats_confirmed",
           "people",
-          "duplicate"
+          "duplicate",
+          "unmailed"
         ],
         "title": "FLBewerbungListRow",
         "type": "object"
@@ -10331,6 +10336,10 @@
               }
             ],
             "title": "Team Name"
+          },
+          "unmailed": {
+            "title": "Unmailed",
+            "type": "boolean"
           }
         },
         "required": [
@@ -10340,7 +10349,8 @@
           "team_id",
           "team_name",
           "submitted_at",
-          "confirmed"
+          "confirmed",
+          "unmailed"
         ],
         "title": "FLRegistrierungAdminRow",
         "type": "object"
@@ -23642,7 +23652,7 @@
     },
     "/api/v0/registrierungen/list/admin": {
       "get": {
-        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nThe page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.\n`confirmed` says whether the pupil answered their own link. 404 where no season holds that id. Degrades rather than\nrefusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a\ntripwire would hand them the power to 500 this page, and `complete` reports the cut.",
+        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nThe page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.\n`confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past\n`OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than\nrefusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a\ntripwire would hand them the power to 500 this page, and `complete` reports the cut.",
         "operationId": "registrierungen_get_registrierungen_admin",
         "parameters": [
           {

@@ -1773,6 +1773,7 @@ def build_entry_offer_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
 # shows none.
 BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
     **_per_seat("kontakte", "einwilligung.confirmed_at"),
+    **_per_seat("confirmations", "sent_at"),
     "version": 1,
     "saison_id": 1,
     "status": 1,
@@ -1789,6 +1790,16 @@ BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
 
 def seats_confirmed_of(*, kontakte: Any) -> int:
     return len(KONTAKT_ROLLEN) - len(pending_seats(kontakte=kontakte))
+
+
+def holds_an_unmailed_seat(*, row: Mapping[str, Any]) -> bool:
+    """Whether this open application holds a seat the submission owed no mail, an erased seat, which holds no entry, not among them."""
+
+    confirmations = row.get("confirmations")
+
+    return row["status"] == "submitted" and any(
+        _entry_of(confirmations, seat) is not None and not _was_mailed(confirmations, seat) for seat in KONTAKT_ROLLEN
+    )
 
 
 def bewerbung_list_row(
@@ -1811,6 +1822,7 @@ def bewerbung_list_row(
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
         "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
         "duplicate": row["status"] == "submitted" and row.get("team_id") in doubled,
+        "unmailed": holds_an_unmailed_seat(row=row),
     }
 
 

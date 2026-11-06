@@ -158,6 +158,8 @@ class FLRegistrierungAdminRow(BaseReadModel):
     submitted_at: CustomDateString
     # Composed by the read, off the consent record's own stamp (`registrierung_ist_bestaetigt`).
     confirmed: bool
+    # Composed by the read, off the mail's own stamp (`registrierung_was_left_unmailed`).
+    unmailed: bool
 
 
 class FLRegistrierungenAdminFilterParams(BaseModel):

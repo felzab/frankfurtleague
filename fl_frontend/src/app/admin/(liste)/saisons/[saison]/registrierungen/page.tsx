@@ -8,11 +8,13 @@ import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { NOT_SENT } from "@/features/bewerbungen/seats";
 import { getRegistrierungenAdmin } from "@/features/registrierungen/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLRegistrierungAdminRow } from "@/core/generated/client/types";
+import type { ChipProps } from "@/kit/Chip";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -37,6 +39,12 @@ type State = keyof typeof STATES;
 
 const STATE_OPTIONS = (Object.keys(STATES) as State[]).map((id) => ({ id, label: STATES[id].label }));
 
+/** Whether the pupil answered, and where they did not whether they were ever asked: the row lapses on its day either way. */
+function chipOf(row: FLRegistrierungAdminRow): ChipProps {
+  if (row.confirmed) return { tone: "success", label: COPY.admin.confirmed };
+  return row.unmailed ? NOT_SENT : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed };
+}
+
 /**
  * One pending registration, opening its team: a registration is decided by its team, so this list is read-only, and an
  * administrator cures what holds one up on the team's page.
@@ -46,7 +54,7 @@ function rowOf(saison: string, row: FLRegistrierungAdminRow): TableRow {
     id: row.id,
     name: { record: `${row.first_name} ${row.last_name}` },
     href: ROUTES.adminTeam.path(saison, row.team_id),
-    chip: row.confirmed ? { tone: "success", label: COPY.admin.confirmed } : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
+    chip: chipOf(row),
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },
       received: { record: formatDate(dayOf(row.submitted_at)) },

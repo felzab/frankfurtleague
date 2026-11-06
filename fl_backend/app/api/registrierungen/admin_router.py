@@ -9,7 +9,13 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungenAdminFilterParams,
     FLRegistrierungenAdminListResponse,
 )
-from app.api.registrierungen.services import REGISTRIERUNG_LIST_FIELDS, SUBMITTED, build_registrierungen_sort, registrierung_ist_bestaetigt
+from app.api.registrierungen.services import (
+    REGISTRIERUNG_LIST_FIELDS,
+    SUBMITTED,
+    build_registrierungen_sort,
+    registrierung_ist_bestaetigt,
+    registrierung_was_left_unmailed,
+)
 from app.api.teams.crud import pull_saison_team_names
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
@@ -42,7 +48,8 @@ async def get_registrierungen_admin(
     The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
 
     The page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.
-    `confirmed` says whether the pupil answered their own link. 404 where no season holds that id. Degrades rather than
+    `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
+    `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
     refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
     tripwire would hand them the power to 500 this page, and `complete` reports the cut.
     """
@@ -68,6 +75,7 @@ async def get_registrierungen_admin(
                     "id": row["_id"],
                     "team_name": team_names.get(row["team_id"]),
                     "confirmed": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")),
+                    "unmailed": registrierung_was_left_unmailed(confirmation=row.get("confirmation")),
                 }
             )
             # Sliced before validation, so the probe row is never parsed and never reaches the wire.

@@ -8,6 +8,7 @@ import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
+import { NOT_SENT } from "@/features/bewerbungen/seats";
 import { SEATS, STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -15,6 +16,7 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import type { Copy } from "@/core/copy";
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
 import type { Standing } from "@/features/bewerbungen/standing";
+import type { ChipProps } from "@/kit/Chip";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -47,13 +49,19 @@ const ORIGIN_OPTIONS = [
   { id: "existing", label: WORDS.existingTeam },
 ] as const;
 
-/** One application's row, opening its review page: an open Dublette's chip stands in its standing's place. */
+/** The row's one chip in its standing's place: a seat never mailed first, the application going on its day unless a link is sent, then an open Dublette. */
+function chipOf(row: FLBewerbungListRow): ChipProps {
+  if (row.unmailed) return NOT_SENT;
+  return row.duplicate ? { tone: "warn", label: WORDS.teamDouble } : STANDING_CHIP[standingOf(row)];
+}
+
+/** One application's row, opening its review page. */
 function rowOf(row: FLBewerbungListRow, saison: string): TableRow {
   return {
     id: row.id,
     name: { record: row.name },
     href: ROUTES.adminBewerbung.path(saison, row.id),
-    chip: row.duplicate ? { tone: "warn", label: WORDS.teamDouble } : STANDING_CHIP[standingOf(row)],
+    chip: chipOf(row),
     cells: {
       received: { record: formatDate(dayOf(row.submitted_at)) },
       seats: COPY.admin.seatsOf(row.seats_confirmed, SEATS),
