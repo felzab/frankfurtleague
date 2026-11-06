@@ -17,8 +17,7 @@ const REFUSED_RESET = { onResetCapture: (event: FormEvent<HTMLFormElement>) => e
  * A press before hydration is the browser's own unless held, a GET carrying every field in the URL. A function `action`
  * has React's server output keep the press and replay it once the form hydrates, after each field has replayed its
  * change (`./useEarlyEdit.ts`). React takes that function at the hydrating commit, so it knows neither those changes nor
- * a send a press right after the commit began, and only presses again, onto the current render's `onSubmit`. It does so
- * in a microtask, out of the transition React runs it in, so a busy state renders as a person's press renders it. React
+ * a send a press right after the commit began, and only presses again, onto the current render's `onSubmit`. React
  * replays every press a slow page gathered in one task, ahead of any render, where a busy guard knows none of them, so
  * only the first presses again. React resets a form after such a press, which would take each field back to its first
  * value, so the reset is refused in the capture phase, ahead of React Aria's listener on the form, which heeds it.
@@ -44,7 +43,7 @@ export function HeldForm({
       action={() => {
         if (isHeld.current) return;
         isHeld.current = true;
-        queueMicrotask(() => element.current?.requestSubmit());
+        element.current?.requestSubmit();
       }}
       onSubmit={(event) => {
         event.preventDefault();
