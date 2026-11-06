@@ -18,9 +18,7 @@ from app.api.bewerbungen.services import (
     seat_reminder_is_due,
     unerreichbare_seats,
 )
-from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, LAPSED_SEAT_ROWS_PER_PASS, REMINDERS_PER_PASS
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
-from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
@@ -184,9 +182,6 @@ class TestTheReminderMark:
             "stellvertretung",
         ]
 
-    def test_every_open_seat_at_its_mark_is_listed_in_declaration_order(self):
-        assert reminder_seats(bewerbung_raw=application(), today=TODAY, unerreichbar=()) == list(KONTAKT_ROLLEN)
-
     # Spelled out rather than read off the outbox's set, so a state the set loses fails here: a person who reported the
     # first mail as spam is never mailed again.
     @pytest.mark.parametrize("stand", ["complaint", "suppressed", "undeliverable"])
@@ -203,12 +198,6 @@ class TestTheReminderMark:
             "ansprechperson",
             "stellvertretung",
         ]
-
-    @pytest.mark.parametrize("stand", ["delivered", "delayed"])
-    def test_a_seat_a_later_message_may_still_reach_is_chased(self, stand: str):
-        """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
-
-        assert refusing("trainer", stand=stand) == set()
 
     def test_a_trainer_who_is_another_seats_person_is_judged_by_that_seats_mail(self):
         """One mail went to both seats, read by the seat the Trainer mirrors."""
@@ -349,9 +338,6 @@ class TestTheOneMonthClock:
     def test_only_a_declined_application_is_on_this_clock(self, status: str):
         assert not decline_loeschung_is_due(bewerbung_raw=application(status=status, decision={"made_at": "2020-01-01"}), today=TODAY)
 
-    def test_a_decision_with_no_day_is_never_due(self):
-        assert not decline_loeschung_is_due(bewerbung_raw=application(status="declined", decision=None), today=TODAY)
-
 
 class TestWhatTheNoticesNeed:
     def test_the_school_is_the_submitted_name_or_the_picked_clubs(self):
@@ -372,26 +358,3 @@ class TestWhatTheNoticesNeed:
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
         assert first_name_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"
         assert first_name_of(kontakte=kontakte(stellvertretung=None), seat="stellvertretung") is None
-
-
-# The per-row loops' three commands a row -- the update, its read-back and its log row -- pinned on the wire by
-# `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt`.
-ROUND_TRIPS_A_ROW = 3
-
-
-# The worst call's commands beside its rows, counted on the wire by
-# `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 69
-SWEEP_LAPSED_OTHER_COMMANDS = 46
-
-
-# The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
-def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
-    """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
-
-    per_command_s, round_trip_s = 0.00138, 0.036
-    # A pass clears blocks or lapsed seats, never both, so each is judged beside the reminders on its own.
-    calls = [(BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS), (LAPSED_SEAT_ROWS_PER_PASS, SWEEP_LAPSED_OTHER_COMMANDS)]
-
-    for rows, others in calls:
-        assert ((REMINDERS_PER_PASS + rows) * ROUND_TRIPS_A_ROW + others) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S

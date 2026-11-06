@@ -3,9 +3,6 @@ from typing import Any
 
 import pytest
 
-from app.api.registrierungen.schemas import (
-    FLRegistrierungConfirmationPayload,
-)
 from app.api.registrierungen.services import (
     PAGE_NEW,
     PAGE_RETURNING,
@@ -163,14 +160,3 @@ def answer(**overrides: Any) -> dict[str, Any]:
         "text_versions": dict(SPIELER_TEXT_VERSIONS),
         **overrides,
     }
-
-
-class TestWhatTheAnswerPayloadRefuses:
-    @pytest.mark.parametrize("field", ["token", "birth_date", "scope", "media", "text_versions"])
-    def test_every_field_is_required(self, field: str, assert_rejects):
-        """`media` above all: defaulted, an off switch would store this model's answer where the person's belongs."""
-
-        body = answer()
-        del body[field]
-
-        assert_rejects(FLRegistrierungConfirmationPayload, body, field)

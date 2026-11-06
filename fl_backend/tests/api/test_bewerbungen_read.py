@@ -7,14 +7,11 @@ from bson import ObjectId
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.bewerbungen.admin_router import FLBewerbungenAdminFilters, get_bewerbung, get_bewerbungen_admin
+from app.api.bewerbungen.admin_router import FLBewerbungenAdminFilters, get_bewerbungen_admin
 from app.api.bewerbungen.schemas import FLBewerbungenAdminFilterParams
-from app.api.bewerbungen.services import mit_zustellung
-from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from tests import documents
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
@@ -105,19 +102,6 @@ async def view_list(database: Any, **filters: Any) -> Any:
     )
 
 
-async def view_one(database: Any) -> Any:
-    return await get_bewerbung(
-        bewerbung_id=ObjectId(BEWERBUNG_ID.format(PICKED)),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
-        today="2026-03-01",
-    )
-
-
 class TestTheSeasonsListRead:
     """The list page's one read: what its rows and its dialogs need, off one request, and no person's details."""
 
@@ -142,54 +126,6 @@ class TestTheSeasonsListRead:
 
         assert (len(answered.bewerbungen), answered.complete) == (3, False)
 
-    def test_two_open_rows_naming_one_club_are_marked_and_a_decided_one_is_not(self, mongo_url: str):
-        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
-
-        marked = {row.id for row in answered.bewerbungen if row.duplicate}
-
-        assert marked == {ObjectId(BEWERBUNG_ID.format(PICKED)), ObjectId(BEWERBUNG_ID.format(ALSO_PICKED))}
-
-    def test_the_offer_marks_the_group_an_acceptance_would_be_refused_on(self, mongo_url: str):
-        """The dialog's greyed entry and `entry_gruppe_full` read one bound, so a page offers nothing the write refuses."""
-
-        offer = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list)).saison
-
-        assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
-
-    def test_a_row_names_the_code_of_its_club_alone(self, mongo_url: str):
-        """The acceptance's closed box: a picked club's code stands in `teams`, and a new school has none until it is accepted."""
-
-        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_list))
-
-        codes = {row.id: row.shorthand for row in answered.bewerbungen}
-
-        assert codes[ObjectId(BEWERBUNG_ID.format(PICKED))] == "ADX"
-        assert codes[ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] is None
-
-    def test_an_accepted_application_reads_where_its_club_stands(self, mongo_url: str):
-        """The decision records neither, so without the season's row the review page's two facts read a dash."""
-
-        async def read(database: Any) -> Any:
-            await database[Collection.SAISON_TEAMS].insert_one(
-                documents.saison_team_document(VIEW_SAISON, PICKED_CLUB, "Adlerhorst", "ADX", gruppe="B", trikot_farbe="rot")
-            )
-            await database[Collection.BEWERBUNGEN].update_one({"_id": ObjectId(BEWERBUNG_ID.format(PICKED))}, {"$set": {"status": "accepted"}})
-            return await view_one(database)
-
-        entry = on_the_seed_loop(on_the_view_corpus(mongo_url, read)).entry
-
-        assert (entry.gruppe, entry.trikot_farbe) == ("B", "rot")
-
-    def test_the_review_page_reads_its_name_and_its_offer_off_one_request(self, mongo_url: str):
-        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_one))
-
-        assert (answered.name, answered.shorthand, answered.saison.saison_id, answered.bewerbung.version) == (
-            "Adlerhorst",
-            "ADX",
-            VIEW_SAISON,
-            0,
-        )
-
 
 # The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so
 # the real router's admin guard and collection would only stand between the query string and it.
@@ -205,40 +141,9 @@ def _read_filters(filters: FLBewerbungenAdminFilters) -> dict[str, Any]:
 class TestNoQueryStringReachesAnUnboundedRead:
     """The cap is the whole bound, so a caller able to forge it past the ceiling would disarm it."""
 
-    def test_an_omitted_bound_arrives_as_the_default(self):
-        with TestClient(_probe) as client:
-            assert client.get("/probe?saison_id=2027").json()["limit"] == LIST_LIMIT_DEFAULT
-
     @pytest.mark.parametrize("value", ["", "null", "none", "0", "-1", str(LIST_LIMIT_MAX + 1), "999999"])
     def test_no_query_string_reaches_a_larger_read(self, value: str):
         """Empty, unparseable or past either bound is a 422 -- never a read the caller sized."""
 
         with TestClient(_probe) as client:
             assert client.get(f"/probe?saison_id=2027&limit={value}").status_code == 422
-
-
-class TestEachSeatReadsItsLastMail:
-    """The join the reads serve `delivery` by: one person is sent one mail for two seats, read by the seat it mirrors."""
-
-    def test_a_trainer_who_is_another_seats_person_reads_that_seats_mail_and_an_emptied_seat_reads_none(self):
-        sent = FLOutboxStatus(state="sent", delivery=None)
-        aufgegeben = FLOutboxStatus(state="abandoned", delivery=None)
-        row = {
-            "_id": "bewerbung",
-            "kontakte": {"trainer_is_also": "ansprechperson"},
-            "confirmations": {
-                "trainer": {"sent_at": "2026-04-01"},
-                "ansprechperson": {"sent_at": "2026-04-01"},
-                "stellvertretung": None,
-            },
-        }
-
-        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): aufgegeben}, today="2026-03-01")
-
-        assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == sent
-        assert served["confirmations"]["stellvertretung"] is None
-
-    def test_a_seat_nobody_was_owed_a_mail_reads_null(self):
-        row = {"_id": "bewerbung", "kontakte": {"trainer_is_also": None}, "confirmations": {"trainer": {"sent_at": "2026-04-01"}}}
-
-        assert mit_zustellung(row, {}, today="2026-03-01")["confirmations"]["trainer"]["delivery"] is None

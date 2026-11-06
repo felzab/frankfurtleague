@@ -36,9 +36,3 @@ async def commands_by_name(url: str, database_name: str, call: Call) -> tuple[An
         return await call(counting[database_name], counting), Counter(listener.names)
     finally:
         await counting.close()
-
-
-async def commands_sent(url: str, database_name: str, call: Call) -> int:
-    _, names = await commands_by_name(url, database_name, call)
-
-    return names.total()

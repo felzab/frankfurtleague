@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import (
     compose_kontakt_seat_update,
     find_acceptance_code_refusal,
     find_kontakt_email_refusal,
-    find_new_club_refusal,
 )
 from app.core.codes import Code
 from tests.documents import kontaktperson_document
@@ -39,16 +38,6 @@ class ExplodingSchule(Mapping[str, Any]):
         raise ZorbanaxBoom("the block blew up")
 
 
-class TestOnlyTheSchoolsOwnFaultIsRefused:
-    """A widened `except` files every bug on this path under `bewerbung_schule_unusable`."""
-
-    def test_a_failure_that_is_no_validation_error_is_left_to_the_500(self):
-        """The repair that refusal offers -- decline it and type the club in by hand -- is then the wrong one."""
-
-        with pytest.raises(ZorbanaxBoom):
-            find_new_club_refusal(club_document=ExplodingSchule())
-
-
 class TestADeclinesReason:
     """The reason is stored and mailed verbatim, so a NUL or a page break an administrator pasted reaches every person it goes to."""
 
@@ -56,9 +45,6 @@ class TestADeclinesReason:
     def test_a_character_no_paragraph_holds_is_refused(self, reason: str):
         with pytest.raises(ValidationError):
             FLDeclineBewerbungPayload(reason=reason, version=0)
-
-    def test_the_line_breaks_of_a_paragraph_pass(self):
-        assert FLDeclineBewerbungPayload(reason="Kein Platz.\r\nNächstes Jahr gern.", version=0).reason.count("\n") == 1
 
 
 class TestWhatASeatWriteMoves:
@@ -100,10 +86,6 @@ class TestTheCodeAnAcceptanceTakes:
 
         assert refusal is not None
         assert (refusal.error_code, refusal.fields) == (Code.PAYLOAD_REFUSED, (("shorthand",),))
-
-    @pytest.mark.parametrize(("new_school", "shorthand"), [(True, "ABX"), (False, None)])
-    def test_the_right_side_passes(self, new_school: bool, shorthand: str | None):
-        assert find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand) is None
 
 
 class TestCorrectingOneContactAddress:

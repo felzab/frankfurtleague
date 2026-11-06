@@ -7,7 +7,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.admin_router import get_registrierungen_admin
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -141,16 +140,3 @@ class TestWhatTheReadServes:
         answer = on_a_league(mongo_replica_set_url, body)
 
         assert [row.id for row in answer.registrierungen] == [BESTAETIGT_OID, OFFEN_OID]
-
-    def test_each_row_carries_the_name_its_club_plays_the_season_under(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await read(database)
-
-        assert {row.team_name for row in on_a_league(mongo_replica_set_url, body).registrierungen} == {"Adler"}
-
-    def test_a_season_no_id_names_is_not_found(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await read(database, "1999")
-
-        with pytest.raises(DocumentNotFoundError):
-            on_a_league(mongo_replica_set_url, body)

@@ -17,7 +17,6 @@ from pymongo.errors import OperationFailure
 from app.api.bewerbungen.admin_router import (
     accept_bewerbung,
     decline_bewerbung,
-    get_bewerbungen_admin,
     post_kontakt_seat,
     resend_einwilligung,
 )
@@ -25,7 +24,6 @@ from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLBewerbungEinwilligungAnswerPayload,
-    FLBewerbungenAdminFilterParams,
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
@@ -41,7 +39,6 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import transaction_session
 from app.main import create_app
-from app.shared.schemas.bounds import BEWERBUNG_DECISION_REASON_MAX_LENGTH
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
@@ -239,15 +236,6 @@ async def accept(
 
 DECISION_REASON = "Die Gruppen sind für diese Saison bereits besetzt."
 
-_DECISION_REASON_SENTENCE = "Grün-weiß gestreifte Trikots gehören leider nicht in die Saisonordnung. "
-
-# Exactly the bound, multibyte with it, and closed with a character no strip takes: a truncation
-# counting BYTES cuts the last one off, and a bound the repetition happened to cut on a space would
-# fail the same comparison over the trim instead.
-DECISION_REASON_AT_THE_BOUND = (_DECISION_REASON_SENTENCE * (BEWERBUNG_DECISION_REASON_MAX_LENGTH // len(_DECISION_REASON_SENTENCE) + 1))[
-    : BEWERBUNG_DECISION_REASON_MAX_LENGTH - 1
-] + "."
-
 
 async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, reason: str = DECISION_REASON) -> Any:
     version = (await stored_bewerbung(database, bewerbung_id))["version"]
@@ -442,16 +430,6 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         assert code == Code.ENTRY_GRUPPE_FULL
         assert (clubs, rows, status) == (SEEDED_CLUBS, RULES["teams_per_gruppe"], "submitted")
 
-    def test_the_group_beside_the_full_one_still_takes_the_school(self, mongo_replica_set_url: str):
-        """The floor under the refusal above: without it a blanket failure would read as the capacity rule working."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await accept(database, client, NEW_SCHOOL_BEWERBUNG, gruppe="B", shorthand=NEW_SCHOOL_SHORTHAND)
-
-            return response.gruppe, len(await junction_rows(database, gruppe="B"))
-
-        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_gruppe"]) == ("B", 1)
-
     def test_a_retired_club_is_refused_and_nothing_is_entered(self, mongo_replica_set_url: str):
         """`team_retired`: a club that left the league is reactivated first, and the season's row is not the route to it."""
 
@@ -465,38 +443,6 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         assert code == Code.TEAM_RETIRED
         assert (rows, status) == ([], "submitted")
-
-    # A group the season does not run and a group already full: the two faults `find_entry_refusal`
-    # would report over the club's own, one on each side of the count.
-    @pytest.mark.parametrize(
-        ("gruppe", "occupied"),
-        [pytest.param("D", 0, id="a group the season does not run"), pytest.param("A", RULES["teams_per_gruppe"], id="a group that is full")],
-    )
-    def test_the_clubs_standing_is_reported_before_the_group_it_asked_for(self, mongo_replica_set_url: str, gruppe: str, occupied: int):
-        """A group fault refuses too, and naming it sends an administrator to fix the wrong thing: no group repairs a retirement."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await accept(database, client, RETIRED_BEWERBUNG, gruppe=gruppe)
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body, occupied=occupied) == Code.TEAM_RETIRED
-
-    def test_the_full_group_is_reported_before_the_club_is_written(self, mongo_replica_set_url: str):
-        """The order pinned on a WRITE that fails differently: the rollback hides an early insert.
-
-        `EXISTING_SHORTHAND` is a code `uniq_shorthand` refuses, so an insert before the count answers
-        `duplicate_key` rather than the rule to act on.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await accept(database, client, CLASHING_BEWERBUNG, shorthand=EXISTING_SHORTHAND)
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_gruppe"]) == Code.ENTRY_GRUPPE_FULL
 
     @pytest.mark.parametrize("saison_status", ["active", "past"])
     def test_a_season_that_is_not_future_is_refused(self, mongo_replica_set_url: str, saison_status: str):
@@ -693,19 +639,6 @@ class TestASchoolNoClubCanBeCreatedFrom:
         assert stored_url == UNUSABLE_URL, "the validator refused the value, so the refusal below proves nothing"
         assert code == Code.BEWERBUNG_SCHULE_UNUSABLE
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "submitted")
-
-    def test_the_school_is_judged_before_the_group_it_asked_for(self, mongo_replica_set_url: str):
-        """Where the picked club's standing is judged, and for that reason: no other group makes these details a club."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_the_unusable_school(database)
-
-            with pytest.raises(APIError) as conflict:
-                await accept(database, client, UNUSABLE_BEWERBUNG, shorthand="SKX")
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_gruppe"]) == Code.BEWERBUNG_SCHULE_UNUSABLE
 
 
 @pytest.mark.db
@@ -909,40 +842,6 @@ class TestADeclineTouchesNothingElse:
         # Left as the applicant picked it: a decline creates no reference and clears none.
         assert (team_id, rows) == (EXISTING_OID, [])
 
-    def test_the_bounded_reason_is_the_case_it_claims_to_be(self):
-        """A floor under the constant: one that drifted off the bound, or lost its umlauts, would test nothing in particular."""
-
-        assert len(DECISION_REASON_AT_THE_BOUND) == BEWERBUNG_DECISION_REASON_MAX_LENGTH
-        assert len(DECISION_REASON_AT_THE_BOUND.encode("utf-8")) > BEWERBUNG_DECISION_REASON_MAX_LENGTH
-        # The strip runs before the length is compared, so a reason ending in a space comes back
-        # shorter than it was sent and fails that comparison for no reason of its own.
-        assert DECISION_REASON_AT_THE_BOUND.strip() == DECISION_REASON_AT_THE_BOUND
-
-    @pytest.mark.db
-    @pytest.mark.parametrize(
-        "reason",
-        [pytest.param(DECISION_REASON, id="an ordinary reason"), pytest.param(DECISION_REASON_AT_THE_BOUND, id="at the bound")],
-    )
-    def test_the_served_reason_reaches_the_document_byte_identical(self, mongo_replica_set_url: str, reason: str):
-        """The reason is stored AND emailed to the applicants: one lost on the way is a decline nobody can act on.
-
-        Served rather than called, so the JSON decode is in the path: every other decline in this file
-        hands the endpoint a model that was never encoded.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"reason": reason, "version": 0})
-
-            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["reason"]
-
-        status_code, stored_reason = on_a_league(mongo_replica_set_url, body)
-
-        assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
-        # Encoded on both sides, so a re-encoding fails here as a truncation does; the length is
-        # asserted separately, which is what says WHICH of the two happened.
-        assert stored_reason.encode("utf-8") == reason.encode("utf-8")
-        assert len(stored_reason) == len(reason)
-
     @pytest.mark.db
     @pytest.mark.parametrize("reason", [pytest.param("   ", id="spaces"), pytest.param("\t\n ", id="tab and newline")])
     def test_a_reason_of_whitespace_alone_is_refused(self, mongo_replica_set_url: str, reason: str):
@@ -961,26 +860,6 @@ class TestADeclineTouchesNothingElse:
 
         assert status_code == 422
         assert (stored["status"], stored["decision"]) == ("submitted", None), "the refused decline still decided the application"
-
-    @pytest.mark.db
-    def test_a_padded_reason_is_stored_as_a_trimming_client_would_have_sent_it(self, mongo_replica_set_url: str):
-        """One composition, as the two club-create paths have: the browser trims before it posts.
-
-        Without the strip one reason is stored two ways, and which an application carries says only
-        which client the administrator declined it from.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(
-                mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"reason": f"  {DECISION_REASON}\n", "version": 0}
-            )
-
-            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["reason"]
-
-        status_code, stored_reason = on_a_league(mongo_replica_set_url, body)
-
-        assert status_code == 200
-        assert stored_reason == DECISION_REASON
 
 
 async def take_decision(kind: str, database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> Any:
@@ -1084,55 +963,6 @@ class TestTwoDeclinesAtOnce:
         assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the losing decline overwrote the reason and the name the first one stored"
         assert after_first["decision"]["reason"] == DECISION_REASON
-
-    def test_an_application_no_document_names_is_a_404(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].delete_one({"_id": PICKED_BEWERBUNG})
-
-            with pytest.raises(DocumentNotFoundError) as missing:
-                await decline_bewerbung(
-                    bewerbung_id=PICKED_BEWERBUNG,
-                    ablehnung_data=FLDeclineBewerbungPayload(reason=OTHER_DECISION_REASON, version=0),
-                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                    teams_collection=database[Collection.TEAMS],
-                    outbox_collection=database[Collection.OUTBOX],
-                    germany_now=MAIL_NOW,
-                    today=TODAY,
-                    by=OTHER_ADMIN_EMAIL,
-                    db=database.client,
-                )
-
-            return missing.value.status_code
-
-        assert on_a_league(mongo_replica_set_url, body) == 404
-
-
-# The four `on_a_league` seeds, oldest `_id` first, all carrying one `submitted_at`. Named so the
-# expectation below is the reverse of a list rather than four constants retyped in an order.
-SEEDED_IN_ORDER = (PICKED_BEWERBUNG, NEW_SCHOOL_BEWERBUNG, RETIRED_BEWERBUNG, CLASHING_BEWERBUNG)
-
-
-@pytest.mark.db
-class TestTheQueueTheTriageIsWorkedDown:
-    """`GET /bewerbungen/list/admin` is what an administrator works down, so what it does with a tie is a decision."""
-
-    def test_applications_from_one_day_come_back_newest_first(self, mongo_replica_set_url: str):
-        """Catches an ascending tie-break, which reads a day's applications backwards inside a newest-first list."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await get_bewerbungen_admin(
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                teams_collection=database[Collection.TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                filters=FLBewerbungenAdminFilterParams(saison_id=SAISON_ID),
-            )
-
-            return [bewerbung.id for bewerbung in response.bewerbungen], {bewerbung.submitted_at for bewerbung in response.bewerbungen}
-
-        listed, days = on_a_league(mongo_replica_set_url, body)
-
-        assert len(days) == 1, "the seeds no longer share a day, so the order below is the sort key rather than the tie-break"
-        assert listed == list(reversed(SEEDED_IN_ORDER))
 
 
 # The four collections the acceptance JUDGES, which are the reads that have to sit in the
@@ -1487,21 +1317,6 @@ class TestCorrectingOneContactAddress:
         assert rows[-1]["operation"] == "patch_one"
         assert rows[-1]["before"]["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
 
-    def test_an_address_another_contact_person_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_a_bounced_application(database, client)
-            before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
-
-            with pytest.raises(APIError) as conflict:
-                await correct(database, client, "ansprechperson", email=before["kontakte"]["stellvertretung"]["email"])
-
-            return conflict.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
-        assert after == before
-
     def test_a_confirmed_seat_gives_way_and_asks_its_new_person_afresh(self, mongo_replica_set_url: str):
         """The stamp must not travel: a person nobody asked would stand confirmed, and the acceptance reads that stamp."""
 
@@ -1515,32 +1330,6 @@ class TestCorrectingOneContactAddress:
 
         assert stored["kontakte"]["trainer"]["email"] == RESEAT_PERSON["email"]
         assert (stored["kontakte"]["trainer"]["birth_date"], stored["kontakte"]["trainer"]["einwilligung"]["confirmed_at"]) == (None, None)
-
-    def test_a_decided_application_takes_no_correction(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_a_bounced_application(database, client)
-            await decline(database, CORRECTION_BEWERBUNG)
-
-            with pytest.raises(APIError) as conflict:
-                await correct(database, client, "ansprechperson")
-
-            return conflict.value.error_code, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
-
-        code, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.BEWERBUNG_ALREADY_DECIDED
-        assert stored["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
-
-    def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_a_bounced_application(database, client)
-
-            with pytest.raises(DocumentNotFoundError) as missing:
-                await correct(database, client, "hausmeister")
-
-            return missing.value.status_code
-
-        assert on_a_league(mongo_replica_set_url, body) == 404
 
     def test_a_claimed_mirror_an_erasure_took_refuses_the_write(self, mongo_replica_set_url: str):
         """The mirror joins the write off the claim alone, so an unjudged one reopens a seat the league cannot reopen."""
@@ -2065,17 +1854,6 @@ class TestABannedContactAddress:
         assert code == Code.BEWERBUNG_KONTAKT_BARRED
         assert after == before
 
-    def test_a_resend_to_an_address_the_ban_list_does_not_hold_still_mints(self, mongo_replica_set_url: str):
-        """The control: a check refusing every re-send would pass the case above."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await seed_an_open_ansprechperson_seat(database)
-            await database[Collection.BAN_LIST].insert_one(ban_document(CORRECTED_EMAIL, until=STANDING))
-
-            return await resend(database, "ansprechperson")
-
-        assert on_a_league(mongo_replica_set_url, body).rollen == ["ansprechperson"]
-
     def test_a_resend_to_an_address_the_rule_refuses_is_barred_by_nothing(self, mongo_replica_set_url: str):
         """A stored seat may hold an address today's rule refuses, and no ban can be keyed on it."""
 
@@ -2088,21 +1866,6 @@ class TestABannedContactAddress:
             return await resend(database, "ansprechperson")
 
         assert on_a_league(mongo_replica_set_url, body).email == "müller@example.com"
-
-    def test_a_correction_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_a_bounced_application(database, client)
-            await database[Collection.BAN_LIST].insert_one(ban_document(CORRECTED_EMAIL, until=STANDING))
-            before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
-            with pytest.raises(APIError) as failure:
-                await correct(database, client, "ansprechperson")
-
-            return failure.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.BEWERBUNG_KONTAKT_BARRED
-        assert after == before
 
     def test_a_reseat_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

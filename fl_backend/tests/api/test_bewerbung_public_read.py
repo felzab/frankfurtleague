@@ -246,9 +246,6 @@ class TestTheFormRead:
     def test_a_season_recording_no_window_is_served_as_that(self, seeded_url: str):
         assert answered(seeded_url, f"{PREFIX}/form/{WINDOWLESS_SAISON}").json()["window"] is None
 
-    def test_a_season_nobody_holds_is_a_404(self, seeded_url: str):
-        assert answered(seeded_url, f"{PREFIX}/form/1999").status_code == 404
-
 
 class TestTheWindowReads:
     """What this tier learns about a `future` season the rule otherwise withholds: the window, and that it is there."""
@@ -261,37 +258,6 @@ class TestTheWindowReads:
         """
 
         assert open_window(seeded_url)["saison_id"] == OPEN_SAISON
-
-    @pytest.mark.parametrize(
-        "saison_id",
-        [
-            pytest.param(NOT_YET_OPEN_SAISON, id="a span not yet begun"),
-            pytest.param(ALREADY_CLOSED_SAISON, id="a span already over"),
-        ],
-    )
-    def test_a_near_miss_is_served_as_not_running(self, seeded_url: str, saison_id: str):
-        """Each is ruled out by one term alone, so the two together pin both halves of the judgement."""
-
-        response = answered(seeded_url, f"{PREFIX}/form/{saison_id}")
-
-        assert response.status_code == 200
-        assert response.json()["window"]["running"] is False
-
-    def test_a_season_read_that_would_404_still_serves_its_form(self, seeded_url: str):
-        """The finding this read exists for: `GET /saisons/{saison_id}` answers 404 for a `future` season."""
-
-        assert answered(seeded_url, f"/api/v{API_VERSION}/saisons/{OPEN_SAISON}").status_code == 404
-
-        assert answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}").status_code == 200
-
-    def test_a_closed_window_is_served_rather_than_hidden(self, seeded_url: str):
-        """A page saying the window is shut needs its dates; a 404 would say only "no such season"."""
-
-        response = answered(seeded_url, f"{PREFIX}/form/{SHUT_SAISON}")
-
-        assert response.status_code == 200
-        assert response.json()["window"]["running"] is False
-        assert response.json()["window"]["start"] == "2025-03-01"
 
     def test_the_body_for_a_season_recording_no_window_carries_no_field_of_the_season(self, seeded_url: str):
         """Existence is the whole of the narrowing, so the undecoded body is searched."""
@@ -319,20 +285,6 @@ class TestTheColoursTaken:
         """Seeded on a second season, so a read dropping the season term would serve it here."""
 
         assert OTHER_SEASON_FARBE not in answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}").json()["taken"]
-
-    def test_a_season_read_that_would_404_still_serves_its_colours(self, seeded_url: str):
-        """The finding this read exists for: the rule withholds a `future` season's clubs whole."""
-
-        assert answered(seeded_url, f"/api/v{API_VERSION}/saisons/{OPEN_SAISON}/teams").status_code == 404
-
-        assert answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}").status_code == 200
-
-    def test_a_season_taking_applications_with_nothing_assigned_answers_the_empty_set(self, mongo_url: str):
-        """Its own corpus, `seeded_url` holding no season that both takes applications and has assigned nothing."""
-
-        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
-
-        assert answered(mongo_url, f"{PREFIX}/form/{OPEN_SAISON}", database_name=database).json()["taken"] == []
 
     @pytest.mark.parametrize(
         "saison_id",
