@@ -61,7 +61,8 @@ export default function SpielePage({ params, searchParams }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminSpiele" } }}
-      list={{ kind: "spieltage", dated: true, content: readSpieltage(params, searchParams) }}
+      // Eight groups of three: three rounds of a match a group, then the four knockout rounds of sixteen qualifiers.
+      list={{ kind: "spieltage", dated: true, wait: { tabs: 7, matches: 8 }, content: readSpieltage(params, searchParams) }}
     />
   );
 }

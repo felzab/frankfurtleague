@@ -8,16 +8,14 @@ import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { Facts, FactsPlaceholder } from "./Facts";
 import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
-import { SectionPlaceholder } from "./Section";
-import { PlaceholderLine, Waiting } from "./Skeleton";
-import { StatusPage } from "./StatusPage";
+import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
+import { StatusPage, StatusPagePlaceholder } from "./StatusPage";
 
 import type { Copy } from "@/core/copy";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { EndState, OneShotAction } from "./OneShot";
-import type { FieldRow } from "./Section";
 import type { StatusCardProps } from "./StatusPage";
 
 /**
@@ -175,59 +173,65 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
   }
 }
 
+/** What the question's wait knows of the page before the read, stated beside its read. */
+type QuestionWait = {
+  /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
+  act: Copy;
+  /** The quieter act's words beneath it, where the question has one. */
+  second?: Copy;
+  /** The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width. */
+  sentence?: string;
+  /** The placeholders of the answer's fields, where the question asks any. */
+  fields?: ReactNode;
+};
+
+/** The question while the read says what it asks: its title, its facts, its sentence, its fields and its acts. */
+function QuestionPlaceholder({ act, second, sentence, fields }: QuestionWait) {
+  return (
+    <ClassicPage width="form">
+      <Waiting layout="flex flex-col gap-6">
+        <PlaceholderLine
+          text={classicTitle()}
+          width="w-2/3"
+        />
+        <FactsPlaceholder pairs={4} />
+        {sentence === undefined ? (
+          <PlaceholderLine
+            text="text-base"
+            width="w-full"
+          />
+        ) : (
+          <PlaceholderSentence
+            text="text-base"
+            words={sentence}
+          />
+        )}
+        {fields !== undefined && <div className="grid justify-items-start gap-4">{fields}</div>}
+        <div className="grid gap-3 lg:justify-items-center">
+          <span className={buttonPlaceholder()}>{act}</span>
+          {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
+          <span className="min-h-5" />
+        </div>
+      </Waiting>
+    </ClassicPage>
+  );
+}
+
 /**
  * The one shape of the seven pages a mail opens, in the classic frame's form column. Its state is a function of the
  * link's token and the session beside it, so the whole page waits for the read in the template's one boundary:
- * meanwhile the column holds the placeholders of the question, the state a link is opened on: its title, its facts,
- * its sentence and its act; a form in boxes its title, its boxes and its act.
+ * meanwhile the column holds the state that lands most often, as the classic frame's footer asks (`Skeleton.tsx`): the
+ * question, the state a link is opened on, or `end`, the status card of a page that lands an end most days, as the
+ * application form does outside its window.
  */
-export function MailedPage({
-  page,
-  act,
-  boxes,
-}: {
-  page: Promise<MailedState>;
-  /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
-  act: Copy;
-  /** The rows of each box of a form in boxes, which the page alone knows, stated beside its read. */
-  boxes?: ReadonlyArray<ReadonlyArray<FieldRow>>;
-}) {
+export function MailedPage(
+  props: { page: Promise<MailedState> } & ((QuestionWait & { end?: never }) | { end: { title: Copy; next: Copy }; act?: never }),
+) {
   return (
     // Outermost, so neither the state a done answer's re-render reads nor the boundary waiting for it takes the end.
     <OneShotEnd>
-      <Suspense
-        fallback={
-          <ClassicPage width="form">
-            <Waiting layout="flex flex-col gap-6">
-              <PlaceholderLine
-                text={classicTitle()}
-                width="w-2/3"
-              />
-              {boxes === undefined ? (
-                <>
-                  <FactsPlaceholder pairs={4} />
-                  <PlaceholderLine
-                    text="text-base"
-                    width="w-full"
-                  />
-                </>
-              ) : (
-                boxes.map((rows, index) => (
-                  <SectionPlaceholder
-                    // The boxes are fixed in number and order, so their place is their identity.
-                    key={index}
-                    rows={rows}
-                  />
-                ))
-              )}
-              <div className="grid gap-3 lg:justify-items-center">
-                <span className={buttonPlaceholder()}>{act}</span>
-                <span className="min-h-5" />
-              </div>
-            </Waiting>
-          </ClassicPage>
-        }>
-        <MailedBody page={page} />
+      <Suspense fallback={props.end === undefined ? <QuestionPlaceholder {...props} /> : <StatusPagePlaceholder {...props.end} />}>
+        <MailedBody page={props.page} />
       </Suspense>
     </OneShotEnd>
   );

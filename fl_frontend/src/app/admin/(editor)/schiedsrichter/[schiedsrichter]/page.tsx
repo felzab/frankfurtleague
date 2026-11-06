@@ -81,7 +81,13 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
             />,
           ],
         ],
-        danger: [COPY.shared.verb.retire],
+        danger: [
+          {
+            name: COPY.shared.withObject(COPY.shared.schiedsrichter, "retire"),
+            consequence: WORDS.retireConsequence,
+            act: COPY.shared.verb.retire,
+          },
+        ],
       }}
       editor={readEditor(params)}
     />

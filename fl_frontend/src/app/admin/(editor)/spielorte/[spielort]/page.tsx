@@ -80,7 +80,13 @@ export default function SpielortEditorPage({ params }: Props) {
             "field",
           ],
         ],
-        danger: [COPY.shared.verb.retire],
+        danger: [
+          {
+            name: COPY.shared.withObject(COPY.admin.spielort.object, "retire"),
+            consequence: COPY.admin.spielort.retireConsequence,
+            act: COPY.shared.verb.retire,
+          },
+        ],
       }}
       editor={readEditor(params)}
     />

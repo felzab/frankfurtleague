@@ -10,7 +10,7 @@ import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
 import { fieldFrame, fieldRoot, messageLine, statusLine } from "./fieldStyles";
 import { HelpPopover } from "./HelpPopover";
 import { ScoreRowsPlaceholder } from "./ScoreRows";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -110,11 +110,20 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
 }
 
 /**
- * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
- * fields' placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will. An
- * editor's danger box takes `danger` in their place, its acts' labels, one flat row each.
+ * A danger row while its record is read: its name, what the act does and the button's words, the first two set unseen so
+ * each stands as many lines as it will beside the button.
  */
-export function SectionPlaceholder(props: { rows: ReadonlyArray<FieldRow>; danger?: never } | { danger: ReadonlyArray<Copy>; rows?: never }) {
+export type DangerRowWait = { name: Copy; consequence: Copy; act: Copy };
+
+/**
+ * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
+ * fields' placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will. `note`
+ * is the words of the line a section's closed state stands under its title, set unseen, where the section can carry
+ * one. An editor's danger box takes `danger` in their place, one flat row each.
+ */
+export function SectionPlaceholder(
+  props: { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never } | { danger: ReadonlyArray<DangerRowWait>; rows?: never; note?: never },
+) {
   const slots = boxHead({ ruled: true });
   return (
     <div className={cardSurface({ class: props.danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
@@ -123,6 +132,12 @@ export function SectionPlaceholder(props: { rows: ReadonlyArray<FieldRow>; dange
           text="text-base font-semibold"
           width="w-1/3"
         />
+        {props.note !== undefined && (
+          <PlaceholderSentence
+            text="text-sm"
+            words={props.note}
+          />
+        )}
       </div>
       {props.danger === undefined ? (
         <div className={slots.content({ class: "gap-2" })}>
@@ -135,21 +150,21 @@ export function SectionPlaceholder(props: { rows: ReadonlyArray<FieldRow>; dange
         </div>
       ) : (
         <div className="grid">
-          {props.danger.map((label) => (
+          {props.danger.map(({ name, consequence, act }) => (
             <div
-              key={label}
+              key={name}
               className={dangerRow()}>
               <div className="grid min-w-0 flex-1">
-                <PlaceholderLine
+                <PlaceholderSentence
                   text="text-sm font-semibold"
-                  width="w-1/3"
+                  words={name}
                 />
-                <PlaceholderLine
+                <PlaceholderSentence
                   text={statusLine({ placement: "column", tone: "resting" })}
-                  width="w-2/3"
+                  words={consequence}
                 />
               </div>
-              <span className={buttonPlaceholder()}>{label}</span>
+              <span className={buttonPlaceholder()}>{act}</span>
             </div>
           ))}
         </div>

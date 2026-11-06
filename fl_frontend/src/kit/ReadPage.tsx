@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
 import { cardSurface } from "./cardStyles";
 import { EmptyState } from "./EmptyState";
@@ -13,6 +14,7 @@ import { SpielList } from "./SpielRow";
 import { StatTiles, StatTilesPlaceholder } from "./StatTiles";
 import { Table } from "./Table";
 import { Timeline, TimelinePlaceholder } from "./Timeline";
+import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { ComponentProps, ReactElement } from "react";
@@ -70,6 +72,9 @@ export type ReadRecord = {
   /** Why an act is closed on the record's present state, under the acts. */
   actsNote?: Copy;
 };
+
+/** The decision's acts under the first group: one under another on a phone, in a row from `lg`. */
+const readActs = tv({ base: "grid gap-3 lg:flex lg:flex-wrap lg:items-center" });
 
 function GroupBody({ group }: { group: GroupContent }) {
   switch (group.kind) {
@@ -145,7 +150,7 @@ async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: P
           {first.title !== undefined && <SectionTitle text={first.title} />}
           <GroupBody group={first} />
           {acts !== undefined && acts.length > 0 && (
-            <div className="grid gap-3 lg:flex lg:flex-wrap lg:items-center">
+            <div className={readActs()}>
               {acts}
               {actsNote !== undefined && <p className="text-sm text-warn lg:basis-full">{actsNote}</p>}
             </div>
@@ -219,14 +224,16 @@ export type ReadWait = {
   /** The club head's placeholder, as `ReadRecord`'s `club` opens the page with the head. */
   club?: ReactElement;
   groups: ReadonlyArray<
-    { title?: Copy } & (
-      | { kind: "facts"; pairs: number }
-      | { kind: "tiles"; layout: "four" | "five" }
-      /** `matches` where each checkpoint holds a match's row, as a club's line does. */
-      | { kind: "timeline"; count: number; matches?: boolean }
-      | { kind: "seats" }
-      | { kind: "folds"; folds: ReactElement }
-    )
+    { title?: Copy } &
+      /** `acts`, the words of the decision's acts under the first group. */
+      (
+        | { kind: "facts"; pairs: number; acts?: ReadonlyArray<Copy> }
+        | { kind: "tiles"; layout: "four" | "five" }
+        /** `matches` where each checkpoint holds a match's row, as a club's line does. */
+        | { kind: "timeline"; count: number; matches?: boolean }
+        | { kind: "seats" }
+        | { kind: "folds"; folds: ReactElement }
+      )
   >;
 };
 
@@ -234,7 +241,22 @@ export type ReadWait = {
 function GroupPlaceholder({ group }: { group: ReadWait["groups"][number] }) {
   switch (group.kind) {
     case "facts":
-      return <FactsPlaceholder pairs={group.pairs} />;
+      return (
+        <>
+          <FactsPlaceholder pairs={group.pairs} />
+          {group.acts !== undefined && (
+            <div className={readActs()}>
+              {group.acts.map((act) => (
+                <span
+                  key={act}
+                  className={buttonPlaceholder()}>
+                  {act}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      );
     case "tiles":
       return <StatTilesPlaceholder layout={group.layout} />;
     case "timeline":

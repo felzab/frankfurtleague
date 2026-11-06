@@ -252,12 +252,15 @@ export default function UebersichtPage({ params }: Props) {
       head={{ scope: "area", title: { route: "adminOverview" } }}
       list={{
         kind: "cards",
-        wait: [
-          { title: WORDS.card.due, acts: [COPY.shared.withObject(COPY.admin.overview.zusage, "enter")] },
-          { title: WORDS.card.ergebnisse },
-          { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.termin, "set")] },
-          { title: WORDS.card.bewerbungen },
-        ],
+        wait: {
+          rows: 5,
+          cards: [
+            { title: WORDS.card.due, acts: [COPY.shared.withObject(COPY.admin.overview.zusage, "enter")] },
+            { title: WORDS.card.ergebnisse },
+            { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.termin, "set")] },
+            { title: WORDS.card.bewerbungen },
+          ],
+        },
         content: readOverview(params),
       }}
     />

@@ -1,9 +1,10 @@
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { cardSurface } from "./cardStyles";
-import { LandingSection } from "./LandingSection";
+import { LandingSection, LandingSectionPlaceholder } from "./LandingSection";
 import { Link } from "./Link";
-import { SocialButtons } from "./SocialButtons";
+import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
+import { SocialButtons, SocialButtonsPlaceholder } from "./SocialButtons";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -41,6 +42,34 @@ export function Door({ title, text, level = 3, act }: { title: Copy; text?: Copy
       {text !== undefined && <p className={slots.text()}>{text}</p>}
       <div className={slots.act()}>{act}</div>
     </div>
+  );
+}
+
+/**
+ * The ways in while the read says whether a window is open: the question's door across the column, as most days land
+ * it, in bars, since which doors stand and what the heading counts are the read's. Its words are set unseen, so the box
+ * stands as tall as the door will at every width.
+ */
+export function DoorsPlaceholder({ more, question }: { more: Copy; question: { text: Copy; email: { label: Copy } } }) {
+  const slots = doors();
+  return (
+    <LandingSectionPlaceholder more={more}>
+      <div className={slots.root()}>
+        <div className={slots.door()}>
+          <PlaceholderLine
+            text={slots.title()}
+            width="w-1/3"
+          />
+          <PlaceholderSentence
+            text={slots.text()}
+            words={question.text}
+          />
+          <div className={slots.act()}>
+            <SocialButtonsPlaceholder email={question.email.label} />
+          </div>
+        </div>
+      </div>
+    </LandingSectionPlaceholder>
   );
 }
 

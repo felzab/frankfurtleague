@@ -1,7 +1,8 @@
 import { columnCap, fieldFrame, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
+import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
@@ -28,16 +29,19 @@ const reach = tv({
  * message line under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A
  * field whose line appears with its error alone, the sign-in's address, takes `line={false}`. Its label's bar adds
  * nothing to the width the field is laid out at, so a pair's short side stands as wide as its field. `figures` says a
- * C5 field holds digits, whose `ch` is the numeric face's, as C2's and C10's always do.
+ * C5 field holds digits, whose `ch` is the numeric face's, as C2's and C10's always do. `description` is the line's
+ * words where they run past a line, set unseen.
  */
 export function FieldPlaceholder({
   width,
   figures = false,
   line = true,
+  description,
 }: {
-  width: "W3" | "W3L" | "C10" | "C5" | "C2" | "column" | "fit";
+  width: "W3" | "W3L" | "W4" | "C10" | "C5" | "C2" | "column" | "fit";
   figures?: boolean;
   line?: boolean;
+  description?: Copy;
 }) {
   const numeric = figures || width === "C2" || width === "C10";
   return (
@@ -52,7 +56,14 @@ export function FieldPlaceholder({
           `rounded-lg text-sm max-lg:in-data-pair:min-w-full pointer-coarse:text-base ${fieldFrame.variants.width[width]} ${numeric ? fieldFrame.variants.figures.true : ""}`,
         )}
       />
-      {line && <span className={messageLine()} />}
+      {description !== undefined ? (
+        <PlaceholderSentence
+          text={messageLine()}
+          words={description}
+        />
+      ) : (
+        line && <span className={messageLine()} />
+      )}
     </div>
   );
 }

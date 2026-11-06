@@ -33,7 +33,7 @@ export default function TabellePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "tabelle" } }}
-      list={{ kind: "groups", head: HEAD, content: readGroups(params) }}
+      list={{ kind: "groups", head: HEAD, wait: { groups: 8, rows: 3 }, content: readGroups(params) }}
     />
   );
 }

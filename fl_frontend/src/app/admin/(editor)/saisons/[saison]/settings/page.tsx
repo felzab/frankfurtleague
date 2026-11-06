@@ -108,12 +108,13 @@ function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): 
 export default function SaisonSettingsPage({ params }: Props) {
   return (
     <EditorShell
-      // A season drawn and not yet the site's, the fullest the page stands: only the read says which one it is.
+      // Each section in its fullest state, which no one season holds all at once: a running season's closed boxes, its draw
+      // standing, and the rows of a season not yet the site's. Only the read says which one it is.
       wait={{
         sections: [
-          [{ rows: 2, width: "C10" }],
-          ["subhead", { rows: 3, width: "C2" }, SELECT, "subhead", { rows: 2, width: "C2" }],
-          [{ rows: 2, width: "C2" }, SELECT],
+          { note: WORDS.startFixed, rows: [{ rows: 2, width: "C10" }] },
+          { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, width: "C2" }, SELECT, "subhead", { rows: 2, width: "C2" }] },
+          { note: WORDS.lockedByDraw, rows: [{ rows: 2, width: "C2" }, SELECT] },
           [
             <FieldPlaceholder
               key="maxKader"
@@ -147,20 +148,32 @@ export default function SaisonSettingsPage({ params }: Props) {
               pairs={3}
             />,
           ],
-          ["field", "field", { act: COPY.shared.withObject(WORDS.gruppen, "swap") }],
-          ["field", "field", { act: COPY.shared.withObject(TEAM, "replace") }],
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(WORDS.gruppen, "swap") }] },
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(TEAM, "replace") }] },
           [
             <TablePlaceholder
               key="links"
               head={LINKS_HEAD}
-              rows={8}
+              rows={24}
               bare
               linked={false}
             />,
             { act: COPY.shared.withObject(WORDS.registrierungslinks, "send") },
           ],
         ],
-        danger: [COPY.shared.verb.recreate, COPY.shared.verb.delete, COPY.shared.verb.activate],
+        danger: [
+          {
+            name: COPY.shared.withObject(COPY.page.spielplan, "recreate"),
+            consequence: WORDS.recreateConsequence,
+            act: COPY.shared.verb.recreate,
+          },
+          { name: COPY.shared.withObject(COPY.page.spielplan, "delete"), consequence: WORDS.deleteConsequence, act: COPY.shared.verb.delete },
+          {
+            name: COPY.shared.withObject(WORDS.onto("2027"), "activate"),
+            consequence: WORDS.activateConsequence("2027"),
+            act: COPY.shared.verb.activate,
+          },
+        ],
       }}
       editor={readEditor(params)}
     />
