@@ -2,8 +2,8 @@ import type { FLAddressChangeViewableDenied, FLSpielerPosition, FLSpielerRolle, 
 import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload } from "./schemas";
 
 /** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
-export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "geburtsdatum"> & {
-  geburtsdatum: string | null;
+export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "birth_date"> & {
+  birth_date: string | null;
 };
 
 /** The squad editor's enter-a-season draft: `team_id` widened to `null` so an untouched picker is a field error rather than a type error. */
@@ -23,9 +23,9 @@ export type SaisonSpielerMembershipDraft = Omit<FLPatchSaisonSpielerPayload, "te
  * for an empty box — where an `undefined` reaching the patch erases the stored surname.
  */
 export type SpielerPersonFields = {
-  vorname: string;
-  nachname: string | null;
-  geburtsdatum: string | null;
+  first_name: string;
+  last_name: string | null;
+  birth_date: string | null;
 };
 
 /**
@@ -70,10 +70,10 @@ export type SpielerSaisonContext = Pick<SpielerSaisonMembership, "saisonId" | "s
  */
 export type AdminSpielerStored = {
   id: string;
-  vorname: string;
-  nachname: string | null;
+  first_name: string;
+  last_name: string | null;
   inactive_since: string | null;
-  geburtsdatum: string;
+  birth_date: string;
   email: string;
   adresswechsel_id: string | null;
   /** Why the address tool refuses this administrator that change, as the read serves it: the editor then links nowhere. */
@@ -109,8 +109,8 @@ export type SpielerTeamOption = {
  */
 export type AdminSpielerRow = {
   id: string;
-  vorname: string;
-  nachname: string | null;
+  first_name: string;
+  last_name: string | null;
   /** `vorname nachname`, or the forename alone — what the list searches and sorts on. */
   fullName: string;
   /** The day the PERSON left the league. */

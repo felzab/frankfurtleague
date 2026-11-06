@@ -1,8 +1,8 @@
 import z from "zod";
 
-import { FLSpielbestaetigungAntwortArt } from "@/core/generated/client/types";
+import { FLSpielbestaetigungAnswerKind } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
-import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
+import { SPIELBESTAETIGUNG_REASON_MAX_LENGTH } from "@/features/spiele/constants";
 import { CustomDateStringSchema, CustomTimeStringSchema, singleLineName } from "@/shared/schemas";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
@@ -18,22 +18,22 @@ const bestaetigungToken = z
   .nonempty({ error: LINK_UNVOLLSTAENDIG })
   .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
-const FLSpielbestaetigungAntwortArtSchema = z.enum(FLSpielbestaetigungAntwortArt, {
+const FLSpielbestaetigungAnswerKindSchema = z.enum(FLSpielbestaetigungAnswerKind, {
   error: "Bitte sag zu oder schlag einen anderen Termin vor.",
 });
 
 /** A date and an hour without a ground: a club's proposal, and the slot a moved fixture left. */
 const FLSpielbestaetigungTerminSchema = z.object({
-  datum: CustomDateStringSchema,
-  uhrzeit: CustomTimeStringSchema,
+  date: CustomDateStringSchema,
+  time: CustomTimeStringSchema,
 });
 
 /** A decline's reason, a club's and a referee's alike: one line, as the endpoint stores it. */
 const begruendungText = z
   .string()
   .trim()
-  .max(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, {
-    error: `Die Begründung darf höchstens ${String(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH)} Zeichen lang sein.`,
+  .max(SPIELBESTAETIGUNG_REASON_MAX_LENGTH, {
+    error: `Die Begründung darf höchstens ${String(SPIELBESTAETIGUNG_REASON_MAX_LENGTH)} Zeichen lang sein.`,
   });
 const begruendung = singleLineName(begruendungText, "Die Begründung");
 
@@ -42,22 +42,22 @@ const begruendung = singleLineName(begruendungText, "Die Begründung");
  * One club's answer. Proposal and reason are required keys, null where unused, as the endpoint requires: a decline
  * proposes a date, an acceptance carries neither. An empty reason counts as none, as the endpoint stores it.
  */
-export const FLSpielbestaetigungAntwortPayloadSchema = z
+export const FLSpielbestaetigungAnswerPayloadSchema = z
   .object({
     token: bestaetigungToken,
-    antwort: FLSpielbestaetigungAntwortArtSchema,
+    answer: FLSpielbestaetigungAnswerKindSchema,
     vorschlag: FLSpielbestaetigungTerminSchema.nullable(),
-    begruendung: begruendung.nullable(),
+    reason: begruendung.nullable(),
   })
-  .refine((antwort) => antwort.antwort !== "declined" || antwort.vorschlag !== null, {
+  .refine((antwort) => antwort.answer !== "declined" || antwort.vorschlag !== null, {
     error: "Bitte schlag einen anderen Termin vor.",
     path: ["vorschlag"],
   })
-  .refine((antwort) => antwort.antwort !== "zugesagt" || (antwort.vorschlag === null && !antwort.begruendung), {
+  .refine((antwort) => antwort.answer !== "zugesagt" || (antwort.vorschlag === null && !antwort.reason), {
     error: "Eine Zusage trägt keinen Terminvorschlag und keine Begründung.",
-    path: ["antwort"],
+    path: ["answer"],
   });
-export type FLSpielbestaetigungAntwortPayload = z.infer<typeof FLSpielbestaetigungAntwortPayloadSchema>;
+export type FLSpielbestaetigungAnswerPayload = z.infer<typeof FLSpielbestaetigungAnswerPayloadSchema>;
 
 // Redesign: goes with its last importer.
 /**
@@ -65,7 +65,7 @@ export type FLSpielbestaetigungAntwortPayload = z.infer<typeof FLSpielbestaetigu
  * reason to book somebody else, so the endpoint takes no decline without one.
  */
 export const SchiedsrichterAbsageSchema = z.object({
-  begruendung: singleLineName(begruendungText.nonempty({ error: "Bitte gib einen Grund für Deine Absage an." }), "Die Begründung"),
+  reason: singleLineName(begruendungText.nonempty({ error: "Bitte gib einen Grund für Deine Absage an." }), "Die Begründung"),
 });
 export type SchiedsrichterAbsage = z.infer<typeof SchiedsrichterAbsageSchema>;
 

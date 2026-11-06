@@ -38,14 +38,14 @@ const ANSICHT: FLInvitationViewResponse = {
 };
 
 /** The refused press's body where the pupil typed their date, which the new pupil's page asks. */
-const GETIPPT = { geburtsdatum: "2010-05-01" };
+const GETIPPT = { birth_date: "2010-05-01" };
 
 /** A `payload_refused` naming one body path, as `fl_frontend/src/core/api.ts` reads it off the 422. */
 const refusedAt = (...path: string[]) => refusedPayload([bodyField(path)], "/registrierungen");
 
 const DRAFT: RegistrierungFormDraft = {
-  vorname: "Mira",
-  nachname: "Kern",
+  first_name: "Mira",
+  last_name: "Kern",
   email: "mira@beispiel.example",
   nummer: "",
   position: null,
@@ -258,18 +258,18 @@ describe("what one refused confirmation shows", () => {
   it("states the floor the link answered rather than one of its own", async () => {
     const answered = await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(18).lesen);
 
-    expect(answered?.fieldErrors?.geburtsdatum).toBe(alterAusserhalb(18));
+    expect(answered?.fieldErrors?.birth_date).toBe(alterAusserhalb(18));
     expect(
-      (await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(16).lesen))?.fieldErrors?.geburtsdatum,
+      (await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(16).lesen))?.fieldErrors?.birth_date,
       "the sentence ignores the floor the read handed it",
-    ).not.toBe(answered?.fieldErrors?.geburtsdatum);
+    ).not.toBe(answered?.fieldErrors?.birth_date);
   });
 
   /* A sentence naming a floor this link was not minted under sends the person to correct a date that
      was right, so an unreadable link's refusal names none, on the field all the same. */
   it("puts the age refusal on the date naming no age where the floor could not be read", async () => {
     expect(await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
-      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
+      fieldErrors: { birth_date: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
   });
 
@@ -299,9 +299,9 @@ describe("what one refused confirmation shows", () => {
   });
 
   it("puts a body refusal naming a field on that field's box, with the mail's link beside it, reading no floor", async () => {
-    const mapped = await mapBestaetigungRefusal(refusedAt("geburtsdatum"), GETIPPT, () => Promise.reject(new Error("the floor was read")));
+    const mapped = await mapBestaetigungRefusal(refusedAt("birth_date"), GETIPPT, () => Promise.reject(new Error("the floor was read")));
 
-    expect(mapped).toStrictEqual({ fieldErrors: { geburtsdatum: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
+    expect(mapped).toStrictEqual({ fieldErrors: { birth_date: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
   });
 
   it("leaves the age refusal on the field, where the typed date survives it", async () => {
@@ -311,7 +311,7 @@ describe("what one refused confirmation shows", () => {
   /* The returning pupil's page has no date field, and every reopened link takes the same stored date: a
      field error there is a toast promising entries to correct that the page does not hold. */
   it("names the stored date and the league's address where the stored date was judged, reading no view", async () => {
-    const mapped = await mapBestaetigungRefusal(refused("confirmation_age"), { geburtsdatum: null }, () =>
+    const mapped = await mapBestaetigungRefusal(refused("confirmation_age"), { birth_date: null }, () =>
       Promise.reject(new Error("the view was read")),
     );
 

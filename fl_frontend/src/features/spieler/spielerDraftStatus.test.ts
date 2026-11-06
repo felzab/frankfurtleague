@@ -10,9 +10,9 @@ const LESSING: SpielerTeamOption = { teamId: "6890a1b2c3d4e5f607190002", name: "
 const TEAMS: SpielerTeamOption[] = [HELMHOLTZ, LESSING];
 
 const stored: FLSpielerDraftFields = {
-  vorname: "Max",
-  nachname: "Mustermann",
-  geburtsdatum: "2008-05-14",
+  first_name: "Max",
+  last_name: "Mustermann",
+  birth_date: "2008-05-14",
   membership: {
     team_id: HELMHOLTZ.teamId,
     nummer: "10",
@@ -37,15 +37,15 @@ describe("deriveSpielerDraftStatus", () => {
   });
 
   it("reports a renamed player as one change carrying both texts", () => {
-    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({ vorname: "Moritz" }), fieldErrors: {}, teams: TEAMS });
+    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({ first_name: "Moritz" }), fieldErrors: {}, teams: TEAMS });
 
-    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([["vorname", "Max", "Moritz"]]);
+    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([["first_name", "Max", "Moritz"]]);
   });
 
   it("reports a birthdate entered for the first time as the German day, carrying no previous value", () => {
     const status = deriveSpielerDraftStatus({
-      stored: draftFrom({ geburtsdatum: null }),
-      draft: draftFrom({ geburtsdatum: "2008-05-14" }),
+      stored: draftFrom({ birth_date: null }),
+      draft: draftFrom({ birth_date: "2008-05-14" }),
       fieldErrors: {},
       teams: TEAMS,
     });
@@ -53,9 +53,7 @@ describe("deriveSpielerDraftStatus", () => {
     // `isDirty` is what the save button reads, and a person field missing from the descriptor table
     // leaves it false: the input takes the date, the payload carries it, and nothing offers to save.
     assert.ok(status.isDirty);
-    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([
-      ["geburtsdatum", null, "14.05.2008"],
-    ]);
+    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([["birth_date", null, "14.05.2008"]]);
   });
 
   it("drops every squad row while the player is in no squad that season", () => {
@@ -66,7 +64,7 @@ describe("deriveSpielerDraftStatus", () => {
       teams: TEAMS,
     });
 
-    expect(status.fields.map((field) => field.path)).toStrictEqual(["vorname", "nachname", "geburtsdatum"]);
+    expect(status.fields.map((field) => field.path)).toStrictEqual(["first_name", "last_name", "birth_date"]);
   });
 
   it("reads a transfer as the two teams' NAMES, never their ids", () => {
@@ -138,20 +136,20 @@ describe("deriveSpielerDraftStatus", () => {
   it("carries a field error onto its own row", () => {
     const status = deriveSpielerDraftStatus({
       stored,
-      draft: draftFrom({ vorname: "" }),
-      fieldErrors: { vorname: "Bitte gib einen Vornamen ein." },
+      draft: draftFrom({ first_name: "" }),
+      fieldErrors: { first_name: "Bitte gib einen Vornamen ein." },
       teams: TEAMS,
     });
 
     // The descriptor's default `errorPaths`, which is this table's: widen it and the message
     // answers on a path no input carries.
-    expect(status.byPath.get("vorname")?.error).toBe("Bitte gib einen Vornamen ein.");
+    expect(status.byPath.get("first_name")?.error).toBe("Bitte gib einen Vornamen ein.");
   });
 
   it("counts several changes across both groups", () => {
     const status = deriveSpielerDraftStatus({
       stored,
-      draft: { ...draftFrom({ nachname: "Muster" }), ...squad({ stufe: "Q2" }) },
+      draft: { ...draftFrom({ last_name: "Muster" }), ...squad({ stufe: "Q2" }) },
       fieldErrors: {},
       teams: TEAMS,
     });

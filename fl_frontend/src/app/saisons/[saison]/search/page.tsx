@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY, textOf } from "@/core/copy";
-import { dayOf, formatDatum, formatNumber } from "@/core/format";
+import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
@@ -90,7 +90,7 @@ function wordsOf(spiel: FLSpielJoined): string {
     textOf(team2.name),
     spiel.ort?.name,
     whenOf(spiel),
-    spiel.datum === null ? null : formatDatum(dayOf(spiel.datum)),
+    spiel.date === null ? null : formatDate(dayOf(spiel.date)),
     formatNumber(spiel.spiel_nr),
     spiel.schiedsrichter?.name,
   ]

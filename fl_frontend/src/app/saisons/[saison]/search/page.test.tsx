@@ -30,14 +30,14 @@ const spiel = (
   saison_phase: phase,
   spiel_nr: nr,
   spieltag_id: spieltag,
-  datum: null,
-  uhrzeit: null,
+  date: null,
+  time: null,
   ergebnis: null,
   elfmeterschiessen: null,
   sonderereignis: null,
   ansetzung_confirmed: null,
   for_third_place: false,
-  notiz: null,
+  note: null,
   ort: null,
   schiedsrichter: null,
   team1,
@@ -53,7 +53,7 @@ const SPIELPLAN = {
     { id: "g1", saison_phase: "gruppenphase", position: 1, spiele: [spiel(1, "g1", "gruppenphase", GOETHE, HELMHOLTZ)] },
     { id: "g2", saison_phase: "gruppenphase", position: 2, spiele: [spiel(2, "g2", "gruppenphase", LESSING, HELMHOLTZ)] },
     { id: "f1", saison_phase: "finale", position: 1, spiele: [spiel(3, "f1", "finale", HELMHOLTZ, GOETHE)] },
-  ].map((spieltag) => ({ ...spieltag, saison_id: "2027", beginn: null, ende: null, count_spiele: 1, version: 1 })),
+  ].map((spieltag) => ({ ...spieltag, saison_id: "2027", start: null, end: null, count_spiele: 1, version: 1 })),
 } as FLSpielplanResponse;
 
 vi.mock("@/features/saisons/queries", () => ({

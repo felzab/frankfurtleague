@@ -33,7 +33,7 @@ export const SAISON_REQUIRED = {
   gruppen: requires(rules.number_of_gruppen, null),
   teamsPerGruppe: requires(rules.teams_per_gruppe, null),
   qualifiers: requires(rules.qualifiers_per_gruppe, null),
-  maxKader: requires(rules.max_kadergroesse, null),
+  maxKader: requires(rules.max_kader_size, null),
   // An empty choice of Stufen is refused: the season admits at least one.
   stufen: requires(rules.allowed_stufen, []),
   forfeitWinner: requires(rules.forfeit_ergebnis.shape.sieger_tore, null),

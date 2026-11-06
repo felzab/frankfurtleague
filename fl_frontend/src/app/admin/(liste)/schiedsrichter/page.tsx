@@ -51,7 +51,7 @@ function rowOf(referee: FLSchiedsrichter): TableRow {
     muted: referee.inactive_since !== null,
     cells: {
       email: referee.kontakt.email === null ? COPY.shared.noValue : { record: referee.kontakt.email },
-      telefon: referee.kontakt.telefon === null ? COPY.shared.noValue : { record: referee.kontakt.telefon },
+      phone: referee.kontakt.phone === null ? COPY.shared.noValue : { record: referee.kontakt.phone },
     },
   };
 }
@@ -77,7 +77,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
     { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line" },
-    { key: "telefon", label: COPY.account.entries.facts.phone, width: "phone" },
+    { key: "phone", label: COPY.account.entries.facts.phone, width: "phone" },
   ],
 };
 

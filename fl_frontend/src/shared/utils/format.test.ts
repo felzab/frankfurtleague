@@ -78,7 +78,7 @@ describe("formatSpielDatum", () => {
   });
 
   it("defaults to the shared date placeholder", () => {
-    expect(formatSpielDatum(null)).toBe(PLACEHOLDER.datum);
+    expect(formatSpielDatum(null)).toBe(PLACEHOLDER.date);
   });
 });
 
@@ -113,7 +113,7 @@ describe("formatUhrzeit", () => {
     expect(formatUhrzeit(undefined)).toBe("--:--");
     // "" is falsy and must take the placeholder too -- the cards' old `|| "--:--"` relied on that.
     expect(formatUhrzeit("")).toBe("--:--");
-    expect(formatUhrzeit(null)).toBe(PLACEHOLDER.uhrzeit);
+    expect(formatUhrzeit(null)).toBe(PLACEHOLDER.time);
   });
 
   it("accepts an explicit fallback", () => {

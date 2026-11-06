@@ -23,6 +23,6 @@ export function kontakteMayMoveLinks(stored: FLSaisonTeamKontakte | null, sent: 
     if (newSeat === null) return true;
 
     // The person is the seat's identity, and the telephone is not part of it.
-    return newSeat.email !== oldSeat.email || newSeat.vorname !== oldSeat.vorname || newSeat.nachname !== oldSeat.nachname;
+    return newSeat.email !== oldSeat.email || newSeat.first_name !== oldSeat.first_name || newSeat.last_name !== oldSeat.last_name;
   });
 }

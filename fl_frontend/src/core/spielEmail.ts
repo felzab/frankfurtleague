@@ -2,7 +2,7 @@ import "server-only";
 
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
-import { dayOf, formatDatumLong, formatDayAndTime, formatUhrzeit, timeOf } from "./format";
+import { dayOf, formatDateLong, formatDayAndTime, formatTime, timeOf } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -37,7 +37,7 @@ const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
 /** The fixture by its two sides in the fixture's own order, as the schedule lists them. */
 const paarung = ({ team1, team2 }: FLSpielMailAppointment): Copy => COPY.page.spiel({ record: team1 }, { record: team2 });
 
-const moment = ({ datum, uhrzeit }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(datum), timeOf(uhrzeit));
+const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
 
 /** A sentence whose moment stands semibold between its two parts. */
 const around = (before: string, value: string, after: string): Sentence => [before, { strong: value }, after];
@@ -57,22 +57,22 @@ function moveFacts(from: FLSpielMailAppointment, to: FLSpielMailAppointment | nu
  * moment left and the one moved to in the day's and the time's place.
  */
 function slotBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppointment | null): NonNullable<Mail["block"]> {
-  const { datum, uhrzeit, ort } = ansetzung;
+  const { date, time, spielort } = ansetzung;
   const when: Fact[] =
     movedFrom === null
       ? [
-          { label: FACT.datum, value: formatDatumLong(dayOf(datum)) },
-          { label: FACT.uhrzeit, value: formatUhrzeit(timeOf(uhrzeit)) },
+          { label: FACT.date, value: formatDateLong(dayOf(date)) },
+          { label: FACT.time, value: formatTime(timeOf(time)) },
         ]
       : moveFacts(movedFrom, ansetzung);
 
   // A ground nobody assigned, in words: a mail has no glyph for it.
-  return { title: paarung(ansetzung), facts: [...when, { label: FACT.spielort, value: ort ?? COPY.shared.notProvided }] };
+  return { title: paarung(ansetzung), facts: [...when, { label: FACT.spielort, value: spielort ?? COPY.shared.notProvided }] };
 }
 
 /** The deadline and the first-press rule: any seat of the club answers, so a reader told nothing takes a spent link for a dead one. */
-const answerParagraph = (frist: string): Paragraph => [
-  around(WORDS.answerUntil.before, formatDatumLong(dayOf(frist)), WORDS.answerUntil.after),
+const answerParagraph = (deadline: string): Paragraph => [
+  around(WORDS.answerUntil.before, formatDateLong(dayOf(deadline)), WORDS.answerUntil.after),
   WORDS.firstAnswerCounts,
 ];
 
@@ -81,10 +81,10 @@ const answerParagraph = (frist: string): Paragraph => [
  * the one mail telling the club of the move: to one mailbox of one of its teams.
  */
 export function buildSpielAnfrageEmail(
-  { kind, team, ansetzung, frist, moved_from: movedFrom }: FLSpielRequestData,
+  { kind, team, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
   { origin, token }: MailLink,
 ): Mail {
-  const day = dayOf(ansetzung.datum);
+  const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
   // A reminder carries no move: the move's own request is the one mail telling of it.
   const [subjectLine, lead]: readonly [string, Paragraph] =
@@ -100,10 +100,10 @@ export function buildSpielAnfrageEmail(
     // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
     // could send the two versions to different hosts.
     origin: mailOrigin(origin),
-    vorname: "",
+    firstName: "",
     paragraphs: [lead],
     block: slotBlock(ansetzung, movedFrom),
-    afterBlock: [answerParagraph(frist)],
+    afterBlock: [answerParagraph(deadline)],
     button: { label: COPY.page.spielbestaetigung, href: spielBestaetigungsLink(origin, token) },
   };
 }
@@ -118,9 +118,9 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
 
   return {
     kind: "notice",
-    subjectLine: movedFrom === null ? WORDS.bookedSubject(dayOf(ansetzung.datum)) : WORDS.movedSubject(dayOf(ansetzung.datum)),
+    subjectLine: movedFrom === null ? WORDS.bookedSubject(dayOf(ansetzung.date)) : WORDS.movedSubject(dayOf(ansetzung.date)),
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [[movedFrom === null ? WORDS.booked(spiel) : WORDS.moved(spiel)]],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [[WORDS.sayYesOrNo]],
@@ -132,9 +132,9 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
 function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mail {
   return {
     kind: "notice",
-    subjectLine: WORDS.unbookedSubject(dayOf(appointment.datum)),
+    subjectLine: WORDS.unbookedSubject(dayOf(appointment.date)),
     origin: mailOrigin(origin),
-    vorname: "",
+    firstName: "",
     paragraphs: [[around(WORDS.unbooked.before(paarung(appointment)), moment(appointment), WORDS.unbooked.after)]],
   };
 }
@@ -145,7 +145,7 @@ function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, 
     kind: "notice",
     subjectLine: subjectLine,
     origin: mailOrigin(origin),
-    vorname: "",
+    firstName: "",
     paragraphs: [paragraph],
     ...(block ? { block } : {}),
   };
@@ -159,8 +159,8 @@ function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, 
 export function buildSpielHinweisEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
   const { recipient, appointment } = data;
 
-  if (data.kind === "spiel_abgesagt") {
-    return noticeEmail(WORDS.cancelledSubject(dayOf(appointment.datum)), origin, [
+  if (data.kind === "spiel_cancelled") {
+    return noticeEmail(WORDS.cancelledSubject(dayOf(appointment.date)), origin, [
       around(WORDS.cancelled.before(paarung(appointment)), moment(appointment), WORDS.cancelled.after),
       WORDS.reinstated[recipient],
     ]);
@@ -171,14 +171,14 @@ export function buildSpielHinweisEmail(data: FLSpielMovedData | FLSpielNoticeDat
   // Taken off the fixture by the move: the void notice, naming the slot left alone.
   if (movedTo === null && !askedAgain) {
     if (recipient === "schiedsrichter") return unbookedEmail(appointment, origin);
-    return noticeEmail(WORDS.voidSubject(dayOf(appointment.datum)), origin, [
+    return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [
       around(WORDS.void.before(paarung(appointment)), moment(appointment), WORDS.void.after),
     ]);
   }
 
   const spiel = paarung(movedTo ?? appointment);
   const lead: Paragraph = askedAgain ? [WORDS.moved(spiel), WORDS.askedLater[recipient]] : [WORDS.moved(spiel)];
-  const subjectLine = movedTo === null ? WORDS.movedFromSubject(dayOf(appointment.datum)) : WORDS.movedSubject(dayOf(movedTo.datum));
+  const subjectLine = movedTo === null ? WORDS.movedFromSubject(dayOf(appointment.date)) : WORDS.movedSubject(dayOf(movedTo.date));
 
   return noticeEmail(subjectLine, origin, lead, { title: spiel, facts: moveFacts(appointment, movedTo) });
 }
@@ -193,7 +193,7 @@ export function buildSpielEinteilungAufgehobenEmail({ appointment }: FLSpielEint
  * decides, and nothing else tells it the league has.
  */
 export function buildSpielVorschlagVerworfenEmail({ appointment }: FLSpielVorschlagDiscardedData, { origin }: MailOrigin): Mail {
-  return noticeEmail(WORDS.keptSubject(dayOf(appointment.datum)), origin, [
+  return noticeEmail(WORDS.keptSubject(dayOf(appointment.date)), origin, [
     around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
     WORDS.keptDiscarded,
   ]);

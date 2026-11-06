@@ -1,16 +1,16 @@
 import {
   spielbestaetigungenGetSpielbestaetigungView,
   spielbestaetigungenGetSweepSaisons,
-  spielbestaetigungenPostSchiedsrichterAntwort,
+  spielbestaetigungenPostSchiedsrichterAnswer,
   spielbestaetigungenPostSpielbestaetigung,
   spielbestaetigungenSweepSpielbestaetigungen,
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLSpielbestaetigungAntwortPayload,
-  FLSpielbestaetigungAntwortResponse,
-  FLSpielbestaetigungSchiedsrichterAntwortPayload,
-  FLSpielbestaetigungSchiedsrichterAntwortResponse,
+  FLSpielbestaetigungAnswerPayload,
+  FLSpielbestaetigungAnswerResponse,
+  FLSpielbestaetigungSchiedsrichterAnswerPayload,
+  FLSpielbestaetigungSchiedsrichterAnswerResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungViewResponse,
   FLSweepSaisonsResponse,
@@ -26,16 +26,16 @@ export async function postSpielbestaetigungAnsicht(payload: FLTokenPayload): Pro
 }
 
 /** One club's answer, at the base tier: the token authorises, and an over-declared tier succeeds silently. */
-export async function postSpielbestaetigung(payload: FLSpielbestaetigungAntwortPayload): Promise<FLSpielbestaetigungAntwortResponse> {
+export async function postSpielbestaetigung(payload: FLSpielbestaetigungAnswerPayload): Promise<FLSpielbestaetigungAnswerResponse> {
   return spielbestaetigungenPostSpielbestaetigung(payload);
 }
 
 /** A referee's answer to a row of their own, on the person lane: the signed-in address is what the backend authorises. */
-export async function postSpielbestaetigungAntwort(
+export async function postSpielbestaetigungAnswer(
   spielbestaetigungId: string,
-  payload: FLSpielbestaetigungSchiedsrichterAntwortPayload,
-): Promise<FLSpielbestaetigungSchiedsrichterAntwortResponse> {
-  return spielbestaetigungenPostSchiedsrichterAntwort(spielbestaetigungId, payload);
+  payload: FLSpielbestaetigungSchiedsrichterAnswerPayload,
+): Promise<FLSpielbestaetigungSchiedsrichterAnswerResponse> {
+  return spielbestaetigungenPostSchiedsrichterAnswer(spielbestaetigungId, payload);
 }
 
 /**

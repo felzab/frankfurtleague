@@ -50,8 +50,8 @@ export function formularZustand(ansicht: FLInvitationViewResponse): "valid" | "c
 export function registrierungPayload(draft: RegistrierungFormDraft, token: string): FLPostRegistrierungPayload {
   return {
     token: token,
-    vorname: draft.vorname,
-    nachname: draft.nachname,
+    first_name: draft.first_name,
+    last_name: draft.last_name,
     email: draft.email,
     position: draft.position,
     nummer: nummerPayload(draft.nummer),
@@ -154,7 +154,7 @@ export type GelesenerLink =
  */
 export async function mapBestaetigungRefusal(
   error: unknown,
-  gesendet: Pick<FLRegistrierungConfirmationPayload, "geburtsdatum">,
+  gesendet: Pick<FLRegistrierungConfirmationPayload, "birth_date">,
   gelesen: () => Promise<GelesenerLink | null>,
 ): Promise<BestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
@@ -200,12 +200,12 @@ export async function mapBestaetigungRefusal(
     // a `zustand` here would swap a live form for a dead-link panel.
     case "confirmation_age": {
       // No date sent is the returning pupil's stored one judged: their page asks none (`registrierung_choices_unsuitable`).
-      if (gesendet.geburtsdatum === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };
+      if (gesendet.birth_date === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };
 
       const floor = (await ansicht())?.minimum_age ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
-      return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
+      return { fieldErrors: { birth_date: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
     }
     default:
       return null;
@@ -222,8 +222,8 @@ export function buildAdminRegistrierungRows(registrierungen: readonly FLRegistri
 
   return registrierungen.map((registrierung) => ({
     id: registrierung.id,
-    vorname: registrierung.vorname,
-    nachname: registrierung.nachname,
+    first_name: registrierung.first_name,
+    last_name: registrierung.last_name,
     submitted_at: registrierung.submitted_at,
     team_id: registrierung.team_id,
     teamName: teamNamen.get(registrierung.team_id) ?? null,

@@ -17,9 +17,9 @@ const kontakt = shape.kontakt.shape;
 const SchiedsrichterForm = z.object({
   name: shape.name,
   email: blankIsNull(kontakt.email),
-  telefon: blankIsNull(kontakt.telefon),
+  phone: blankIsNull(kontakt.phone),
   schule: blankIsNull(shape.schule),
-  honorar: numberBox(shape.default_payment),
+  payment: numberBox(shape.default_payment),
 });
 
 /**
@@ -34,9 +34,9 @@ export const createSchiedsrichter = action({
   input: SchiedsrichterForm,
   ownWords: ["duplicate_key", "email_not_accepted", "schiedsrichter_address_barred"],
   paths: { name: "name", "kontakt.email": "email" },
-  examples: { telefon: COPY.admin.schiedsrichter.telefonExample },
-  run: async ({ name, email, telefon, schule, honorar }) => {
-    await schiedsrichterPostSchiedsrichter({ name, kontakt: { email, telefon }, schule, default_payment: honorar });
+  examples: { phone: COPY.admin.schiedsrichter.phoneExample },
+  run: async ({ name, email, phone, schule, payment }) => {
+    await schiedsrichterPostSchiedsrichter({ name, kontakt: { email, phone }, schule, default_payment: payment });
     return { ok: true, value: undefined };
   },
 });

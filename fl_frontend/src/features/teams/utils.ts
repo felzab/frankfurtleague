@@ -36,11 +36,11 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaisonRules, members
  * date stay unanswered: whether the person answered, and when, is the one thing nobody may guess for the league.
  */
 export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
-  vorname: "",
-  nachname: "",
+  first_name: "",
+  last_name: "",
   email: "",
-  telefon: "",
-  geburtsdatum: "",
+  phone: "",
+  birth_date: "",
   einwilligung: {
     scope: EINWILLIGUNG_UMFANG,
     date: "",
@@ -78,7 +78,7 @@ export function holdsNobody(kontakte: FLSaisonTeamKontakte | SaisonTeamKontakteD
  * so badging on it would state as fact that two different people are the same one.
  */
 const isSamePerson = (a: FLKontaktperson | null, b: FLKontaktperson | null): boolean =>
-  a !== null && b !== null && a.vorname === b.vorname && a.nachname === b.nachname && a.email === b.email && a.telefon === b.telefon;
+  a !== null && b !== null && a.first_name === b.first_name && a.last_name === b.last_name && a.email === b.email && a.phone === b.phone;
 
 /**
  * **One row per club**, never per seat: `kontakte` is embedded on `saison_teams`, so a seat has no id
@@ -96,15 +96,15 @@ export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saison
       return {
         rolle: value,
         label: label,
-        // `geburtsdatum` is left behind, no cell here rendering it.
+        // `birth_date` is left behind, no cell here rendering it.
         person:
           person === null
             ? null
             : {
-                vorname: person.vorname,
-                nachname: person.nachname,
+                first_name: person.first_name,
+                last_name: person.last_name,
                 email: person.email,
-                telefon: person.telefon,
+                phone: person.phone,
                 einwilligung: person.einwilligung,
               },
         // The seat the block NAMES, so the badge follows the claim wherever it points rather than to

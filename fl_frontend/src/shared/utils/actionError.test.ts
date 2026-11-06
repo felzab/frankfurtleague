@@ -289,10 +289,10 @@ describe("a refusal read by its code, whatever its status", () => {
   });
 
   it("marks the box a rule's refusal names, with the way out for the rest", () => {
-    expect(refused(422, "activate_saison_unfinished", [bodyField(["geburtsdatum"], "activate_saison_unfinished")])).toStrictEqual({
+    expect(refused(422, "activate_saison_unfinished", [bodyField(["birth_date"], "activate_saison_unfinished")])).toStrictEqual({
       success: false,
       error: VALIDATION_FAILED,
-      fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
+      fieldErrors: { birth_date: FELD_ABGELEHNT },
       unplacedError: UNKNOWN_REFUSAL,
     });
   });
@@ -381,9 +381,9 @@ describe("a payload the API refused", () => {
   });
 
   it("names a list entry by its index, as the entry's input is named", () => {
-    const result = refused([bodyField(["names", 1, "vorname"], "string_pattern_mismatch")]);
+    const result = refused([bodyField(["names", 1, "first_name"], "string_pattern_mismatch")]);
 
-    expect(result.fieldErrors).toStrictEqual({ "names.1.vorname": FELD_ABGELEHNT });
+    expect(result.fieldErrors).toStrictEqual({ "names.1.first_name": FELD_ABGELEHNT });
   });
 
   it("keeps the failure naming no field where nothing it names is inside the body, and answers the reload", () => {
@@ -403,17 +403,17 @@ describe("a payload the API refused", () => {
 describe("a public route's own parse refusing the body", () => {
   const SENTENCE = "Der Satz der Seite.";
   const refusal = (body: unknown) => {
-    const parsed = z.object({ vorname: z.string() }).safeParse(body);
+    const parsed = z.object({ first_name: z.string() }).safeParse(body);
     expect(parsed.success, "the probe body parsed").toBe(false);
 
     return refusedDraftAnswer(parsed.error ?? assert.fail(), SENTENCE);
   };
 
   it("carries the page's sentence beside the map, for a path no control on an older page renders", () => {
-    const answer = refusal({ vorname: 7 });
+    const answer = refusal({ first_name: 7 });
 
     assert.ok("fieldErrors" in answer, "a refusal naming a path came back with no map");
-    expect(Object.keys(answer.fieldErrors)).toStrictEqual(["vorname"]);
+    expect(Object.keys(answer.fieldErrors)).toStrictEqual(["first_name"]);
     expect(answer.unplacedError).toBe(SENTENCE);
   });
 

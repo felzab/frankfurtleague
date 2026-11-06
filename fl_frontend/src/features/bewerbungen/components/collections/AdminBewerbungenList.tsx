@@ -113,11 +113,11 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   // Beside the Herkunft badge: a second application for one club is a fact about where the row came
   // from, and the administrator decides it by declining whichever is not real.
   const renderDublette = (bewerbung: AdminBewerbungRow) => {
-    const art = dubletten.get(bewerbung.id);
+    const kind = dubletten.get(bewerbung.id);
 
-    if (art === undefined) return null;
+    if (kind === undefined) return null;
 
-    return <span className={labelBadge(BEWERBUNG_DUBLETTE_TINT)}>{BEWERBUNG_DUBLETTE_LABEL[art]}</span>;
+    return <span className={labelBadge(BEWERBUNG_DUBLETTE_TINT)}>{BEWERBUNG_DUBLETTE_LABEL[kind]}</span>;
   };
 
   // Beside the duplicate mark, and `danger` where that one is `warning`: a colliding pair is waited
@@ -175,7 +175,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
             <Leer>Keine Kontaktperson</Leer>
           </span>
         ) : (
-          <span className={IDENTITY_NAME_CLASSES}>{`${person.vorname} ${person.nachname}`}</span>
+          <span className={IDENTITY_NAME_CLASSES}>{`${person.first_name} ${person.last_name}`}</span>
         )}
         {person === null || person.email === "" ? (
           <span className={IDENTITY_LINE_CLASSES}>

@@ -277,11 +277,11 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "given", whatsapp: false, media: false, text_versions: SEAT_TEXT_VERSIONS };
+      const antwort = { token: "kein-echtes-token", answer: "given", whatsapp: false, media: false, text_versions: SEAT_TEXT_VERSIONS };
 
-      expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, `${String(mindestalter)}: the offer is refused`).toBe(true);
+      expect(schema.safeParse({ ...antwort, birth_date: spaeteste }).success, `${String(mindestalter)}: the offer is refused`).toBe(true);
       expect(
-        schema.safeParse({ ...antwort, geburtsdatum: nextDay(spaeteste) }).success,
+        schema.safeParse({ ...antwort, birth_date: nextDay(spaeteste) }).success,
         `${String(mindestalter)}: a day younger than the offer is accepted`,
       ).toBe(false);
     }
@@ -290,10 +290,10 @@ describe("the birthdate window a contact person's date has to fall in", () => {
 
 describe("the public form's coach mirror", () => {
   const person = (vorname: string): BewerbungKontaktpersonDraft => ({
-    vorname: vorname,
-    nachname: "Mustermann",
+    first_name: vorname,
+    last_name: "Mustermann",
     email: `${vorname.toLowerCase()}@beispiel.de`,
-    telefon: "069 1234567",
+    phone: "069 1234567",
     einwilligung: { given: true },
   });
 
@@ -310,23 +310,23 @@ describe("the public form's coach mirror", () => {
   it("fills the Trainer seat from whichever seat declared itself the coach", () => {
     const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_is_also: "ansprechperson" }));
 
-    expect(mirroredPair.trainer.vorname).toBe("Erika");
+    expect(mirroredPair.trainer.first_name).toBe("Erika");
     expect(mirroredPair.trainer, "the two seats hold two records rather than one").toBe(mirroredPair.ansprechperson);
-    expect(mirroredPair.stellvertretung.vorname, "a seat the claim does not name was overwritten").toBe("Lena");
+    expect(mirroredPair.stellvertretung.first_name, "a seat the claim does not name was overwritten").toBe("Lena");
   });
 
   it("fills it from the Stellvertretung where that seat is the one that declared itself", () => {
     const mirroredPair = mirrorBewerbungTrainer(kontakte({ trainer_is_also: "stellvertretung" }));
 
-    expect(mirroredPair.trainer.vorname).toBe("Lena");
-    expect(mirroredPair.ansprechperson.vorname).toBe("Erika");
+    expect(mirroredPair.trainer.first_name).toBe("Lena");
+    expect(mirroredPair.ansprechperson.first_name).toBe("Erika");
   });
 
   it("moves nobody while the claim names nobody", () => {
     const mirroredPair = mirrorBewerbungTrainer(kontakte());
 
-    expect(mirroredPair.trainer.vorname).toBe("Tim");
-    expect(mirroredPair.ansprechperson.vorname).toBe("Erika");
+    expect(mirroredPair.trainer.first_name).toBe("Tim");
+    expect(mirroredPair.ansprechperson.first_name).toBe("Erika");
   });
 });
 
@@ -338,9 +338,9 @@ describe("which paths one judgement covers in the public form", () => {
       "kontakte.ansprechperson.email",
       "kontakte.trainer.email",
     ]);
-    expect(bewerbungJudgedPaths(["kontakte.stellvertretung.telefon"], "stellvertretung")).toStrictEqual([
-      "kontakte.stellvertretung.telefon",
-      "kontakte.trainer.telefon",
+    expect(bewerbungJudgedPaths(["kontakte.stellvertretung.phone"], "stellvertretung")).toStrictEqual([
+      "kontakte.stellvertretung.phone",
+      "kontakte.trainer.phone",
     ]);
   });
 
@@ -665,7 +665,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   it("answers the age refusal at the field, naming the floor it was given and never a state", async () => {
     for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const mappedRefusal = await mapEinwilligungRefusal(refused("confirmation_age"), offenBei(floor));
-      const gesagt = mappedRefusal?.fieldErrors?.geburtsdatum ?? "";
+      const gesagt = mappedRefusal?.fieldErrors?.birth_date ?? "";
 
       expect(mappedRefusal?.zustand, "a refusal the token survives closed the form anyway").toBe(undefined);
       assert.ok(gesagt.includes(String(floor)), `the sentence does not name ${String(floor)}, which is the floor it was handed`);
@@ -701,11 +701,11 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
 
   it("puts a body refusal naming a field on that field's box, with the mail's link for a box the panel lacks", async () => {
     const mappedRefusal = await mapEinwilligungRefusal(
-      refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], "/bewerbungen"),
+      refusedPayload([bodyField(["birth_date"], "date_from_datetime_parsing")], "/bewerbungen"),
       offenBei(VERTRETUNG_MIN_ALTER),
     );
 
-    expect(mappedRefusal).toStrictEqual({ fieldErrors: { geburtsdatum: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
+    expect(mappedRefusal).toStrictEqual({ fieldErrors: { birth_date: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
   });
 });
 

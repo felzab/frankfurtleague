@@ -11,7 +11,7 @@ import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal } from "../teams/refusals.ts";
-import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
+import { ADRESSE_KORRIGIEREN, BEWERBUNG_DECISION_REASON_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
@@ -19,7 +19,7 @@ import type { Code, FLBewerbung } from "@/core/generated/client/types.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
-const PERSON = { vorname: "Anna", email: "anna@example.de" };
+const PERSON = { first_name: "Anna", email: "anna@example.de" };
 
 /**
  * The application the three contact repairs read before their write: a proposed school, whose name
@@ -137,7 +137,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     await assertEachAnswered({
       codes: refusalCodes("bewerbung_already_decided"),
       refuseWith: answerWith,
-      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
+      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll." }),
       mapped: declineMapped,
     });
   });
@@ -240,9 +240,9 @@ const ENTSCHIEDEN: FLBewerbung = {
     trainer: null,
     ansprechperson: {
       ...PERSON,
-      nachname: "Meier",
-      telefon: "069 1234567",
-      geburtsdatum: null,
+      last_name: "Meier",
+      phone: "069 1234567",
+      birth_date: null,
       einwilligung: kenntnisnahme({ date: "2026-09-01", confirmed_at: null }),
     },
     stellvertretung: null,
@@ -282,7 +282,7 @@ const DECISIONS = [
     betreff: "Absage",
     operation: ABLEHNEN_OPERATION,
     landed: (document: object) => ({ id: (document as { id: string }).id }),
-    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
+    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll." }),
   },
 ] as const;
 
@@ -292,10 +292,10 @@ const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@
 const SITZ = {
   id: BEWERBUNG_ID,
   rolle: "ansprechperson",
-  vorname: "Berta",
-  nachname: "Beispiel",
+  first_name: "Berta",
+  last_name: "Beispiel",
   email: "berta@example.de",
-  telefon: "069 1234567",
+  phone: "069 1234567",
 } as const;
 
 /** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
@@ -366,7 +366,7 @@ describe("the application's writes", () => {
     // The writes alone: each owes its mails in the backend's own transaction, so no report of a send follows one.
     expect(requestsOf(writes)).toStrictEqual([
       { endpoint: `${bewerbung}/accept`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
-      { endpoint: `${bewerbung}/decline`, method: "POST", body: { grund: "Die Liga ist voll." } },
+      { endpoint: `${bewerbung}/decline`, method: "POST", body: { decision_reason: "Die Liga ist voll." } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/resend`, method: "POST", body: undefined },
       // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.
       {
@@ -596,11 +596,11 @@ describe("the decline's bound", () => {
      „   “ has to be refused as the empty reason it is. The backend's `min_length` does not strip, and
      the browser is where the value still can be. */
   it("refuses a reason that is only whitespace, and carries the trimmed one", () => {
-    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "   " });
+    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "   " });
 
     expect(parsed.success, "a whitespace-only reason parses, and would be stored and mailed as one").toBe(false);
     expect(
-      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "  Kein Platz.  " }).data?.grund,
+      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "  Kein Platz.  " }).data?.decision_reason,
       "the reason reaches the write with the padding the administrator typed around it",
     ).toBe("Kein Platz.");
   });
@@ -608,11 +608,11 @@ describe("the decline's bound", () => {
   /* A reason at the cap with padding around it: the schema takes it, so the panel that measures the
      raw string disables the button and counts past the cap over a reason the school would have read. */
   it("takes a reason whose padding is all that carries it past the cap", () => {
-    const padded = `  ${"a".repeat(BEWERBUNG_GRUND_MAX_LENGTH)}  `;
-    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: padded });
+    const padded = `  ${"a".repeat(BEWERBUNG_DECISION_REASON_MAX_LENGTH)}  `;
+    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: padded });
 
     expect(parsed.success, "a reason inside the cap once trimmed is refused by the schema").toBe(true);
-    expect(parsed.data?.grund.length).toBe(BEWERBUNG_GRUND_MAX_LENGTH);
+    expect(parsed.data?.decision_reason.length).toBe(BEWERBUNG_DECISION_REASON_MAX_LENGTH);
   });
 });
 
@@ -773,10 +773,10 @@ describe("the person seated where one stepped out", () => {
         besetzeKontaktSitzAction({
           id: BEWERBUNG_ID,
           rolle: "ansprechperson",
-          vorname: "Berta",
-          nachname: "Beispiel",
+          first_name: "Berta",
+          last_name: "Beispiel",
           email: "berta@example.de",
-          telefon: "069 1234567",
+          phone: "069 1234567",
         }),
       mapped: mapKontaktSitzRefusal,
     });

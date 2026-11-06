@@ -1,5 +1,5 @@
 import { isRecordMissing } from "@/core/errors";
-import { spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
+import { spieltageGetSpieltagAdmin } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type { FLSpieltagAdminResponse } from "@/core/generated/client/types";
@@ -12,7 +12,7 @@ import type { FLSpieltagAdminResponse } from "@/core/generated/client/types";
  */
 export async function getAdminSpieltag(spieltagId: string): Promise<FLSpieltagAdminResponse | null> {
   return runAdminRead(() =>
-    spieltageGetSpieltagVerwaltung(spieltagId).catch((error: unknown) => {
+    spieltageGetSpieltagAdmin(spieltagId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),

@@ -12,8 +12,8 @@ import type {
  */
 export type AdminRegistrierungRow = {
   id: string;
-  vorname: string;
-  nachname: string;
+  first_name: string;
+  last_name: string;
   // The day the read orders by, so a cut-short list's end can be told from its card.
   submitted_at: string;
   team_id: string;
@@ -42,8 +42,8 @@ export type RegistrierungStart =
  * answered: the schema is what turns an unanswered one into a field error rather than a type error.
  */
 export type RegistrierungFormDraft = {
-  vorname: string;
-  nachname: string;
+  first_name: string;
+  last_name: string;
   email: string;
   // A STRING mid-entry where the payload's is `string | null`: `""` is a box nobody filled in, and
   // `registrierungPayload` is the one place that turns it into null.
@@ -70,7 +70,7 @@ export type SpielerBestaetigungStart =
  * returning pupil's page, which asks neither a choice nor a date.
  */
 export type SpielerBestaetigungGespeichert = {
-  geburtsdatum: string | null;
+  birth_date: string | null;
   umfang: FLEinwilligungScope | null;
   media: boolean | null;
 };
@@ -79,4 +79,4 @@ export type SpielerBestaetigungGespeichert = {
  * Which of the two pages a link opens, handed in by the page: the new pupil's asks the two consents of
  * `fl_frontend/src/core/consentWordings.ts :: SPIELER_WORDINGS`, the returning pupil's none.
  */
-export type SpielerSeitenFassung = { readonly seite: "bestaetigung_spieler" } | { readonly seite: "bestaetigung_spieler_wiederkehrend" };
+export type SpielerSeitenFassung = { readonly page: "bestaetigung_spieler" } | { readonly page: "bestaetigung_spieler_wiederkehrend" };

@@ -47,7 +47,7 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
   // The backend's two refusals a page can foresee from the fixture it serves, stated before any press meets them.
   const sperre = berichtSperre(spiel, getGermanTodayStr());
   // A report may stand from before the fixture moved or was called off, so neither sentence says none exists.
-  if (sperre === "abgesagt") {
+  if (sperre === "cancelled") {
     return (
       <SpielberichtZustandView
         title="Dieses Spiel ist ausgefallen oder annulliert."
@@ -75,7 +75,7 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
       stored={read.bericht}
       header={{
         title: `${kontext.team1Name} vs. ${kontext.team2Name}`,
-        chip: <span className="muted-meta">{formatSpielDatum(spiel.datum)}</span>,
+        chip: <span className="muted-meta">{formatSpielDatum(spiel.date)}</span>,
       }}
       zurueckHref={SCHIEDSRICHTER_HREF}
     />

@@ -67,9 +67,9 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
   const storedMembership = saison.membership;
 
   const [personDraft, setPersonDraft] = useState<SpielerPersonFields>({
-    vorname: spieler.vorname,
-    nachname: spieler.nachname,
-    geburtsdatum: spieler.geburtsdatum,
+    first_name: spieler.first_name,
+    last_name: spieler.last_name,
+    birth_date: spieler.birth_date,
   });
 
   const [teamId, setTeamId] = useState<string | null>(storedMembership?.team_id ?? null);
@@ -100,15 +100,15 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
   });
 
   const draftFields: FLSpielerDraftFields = {
-    vorname: personDraft.vorname,
-    nachname: personDraft.nachname ?? "",
-    geburtsdatum: personDraft.geburtsdatum,
+    first_name: personDraft.first_name,
+    last_name: personDraft.last_name ?? "",
+    birth_date: personDraft.birth_date,
     membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, rolle },
   };
   const storedFields: FLSpielerDraftFields = {
-    vorname: spieler.vorname,
-    nachname: spieler.nachname ?? "",
-    geburtsdatum: spieler.geburtsdatum,
+    first_name: spieler.first_name,
+    last_name: spieler.last_name ?? "",
+    birth_date: spieler.birth_date,
     membership:
       storedMembership === null
         ? null
@@ -171,7 +171,7 @@ function SpielerEditForm({ spieler, einwilligung, saison, teams, pageHeader }: A
   });
 
   const resetDraftToStored = () => {
-    setPersonDraft({ vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum });
+    setPersonDraft({ first_name: spieler.first_name, last_name: spieler.last_name, birth_date: spieler.birth_date });
     setTeamId(storedMembership?.team_id ?? null);
     setNummer(storedMembership?.nummer ?? "");
     setPosition(storedMembership?.position ?? null);

@@ -89,7 +89,7 @@ async function readSpieltage(params: Props["params"], searchParams: Props["searc
               panel: (
                 <>
                   <SpieltagHead
-                    dates={WORDS.span(dayOf(spieltag.beginn), dayOf(spieltag.ende))}
+                    dates={WORDS.span(dayOf(spieltag.start), dayOf(spieltag.end))}
                     act={
                       // Every editor is a page of its own: the matchday's opens on its own read.
                       <Link

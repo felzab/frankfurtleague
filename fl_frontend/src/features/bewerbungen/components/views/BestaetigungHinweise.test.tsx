@@ -33,7 +33,7 @@ describe("the consent each page shows", () => {
       team: "SG Alpha",
       schule: "Alpha-Schule",
       saison_id: "2026",
-      seite: "bestaetigung_spieler" as const,
+      page: "bestaetigung_spieler" as const,
       minimum_age: 16,
       media_minimum_age: 18,
     };
@@ -41,7 +41,7 @@ describe("the consent each page shows", () => {
       underNext(
         h(SpielerBestaetigungView, {
           start: { zustand: "valid", ansicht: ansicht, token: "kein-echtes-token" },
-          wording: { seite: "bestaetigung_spieler" },
+          wording: { page: "bestaetigung_spieler" },
         }),
       ),
     );

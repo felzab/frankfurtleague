@@ -1,18 +1,18 @@
 import {
-  formatDatum,
-  formatDatumLong,
-  formatDatumWithWeekday,
+  formatDate,
+  formatDateLong,
+  formatDateWithWeekday,
   formatErgebnis,
   formatInstant,
   formatList,
   formatNumber,
   formatOrdinal,
   formatPeriod,
-  formatUhrzeit,
+  formatTime,
 } from "./format";
 import { rollenText } from "./teamVocabulary";
 
-import type { CalendarDay, Pair, Uhrzeit } from "./format";
+import type { CalendarDay, Pair, TimeOfDay } from "./format";
 import type { FLKontaktRolle, FLSpielerStufe } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
@@ -94,7 +94,7 @@ const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 
 // Words two areas of this one object say alike, each written once and read under both keys: a match's facts and
 // its events as a visitor reads them and as the editor's fields name them, and the sign-in's acts and pages.
-const SPIEL_FACT = { datum: "Datum", uhrzeit: "Uhrzeit" } as const;
+const SPIEL_FACT = { date: "Datum", time: "Uhrzeit" } as const;
 // A match or a matchday not dated yet, as a match row and a matchday's line say it.
 const DATE_OPEN = "Termin offen";
 // The mark beside a score a shoot-out decided.
@@ -151,8 +151,8 @@ export const COPY = catalogue({
       min: (count: number) => `Mindestens ${formatNumber(count)}`,
       /** „Ohne E-Mail-Adresse“: what a text must not hold, by the catalogue's own name for it. */
       without: (thing: Copy) => `Ohne ${thing}`,
-      earliest: (day: CalendarDay) => `Frühestens ${formatDatum(day)}`,
-      latest: (day: CalendarDay) => `Spätestens ${formatDatum(day)}`,
+      earliest: (day: CalendarDay) => `Frühestens ${formatDate(day)}`,
+      latest: (day: CalendarDay) => `Spätestens ${formatDate(day)}`,
       // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.
       taken: "Schon vergeben",
     },
@@ -210,7 +210,7 @@ export const COPY = catalogue({
     /** The status cards' titles and ways on: a mailed page's ends, and the frames' own. */
     end: {
       /** A mailed page's link opened again, titled with what the person did and the day: „Eintrag bestätigt am 12. November 2026“. */
-      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDatumLong(day)}`,
+      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDateLong(day)}`,
       /** An area with no season yet, where a page shows a season's work. */
       noSaison: "Noch keine Saison",
       toHome: "Zur Startseite",
@@ -259,7 +259,7 @@ export const COPY = catalogue({
       rueckzug: { label: "Rückzug", state: "Zurückgezogen", kuerzel: "RZ" },
     },
     /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `state` and the day it took effect. */
-    austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDatum(day)}`,
+    austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDate(day)}`,
     startelf: "Startelf",
     bank: "Bank",
     /** A club's goals, a match's and a season's: a column head, a tile, a field's message. */
@@ -356,8 +356,8 @@ export const COPY = catalogue({
     /** The matchday tabs' name, and the plural an empty Spielplan names. */
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
-    when: (day: CalendarDay | null, time: Uhrzeit | null) =>
-      day === null ? DATE_OPEN : time === null ? formatDatumWithWeekday(day) : `${formatDatumWithWeekday(day)} · ${formatUhrzeit(time)}`,
+    when: (day: CalendarDay | null, time: TimeOfDay | null) =>
+      day === null ? DATE_OPEN : time === null ? formatDateWithWeekday(day) : `${formatDateWithWeekday(day)} · ${formatTime(time)}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
@@ -394,8 +394,8 @@ export const COPY = catalogue({
     /** A match's facts, each by its label. */
     fact: {
       spieltag: "Spieltag",
-      datum: SPIEL_FACT.datum,
-      uhrzeit: SPIEL_FACT.uhrzeit,
+      date: SPIEL_FACT.date,
+      time: SPIEL_FACT.time,
       spielort: "Ort",
       schiedsrichter: SCHIEDSRICHTER,
     },
@@ -539,8 +539,8 @@ export const COPY = catalogue({
       /** A row's line under its name, in a list's date form: when it was set up, and when it last signed in where it has. */
       dates: (created: Date, lastUsed: Date | null) =>
         lastUsed === null
-          ? `Eingerichtet am ${formatDatum(created)}`
-          : `Eingerichtet am ${formatDatum(created)} · Zuletzt verwendet am ${formatDatum(lastUsed)}`,
+          ? `Eingerichtet am ${formatDate(created)}`
+          : `Eingerichtet am ${formatDate(created)} · Zuletzt verwendet am ${formatDate(lastUsed)}`,
       /**
        * The deletion's consequence, worded after the passkey touch, whose sign-in the session then is: the devices
        * the passkey signed in, this one among them where the touch was made with it.
@@ -669,7 +669,7 @@ export const COPY = catalogue({
     },
 
     /** A referee's fee for a match: the referee's own default, and a match's booking. */
-    honorar: "Honorar",
+    payment: "Honorar",
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
     facts: { before: "Bisher", after: "Neu", fromNow: "Ab sofort", mailTo: "E-Mail an" },
     /** A venue's and a referee's danger box, holding the act retiring the record or bringing it back. */
@@ -686,12 +686,12 @@ export const COPY = catalogue({
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
       sentTo: (address: string) => `An ${address} gesendet`,
-      confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDatum(day)}`,
-      openUntil: (day: CalendarDay) => `Offen bis ${formatDatum(day)}`,
-      expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDatum(day)}`,
-      objectedOn: (day: CalendarDay) => `Widersprochen am ${formatDatum(day)}`,
+      confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDate(day)}`,
+      openUntil: (day: CalendarDay) => `Offen bis ${formatDate(day)}`,
+      expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDate(day)}`,
+      objectedOn: (day: CalendarDay) => `Widersprochen am ${formatDate(day)}`,
       /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
-      telefonExample: "069 90009123",
+      phoneExample: "069 90009123",
       retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
       reactivateConsequence: "Die Person steht wieder zur Auswahl.",
     },
@@ -712,8 +712,8 @@ export const COPY = catalogue({
       /** The span a season runs from its start to its end: the list's column and the editor's first box. */
       zeitraum: "Zeitraum",
       /** A span's two days, the season's, each window's and a matchday's alike. */
-      beginn: "Beginn",
-      ende: "Ende",
+      start: "Beginn",
+      end: "Ende",
 
       /**
        * The editor's boxes, in the order of a season's life: its dates, its rules one box per what they govern (its
@@ -794,7 +794,7 @@ export const COPY = catalogue({
       entriesHold: "Spiele sind schon bearbeitet",
 
       /** Each team's registration link as its row states it, by what the press would do with it. */
-      linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDatum(day)}`,
+      linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDate(day)}`,
       linkNotSent: "Nicht gesendet",
       noLinkYet: "Noch kein Link",
       noConfirmedAddress: "Keine bestätigte Adresse",
@@ -825,9 +825,9 @@ export const COPY = catalogue({
       ergebnis: "Ergebnis",
       /** The players credited with a result's goals, as a field's message names what it must not hold. */
       torschuetzen: "Torschützen",
-      notiz: "Notiz",
-      datum: SPIEL_FACT.datum,
-      uhrzeit: SPIEL_FACT.uhrzeit,
+      note: "Notiz",
+      date: SPIEL_FACT.date,
+      time: SPIEL_FACT.time,
       sonderereignis: "Sonderereignis",
       /** The Sonderereignis' first entry: nothing beyond the match being played. */
       none: "Keines",
@@ -856,8 +856,7 @@ export const COPY = catalogue({
       score: (tore: Pair, elfmeterschiessen: Pair | null) =>
         elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${AFTER_ELFMETERSCHIESSEN}`,
       /** A matchday's dates over its matches, until it is dated what is still to settle. */
-      span: (beginn: CalendarDay | null, ende: CalendarDay | null) =>
-        beginn === null || ende === null ? DATE_OPEN : formatPeriod(beginn, ende),
+      span: (start: CalendarDay | null, end: CalendarDay | null) => (start === null || end === null ? DATE_OPEN : formatPeriod(start, end)),
 
       /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
       spielberichtUndBestaetigungen: "Spielbericht und Bestätigungen",
@@ -888,8 +887,8 @@ export const COPY = catalogue({
       zugesagt: "Zugesagt",
       /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */
       abgelehnt: "Abgelehnt",
-      abgesagt: "Abgesagt",
-      answerBy: (day: CalendarDay) => `Antwort bis ${formatDatum(day)}`,
+      cancelled: "Abgesagt",
+      answerBy: (day: CalendarDay) => `Antwort bis ${formatDate(day)}`,
       enteredByLeague: "Von der Verwaltung eingetragen",
       notAsked: "Noch nicht angefragt",
       /** A save voiding later matches' results, which it asks before. */

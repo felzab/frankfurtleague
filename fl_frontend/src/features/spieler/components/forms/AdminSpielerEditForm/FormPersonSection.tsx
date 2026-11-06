@@ -49,12 +49,12 @@ export function FormPersonSection({
       <div className={panel.body()}>
         <div className={FIELD_PAIR_CLASSES}>
           <TextField
-            name="vorname"
-            value={draft.vorname}
-            onChange={(next) => onChange({ ...draft, vorname: next })}
-            onBlur={() => onFieldLeft(["vorname"])}
+            name="first_name"
+            value={draft.first_name}
+            onChange={(next) => onChange({ ...draft, first_name: next })}
+            onBlur={() => onFieldLeft(["first_name"])}
             maxLength={KONTAKT_NAME_MAX_LENGTH}>
-            <FieldLabel<SpielerFieldPath> path="vorname">Vorname</FieldLabel>
+            <FieldLabel<SpielerFieldPath> path="first_name">Vorname</FieldLabel>
             <Input
               placeholder="z.B. Lena"
               className={FIELD_INPUT_CLASSES}
@@ -63,13 +63,13 @@ export function FormPersonSection({
           </TextField>
 
           <TextField
-            name="nachname"
-            value={draft.nachname ?? ""}
+            name="last_name"
+            value={draft.last_name ?? ""}
             // Emptied means absent, not an empty surname — the boundary where `""` becomes `null`.
-            onChange={(next) => onChange({ ...draft, nachname: next.trim() === "" ? null : next })}
-            onBlur={() => onFieldLeft(["nachname"])}
+            onChange={(next) => onChange({ ...draft, last_name: next.trim() === "" ? null : next })}
+            onBlur={() => onFieldLeft(["last_name"])}
             maxLength={KONTAKT_NAME_MAX_LENGTH}>
-            <FieldLabel<SpielerFieldPath> path="nachname">Nachname</FieldLabel>
+            <FieldLabel<SpielerFieldPath> path="last_name">Nachname</FieldLabel>
             <Input
               placeholder="z.B. Meier"
               className={FIELD_INPUT_CLASSES}
@@ -83,12 +83,12 @@ export function FormPersonSection({
           {/* No span: the calendar greys out what is offered, and this editor judges no age
               (`docs/domain.md`, „What the model permits on purpose“). A cleared picker is refused at the save. */}
           <AppDatePicker
-            name="geburtsdatum"
-            label={<FieldLabel<SpielerFieldPath> path="geburtsdatum">Geburtsdatum</FieldLabel>}
+            name="birth_date"
+            label={<FieldLabel<SpielerFieldPath> path="birth_date">Geburtsdatum</FieldLabel>}
             calendarLabel="Geburtsdatum auswählen"
-            value={draft.geburtsdatum === null ? null : parseDate(draft.geburtsdatum)}
-            onChange={(next) => onChange({ ...draft, geburtsdatum: next?.toString() ?? null })}
-            onBlur={() => onFieldLeft(["geburtsdatum"])}
+            value={draft.birth_date === null ? null : parseDate(draft.birth_date)}
+            onChange={(next) => onChange({ ...draft, birth_date: next?.toString() ?? null })}
+            onBlur={() => onFieldLeft(["birth_date"])}
           />
         </div>
       </div>

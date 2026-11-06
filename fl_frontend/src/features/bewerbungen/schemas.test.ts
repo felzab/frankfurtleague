@@ -12,7 +12,7 @@ import {
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   SCHULE_NICHT_IN_LISTE,
 } from "./constants.ts";
-import { FLBewerbungEinwilligungAntwortPayloadSchema, FLBewerbungKontaktEmailPayloadSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
+import { FLBewerbungEinwilligungAnswerPayloadSchema, FLBewerbungKontaktEmailPayloadSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
 import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
@@ -21,10 +21,10 @@ import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDr
 
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
-  vorname: vorname,
-  nachname: "Mustermann",
+  first_name: vorname,
+  last_name: "Mustermann",
   email: `${vorname.toLowerCase()}@beispiel.de`,
-  telefon: `069 ${vorname.length}234567`,
+  phone: `069 ${vorname.length}234567`,
   einwilligung: { given: true },
   ...overrides,
 });
@@ -107,12 +107,12 @@ describe("the three people have to be tellable apart", () => {
   it("refuses a shared telephone number the same way", () => {
     const draft = validDraft();
     const sharedSeat = validDraft({
-      kontakte: { ...draft.kontakte, ansprechperson: person("Erika", { telefon: draft.kontakte.trainer.telefon }) },
+      kontakte: { ...draft.kontakte, ansprechperson: person("Erika", { phone: draft.kontakte.trainer.phone }) },
     });
 
     // The TRAINER's box, although the Ansprechperson's is the one that was changed: the Trainer's
     // panel is the later of the two, so it is the one still on screen when the message appears.
-    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.trainer.telefon"]);
+    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.trainer.phone"]);
   });
 
   /* Case is not a second person: byte for byte, `ERIKA@…` beside `erika@…` passes here and is then
@@ -159,9 +159,9 @@ describe("the three people have to be tellable apart", () => {
 
     expect(refusedPaths(sharedSeat)).toStrictEqual([
       "kontakte.stellvertretung.email",
-      "kontakte.stellvertretung.telefon",
+      "kontakte.stellvertretung.phone",
       "kontakte.trainer.email",
-      "kontakte.trainer.telefon",
+      "kontakte.trainer.phone",
     ]);
   });
 
@@ -180,11 +180,11 @@ describe("the three people have to be tellable apart", () => {
     );
     const drifted = {
       ...payload,
-      kontakte: { ...payload.kontakte, ansprechperson: { ...payload.kontakte.ansprechperson, telefon: "069 7234567" } },
+      kontakte: { ...payload.kontakte, ansprechperson: { ...payload.kontakte.ansprechperson, phone: "069 7234567" } },
     };
     const parsed = FLPostBewerbungPayloadSchema.safeParse(drifted);
 
-    expect(parsed.success ? [] : Object.keys(toFieldErrors(parsed.error)).sort()).toStrictEqual(["kontakte.ansprechperson.telefon"]);
+    expect(parsed.success ? [] : Object.keys(toFieldErrors(parsed.error)).sort()).toStrictEqual(["kontakte.ansprechperson.phone"]);
   });
 
   /* zod skips a refinement once a check in its object aborts, and the consent switch left off is one:
@@ -237,7 +237,7 @@ describe("the three people have to be tellable apart", () => {
       },
     });
 
-    expect(bewerbungPayload(draft).kontakte.trainer.vorname).toBe("Erika");
+    expect(bewerbungPayload(draft).kontakte.trainer.first_name).toBe("Erika");
   });
 });
 
@@ -251,8 +251,8 @@ describe("two spellings of one telephone number are one number", () => {
     return validDraft({
       kontakte: {
         ...basis.kontakte,
-        ansprechperson: person("Erika", { telefon: eine }),
-        stellvertretung: person("Lena", { telefon: andere }),
+        ansprechperson: person("Erika", { phone: eine }),
+        stellvertretung: person("Lena", { phone: andere }),
       },
     });
   };
@@ -265,7 +265,7 @@ describe("two spellings of one telephone number are one number", () => {
     ["069-1234567", "069 1234567", "a hyphen against a space"],
   ] as const) {
     it(`refuses ${wie}`, () => {
-      expect(refusedPaths(sharedNumber(eine, andere))).toStrictEqual(["kontakte.stellvertretung.telefon"]);
+      expect(refusedPaths(sharedNumber(eine, andere))).toStrictEqual(["kontakte.stellvertretung.phone"]);
     });
   }
 
@@ -628,7 +628,7 @@ describe("the one field of a submitted application an administrator may move", (
 
   it("takes an application, a seat, an address and the address the page showed, and refuses any other key", () => {
     expect(refusalFor(CORRECTION)).toStrictEqual({});
-    expect(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...CORRECTION, vorname: "Erika" }))).toStrictEqual([
+    expect(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...CORRECTION, first_name: "Erika" }))).toStrictEqual([
       "id",
       "rolle",
       "email",
@@ -675,26 +675,26 @@ describe("the consenting answer's birth date", () => {
   /* The empty picker is the missing date, so the date picker's required mark is set by hand on the
      strength of this refusal alone. */
   it("is refused missing, on the date's own path, in German", () => {
-    const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({
+    const parsed = FLBewerbungEinwilligungAnswerPayloadSchema.safeParse({
       token: "x".repeat(20),
-      antwort: "given",
-      geburtsdatum: "",
+      answer: "given",
+      birth_date: "",
       whatsapp: false,
       media: false,
       text_versions: SEAT_TEXT_VERSIONS,
     });
 
     expect(parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message])).toStrictEqual([
-      ["geburtsdatum", "Bitte gib Dein Geburtsdatum ein."],
+      ["birth_date", "Bitte gib Dein Geburtsdatum ein."],
     ]);
   });
 });
 
 describe("the ceiling on the confirmation link's own token", () => {
   /* A decline, so the body is whole without a date and no clock decides the case. */
-  const antwortBody = { antwort: "declined" };
+  const antwortBody = { answer: "declined" };
 
-  const verdict = (token: string) => FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody });
+  const verdict = (token: string) => FLBewerbungEinwilligungAnswerPayloadSchema.safeParse({ token: token, ...antwortBody });
 
   /* No control renders the token, so past `CustomBewerbungToken`'s ceiling the endpoint's
      `payload_refused` naming it marks nothing, and the page can only report a failed save. */

@@ -15,13 +15,13 @@ import {
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
-import { beantwortetVon, terminText } from "@/features/spielbestaetigungen/utils";
+import { answeredBy, terminText } from "@/features/spielbestaetigungen/utils";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";
 
 import { SpielbestaetigungFormPanel } from "./SpielbestaetigungFormPanel";
 
-import type { FLSpielbestaetigungAppointment, FLSpielbestaetigungViewResponse, FLSpielbestaetigungVon } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungAppointment, FLSpielbestaetigungBy, FLSpielbestaetigungViewResponse } from "@/core/generated/client/types";
 import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigungen/utils";
 import type { SpielbestaetigungAbschluss } from "./SpielbestaetigungFormPanel";
 
@@ -32,8 +32,8 @@ import type { SpielbestaetigungAbschluss } from "./SpielbestaetigungFormPanel";
 export type SpielbestaetigungStart =
   | { zustand: "valid"; ansicht: FLSpielbestaetigungViewResponse; token: string }
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse; token: string }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungVon }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungVon }
+  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungBy }
+  | { zustand: "declined"; answered_by: FLSpielbestaetigungBy }
   | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
   | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> | "unlesbar" };
 
@@ -54,14 +54,14 @@ const TITEL: Record<Exclude<Stand["zustand"], "barred">, string> = {
   expired: "Link ungültig",
   "termin-vorbei": "Link ungültig",
   invalid: "Link ungültig",
-  abgesagt: "Spiel abgesagt",
+  cancelled: "Spiel abgesagt",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 /** The two clubs, ours first: the page is the reader's club's answer about its own fixture. */
 function vereine(view: FLSpielbestaetigungViewResponse): { eigenes: string; anderes: string } {
   const { team1_name, team2_name } = view.ansetzung;
-  return view.seite === "team1" ? { eigenes: team1_name, anderes: team2_name } : { eigenes: team2_name, anderes: team1_name };
+  return view.side === "team1" ? { eigenes: team1_name, anderes: team2_name } : { eigenes: team2_name, anderes: team1_name };
 }
 
 /** The fixture as the mail led with it, in the mail's own panel. */
@@ -71,8 +71,8 @@ function Ansetzung({ ansicht }: { ansicht: FLSpielbestaetigungViewResponse }) {
     <FaktenBanner
       zeilen={[
         { label: "Spiel", value: `${ansetzung.team1_name} vs. ${ansetzung.team2_name}`, unbegrenzt: true },
-        { label: "Datum", value: formatSpielDatum(ansetzung.datum) },
-        { label: "Anpfiff", value: formatUhrzeit(ansetzung.uhrzeit) },
+        { label: "Datum", value: formatSpielDatum(ansetzung.date) },
+        { label: "Anpfiff", value: formatUhrzeit(ansetzung.time) },
         { label: "Spielort", value: ansetzung.spielort?.name ?? NICHT_HINTERLEGT },
       ]}
     />
@@ -80,7 +80,7 @@ function Ansetzung({ ansicht }: { ansicht: FLSpielbestaetigungViewResponse }) {
 }
 
 /** The press's answer folded into the page's state, carrying the read the receipt still names the fixture from. */
-function nachAntwort(abschluss: SpielbestaetigungAbschluss, view: FLSpielbestaetigungViewResponse): Stand {
+function afterAnswer(abschluss: SpielbestaetigungAbschluss, view: FLSpielbestaetigungViewResponse): Stand {
   if (abschluss.zustand === "zugesagt-neu") return { zustand: "zugesagt-neu", ansicht: view };
   if (abschluss.zustand === "abgelehnt-neu") return { zustand: "abgelehnt-neu", ansicht: view, vorschlag: abschluss.vorschlag };
   // The link died between the open and the press: its panel names the fixture no more than a fresh open would.
@@ -106,8 +106,8 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
           <>
             <Ansetzung ansicht={stand.ansicht} />
             <p className={ABSATZ_CLASSES}>
-              Du antwortest für <Wert>{vereine(stand.ansicht).eigenes}</Wert>. Antworte bis zum {formatSpielDatum(stand.ansicht.frist)}. Danach
-              legt die Verwaltung der Liga den Termin fest.
+              Du antwortest für <Wert>{vereine(stand.ansicht).eigenes}</Wert>. Antworte bis zum {formatSpielDatum(stand.ansicht.deadline)}.
+              Danach legt die Verwaltung der Liga den Termin fest.
             </p>
           </>
         )}
@@ -126,7 +126,7 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
           token={stand.token}
           onAbschluss={(abschluss) => {
             beantwortet();
-            setStand(nachAntwort(abschluss, stand.ansicht));
+            setStand(afterAnswer(abschluss, stand.ansicht));
           }}
         />
       )}
@@ -152,8 +152,8 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
           </p>
           <GespeicherteAngaben
             zeilen={[
-              { label: "Neues Datum", value: formatSpielDatum(stand.vorschlag.datum) },
-              { label: "Neuer Anpfiff", value: formatUhrzeit(stand.vorschlag.uhrzeit) },
+              { label: "Neues Datum", value: formatSpielDatum(stand.vorschlag.date) },
+              { label: "Neuer Anpfiff", value: formatUhrzeit(stand.vorschlag.time) },
             ]}
           />
           <p className={ABSATZ_CLASSES}>Über den Termin entscheidet die Liga. Wird das Spiel verlegt, kommt eine neue E-Mail.</p>
@@ -168,11 +168,11 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
           tone="erfolg">
           {/* The league's own entry once the deadline passed is no answer of the team's, and says so beside the readout. */}
           <p className={ABSATZ_CLASSES}>
-            {stand.answered_by.art === "admin"
+            {stand.answered_by.kind === "admin"
               ? "Für dieses Spiel hat die Verwaltung der Liga den Termin für Dein Team bestätigt. Du musst nichts weiter tun."
               : "Für dieses Spiel hat Dein Team schon zugesagt. Du musst nichts weiter tun."}
           </p>
-          <GespeicherteAngaben zeilen={[{ label: "Zugesagt von", value: beantwortetVon(stand.answered_by) }]} />
+          <GespeicherteAngaben zeilen={[{ label: "Zugesagt von", value: answeredBy(stand.answered_by) }]} />
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -182,7 +182,7 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>Für dieses Spiel hat Dein Team den Termin schon abgesagt. Über den Termin entscheidet die Liga.</p>
-          <GespeicherteAngaben zeilen={[{ label: "Abgesagt von", value: beantwortetVon(stand.answered_by) }]} />
+          <GespeicherteAngaben zeilen={[{ label: "Abgesagt von", value: answeredBy(stand.answered_by) }]} />
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -213,7 +213,7 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
       )}
 
       {/* Whatever the team answered: an agreement shown here would send it to a ground nobody plays on. */}
-      {stand.zustand === "abgesagt" && (
+      {stand.zustand === "cancelled" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">

@@ -71,7 +71,7 @@ export function RegistrierungenList({ registrierungen, adresse }: { registrierun
 function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenRegistrierung; adresse: Adresse }) {
   const aufnahme = useTwoPressConfirm();
   const ablehnung = useTwoPressConfirm();
-  const name = `${registrierung.vorname} ${registrierung.nachname}`;
+  const name = `${registrierung.first_name} ${registrierung.last_name}`;
   const { person } = registrierung;
   const ziel = { ...adresse, registrierung_id: registrierung.registrierung_id };
 
@@ -102,9 +102,9 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenR
     });
   };
 
-  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungDeclinePayload["grund"]) => {
+  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungDeclinePayload["decision_reason"]) => {
     ablehnungZuletzt.current = confirm === ablehnung;
-    entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, grund: grund }), {
+    entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, decision_reason: grund }), {
       erfolg: "Registrierung abgelehnt",
       fehler: "Registrierung nicht abgelehnt",
     });
@@ -171,7 +171,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenR
               registrieren.
             </p>
           )}
-          {!gefragt && <p className="fluid-sm text-pretty text-foreground">{registrierung.vorname} kommt in den Kader dieser Saison.</p>}
+          {!gefragt && <p className="fluid-sm text-pretty text-foreground">{registrierung.first_name} kommt in den Kader dieser Saison.</p>}
         </ConfirmReveal>
       )}
       {ablehnung.isConfirming && (

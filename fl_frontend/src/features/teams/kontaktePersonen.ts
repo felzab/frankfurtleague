@@ -63,7 +63,7 @@ const gleicherWert = (a: unknown, b: unknown): boolean =>
     ? JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
     : a === b;
 
-type Person = { email: string; telefon: string };
+type Person = { email: string; phone: string };
 type Sitz = "trainer" | "ansprechperson" | "stellvertretung";
 
 /**
@@ -73,11 +73,11 @@ type Sitz = "trainer" | "ansprechperson" | "stellvertretung";
  */
 export function kontaktePersonenRegeln<P extends Person>({
   email,
-  telefon,
+  phone: telefon,
   zugleich,
 }: {
   email: z.ZodType;
-  telefon: z.ZodType;
+  phone: z.ZodType;
   zugleich: z.ZodType<Exclude<Sitz, "trainer">>;
 }): (kontakte: Record<Sitz, P | null> & { trainer_is_also: unknown }, ctx: z.core.$RefinementCtx) => void {
   return (kontakte, ctx) => {
@@ -97,11 +97,11 @@ export function kontaktePersonenRegeln<P extends Person>({
         });
       }
 
-      if (feldNimmt(telefon, eine.telefon) && feldNimmt(telefon, andere.telefon) && gleicheNummer(eine.telefon, andere.telefon)) {
+      if (feldNimmt(telefon, eine.phone) && feldNimmt(telefon, andere.phone) && gleicheNummer(eine.phone, andere.phone)) {
         ctx.addIssue({
           code: "custom",
           message: "Diese Telefonnummer ist schon bei einer anderen Person eingetragen.",
-          path: [zweite, "telefon"],
+          path: [zweite, "phone"],
         });
       }
     }

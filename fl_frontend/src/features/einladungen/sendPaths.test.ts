@@ -27,7 +27,7 @@ const SAISON_ID = "2627";
 const TEAM_ID = "a".repeat(24);
 const EINLADUNG_ID = "b".repeat(24);
 
-const empfaenger = (email: string) => ({ rolle: "trainer", vorname: "Erika", email: email });
+const empfaenger = (email: string) => ({ rolle: "trainer", first_name: "Erika", email: email });
 
 const teamsHolding = (kontakte: unknown) => () => ({
   teams: [{ id: TEAM_ID, name: "Ernst-Reuter-Schule", memberships: [{ saison_id: SAISON_ID, kontakte: kontakte }] }],

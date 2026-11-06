@@ -88,7 +88,7 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
 /** One fixture's card; `sent` null on an ended season's, whose report stands and only opens to be read. */
 function SpielKarte({ spiel, sent }: { spiel: FLSpielberichtPersonEarlierEntry; sent: boolean | null }) {
   const paarung = `${spiel.team1_name ?? PLACEHOLDER.slot} vs. ${spiel.team2_name ?? PLACEHOLDER.slot}`;
-  const datum = spiel.datum === null ? nichtHinterlegt("Termin") : formatSpielDatum(spiel.datum);
+  const date = spiel.date === null ? nichtHinterlegt("Termin") : formatSpielDatum(spiel.date);
   const words = sent === false ? "Spielbericht eintragen" : "Spielbericht ansehen";
 
   return (
@@ -96,7 +96,7 @@ function SpielKarte({ spiel, sent }: { spiel: FLSpielberichtPersonEarlierEntry; 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="fluid-sm font-bold text-pretty text-foreground">{paarung}</p>
         <span className="muted-meta">
-          {`${datum}, ${spiel.uhrzeit === null ? nichtHinterlegt("Anpfiff") : `${formatUhrzeit(spiel.uhrzeit)} Uhr`}`}
+          {`${date}, ${spiel.time === null ? nichtHinterlegt("Anpfiff") : `${formatUhrzeit(spiel.time)} Uhr`}`}
         </span>
       </div>
       {/* „Gespeichert“, the save's own word: the report may be the league's, which the referee never sent. */}
@@ -106,7 +106,7 @@ function SpielKarte({ spiel, sent }: { spiel: FLSpielberichtPersonEarlierEntry; 
         prefetch={false}
         // The words first, which speech input says, then what tells the cards apart: one pairing can
         // meet twice, in its group and in a knockout round (WCAG 2.5.3).
-        aria-label={benannt(words, spiel.datum === null ? `${paarung}, ${datum}` : `${paarung} am ${datum}`)}
+        aria-label={benannt(words, spiel.date === null ? `${paarung}, ${date}` : `${paarung} am ${date}`)}
         className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
         {words}
       </Link>

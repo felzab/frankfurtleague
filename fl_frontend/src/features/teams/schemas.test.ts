@@ -24,10 +24,10 @@ const pathsRefused = (
 };
 
 const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
-  vorname: "Erika",
-  nachname: "Mustermann",
+  first_name: "Erika",
+  last_name: "Mustermann",
   email: "erika@beispiel.de",
-  telefon: "069 1234567",
+  phone: "069 1234567",
   einwilligung: { scope: "kontaktdaten", date: "2025-09-01" },
   ...overrides,
 });
@@ -35,8 +35,8 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
 const kontaktePayload = (overrides: Record<string, unknown> = {}) => ({
   trainer: kontaktpersonPayload(),
   // Each seat its own person: two seats sharing an address or a number are refused as one person twice.
-  ansprechperson: kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" }),
-  stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "lena@beispiel.de", telefon: "069 2345678" }),
+  ansprechperson: kontaktpersonPayload({ first_name: "Max", email: "max@beispiel.de", phone: "069 7654321" }),
+  stellvertretung: kontaktpersonPayload({ first_name: "Lena", email: "lena@beispiel.de", phone: "069 2345678" }),
   trainer_is_also: null,
   ...overrides,
 });
@@ -85,12 +85,12 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     expect(
       pathsRefused(
         FLSaisonTeamKontaktePayloadSchema,
-        kontaktePayload({ stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "MAX@beispiel.de", telefon: "069 2345678" }) }),
+        kontaktePayload({ stellvertretung: kontaktpersonPayload({ first_name: "Lena", email: "MAX@beispiel.de", phone: "069 2345678" }) }),
       ),
     ).toStrictEqual(["stellvertretung.email"]);
     expect(
-      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ telefon: "+49 69 7654321" }) })),
-    ).toStrictEqual(["trainer.telefon"]);
+      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ phone: "+49 69 7654321" }) })),
+    ).toStrictEqual(["trainer.phone"]);
   });
 
   /* An empty seat holds nobody to compare, so a row an erasure emptied never fails on the person gone. */
@@ -100,7 +100,7 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
 
   /* The paired Trainer IS the named seat's person: sharing everything is the point, and a difference is a drift. */
   it("compares a paired Trainer as one person with the seat it holds", () => {
-    const max = kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" });
+    const max = kontaktpersonPayload({ first_name: "Max", email: "max@beispiel.de", phone: "069 7654321" });
 
     expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: max, trainer_is_also: "ansprechperson" }))).toStrictEqual(
       [],
@@ -108,9 +108,9 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     expect(
       pathsRefused(
         FLSaisonTeamKontaktePayloadSchema,
-        kontaktePayload({ trainer: { ...max, vorname: "Maximilian" }, trainer_is_also: "ansprechperson" }),
+        kontaktePayload({ trainer: { ...max, first_name: "Maximilian" }, trainer_is_also: "ansprechperson" }),
       ),
-    ).toStrictEqual(["ansprechperson.vorname"]);
+    ).toStrictEqual(["ansprechperson.first_name"]);
   });
 });
 
@@ -174,7 +174,7 @@ const junctionPayload = (overrides: Record<string, unknown> = {}) => ({
   team_id: "0123456789abcdef01234567",
   saison_id: "2026",
   gruppe: "A",
-  austritt: { type: "rueckzug", grund: "Kein Kader", datum: "2026-03-12" },
+  austritt: { type: "rueckzug", exit_reason: "Kein Kader", date: "2026-03-12" },
   trikot_farbe: null,
   ...overrides,
 });
@@ -202,9 +202,9 @@ describe("the write payloads' floors, against the stripped floors at the API", (
   });
 
   it("refuses an austritt whose published reason is spaces alone", () => {
-    const austritt = { ...junctionPayload().austritt, grund: SPACES };
+    const austritt = { ...junctionPayload().austritt, exit_reason: SPACES };
 
-    expect(pathsRefused(FLPatchSaisonTeamPayloadSchema, junctionPayload({ austritt }))).toStrictEqual(["austritt.grund"]);
+    expect(pathsRefused(FLPatchSaisonTeamPayloadSchema, junctionPayload({ austritt }))).toStrictEqual(["austritt.exit_reason"]);
   });
 });
 

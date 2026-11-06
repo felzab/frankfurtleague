@@ -24,7 +24,7 @@ const Answer = z.discriminatedUnion("act", [
   z.object({
     act: z.literal("primary"),
     token: shape.token,
-    geburtsdatum: shape.geburtsdatum,
+    birth_date: shape.birth_date,
     scope: shape.scope,
     media: z.preprocess((value) => value === "on", z.boolean()),
   }),
@@ -49,15 +49,15 @@ export const answerSchiedsrichter = action({
   // The age the write judges on its own day, which the box's range bounds before the send by the page's day: on its
   // box, from the range the refusal carries.
   ownWords: ["confirmation_age"],
-  paths: { geburtsdatum: "geburtsdatum" },
+  paths: { birth_date: "birth_date" },
   run: async (answer): Promise<{ ok: true; value: EndState }> => {
     try {
       if (answer.act === "secondary") {
         await schiedsrichterPostDecline({ token: answer.token });
         return { ok: true, value: END.objected };
       }
-      const { token, geburtsdatum, scope, media } = answer;
-      await schiedsrichterPostConfirmation({ token, geburtsdatum, scope, media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS });
+      const { token, birth_date: birthDate, scope, media } = answer;
+      await schiedsrichterPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS });
       return { ok: true, value: END.confirmed };
     } catch (error) {
       if (!spent(error)) throw error;

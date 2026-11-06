@@ -29,8 +29,8 @@ describe("the fixture confirmation's link", () => {
     const data = {
       kind: "spiel_request",
       team: "Goethe-Gymnasium",
-      ansetzung: { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", ort: null },
-      frist: "2026-11-10",
+      ansetzung: { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00", spielort: null },
+      deadline: "2026-11-10",
       moved_from: null,
     } as const;
 
@@ -45,8 +45,8 @@ describe("the fixture confirmation's link", () => {
    the move took off the fixture, and nothing but `asked_again` keeps the other two from being promised a request that
    never comes. */
 describe("the notice of a move", () => {
-  const left = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00" };
-  const next = { ...left, datum: "2026-11-27" };
+  const left = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
+  const next = { ...left, date: "2026-11-27" };
   const shapes = [next, null].flatMap((movedTo) =>
     [true, false].map((askedAgain) => ({ movedTo, askedAgain, slot: movedTo === null ? "no new slot" : "a new slot" })),
   );
@@ -59,8 +59,8 @@ describe("the notice of a move", () => {
         ["schiedsrichter", "neue Einteilung"],
       ] as const) {
         const mail = mailFor(
-          "spiel_new_scheduled",
-          { kind: "spiel_new_scheduled", recipient, appointment: left, moved_to: movedTo, asked_again: askedAgain },
+          "spiel_moved",
+          { kind: "spiel_moved", recipient, appointment: left, moved_to: movedTo, asked_again: askedAgain },
           { token: null, secret: null, origin: ORIGIN },
         );
 

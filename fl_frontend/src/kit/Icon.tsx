@@ -115,7 +115,7 @@ const GLYPHS = {
   search: Search,
   system: Monitor,
   // A time of day, the pop-up's „Uhrzeit“; the date beside it is `calendar`, and the dated fixtures `spielplan`.
-  uhrzeit: Clock,
+  time: Clock,
   forward: ChevronRight,
   warning: TriangleAlert,
   back: ChevronLeft,

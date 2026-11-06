@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatDatum,
-  formatDatumLong,
-  formatDatumPair,
-  formatDatumWithWeekday,
+  formatDate,
+  formatDateLong,
+  formatDatePair,
+  formatDateWithWeekday,
   formatErgebnis,
   formatEuro,
   formatInstant,
   formatNumber,
   formatPeriod,
   formatSigned,
-  formatUhrzeit,
+  formatTime,
 } from "./format.ts";
 
 import type { TestContext } from "vitest";
@@ -27,51 +27,51 @@ async function same(t: TestContext, is: string, expected: string): Promise<void>
   expect(is).toBe(expected);
 }
 
-describe("formatDatum", () => {
+describe("formatDate", () => {
   it("writes a stored calendar day as two-digit day and month", async (t) => {
-    await same(t, formatDatum("2026-03-04"), "04.03.2026");
+    await same(t, formatDate("2026-03-04"), "04.03.2026");
   });
 
   // Late evening UTC is already the next day in Berlin; the runtime's own zone would print the 24th.
   it("reads an instant on the league's clock", async (t) => {
-    await same(t, formatDatum(new Date("2026-10-24T22:30:00Z")), "25.10.2026");
+    await same(t, formatDate(new Date("2026-10-24T22:30:00Z")), "25.10.2026");
   });
 });
 
-describe("formatDatumLong", () => {
+describe("formatDateLong", () => {
   it("names the month, umlaut included", async (t) => {
-    await same(t, formatDatumLong("2027-03-14"), "14. März 2027");
+    await same(t, formatDateLong("2027-03-14"), "14. März 2027");
   });
 });
 
-describe("formatDatumPair", () => {
+describe("formatDatePair", () => {
   it("sets the day and the month over the long weekday and the year", async (t) => {
-    const { figure, line } = formatDatumPair("2027-03-06");
+    const { figure, line } = formatDatePair("2027-03-06");
     await same(t, figure, "06.03.");
     await same(t, line, "Samstag 2027");
   });
 
   // Late on New Year's Eve UTC it is already the new year in Berlin: its weekday and its year both.
   it("reads an instant on the league's clock, the year included", async (t) => {
-    const { figure, line } = formatDatumPair(new Date("2026-12-31T23:30:00Z"));
+    const { figure, line } = formatDatePair(new Date("2026-12-31T23:30:00Z"));
     await same(t, figure, "01.01.");
     await same(t, line, "Freitag 2027");
   });
 });
 
-describe("formatDatumWithWeekday", () => {
+describe("formatDateWithWeekday", () => {
   it("leads with the short weekday and drops the year", async (t) => {
-    await same(t, formatDatumWithWeekday("2027-03-14"), "So., 14.03.");
+    await same(t, formatDateWithWeekday("2027-03-14"), "So., 14.03.");
   });
 });
 
-describe("formatUhrzeit", () => {
+describe("formatTime", () => {
   it("pads a stored time and drops its seconds", async (t) => {
-    await same(t, formatUhrzeit("9:05:00"), "09:05");
+    await same(t, formatTime("9:05:00"), "09:05");
   });
 
   it("reads an instant in summer time on the league's clock", async (t) => {
-    await same(t, formatUhrzeit(new Date("2026-07-01T17:30:00Z")), "19:30");
+    await same(t, formatTime(new Date("2026-07-01T17:30:00Z")), "19:30");
   });
 });
 

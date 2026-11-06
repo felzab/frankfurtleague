@@ -5,7 +5,7 @@ import { getRequestTraceId, runWithRequestScope } from "./requestScope.ts";
 import type { FLOutboxHandout, FLOutboxResultPayload } from "./generated/client/types.ts";
 
 /** Everything the drain did, in the order it did it: a send to the provider, or a report to the backend. */
-type Step = { art: "send"; url: string; headers: Headers; body: Record<string, unknown> } | { art: "report"; payload: FLOutboxResultPayload };
+type Step = { kind: "send"; url: string; headers: Headers; body: Record<string, unknown> } | { kind: "report"; payload: FLOutboxResultPayload };
 
 const steps: Step[] = [];
 
@@ -29,7 +29,7 @@ const SDK_DOUBLE = {
     return { lease: held ? "claim-1" : null, mails: claim.mails, abandoned: claim.abandoned };
   },
   outboxPostResult: async (payload: FLOutboxResultPayload) => {
-    steps.push({ art: "report", payload });
+    steps.push({ kind: "report", payload });
     const { result } = payload;
     const counted = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
     const key = ({ sent: "sent", retry: "repeated", abandon: "abandoned", held: "held" } as const)[result];
@@ -48,11 +48,11 @@ const CONFIG_DOUBLE = {
 // The map is each cutover's to fill: one kind stands in, rendered as any mail is, printing the secret it is handed.
 const KINDS_DOUBLE = {
   OUTBOX_TAG: "outbox_id",
-  mailFor: (_art: string, data: { grund: string }, { origin, secret }: { origin: string; secret: string | null }) => ({
-    art: "notice",
+  mailFor: (_kind: string, data: { grund: string }, { origin, secret }: { origin: string; secret: string | null }) => ({
+    kind: "notice",
     subjectLine: "Sperre",
     origin: origin,
-    vorname: "",
+    firstName: "",
     paragraphs: [[data.grund], ...(secret === null ? [] : [[secret]])],
   }),
 };
@@ -85,7 +85,7 @@ beforeEach(() => {
   provider = () => Response.json({ id: "re-1" });
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
     steps.push({
-      art: "send",
+      kind: "send",
       url: String(url),
       headers: new Headers(init?.headers),
       body: JSON.parse(String(init?.body)) as Record<string, unknown>,
@@ -94,9 +94,9 @@ beforeEach(() => {
   });
 });
 
-const sends = () => steps.filter((step): step is Extract<Step, { art: "send" }> => step.art === "send");
+const sends = () => steps.filter((step): step is Extract<Step, { kind: "send" }> => step.kind === "send");
 // Each report's outcome, its claim aside: every case's claim is the one the double hands out.
-const reports = () => steps.flatMap((step) => (step.art === "report" ? [omitClaim(step.payload)] : []));
+const reports = () => steps.flatMap((step) => (step.kind === "report" ? [omitClaim(step.payload)] : []));
 const omitClaim = ({ lease: _claim, ...result }: FLOutboxResultPayload) => result;
 
 describe("one drain of the Postausgang", () => {
@@ -108,7 +108,7 @@ describe("one drain of the Postausgang", () => {
 
     await drainOutbox();
 
-    expect(steps.map((step) => step.art)).toStrictEqual(["send", "report", "send", "report"]);
+    expect(steps.map((step) => step.kind)).toStrictEqual(["send", "report", "send", "report"]);
     expect(sends().map(({ headers }) => headers.get("Idempotency-Key"))).toStrictEqual([
       `outbox/${handed(1).id}/1`,
       `outbox/${handed(2).id}/3`,
@@ -118,8 +118,8 @@ describe("one drain of the Postausgang", () => {
       [{ name: "outbox_id", value: handed(2).id }],
     ]);
     expect(reports()).toStrictEqual([
-      { id: handed(1).id, result: "sent", message_id: "re-1", grund: null },
-      { id: handed(2).id, result: "sent", message_id: "re-1", grund: null },
+      { id: handed(1).id, result: "sent", message_id: "re-1", delivery_reason: null },
+      { id: handed(2).id, result: "sent", message_id: "re-1", delivery_reason: null },
     ]);
     // The claim's own give-ups count with the reports', which is what the heartbeat reads.
     expect(takeDrainCounts()).toMatchObject({ sent: 2, abandoned: 1 });
@@ -149,7 +149,7 @@ describe("one drain of the Postausgang", () => {
 
     await expect(failing).rejects.toThrow("deadline");
     await expect(waiting).resolves.toBeUndefined();
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "sent", message_id: "re-1", grund: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "sent", message_id: "re-1", delivery_reason: null }]);
   });
 
   /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`): a builder
@@ -190,13 +190,13 @@ describe("one drain of the Postausgang", () => {
     ["a broken connection", () => Promise.reject(new TypeError("fetch failed")), "retry", null],
     ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "abandon", "validation_error"],
     ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "abandon", null],
-  ] as const)("reports %s as %s", async (_name, answer, result, grund) => {
+  ] as const)("reports %s as %s", async (_name, answer, result, reason) => {
     claims = [{ mails: [handed(1)], abandoned: 0 }];
     provider = answer;
 
     await drainOutbox();
 
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result: result, message_id: null, grund: grund }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: result, message_id: null, delivery_reason: reason }]);
   });
 
   it("reports a deployment that sends nothing as held, and reaches no provider", async () => {
@@ -206,6 +206,6 @@ describe("one drain of the Postausgang", () => {
     await drainOutbox();
 
     expect(sends()).toStrictEqual([]);
-    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "held", message_id: null, grund: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, result: "held", message_id: null, delivery_reason: null }]);
   });
 });

@@ -272,7 +272,7 @@ export async function mapEinwilligungRefusal(
     // a `zustand` here would swap a live form for a dead-link panel. A view that went unread names no floor.
     case "confirmation_age": {
       const floor = (await ansicht())?.minimum_age ?? null;
-      return { fieldErrors: { geburtsdatum: floor === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(floor) } };
+      return { fieldErrors: { birth_date: floor === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(floor) } };
     }
     // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
     // The floor is the view's as the age refusal's is, so a view that went unread names none.
@@ -331,10 +331,10 @@ export function abiJahrgang(saisonId: string): string {
 }
 
 const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft => ({
-  vorname: "",
-  nachname: "",
+  first_name: "",
+  last_name: "",
   email: "",
-  telefon: "",
+  phone: "",
   einwilligung: { given: false },
 });
 

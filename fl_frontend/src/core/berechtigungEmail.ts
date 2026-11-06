@@ -47,7 +47,7 @@ type Vorenthalten = { readonly withheld: NonNullable<FLGrantDataWithheld> };
 /** One change as the notice states it. */
 type Zugangsaenderung = {
   // `requested`: a grant or a promotion asked for, sent to whoever could approve it.
-  readonly art: FLGrantDataChange;
+  readonly kind: FLGrantDataChange;
   readonly adresse: string | Vorenthalten;
   // The `owner` tier the grant holds now, or held until it ended.
   readonly owner: boolean;
@@ -75,10 +75,10 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
 /** The change's sentence, a named address set in the emphasis grade. */
-function aenderungsSatz({ art, adresse, owner }: Zugangsaenderung): readonly Run[] {
+function aenderungsSatz({ kind, adresse, owner }: Zugangsaenderung): readonly Run[] {
   const subject: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.withheld];
 
-  switch (art) {
+  switch (kind) {
     case "granted":
       // An `owner` grant says so: the application writes one only as an owner's address change moves it, the
       // rest coming from the database, and an owner's grant is the one a holder most needs told.
@@ -128,7 +128,7 @@ function adresseOf(data: FLGrantData, stand: FLGrantSnapshot | null): string | V
 function zugangsaenderungOf(data: FLGrantData): Zugangsaenderung {
   const stand = data.change === "revoked" ? data.before : data.current;
 
-  return { art: data.change, adresse: adresseOf(data, stand), owner: stand?.admin_tier === "owner" };
+  return { kind: data.change, adresse: adresseOf(data, stand), owner: stand?.admin_tier === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: an application's change whose actor is withheld is a barred one's. */
@@ -144,13 +144,13 @@ export function buildBerechtigungEmail(data: FLGrantData, { origin: rawOrigin }:
   const urheber = urheberOf(data);
   const origin = mailOrigin(rawOrigin);
   // A request is asked of its reader rather than told to them, so it is headed, signed and closed as one.
-  const approvalRequest = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
+  const approvalRequest = aenderung.kind === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
 
   return {
     kind: "notice",
     subjectLine: approvalRequest?.betreff ?? BETREFF,
     origin: origin,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [aenderungsSatz(aenderung)],
       [urheberSatz(urheber, approvalRequest === null ? "Geändert" : "Beantragt")],

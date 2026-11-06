@@ -92,7 +92,7 @@ async function AdminSpielerEditContent({
       name: team.name,
       shorthand: team.shorthand,
       heldRollen: heldRollen[team.id] ?? {},
-      isSquadFull: squadIsFull(liveSquadRows[team.id], selectedSaison.rules.max_kadergroesse),
+      isSquadFull: squadIsFull(liveSquadRows[team.id], selectedSaison.rules.max_kader_size),
     }));
 
   return (
@@ -100,10 +100,10 @@ async function AdminSpielerEditContent({
     <AdminSpielerEditView
       spieler={{
         id: spieler.id,
-        vorname: spieler.vorname,
-        nachname: spieler.nachname,
+        first_name: spieler.first_name,
+        last_name: spieler.last_name,
         inactive_since: spieler.inactive_since,
-        geburtsdatum: spieler.geburtsdatum,
+        birth_date: spieler.birth_date,
         email: spieler.email,
         adresswechsel_id: spieler.address_change_id,
         adresswechsel_einsehbar_verwehrt: spieler.address_change_viewable_denied,

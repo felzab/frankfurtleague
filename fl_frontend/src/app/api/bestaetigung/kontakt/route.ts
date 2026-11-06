@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
-import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
+import { FLBewerbungEinwilligungAnswerPayloadSchema } from "@/features/bewerbungen/schemas";
 import { mapEinwilligungRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(body);
+      const parsed = FLBewerbungEinwilligungAnswerPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       return {
         success: true as const,
         ergebnis: antwort.ergebnis,
-        geburtsdatum: antwort.geburtsdatum,
+        birth_date: antwort.birth_date,
         whatsapp: antwort.whatsapp,
         media: antwort.media,
       };

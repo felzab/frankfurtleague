@@ -111,7 +111,7 @@ type Bearbeitung = "korrektur" | "neubesetzung";
 export function BewerbungBestaetigungStrip({
   bewerbungId,
   staende,
-  frist,
+  deadline: frist,
   fristAbgelaufen,
   isOpen,
   isDirty,
@@ -120,7 +120,7 @@ export function BewerbungBestaetigungStrip({
   bewerbungId: string;
   staende: readonly SitzBestaetigung[];
   /** The day an incomplete application is deleted after. */
-  frist: string;
+  deadline: string;
   /** The read's judgement of the deadline on the server's day, never this browser's. */
   fristAbgelaufen: boolean;
   /** Whether the application is still `eingereicht` — the one state a re-sent link can be answered in. */
@@ -151,7 +151,7 @@ export function BewerbungBestaetigungStrip({
   const confirmed = staende.filter((sitz) => !istOffen(sitz)).length;
   const angebot = linkAngebot(staende);
   const neubesetzbar = sitzAngebot(staende);
-  const loeschung = loeschungsSatz({ staende, frist, submitted: isOpen, istAbgelaufen: fristAbgelaufen });
+  const loeschung = loeschungsSatz({ staende, deadline: frist, submitted: isOpen, istAbgelaufen: fristAbgelaufen });
 
   const sendeErneut = async (rolle: KontaktRolle) => {
     // The page re-keys on the sent link's record, drawing this seat's control anew.
@@ -580,7 +580,7 @@ function AdresseKorrigieren({
 }
 
 /** A blank person, because nobody stands in this seat: `AdresseKorrigieren`'s box prefills where it is repairing one character. */
-const LEERE_PERSON = { vorname: "", nachname: "", email: "", telefon: "" };
+const LEERE_PERSON = { first_name: "", last_name: "", email: "", phone: "" };
 
 /** The box `AdresseKorrigieren` opens in, carrying four fields rather than one: this writes a whole person. */
 function SitzNeuBesetzen({
@@ -700,11 +700,11 @@ function SitzNeuBesetzen({
 
       <div className={FIELD_PAIR_CLASSES}>
         <TextField
-          name="vorname"
-          value={person.vorname}
-          onChange={(next) => aendere("vorname", next)}
+          name="first_name"
+          value={person.first_name}
+          onChange={(next) => aendere("first_name", next)}
           onBlur={() => {
-            validatePaths("neubesetzung", payload, ["vorname"]);
+            validatePaths("neubesetzung", payload, ["first_name"]);
           }}>
           <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
           <Input className={FIELD_INPUT_CLASSES} />
@@ -712,11 +712,11 @@ function SitzNeuBesetzen({
         </TextField>
 
         <TextField
-          name="nachname"
-          value={person.nachname}
-          onChange={(next) => aendere("nachname", next)}
+          name="last_name"
+          value={person.last_name}
+          onChange={(next) => aendere("last_name", next)}
           onBlur={() => {
-            validatePaths("neubesetzung", payload, ["nachname"]);
+            validatePaths("neubesetzung", payload, ["last_name"]);
           }}>
           <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
           <Input className={FIELD_INPUT_CLASSES} />
@@ -743,11 +743,11 @@ function SitzNeuBesetzen({
 
         <TextField
           type="tel"
-          name="telefon"
-          value={person.telefon}
-          onChange={(next) => aendere("telefon", next)}
+          name="phone"
+          value={person.phone}
+          onChange={(next) => aendere("phone", next)}
           onBlur={() => {
-            validatePaths("neubesetzung", payload, ["telefon"]);
+            validatePaths("neubesetzung", payload, ["phone"]);
           }}>
           <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
           <Input

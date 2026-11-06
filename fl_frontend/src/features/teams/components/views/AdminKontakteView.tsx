@@ -15,10 +15,10 @@ import type { AdminKontakteRow } from "@/features/teams/types";
 const SEARCH_KEYS = [
   "teamName",
   "teamShorthand",
-  "seats.person.vorname",
-  "seats.person.nachname",
+  "seats.person.first_name",
+  "seats.person.last_name",
   "seats.person.email",
-  "seats.person.telefon",
+  "seats.person.phone",
 ] as const;
 
 /**

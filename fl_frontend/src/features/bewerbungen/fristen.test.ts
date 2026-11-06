@@ -19,15 +19,15 @@ const ORIGIN = "http://localhost:3000";
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a credential is one somebody copies. */
 const LINK = { origin: ORIGIN, token: "beispiel-eins" };
-const FRIST = "2026-09-18";
+const DEADLINE = "2026-09-18";
 
-const AUSSTEHEND = [{ vorname: "Jonas", rollen: ["trainer" as const] }];
+const AUSSTEHEND = [{ first_name: "Jonas", rollen: ["trainer" as const] }];
 
 const EIN_SITZ: Omit<FLBewerbungLinkData, "kind"> = {
   saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
   rollen: ["ansprechperson"],
-  frist: FRIST,
+  deadline: DEADLINE,
 };
 
 const MESSAGES = [
@@ -36,7 +36,7 @@ const MESSAGES = [
   [
     "the receipt",
     buildBewerbungEingangEmail(
-      { kind: "bewerbung_received", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND, frist: FRIST },
+      { kind: "bewerbung_received", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND, deadline: DEADLINE },
       LINK,
     ),
   ],
@@ -54,8 +54,8 @@ const MESSAGES = [
         kind: "bewerbung_objection",
         saison_id: "2627",
         rollen: ["ansprechperson"],
-        declined: { vorname: "Mira", rollen: ["stellvertretung"] },
-        frist: FRIST,
+        declined: { first_name: "Mira", rollen: ["stellvertretung"] },
+        deadline: DEADLINE,
       },
       { origin: ORIGIN },
     ),

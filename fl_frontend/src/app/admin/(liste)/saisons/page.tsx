@@ -3,7 +3,7 @@ import { FieldColumns } from "@/kit/FieldColumns";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum, formatNumber } from "@/core/format";
+import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { createSaison } from "@/features/saisons/createSaison";
 import { nextSaisonOf } from "@/features/saisons/nextSaison";
@@ -35,8 +35,8 @@ const rowOf = (saison: FLSaisonAdminListed): TableRow => ({
   href: ROUTES.adminSaison.path(saison.id),
   chip: saisonChipOf(saison),
   cells: {
-    beginn: { record: formatDatum(dayOf(saison.start_date)) },
-    ende: { record: formatDatum(dayOf(saison.end_date)) },
+    start: { record: formatDate(dayOf(saison.start_date)) },
+    end: { record: formatDate(dayOf(saison.end_date)) },
     teams: countOf(saison.count_teams),
     spiele: countOf(saison.count_spiele),
   },
@@ -86,13 +86,13 @@ function CreateFields({ next }: { next: NextSaison }) {
       {/* A season's two days, sharing their row at every width. */}
       <FieldColumns>
         <DateField
-          label={WORDS.beginn}
+          label={WORDS.start}
           name="start_date"
           isRequired={CREATE_REQUIRED.start}
           defaultValue={next.start}
         />
         <DateField
-          label={WORDS.ende}
+          label={WORDS.end}
           name="end_date"
           isRequired={CREATE_REQUIRED.end}
           defaultValue={next.end}
@@ -107,8 +107,8 @@ const HEAD: TableHead = {
   nameLabel: COPY.shared.saison,
   // A phone's row holds the name, its chip and the start beside them, with room to spare at 390 px.
   columns: [
-    { key: "beginn", label: WORDS.beginn, width: "date" },
-    { key: "ende", label: WORDS.ende, hideOnPhone: true, width: "date" },
+    { key: "start", label: WORDS.start, width: "date" },
+    { key: "end", label: WORDS.end, hideOnPhone: true, width: "date" },
     { key: "teams", label: COPY.page.teams, figures: true, hideOnPhone: true },
     { key: "spiele", label: COPY.page.spiele, figures: true, hideOnPhone: true },
   ],

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { EditorShell } from "@/kit/EditorShell";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum } from "@/core/format";
+import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
@@ -98,7 +98,7 @@ function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: 
       return confirmation?.declined_at == null ? null : WORDS.objectedOn(dayOf(confirmation.declined_at));
     case "unanswered":
       if (confirmation === null) return null;
-      return expired ? WORDS.expiredOn(dayOf(confirmation.frist)) : WORDS.openUntil(dayOf(confirmation.frist));
+      return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : WORDS.openUntil(dayOf(confirmation.deadline));
     case "unasked":
       return null;
   }
@@ -113,7 +113,7 @@ function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   const sent = read.schiedsrichter.confirmation?.sent_at ?? null;
   return [
     ...(standing === null ? [] : [{ label: WORDS.state, value: standing }]),
-    ...(sent === null ? [] : [{ label: COPY.shared.toast.linkSent, value: { record: formatDatum(dayOf(sent)) }, figures: true }]),
+    ...(sent === null ? [] : [{ label: COPY.shared.toast.linkSent, value: { record: formatDate(dayOf(sent)) }, figures: true }]),
   ];
 }
 

@@ -30,7 +30,7 @@ export function buildSperreEmail({ grund, barred_until_saison_id }: FLBanData, {
     kind: "notice",
     subjectLine: "Deine E-Mail-Adresse ist gesperrt",
     origin: mailOrigin(origin),
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         ...EINLEITUNG,

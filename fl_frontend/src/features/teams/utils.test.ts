@@ -14,11 +14,11 @@ const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart
 const SAISON = "2025-2026";
 
 const kontaktperson = (vorname: string): FLKontaktperson => ({
-  vorname,
-  nachname: "Mustermann",
+  first_name: vorname,
+  last_name: "Mustermann",
   email: `${vorname.toLowerCase()}@beispiel.de`,
-  telefon: "069 1234567",
-  geburtsdatum: "1990-01-01",
+  phone: "069 1234567",
+  birth_date: "1990-01-01",
   einwilligung: kenntnisnahme({ date: "2025-09-01", confirmed_at: "2025-09-02" }),
 });
 
@@ -72,7 +72,7 @@ describe("buildKontaktRows", () => {
     ).toStrictEqual(["ansprechperson", "stellvertretung", "trainer"]);
     // Null and not five empty strings: a seat holds a whole person or none, never a half of one.
     expect(rows[0]?.seats[2]?.person).toBe(null);
-    expect(rows[0]?.seats[0]?.person?.vorname).toBe("Erika");
+    expect(rows[0]?.seats[0]?.person?.first_name).toBe("Erika");
   });
 
   /* What the completeness badge reads. Counted off the seats rather than stored beside them, so it

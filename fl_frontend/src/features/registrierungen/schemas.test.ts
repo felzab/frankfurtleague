@@ -12,8 +12,8 @@ import { buildRegistrierungBestaetigungPayloadSchema, FLPostRegistrierungPayload
 describe("the ceiling a pupil's registration holds each name to", () => {
   const registrierung = {
     token: "a".repeat(43),
-    vorname: "Lena",
-    nachname: "Meier",
+    first_name: "Lena",
+    last_name: "Meier",
     email: "lena.meier@beispiel.de",
     position: null,
     nummer: null,
@@ -25,7 +25,7 @@ describe("the ceiling a pupil's registration holds each name to", () => {
     expect(FLPostRegistrierungPayloadSchema.safeParse(registrierung).success).toBe(true);
   });
 
-  for (const part of ["vorname", "nachname"] as const) {
+  for (const part of ["first_name", "last_name"] as const) {
     it(`refuses a ${part} one past the ceiling, in the ceiling's shared words`, () => {
       const parsed = FLPostRegistrierungPayloadSchema.safeParse({ ...registrierung, [part]: "A".repeat(KONTAKT_NAME_MAX_LENGTH + 1) });
 
@@ -47,13 +47,11 @@ describe("the birth date the page's own schema accepts", () => {
     const mindestalter = 16;
     const spaeteste = parseDate(getGermanTodayStr()).subtract({ years: mindestalter });
     const schema = buildRegistrierungBestaetigungPayloadSchema(mindestalter, "bestaetigung_spieler");
-    const antwort = { token: "kein-echtes-token", scope: "intern", media: false, text_versions: SPIELER_TEXT_VERSIONS };
+    const answer = { token: "kein-echtes-token", scope: "intern", media: false, text_versions: SPIELER_TEXT_VERSIONS };
 
-    expect(schema.safeParse({ ...antwort, geburtsdatum: spaeteste.toString() }).success, "the latest date the floor allows is refused").toBe(
-      true,
-    );
+    expect(schema.safeParse({ ...answer, birth_date: spaeteste.toString() }).success, "the latest date the floor allows is refused").toBe(true);
     expect(
-      schema.safeParse({ ...antwort, geburtsdatum: spaeteste.add({ days: 1 }).toString() }).success,
+      schema.safeParse({ ...answer, birth_date: spaeteste.add({ days: 1 }).toString() }).success,
       "a day younger than the floor is accepted",
     ).toBe(false);
   });

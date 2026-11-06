@@ -12,7 +12,7 @@ const LINK_ABGELAUFEN_LABEL = "abgelaufen";
 
 /** An instant in the action log's words, the administrator's other reading of one. */
 export function zeitpunktText(instant: string): string {
-  const { datum, uhrzeit } = formatAktionZeitpunkt(instant);
+  const { date: datum, time: uhrzeit } = formatAktionZeitpunkt(instant);
 
   return uhrzeit === null ? datum : `${datum} um ${uhrzeit} Uhr`;
 }
@@ -23,14 +23,14 @@ export function zeitpunktText(instant: string): string {
  */
 export function LinkStandAngaben({
   verschicktAm,
-  frist,
+  deadline: frist,
   fristArt = "tag",
   istAbgelaufen,
   zustellung,
   vorZustellung,
 }: {
   verschicktAm: string;
-  frist: string;
+  deadline: string;
   /** `zeitpunkt` for a link lapsing at an instant rather than at a day's end, stated to the minute in Berlin. */
   fristArt?: "tag" | "zeitpunkt";
   /** The read's judgement of the deadline, never this browser's day; false where a lapse costs nothing. */

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { dayOf, formatDatum, formatList } from "./format";
+import { dayOf, formatDate, formatList } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
 import { KONTAKT_ROLLE_LONG_FORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
@@ -69,14 +69,14 @@ const neuBewerbenAktion = (origin: string, saisonId: string) => ({
 });
 
 /** A deadline as the mails state it; the backend sends the day, and the one German spelling of it is here. */
-const fristText = (frist: string): string => formatDatum(dayOf(frist));
+const deadlineText = (deadline: string): string => formatDate(dayOf(deadline));
 
 /** What a mail calls a seat whose person is gone — declined or erased, and outstanding either way. */
 const SEAT_OHNE_NAMEN = "Ohne Namen";
 
-/** „{vorname} ({Rollen})“, which is how every mail naming somebody else's seats names them. */
-function personName({ vorname, rollen }: FLBewerbungPerson): string {
-  return `${vorname ?? SEAT_OHNE_NAMEN} (${rollenText(rollen)})`;
+/** „{first_name} ({Rollen})“, which is how every mail naming somebody else's seats names them. */
+function personName({ first_name: firstName, rollen }: FLBewerbungPerson): string {
+  return `${firstName ?? SEAT_OHNE_NAMEN} (${rollenText(rollen)})`;
 }
 
 /**
@@ -107,7 +107,7 @@ export function buildBewerbungZusageEmail(
     kind: "notice",
     subjectLine: `Willkommen in der Saison ${saison_id}`,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         `Vielen Dank für Eure Bewerbung für die Saison ${saison_id} der ${BRAND_NAME}.`,
@@ -135,12 +135,12 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The mail states the decision and the reason it was given, and says that it covers this application rather than the school. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, decision_reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: `Absage für die Saison ${saison_id}`,
     origin: mailOrigin(origin),
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         ["Danke, dass ", { strong: team }, ` sich für die Saison ${saison_id} der ${BRAND_NAME} beworben hat.`],
@@ -156,22 +156,25 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FL
         // Identification rather than a verdict: it says why the mail reached this reader.
         { label: "Eingetragen als", value: rollenText(rollen) },
         // Unabridged and last: it is the one thing the mail exists to hand over.
-        { label: "Angegebener Grund", value: grund },
+        { label: "Angegebener Grund", value: decision_reason },
       ],
     },
   };
 }
 
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
-export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
+export function buildBewerbungBestaetigungEmail(
+  { saison_id, schule, rollen, deadline }: FLBewerbungLinkData,
+  { origin, token }: MailLink,
+): Mail {
   const site = mailOrigin(origin);
-  const until = fristText(frist);
+  const until = deadlineText(deadline);
 
   return {
     kind: "firstContact",
     subjectLine: `Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         ["Für die Schule ", { strong: schule }, ` wurde eine Bewerbung zur Saison ${saison_id} der ${BRAND_NAME} eingereicht.`],
@@ -206,15 +209,15 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
   };
 }
 
-export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
+export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const until = fristText(frist);
+  const until = deadlineText(deadline);
 
   return {
     kind: "firstContact",
     subjectLine: `Erinnerung: Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
@@ -249,17 +252,17 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
  * is the one person who can ask a colleague in the corridor; the mail carries the submitter's own link.
  */
 export function buildBewerbungEingangEmail(
-  { saison_id, rollen, pending: ausstehend, frist }: FLBewerbungReceivedData,
+  { saison_id, rollen, pending: ausstehend, deadline }: FLBewerbungReceivedData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
-  const until = fristText(frist);
+  const until = deadlineText(deadline);
 
   return {
     kind: "notice",
     subjectLine: `Bewerbung eingegangen: Saison ${saison_id}`,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         [`Deine Bewerbung für die Saison ${saison_id} der ${BRAND_NAME} ist `, { strong: "bei uns eingegangen" }, "."],
@@ -302,7 +305,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
     kind: "notice",
     subjectLine: `Bewerbung wird gelöscht: Saison ${saison_id}`,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
@@ -329,7 +332,10 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
 }
 
 /** What the submitter is told when a person refuses their entry; `declined` was read before the decline emptied it. */
-export function buildBewerbungWiderspruchEmail({ saison_id, rollen, declined, frist }: FLBewerbungObjectionData, { origin }: MailOrigin): Mail {
+export function buildBewerbungWiderspruchEmail(
+  { saison_id, rollen, declined, deadline }: FLBewerbungObjectionData,
+  { origin }: MailOrigin,
+): Mail {
   const site = mailOrigin(origin);
   const wer = personName(declined);
 
@@ -337,13 +343,13 @@ export function buildBewerbungWiderspruchEmail({ saison_id, rollen, declined, fr
     kind: "notice",
     subjectLine: `Widerspruch zum Eintrag: Saison ${saison_id}`,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       // No pronoun, and „Diese Angaben“ where „seine“ or „ihre“ would stand: both read correctly for every name.
       [[{ strong: `${wer} hat dem Eintrag als Kontaktperson widersprochen.` }], "Diese Angaben haben wir aus der Bewerbung entfernt."],
       [
         "So kann die Bewerbung nicht vollständig werden.",
-        ["Am ", { strong: fristText(frist) }, " löschen wir sie."],
+        ["Am ", { strong: deadlineText(deadline) }, " löschen wir sie."],
         "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle.",
         "Frag sie vorher.",
       ],

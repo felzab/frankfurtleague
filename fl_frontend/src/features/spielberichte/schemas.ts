@@ -1,11 +1,11 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { FLKartenFarbe, FLKartenGrund, FLSpielberichtVorschlagSonderereignis, FLSpielSeite } from "@/core/generated/client/types";
+import { FLCardColour, FLCardReason, FLSpielberichtVorschlagSonderereignis, FLSpielSide } from "@/core/generated/client/types";
 import { FLSpielElfmeterschiessenSchema } from "@/features/spiele/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX } from "./constants";
+import { SPIELBERICHT_EINTRAEGE_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH } from "./constants";
 
 // `fl_backend/app/api/spielberichte/schemas.py :: MINUTE_PATTERN`, which the form judges in its own words before the
 // action sends the report.
@@ -15,15 +15,15 @@ const minute = z
   .string({ error: "Bitte gib die Minute ein." })
   .regex(MINUTE_REGEX, { error: "Gib die Minute als Zahl an, die Nachspielzeit mit Plus, etwa 90+3." });
 
-const FLKartenFarbeSchema = z.enum(FLKartenFarbe, { error: "Bitte wähle die Farbe der Karte." });
+const FLCardColourSchema = z.enum(FLCardColour, { error: "Bitte wähle die Farbe der Karte." });
 
-const FLKartenGrundSchema = z.enum(FLKartenGrund, { error: "Bitte wähle einen Grund." });
+const FLCardReasonSchema = z.enum(FLCardReason, { error: "Bitte wähle einen Grund." });
 
-const FLSpielSeiteSchema = z.enum(FLSpielSeite, { error: "Bitte wähle das Team." });
+const FLSpielSideSchema = z.enum(FLSpielSide, { error: "Bitte wähle das Team." });
 
 /**
  * The three events a match that took place can end in. A no-show's goals are the league's to compose, and a fixture
- * called off or struck out has no report (`bericht_abgesagt`).
+ * called off or struck out has no report (`bericht_cancelled`).
  */
 const FLSpielberichtSonderereignisSchema = z.enum(FLSpielberichtVorschlagSonderereignis, {
   error: "Bitte wähle ein Sonderereignis.",
@@ -44,37 +44,37 @@ const FLSpielberichtVorschlagSchema = z.object({
  * refuses an untouched picker in its own words before the action parses the wire's shape.
  */
 const torschuetze = <T extends z.ZodType<string | null>>(spieler: T) =>
-  z.object({ seite: FLSpielSeiteSchema, spieler_id: spieler, minute: minute, eigentor: z.boolean() });
+  z.object({ side: FLSpielSideSchema, spieler_id: spieler, minute: minute, eigentor: z.boolean() });
 
 const karte = <T extends z.ZodType<string>>(spieler: T) =>
   z.object({
-    seite: FLSpielSeiteSchema,
+    side: FLSpielSideSchema,
     spieler_id: spieler,
     minute: minute,
-    farbe: FLKartenFarbeSchema,
-    grund: FLKartenGrundSchema.nullable(),
+    colour: FLCardColourSchema,
+    card_reason: FLCardReasonSchema.nullable(),
   });
 
 /** A card as the caution rule matches it: by side, person and colour, a card having no id. */
 export type KartenSchluessel = {
-  readonly seite: string | null;
+  readonly side: string | null;
   readonly spieler_id: string;
-  readonly farbe: string | null;
-  readonly grund: string | null;
+  readonly colour: string | null;
+  readonly card_reason: string | null;
 };
 
 /**
- * Whether each card may name no reason (`bericht_grund_missing`): each caution the season-end strip left reasonless in the
+ * Whether each card may name no reason (`card_reason_missing`): each caution the season-end strip left reasonless in the
  * stored report excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
  */
 export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
   const gleich = (eine: KartenSchluessel, andere: KartenSchluessel) =>
-    eine.seite === andere.seite && eine.spieler_id === andere.spieler_id && eine.farbe === andere.farbe;
-  const ohneGrund = (karte: KartenSchluessel) => karte.farbe !== "rot" && karte.grund === null;
+    eine.side === andere.side && eine.spieler_id === andere.spieler_id && eine.colour === andere.colour;
+  const ohneGrund = (karte: KartenSchluessel) => karte.colour !== "rot" && karte.card_reason === null;
 
   return karten.map(
     (karte, index) =>
-      karte.farbe !== "rot" &&
+      karte.colour !== "rot" &&
       bestand.filter((gespeichert) => ohneGrund(gespeichert) && gleich(gespeichert, karte)).length >
         karten.slice(0, index).filter((frueher) => ohneGrund(frueher) && gleich(frueher, karte)).length,
   );
@@ -89,8 +89,7 @@ const isNoShow = (sonderereignis: FLSpielberichtSonderereignis | null): boolean 
   sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
 /** Whether an entry credits `seite`: its own side without an own goal, the other side with one. */
-const credits = (eintrag: { seite: FLSpielSeite; eigentor: boolean }, seite: FLSpielSeite): boolean =>
-  (eintrag.seite === seite) !== eintrag.eigentor;
+const credits = (eintrag: { side: FLSpielSide; eigentor: boolean }, side: FLSpielSide): boolean => (eintrag.side === side) !== eintrag.eigentor;
 
 // Each rule the backend's `every_goal_has_one_entry` raises, in its words, placed on the field that repairs it.
 const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z.ZodType>(spieler: {
@@ -105,10 +104,10 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
         .array(torschuetze(spieler.torschuetze))
         .max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Torschützen.` }),
       karten: spieler.karten,
-      bemerkungen: z
+      remarks: z
         .string()
-        .max(SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, {
-          error: `Die Bemerkungen dürfen höchstens ${String(SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH)} Zeichen lang sein.`,
+        .max(SPIELBERICHT_REMARKS_MAX_LENGTH, {
+          error: `Die Bemerkungen dürfen höchstens ${String(SPIELBERICHT_REMARKS_MAX_LENGTH)} Zeichen lang sein.`,
         })
         .nullable(),
     })
@@ -167,8 +166,8 @@ export function spielberichtFormSchema(bestand: readonly KartenSchluessel[]) {
       karten: kartenListe(karte(z.string().nonempty({ error: "Bitte wähle die Person." }))).superRefine((karten, context) => {
         const erlassen = gruendeErlassen(bestand, karten);
         karten.forEach((eintrag, index) => {
-          if (eintrag.farbe !== "rot" && eintrag.grund === null && !erlassen[index]) {
-            context.addIssue({ code: "custom", message: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.", path: [index, "grund"] });
+          if (eintrag.colour !== "rot" && eintrag.card_reason === null && !erlassen[index]) {
+            context.addIssue({ code: "custom", message: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.", path: [index, "card_reason"] });
           }
         });
       }),

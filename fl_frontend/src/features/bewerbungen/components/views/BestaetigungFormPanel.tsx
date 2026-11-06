@@ -44,13 +44,13 @@ import type { CalendarDate } from "@internationalized/date";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type BestaetigungAbschluss =
-  | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; media: boolean }
+  | { zustand: "erfolg"; birth_date: string | null; whatsapp: boolean; media: boolean }
   | { zustand: "widersprochen-neu" }
   // `ansicht` is the read the route made after the refusal, where it found a closed season.
   | { zustand: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse };
 
 type EinwilligungAntwort =
-  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; media: boolean }
+  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; birth_date: string | null; whatsapp: boolean; media: boolean }
   | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse });
 
 /**
@@ -65,10 +65,10 @@ const geburtsdatumHinweis = (mindestalter: number): string =>
   `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} Jahre alt sein. Das Datum wird mit Deinem Eintrag gespeichert.`;
 
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; whatsapp: boolean; media: boolean };
+type Entwurf = { birth_date: string; whatsapp: boolean; media: boolean };
 
 const beurteilt = (entwurf: Entwurf, medienAngeboten: boolean) => ({
-  geburtsdatum: entwurf.geburtsdatum,
+  birth_date: entwurf.birth_date,
   whatsapp: entwurf.whatsapp,
   // Never the draft's own `true` where no switch stands: one given before the date moved below the
   // media age would send a consent this page withheld.
@@ -94,9 +94,9 @@ function antwortPayload(
   ablehnen: boolean,
   medienAngeboten: boolean,
 ): FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined {
-  if (ablehnen) return { token: token, antwort: "declined" };
+  if (ablehnen) return { token: token, answer: "declined" };
 
-  return { token: token, antwort: "given", text_versions: SEAT_TEXT_VERSIONS, ...beurteilt(entwurf, medienAngeboten) };
+  return { token: token, answer: "given", text_versions: SEAT_TEXT_VERSIONS, ...beurteilt(entwurf, medienAngeboten) };
 }
 
 /**
@@ -136,11 +136,11 @@ function BestaetigungAngaben({
             // field's own nullable schema cannot state, an objection carrying none.
             isRequired
             isDisabled={isDisabled}
-            name="geburtsdatum"
+            name="birth_date"
             label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
             calendarLabel="Geburtsdatum auswählen"
-            value={toCalendarDate(entwurf.geburtsdatum)}
-            onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+            value={toCalendarDate(entwurf.birth_date)}
+            onChange={(next) => onEntwurf({ ...entwurf, birth_date: next?.toString() ?? "" })}
             onBlur={onGeburtsdatumVerlassen}
             // One wording in both states: a hint that rewrote itself on arming would move every
             // control under it, which is the shift this section exists to avoid.
@@ -287,7 +287,7 @@ export function BestaetigungFormPanel({
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
-  const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false, media: false });
+  const [entwurf, setEntwurf] = useState<Entwurf>({ birth_date: "", whatsapp: false, media: false });
   const widerspruch = useTwoPressConfirm();
   const { isConfirming, press } = widerspruch;
 
@@ -305,7 +305,7 @@ export function BestaetigungFormPanel({
       failureTitle: ANTWORT_NICHT_GESPEICHERT,
     });
 
-  const medienAngeboten = bietetMedien(entwurf.geburtsdatum, medienMindestalter);
+  const medienAngeboten = bietetMedien(entwurf.birth_date, medienMindestalter);
 
   useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming, medienAngeboten) });
 
@@ -313,7 +313,7 @@ export function BestaetigungFormPanel({
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // sending a 190-year-old to the submitter for a replacement is the wrong repair.
-  const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
+  const istZuJung = fieldErrors.birth_date !== undefined && entwurf.birth_date !== "" && entwurf.birth_date > spaeteste;
 
   const sende = async (payload: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined): Promise<void> => {
     const gesendet = await postPublicForm<EinwilligungAntwort>("/api/bestaetigung/kontakt", payload);
@@ -354,7 +354,7 @@ export function BestaetigungFormPanel({
       setSubmitFieldErrors({}, {});
       onAbschluss(
         antwort.ergebnis === "bestaetigt"
-          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp, media: antwort.media }
+          ? { zustand: "erfolg", birth_date: antwort.birth_date, whatsapp: antwort.whatsapp, media: antwort.media }
           : { zustand: "widersprochen-neu" },
       );
     });
@@ -390,9 +390,7 @@ export function BestaetigungFormPanel({
         <BestaetigungAngaben
           entwurf={entwurf}
           onEntwurf={setEntwurf}
-          onGeburtsdatumVerlassen={() =>
-            validatePaths("einwilligung", antwortPayload(token, entwurf, false, medienAngeboten), ["geburtsdatum"])
-          }
+          onGeburtsdatumVerlassen={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false, medienAngeboten), ["birth_date"])}
           isDisabled={isConfirming}
           mindestalter={mindestalter}
           medienAngeboten={medienAngeboten}

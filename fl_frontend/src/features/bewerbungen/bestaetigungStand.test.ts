@@ -22,11 +22,11 @@ type Person = FLBewerbung["kontakte"]["trainer"];
 /** A seat whose person answered on `bestaetigtAm`, or has not answered at all where that is null. */
 function person(vorname: string, bestaetigtAm: string | null): Person {
   return {
-    vorname: vorname,
-    nachname: "Meier",
+    first_name: vorname,
+    last_name: "Meier",
     email: `${vorname.toLowerCase()}@schule.example`,
-    telefon: "069 1234567",
-    geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
+    phone: "069 1234567",
+    birth_date: bestaetigtAm === null ? null : "1988-04-02",
     einwilligung: kenntnisnahme({
       date: "2026-09-01",
       confirmed_at: bestaetigtAm,
@@ -48,7 +48,7 @@ const ABGELEHNT: FLBewerbungConfirmation = { ...OFFEN, declined_at: "2026-09-04"
 /** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row and the read judges it. */
 const zugestellt = (state: FLOutboxDeliveryState, undeliverable: boolean): FLBewerbungConfirmation => ({
   ...OFFEN,
-  delivery: { state: "sent", delivery: { state, grund: null, at: "2026-09-01T10:15:00.000Z" }, undeliverable },
+  delivery: { state: "sent", delivery: { state, delivery_reason: null, at: "2026-09-01T10:15:00.000Z" }, undeliverable },
 });
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */
@@ -465,7 +465,7 @@ describe("a seat nobody answered on an application already decided", () => {
 });
 
 describe("what the strip says of an incomplete application's deadline", () => {
-  const OFFEN_UND_FRIST = { staende: standsOf2(seatsOf()), frist: "2026-09-07", submitted: true } as const;
+  const OFFEN_UND_FRIST = { staende: standsOf2(seatsOf()), deadline: "2026-09-07", submitted: true } as const;
 
   /* The read judges the deadline's own day as running, as the sweep does, so the sentence follows the
      read alone: a date this browser holds decides nothing. */

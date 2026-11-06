@@ -93,33 +93,36 @@ describe("buildTeamBanners", () => {
   });
 
   it("tells entering an austritt apart from lifting one", () => {
-    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
+    const record = { type: "disqualifikation", exit_reason: "Nicht angetreten", date: "2026-03-12" } as const;
 
     expect(ids(build({ hasAustritt: true }))).toStrictEqual(["team.austritt-entering"]);
     expect(ids(build({ storedAustritt: record }))).toStrictEqual(["team.austritt-lifting"]);
   });
 
   it("renders the stored reason verbatim, with its date in the title", () => {
-    const record = { type: "disqualifikation", grund: "Wiederholt nicht angetreten", datum: "2026-03-12" } as const;
+    const record = { type: "disqualifikation", exit_reason: "Wiederholt nicht angetreten", date: "2026-03-12" } as const;
     // `draftGrund` matching the record is the untouched reason: an edited one raises the publication
     // warning ahead of this, which is the case below.
-    const [banner] = build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund });
+    const [banner] = build({ hasAustritt: true, storedAustritt: record, draftGrund: record.exit_reason });
 
-    expect(banner?.body).toBe(record.grund);
+    expect(banner?.body).toBe(record.exit_reason);
     expect(banner?.title ?? "").toMatch(/12\.03\.2026/);
   });
 
   it("titles the standing banner from the route, so a withdrawal is not called a disqualification", () => {
     const standing = (type: "disqualifikation" | "rueckzug") =>
-      build({ hasAustritt: true, storedAustritt: { type, grund: "Schule aufgelöst", datum: "2026-03-12" }, draftGrund: "Schule aufgelöst" })[0]
-        ?.title ?? "";
+      build({
+        hasAustritt: true,
+        storedAustritt: { type, exit_reason: "Schule aufgelöst", date: "2026-03-12" },
+        draftGrund: "Schule aufgelöst",
+      })[0]?.title ?? "";
 
     expect(standing("disqualifikation")).toMatch(/^Disqualifiziert seit/);
     expect(standing("rueckzug")).toMatch(/^Zurückgezogen seit/);
   });
 
   it("warns again when a standing reason is rewritten, because that publishes new words", () => {
-    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
+    const record = { type: "disqualifikation", exit_reason: "Nicht angetreten", date: "2026-03-12" } as const;
     const raised = build({ hasAustritt: true, storedAustritt: record, draftGrund: "Wiederholt nicht angetreten" });
 
     expect(ids(raised)).toStrictEqual(["team.austritt-entering", "team.austritt-standing"]);
@@ -128,15 +131,15 @@ describe("buildTeamBanners", () => {
   });
 
   it("leaves an untouched reason out of the save confirmation, so an unrelated edit saves straight through", () => {
-    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
+    const record = { type: "disqualifikation", exit_reason: "Nicht angetreten", date: "2026-03-12" } as const;
 
-    expect(resolveBlockingBanners(build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund }))).toBe(null);
+    expect(resolveBlockingBanners(build({ hasAustritt: true, storedAustritt: record, draftGrund: record.exit_reason }))).toBe(null);
   });
 
   /* The pair `raisedBy` exists for: the record already stands and is on screen at page load, while
      the words this draft would put on the public page are the save's doing. */
   it("classifies the standing austritt as state and a rewritten reason as change", () => {
-    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
+    const record = { type: "disqualifikation", exit_reason: "Nicht angetreten", date: "2026-03-12" } as const;
     const raised = build({ hasAustritt: true, storedAustritt: record, draftGrund: "Wiederholt nicht angetreten" });
 
     expect(raised.find(({ id }) => id === "team.austritt-standing")?.raisedBy).toBe("state");
@@ -146,12 +149,12 @@ describe("buildTeamBanners", () => {
   /* Colour and confirmation are separate switches: a banner the page load already carries asks
      nothing at save time, and one graded `change` here would confirm every later edit forever. */
   it("classifies every banner a page load already carries as state", () => {
-    const record = { type: "rueckzug", grund: "Schule aufgelöst", datum: "2026-03-12" } as const;
+    const record = { type: "rueckzug", exit_reason: "Schule aufgelöst", date: "2026-03-12" } as const;
     const atLoad = [
       ...build({ isRetired: true }),
       ...build({ isMember: false }),
       ...build({ isMember: false, isRetired: true, saisonStatus: "active" }),
-      ...build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund }),
+      ...build({ hasAustritt: true, storedAustritt: record, draftGrund: record.exit_reason }),
     ];
 
     for (const banner of atLoad) expect(banner.raisedBy, `${banner.id} would confirm a situation the save did not cause`).toBe("state");

@@ -41,8 +41,8 @@ export const FLGruppenNamesSchema = z.enum(FLGruppenNames, { error: "Bitte wähl
 const FLAustrittPayloadSchema = z.object({
   type: z.enum(FLAustrittType, { error: "Bitte wähle, wie das Team ausgeschieden ist." }),
   // Free text written for publication: rendered as authored, never truncated to a label.
-  grund: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
-  datum: CustomDateStringSchema,
+  exit_reason: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
+  date: CustomDateStringSchema,
 });
 
 /**
@@ -76,10 +76,10 @@ export const FLKontaktKenntnisnahmePayloadSchema = z.object({
 
 /** German throughout: the team editor binds it to its inputs. */
 const FLKontaktpersonPayloadSchema = z.object({
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
-  telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  phone: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No `geburtsdatum`: the payload carries none, and a mirror requiring one refuses every seat whose
   // person has not confirmed yet.
   einwilligung: FLKontaktKenntnisnahmePayloadSchema,
@@ -115,7 +115,7 @@ export const FLSaisonTeamKontaktePayloadSchema = z
   .superRefine(
     kontaktePersonenRegeln({
       email: FLKontaktpersonPayloadSchema.shape.email,
-      telefon: FLKontaktpersonPayloadSchema.shape.telefon,
+      phone: FLKontaktpersonPayloadSchema.shape.phone,
       zugleich: FLTrainerZugleichSchema,
     }),
     // Asked rather than zod's default, which skips a refinement once any check in the block aborts.

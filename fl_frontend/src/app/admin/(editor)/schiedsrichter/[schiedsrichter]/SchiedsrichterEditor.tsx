@@ -124,14 +124,14 @@ export function SchiedsrichterEditor({
               />
               {/* The fee is the person's own, as their name is, so it stands in their box. */}
               <TextField
-                label={COPY.admin.honorar}
-                name="honorar"
+                label={COPY.admin.payment}
+                name="payment"
                 width="C5"
                 kind="digits"
                 unit={COPY.shared.unit.euro}
-                isRequired={required.honorar}
-                value={draft.honorar}
-                onChange={(honorar) => set("honorar", honorar)}
+                isRequired={required.payment}
+                value={draft.payment}
+                onChange={(payment) => set("payment", payment)}
               />
             </>
           ),
@@ -166,12 +166,12 @@ export function SchiedsrichterEditor({
               )}
               <TextField
                 label={FACTS.phone}
-                name="telefon"
+                name="phone"
                 width="W3"
                 kind="tel"
-                isRequired={required.telefon}
-                value={draft.telefon}
-                onChange={(telefon) => set("telefon", telefon)}
+                isRequired={required.phone}
+                value={draft.phone}
+                onChange={(phone) => set("phone", phone)}
               />
             </>
           ),

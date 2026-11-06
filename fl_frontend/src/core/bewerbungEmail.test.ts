@@ -23,7 +23,7 @@ const LINK: FLBewerbungLinkData = {
   saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
   rollen: ["trainer"],
-  frist: "2026-09-18",
+  deadline: "2026-09-18",
 };
 
 describe("the acceptance's kit colour", () => {

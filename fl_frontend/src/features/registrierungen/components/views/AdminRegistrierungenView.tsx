@@ -13,7 +13,7 @@ import type { RegistrierungenUnvollstaendig } from "./RegistrierungenView";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. No address
 // among them, the rows carrying none.
-const SEARCH_KEYS = ["vorname", "nachname", "teamName", "saison_id", "stufe"] as const;
+const SEARCH_KEYS = ["first_name", "last_name", "teamName", "saison_id", "stufe"] as const;
 
 /** No create control and no decision: a registration is decided by its team, on the team's own page. */
 export function AdminRegistrierungenView({

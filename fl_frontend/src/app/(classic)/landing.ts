@@ -55,7 +55,7 @@ export function stateOf(saison: LandingSaison): SaisonState {
           ? {}
           : {
               opening: {
-                when: COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit)),
+                when: COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
                 spieltag: SERVER_COPY.landing.saison.spieltag(spiel.spieltag_position),
                 team1: plaqueOf(spiel.team1),
                 team2: plaqueOf(spiel.team2),

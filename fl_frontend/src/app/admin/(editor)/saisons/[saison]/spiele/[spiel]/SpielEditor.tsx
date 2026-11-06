@@ -71,7 +71,7 @@ export function SpielEditor({
   spielorte,
   schiedsrichter,
   sonderereignisse,
-  notizMax,
+  noteMax,
   required,
   report,
   adoption,
@@ -96,9 +96,9 @@ export function SpielEditor({
   schiedsrichter: readonly Booking[];
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
   sonderereignisse: readonly Option[];
-  notizMax: number;
+  noteMax: number;
   /** Whether a booking's money is required beside it, read from the write on the server. */
-  required: { mietpreis: boolean; honorar: boolean };
+  required: { mietpreis: boolean; payment: boolean };
   /** The report's goals as rows, read-only; none while no report stands. */
   report: readonly TableRow[];
   adoption: Adoption | null;
@@ -213,16 +213,16 @@ export function SpielEditor({
                 short="both"
                 phone="pair">
                 <DateField
-                  label={WORDS.datum}
-                  name="datum"
-                  value={draft.datum}
-                  onChange={(datum) => set("datum", datum)}
+                  label={WORDS.date}
+                  name="date"
+                  value={draft.date}
+                  onChange={(date) => set("date", date)}
                 />
                 <TimeField
-                  label={WORDS.uhrzeit}
-                  name="uhrzeit"
-                  value={draft.uhrzeit}
-                  onChange={(uhrzeit) => set("uhrzeit", uhrzeit)}
+                  label={WORDS.time}
+                  name="time"
+                  value={draft.time}
+                  onChange={(time) => set("time", time)}
                 />
               </FieldPair>
               <FieldPair
@@ -274,19 +274,19 @@ export function SpielEditor({
                     set("schiedsrichter", id);
                     // A referee chosen brings their own fee, which the person may still change for this match.
                     const chosen = schiedsrichter.find((each) => each.option.id === id);
-                    if (chosen !== undefined) set("honorar", String(chosen.price));
+                    if (chosen !== undefined) set("payment", String(chosen.price));
                   }}
                 />
                 {draft.schiedsrichter !== null && (
                   <TextField
-                    label={COPY.admin.honorar}
-                    name="honorar"
+                    label={COPY.admin.payment}
+                    name="payment"
                     width="C5"
                     kind="digits"
                     unit={COPY.shared.unit.euro}
-                    isRequired={required.honorar}
-                    value={draft.honorar}
-                    onChange={(honorar) => set("honorar", honorar)}
+                    isRequired={required.payment}
+                    value={draft.payment}
+                    onChange={(payment) => set("payment", payment)}
                   />
                 )}
               </FieldPair>
@@ -378,17 +378,17 @@ export function SpielEditor({
           ),
         },
         {
-          id: "notiz",
-          title: WORDS.notiz,
+          id: "note",
+          title: WORDS.note,
           fields: (
             <TextField
-              label={WORDS.notiz}
-              name="notiz"
+              label={WORDS.note}
+              name="note"
               width="W4"
               kind="text"
-              maxLength={notizMax}
-              value={draft.notiz}
-              onChange={(notiz) => set("notiz", notiz)}
+              maxLength={noteMax}
+              value={draft.note}
+              onChange={(note) => set("note", note)}
             />
           ),
         },

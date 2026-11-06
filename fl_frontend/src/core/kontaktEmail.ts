@@ -1,7 +1,7 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { dayOf, formatDatum } from "./format";
+import { dayOf, formatDate } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { DEIN_BEREICH_TITEL } from "./seitenNamen";
 import { rollenText } from "./teamVocabulary";
@@ -20,8 +20,8 @@ const GESCHLOSSEN_SATZ: Record<Exclude<FLKontaktRow, "open">, string> = {
  * What the page takes and how long the link holds. No re-send on a closed row: the backend refuses
  * one there (`kontakt_row_without_saison`), so the message promises none.
  */
-function linkAbsatz(zeile: FLKontaktRow, frist: string): Paragraph {
-  const gueltig: Sentence = ["Der Link ist bis zum ", { strong: frist }, " gültig und funktioniert nur einmal."];
+function linkAbsatz(zeile: FLKontaktRow, deadline: string): Paragraph {
+  const gueltig: Sentence = ["Der Link ist bis zum ", { strong: deadline }, " gültig und funktioniert nur einmal."];
 
   return zeile === "open"
     ? [
@@ -46,7 +46,7 @@ function linkAbsatz(zeile: FLKontaktRow, frist: string): Paragraph {
  * row holds and the link its hand-out minted. `token` is a bearer credential and is never taken apart here.
  */
 export function buildKontaktBestaetigungEmail(
-  { rollen, schule, saison_id: saisonId, frist, row: zeile }: FLKontaktLinkData,
+  { rollen, schule, saison_id: saisonId, deadline, row: zeile }: FLKontaktLinkData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
@@ -56,7 +56,7 @@ export function buildKontaktBestaetigungEmail(
     kind: "firstContact",
     subjectLine: `Du bist als ${seats} für ${schule} eingetragen`,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         // „für {Team} in der Saison …“, as the registration messages name a team and its season.
@@ -70,7 +70,7 @@ export function buildKontaktBestaetigungEmail(
             ]
           : GESCHLOSSEN_SATZ[zeile],
       ],
-      linkAbsatz(zeile, formatDatum(dayOf(frist))),
+      linkAbsatz(zeile, formatDate(dayOf(deadline))),
     ],
     // Named for what the page offers: a closed row's page has nothing to confirm.
     button: { label: zeile === "open" ? "Eintrag bestätigen" : "Zum Eintrag", href: kontaktBestaetigungsLink(site, token) },

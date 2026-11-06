@@ -144,7 +144,7 @@ describe("what the queue calls each collision", () => {
   /* The school is the applicant rather than either key: a chip naming it sends an administrator to
      the school's own details for a clash the club id carries. */
   it("names neither collision after the applicant", () => {
-    for (const [art, label] of Object.entries(BEWERBUNG_DUBLETTE_LABEL))
-      expect(label, `the ${art} chip reads „${label}“`).not.toMatch(/Schule/);
+    for (const [kind, label] of Object.entries(BEWERBUNG_DUBLETTE_LABEL))
+      expect(label, `the ${kind} chip reads „${label}“`).not.toMatch(/Schule/);
   });
 });

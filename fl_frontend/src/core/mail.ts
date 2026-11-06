@@ -263,7 +263,7 @@ async function drain(): Promise<void> {
       const report = { lease: lease, ...(await sendHandedOut(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
       // without one, as `fl_frontend/src/app/api/mail/delivery/route.ts` keeps a delivery event's.
-      const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, grund: null });
+      const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, delivery_reason: null });
       for (const field of Object.keys(response) as (keyof DrainCount)[]) sinceLastPass[field] += response[field];
     }
   }
@@ -284,13 +284,13 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
     // Given up rather than thrown: sealed under a key since replaced, the row would stop every drain until it lapses,
     // each claiming it first. The error's name alone, which quotes no value.
     logger.error("outbox.secret_unreadable", undefined, { kind: mail.data.kind, name: error instanceof Error ? error.name : undefined });
-    return { id: mail.id, result: "abandon", message_id: null, grund: null };
+    return { id: mail.id, result: "abandon", message_id: null, delivery_reason: null };
   }
   const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret: secret, origin: frontend_config.AUTH_URL });
   if (message === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("outbox.kind_without_template", undefined, { kind: mail.data.kind });
-    return { id: mail.id, result: "retry", message_id: null, grund: null };
+    return { id: mail.id, result: "retry", message_id: null, delivery_reason: null };
   }
 
   try {
@@ -300,14 +300,14 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
       tags: { [OUTBOX_TAG]: mail.id },
       idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
     });
-    return { id: mail.id, result: "sent", message_id: id, grund: null };
+    return { id: mail.id, result: "sent", message_id: id, delivery_reason: null };
   } catch (error) {
     // The row is the send's one record: the provider's own name for a refusal goes onto it, and no line.
     return {
       id: mail.id,
       result: resultOf(error),
       message_id: null,
-      grund: error instanceof MailSendError ? (error.providerErrorName ?? null) : null,
+      delivery_reason: error instanceof MailSendError ? (error.providerErrorName ?? null) : null,
     };
   }
 }

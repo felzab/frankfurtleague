@@ -1,4 +1,4 @@
-import type { FLSchiedsrichterConfirmationFristDays } from "@/core/generated/client/types";
+import type { FLSchiedsrichterConfirmationDeadlineDays } from "@/core/generated/client/types";
 
 /**
  * The days a referee's link answers, so the dead-link panel and the privacy notice state the day the endpoint refuses
@@ -7,4 +7,4 @@ import type { FLSchiedsrichterConfirmationFristDays } from "@/core/generated/cli
  * the type check here. Fourteen rather than the registration's seven: this link waits on an adult with no second
  * route in.
  */
-export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLSchiedsrichterConfirmationFristDays;
+export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLSchiedsrichterConfirmationDeadlineDays;

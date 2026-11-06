@@ -74,7 +74,7 @@ export function AdminBewerbungView({
           <BewerbungBestaetigungStrip
             bewerbungId={bewerbung.id}
             staende={staende}
-            frist={bewerbung.confirmation_deadline}
+            deadline={bewerbung.confirmation_deadline}
             fristAbgelaufen={fristAbgelaufen}
             isOpen={isOpen}
             isDirty={grundGetippt}

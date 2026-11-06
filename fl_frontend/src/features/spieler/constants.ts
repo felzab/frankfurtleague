@@ -151,8 +151,8 @@ export const EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS =
  * A pupil as everyone but the public reads them: the surname whole, never the public initial, and the
  * first name alone where the record holds no surname.
  */
-export function kaderName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
-  return nachname === null ? vorname : `${vorname} ${nachname}`;
+export function kaderName({ first_name, last_name }: { first_name: string; last_name: string | null }): string {
+  return last_name === null ? first_name : `${first_name} ${last_name}`;
 }
 
 /**

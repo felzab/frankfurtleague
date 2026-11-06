@@ -21,12 +21,12 @@ export async function runSpielSweep(): Promise<{ count: Zaehler; open: number }>
   // Season by season and never in parallel: one slow pass costs nothing, where a fan-out would put every season's
   // writes on the database at once.
   for (const saisonId of saisonIds) {
-    const antwort = await postSpielbestaetigungSweep(saisonId);
-    zaehler.closed += antwort.closed;
-    zaehler.asked += antwort.asked;
-    zaehler.reminded += antwort.reminded;
-    zaehler.mails += antwort.mails;
-    zaehler.failed += antwort.failed;
+    const response = await postSpielbestaetigungSweep(saisonId);
+    zaehler.closed += response.closed;
+    zaehler.asked += response.asked;
+    zaehler.reminded += response.reminded;
+    zaehler.mails += response.mails;
+    zaehler.failed += response.failed;
   }
 
   return { count: zaehler, open: 0 };

@@ -63,9 +63,9 @@ export async function postRegistrierungAufnehmen(
 /** Declines one registration under a fixed reason. */
 export async function postRegistrierungAblehnen(
   registrierungId: string,
-  { grund }: FLRegistrierungDeclinePayload,
+  { decision_reason }: FLRegistrierungDeclinePayload,
 ): Promise<FLRegistrierungDeclineResponse> {
-  return registrierungenDecline(registrierungId, { grund: grund });
+  return registrierungenDecline(registrierungId, { decision_reason });
 }
 
 /**

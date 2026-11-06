@@ -112,7 +112,7 @@ export function buildTeamBanners({
   // Graded on the text that would be published, never on the record being new: rewriting a standing
   // reason puts new words on the public page exactly as entering one does, and the standing banner
   // below is `info`, so it can raise no warning of its own.
-  if (hasAustritt && (storedAustritt === null || draftGrund !== storedAustritt.grund)) {
+  if (hasAustritt && (storedAustritt === null || draftGrund !== storedAustritt.exit_reason)) {
     banners.push({
       id: "team.austritt-entering",
       severity: "danger",
@@ -137,7 +137,7 @@ export function buildTeamBanners({
   }
 
   if (hasAustritt && storedAustritt !== null) {
-    // The stored `grund` verbatim: reshaping it would put words in their mouth on a page that
+    // The stored `exit_reason` verbatim: reshaping it would put words in their mouth on a page that
     // publishes those words.
     banners.push({
       id: "team.austritt-standing",
@@ -145,8 +145,8 @@ export function buildTeamBanners({
       // `state` under a draft flag: `hasAustritt` can only hide this banner, and every word it prints
       // comes from the record the page loaded with.
       raisedBy: "state",
-      title: `${austrittZustand(storedAustritt.type)} seit ${formatSpielDatum(storedAustritt.datum)}`,
-      body: storedAustritt.grund,
+      title: `${austrittZustand(storedAustritt.type)} seit ${formatSpielDatum(storedAustritt.date)}`,
+      body: storedAustritt.exit_reason,
       inline: null,
     });
   }
