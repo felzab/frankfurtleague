@@ -1,5 +1,4 @@
-import { untilAnswered } from "@/test-support/answersInFlight.ts";
-import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
+import { beforeAll, beforeEach, vi } from "vitest";
 
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
@@ -10,102 +9,6 @@ import type * as AppToastModule from "@/shared/utils/appToast.ts";
 
 // Every double here is registered with `vi.doMock`, which reaches only the modules a suite imports
 // after it: a suite calls these first and imports its subject with `await import`.
-
-/** One write a component sent: the action's exported name, and the payload it was handed. */
-export type ActionCall = { action: string; payload: unknown };
-
-/** The modules a real action sends its writes through, whose doubles are the client's and the mailer's. */
-const WRITE_MODULE = /\/(?:mutations|notifications)\.ts$|\/core\/mail\.ts$/;
-
-/**
- * Replaces an actions module, or a read module a real action calls, at the module boundary, every
- * export recording its call: a test-only prop would be a seam in production code.
- */
-export function doubleActions({
-  modules,
-  answer = () => Promise.resolve({ success: true, message: "Gespeichert." }),
-  payloadOf = (args) => args[0],
-}: {
-  /** Each module to replace, by its `@/` path. */
-  modules: readonly string[];
-  /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
-  answer?: () => Promise<unknown>;
-  /** The argument recorded as a call's payload: a form action under `useActionState` is handed the previous state first. */
-  payloadOf?: (args: readonly unknown[]) => unknown;
-}): {
-  calls: ActionCall[];
-  answerWith: (next: () => Promise<unknown>) => void;
-  answerPending: (answer: unknown) => void;
-  leavePending: (reason: string) => void;
-  /** Awaited before reading what the answers set off, so every answer has landed. */
-  answered: () => Promise<void>;
-} {
-  const calls: ActionCall[] = [];
-  let answering = answer;
-  const pending = new Set<{ action: string; release: (answer: unknown) => void; answered: Promise<unknown> }>();
-  let mayLeavePending = false;
-  // Back to `answer` before every case: a case that named another answer and never restored it
-  // would otherwise hand that answer to the next case's write, which then passes on it.
-  beforeEach(() => {
-    answering = answer;
-    mayLeavePending = false;
-  });
-  // A call left unanswered holds its transition past the case, where React can hold a later case's
-  // transition behind it, so it fails the case that left it rather than the one it next reaches.
-  afterEach(() => {
-    const left = [...pending].map(({ action }) => action);
-    pending.clear();
-    if (!mayLeavePending) {
-      expect(left, "the case left these actions pending: answer them with `answerPending`, or name why with `leavePending`").toStrictEqual([]);
-    }
-  });
-  const answerOf = (action: string): Promise<unknown> => {
-    let release: (answer: unknown) => void = () => undefined;
-    // Raced rather than replaced, so a case's own held answer still decides until the case answers it.
-    const answered = Promise.race([answering(), new Promise((resolve) => (release = resolve))]);
-    const entry = { action, release, answered };
-    pending.add(entry);
-    const settle = (): void => void pending.delete(entry);
-    answered.then(settle, settle);
-    return answered;
-  };
-  const act =
-    (action: string) =>
-    async (...args: unknown[]): Promise<unknown> => {
-      calls.push({ action, payload: payloadOf(args) });
-      return answerOf(action);
-    };
-
-  for (const target of modules) {
-    if (WRITE_MODULE.test(target)) {
-      throw new Error(`${target} sends a write the admin spine judges its answer by; double its client with doubleApiAnswers instead`);
-    }
-    // Every export the real module has, each recording its call: the real module is read for its
-    // names and nothing it exports is reached.
-    vi.doMock(target, async (importOriginal) =>
-      Object.fromEntries(Object.keys(await importOriginal<object>()).map((name) => [name, act(name)])),
-    );
-  }
-
-  return {
-    calls,
-    answerWith: (next) => void (answering = next),
-    answerPending: (answer) => {
-      for (const { release } of pending) release(answer);
-    },
-    // A reason rather than a flag, so the case that holds a write open says at its call why it may.
-    leavePending: (reason) => {
-      expect(reason.trim(), "name why the case may leave its actions pending").not.toBe("");
-      mayLeavePending = true;
-    },
-    // For a case reading only what it sent: its answers land inside it, or in the case after it.
-    answered: () =>
-      untilAnswered(
-        () => [...pending].map(({ action, answered }) => ({ name: action, answer: answered })),
-        "answer them with `answerPending` before awaiting `answered`",
-      ),
-  };
-}
 
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */
 export type CacheCall = { name: string; args: unknown[] };

@@ -625,7 +625,7 @@ BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
     {"saison_id": SAISON_ID, "status": {"$in": ["submitted"]}},
 ]
 
-# What `get_bewerbungen` counts on every read of one season: one status at a time.
+# One status of one season counted, which the index's two leading keys answer.
 BEWERBUNGEN_COUNT_FILTERS: list[dict[str, Any]] = [
     {"saison_id": SAISON_ID, "status": "submitted"},
 ]

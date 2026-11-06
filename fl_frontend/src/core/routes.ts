@@ -49,6 +49,7 @@ export const ADDRESS_WORDS = [
   "appearance",
   "area",
   "auth",
+  "bulk",
   "client-error",
   "confirm",
   "contact",
@@ -276,16 +277,19 @@ export const ROUTES = {
   },
   // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
   // every season page does; venues and referees are the league's and keep addresses without one.
-  // Session 6: its page is built.
   adminBewerbungen: {
     path: (saison: string) => `/admin/saisons/${saison}/bewerbungen` as const,
     title: COPY.page.adminBewerbungen,
     crawl: "disallow",
   },
-  /** One application, named by its school; the Übersicht's applications card opens it. */
-  // Session 6: its page is built at /admin/saisons/<saison>/bewerbungen/<bewerbung>.
+  adminBewerbungenBulk: {
+    path: (saison: string) => `/admin/saisons/${saison}/bewerbungen/bulk` as const,
+    title: COPY.page.adminBewerbungenBulk,
+    crawl: "disallow",
+  },
+  /** One application, named by its school; the list and the Übersicht's applications card open it. */
   adminBewerbung: {
-    path: (bewerbung: string) => `/area/admin/bewerbungen/${bewerbung}` as const,
+    path: (saison: string, bewerbung: string) => `/admin/saisons/${saison}/bewerbungen/${bewerbung}` as const,
     title: null,
     crawl: "disallow",
   },

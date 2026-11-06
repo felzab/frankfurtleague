@@ -194,13 +194,6 @@ export function rejectedWrite(router: { refresh: () => void }, repair?: string):
   };
 }
 
-/**
- * `rejectedWrite`'s repair on a control sending a confirmation link from a page its reload shows again. A rejection says
- * nothing of whether the link left, and a new link replaces the earlier one; the reload comes first.
- */
-export const LINK_ERNEUT_OHNE_ANTWORT =
-  "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
-
 /** The toast title of a link send whose outcome is unknown: a send saves nothing, so the title saves nothing either. */
 export const LINK_UNKLAR = "Unklar, ob der Link verschickt wurde";
 

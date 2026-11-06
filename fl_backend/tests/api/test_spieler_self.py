@@ -232,7 +232,7 @@ class TestTheOwnRecord:
         # Its stored data alone: neither the sign-in address nor the consent, which is the account page's.
         assert not {"email", "einwilligung", "givable", "evidence_state"} & set(record)
         entry = served(mongo_replica_set_url, _read(IDENTIFIER, path=ACCOUNT_PATH)).json()["spieler"]
-        assert (entry["givable"], entry["media_offered"]) == (True, True)
+        assert entry["media_offered"] is True
 
     def test_each_squad_row_carries_the_name_its_season_was_played_under(self, mongo_replica_set_url: str):
         kader = served(mongo_replica_set_url, _read(IDENTIFIER)).json()["spieler"]["kader"]

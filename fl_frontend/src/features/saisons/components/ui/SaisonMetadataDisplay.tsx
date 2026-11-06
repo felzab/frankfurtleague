@@ -22,7 +22,7 @@ export async function SaisonMetadataDisplay() {
   const { saisons } = await getAdminSaisons();
   // The pages' own default off the list they read in this request, never the cached current season,
   // which a write outside the app leaves stale for minutes.
-  const defaultSaison = selectSaison(saisons, undefined);
+  const defaultSaison = selectSaison(saisons);
 
   return (
     <SaisonSelector

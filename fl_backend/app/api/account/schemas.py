@@ -35,8 +35,6 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     evidence_state: FLEinwilligungState
-    # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
-    givable: bool
     media_offered: bool
     # The media floor, which the page names where the record is short of it.
     media_minimum_age: int = Field(gt=0)

@@ -33,20 +33,6 @@ export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[
 }
 
 /**
- * `false` is read as nobody having agreed rather than as a refusal: it stands on a seat the applicant
- * entered until its person answers, and a word naming a decision would put one in that person's mouth.
- */
-export const EINWILLIGUNG_MEDIEN_LABELS = {
-  given: "Fotos, Videos und Interviews zugesagt",
-  nicht_erteilt: "Nicht zugesagt",
-} as const;
-
-// One wording for the one consent on every admin readout, the pupil's, the
-// referee's and a contact seat's: three wordings read as three different answers.
-/** What every admin readout labels the media consent with; its two values are `EINWILLIGUNG_MEDIEN_LABELS`. */
-export const EINWILLIGUNG_MEDIEN_FRAGE = "Medien";
-
-/**
  * The input carries the bound so the browser refuses a further keystroke; the sentence a value
  * getting past it earns is `NUMMER_MUST_BE_DIGITS`, which builds its figure from this one.
  */

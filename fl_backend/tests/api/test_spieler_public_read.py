@@ -14,7 +14,6 @@ from app.api.saisons.schemas import FLTeamPageResponse
 from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
-    FLSpieler,
     FLSpielerPublic,
     FLSpielerSingleResponse,
 )
@@ -161,11 +160,6 @@ class TestTheBaseTierShape:
 
     def test_the_club_page_serves_the_public_shape(self):
         assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
-
-    @pytest.mark.parametrize("field", WITHHELD_FIELDS)
-    def test_the_stored_shape_still_declares_what_the_tier_withholds(self, field: str):
-        """Each rule is about one READ: the field stays stored and admin-visible, and `FLSpieler` still declares it."""
-        assert field in FLSpieler.model_fields
 
     def test_the_squad_fields_default_where_the_join_supplies_neither(self):
         """An unnarrowed read joins loosely, and `$project` omits both keys rather than nulling them: required fields would 500 the list."""

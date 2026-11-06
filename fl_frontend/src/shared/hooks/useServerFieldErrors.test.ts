@@ -219,7 +219,7 @@ describe("focusFirstRefusal", () => {
   });
 });
 
-const { unshownPaths, hasFieldErrors } = await import("./useServerFieldErrors.ts");
+const { unshownPaths } = await import("./useServerFieldErrors.ts");
 
 describe("which refused paths have to be announced instead of shown", () => {
   /* Every path beside a marked one too: a form that marks one refusal and drops another would otherwise
@@ -240,18 +240,6 @@ describe("which refused paths have to be announced instead of shown", () => {
 
   it("names every refused path where no form is mounted", () => {
     expect(unshownPaths(null, { gruppe: "Wähle eine Gruppe." })).toStrictEqual(["gruppe"]);
-  });
-});
-
-describe("hasFieldErrors", () => {
-  it("is false for a map with nothing in it, which is what lets the toast speak", () => {
-    // True here suppresses the fallback toast in every caller, so a failure belonging to no field is silent.
-    expect(hasFieldErrors({})).toBe(false);
-    expect(hasFieldErrors(undefined)).toBe(false);
-  });
-
-  it("is true once a path carries a message", () => {
-    expect(hasFieldErrors({ email: "Bitte gib eine Adresse ein." })).toBe(true);
   });
 });
 

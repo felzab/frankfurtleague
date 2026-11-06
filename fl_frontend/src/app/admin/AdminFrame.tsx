@@ -115,7 +115,7 @@ async function readSeasons(session: Session): Promise<Saisons | null> {
   if ((await session) === null) return null;
   // Read oldest first, by id, the order `getAdminSaisons` asks for.
   const { saisons } = await getAdminSaisons();
-  const standard = selectSaison(saisons, undefined);
+  const standard = selectSaison(saisons);
   if (standard === undefined) return null;
   return {
     entries: saisons

@@ -130,6 +130,7 @@ async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClien
     return await get_confirmation_view(
         view_data=FLTokenPayload(token=TOKEN),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
         ban_list=ban_list(database),
@@ -194,7 +195,6 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
         ),
         identifier=FOLDED_EMAIL,
         spieler_collection=database[Collection.SPIELER],
-        records=record_collections(database),
         db=client,
         config=build_test_config(),
         today=TODAY,

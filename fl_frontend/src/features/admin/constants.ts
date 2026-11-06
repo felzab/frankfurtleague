@@ -94,7 +94,7 @@ const SAISONS_EINTRAG = {
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 /** The club list's entry, named where an application's refusal sends a reader to it, so a rename reaches both. */
-export const TEAMS_EINTRAG = {
+const TEAMS_EINTRAG = {
   id: "teams",
   label: "Teams",
   iconName: "Persons",

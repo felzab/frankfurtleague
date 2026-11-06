@@ -451,21 +451,6 @@ class TestGivableIsTheGrantThePressTakes:
             body = (await http.get(ACCOUNT_PATH, headers=_person(email))).json()
             outcomes: list[tuple[str, bool, int]] = []
 
-            if body["spieler"] is not None:
-                granted = await _withdrawn_then_granted(
-                    http,
-                    SPIELER_PATCH_PATH,
-                    lambda media, stand: {
-                        "scope": body["spieler"]["einwilligung"]["scope"],
-                        "media": media,
-                        "text_versions": dict(SPIELER_TEXT_VERSIONS),
-                        "evidence_state": body["spieler"]["evidence_state"] if stand is None else stand,
-                    },
-                    email,
-                    "spieler",
-                )
-                outcomes.append(("spieler", body["spieler"]["givable"], granted.status_code))
-
             for entry in body["schiedsrichter"]:
                 granted = await _withdrawn_then_granted(
                     http,
@@ -531,7 +516,7 @@ class TestTheAccountPagesRead:
 
         assert response.status_code == 200, response.text
         body = response.json()
-        assert (body["spieler"]["spieler_id"], body["spieler"]["givable"]) == (str(PUPIL_OID), True)
+        assert body["spieler"]["spieler_id"] == str(PUPIL_OID)
         assert [(record["schiedsrichter_id"], record["name"]) for record in body["schiedsrichter"]] == [
             (str(REFEREE_OID), "Ortrud Zwiebelmayer")
         ]

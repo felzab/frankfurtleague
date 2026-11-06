@@ -189,7 +189,7 @@ def run_list(log: _LogCollection, **filters: Any) -> Any:
 class TestATruncatedPageSaysSo:
     """The log takes a row per recorded write and keeps it twelve months, so this read reaches the cap by ordinary use.
 
-    The probe-row shape is `get_bewerbungen`'s.
+    One row read past what is served answers whether more exist.
     """
 
     def test_a_log_past_the_cap_is_served_short_and_flagged(self):

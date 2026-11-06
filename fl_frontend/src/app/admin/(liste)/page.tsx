@@ -25,7 +25,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 async function readSaison(): Promise<StatusCardProps> {
   await connection();
   const { saisons } = await getAdminSaisons();
-  const saison = selectSaison(saisons, undefined);
+  const saison = selectSaison(saisons);
   if (saison !== undefined) redirect(ROUTES.adminOverview.path(saison.id));
   return {
     tone: "info",

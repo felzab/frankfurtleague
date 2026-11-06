@@ -5,6 +5,7 @@ import { cardSurface } from "./cardStyles";
 import { EmptyState } from "./EmptyState";
 import { Facts, FactsPlaceholder } from "./Facts";
 import { formColumn, RailPage } from "./RailFrame";
+import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { SectionTitle } from "./Section";
 import { Waiting } from "./Skeleton";
 import { SpielHead, SpielHeadPlaceholder } from "./SpielHead";
@@ -19,6 +20,7 @@ import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Fact } from "./Facts";
 import type { PageTitle } from "./RailFrame";
+import type { SeatRow } from "./SeatRows";
 import type { SpielHeadProps } from "./SpielHead";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableProps } from "./Table";
@@ -32,6 +34,8 @@ type GroupContent =
   | { kind: "tiles"; tiles: ComponentProps<typeof StatTiles> }
   /** Things in their order along the dotted line, or why there are none yet. */
   | { kind: "timeline"; label: Copy; items: readonly Checkpoint[]; empty: EmptyStateProps }
+  /** A record's seats, each its person and the page's acts on them. */
+  | { kind: "seats"; label: Copy; rows: ReadonlyArray<SeatRow> }
   /**
    * Tables each folded behind its card's head, such as a match's line-ups: `ReadFolds` over the cards, which the
    * page places, so a read page folding nothing ships none of the fold's client code.
@@ -86,6 +90,13 @@ function GroupBody({ group }: { group: GroupContent }) {
         <Timeline
           label={group.label}
           items={group.items}
+        />
+      );
+    case "seats":
+      return (
+        <SeatRows
+          label={group.label}
+          rows={group.rows}
         />
       );
     case "folds":
@@ -213,6 +224,7 @@ export type ReadWait = {
       | { kind: "tiles"; layout: "four" | "five" }
       /** `matches` where each checkpoint holds a match's row, as a club's line does. */
       | { kind: "timeline"; count: number; matches?: boolean }
+      | { kind: "seats" }
       | { kind: "folds"; folds: ReactElement }
     )
   >;
@@ -232,6 +244,8 @@ function GroupPlaceholder({ group }: { group: ReadWait["groups"][number] }) {
           matches={group.matches}
         />
       );
+    case "seats":
+      return <SeatRowsPlaceholder />;
     case "folds":
       return group.folds;
   }

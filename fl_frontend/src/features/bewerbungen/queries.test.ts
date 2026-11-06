@@ -22,7 +22,7 @@ serveServerReact();
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);
 
-const { getBewerbungById, getBewerbungen } = await import("./queries.ts");
+const { getBewerbungById, getBewerbungenOfSaison } = await import("./queries.ts");
 
 const ONE_ID = "0123456789abcdef01234567";
 const OTHER_ID = "0123456789abcdef01234568";
@@ -30,10 +30,10 @@ const OTHER_ID = "0123456789abcdef01234568";
 describe("the two admin-tier triage reads", () => {
   /* First, so a double that never ran fails here rather than under every assertion below. */
   it("reaches the backend through the doubled client at all", async () => {
-    await getBewerbungen();
+    await getBewerbungenOfSaison("2627");
     await getBewerbungById(ONE_ID);
 
-    expect(calls.map((call) => call.endpoint)).toStrictEqual(["/bewerbungen", `/bewerbungen/${ONE_ID}`]);
+    expect(calls.map((call) => call.endpoint)).toStrictEqual(["/bewerbungen/list/admin?saison_id=2627", `/bewerbungen/${ONE_ID}`]);
   });
 });
 

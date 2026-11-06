@@ -341,28 +341,6 @@ export const AddressChangeInviteAddressChangeParams = zod.object({
 });
 
 /**
- * Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
- *
- * `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
- * `duplicates_key` names every key two or more open applications share: the season and the club id, joined by `team`.
- * A barred administrator is served as `null` beside `decision.by_barred`.
- * @summary List Bewerbungen
- */
-export const bewerbungenGetBewerbungenQueryLimitDefault = 1024;
-export const bewerbungenGetBewerbungenQueryLimitMax = 1024;
-
-export const bewerbungenGetBewerbungenQuerySortByDefault = `submitted_at`;
-
-export const BewerbungenGetBewerbungenQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  saison_reference: zod.union([zod.array(zod.enum(["diese_saison", "other_saison"])), zod.null()]).optional(),
-  status: zod.union([zod.array(zod.enum(["submitted", "accepted", "declined"])), zod.null()]).optional(),
-  limit: zod.int().min(1).max(bewerbungenGetBewerbungenQueryLimitMax).default(bewerbungenGetBewerbungenQueryLimitDefault),
-  sort_by: zod.literal("submitted_at").default(bewerbungenGetBewerbungenQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).optional(),
-});
-
-/**
  * Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
  *
  * Everything the league decides -- `status`, `submitted_at`, `decision` and each consent's
@@ -649,10 +627,11 @@ export const BewerbungenGetFormParams = zod.object({
 });
 
 /**
- * One read for the season's list: its rows, newest first, and what an acceptance into the season would meet.
+ * One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
  *
- * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id; `complete` as
- * `get_bewerbungen` answers it, and `duplicate` taken over every open application of the season.
+ * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
+ * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
+ * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdminQueryLimitDefault = 1024;
@@ -660,8 +639,6 @@ export const bewerbungenGetBewerbungenAdminQueryLimitMax = 1024;
 
 export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
   saison_id: zod.string(),
-  status: zod.union([zod.array(zod.enum(["submitted", "accepted", "declined"])), zod.null()]).optional(),
-  origin: zod.union([zod.array(zod.enum(["new_school", "existing_team"])), zod.null()]).optional(),
   limit: zod.int().min(1).max(bewerbungenGetBewerbungenAdminQueryLimitMax).default(bewerbungenGetBewerbungenAdminQueryLimitDefault),
 });
 
@@ -1345,8 +1322,8 @@ export const RegistrierungenPatchEinwilligungBody = zod
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
- * Refuses, writing nothing: `link_invalid`, `link_expired`, `confirmation_exists`, `confirmation_age`, `media_age`,
- * `link_barred` and `registrierung_choices_unsuitable`.
+ * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
+ * `confirmation_exists`, `confirmation_age`, `media_age`, `link_barred` and `registrierung_choices_unsuitable`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmationBodyBirthDateOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1381,8 +1358,8 @@ export const RegistrierungenPostConfirmationBody = zod
  * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
- * and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
- * (`link_invalid`).
+ * a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+ * pupil's page; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationViewBodyTokenMax = 128;
@@ -1659,7 +1636,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         open: zod.boolean(),
       })
       .describe(
-        "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),
@@ -2983,12 +2960,11 @@ export const SpieleGetSpielAdminParams = zod.object({
  *
  * Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
  * the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
- * PATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is
- * taken on a live record alone; a withdrawal on a retired one too.
+ * PATCH moving neither choice writes nothing.
  *
  * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
- * other than the record's own, either choice having moved since the page was served (`choices_stale`); a
- * grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its
+ * other than the record's own, either choice having moved since the page was served (`choices_stale`); a choice
+ * moving onto a grant under a label other than its
  * current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where
  * the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each
  * refusal writes nothing.

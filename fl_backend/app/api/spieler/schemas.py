@@ -134,16 +134,6 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
         return self
 
 
-class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
-    """The person as STORED, flattened against one season. A declared shape: NO endpoint returns it.
-
-    A club page's squad serves `FLSpielerPublic` instead.
-    """
-
-    is_nachnominiert: bool
-    inactive_since: CustomOptionalDateString
-
-
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 

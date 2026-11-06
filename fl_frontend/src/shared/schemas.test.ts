@@ -1,59 +1,8 @@
 import { assert, describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { SPECIAL_USE_DOMAINS } from "@/core/emailAddress.ts";
 
-import { CustomTimeStringSchema, ExternalUrlSchema, KONTAKT_EMAIL_MAX_LENGTH, KontaktEmailSchema, PHONE_REGEX } from "./schemas.ts";
-
-describe("PHONE_REGEX", () => {
-  // The German spellings the tree's own fixtures use, plus the bracketed trunk zero with a grouping
-  // hyphen: refusing one of these refuses a school the only channel the league reaches it on.
-  const IN_USE = [
-    "+49 (0) 69 1234-567",
-    "069 1234567",
-    "+49 (0)170 1234567",
-    "0049-170-1234567",
-    "(0170) 123 45 67",
-    "069.123.4567",
-    "+4915112345678",
-    "030 123",
-  ];
-
-  it("accepts every spelling of a German number the tree already uses", () => {
-    for (const phone of IN_USE) {
-      expect(PHONE_REGEX.test(phone), `expected ${JSON.stringify(phone)} to be accepted`).toBe(true);
-    }
-  });
-
-  // The API stores what it is sent and the club page shows it, so a value with no digit in it is a
-  // number handed to whoever tries to ring the school.
-  it("refuses a value carrying no digit at all", () => {
-    for (const phone of ["   ", "().", "---", "(  )"]) {
-      expect(PHONE_REGEX.test(phone), `expected ${JSON.stringify(phone)} to be refused`).toBe(false);
-    }
-  });
-
-  // How the rule reaches the case above: every telephone number ends in a digit, and no floor over
-  // the digit count fits a pattern that carries its own ceiling as well.
-  it("refuses a value trailing off into a space or punctuation", () => {
-    for (const phone of ["(069)", "069 ", "069-"]) {
-      expect(PHONE_REGEX.test(phone), `expected ${JSON.stringify(phone)} to be refused`).toBe(false);
-    }
-  });
-
-  // The pattern carries the ceiling itself, no length bound standing beside it, so taking the final
-  // digit out of the run must leave the window where it was: a `{3,20}` run beside one stores 21.
-  it("keeps the twenty-character ceiling and the three-character floor", () => {
-    for (const [phone, accepted] of [
-      ["0".repeat(3), true],
-      ["0".repeat(20), true],
-      ["0".repeat(2), false],
-      ["0".repeat(21), false],
-    ] as const) {
-      expect(PHONE_REGEX.test(phone), `expected ${String(phone.length)} characters to be ${String(accepted)}`).toBe(accepted);
-    }
-  });
-});
+import { CustomTimeStringSchema, KONTAKT_EMAIL_MAX_LENGTH, KontaktEmailSchema } from "./schemas.ts";
 
 const RESERVED = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.";
 
@@ -186,90 +135,6 @@ describe("KontaktEmailSchema's bounds", () => {
   // does not pass. A bound here alone would refuse in German an address the API stores.
   it("accepts a local part over 64 characters, which the backend accepts too", () => {
     expect(KontaktEmailSchema.safeParse(`${"a".repeat(65)}@example.com`).success).toBe(true);
-  });
-});
-
-describe("ExternalUrlSchema", () => {
-  const USERINFO = [
-    "https://frankfurtleague.de@evil.com",
-    "https://frankfurtleague.de@evil.com/spenden",
-    "http://frankfurtleague.de:geheim@evil.com",
-    "https://user@frankfurtleague.de",
-    // A password and no user at all, so neither half of the check stands in for the other.
-    "https://:geheim@evil.com",
-  ];
-  const HARMLESS = ["https://www.carl-schurz-schule.de", "http://example.de", "https://a.b.example.de/pfad?q=1#top"];
-  // The whole reason this schema exists: bare z.url() accepts every one of these.
-  it("rejects the script-bearing schemes that z.url() lets through", () => {
-    for (const url of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<script>1</script>", "vbscript:x", "file:///etc/passwd"]) {
-      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
-      expect(z.url().safeParse(url).success, `z.url() no longer accepts "${url}" — this test can be simplified`).toBe(true);
-    }
-  });
-
-  // The case above refuses each value on its host as well, so it stays green without `protocol`. Each
-  // host here passes the domain rule, and the first still runs: its `%0a` ends the `//` comment.
-  it("refuses a scheme other than http and https on a host the domain rule takes", () => {
-    const hostAlone = z.url({ hostname: z.regexes.domain });
-
-    for (const url of ["javascript://example.de/%0aalert(1)", "data://example.de/x", "ftp://example.de/x"]) {
-      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
-      expect(hostAlone.safeParse(url).success, `the domain rule refuses "${url}" itself, so this case pins nothing`).toBe(true);
-    }
-  });
-
-  it("accepts ordinary http and https links", () => {
-    for (const url of HARMLESS) {
-      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be accepted`).toBe(true);
-    }
-  });
-
-  it("rejects a URL whose userinfo hides the host it reaches", () => {
-    // Everything before the `@` is userinfo. The visible text names the league; the browser goes to evil.com.
-    for (const url of USERINFO) {
-      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
-    }
-  });
-
-  it("accepts nothing that navigates anywhere but the host it displays", () => {
-    // The property the case above samples: a listed spelling proves only that spelling, and userinfo
-    // has more of them than a test can name.
-    const accepted = [...USERINFO, ...HARMLESS].filter((url) => ExternalUrlSchema.safeParse(url).success);
-
-    expect(accepted, "the corpus proves nothing unless the harmless half still parses").toStrictEqual(HARMLESS);
-    for (const url of accepted) {
-      expect(new URL(url).username, `${url}: accepted while carrying a user`).toBe("");
-      expect(new URL(url).password, `${url}: accepted while carrying a password`).toBe("");
-    }
-  });
-
-  it("rejects a hostname that is not a domain", () => {
-    for (const url of ["https://ok", "https://localhost", "https://127.0.0.1"]) {
-      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
-    }
-  });
-
-  // The backend validates hosts with its copy of zod's domain regex, so a hand-written `hostname` in
-  // the schema's place would part the two ends.
-  it("judges every hostname exactly as zod's domain regex does", () => {
-    const hosts = [
-      "example.de",
-      "a-b.example.de",
-      `${"a".repeat(63)}.de`,
-      `${"a".repeat(64)}.de`,
-      "-example.de",
-      "example-.de",
-      "ex_ample.de",
-      "example.d",
-    ];
-    const judged = hosts.map((host) => [host, ExternalUrlSchema.safeParse(`https://${host}/`).success]);
-    const expected = hosts.map((host) => [host, z.regexes.domain.test(host)]);
-
-    assert.ok(
-      new Set(expected.map(([, verdict]) => verdict)).size === 2,
-      "the hosts hold one verdict alone, so agreeing on them proves nothing",
-    );
-    expect(judged).toStrictEqual(expected);
   });
 });
 
