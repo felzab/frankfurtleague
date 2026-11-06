@@ -2,9 +2,9 @@
 
 import { useId, useState } from "react";
 
+import { AddressFields } from "@/kit/AddressFields";
 import { ComboBox } from "@/kit/ComboBox";
 import { ConsentLine } from "@/kit/ConsentLine";
-import { FieldPair } from "@/kit/FieldPair";
 import { FieldSubgroup } from "@/kit/FieldRows";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
@@ -24,7 +24,6 @@ import type { Option } from "@/kit/OptionList";
 import type { BewerbungRules } from "./bewerbungRules";
 
 const { bewerbung, team, shared } = COPY;
-const ADDRESS = COPY.admin.spielort;
 
 const SCHULFORMEN = Object.keys(team.schulformOption) as FLSchulform[];
 
@@ -34,7 +33,6 @@ type Box = (name: string) => { name: string; defaultValue?: string; onChange: (v
 /** The new school's own fields, revealed by the switch: what an acceptance would create the club from. */
 function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
   const { maxLength, required } = rules;
-  const line = (name: string) => box(`schule.address.${name}`);
   const schulform = box("schule.schulform");
   return (
     <>
@@ -64,56 +62,11 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         isRequired={required.schulform}
         options={SCHULFORMEN.map((id) => ({ id: id, label: team.schulformOption[id] }))}
       />
-      <FieldSubgroup name={ADDRESS.address}>
-        <FieldPair
-          short="second"
-          phone="pair">
-          <TextField
-            {...line("strasse")}
-            label={ADDRESS.strasse}
-            description={bewerbung.addressPublic}
-            width="W3"
-            kind="text"
-            isRequired={required.strasse}
-            maxLength={maxLength.strasse}
-          />
-          <TextField
-            {...line("hausnummer")}
-            label={ADDRESS.hausnummer}
-            width="C5"
-            kind="text"
-            isRequired={required.hausnummer}
-            maxLength={maxLength.hausnummer}
-          />
-        </FieldPair>
-        <FieldPair
-          short="first"
-          phone="pair">
-          <TextField
-            {...line("plz")}
-            label={ADDRESS.plz}
-            width="C5"
-            kind="digits"
-            autofill="postal-code"
-            isRequired={required.plz}
-          />
-          <TextField
-            {...line("stadt")}
-            defaultValue={line("stadt").defaultValue ?? ADDRESS.stadtDefault}
-            label={ADDRESS.stadt}
-            width="W3"
-            kind="text"
-            isRequired={required.stadt}
-            maxLength={maxLength.stadt}
-          />
-        </FieldPair>
-        <TextField
-          {...line("stadtteil")}
-          label={ADDRESS.stadtteil}
-          width="W3"
-          kind="text"
-          isRequired={required.stadtteil}
-          maxLength={maxLength.stadtteil}
+      <FieldSubgroup name={COPY.admin.spielort.address}>
+        <AddressFields
+          rules={rules}
+          box={(field) => box(`schule.address.${field}`)}
+          streetDescription={bewerbung.addressPublic}
         />
       </FieldSubgroup>
       <TextField
