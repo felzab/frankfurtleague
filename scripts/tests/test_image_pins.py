@@ -104,6 +104,7 @@ SCRIPT_IMAGES: Final = {
     "scripts/gate/selfcheck.sh:actionlint": ("scripts/gate/selfcheck.sh", "rhysd/actionlint"),
     "scripts/ops/local.sh:mongo": ("scripts/ops/local.sh", "mongo"),
     "fl_backend/tests/conftest.py:mongo": ("fl_backend/tests/conftest.py", "mongo"),
+    ".github/workflows/verify.yml:playwright": (".github/workflows/verify.yml", "mcr.microsoft.com/playwright"),
 }
 ASSIGNMENT_RE: Final = re.compile(r'^([A-Z_]+)="([^"$]*)"$', re.MULTILINE)
 REFERENCE_RE: Final = r"(?<![\w/]){name}:[^\s\"']+"
@@ -307,6 +308,14 @@ def test_devengines_the_lockfile_and_the_frontend_image_name_one_exact_node_rele
     assert set(tags) == {runtime["version"]} == resolved, (
         f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}, fl_frontend/Dockerfile {tags}"
     )
+
+
+def test_the_journeys_image_holds_the_browsers_of_the_lockfile_s_playwright() -> None:
+    """A browser build belongs to one Playwright release, so a Dependabot bump of the package alone fails every journey at its launch."""
+    _, image = script_references()[".github/workflows/verify.yml:playwright"]
+    resolved = set(re.findall(r"^  playwright@(\d+\.\d+\.\d+):$", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
+    assert len(resolved) == 1, f"the lockfile resolves playwright to {sorted(resolved)}, where the case reads exactly one"
+    assert _tag(image).split("-", 1)[0] == f"v{resolved.pop()}", f"verify.yml's journeys run in {image}, not the lockfile's Playwright"
 
 
 def test_the_frontend_image_installs_the_pnpm_the_manifest_names() -> None:

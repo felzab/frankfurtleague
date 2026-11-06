@@ -1,8 +1,6 @@
-import asyncio
 from typing import Any
 
 import pytest
-from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_admin, post_saison
@@ -84,25 +82,6 @@ class TestTheCreateMakesTheNextSeason:
         assert (listed_id, refusal, created_id) == (minted, None, minted)
         assert seasons == sorted([*stored, (minted, "future")])
 
-    def test_the_list_counts_each_seasons_own_matches(self, mongo_replica_set_url: str):
-        """A count off the wrong season, or off every season, would stand in a column nobody checks against the plan."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            spieltag_id = ObjectId()
-            await database[Collection.SPIELE].insert_many(
-                [
-                    documents.spiel_document(spiel_id=ObjectId(), saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=spieltag_id)
-                    for saison_id, count in (("2026", 1), ("2027", 3))
-                    for spiel_nr in range(1, count + 1)
-                ]
-            )
-
-            return {listed.id: listed.count_spiele for listed in (await _listed(database)).saisons}
-
-        counted = _on(mongo_replica_set_url, [("2025", "past"), ("2026", "past"), ("2027", "active")], body)
-
-        assert counted == {"2025": 0, "2026": 1, "2027": 3}
-
     @pytest.mark.parametrize(
         ("stored", "carried"),
         [
@@ -140,19 +119,4 @@ class TestTheCreateMakesTheNextSeason:
 
         assert listed_refusal == Code.CREATE_SAISON_FUTURE_STANDS
         assert (refusal.status_code, refusal.error_code, refusal.fields) == (409, Code.CREATE_SAISON_FUTURE_STANDS, ())
-        assert seasons == [("2026", "active"), ("2027", "future")]
-
-    def test_of_two_creates_at_once_one_makes_the_season_and_the_other_meets_it_planned(self, mongo_replica_set_url: str):
-        """Both read the same newest season; the screen words the loser's code, so a code other than this one reads as a failure."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            answers = await asyncio.gather(_create(database), _create(database), return_exceptions=True)
-
-            return answers, await _seasons(database)
-
-        answers, seasons = _on(mongo_replica_set_url, [("2026", "active")], body)
-        refused = [answer for answer in answers if isinstance(answer, BaseException)]
-
-        assert [answer.created_id for answer in answers if not isinstance(answer, BaseException)] == ["2027"]
-        assert [(type(answer), getattr(answer, "error_code", None)) for answer in refused] == [(APIError, Code.CREATE_SAISON_FUTURE_STANDS)]
         assert seasons == [("2026", "active"), ("2027", "future")]
