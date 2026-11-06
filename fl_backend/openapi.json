@@ -11908,7 +11908,7 @@
         "type": "object"
       },
       "FLSaisonTeamKontakte": {
-        "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season is the record of who was reachable while it ran.",
+        "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season keeps those who confirmed their seat.",
         "properties": {
           "ansprechperson": {
             "anyOf": [

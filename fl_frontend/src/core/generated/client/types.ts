@@ -1362,7 +1362,7 @@ export const FLTrainerAlso = {
  * The three people a team is reached through, for ONE season.
  *
  * On the junction rather than the club: a school's staff turns over between seasons, and a
- * finished season is the record of who was reachable while it ran.
+ * finished season keeps those who confirmed their seat.
  */
 export interface FLSaisonTeamKontakte {
   ansprechperson: FLKontaktperson | null;
