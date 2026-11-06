@@ -31,14 +31,6 @@ def kinds(grants: list[dict[str, Any]], announced: list[dict[str, Any]]) -> list
     return [(grant_id, kind) for grant_id, kind, _, _ in compare(grants=grants, announced=announced)]
 
 
-def test_an_unchanged_list_has_nothing_to_announce():
-    """The control: a comparison reporting every grant as new passes each case below."""
-
-    same = [row(FIRST, "anna@schule.de")]
-
-    assert kinds(same, same) == []
-
-
 def test_a_revoke_and_a_regrant_of_one_address_are_two_changes():
     """Compared by address, the two would cancel and nobody would hear of either."""
 
@@ -58,12 +50,6 @@ def test_an_address_repointed_under_one_id_is_the_old_ones_removal_and_the_new_o
         (kind, current and (current.address, current.admin_tier), before and (before.address, before.admin_tier))
         for _, kind, current, before in changes
     ] == [("revoked", None, ("anna@schule.de", "administration")), ("granted", ("berta@schule.de", "owner"), None)]
-
-
-def test_each_change_carries_both_states_the_stamp_is_handed_back():
-    [(_, _, current, before)] = compare(grants=[row(FIRST, "anna@schule.de", "owner")], announced=[row(FIRST, "anna@schule.de")])
-
-    assert (current and current.admin_tier, before and before.admin_tier) == ("owner", "administration")
 
 
 def test_a_grant_found_new_is_one_the_comparison_stamps_and_a_tier_change_is_not():

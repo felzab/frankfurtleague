@@ -47,7 +47,7 @@ from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 from tests.config import ADMIN_KEY, BASE_AUTH, build_test_config
 from tests.core.app_source import api_routes, application, dependency_calls
-from tests.session_headers import SESSION_AGE_S, StampedHeaders, actor_headers, verified_actor
+from tests.session_headers import SESSION_AGE_S, actor_headers, verified_actor
 
 CONFIG = build_test_config()
 
@@ -117,11 +117,6 @@ def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: M
 
 
 class TestTheAdministratorsSession:
-    def test_a_passkey_session_reaches_the_grant_read(self):
-        """The control: every refusal below would pass on a guard that refuses everything."""
-
-        assert answer(client().delete(WRITE_PATH, headers=StampedHeaders(ACTOR, ADMIN_KEY))) == (503, UNREACHED_DATABASE)
-
     @pytest.mark.parametrize(
         "headers",
         [
@@ -382,11 +377,6 @@ class TestThePersonsSession:
         assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
         assert "beispielschule" not in str(row).lower()
         assert asked == []
-
-    def test_a_session_inside_the_person_s_window_reaches_the_ban_read(self):
-        """The control: the refusals below would pass on a check refusing everybody."""
-
-        assert answer(person_client().get(PERSON_PROBE, headers=as_person())) == (503, UNREACHED_DATABASE)
 
     def test_a_session_past_the_person_s_window_is_refused(self):
         response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))

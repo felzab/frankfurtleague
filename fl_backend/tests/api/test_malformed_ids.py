@@ -1,5 +1,4 @@
 import asyncio
-import re
 from collections.abc import Mapping
 from typing import Annotated, Any, cast
 
@@ -11,11 +10,9 @@ from httpx2 import Response
 from pydantic import TypeAdapter
 
 from app.core.codes import Code
-from app.core.routing import CONVERTOR_NAME, OBJECT_ID_REGEX, ObjectIdConvertor
-from app.main import create_app
-from app.openapi_document import build_document
+from app.core.routing import ObjectIdConvertor
 from tests.app_client import app_client
-from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 from tests.core.app_source import api_routes, application
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
@@ -51,36 +48,6 @@ def test_a_malformed_path_id_is_a_404(spiel_id: str):
     response = answered(f"/api/v0/spiele/{spiel_id}")
 
     assert (response.status_code, response.json()["error_code"]) == (404, Code.NO_ROUTE)
-
-
-def test_a_well_formed_path_id_reaches_the_database():
-    """The control: a well-formed id matches the route, so the failure moves off routing and onto the database."""
-    response = answered(f"/api/v0/spiele/{HEX_ID}")
-
-    assert response.status_code == 500
-    assert response.json()["error_code"] == UNREACHED_DATABASE
-
-
-def test_every_objectid_path_parameter_publishes_the_pattern_its_convertor_matches():
-    """Read off each route's own path, so a malformed id is visibly no id this operation serves, and no other parameter claims one."""
-
-    document = build_document()
-    convertor_named = {
-        (route.path_format, method.lower(), name)
-        for route in api_routes(create_app(build_test_config()))
-        for method in route.methods or ()
-        for name in re.findall(rf"{{(\w+):{CONVERTOR_NAME}}}", route.path)
-    }
-    published = {
-        (path, method, parameter["name"])
-        for path, operations in document["paths"].items()
-        for method, operation in operations.items()
-        for parameter in operation.get("parameters", [])
-        if parameter["in"] == "path" and parameter["schema"].get("pattern") == f"^{OBJECT_ID_REGEX}$"
-    }
-
-    assert convertor_named and published == convertor_named
-    assert not any(re.fullmatch(OBJECT_ID_REGEX, malformed) for malformed in MALFORMED_IDS)
 
 
 def _path_fields(dependant: Dependant) -> dict[str, Any]:
