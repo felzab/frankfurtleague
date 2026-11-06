@@ -132,9 +132,9 @@ on dates, lapses or season statuses and is idempotent, so a redeploy, a restart 
 each cost nothing, and a job that throws stops none of the others. The deletion notice is
 idempotent to one floor: a crash between a delivery and its stamp repeats that one notice once.
 Ending an address change whose step lapsed is the retention sweep's alone, and so, but for an
-approval pressed after it, is making one take effect once its waiting time ends. A pupils' deletion
-beside an activation's own deletes nobody twice, the backend judging each pupil again in a
-transaction of their own, and the account sweep counts an account already gone as such.
+approval pressed after it, is making one take effect once its waiting time ends. The backend
+judges each pupil of a deletion again in a transaction of their own, and the account sweep counts
+an account already gone as such.
 
 **After every pass the scheduler pings Better Stack's heartbeat**, at the address
 `secrets/betterstack_heartbeat_url` holds. It appends `/fail` and names each job where a job threw,
