@@ -135,10 +135,10 @@ export function FormAustrittSection({
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <TextField
-                name="austritt.exit_reason"
+                name="austritt.reason"
                 value={grund}
                 onChange={onGrundChange}
-                onBlur={() => onValidateFields(["austritt.exit_reason"])}>
+                onBlur={() => onValidateFields(["austritt.reason"])}>
                 <FieldLabel<TeamFieldPath> path="austritt">Grund</FieldLabel>
                 <Input className={FIELD_INPUT_CLASSES} />
                 <FieldError className={FIELD_ERROR_CLASSES} />

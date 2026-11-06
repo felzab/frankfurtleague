@@ -808,18 +808,14 @@ export const BewerbungenDeclineBewerbungParams = zod.object({
   bewerbung_id: zod.string().regex(bewerbungenDeclineBewerbungPathBewerbungIdRegExp),
 });
 
-export const bewerbungenDeclineBewerbungBodyDecisionReasonMax = 1000;
+export const bewerbungenDeclineBewerbungBodyReasonMax = 1000;
 
-export const bewerbungenDeclineBewerbungBodyDecisionReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+export const bewerbungenDeclineBewerbungBodyReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
 export const bewerbungenDeclineBewerbungBodyVersionMin = 0;
 
 export const BewerbungenDeclineBewerbungBody = zod
   .object({
-    decision_reason: zod
-      .string()
-      .min(1)
-      .max(bewerbungenDeclineBewerbungBodyDecisionReasonMax)
-      .regex(bewerbungenDeclineBewerbungBodyDecisionReasonRegExp),
+    reason: zod.string().min(1).max(bewerbungenDeclineBewerbungBodyReasonMax).regex(bewerbungenDeclineBewerbungBodyReasonRegExp),
     version: zod.int().min(bewerbungenDeclineBewerbungBodyVersionMin),
   })
   .describe("Why the application was declined.");
@@ -1200,19 +1196,16 @@ export const IdentityGetSubjectBody = zod
  * would retry for hours.
  * @summary Record one delivery event on its mail's row
  */
-export const outboxPostEventBodyDeliveryReasonOneMax = 128;
-
-export const outboxPostEventBodyDeliveryReasonOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const outboxPostEventBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const outboxPostEventBodyReasonOneMax = 128;
+
+export const outboxPostEventBodyReasonOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const OutboxPostEventBody = zod
   .object({
     at: zod.iso.datetime({ offset: true }),
-    delivery_reason: zod.union([
-      zod.string().max(outboxPostEventBodyDeliveryReasonOneMax).regex(outboxPostEventBodyDeliveryReasonOneRegExp),
-      zod.null(),
-    ]),
     id: zod.string().regex(outboxPostEventBodyIdRegExp),
+    reason: zod.union([zod.string().max(outboxPostEventBodyReasonOneMax).regex(outboxPostEventBodyReasonOneRegExp), zod.null()]),
     state: zod.enum(["delivered", "delayed", "undeliverable", "suppressed", "complaint"]),
   })
   .describe("One delivery event about a message the provider accepted, named by the row the message was sent from.");
@@ -1579,7 +1572,7 @@ export const RegistrierungenDeclineParams = zod.object({
 
 export const RegistrierungenDeclineBody = zod
   .object({
-    decision_reason: zod.union([zod.literal("other_person"), zod.null()]),
+    reason: zod.union([zod.literal("other_person"), zod.null()]),
   })
   .describe("Why the team declines, from a closed set or not at all.");
 
@@ -2383,7 +2376,7 @@ export const SpielberichteGetSpielberichtBerichtParams = zod.object({
  * The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
  * write changing it raises its `version`, so a report the administrator adopted reads `differing` again until it
  * is adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,
- * so a report a knockout correction re-fielded a side under reads `teams_changed` until it is written again. Writes
+ * so a report a knockout correction re-fielded a side under reads `sides_changed` until it is written again. Writes
  * no fixture: the result is the administrator's to save.
  *
  * `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
@@ -2410,6 +2403,10 @@ export const SpielberichtePutSpielberichtBerichtParams = zod.object({
   spiel_id: zod.string().regex(spielberichtePutSpielberichtBerichtPathSpielIdRegExp),
 });
 
+export const spielberichtePutSpielberichtBerichtBodyBerichtCardsItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtCardsMax = 60;
+
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min = 0;
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min = 0;
@@ -2418,19 +2415,42 @@ export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam2ToreOneMin = 0;
 
-export const spielberichtePutSpielberichtBerichtBodyBerichtKartenItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtKartenItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtKartenMax = 60;
-
 export const spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax = 2000;
 
-export const spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenMax = 60;
+export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtScorersMax = 60;
 
 export const SpielberichtePutSpielberichtBerichtBody = zod
   .object({
     bericht: zod.object({
+      cards: zod
+        .array(
+          zod
+            .object({
+              colour: zod.enum(["gelb", "gelb_rot", "rot"]),
+              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemMinuteRegExp),
+              reason: zod.union([
+                zod.enum([
+                  "foulspiel",
+                  "unsportlichkeit",
+                  "handspiel",
+                  "meckern",
+                  "spielverzoegerung",
+                  "wiederholtes_foulspiel",
+                  "grobes_foulspiel",
+                  "taetlichkeit",
+                  "beleidigung",
+                  "notbremse",
+                ]),
+                zod.null(),
+              ]),
+              side: zod.enum(["team1", "team2"]),
+              spieler_id: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdRegExp),
+            })
+            .describe("One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."),
+        )
+        .max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax),
       ergebnis_vorschlag: zod
         .object({
           elfmeterschiessen: zod.union([
@@ -2449,43 +2469,16 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
         .describe(
           "The referee's proposed result, which only the administrator's own save applies.\n\nBoth counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals\ncould never equal.",
         ),
-      karten: zod
-        .array(
-          zod
-            .object({
-              card_reason: zod.union([
-                zod.enum([
-                  "foulspiel",
-                  "unsportlichkeit",
-                  "handspiel",
-                  "meckern",
-                  "spielverzoegerung",
-                  "wiederholtes_foulspiel",
-                  "grobes_foulspiel",
-                  "taetlichkeit",
-                  "beleidigung",
-                  "notbremse",
-                ]),
-                zod.null(),
-              ]),
-              colour: zod.enum(["gelb", "gelb_rot", "rot"]),
-              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtKartenItemMinuteRegExp),
-              side: zod.enum(["team1", "team2"]),
-              spieler_id: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtKartenItemSpielerIdRegExp),
-            })
-            .describe("One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."),
-        )
-        .max(spielberichtePutSpielberichtBerichtBodyBerichtKartenMax),
       remarks: zod.union([zod.string().min(1).max(spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax), zod.null()]),
-      torschuetzen: zod
+      scorers: zod
         .array(
           zod
             .object({
               eigentor: zod.boolean(),
-              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemMinuteRegExp),
+              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp),
               side: zod.enum(["team1", "team2"]),
               spieler_id: zod.union([
-                zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemSpielerIdOneRegExp),
+                zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtScorersItemSpielerIdOneRegExp),
                 zod.null(),
               ]),
             })
@@ -2493,7 +2486,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
               "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.",
             ),
         )
-        .max(spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenMax),
+        .max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax),
     }),
     bericht_stand: zod.union([zod.int(), zod.null()]),
     version: zod.union([zod.int(), zod.null()]).optional(),
@@ -2872,12 +2865,12 @@ export const spielePatchSpielBodyElfmeterschiessenOneTeam2Min = 0;
 
 export const spielePatchSpielBodyNoteOneMax = 4096;
 
-export const spielePatchSpielBodyOrtOneMietpreisMin = 0;
-
-export const spielePatchSpielBodyOrtOneSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodySchiedsrichterOnePaymentMin = 0;
 
 export const spielePatchSpielBodySchiedsrichterOneSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielePatchSpielBodySpielortOneMietpreisMin = 0;
+
+export const spielePatchSpielBodySpielortOneSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodyTeam1OneTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodyTeam1OneToreOneMin = 0;
 
@@ -2917,15 +2910,6 @@ export const SpielePatchSpielBody = zod.object({
     zod.null(),
   ]),
   note: zod.union([zod.string().max(spielePatchSpielBodyNoteOneMax), zod.null()]),
-  ort: zod.union([
-    zod
-      .object({
-        mietpreis: zod.int().min(spielePatchSpielBodyOrtOneMietpreisMin),
-        spielort_id: zod.string().regex(spielePatchSpielBodyOrtOneSpielortIdRegExp),
-      })
-      .describe("The venue as the save sends it: which ground, and what this fixture pays for it."),
-    zod.null(),
-  ]),
   schiedsrichter: zod.union([
     zod
       .object({
@@ -2936,6 +2920,15 @@ export const SpielePatchSpielBody = zod.object({
     zod.null(),
   ]),
   sonderereignis: zod.union([zod.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]), zod.null()]),
+  spielort: zod.union([
+    zod
+      .object({
+        mietpreis: zod.int().min(spielePatchSpielBodySpielortOneMietpreisMin),
+        spielort_id: zod.string().regex(spielePatchSpielBodySpielortOneSpielortIdRegExp),
+      })
+      .describe("The venue as the save sends it: which ground, and what this fixture pays for it."),
+    zod.null(),
+  ]),
   team1: zod.union([
     zod
       .object({
@@ -3761,9 +3754,9 @@ export const TeamsPatchSaisonTeamParams = zod.object({
 });
 
 export const teamsPatchSaisonTeamBodyAustrittOneDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const teamsPatchSaisonTeamBodyAustrittOneExitReasonMax = 500;
+export const teamsPatchSaisonTeamBodyAustrittOneReasonMax = 500;
 
-export const teamsPatchSaisonTeamBodyAustrittOneExitReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+export const teamsPatchSaisonTeamBodyAustrittOneReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
 
 export const TeamsPatchSaisonTeamBody = zod
   .object({
@@ -3771,11 +3764,7 @@ export const TeamsPatchSaisonTeamBody = zod
       zod
         .object({
           date: zod.string().regex(teamsPatchSaisonTeamBodyAustrittOneDateRegExp),
-          exit_reason: zod
-            .string()
-            .min(1)
-            .max(teamsPatchSaisonTeamBodyAustrittOneExitReasonMax)
-            .regex(teamsPatchSaisonTeamBodyAustrittOneExitReasonRegExp),
+          reason: zod.string().min(1).max(teamsPatchSaisonTeamBodyAustrittOneReasonMax).regex(teamsPatchSaisonTeamBodyAustrittOneReasonRegExp),
           type: zod.enum(["disqualifikation", "rueckzug"]),
         })
         .describe(
@@ -3991,14 +3980,14 @@ export const TeamsPutAustrittParams = zod.object({
 });
 
 export const teamsPutAustrittBodyDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const teamsPutAustrittBodyExitReasonMax = 500;
+export const teamsPutAustrittBodyReasonMax = 500;
 
-export const teamsPutAustrittBodyExitReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+export const teamsPutAustrittBodyReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
 
 export const TeamsPutAustrittBody = zod
   .object({
     date: zod.string().regex(teamsPutAustrittBodyDateRegExp),
-    exit_reason: zod.string().min(1).max(teamsPutAustrittBodyExitReasonMax).regex(teamsPutAustrittBodyExitReasonRegExp),
+    reason: zod.string().min(1).max(teamsPutAustrittBodyReasonMax).regex(teamsPutAustrittBodyReasonRegExp),
     type: zod.enum(["disqualifikation", "rueckzug"]),
   })
   .describe(
@@ -4027,7 +4016,7 @@ export const TeamsDeleteInvitationParams = zod.object({
  * The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
  *
  * `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
- * the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
+ * the link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.
  * @summary This team's live registration link for a season, and whether it opens anything
  */
 export const teamsGetInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

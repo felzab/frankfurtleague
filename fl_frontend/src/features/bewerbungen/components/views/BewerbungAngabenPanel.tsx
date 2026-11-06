@@ -288,7 +288,7 @@ export function BewerbungAngabenPanel({
             </Angabe>
             {/* Absent on an acceptance rather than filled in with „angenommen“: what an acceptance
                 did is the club and the season entry it wrote. */}
-            {entscheidung.decision_reason !== null && <Angabe label="Grund">{entscheidung.decision_reason}</Angabe>}
+            {entscheidung.reason !== null && <Angabe label="Grund">{entscheidung.reason}</Angabe>}
           </dl>
         </Panel>
       )}

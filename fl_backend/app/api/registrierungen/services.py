@@ -875,8 +875,8 @@ def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, 
     return fields
 
 
-def compose_ablehnung_update(*, by: str, decision_reason: Any, today: str) -> Mapping[str, Any]:
-    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "by": by, "decision_reason": decision_reason}}}
+def compose_ablehnung_update(*, by: str, reason: Any, today: str) -> Mapping[str, Any]:
+    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "by": by, "reason": reason}}}
 
 
 def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:

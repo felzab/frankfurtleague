@@ -50,7 +50,7 @@ ADMIN_PATH = f"{PUBLIC_PATH}/admin"
 
 # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
 # than through a plain `find`.
-AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def spiel_document() -> dict[str, Any]:
@@ -65,7 +65,7 @@ def spiel_document() -> dict[str, Any]:
         team2={"team_id": AWAY, "tore": 1},
         date="2026-03-15",
         time="14:00:00",
-        ort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
+        spielort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
@@ -207,7 +207,7 @@ def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
 
 
 @pytest.mark.db
-def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url: str):
+def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded_url: str):
     """The endpoint's whole point: the two figures the editor round-trips arrive, joined as the public read's shape joins them."""
 
     response = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)
@@ -215,7 +215,7 @@ def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url
     assert response.status_code == 200
     spiel = response.json()["spiel"]
     assert spiel["id"] == str(SPIEL_ID)
-    assert spiel["ort"]["mietpreis"] == MIETPREIS
+    assert spiel["spielort"]["mietpreis"] == MIETPREIS
     assert spiel["schiedsrichter"]["payment"] == PAYMENT
     # The joined field, which only `build_spiele_pipeline` produces. The route out and not the
     # record: the reason is free text about a school, and only a club's own page renders it.
@@ -226,7 +226,7 @@ def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url
 
 
 @pytest.mark.db
-def test_the_editor_offers_the_live_rows_and_the_ones_the_fixture_books(seeded_url: str):
+def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
     """Offering a retired row the fixture does not book, or the ghost, puts a booking on the editor the save then refuses.
 
     The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is

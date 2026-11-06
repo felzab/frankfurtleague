@@ -23,7 +23,7 @@ from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
 from app.api.berechtigungen.antraege import compose_approval_request
-from app.api.einladungen.services import compose_einladung
+from app.api.invitations.services import compose_invitation
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import log_stamp
@@ -118,7 +118,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
     "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{kind: "admin"}` with no address',
-    "/api/v0/spiele/list/admin": "fixtures",
+    "/api/v0/spiele/list/admin": "spiele",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
     "/api/v0/spiele/spielplan": "a season's fixtures by matchday",
     "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture, what its editor offers, and its report and rows naming an admin by kind",
@@ -189,18 +189,18 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             ]
         )
         database[Collection.INVITATIONS].insert_one(
-            compose_einladung(
+            compose_invitation(
                 saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01", sent_at=None
             )
         )
         database[Collection.BEWERBUNGEN].insert_one(
-            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "decision_reason": "Kein Platz"}}
+            {**bewerbung_document(1, status="declined"), "decision": {"made_at": "2026-04-02", "by": BARRED, "reason": "Kein Platz"}}
         )
         database[Collection.REGISTRIERUNGEN].insert_one(
             {
                 **registrierung_document(REGISTRIERUNG_OID, first_name="Thessaly"),
                 "status": "declined",
-                "decision": {"made_at": "2026-04-03", "by": BARRED, "decision_reason": None},
+                "decision": {"made_at": "2026-04-03", "by": BARRED, "reason": None},
             }
         )
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a

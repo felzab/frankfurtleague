@@ -137,7 +137,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     await assertEachAnswered({
       codes: refusalCodes("bewerbung_already_decided"),
       refuseWith: answerWith,
-      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll.", version: 0 }),
+      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, reason: "Die Liga ist voll.", version: 0 }),
       mapped: declineMapped,
     });
   });
@@ -281,7 +281,7 @@ const DECISIONS = [
     betreff: "Absage",
     operation: ABLEHNEN_OPERATION,
     landed: (document: object) => ({ id: (document as { id: string }).id }),
-    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, decision_reason: "Die Liga ist voll.", version: 0 }),
+    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, reason: "Die Liga ist voll.", version: 0 }),
   },
 ] as const;
 
@@ -370,7 +370,7 @@ describe("the application's writes", () => {
         method: "POST",
         body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe, shorthand: null, version: 0 },
       },
-      { endpoint: `${bewerbung}/decline`, method: "POST", body: { decision_reason: "Die Liga ist voll.", version: 0 } },
+      { endpoint: `${bewerbung}/decline`, method: "POST", body: { reason: "Die Liga ist voll.", version: 0 } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/resend`, method: "POST", body: undefined },
       // The correction is the one seat write, the person read back beside the address typed.
       {
@@ -600,12 +600,11 @@ describe("the decline's bound", () => {
      „   “ has to be refused as the empty reason it is. The backend's `min_length` does not strip, and
      the browser is where the value still can be. */
   it("refuses a reason that is only whitespace, and carries the trimmed one", () => {
-    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "   ", version: 0 });
+    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", reason: "   ", version: 0 });
 
     expect(parsed.success, "a whitespace-only reason parses, and would be stored and mailed as one").toBe(false);
     expect(
-      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: "  Kein Platz.  ", version: 0 }).data
-        ?.decision_reason,
+      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", reason: "  Kein Platz.  ", version: 0 }).data?.reason,
       "the reason reaches the write with the padding the administrator typed around it",
     ).toBe("Kein Platz.");
   });
@@ -614,10 +613,10 @@ describe("the decline's bound", () => {
      raw string disables the button and counts past the cap over a reason the school would have read. */
   it("takes a reason whose padding is all that carries it past the cap", () => {
     const padded = `  ${"a".repeat(BEWERBUNG_DECISION_REASON_MAX_LENGTH)}  `;
-    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", decision_reason: padded, version: 0 });
+    const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", reason: padded, version: 0 });
 
     expect(parsed.success, "a reason inside the cap once trimmed is refused by the schema").toBe(true);
-    expect(parsed.data?.decision_reason.length).toBe(BEWERBUNG_DECISION_REASON_MAX_LENGTH);
+    expect(parsed.data?.reason.length).toBe(BEWERBUNG_DECISION_REASON_MAX_LENGTH);
   });
 });
 

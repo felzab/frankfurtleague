@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, ValidationInfo, field_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielOrtFieldPublic
+from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielortFieldPublic
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin
@@ -223,7 +223,7 @@ class FLSpielbestaetigungViewAnsetzung(BaseModel):
     team2_name: str
     date: CustomDateString
     time: CustomTimeString
-    spielort: FLSpielOrtFieldPublic | None
+    spielort: FLSpielortFieldPublic | None
 
 
 class FLSpielbestaetigungViewResponse(BaseAPIResponse):

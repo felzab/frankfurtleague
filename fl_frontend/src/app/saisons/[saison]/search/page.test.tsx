@@ -38,7 +38,7 @@ const spiel = (
   ansetzung_confirmed: null,
   for_third_place: false,
   note: null,
-  ort: null,
+  spielort: null,
   schiedsrichter: null,
   team1,
   team2,

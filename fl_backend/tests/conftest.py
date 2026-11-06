@@ -130,7 +130,7 @@ def spiel_team_field() -> PayloadFactory:
 
 
 @pytest.fixture
-def spiel_ort_field() -> PayloadFactory:
+def spielort_field() -> PayloadFactory:
     return _factory({"spielort_id": SPIELORT_ID, "mietpreis": 80})
 
 
@@ -142,7 +142,7 @@ def spiel_schiedsrichter_field() -> PayloadFactory:
 @pytest.fixture
 def spiel(
     spiel_team_field: PayloadFactory,
-    spiel_ort_field: PayloadFactory,
+    spielort_field: PayloadFactory,
     spiel_schiedsrichter_field: PayloadFactory,
 ) -> PayloadFactory:
     return _factory(
@@ -155,7 +155,7 @@ def spiel(
             "team2_quelle": None,
             "date": "2026-03-15",
             "time": "18:00:00",
-            "ort": spiel_ort_field(),
+            "spielort": spielort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
             "elfmeterschiessen": None,

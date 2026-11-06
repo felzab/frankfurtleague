@@ -14,14 +14,14 @@ from pydantic import (
     model_validator,
 )
 
-from app.api.einladungen.schemas import FLTeamLinkState
+from app.api.invitations.schemas import FLTeamLinkState
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
-    AUSTRITT_EXIT_REASON_MAX_LENGTH,
+    AUSTRITT_REASON_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -104,13 +104,13 @@ def normalise_phone(value: str) -> str:
 class FLAustritt(BaseModel):
     """How a team came to be out of one season, why, and from when.
 
-    `exit_reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
+    `reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
     disciplinary code an enum could cite.
     """
 
     type: FLAustrittType
     # A name written here outlives an erasure, which rewrites structured fields (`READ-FREETEXT-002`).
-    exit_reason: CustomNonEmptyString
+    reason: CustomNonEmptyString
     # The day the exit took effect, not the day somebody typed it in.
     date: CustomDateString
 
@@ -123,9 +123,9 @@ class FLAustrittPayload(FLAustritt):
 
     model_config = ConfigDict(extra="forbid")
 
-    exit_reason: Annotated[
+    reason: Annotated[
         str,
-        StringConstraints(max_length=AUSTRITT_EXIT_REASON_MAX_LENGTH, pattern=PARAGRAPH_PATTERN),
+        StringConstraints(max_length=AUSTRITT_REASON_MAX_LENGTH, pattern=PARAGRAPH_PATTERN),
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
     ]

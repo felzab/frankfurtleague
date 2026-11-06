@@ -3,12 +3,12 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpielOrtFieldPayload, FLSpielSchiedsrichterFieldPayload
+from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpielortFieldPayload, FLSpielSchiedsrichterFieldPayload
 
 # The two blocks a payload takes field by field, which refuse any other: a test's document may carry
 # more than the stored shape, the name a read joins among it.
 NESTED_PAYLOAD_BLOCKS: Mapping[str, type[BaseModel]] = {
-    "ort": FLSpielOrtFieldPayload,
+    "spielort": FLSpielortFieldPayload,
     "schiedsrichter": FLSpielSchiedsrichterFieldPayload,
 }
 

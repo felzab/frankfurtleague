@@ -64,7 +64,7 @@ PLAYED_AS = {
     PHANTOM: ("Phantom", "PHX"),
 }
 
-EXIT = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-04-01"}
+EXIT = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-04-01"}
 
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072600f1")
 
@@ -73,7 +73,7 @@ INCOMING_SIDE = {"team_id": INCOMING, "tore": None}
 # The day the replacement runs, and a departure from the same squad that predates it.
 REPLACED_ON = "2026-04-15"
 # After the replacement day, and the season's start unless a case says so, so the season it runs on has not started.
-FIRST_GROUP_FIXTURE_DAY = "2026-05-01"
+FIRST_GROUP_SPIEL_DAY = "2026-05-01"
 NOW = datetime(2026, 4, 15, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
 REDACTED_AT = "2026-04-15T10:30:00+00:00"
@@ -179,7 +179,7 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "tore": tore}
 
 
-def gruppen_fixture(
+def gruppen_spiel(
     spiel_nr: int,
     home: ObjectId,
     away: ObjectId,
@@ -188,7 +188,7 @@ def gruppen_fixture(
     sonderereignis: str | None = None,
     tore: tuple[int | None, int | None] = (None, None),
     saison_id: str = SAISON_ID,
-    date: str = FIRST_GROUP_FIXTURE_DAY,
+    date: str = FIRST_GROUP_SPIEL_DAY,
 ) -> dict[str, Any]:
     """`date`, `time` and `spieltag_id` are the schedule a replacement leaves standing, so every fixture carries all three."""
 
@@ -206,7 +206,7 @@ def gruppen_fixture(
     )
 
 
-def knockout_fixture(spiel_nr: int, home: ObjectId) -> dict[str, Any]:
+def knockout_spiel(spiel_nr: int, home: ObjectId) -> dict[str, Any]:
     """A bracket slot with its second side still unfilled -- a shape the replacement has to survive."""
 
     return spiel_document(
@@ -223,13 +223,13 @@ def knockout_fixture(spiel_nr: int, home: ObjectId) -> dict[str, Any]:
 
 # Three fixtures field the outgoing club and three do not: a group fixture on each slot, a bracket
 # slot, one fixture between two other clubs, the phantom row's own, and one from the season before.
-SEASON_FIXTURES = [
-    gruppen_fixture(1, WITHDRAWN, RIVAL),
-    gruppen_fixture(2, RIVAL, WITHDRAWN),
-    gruppen_fixture(3, RIVAL, ENTERED),
-    knockout_fixture(4, WITHDRAWN),
-    gruppen_fixture(5, WITHDRAWN, RIVAL, ergebnis="3:1", tore=(3, 1), saison_id=PRIOR_SAISON_ID),
-    gruppen_fixture(6, PHANTOM, ENTERED),
+SEASON_SPIELE = [
+    gruppen_spiel(1, WITHDRAWN, RIVAL),
+    gruppen_spiel(2, RIVAL, WITHDRAWN),
+    gruppen_spiel(3, RIVAL, ENTERED),
+    knockout_spiel(4, WITHDRAWN),
+    gruppen_spiel(5, WITHDRAWN, RIVAL, ergebnis="3:1", tore=(3, 1), saison_id=PRIOR_SAISON_ID),
+    gruppen_spiel(6, PHANTOM, ENTERED),
 ]
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -241,7 +241,7 @@ def on_a_seeded_season(
     *,
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
-    start_date: str = FIRST_GROUP_FIXTURE_DAY,
+    start_date: str = FIRST_GROUP_SPIEL_DAY,
     junctions: Sequence[dict[str, Any]] | None = None,
 ) -> Any:
     """`active` by default: a mid-season withdrawal is what this endpoint is for."""
@@ -258,7 +258,7 @@ def on_a_seeded_season(
                 [club(WITHDRAWN), club(INCOMING), club(RIVAL), club(ENTERED), club(RETIRED, inactive_since="2026-02-01")]
             )
             await database[Collection.SAISON_SPIELER].insert_many(list(SQUAD_ROWS))
-            await database[Collection.SPIELE].insert_many(list(SEASON_FIXTURES if spiele is None else spiele))
+            await database[Collection.SPIELE].insert_many(list(SEASON_SPIELE if spiele is None else spiele))
 
             return await body(database, client)
 
@@ -529,14 +529,14 @@ class TestTheOutgoingClubsSquadIsRetired:
 
 
 class TestTheReplacementReachesNothingElse:
-    def test_a_fixture_between_two_other_clubs_is_untouched(self, mongo_replica_set_url: str):
+    def test_a_spiel_between_two_other_clubs_is_untouched(self, mongo_replica_set_url: str):
         """Kills a fan-out filtered on the season alone, which passes every assertion about the sides that did move."""
 
         spiele = on_a_seeded_season(mongo_replica_set_url, _spiele_after)
 
         assert (spiele[3]["team1"]["team_id"], spiele[3]["team2"]["team_id"]) == (RIVAL, ENTERED)
 
-    def test_another_seasons_fixture_is_untouched(self, mongo_replica_set_url: str):
+    def test_another_seasons_spiel_is_untouched(self, mongo_replica_set_url: str):
         """Kills a fan-out missing `saison_id`, and a played-check missing it: spiel 5 is the same club, with a result, one season back."""
 
         spiele = on_a_seeded_season(mongo_replica_set_url, _spiele_after)
@@ -568,7 +568,7 @@ class TestAPhantomRowIsRepaired:
         assert row is not None
         assert (row["gruppe"], row["name"], row["shorthand"]) == ("B", "Incoming", "INX")
 
-    def test_its_fixtures_move_with_it(self, mongo_replica_set_url: str):
+    def test_its_spiele_move_with_it(self, mongo_replica_set_url: str):
         """Kills a fan-out composing the new side out of the OUTGOING club, which here has no document to read."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -588,7 +588,7 @@ class TestAStartedSeasonIsNotReplaced:
         code, row, spiele = on_a_seeded_season(
             mongo_replica_set_url,
             _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            spiele=[gruppen_spiel(1, WITHDRAWN, RIVAL), gruppen_spiel(2, RIVAL, WITHDRAWN)],
             start_date=REPLACED_ON,
         )
 
@@ -596,13 +596,13 @@ class TestAStartedSeasonIsNotReplaced:
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
 
-    def test_a_fixture_of_the_club_that_has_taken_place_refuses_it(self, mongo_replica_set_url: str):
+    def test_a_spiel_of_the_club_that_has_taken_place_refuses_it(self, mongo_replica_set_url: str):
         """Before the start, a result entered early: the rewrite moves no `tore`, so the incoming club would inherit it."""
 
         code, row, spiele = on_a_seeded_season(
             mongo_replica_set_url,
             _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="1:0", tore=(1, 0)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            spiele=[gruppen_spiel(1, WITHDRAWN, RIVAL, ergebnis="1:0", tore=(1, 0)), gruppen_spiel(2, RIVAL, WITHDRAWN)],
         )
 
         assert code == Code.REPLACE_SIDES_TAKEN_PLACE
@@ -627,7 +627,7 @@ class TestAStartMovedUnderTheReplacementIsJudgedAgain:
             return outcome, seasons.passes, await row_of(database, WITHDRAWN)
 
         outcome, passes, row = on_a_seeded_season(
-            mongo_replica_set_url, body, spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL), gruppen_fixture(2, RIVAL, WITHDRAWN)]
+            mongo_replica_set_url, body, spiele=[gruppen_spiel(1, WITHDRAWN, RIVAL), gruppen_spiel(2, RIVAL, WITHDRAWN)]
         )
 
         assert outcome != COMMITTED, "the replacement committed on a start it judged before the patch moved it"

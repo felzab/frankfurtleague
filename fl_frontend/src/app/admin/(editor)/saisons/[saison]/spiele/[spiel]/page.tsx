@@ -53,11 +53,11 @@ const SONDEREREIGNISSE: Readonly<Record<FLSonderereignis, Copy>> = {
   annulliert: WORDS.annulliert,
 };
 
-const { ort, schiedsrichter } = SpielePatchSpielBody.shape;
+const { spielort, schiedsrichter } = SpielePatchSpielBody.shape;
 
 /** Whether a booking's money is required beside it, read off the write's schema. */
 const REQUIRED = {
-  mietpreis: requires(ort.options[0].shape.mietpreis, null),
+  mietpreis: requires(spielort.options[0].shape.mietpreis, null),
   payment: requires(schiedsrichter.options[0].shape.payment, null),
 };
 
@@ -189,7 +189,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
   const words = SERVER_COPY.season.spiel;
   const plaques = { team1: spiel.team1?.shorthand ?? null, team2: spiel.team2?.shorthand ?? null };
   const score = { team1: 0, team2: 0 };
-  return bericht.torschuetzen
+  return bericht.scorers
     .map((tor, index) => ({ tor, index }))
     .toSorted((one, other) => {
       const [a, b] = [minuteOf(one.tor.minute), minuteOf(other.tor.minute)];
@@ -214,7 +214,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
 
 /** The referee's proposal as „Übernehmen“ carries it into the result's fields, where the report stands open to it. */
 function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | null): Adoption | null {
-  if (bericht === null || (bericht.state !== "vorgeschlagen" && bericht.state !== "differing")) return null;
+  if (bericht === null || (bericht.state !== "proposed" && bericht.state !== "differing")) return null;
   const { team1_tore: tore1, team2_tore: tore2, elfmeterschiessen, sonderereignis } = bericht.ergebnis_vorschlag;
   const event = sonderereignis ?? NO_SONDEREREIGNIS;
   // A no-show's goals are the award the write composes: the proposal names the side that stayed away alone.

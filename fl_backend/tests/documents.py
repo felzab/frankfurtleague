@@ -166,7 +166,7 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
         "team2_quelle": None,
         "date": None,
         "time": None,
-        "ort": None,
+        "spielort": None,
         "schiedsrichter": None,
         "ergebnis": None,
         "elfmeterschiessen": None,
@@ -197,7 +197,7 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
         **spiel,
         "team1": side(spiel.get("team1")),
         "team2": side(spiel.get("team2")),
-        "ort": ground(spiel.get("ort")),
+        "spielort": ground(spiel.get("spielort")),
         "schiedsrichter": referee(spiel.get("schiedsrichter")),
         "ansetzung_confirmed": None,
         "for_third_place": False,
@@ -233,8 +233,8 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
 
     return {
         "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
-        "torschuetzen": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
-        "karten": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "card_reason": "foulspiel"}],
+        "scorers": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
+        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
         "remarks": None,
         "sides": {"team1": None, "team2": None},
         "submitted_at": at,

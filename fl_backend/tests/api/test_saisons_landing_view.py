@@ -100,7 +100,7 @@ def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_dec
                     for team_id, name in ((ALPHA, "Alpha"), (BETA, "Beta"), (DORA, "Dora"))
                 ),
                 documents.saison_team_document(
-                    SAISON, cara, "Cara", "CAR", austritt={"type": "disqualifikation", "exit_reason": "Ausgeschlossen", "date": "2026-02-28"}
+                    SAISON, cara, "Cara", "CAR", austritt={"type": "disqualifikation", "reason": "Ausgeschlossen", "date": "2026-02-28"}
                 ),
             ],
             Collection.SPIELTAGE: [spieltag(FINALE_DAY, 1, "finale")],
@@ -134,9 +134,7 @@ def finale_match(
     """`third` is the read's mark; `left` names a club by name and the day it left the season; every match is played on `MATCH_DAY`."""
 
     def joined(name: str, tore: int | None) -> FLSpielTeamFieldJoinedInternal:
-        austritt = (
-            None if left is None or name not in left else FLAustritt(type="disqualifikation", exit_reason="Ausgeschlossen", date=left[name])
-        )
+        austritt = None if left is None or name not in left else FLAustritt(type="disqualifikation", reason="Ausgeschlossen", date=left[name])
         return FLSpielTeamFieldJoinedInternal(
             team_id=ObjectId(), name=name, shorthand=name[:3].upper(), tore=tore, austritt_type=austritt and austritt.type, austritt=austritt
         )

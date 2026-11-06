@@ -174,7 +174,7 @@ const junctionPayload = (overrides: Record<string, unknown> = {}) => ({
   team_id: "0123456789abcdef01234567",
   saison_id: "2026",
   gruppe: "A",
-  austritt: { type: "rueckzug", exit_reason: "Kein Kader", date: "2026-03-12" },
+  austritt: { type: "rueckzug", reason: "Kein Kader", date: "2026-03-12" },
   trikot_farbe: null,
   ...overrides,
 });
@@ -202,9 +202,9 @@ describe("the write payloads' floors, against the stripped floors at the API", (
   });
 
   it("refuses an austritt whose published reason is spaces alone", () => {
-    const austritt = { ...junctionPayload().austritt, exit_reason: SPACES };
+    const austritt = { ...junctionPayload().austritt, reason: SPACES };
 
-    expect(pathsRefused(FLPatchSaisonTeamPayloadSchema, junctionPayload({ austritt }))).toStrictEqual(["austritt.exit_reason"]);
+    expect(pathsRefused(FLPatchSaisonTeamPayloadSchema, junctionPayload({ austritt }))).toStrictEqual(["austritt.reason"]);
   });
 });
 

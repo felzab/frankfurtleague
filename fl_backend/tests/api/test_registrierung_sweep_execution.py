@@ -52,7 +52,7 @@ CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607970004")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607970005")
 OTHER_SEASON_OID = ObjectId("6890a1b2c3d4e5f607970006")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607970011")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607970021")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607970021")
 
 TEAM_NAME = "Adler"
 
@@ -80,7 +80,7 @@ def registrierung(registrierung_id: ObjectId, *, saison_id: str = SAISON_ID, **o
         "_id": registrierung_id,
         "saison_id": saison_id,
         "team_id": TEAM_OID,
-        "invitation_id": EINLADUNG_OID,
+        "invitation_id": INVITATION_OID,
         "submitted_at": MAILED_ON_THE_MARK,
         "status": "submitted",
         "first_name": "Quillhilde",
@@ -109,7 +109,7 @@ def the_corpus() -> list[dict[str, Any]]:
         registrierung(
             DECLINED_OID,
             status="declined",
-            decision={"made_at": "2026-02-15", "by": "admin", "decision_reason": "kein Platz"},
+            decision={"made_at": "2026-02-15", "by": "admin", "reason": "kein Platz"},
         ),
         registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=bestaetigung(OTHER_SEASON_OID, deadline=YESTERDAY)),
     ]
@@ -376,7 +376,7 @@ class TestOneRowHoldsBackNoOther:
     def test_a_refused_loeschung_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].insert_one(
-                registrierung(SECOND_OID, status="declined", decision={"made_at": "2026-02-15", "by": "admin", "decision_reason": None})
+                registrierung(SECOND_OID, status="declined", decision={"made_at": "2026-02-15", "by": "admin", "reason": None})
             )
             await refuse_the_redaction_of(database, DECLINED_OID)
             answer = await sweep(database, client)
@@ -496,7 +496,7 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
             pytest.param("season's end", {}, "past", "erased_without_decision", id="season's end"),
             pytest.param(
                 "one month",
-                {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "decision_reason": None}},
+                {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "reason": None}},
                 "active",
                 "erased_declined",
                 id="one month",

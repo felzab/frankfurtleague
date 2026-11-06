@@ -109,7 +109,7 @@ def test_goals_are_oriented_towards_each_team(league: SeededLeague):
     assert (figures["Bock"]["tore_geschossen"], figures["Bock"]["tore_kassiert"]) == (2, 3)
 
 
-class TestACalledOffFixture:
+class TestACalledOffSpiel:
     """The two counts are deliberately not a partition: a forfeit is in this figure and in `count_gespielte_spiele` both."""
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
@@ -119,7 +119,7 @@ class TestACalledOffFixture:
         assert figures["Helmholtz"]["count_cancelled_spiele"] == 1
         assert figures["Ohne"]["count_cancelled_spiele"] == 2
 
-    def test_an_abandoned_fixture_is_counted_as_played_and_not_as_cancelled(self, league: SeededLeague):
+    def test_an_abandoned_spiel_is_counted_as_played_and_not_as_cancelled(self, league: SeededLeague):
         """The distinction one flag could not draw: Spiel 14 was abandoned with a score, so it reaches one figure and not the other."""
         komplett = table(league)["Komplett"]
 
@@ -127,7 +127,7 @@ class TestACalledOffFixture:
         assert komplett["siege"] == 2
         assert komplett["count_cancelled_spiele"] == 0
 
-    def test_an_annulled_fixture_is_cancelled_and_never_a_match_played(self, league: SeededLeague):
+    def test_an_annulled_spiel_is_cancelled_and_never_a_match_played(self, league: SeededLeague):
         """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
         without = table(league)["Ohne"]
 

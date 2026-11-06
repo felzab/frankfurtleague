@@ -247,12 +247,12 @@ DECISION_REASON_AT_THE_BOUND = (_DECISION_REASON_SENTENCE * (BEWERBUNG_DECISION_
 ] + "."
 
 
-async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, decision_reason: str = DECISION_REASON) -> Any:
+async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, reason: str = DECISION_REASON) -> Any:
     version = (await stored_bewerbung(database, bewerbung_id))["version"]
 
     return await decline_bewerbung(
         bewerbung_id=bewerbung_id,
-        ablehnung_data=FLDeclineBewerbungPayload(decision_reason=decision_reason, version=version),
+        ablehnung_data=FLDeclineBewerbungPayload(reason=reason, version=version),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
@@ -332,7 +332,7 @@ class TestAnAcceptanceEntersTheSchool:
 
         # The write the acceptance owes the application: without it a new school's row names no club.
         assert (stored["status"], stored["team_id"]) == ("accepted", created["_id"])
-        assert stored["decision"] == {"made_at": TODAY, "by": ADMIN_EMAIL, "decision_reason": None}
+        assert stored["decision"] == {"made_at": TODAY, "by": ADMIN_EMAIL, "reason": None}
         assert (response.team_id, response.created_team, response.gruppe) == (created["_id"], True, "A")
 
     def test_an_application_naming_an_existing_club_creates_none(self, mongo_replica_set_url: str):
@@ -808,7 +808,7 @@ class TestWhoTheDecisionNames:
         assert entscheidung["by"] == ADMIN_EMAIL
         assert entscheidung["by"] != SYSTEM_ACTOR_EMAIL
         # The injected clock reached it too, so the date is the request's rather than the wall's.
-        assert (entscheidung["made_at"], entscheidung["decision_reason"]) == (TODAY, None)
+        assert (entscheidung["made_at"], entscheidung["reason"]) == (TODAY, None)
 
     def test_the_log_row_for_that_write_names_the_same_person(self, mongo_replica_set_url: str):
         """The pairing the field exists for: two sources for one name is two names waiting to disagree."""
@@ -829,14 +829,12 @@ class TestWhoTheDecisionNames:
     def test_a_served_decline_names_the_administrator_as_well(self, mongo_replica_set_url: str):
         """The decline is a second endpoint writing a block of its own, so the acceptance's proof says nothing about it.
 
-        Its block also carries a `decision_reason` the acceptance's does not, which is what makes the two
+        Its block also carries a `reason` the acceptance's does not, which is what makes the two
         different objects rather than one shape.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(
-                mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": DECISION_REASON, "version": 0}
-            )
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"reason": DECISION_REASON, "version": 0})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
 
@@ -893,7 +891,7 @@ class TestADeclineTouchesNothingElse:
         status, entscheidung, team_id, rows = on_a_league(mongo_replica_set_url, body)
 
         assert status == "declined"
-        assert entscheidung == {"made_at": TODAY, "by": ADMIN_EMAIL, "decision_reason": DECISION_REASON}
+        assert entscheidung == {"made_at": TODAY, "by": ADMIN_EMAIL, "reason": DECISION_REASON}
         # Left as the applicant picked it: a decline creates no reference and clears none.
         assert (team_id, rows) == (EXISTING_OID, [])
 
@@ -908,10 +906,10 @@ class TestADeclineTouchesNothingElse:
 
     @pytest.mark.db
     @pytest.mark.parametrize(
-        "decision_reason",
+        "reason",
         [pytest.param(DECISION_REASON, id="an ordinary reason"), pytest.param(DECISION_REASON_AT_THE_BOUND, id="at the bound")],
     )
-    def test_the_served_reason_reaches_the_document_byte_identical(self, mongo_replica_set_url: str, decision_reason: str):
+    def test_the_served_reason_reaches_the_document_byte_identical(self, mongo_replica_set_url: str, reason: str):
         """The reason is stored AND emailed to the applicants: one lost on the way is a decline nobody can act on.
 
         Served rather than called, so the JSON decode is in the path: every other decline in this file
@@ -919,23 +917,21 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(
-                mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": decision_reason, "version": 0}
-            )
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"reason": reason, "version": 0})
 
-            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["decision_reason"]
+            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["reason"]
 
-        status_code, stored_decision_reason = on_a_league(mongo_replica_set_url, body)
+        status_code, stored_reason = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
         # Encoded on both sides, so a re-encoding fails here as a truncation does; the length is
         # asserted separately, which is what says WHICH of the two happened.
-        assert stored_decision_reason.encode("utf-8") == decision_reason.encode("utf-8")
-        assert len(stored_decision_reason) == len(decision_reason)
+        assert stored_reason.encode("utf-8") == reason.encode("utf-8")
+        assert len(stored_reason) == len(reason)
 
     @pytest.mark.db
-    @pytest.mark.parametrize("decision_reason", [pytest.param("   ", id="spaces"), pytest.param("\t\n ", id="tab and newline")])
-    def test_a_reason_of_whitespace_alone_is_refused(self, mongo_replica_set_url: str, decision_reason: str):
+    @pytest.mark.parametrize("reason", [pytest.param("   ", id="spaces"), pytest.param("\t\n ", id="tab and newline")])
+    def test_a_reason_of_whitespace_alone_is_refused(self, mongo_replica_set_url: str, reason: str):
         """Drop `strip_whitespace` and this passes as a 200: `min_length` counts CHARACTERS.
 
         A decline is irreversible, so a reason of spaces stands on the application for good and
@@ -943,9 +939,7 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(
-                mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": decision_reason, "version": 0}
-            )
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"reason": reason, "version": 0})
 
             return response.status_code, await stored_bewerbung(database, PICKED_BEWERBUNG)
 
@@ -964,15 +958,15 @@ class TestADeclineTouchesNothingElse:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(
-                mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"decision_reason": f"  {DECISION_REASON}\n", "version": 0}
+                mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"reason": f"  {DECISION_REASON}\n", "version": 0}
             )
 
-            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["decision_reason"]
+            return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["reason"]
 
-        status_code, stored_decision_reason = on_a_league(mongo_replica_set_url, body)
+        status_code, stored_reason = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200
-        assert stored_decision_reason == DECISION_REASON
+        assert stored_reason == DECISION_REASON
 
 
 async def take_decision(kind: str, database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> Any:
@@ -1034,9 +1028,9 @@ class ApplicationsRunningARivalBeforeTheirWrite(InterleavedCollection):
 
 @pytest.mark.db
 class TestTwoDeclinesAtOnce:
-    """The loser of the race mails the applicants nothing, and the winner's `decision_reason` and name stand.
+    """The loser of the race mails the applicants nothing, and the winner's `reason` and name stand.
 
-    Both administrators otherwise send the three people a rejection letter, and one `decision_reason` and one
+    Both administrators otherwise send the three people a rejection letter, and one `reason` and one
     name survive.
     """
 
@@ -1057,7 +1051,7 @@ class TestTwoDeclinesAtOnce:
             with pytest.raises(APIError) as conflict:
                 await decline_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
-                    ablehnung_data=FLDeclineBewerbungPayload(decision_reason=OTHER_DECISION_REASON, version=0),
+                    ablehnung_data=FLDeclineBewerbungPayload(reason=OTHER_DECISION_REASON, version=0),
                     bewerbungen_collection=cast(AsyncCollection, racing),
                     teams_collection=database[Collection.TEAMS],
                     outbox_collection=database[Collection.OUTBOX],
@@ -1075,7 +1069,7 @@ class TestTwoDeclinesAtOnce:
 
         assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the losing decline overwrote the reason and the name the first one stored"
-        assert after_first["decision"]["decision_reason"] == DECISION_REASON
+        assert after_first["decision"]["reason"] == DECISION_REASON
 
     def test_an_application_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1084,7 +1078,7 @@ class TestTwoDeclinesAtOnce:
             with pytest.raises(DocumentNotFoundError) as missing:
                 await decline_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
-                    ablehnung_data=FLDeclineBewerbungPayload(decision_reason=OTHER_DECISION_REASON, version=0),
+                    ablehnung_data=FLDeclineBewerbungPayload(reason=OTHER_DECISION_REASON, version=0),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
                     outbox_collection=database[Collection.OUTBOX],

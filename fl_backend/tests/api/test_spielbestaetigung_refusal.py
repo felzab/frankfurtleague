@@ -51,7 +51,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "spieltag_id": SPIELTAG,
         "date": DATE,
         "time": "18:30:00",
-        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
+        "spielort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
         "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
         "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": None},
@@ -99,7 +99,7 @@ def zeile(**overrides: Any) -> dict[str, Any]:
     }
 
 
-class TestADecidedFixtureTakesNoAnswer:
+class TestADecidedSpielTakesNoAnswer:
     """`ansetzung_decided`, which nothing else refuses: an answered row, a move and a lapsed deadline each have a route case."""
 
     @pytest.mark.parametrize(
@@ -184,7 +184,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
 
 
-class TestTheProposalIsTheFixtureOnItsNewDate:
+class TestTheProposalIsTheSpielOnItsNewDate:
     def test_only_the_day_and_the_hour_move(self):
         """Every field the save writes is kept but the slot.
 

@@ -40,7 +40,7 @@ def created(spiel_id: ObjectId, spiel_nr: int) -> dict[str, Any]:
     return document
 
 
-def on_two_fixtures(url: str, body: Body) -> Any:
+def on_two_spiele(url: str, body: Body) -> Any:
     """Two fixtures, each created through the insert helper."""
 
     async def _run() -> Any:
@@ -77,7 +77,7 @@ class TestASaveNamingItsVersion:
 
             return await stored(database, FIRST)
 
-        after = on_two_fixtures(mongo_replica_set_url, body)
+        after = on_two_spiele(mongo_replica_set_url, body)
 
         assert (after["note"], after[VERSION_FIELD]) == ("verlegt", 1)
 
@@ -89,7 +89,7 @@ class TestASaveNamingItsVersion:
 
             return refused.value, await stored(database, FIRST)
 
-        refusal, after = on_two_fixtures(mongo_replica_set_url, body)
+        refusal, after = on_two_spiele(mongo_replica_set_url, body)
 
         assert (refusal.status_code, refusal.error_code) == (409, Code.VERSION_STALE)
         assert (after["note"], after[VERSION_FIELD]) == ("zuerst", 1)
@@ -102,7 +102,7 @@ class TestEveryOtherWrite:
 
             return await stored(database, FIRST)
 
-        after = on_two_fixtures(mongo_replica_set_url, body)
+        after = on_two_spiele(mongo_replica_set_url, body)
 
         assert (after["note"], after[VERSION_FIELD]) == ("ohne", 1)
 
@@ -118,4 +118,4 @@ class TestEveryOtherWrite:
 
             return fanned_out, [(await stored(database, spiel_id))[VERSION_FIELD] for spiel_id in (FIRST, SECOND)]
 
-        assert on_two_fixtures(mongo_replica_set_url, body) == ([2, 0], [1, 1])
+        assert on_two_spiele(mongo_replica_set_url, body) == ([2, 0], [1, 1])

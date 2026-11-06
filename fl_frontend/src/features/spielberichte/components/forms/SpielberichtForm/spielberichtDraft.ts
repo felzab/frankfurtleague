@@ -55,7 +55,7 @@ export type KarteDraft = {
   readonly spieler: string;
   readonly minute: string;
   readonly colour: FLCardColour | null;
-  readonly card_reason: FLCardReason | null;
+  readonly reason: FLCardReason | null;
 };
 
 export type SpielberichtDraft = {
@@ -63,8 +63,8 @@ export type SpielberichtDraft = {
   readonly team2Tore: number | null;
   readonly elfmeterschiessen: { readonly team1: number | null; readonly team2: number | null } | null;
   readonly sonderereignis: FLSpielberichtSonderereignis | null;
-  readonly torschuetzen: readonly TorschuetzeDraft[];
-  readonly karten: readonly KarteDraft[];
+  readonly scorers: readonly TorschuetzeDraft[];
+  readonly cards: readonly KarteDraft[];
   readonly remarks: string;
   /** Whom the block is about: the clubs the report's last write found, or those the fixture fields now, which a save stamps. */
   readonly fuerTeams: "bericht" | "spiel";
@@ -80,8 +80,8 @@ function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft
       team2Tore: null,
       elfmeterschiessen: null,
       sonderereignis: null,
-      torschuetzen: [],
-      karten: [],
+      scorers: [],
+      cards: [],
       remarks: "",
       fuerTeams: "spiel",
     };
@@ -92,20 +92,20 @@ function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft
     team2Tore: stored.ergebnis_vorschlag.team2_tore,
     elfmeterschiessen: stored.ergebnis_vorschlag.elfmeterschiessen,
     sonderereignis: stored.ergebnis_vorschlag.sonderereignis,
-    torschuetzen: stored.torschuetzen.map((entry, key) => ({
+    scorers: stored.scorers.map((entry, key) => ({
       key,
       side: entry.side,
       spieler: entry.spieler_id ?? UNBEKANNT,
       minute: entry.minute,
       eigentor: entry.eigentor,
     })),
-    karten: stored.karten.map((karte, key) => ({
+    cards: stored.cards.map((card, key) => ({
       key,
-      side: karte.side,
-      spieler: karte.spieler_id,
-      minute: karte.minute,
-      colour: karte.colour,
-      card_reason: karte.card_reason,
+      side: card.side,
+      spieler: card.spieler_id,
+      minute: card.minute,
+      colour: card.colour,
+      reason: card.reason,
     })),
     remarks: stored.remarks ?? "",
     fuerTeams: "spiel",
@@ -117,7 +117,7 @@ export type Eroeffnung = {
   readonly saved: SpielberichtDraft;
   readonly entwurf: SpielberichtDraft;
   /** Per list, the keys of the entries whose person the draft took out, which the form marks until one is picked. */
-  readonly geleert: { readonly torschuetzen: ReadonlySet<number>; readonly karten: ReadonlySet<number> };
+  readonly geleert: { readonly scorers: ReadonlySet<number>; readonly cards: ReadonlySet<number> };
 };
 
 /**
@@ -127,7 +127,7 @@ export type Eroeffnung = {
  */
 export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontext: SpielberichtKontext): Eroeffnung {
   const block = draftOf(stored);
-  if (kontext.seitenGeaendert.size === 0) return { saved: block, entwurf: block, geleert: { torschuetzen: new Set(), karten: new Set() } };
+  if (kontext.seitenGeaendert.size === 0) return { saved: block, entwurf: block, geleert: { scorers: new Set(), cards: new Set() } };
 
   const stale = (side: FLSpielSide | null, spieler: string): boolean =>
     side !== null &&
@@ -136,16 +136,16 @@ export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontex
     spieler !== UNBEKANNT &&
     !kontext.kader[side].some((option) => option.id === spieler);
   const geleert = {
-    torschuetzen: new Set(block.torschuetzen.filter((entry) => stale(entry.side, entry.spieler)).map((entry) => entry.key)),
-    karten: new Set(block.karten.filter((karte) => stale(karte.side, karte.spieler)).map((karte) => karte.key)),
+    scorers: new Set(block.scorers.filter((entry) => stale(entry.side, entry.spieler)).map((entry) => entry.key)),
+    cards: new Set(block.cards.filter((card) => stale(card.side, card.spieler)).map((card) => card.key)),
   };
 
   return {
     saved: { ...block, fuerTeams: "bericht" },
     entwurf: {
       ...block,
-      torschuetzen: block.torschuetzen.map((entry) => (geleert.torschuetzen.has(entry.key) ? { ...entry, spieler: "" } : entry)),
-      karten: block.karten.map((karte) => (geleert.karten.has(karte.key) ? { ...karte, spieler: "" } : karte)),
+      scorers: block.scorers.map((entry) => (geleert.scorers.has(entry.key) ? { ...entry, spieler: "" } : entry)),
+      cards: block.cards.map((card) => (geleert.cards.has(card.key) ? { ...card, spieler: "" } : card)),
     },
     geleert,
   };
@@ -164,13 +164,13 @@ export function formPayloadOf(draft: SpielberichtDraft) {
         elfmeterschiessen: draft.elfmeterschiessen,
         sonderereignis: draft.sonderereignis,
       },
-      torschuetzen: draft.torschuetzen.map(({ side, spieler, minute, eigentor }) => ({ side, spieler_id: spieler, minute, eigentor })),
-      karten: draft.karten.map(({ side, spieler, minute, colour, card_reason }) => ({
+      scorers: draft.scorers.map(({ side, spieler, minute, eigentor }) => ({ side, spieler_id: spieler, minute, eigentor })),
+      cards: draft.cards.map(({ side, spieler, minute, colour, reason }) => ({
         side,
         spieler_id: spieler,
         minute,
         colour,
-        card_reason,
+        reason,
       })),
       remarks: emptyAsNull(draft.remarks),
     },
@@ -190,15 +190,15 @@ export function wirePayloadOf(draft: SpielberichtDraft, stand: number | null): F
       ...form.bericht,
       // Cast once here, the form schema having refused every null these narrow before a send reaches this.
       ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtVorschlag,
-      torschuetzen: form.bericht.torschuetzen.map((entry) => ({
+      scorers: form.bericht.scorers.map((entry) => ({
         ...entry,
         side: entry.side as FLSpielSide,
         spieler_id: entry.spieler_id === UNBEKANNT ? null : entry.spieler_id,
       })),
-      karten: form.bericht.karten.map((karte) => ({
-        ...karte,
-        side: karte.side as FLSpielSide,
-        colour: karte.colour as FLCardColour,
+      cards: form.bericht.cards.map((card) => ({
+        ...card,
+        side: card.side as FLSpielSide,
+        colour: card.colour as FLCardColour,
       })),
     },
   };
@@ -213,8 +213,8 @@ export type SpielberichtFieldPath =
   | "bericht.ergebnis_vorschlag.team2_tore"
   | "bericht.ergebnis_vorschlag.elfmeterschiessen"
   | "bericht.ergebnis_vorschlag.sonderereignis"
-  | "bericht.torschuetzen"
-  | "bericht.karten"
+  | "bericht.scorers"
+  | "bericht.cards"
   | "bericht.remarks"
   | "bericht.sides";
 
@@ -278,26 +278,26 @@ function descriptorsFor(
       read: ({ sonderereignis }) => (sonderereignis === null ? null : SONDEREREIGNIS_LABELS[sonderereignis]),
     },
     {
-      path: "bericht.torschuetzen",
+      path: "bericht.scorers",
       label: "Torschützen",
       group: "Spielbericht",
-      read: ({ torschuetzen }) =>
+      read: ({ scorers }) =>
         listText(
-          torschuetzen.map(
+          scorers.map(
             (entry) =>
               `${teamName(entry.side)}: ${personName(entry.side, entry.spieler)}, ${minuteText(entry.minute)}${entry.eigentor ? ", Eigentor" : ""}`,
           ),
         ),
     },
     {
-      path: "bericht.karten",
+      path: "bericht.cards",
       label: "Karten",
       group: "Spielbericht",
-      read: ({ karten }) =>
+      read: ({ cards }) =>
         listText(
-          karten.map(
-            (karte) =>
-              `${teamName(karte.side)}: ${personName(karte.side, karte.spieler)}, ${minuteText(karte.minute)}, ${karte.colour === null ? OFFEN : CARD_COLOUR_LABELS[karte.colour]}${karte.card_reason === null ? "" : `, ${CARD_REASON_LABELS[karte.card_reason]}`}`,
+          cards.map(
+            (card) =>
+              `${teamName(card.side)}: ${personName(card.side, card.spieler)}, ${minuteText(card.minute)}, ${card.colour === null ? OFFEN : CARD_COLOUR_LABELS[card.colour]}${card.reason === null ? "" : `, ${CARD_REASON_LABELS[card.reason]}`}`,
           ),
         ),
     },

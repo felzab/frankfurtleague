@@ -162,10 +162,10 @@ class TestASeasonKeepsCoveringTheMatchdaysItStores:
         assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELTAGE
 
 
-class TestAMatchdayKeepsCoveringItsFixtures:
+class TestAMatchdayKeepsCoveringItsSpiele:
     """`spieltag_span_below_spiele` through the endpoint: only a database proves the dates it judges are read out of `spiele` at all."""
 
-    def test_a_shrink_past_a_dated_fixture_is_refused(self, mongo_replica_set_url: str):
+    def test_a_shrink_past_a_dated_spiel_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> APIError:
             # On the matchday's last day, so pulling `end` back to its first leaves the fixture outside.
             await database.spiele.insert_one(spiel_document(spiel_nr=1, date=SPIELTAG_END))

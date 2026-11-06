@@ -46,7 +46,7 @@ SAISON_SHORTHANDS = {
 }
 
 # A dict rather than a model: Pydantic could not express a row its record model rejects.
-AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def config_for(database_name: str) -> BackendConfig:
@@ -161,7 +161,7 @@ def _spiel(
         # and a `quelle` is its side's independent sibling rather than a value the side implies.
         "date": None,
         "time": None,
-        "ort": None,
+        "spielort": None,
         "schiedsrichter": None,
         "team1_quelle": None,
         "team2_quelle": None,

@@ -89,7 +89,7 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, decision_reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
@@ -101,7 +101,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, decision_re
       facts: [
         // Identification rather than a verdict: it says why the mail reached this reader.
         { label: WORDS.registeredAs, value: rollenText(rollen) },
-        { label: COPY.admin.spiel.reason, value: decision_reason },
+        { label: COPY.admin.spiel.reason, value: reason },
       ],
     },
   };

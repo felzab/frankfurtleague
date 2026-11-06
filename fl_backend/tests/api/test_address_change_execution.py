@@ -29,11 +29,11 @@ from app.api.address_change.system_router import get_address_change_address
 from app.api.berechtigungen.admin_router import delete_approval_request, get_grants
 from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.einladungen.services import compose_einladung
 from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.journal_replay import Read, Window, plan_replay, replay_line
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
+from app.api.invitations.services import compose_invitation
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
@@ -1717,7 +1717,7 @@ class TestTheAdministratorFollowsTheirMove:
             await granted(database)
             await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOREIGN_EMAIL, until="2030", created_by=EMAIL))
             await database[Collection.INVITATIONS].insert_one(
-                compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY, sent_at=None)
+                compose_invitation(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY, sent_at=None)
             )
             await database[Collection.BEWERBUNGEN].insert_one(
                 documents.bewerbung_document(
@@ -1726,7 +1726,7 @@ class TestTheAdministratorFollowsTheirMove:
                     "declined",
                     kontakte=documents.kontakte_document(),
                     submitted_at="2126-02-01",
-                    decision={"made_at": "2126-02-15", "by": EMAIL, "decision_reason": "kein Platz"},
+                    decision={"made_at": "2126-02-15", "by": EMAIL, "reason": "kein Platz"},
                 )
             )
             minted = await start(database, client)
@@ -2191,7 +2191,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             declined = registration(DECLINED_REG_OID, SECOND_TEAM_OID, confirmed=False, token="the-declined-registrations-link")
-            declined.update(compose_ablehnung_update(by="admin@frankfurtleague.de", decision_reason=None, today=TODAY)["$set"])
+            declined.update(compose_ablehnung_update(by="admin@frankfurtleague.de", reason=None, today=TODAY)["$set"])
             await database[Collection.REGISTRIERUNGEN].insert_one(declined)
             await confirmed_and_moved(database, client)
             return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
@@ -2264,7 +2264,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
             await patch_one_in_db(
                 collection=database[Collection.REGISTRIERUNGEN],
                 db_filter={"_id": DECLINED_REG_OID},
-                update=compose_ablehnung_update(by=EMAIL, decision_reason=None, today=TODAY),
+                update=compose_ablehnung_update(by=EMAIL, reason=None, today=TODAY),
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )

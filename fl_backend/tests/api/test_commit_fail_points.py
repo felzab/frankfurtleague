@@ -34,7 +34,7 @@ from tests.records import record_collections
 from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
-from . import test_spiele_write_execution as fixture_saves
+from . import test_spiele_write_execution as spiel_saves
 from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_identity_erasure_execution import erased_by_the_handler as geloescht_by_the_person
 from .test_identity_erasure_execution import on_a_league as on_their_league
@@ -455,7 +455,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
         commits, lost, standing, owed, nxt = confirmations.on_a_league(
-            mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+            mongo_replica_set_url, body, spiele=[confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
         )
 
         # The premise first: the close committed, and the mint's commit landed with its answer lost.
@@ -476,19 +476,19 @@ NO_SUCH_TRANSACTION = 251
 
 
 @pytest.mark.db
-class TestAFixtureSaveRefusedAtItsCommit:
-    def test_takes_the_adoption_stamp_back_with_the_fixture(self, mongo_replica_set_url: str):
+class TestASpielSaveRefusedAtItsCommit:
+    def test_takes_the_adoption_stamp_back_with_the_spiel(self, mongo_replica_set_url: str):
         """Catches a stamp written off the save's session: every rule passes, so only the commit can refuse this save."""
 
-        spiele, reports = fixture_saves.a_bracket_with_reports(quarter_final_at=fixture_saves.SEEDED_VERSION)
+        spiele, reports = spiel_saves.a_bracket_with_reports(quarter_final_at=spiel_saves.SEEDED_VERSION)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await fixture_saves.with_reports(database, reports)
-            spiel_data = await fixture_saves.payload_for(
+            before = await spiel_saves.with_reports(database, reports)
+            spiel_data = await spiel_saves.payload_for(
                 database,
-                fixture_saves.VIERTELFINALE,
-                team1=fixture_saves.side(fixture_saves.ALPHA, 3),
-                team2=fixture_saves.side(fixture_saves.BETA, 1),
+                spiel_saves.VIERTELFINALE,
+                team1=spiel_saves.side(spiel_saves.ALPHA, 3),
+                team2=spiel_saves.side(spiel_saves.BETA, 1),
             )
             commits = _Commits()
             refusing = AsyncMongoClient(
@@ -503,24 +503,24 @@ class TestAFixtureSaveRefusedAtItsCommit:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
                 with pytest.raises(PyMongoError):
-                    await fixture_saves.call_patch(
+                    await spiel_saves.call_patch(
                         refusing[database.name],
                         refusing,
-                        fixture_saves.VIERTELFINALE,
+                        spiel_saves.VIERTELFINALE,
                         spiel_data,
-                        uebernimmt_bericht=fixture_saves.SEEDED_VERSION,
+                        uebernimmt_bericht=spiel_saves.SEEDED_VERSION,
                     )
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            return commits.answered, await fixture_saves.spiele_now(database), before, await fixture_saves.reports_now(database)
+            return commits.answered, await spiel_saves.spiele_now(database), before, await spiel_saves.reports_now(database)
 
-        commits, spiele, before, after = fixture_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+        commits, spiele, before, after = spiel_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
         # The premise first: one commit, refused, and the fixture it carried not written.
-        assert (commits, spiele[fixture_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
-        assert after[fixture_saves.VIERTELFINALE] == before[fixture_saves.VIERTELFINALE], "a save that never committed adopted the report"
+        assert (commits, spiele[spiel_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
+        assert after[spiel_saves.VIERTELFINALE] == before[spiel_saves.VIERTELFINALE], "a save that never committed adopted the report"
 
 
 @pytest.mark.db
@@ -552,7 +552,7 @@ class TestAPupilsLoeschungRefusedAtItsCommit:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.torschuetzen.spieler_id": 1})
+            report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.scorers.spieler_id": 1})
             standing = await database[Collection.SPIELER].count_documents({"_id": pupil})
 
             return commits.answered, (answer.spieler, answer.failed), report, standing
@@ -563,5 +563,5 @@ class TestAPupilsLoeschungRefusedAtItsCommit:
         assert (commits, counted) == ([NO_SUCH_TRANSACTION], (0, 1))
         assert report is not None
         # `a_report_naming` names the pupil as the report's first scorer.
-        assert report["bericht"]["torschuetzen"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
+        assert report["bericht"]["scorers"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
         assert standing == 1

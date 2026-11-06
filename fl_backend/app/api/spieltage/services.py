@@ -117,11 +117,11 @@ def find_spieltag_span_refusal(
     end: str,
     saison_start: str,
     saison_end: str,
-    fixture_dates: Sequence[str],
+    spiel_dates: Sequence[str],
 ) -> WriteRefusal | None:
     """Why this matchday's span must be refused, or `None`.
 
-    `fixture_dates` is every DATED fixture of the matchday; an undated one constrains nothing.
+    `spiel_dates` is every DATED fixture of the matchday; an undated one constrains nothing.
     """
 
     if start < saison_start or end > saison_end:
@@ -130,7 +130,7 @@ def find_spieltag_span_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    outside = sorted(date for date in fixture_dates if date < start or date > end)
+    outside = sorted(date for date in spiel_dates if date < start or date > end)
     if outside:
         return WriteRefusal(
             error_code=Code.SPIELTAG_SPAN_BELOW_SPIELE,

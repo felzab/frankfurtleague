@@ -27,8 +27,8 @@ from pymongo.errors import OperationFailure
 
 from app.api.address_change.crud import end_an_emptied_change_in_session
 from app.api.berechtigungen.antraege import compose_approval_request
-from app.api.einladungen.services import compose_einladung, compose_revocation_update
 from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
+from app.api.invitations.services import compose_invitation, compose_revocation_update
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -467,7 +467,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             a_registration(
                 DECLINED_OID,
                 IDENTIFIER,
-                **compose_ablehnung_update(by="quillhilde@example.com", decision_reason=None, today="2126-03-28")["$set"],
+                **compose_ablehnung_update(by="quillhilde@example.com", reason=None, today="2126-03-28")["$set"],
             ),
         ]
     )
@@ -709,7 +709,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     await database[Collection.INVITATIONS].insert_one(
         {
             "_id": INVITED_BY_THEM_OID,
-            **compose_einladung(
+            **compose_invitation(
                 saison_id=SAISON_ID,
                 team_id=HOME_TEAM_OID,
                 token_hashes=["hash-of-their-invite"],
@@ -727,7 +727,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(),
             submitted_at="2126-03-01",
             schule=new_schule_document("Abgelehnt"),
-            decision={"made_at": "2126-03-10", "by": IDENTIFIER, "decision_reason": "Keine Halle"},
+            decision={"made_at": "2126-03-10", "by": IDENTIFIER, "reason": "Keine Halle"},
         )
     )
     declined = registrierung_document(
@@ -742,7 +742,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         deadline="2126-03-27",
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
-        {**declined, **compose_ablehnung_update(by=IDENTIFIER, decision_reason=None, today="2126-03-22")["$set"]}
+        {**declined, **compose_ablehnung_update(by=IDENTIFIER, reason=None, today="2126-03-22")["$set"]}
     )
 
 
@@ -916,7 +916,7 @@ class TestWhatStandsBesideThem:
             held = held[key]
         assert held == stored
 
-    def test_their_fixture_names_the_ghost_and_no_name_and_keeps_its_fee(self, mongo_replica_set_url: str):
+    def test_their_spiel_names_the_ghost_and_no_name_and_keeps_its_fee(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await erased_over_http(mongo_replica_set_url)
 

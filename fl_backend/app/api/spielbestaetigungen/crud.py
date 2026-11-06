@@ -27,7 +27,7 @@ from app.api.spielbestaetigungen.services import (
     season_end_image_edits,
     seat_entry_image_edits,
 )
-from app.api.spiele.schemas import FLSpielOrtFieldPublic
+from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.api.teams.schemas import FLAustritt
 from app.core.collections import Collection
@@ -51,7 +51,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
-    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "ort.name", "ort.maps_link"), 1),
+    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_link"), 1),
     **dict.fromkeys(("ergebnis", "sonderereignis"), 1),
 }
 
@@ -240,7 +240,7 @@ async def pull_eigene_lagen(
 
 async def pull_spielorte_public(
     *, spielorte_collection: AsyncCollection, spielort_ids: Iterable[Any], session: AsyncClientSession
-) -> dict[Any, FLSpielOrtFieldPublic]:
+) -> dict[Any, FLSpielortFieldPublic]:
     """The grounds a moved row's Ansetzung names, as the link's view serves one; a ground no row holds is absent."""
 
     wanted = list({spielort_id for spielort_id in spielort_ids if spielort_id is not None})
@@ -249,7 +249,10 @@ async def pull_spielorte_public(
 
     orte = await spielorte_collection.find({"_id": {"$in": wanted}}, {"name": 1, "maps_link": 1}, session=session).to_list(length=None)
 
-    return {ort["_id"]: FLSpielOrtFieldPublic(spielort_id=ort["_id"], name=ort["name"], maps_link=ort["maps_link"]) for ort in orte}
+    return {
+        spielort["_id"]: FLSpielortFieldPublic(spielort_id=spielort["_id"], name=spielort["name"], maps_link=spielort["maps_link"])
+        for spielort in orte
+    }
 
 
 # --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.

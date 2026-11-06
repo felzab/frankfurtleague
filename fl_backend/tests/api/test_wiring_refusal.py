@@ -14,7 +14,7 @@ from tests.payloads import spiel_patch_body
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 
 PayloadFactory = Callable[..., dict[str, Any]]
-FixtureFactory = Callable[..., dict[str, Any]]
+SpielFactory = Callable[..., dict[str, Any]]
 
 
 def sieger(spiel_nr: int) -> dict[str, Any]:
@@ -30,7 +30,7 @@ def gruppenplatz(gruppe: str, platz: int) -> dict[str, Any]:
 
 
 @pytest.fixture
-def fixture_at(spiel: PayloadFactory) -> FixtureFactory:
+def spiel_at(spiel: PayloadFactory) -> SpielFactory:
     def make(nr: int, phase: str, **overrides: Any) -> dict[str, Any]:
         return spiel(
             _id=MATCH_ID.format(nr),
@@ -44,17 +44,17 @@ def fixture_at(spiel: PayloadFactory) -> FixtureFactory:
 
 
 @pytest.fixture
-def season(fixture_at: FixtureFactory) -> list[dict[str, Any]]:
+def season(spiel_at: SpielFactory) -> list[dict[str, Any]]:
     """Every shape a rule reads: group fixtures, wired knockouts, a manual semi-final, and a final whose sources are taken."""
 
     return [
-        fixture_at(1, "gruppenphase"),
-        fixture_at(2, "gruppenphase"),
-        fixture_at(25, "viertelfinale", team1_quelle=gruppenplatz("A", 1), team2_quelle=gruppenplatz("B", 2)),
-        fixture_at(26, "viertelfinale", team1_quelle=gruppenplatz("B", 1), team2_quelle=gruppenplatz("A", 2)),
-        fixture_at(29, "halbfinale", team1=None, team2=None, team1_quelle=sieger(25), team2_quelle=sieger(26)),
-        fixture_at(30, "halbfinale", team1=None, team2=None, team1_quelle=None, team2_quelle=None),
-        fixture_at(31, "finale", team1=None, team2=None, team1_quelle=sieger(29), team2_quelle=sieger(30)),
+        spiel_at(1, "gruppenphase"),
+        spiel_at(2, "gruppenphase"),
+        spiel_at(25, "viertelfinale", team1_quelle=gruppenplatz("A", 1), team2_quelle=gruppenplatz("B", 2)),
+        spiel_at(26, "viertelfinale", team1_quelle=gruppenplatz("B", 1), team2_quelle=gruppenplatz("A", 2)),
+        spiel_at(29, "halbfinale", team1=None, team2=None, team1_quelle=sieger(25), team2_quelle=sieger(26)),
+        spiel_at(30, "halbfinale", team1=None, team2=None, team1_quelle=None, team2_quelle=None),
+        spiel_at(31, "finale", team1=None, team2=None, team1_quelle=sieger(29), team2_quelle=sieger(30)),
     ]
 
 
@@ -78,7 +78,7 @@ class TestLegalEdits:
     """The edits the rules must keep working, asserted before the refusals they sit beside."""
 
     @pytest.mark.parametrize("nr", [1, 25, 29, 30, 31])
-    def test_saving_a_fixture_unchanged_is_legal(self, season, nr):
+    def test_saving_a_spiel_unchanged_is_legal(self, season, nr):
         """A no-op save — the most common admin edit is a venue or a kick-off time, wiring untouched."""
         assert refusal_for(season, nr) is None
 
@@ -108,7 +108,7 @@ class TestLegalEdits:
 class TestPhaseRules:
     """Where a source may point: a knockout match of a strictly earlier round, and nowhere else."""
 
-    def test_a_group_fixture_carries_no_wiring(self, season):
+    def test_a_group_spiel_carries_no_wiring(self, season):
         assert refusal_for(season, 1, team1=None, team1_quelle=sieger(2)) == WIRING_REFUSAL
 
     def test_a_dangling_match_number_is_refused(self, season):
@@ -118,7 +118,7 @@ class TestPhaseRules:
     def test_a_group_match_never_feeds_a_slot(self, season):
         assert refusal_for(season, 30, team1_quelle=sieger(1)) == WIRING_REFUSAL
 
-    def test_a_fixture_cannot_feed_itself(self, season):
+    def test_a_spiel_cannot_feed_itself(self, season):
         assert refusal_for(season, 30, team1_quelle=sieger(30)) == WIRING_REFUSAL
 
     def test_a_same_round_source_is_refused(self, season):
@@ -142,12 +142,12 @@ OPENING_ROUND = 25
 
 
 @pytest.fixture
-def bracket(fixture_at: FixtureFactory) -> Callable[[int], list[dict[str, Any]]]:
+def bracket(spiel_at: SpielFactory) -> Callable[[int], list[dict[str, Any]]]:
     def make(qualifiers: int) -> list[dict[str, Any]]:
         """Two group fixtures, then one unwired fixture per round the bracket plays, numbered in playing order."""
 
-        return [fixture_at(1, "gruppenphase"), fixture_at(2, "gruppenphase")] + [
-            fixture_at(OPENING_ROUND + index, phase, team1=None, team2=None) for index, phase in enumerate(BRACKET_SHAPES[qualifiers])
+        return [spiel_at(1, "gruppenphase"), spiel_at(2, "gruppenphase")] + [
+            spiel_at(OPENING_ROUND + index, phase, team1=None, team2=None) for index, phase in enumerate(BRACKET_SHAPES[qualifiers])
         ]
 
     return make
@@ -194,14 +194,14 @@ class TestAGroupPlacingSeedsTheOpeningRound:
 
 
 class TestOneOutcomeOneSlot:
-    def test_an_outcome_already_feeding_another_fixture_is_refused(self, season):
+    def test_an_outcome_already_feeding_another_spiel_is_refused(self, season):
         """Re-pointing match 30 at match 26's winner, which 29 already holds."""
         assert refusal_for(season, 30, team1_quelle=sieger(26)) == WIRING_REFUSAL
 
-    def test_an_outcome_cannot_feed_both_sides_of_one_fixture(self, season):
+    def test_an_outcome_cannot_feed_both_sides_of_one_spiel(self, season):
         assert refusal_for(season, 30, team1_quelle=verlierer(25), team2_quelle=verlierer(25)) == WIRING_REFUSAL
 
-    def test_a_group_placing_already_seeding_another_fixture_is_refused(self, season):
+    def test_a_group_placing_already_seeding_another_spiel_is_refused(self, season):
         """Same rule, `gruppe` variant: Gruppensieger A cannot open two quarter-finals."""
         assert refusal_for(season, 26, team1_quelle=gruppenplatz("A", 1)) == WIRING_REFUSAL
 
@@ -268,7 +268,7 @@ class TestAStoredShapeDoesNotLatch:
         assert refusal.error_code == code
 
     def test_a_stored_reference_cycle_stays_editable(self, season):
-        """`_fixtures_depending_on_a_cycle` reports a cycle and repairs nothing, so refusing both ends would strand them."""
+        """`_spiele_depending_on_a_cycle` reports a cycle and repairs nothing, so refusing both ends would strand them."""
 
         cyclic = stored_as(stored_as(season, 29, team1_quelle=sieger(30)), 30, team1_quelle=sieger(29))
 

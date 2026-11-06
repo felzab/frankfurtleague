@@ -50,7 +50,7 @@ TEAM_SHORTHAND = "ADX"
 # carrying the whole payload would answer with `None` for all three.
 GRUPPE = "C"
 TRIKOT_FARBE = "bordeaux"
-AUSTRITT: dict[str, Any] = {"type": "rueckzug", "exit_reason": "Keine Mannschaft mehr", "date": "2026-04-01"}
+AUSTRITT: dict[str, Any] = {"type": "rueckzug", "reason": "Keine Mannschaft mehr", "date": "2026-04-01"}
 
 CONFIRMED_ON = "2026-03-15"
 # An edit to a seat that changes nothing about who holds it: `person` writes the other number.

@@ -53,8 +53,8 @@ TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = sign_in_identifier(TYPED)
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607e10001")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607e10002")
-EINLADUNG_TOKEN = "einladung-erasure-isolation"
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607e10002")
+INVITATION_TOKEN = "einladung-erasure-isolation"
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
 PUPIL_EMAIL = "wraxlington@example.com"
@@ -93,10 +93,10 @@ async def a_league(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LSX", kontakte=None))
     await database[Collection.INVITATIONS].insert_one(
         {
-            "_id": EINLADUNG_OID,
+            "_id": INVITATION_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
+            "token_hashes": [hash_token(INVITATION_TOKEN)],
             "created_at": "2026-03-15",
             "created_by": "admin@frankfurtleague.de",
             "revoked_at": None,

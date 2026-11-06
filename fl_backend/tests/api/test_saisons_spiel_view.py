@@ -45,13 +45,13 @@ def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
         spiel,
         bericht=documents.bericht_document(
             ergebnis_vorschlag={"team1_tore": 2, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
-            torschuetzen=[
+            scorers=[
                 {"side": "team1", "spieler_id": None, "minute": "80", "eigentor": False},
                 {"side": "team1", "spieler_id": NAMED, "minute": "45+2", "eigentor": False},
             ],
-            karten=[
-                {"side": "team2", "spieler_id": INTERN, "minute": "60", "colour": "gelb", "card_reason": "foulspiel"},
-                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot", "card_reason": None},
+            cards=[
+                {"side": "team2", "spieler_id": INTERN, "minute": "60", "colour": "gelb", "reason": "foulspiel"},
+                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot", "reason": None},
             ],
             sides=documents.spielbericht_sides(spiel),
             **{"version": 1, "adopted_version": 1, **bericht},
@@ -71,7 +71,7 @@ def test_only_an_adopted_unchanged_report_publishes_its_scorers_and_cards(adopti
     spiel = adopted_match()
     served = compose_public_bericht(report_of(spiel, **adoption), spiel)
 
-    assert (served.torschuetzen is not None, served.karten is not None) == (public, public)
+    assert (served.scorers is not None, served.cards is not None) == (public, public)
 
 
 @pytest.fixture(scope="module")
@@ -137,7 +137,7 @@ def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
     """
 
     bericht = the_page(seeded_url).bericht
-    entries = [*bericht.torschuetzen, *bericht.karten]
+    entries = [*bericht.scorers, *bericht.cards]
     served = [(entry.minute, entry.spieler.type, entry.spieler.first_name, entry.spieler.last_name, entry.spieler.nummer) for entry in entries]
 
     assert served == [
@@ -146,6 +146,4 @@ def test_each_entry_reads_as_a_name_as_anonym_or_as_unbekannt(seeded_url: str):
         ("60", "anonymous", None, None, "4"),
         ("70", "anonymous", None, None, None),
     ]
-    assert not {"Gerber", "Nadja", "Müller", "card_reason", "foulspiel"} & set(
-        json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split()
-    )
+    assert not {"Gerber", "Nadja", "Müller", "reason", "foulspiel"} & set(json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split())

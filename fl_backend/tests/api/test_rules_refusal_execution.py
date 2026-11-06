@@ -27,7 +27,7 @@ SAISON_END = "2026-06-30"
 # test, so the seeded matchday stays under whatever the wider rules imply.
 STORED_PER_GROUP = 4
 WIDER_PER_GROUP = 6
-DRAWN_FIXTURES = 8
+DRAWN_SPIELE = 8
 
 # Far above every cap a case below patches to, so a refusal can only be about the squad.
 STORED_KADER = 18
@@ -82,7 +82,7 @@ def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
 
 
 # The day every drawn fixture is dated, which is the season's start, the day before it, and a later start.
-FIRST_FIXTURE_DAY = SAISON_START
+FIRST_SPIEL_DAY = SAISON_START
 THE_DAY_BEFORE = "2026-03-14"
 A_WEEK_LATER = "2026-03-22"
 
@@ -90,7 +90,7 @@ A_WEEK_LATER = "2026-03-22"
 def drawn_spiele() -> list[dict[str, Any]]:
     """One matchday's fixtures. A null `quelle` on either side, so nothing here can be read as a wired placing."""
 
-    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, date=FIRST_FIXTURE_DAY) for nr in range(1, DRAWN_FIXTURES + 1)]
+    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, date=FIRST_SPIEL_DAY) for nr in range(1, DRAWN_SPIELE + 1)]
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -197,7 +197,7 @@ class TestTheStartIsWhatFreezesTheScoring:
 
         async def body(database: AsyncDatabase) -> APIError:
             with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, today=FIRST_FIXTURE_DAY, win_points=2)
+                await patch_the_rules(database, today=FIRST_SPIEL_DAY, win_points=2)
 
             return refusal.value
 
@@ -210,7 +210,7 @@ class TestTheStartIsWhatFreezesTheScoring:
 
         async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
             with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, today=FIRST_FIXTURE_DAY, start_date=A_WEEK_LATER, win_points=2)
+                await patch_the_rules(database, today=FIRST_SPIEL_DAY, start_date=A_WEEK_LATER, win_points=2)
 
             return refusal.value.error_code, await stored_season(database)
 
@@ -228,7 +228,7 @@ class TestTheStartMovesNoLaterPastAStoredExit:
         which no page shows. An earlier start reopens nothing, so it is saved.
         """
 
-        exit_record = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": SAISON_START}
+        exit_record = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": SAISON_START}
         an_earlier_start = "2026-03-08"
 
         async def body(database: AsyncDatabase) -> tuple[APIError, str, str]:
@@ -253,13 +253,13 @@ class TestTheStartMovesNoLaterPastAStoredExit:
         assert saved == an_earlier_start
 
 
-class TestTheStartIsFixedOnceAFixtureHasTakenPlace:
+class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
 
     def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
         """One fixture holding a result fixes the start, and the refusal writes nothing."""
 
-        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_FIXTURE_DAY, ergebnis="1:0")]
+        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, ergebnis="1:0")]
 
         async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
             await date_the_matchday(database, A_WEEK_LATER)

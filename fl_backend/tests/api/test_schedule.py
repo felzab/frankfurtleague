@@ -11,7 +11,7 @@ from app.api.saisons.schedule import (
     total_group_matches,
 )
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_rules_refusal, total_season_fixtures, with_schedule
+from app.api.saisons.services import find_rules_refusal, total_season_spiele, with_schedule
 from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -147,7 +147,7 @@ class TestTheMatchForThirdPlace:
 
         shape = rules(groups=groups, per_group=4, qualifiers=qualifiers)
 
-        assert total_season_fixtures(shape) == total_group_matches(groups, 4) + bracket
+        assert total_season_spiele(shape) == total_group_matches(groups, 4) + bracket
 
 
 class TestTheWholeSeason:
@@ -213,7 +213,7 @@ class TestTheLargestLegalSeasonFitsInOneRead:
                     shape = rules(groups=groups, per_group=per_group, qualifiers=qualifiers)
                     if refusal_for(shape) is None:
                         accepted += 1
-                        assert total_season_fixtures(shape) <= LIST_LIMIT_DEFAULT
+                        assert total_season_spiele(shape) <= LIST_LIMIT_DEFAULT
 
         # A sweep refusing everything would satisfy the assertion above without proving anything.
         assert accepted > 0

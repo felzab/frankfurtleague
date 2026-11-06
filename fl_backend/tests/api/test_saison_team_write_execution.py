@@ -33,7 +33,7 @@ RULES = rules_document(number_of_gruppen=NUMBER_OF_GROUPS, teams_per_gruppe=TEAM
 
 PLAYED_AS = {ADLER: ("Adler-Schule", "ASX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
-EXIT = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-04-01"}
+EXIT = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-04-01"}
 
 # The German day every write here is judged on, past the season's start, which `saison_document` sets to 2026-01-01.
 TODAY = "2026-04-15"
@@ -49,7 +49,7 @@ def junction_document(team_id: ObjectId, gruppe: str, kontakte: dict[str, Any] |
     return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe, kontakte=kontakte)
 
 
-def fixture_document(team_id: ObjectId) -> dict[str, Any]:
+def team_spiel_document(team_id: ObjectId) -> dict[str, Any]:
     """What the move gate counts is one drawn side; every other field is null, so no other rule can answer for the refusal."""
 
     return spiel_document(
@@ -145,10 +145,10 @@ class TestRecordingAnExitFromTheSeason:
     def test_a_padded_reason_reaches_the_row_stripped(self, mongo_replica_set_url: str):
         """The reason is FREE TEXT and PUBLIC, and `min_length` counts CHARACTERS: spaces alone would stand on the team's page as a blank."""
 
-        padded = f"  {EXIT['exit_reason']}  "
+        padded = f"  {EXIT['reason']}  "
 
         async def body(database: AsyncDatabase) -> Any:
-            await call_put(database, {**EXIT, "exit_reason": padded})
+            await call_put(database, {**EXIT, "reason": padded})
 
             return await stored_row(database)
 
@@ -206,7 +206,7 @@ class TestRecordingAnExitFromTheSeason:
 
 
 class TestMovingAClubBetweenGroups:
-    def test_a_started_season_with_a_fixture_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
+    def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -215,7 +215,7 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[fixture_document(ADLER)])
+        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER)])
 
         assert code == Code.ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"

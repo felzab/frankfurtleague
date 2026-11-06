@@ -19,7 +19,7 @@ export function SchiedsrichterAngaben({ eintrag }: { eintrag: FLSchiedsrichterSe
       <Angabe label="E-Mail-Adresse">{adresseVon(eintrag.kontakt.email)}</Angabe>
       <Angabe label="Telefon">{eintrag.kontakt.phone ?? <Leer />}</Angabe>
       <Angabe label="Geburtsdatum">{eintrag.birth_date ? formatSpielDatum(eintrag.birth_date) : <Leer />}</Angabe>
-      <Angabe label="Honorar">{formatEuro(eintrag.payment)}</Angabe>
+      <Angabe label="Honorar">{formatEuro(eintrag.default_payment)}</Angabe>
     </dl>
   );
 }

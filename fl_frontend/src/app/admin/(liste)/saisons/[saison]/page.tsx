@@ -83,7 +83,7 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
 /** A stored day and hour as the catalogue's sentences take a slot. */
 const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
-const BOOKED = { ort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
+const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
 /** A fault of the bracket or of the fixture's bookings, in one line. */
 function faultLine(fault: FLBracketFault): Copy {
@@ -99,8 +99,8 @@ function faultLine(fault: FLBracketFault): Copy {
     case "gruppenphase_feeder":
     case "feeder_not_played_first":
     case "same_team":
-    case "gruppenphase_fixture_wired":
-    case "source_feeds_another_fixture":
+    case "gruppenphase_spiel_wired":
+    case "source_feeds_another_spiel":
       return words.wiring;
     case "departed_occupant":
       return words.departed_occupant(

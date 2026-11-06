@@ -125,13 +125,13 @@ export function SchiedsrichterEditor({
               {/* The fee is the person's own, as their name is, so it stands in their box. */}
               <TextField
                 label={COPY.admin.payment}
-                name="payment"
+                name="default_payment"
                 width="C5"
                 kind="digits"
                 unit={COPY.shared.unit.euro}
-                isRequired={required.payment}
-                value={draft.payment}
-                onChange={(payment) => set("payment", payment)}
+                isRequired={required.default_payment}
+                value={draft.default_payment}
+                onChange={(default_payment) => set("default_payment", default_payment)}
               />
             </>
           ),

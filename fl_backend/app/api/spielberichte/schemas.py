@@ -52,7 +52,7 @@ FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "ni
 
 # Derived on every read from the report and the fixture, and stored nowhere. `cancelled` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-type FLSpielberichtState = Literal["vorgeschlagen", "adopted", "differing", "cancelled", "teams_changed"]
+type FLSpielberichtState = Literal["proposed", "adopted", "differing", "cancelled", "sides_changed"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -68,7 +68,7 @@ class FLSpielberichtVorschlag(BaseModel):
     sonderereignis: FLSpielberichtSonderereignis | None
 
 
-class FLSpielberichtTorschuetze(BaseModel):
+class FLSpielberichtScorer(BaseModel):
     """One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."""
 
     side: FLSpielSide
@@ -78,17 +78,17 @@ class FLSpielberichtTorschuetze(BaseModel):
     eigentor: bool
 
 
-class FLSpielberichtKarte(BaseModel):
+class FLSpielberichtCard(BaseModel):
     """One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons."""
 
     side: FLSpielSide
     spieler_id: CustomObjectId
     minute: CustomSpielberichtMinute
     colour: FLCardColour
-    card_reason: FLCardReason | None
+    reason: FLCardReason | None
 
 
-class FLSpielberichtKartePayload(FLSpielberichtKarte):
+class FLSpielberichtCardPayload(FLSpielberichtCard):
     """One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -120,8 +120,8 @@ class FLSpielberichtBericht(BaseModel):
     """
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
-    torschuetzen: list[FLSpielberichtTorschuetze]
-    karten: list[FLSpielberichtKarte]
+    scorers: list[FLSpielberichtScorer]
+    cards: list[FLSpielberichtCard]
     # Its length is the payload's: the read keeps a ban reason's floor alone.
     remarks: CustomNonEmptyString | None
     sides: FLSpielberichtSides
@@ -152,8 +152,8 @@ class FLSpielberichtBerichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
-    torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
-    karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    scorers: Annotated[list[FLSpielberichtScorer], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    cards: Annotated[list[FLSpielberichtCardPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     remarks: Annotated[CustomSpielberichtRemarks | None, BeforeValidator(parse_empty_string_to_none)]
 
     @model_validator(mode="after")
@@ -169,8 +169,8 @@ class FLSpielberichtBerichtPayload(BaseModel):
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
                 raise rule_refusal("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
-            if self.torschuetzen:
-                raise rule_refusal("nichtantreten_with_torschuetzen", "a no-show credits no scorer")
+            if self.scorers:
+                raise rule_refusal("nichtantreten_with_scorers", "a no-show credits no scorer")
             return self
 
         if vorschlag.team1_tore is None or vorschlag.team2_tore is None:
@@ -180,13 +180,13 @@ class FLSpielberichtBerichtPayload(BaseModel):
             raise rule_refusal("elfmeterschiessen_without_draw", "a shoot-out follows a draw alone")
 
         gutgeschrieben = {"team1": 0, "team2": 0}
-        for tor in self.torschuetzen:
+        for tor in self.scorers:
             # An own goal is scored by `side` and counts for the other side.
             side = ("team2" if tor.side == "team1" else "team1") if tor.eigentor else tor.side
             gutgeschrieben[side] += 1
 
         if (gutgeschrieben["team1"], gutgeschrieben["team2"]) != (vorschlag.team1_tore, vorschlag.team2_tore):
-            raise rule_refusal("torschuetzen_not_matching_tore", "the scorers credit other goals than the result reads")
+            raise rule_refusal("scorers_not_matching_tore", "the scorers credit other goals than the result reads")
 
         return self
 
@@ -251,7 +251,7 @@ class _SpielberichtView(BaseAPIResponse):
     # knockout slot has since replaced -- so an entry stored before keeps its name.
     named: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
-    # The sides fielding another club than the report's last write found there, which reads `teams_changed`.
+    # The sides fielding another club than the report's last write found there, which reads `sides_changed`.
     sides_changed: list[FLSpielSide]
     # The document's count of writes, null where none is stored: a save sending it back is refused once another write
     # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
@@ -325,7 +325,7 @@ class FLSpielberichtSpielerPublic(BaseReadModel):
     position: FLSpielerPosition | None
 
 
-class FLSpielberichtTorPublic(BaseReadModel):
+class FLSpielberichtScorerPublic(BaseReadModel):
     """One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one."""
 
     side: FLSpielSide
@@ -334,8 +334,8 @@ class FLSpielberichtTorPublic(BaseReadModel):
     spieler: FLSpielberichtSpielerPublic
 
 
-class FLSpielberichtKartePublic(BaseReadModel):
-    """One card, `side` its player's club, its `card_reason` never served: a characterisation of a named pupil's conduct."""
+class FLSpielberichtCardPublic(BaseReadModel):
+    """One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct."""
 
     side: FLSpielSide
     minute: CustomSpielberichtMinute
@@ -368,5 +368,5 @@ class FLSpielberichtPublic(BaseReadModel):
     """
 
     aufstellungen: FLAufstellungenPublic
-    torschuetzen: list[FLSpielberichtTorPublic] | None
-    karten: list[FLSpielberichtKartePublic] | None
+    scorers: list[FLSpielberichtScorerPublic] | None
+    cards: list[FLSpielberichtCardPublic] | None

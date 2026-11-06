@@ -102,9 +102,9 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenR
     });
   };
 
-  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungDeclinePayload["decision_reason"]) => {
+  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungDeclinePayload["reason"]) => {
     ablehnungZuletzt.current = confirm === ablehnung;
-    entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, decision_reason: grund }), {
+    entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, reason: grund }), {
       erfolg: "Registrierung abgelehnt",
       fehler: "Registrierung nicht abgelehnt",
     });

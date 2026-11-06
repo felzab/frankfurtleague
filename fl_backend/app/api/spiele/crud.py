@@ -49,12 +49,12 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_double_entries,
     find_eligibility_refusal,
-    find_fixture_date_refusal,
     find_gruppen_not_run,
     find_references_to_anchor,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
+    find_spiel_date_refusal,
     find_state_refusal,
     find_voided_results_refusal,
     find_wiring_refusal,
@@ -184,7 +184,9 @@ async def bracket_faults_of(
     faults.extend(
         find_retired_bookings(
             spiele,
-            retired_venues=await _retirement_days(spielorte_collection, {spiel.ort.spielort_id for spiel in spiele if spiel.ort is not None}),
+            retired_venues=await _retirement_days(
+                spielorte_collection, {spiel.spielort.spielort_id for spiel in spiele if spiel.spielort is not None}
+            ),
             retired_referees=await _retirement_days(
                 schiedsrichter_collection, {spiel.schiedsrichter.schiedsrichter_id for spiel in spiele if spiel.schiedsrichter is not None}
             ),
@@ -230,7 +232,7 @@ async def pull_slot_holders(
     # A cursor rather than `pull_many_from_db`: the list cap would truncate a busy ground's bookings in silence.
     holders = await spiele_collection.find(
         build_slot_holder_filter(claims),
-        {"saison_id": 1, "spiel_nr": 1, "date": 1, "time": 1, "ort": 1, "schiedsrichter": 1},
+        {"saison_id": 1, "spiel_nr": 1, "date": 1, "time": 1, "spielort": 1, "schiedsrichter": 1},
         session=session,
     ).to_list(length=None)
 
@@ -411,7 +413,7 @@ def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
 
         booked_again.append(
             BookedReferences(
-                spielort_id=stored.ort.spielort_id if stored.ort is not None else None,
+                spielort_id=stored.spielort.spielort_id if stored.spielort is not None else None,
                 schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None,
             )
         )
@@ -715,15 +717,15 @@ async def _judge_spiel_save(
     # The session is what makes a matchday widened by a concurrent write visible.
     span = await pull_spieltag_span(spieltage_collection=collections.spieltage, spieltag_id=stored.spieltag_id, session=session)
     if span is not None:
-        refuse(find_fixture_date_refusal(date=payload.date, spieltag_start=span.start, spieltag_end=span.end))
+        refuse(find_spiel_date_refusal(date=payload.date, spieltag_start=span.start, spieltag_end=span.end))
 
     # Read whatever the payload names, unchanged reference included: the booking rule judges the row each reference
     # names, and judges the reference alone where it is new or reopened.
     resolved = ResolvedReferences(
         teams=membership,
-        ort=await pull_booked_venue(
+        spielort=await pull_booked_venue(
             spielorte_collection=collections.spielorte,
-            spielort_id=payload.ort.spielort_id if payload.ort is not None else None,
+            spielort_id=payload.spielort.spielort_id if payload.spielort is not None else None,
             session=session,
         ),
         schiedsrichter=await pull_booked_referee(

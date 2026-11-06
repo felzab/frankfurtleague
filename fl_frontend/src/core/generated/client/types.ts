@@ -781,7 +781,7 @@ export const FLOutboxDeliveryState = {
 
 export interface FLOutboxDelivery {
   at: string;
-  delivery_reason: string | null;
+  reason: string | null;
   state: FLOutboxDeliveryState;
 }
 
@@ -1164,21 +1164,21 @@ export const FLAustrittType = {
 /**
  * How a team came to be out of one season, why, and from when.
  *
- * `exit_reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
+ * `reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
  * disciplinary code an enum could cite.
  */
 export interface FLAustritt {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
   /** @minLength 1 */
-  exit_reason: string;
+  reason: string;
   type: FLAustrittType;
 }
 
 /**
  * A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them.
  */
-export interface FLSpielMailFixture {
+export interface FLSpielMailEntry {
   date: string | null;
   team1: string;
   team2: string;
@@ -1189,10 +1189,10 @@ export interface FLSpielMailFixture {
  * An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them.
  */
 export interface FLAustrittNoticeData {
-  /** @minItems 1 */
-  fixtures: FLSpielMailFixture[];
   kind: "austritt_notice";
   saison_id: string;
+  /** @minItems 1 */
+  spiele: FLSpielMailEntry[];
   team: string;
 }
 
@@ -1209,7 +1209,7 @@ export interface FLAustrittPayload {
    * @maxLength 500
    * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
-  exit_reason: string;
+  reason: string;
   type: FLAustrittType;
 }
 
@@ -1251,9 +1251,9 @@ export interface FLBewerbungConfirmations {
 export interface FLBewerbungDecisionRow {
   by: string | null;
   by_barred: boolean;
-  decision_reason: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
+  reason: string | null;
 }
 
 /**
@@ -1422,8 +1422,8 @@ export interface FLBewerbung {
  * A decline, to one person of the application, with the administrator's reason verbatim.
  */
 export interface FLBewerbungAbsageData {
-  decision_reason: string;
   kind: "bewerbung_absage";
+  reason: string;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
@@ -1950,7 +1950,7 @@ export interface FLBewerbungenListResponse {
 export type FLBookingResource = (typeof FLBookingResource)[keyof typeof FLBookingResource];
 
 export const FLBookingResource = {
-  ort: "ort",
+  spielort: "spielort",
   schiedsrichter: "schiedsrichter",
 } as const;
 
@@ -2065,8 +2065,8 @@ export type FLSpielQuelle = FLSpielQuelleGruppe | FLSpielQuelleSpiel;
 export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
 
 export const FLBracketFaultSlotReason = {
-  gruppenphase_fixture_wired: "gruppenphase_fixture_wired",
-  source_feeds_another_fixture: "source_feeds_another_fixture",
+  gruppenphase_spiel_wired: "gruppenphase_spiel_wired",
+  source_feeds_another_spiel: "source_feeds_another_spiel",
 } as const;
 
 export type FLSpielSide = (typeof FLSpielSide)[keyof typeof FLSpielSide];
@@ -2282,7 +2282,7 @@ export interface FLDeclineBewerbungPayload {
    * @maxLength 1000
    * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
-  decision_reason: string;
+  reason: string;
   /** @minimum 0 */
   version: number;
 }
@@ -2991,18 +2991,6 @@ export interface FLSpielElfmeterschiessen {
 }
 
 /**
- * The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.
- */
-export interface FLSpielOrtFieldPublic {
-  /** @minLength 1 */
-  maps_link: string;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielort_id: string;
-}
-
-/**
  * The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.
  *
  * Neither the payment nor the referee's id is served.
@@ -3021,6 +3009,18 @@ export const FLSonderereignis = {
   abgebrochen: "abgebrochen",
   annulliert: "annulliert",
 } as const;
+
+/**
+ * The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.
+ */
+export interface FLSpielortFieldPublic {
+  /** @minLength 1 */
+  maps_link: string;
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielort_id: string;
+}
 
 /**
  * One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not.
@@ -3050,7 +3050,6 @@ export interface FLSpielJoined {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   note: string | null;
-  ort: FLSpielOrtFieldPublic | null;
   /**
    * @minLength 4
    * @maxLength 4
@@ -3061,6 +3060,7 @@ export interface FLSpielJoined {
   sonderereignis: FLSonderereignis | null;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  spielort: FLSpielortFieldPublic | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
@@ -3208,7 +3208,7 @@ export interface FLSaisonTeamEntry {
 export interface FLLandingBeforeStart {
   id: string;
   opening_spiel: FLLandingOpeningSpiel | null;
-  start: string;
+  starts_at: string;
   state: "before_start";
   teams: FLSaisonTeamEntry[];
 }
@@ -3241,7 +3241,7 @@ export interface FLLandingDecided {
    * @maxItems 4
    */
   podium: [FLLandingSide | null, FLLandingSide | null, FLLandingSide | null, FLLandingSide | null];
-  start: string;
+  starts_at: string;
   state: "decided";
   teams: FLSaisonTeamEntry[];
 }
@@ -3252,7 +3252,7 @@ export interface FLLandingDecided {
 export interface FLLandingRunning {
   id: string;
   recent: FLSpielJoined[];
-  start: string;
+  starts_at: string;
   state: "running";
   teams: FLSaisonTeamEntry[];
   upcoming: FLSpielJoined[];
@@ -3323,9 +3323,9 @@ export interface FLOpenRegistrierungenResponse {
  */
 export interface FLOutboxEventPayload {
   at: string;
-  delivery_reason: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+  reason: string | null;
   state: FLOutboxDeliveryState;
 }
 
@@ -3496,9 +3496,9 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
-  decision_reason: "other_person" | null;
   first_name: string;
   kind: "registrierung_absage";
+  reason: "other_person" | null;
   saison_id: string;
   team: string;
 }
@@ -3632,20 +3632,6 @@ export const FLOverviewBracketFaultRowKind = {
 } as const;
 
 /**
- * The venue as the admin reads serve it, the rent included.
- */
-export interface FLSpielOrtField {
-  /** @minLength 1 */
-  maps_link: string;
-  /** @minimum 0 */
-  mietpreis: number;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielort_id: string;
-}
-
-/**
  * The referee as the admin reads serve them: the whole name and the payment.
  */
 export interface FLSpielSchiedsrichterField {
@@ -3654,6 +3640,20 @@ export interface FLSpielSchiedsrichterField {
   payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
+}
+
+/**
+ * The venue as the admin reads serve it, the rent included.
+ */
+export interface FLSpielortField {
+  /** @minLength 1 */
+  maps_link: string;
+  /** @minimum 0 */
+  mietpreis: number;
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielort_id: string;
 }
 
 /**
@@ -3670,7 +3670,6 @@ export interface FLSpielJoinedAdmin {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   note: string | null;
-  ort: FLSpielOrtField | null;
   /**
    * @minLength 4
    * @maxLength 4
@@ -3681,6 +3680,7 @@ export interface FLSpielJoinedAdmin {
   sonderereignis: FLSonderereignis | null;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  spielort: FLSpielortField | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
@@ -3830,9 +3830,9 @@ export const FLOverviewSpielberichtRowKind = {
 export type FLSpielberichtOpenState = (typeof FLSpielberichtOpenState)[keyof typeof FLSpielberichtOpenState];
 
 export const FLSpielberichtOpenState = {
-  vorgeschlagen: "vorgeschlagen",
+  proposed: "proposed",
   differing: "differing",
-  teams_changed: "teams_changed",
+  sides_changed: "sides_changed",
 } as const;
 
 /**
@@ -4059,16 +4059,6 @@ export interface FLPatchSchiedsrichterResponse {
 }
 
 /**
- * The venue as the save sends it: which ground, and what this fixture pays for it.
- */
-export interface FLSpielOrtFieldPayload {
-  /** @minimum 0 */
-  mietpreis: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielort_id: string;
-}
-
-/**
  * The referee as the save sends it: who, and what this fixture pays them.
  */
 export interface FLSpielSchiedsrichterFieldPayload {
@@ -4076,6 +4066,16 @@ export interface FLSpielSchiedsrichterFieldPayload {
   payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
+}
+
+/**
+ * The venue as the save sends it: which ground, and what this fixture pays for it.
+ */
+export interface FLSpielortFieldPayload {
+  /** @minimum 0 */
+  mietpreis: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielort_id: string;
 }
 
 /**
@@ -4106,9 +4106,9 @@ export interface FLPatchSpielDataPayload {
   date: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
   note: string | null;
-  ort: FLSpielOrtFieldPayload | null;
   schiedsrichter: FLSpielSchiedsrichterFieldPayload | null;
   sonderereignis: FLSonderereignis | null;
+  spielort: FLSpielortFieldPayload | null;
   team1: FLSpielTeamFieldPayload | null;
   team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldPayload | null;
@@ -4473,9 +4473,9 @@ export interface FLReferencesResponse {
 export interface FLRegistrierungDecisionRow {
   by: string | null;
   by_barred: boolean;
-  decision_reason: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
+  reason: string | null;
 }
 
 /**
@@ -4606,7 +4606,7 @@ export interface FLRegistrierungConfirmationViewResponse {
  * Why the team declines, from a closed set or not at all.
  */
 export interface FLRegistrierungDeclinePayload {
-  decision_reason: "other_person" | null;
+  reason: "other_person" | null;
 }
 
 /**
@@ -5100,10 +5100,10 @@ export interface FLSchiedsrichterReactivateResponse {
  */
 export interface FLSchiedsrichterSelf {
   birth_date: string | null;
+  default_payment: number;
   kontakt: FLKontakt;
   /** @minLength 1 */
   name: string;
-  payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
   schule: string | null;
@@ -5245,6 +5245,17 @@ export interface FLSpielberichtSpieler {
 }
 
 /**
+ * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
+ */
+export interface FLSpielberichtScorer {
+  eigentor: boolean;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
+  minute: string;
+  side: FLSpielSide;
+  spieler_id: string | null;
+}
+
+/**
  * The clubs the fixture fielded at the block's last write, null on a slot then open.
  *
  * Stamped by every write and on no payload: entries go by side, and a knockout correction can re-field one.
@@ -5257,23 +5268,12 @@ export interface FLSpielberichtSides {
 export type FLSpielberichtState = (typeof FLSpielberichtState)[keyof typeof FLSpielberichtState];
 
 export const FLSpielberichtState = {
-  vorgeschlagen: "vorgeschlagen",
+  proposed: "proposed",
   adopted: "adopted",
   differing: "differing",
   cancelled: "cancelled",
-  teams_changed: "teams_changed",
+  sides_changed: "sides_changed",
 } as const;
-
-/**
- * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
- */
-export interface FLSpielberichtTorschuetze {
-  eigentor: boolean;
-  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
-  minute: string;
-  side: FLSpielSide;
-  spieler_id: string | null;
-}
 
 /**
  * The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
@@ -5284,9 +5284,9 @@ export interface FLSpielberichtTorschuetze {
 export interface FLSpielEditorBericht {
   ergebnis_vorschlag: FLSpielberichtVorschlag;
   named: FLSpielberichtSpieler[];
+  scorers: FLSpielberichtScorer[];
   sides: FLSpielberichtSides;
   state: FLSpielberichtState;
-  torschuetzen: FLSpielberichtTorschuetze[];
   version: number;
 }
 
@@ -5351,9 +5351,9 @@ export interface FLSpielberichtSpielerPublic {
 }
 
 /**
- * One card, `side` its player's club, its `card_reason` never served: a characterisation of a named pupil's conduct.
+ * One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct.
  */
-export interface FLSpielberichtKartePublic {
+export interface FLSpielberichtCardPublic {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
@@ -5364,7 +5364,7 @@ export interface FLSpielberichtKartePublic {
 /**
  * One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.
  */
-export interface FLSpielberichtTorPublic {
+export interface FLSpielberichtScorerPublic {
   eigentor: boolean;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
@@ -5381,8 +5381,8 @@ export interface FLSpielberichtTorPublic {
  */
 export interface FLSpielberichtPublic {
   aufstellungen: FLAufstellungenPublic;
-  karten: FLSpielberichtKartePublic[] | null;
-  torschuetzen: FLSpielberichtTorPublic[] | null;
+  cards: FLSpielberichtCardPublic[] | null;
+  scorers: FLSpielberichtScorerPublic[] | null;
 }
 
 /**
@@ -5422,11 +5422,11 @@ export interface FLSpielPageResponse {
 /**
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
-export interface FLSpielberichtKarte {
-  card_reason: FLCardReason | null;
+export interface FLSpielberichtCard {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
+  reason: FLCardReason | null;
   side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
@@ -5448,37 +5448,37 @@ export interface FLSpielberichtBericht {
   adopted_at: string | null;
   adopted_by: FLByAdmin | null;
   adopted_version: number | null;
+  cards: FLSpielberichtCard[];
   changed_at: string;
   ergebnis_vorschlag: FLSpielberichtVorschlag;
-  karten: FLSpielberichtKarte[];
   remarks: string | null;
+  scorers: FLSpielberichtScorer[];
   sides: FLSpielberichtSides;
   submitted_at: string;
   submitted_by: FLSpielberichtBySchiedsrichter | FLByAdmin;
-  torschuetzen: FLSpielberichtTorschuetze[];
   version: number;
 }
 
 /**
  * One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).
  */
-export interface FLSpielberichtKartePayload {
-  card_reason: FLCardReason | null;
+export interface FLSpielberichtCardPayload {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
+  reason: FLCardReason | null;
   side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
 }
 
 export interface FLSpielberichtBerichtPayload {
-  ergebnis_vorschlag: FLSpielberichtVorschlag;
   /** @maxItems 60 */
-  karten: FLSpielberichtKartePayload[];
+  cards: FLSpielberichtCardPayload[];
+  ergebnis_vorschlag: FLSpielberichtVorschlag;
   remarks: string | null;
   /** @maxItems 60 */
-  torschuetzen: FLSpielberichtTorschuetze[];
+  scorers: FLSpielberichtScorer[];
 }
 
 /**
@@ -5790,7 +5790,7 @@ export const FLSpielbestaetigungSelfState = {
 export interface FLSpielbestaetigungViewAnsetzung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
-  spielort: FLSpielOrtFieldPublic | null;
+  spielort: FLSpielortFieldPublic | null;
   team1_name: string;
   team2_name: string;
   /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
@@ -6413,7 +6413,6 @@ export interface FLTeamPageSpiel {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   note: string | null;
-  ort: FLSpielOrtFieldPublic | null;
   /**
    * @minLength 4
    * @maxLength 4
@@ -6424,6 +6423,7 @@ export interface FLTeamPageSpiel {
   sonderereignis: FLSonderereignis | null;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  spielort: FLSpielortFieldPublic | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   /** @minimum 1 */
@@ -6638,12 +6638,12 @@ export const Rule = {
   kontakt_email_twice: "kontakt_email_twice",
   kontakt_phone_twice: "kontakt_phone_twice",
   nichtantreten_with_tore: "nichtantreten_with_tore",
-  nichtantreten_with_torschuetzen: "nichtantreten_with_torschuetzen",
+  nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
   spieltag_ends_before_start: "spieltag_ends_before_start",
   text_version_of_another_wording: "text_version_of_another_wording",
-  torschuetzen_not_matching_tore: "torschuetzen_not_matching_tore",
+  scorers_not_matching_tore: "scorers_not_matching_tore",
   url_not_accepted: "url_not_accepted",
 } as const;
 

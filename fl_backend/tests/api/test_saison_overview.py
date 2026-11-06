@@ -58,7 +58,7 @@ def _side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "tore": tore}
 
 
-def fixture(nr: int, date: str | None, *, saison_id: str = SAISON, **fields: Any) -> dict[str, Any]:
+def spiel(nr: int, date: str | None, *, saison_id: str = SAISON, **fields: Any) -> dict[str, Any]:
     """A group fixture of its own matchday, slot and cast set unless `fields` empties one."""
 
     set_for = {
@@ -67,7 +67,7 @@ def fixture(nr: int, date: str | None, *, saison_id: str = SAISON, **fields: Any
         "team2": _side(AWAY),
         "date": date,
         "time": None if date is None else "15:00:00",
-        "ort": None if date is None else ORT,
+        "spielort": None if date is None else ORT,
         "schiedsrichter": None if date is None else REFEREE,
     }
 
@@ -82,20 +82,20 @@ REFEREE_PARTY = {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
 
 
 SPIELE = {
-    OVERDUE: fixture(OVERDUE, "2026-03-20"),
-    DUE_TODAY: fixture(DUE_TODAY, "2026-03-17"),
-    MOVED: fixture(MOVED, "2026-03-21"),
-    UNPLAYED: fixture(UNPLAYED, "2026-03-10"),
-    REPORTED: fixture(REPORTED, "2026-03-08", ergebnis="2:1", team1=_side(HOME, 2), team2=_side(AWAY, 1)),
-    PROPOSED: fixture(PROPOSED, "2026-03-25"),
-    UNDATED: fixture(UNDATED, None),
-    DECLINED: fixture(DECLINED, "2026-03-28", schiedsrichter=None),
-    OPEN_SIDE: fixture(OPEN_SIDE, "2026-03-29", saison_phase="halbfinale", team1=None),
+    OVERDUE: spiel(OVERDUE, "2026-03-20"),
+    DUE_TODAY: spiel(DUE_TODAY, "2026-03-17"),
+    MOVED: spiel(MOVED, "2026-03-21"),
+    UNPLAYED: spiel(UNPLAYED, "2026-03-10"),
+    REPORTED: spiel(REPORTED, "2026-03-08", ergebnis="2:1", team1=_side(HOME, 2), team2=_side(AWAY, 1)),
+    PROPOSED: spiel(PROPOSED, "2026-03-25"),
+    UNDATED: spiel(UNDATED, None),
+    DECLINED: spiel(DECLINED, "2026-03-28", schiedsrichter=None),
+    OPEN_SIDE: spiel(OPEN_SIDE, "2026-03-29", saison_phase="halbfinale", team1=None),
     # One club fielded twice on one matchday: the smallest stored fault, reported on both fixtures.
-    CLASH_FIRST: fixture(CLASH_FIRST, "2026-04-01", spieltag_id=CLASH_SPIELTAG, time="10:00:00"),
-    CLASH_SECOND: fixture(CLASH_SECOND, "2026-04-01", spieltag_id=CLASH_SPIELTAG, time="18:00:00", team2=_side(PICKED)),
-    CALLED_OFF: fixture(CALLED_OFF, None, sonderereignis="ausgefallen"),
-    OTHER_SEASONS: fixture(OTHER_SEASONS, None, saison_id=OTHER_SAISON),
+    CLASH_FIRST: spiel(CLASH_FIRST, "2026-04-01", spieltag_id=CLASH_SPIELTAG, time="10:00:00"),
+    CLASH_SECOND: spiel(CLASH_SECOND, "2026-04-01", spieltag_id=CLASH_SPIELTAG, time="18:00:00", team2=_side(PICKED)),
+    CALLED_OFF: spiel(CALLED_OFF, None, sonderereignis="ausgefallen"),
+    OTHER_SEASONS: spiel(OTHER_SEASONS, None, saison_id=OTHER_SAISON),
 }
 
 ROWS = [
@@ -287,7 +287,7 @@ def joined(**fields: Any) -> FLSpielJoinedInternal:
     closed = {
         "date": "2026-04-01",
         "time": "18:00:00",
-        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "spielort": {"spielort_id": SPIELORT, "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20, "name_is_public": True},
         "team1": {"team_id": HOME, "tore": None},
         "team2": {"team_id": AWAY, "tore": None},
@@ -297,10 +297,10 @@ def joined(**fields: Any) -> FLSpielJoinedInternal:
     return FLSpielJoinedInternal.model_validate(documents.joined_spiel_document(stored))
 
 
-class TestWhatAFixtureStillLacks:
+class TestWhatASpielStillLacks:
     """The gaps the Übersicht's dates card lists, judged without the database: a gap missed leaves a fixture unprepared unseen."""
 
-    def test_a_dated_fixture_with_no_time_still_lacks_its_date(self):
+    def test_a_dated_spiel_with_no_time_still_lacks_its_date(self):
         assert _gaps(joined(time=None), today=TODAY) == ["termin_missing"]
 
     def test_a_knockout_side_awaiting_its_source_is_no_missing_club(self):

@@ -192,7 +192,7 @@ class FLSpielVorschlagDiscardedData(BaseModel):
     appointment: FLSpielMailAppointment
 
 
-class FLSpielMailFixture(BaseModel):
+class FLSpielMailEntry(BaseModel):
     """A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them."""
 
     team1: str
@@ -208,7 +208,7 @@ class FLAustrittNoticeData(BaseModel):
     # The departed club's name in that season.
     team: str
     saison_id: str
-    fixtures: list[FLSpielMailFixture] = Field(min_length=1)
+    spiele: list[FLSpielMailEntry] = Field(min_length=1)
 
 
 # --- The season's and the applications' mails.
@@ -232,7 +232,7 @@ class FLRegistrierungAbsageData(BaseModel):
     first_name: str
     team: str
     saison_id: str
-    decision_reason: FLRegistrierungDecisionReason | None
+    reason: FLRegistrierungDecisionReason | None
 
 
 class FLInvitationData(BaseModel):
@@ -299,7 +299,7 @@ class FLBewerbungAbsageData(BaseModel):
     team: str
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    decision_reason: str
+    reason: str
 
 
 class FLBewerbungErasureData(BaseModel):
@@ -448,7 +448,7 @@ class FLOutboxLink(BaseModel):
 
 class FLOutboxDelivery(BaseModel):
     state: FLOutboxDeliveryState
-    delivery_reason: str | None
+    reason: str | None
     at: datetime
 
 
@@ -494,7 +494,8 @@ class FLOutboxRow(BaseModel):
     attempts: int = Field(ge=0)
     message_id: str | None
     # The provider's own name for the refusal the last failed send met; defaulted, as a row a send never failed holds
-    # none and a row owed before the field was written has none stored.
+    # none and a row owed before the field was written has none stored. Prefixed because a record's top level holds no
+    # bare `reason`, the bracket fault's discriminator (`tests/core/test_unenforced.py :: TestNoBracketFaultIsStored`).
     delivery_reason: str | None = Field(default=None)
     delivery: FLOutboxDelivery | None
 
@@ -591,7 +592,7 @@ class FLOutboxEventPayload(BaseModel):
     # before the send's report finds its row all the same.
     id: CustomObjectId
     state: FLOutboxDeliveryState
-    delivery_reason: CustomDeliveryReason | None
+    reason: CustomDeliveryReason | None
     # The provider's stamp, stored with the state; the order of states decides, never the order of stamps.
     at: AwareDatetime
 

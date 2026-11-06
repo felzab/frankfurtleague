@@ -13,7 +13,7 @@ from pydantic import (
 )
 from pydantic_core import InitErrorDetails
 
-from app.api.einladungen.schemas import FLInvitationLinkRow
+from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
@@ -645,10 +645,10 @@ class FLLandingCounts(BaseReadModel):
 
 
 class _FLLandingSaisonFacts(BaseReadModel):
-    """What the landing shows of the season the site is on in every state: `start` is 00:00 in Berlin on its `start_date`."""
+    """What the landing shows of the season the site is on in every state: `starts_at` is 00:00 in Berlin on its `start_date`."""
 
     id: str
-    start: datetime
+    starts_at: datetime
     teams: list[FLSaisonTeamEntry]
 
 

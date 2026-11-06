@@ -97,7 +97,7 @@ export function AdminTeamEditForm({
   const [hasAustritt, setHasAustritt] = useState(storedMembership?.austritt != null);
   // Null until a route is chosen, so a new record accuses nobody; the schema refuses the null.
   const [art, setArt] = useState<FLAustrittType | null>(storedMembership?.austritt?.type ?? null);
-  const [grund, setGrund] = useState(storedMembership?.austritt?.exit_reason ?? "");
+  const [grund, setGrund] = useState(storedMembership?.austritt?.reason ?? "");
   const [datum, setDatum] = useState<CalendarDate | null>(() => {
     const storedDatum = storedMembership?.austritt?.date;
     return storedDatum ? parseDate(storedDatum) : null;
@@ -113,7 +113,7 @@ export function AdminTeamEditForm({
 
   // The record as the draft would save it. `""` for a cleared date is what the schema rejects with
   // its own German message, so a half-entered record is a field error rather than a silent skip.
-  const draftAustritt = hasAustritt ? { type: art, exit_reason: grund, date: datum?.toString() ?? "" } : null;
+  const draftAustritt = hasAustritt ? { type: art, reason: grund, date: datum?.toString() ?? "" } : null;
 
   // The ids ride in the request path, so neither is a field an input renders or a refusal can name.
   const buildClubPayload = () => ({ id: team.id, ...clubDraft });
@@ -196,7 +196,7 @@ export function AdminTeamEditForm({
     setTrikotFarbe(storedMembership?.trikot_farbe ?? null);
     setHasAustritt(storedMembership?.austritt != null);
     setArt(storedMembership?.austritt?.type ?? null);
-    setGrund(storedMembership?.austritt?.exit_reason ?? "");
+    setGrund(storedMembership?.austritt?.reason ?? "");
     setDatum(storedMembership?.austritt?.date ? parseDate(storedMembership.austritt.date) : null);
 
     setSubmitFieldErrors({}, {});

@@ -91,7 +91,7 @@ async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today:
     )
 
 
-async def saisons_with_a_fixture_taken_place(
+async def saisons_with_a_spiel_taken_place(
     *,
     spiele_collection: ReadCollection,
     saison_ids: Collection[str],
@@ -106,10 +106,8 @@ async def saisons_with_a_fixture_taken_place(
     """
 
     found: set[str] = set()
-    async with spiele_collection.find(
-        {"saison_id": {"$in": list(saison_ids)}}, ["saison_id", *TAKEN_PLACE_FIELDS], session=session
-    ) as fixtures:
-        async for spiel in fixtures:
+    async with spiele_collection.find({"saison_id": {"$in": list(saison_ids)}}, ["saison_id", *TAKEN_PLACE_FIELDS], session=session) as spiele:
+        async for spiel in spiele:
             if has_taken_place(spiel):
                 found.add(spiel["saison_id"])
                 if found.issuperset(saison_ids):

@@ -20,9 +20,9 @@ import type { Copy, Words } from "@/core/copy";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
-  FLSpielberichtKartePublic,
+  FLSpielberichtCardPublic,
+  FLSpielberichtScorerPublic,
   FLSpielberichtSpielerPublic,
-  FLSpielberichtTorPublic,
   FLSpielJoined,
   FLSpielPageResponse,
 } from "@/core/generated/client/types";
@@ -72,7 +72,7 @@ export default function SpielPage({ params }: Props) {
         groups: [
           { kind: "tiles", layout: "five" },
           { title: SERVER_COPY.season.spiel.aufstellung, kind: "folds", folds: <ReadFoldsPlaceholder count={2} /> },
-          { title: SERVER_COPY.season.spiel.toreAndKarten, kind: "timeline", count: 3 },
+          { title: SERVER_COPY.season.spiel.toreAndCards, kind: "timeline", count: 3 },
         ],
       }}
       record={readRecord(params)}
@@ -87,7 +87,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const words = SERVER_COPY.season.spiel;
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
   // awaiting its report never reads as nobody having scored, which an adopted report's empty lists say.
-  const official = bericht?.torschuetzen == null || bericht.karten === null ? null : { tore: bericht.torschuetzen, karten: bericht.karten };
+  const official = bericht?.scorers == null || bericht.cards === null ? null : { tore: bericht.scorers, cards: bericht.cards };
   return {
     title: { route: "spiel", team1: team1.name, team2: team2.name },
     spiel: { head: headOf(spiel, page, standings), sonderereignis: ereignisOf(spiel) },
@@ -106,11 +106,11 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         ),
       },
       {
-        title: words.toreAndKarten,
+        title: words.toreAndCards,
         kind: "timeline",
-        label: words.toreAndKarten,
-        items: official === null ? [] : eventsOf(spiel, official.tore, official.karten),
-        empty: { kind: "none", plural: official === null ? words.officialToreAndKarten : words.toreAndKarten },
+        label: words.toreAndCards,
+        items: official === null ? [] : eventsOf(spiel, official.tore, official.cards),
+        empty: { kind: "none", plural: official === null ? words.officialToreAndCards : words.toreAndCards },
       },
     ],
   };
@@ -134,9 +134,9 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
       value: spiel.schiedsrichter?.name == null ? COPY.shared.noValue : { record: spiel.schiedsrichter.name },
       words: true,
     },
-    spiel.ort === null
+    spiel.spielort === null
       ? { label: fact.spielort, value: COPY.shared.noValue, words: true }
-      : { label: fact.spielort, value: { record: spiel.ort.name }, words: true, href: buildMapsSearchUrl(spiel.ort.maps_link) },
+      : { label: fact.spielort, value: { record: spiel.spielort.name }, words: true, href: buildMapsSearchUrl(spiel.spielort.maps_link) },
   ];
 }
 
@@ -202,22 +202,22 @@ const earlier = (one: string, other: string) => {
  * The goals and cards by minute, a checkpoint each: what happened and to whom, the side's Kürzel, and after a goal
  * the score it made. An own goal counts for the other side.
  */
-function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtTorPublic[], karten: readonly FLSpielberichtKartePublic[]): Checkpoint[] {
+function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPublic[], cards: readonly FLSpielberichtCardPublic[]): Checkpoint[] {
   const words = SERVER_COPY.season.spiel;
   const kuerzel = { team1: { record: spiel.team1?.shorthand ?? "" }, team2: { record: spiel.team2?.shorthand ?? "" } };
   const events = [
     ...tore.map((tor) => ({ kind: "tor" as const, minute: tor.minute, tor })),
-    ...karten.map((karte) => ({ kind: "karte" as const, minute: karte.minute, karte })),
+    ...cards.map((card) => ({ kind: "card" as const, minute: card.minute, card })),
   ].sort((one, other) => earlier(one.minute, other.minute));
   const score = { team1: 0, team2: 0 };
   return events.map((event, index) => {
-    if (event.kind === "karte") {
-      const { karte } = event;
+    if (event.kind === "card") {
+      const { card } = event;
       return {
         id: `k${String(index)}`,
-        mark: { record: karte.minute },
-        title: words.event(words.karte[karte.colour], personOf(karte.spieler)),
-        detail: kuerzel[karte.side],
+        mark: { record: card.minute },
+        title: words.event(words.card[card.colour], personOf(card.spieler)),
+        detail: kuerzel[card.side],
       };
     }
     const { tor } = event;

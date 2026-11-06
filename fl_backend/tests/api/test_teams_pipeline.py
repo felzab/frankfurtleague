@@ -172,7 +172,7 @@ class TestTheCancelledLookup:
         assert match_stage["sonderereignis"] == {"$in": list(SONDEREREIGNIS_COUNTED_AS_CANCELLED)}
         assert "ergebnis" not in match_stage
 
-    def test_it_counts_every_fixture_that_did_not_take_place_and_no_abandonment(self):
+    def test_it_counts_every_spiel_that_did_not_take_place_and_no_abandonment(self):
         """In literals, never against the absence set it happens to equal: a shared answer is not a shared question."""
         selected = set(SONDEREREIGNIS_COUNTED_AS_CANCELLED)
 

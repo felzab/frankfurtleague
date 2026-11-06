@@ -52,7 +52,7 @@ export const FLAblehnenBewerbungPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   // Required and non-empty: it is stored on the application AND sent to the people who applied, so a
   // decline with nothing to say is one nobody can act on.
-  decision_reason: z
+  reason: z
     .string()
     // Trimmed before it is measured, and the trimmed value is what the write carries: „   “ is an
     // empty reason, and a decline is stored and mailed once with no way back.

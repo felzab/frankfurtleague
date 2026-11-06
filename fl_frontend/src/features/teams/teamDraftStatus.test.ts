@@ -60,7 +60,7 @@ describe("deriveTeamDraftStatus", () => {
   it("formats an entered austritt with its route, reason and formatted date", () => {
     const status = deriveTeamDraftStatus({
       stored,
-      draft: draftFrom({ membership: membership({ austritt: { type: "rueckzug", exit_reason: "Schule aufgelöst", date: "2026-03-14" } }) }),
+      draft: draftFrom({ membership: membership({ austritt: { type: "rueckzug", reason: "Schule aufgelöst", date: "2026-03-14" } }) }),
       fieldErrors: {},
     });
 
@@ -71,7 +71,7 @@ describe("deriveTeamDraftStatus", () => {
   });
 
   it("sees a route swapped on an otherwise identical record as a change", () => {
-    const record = { exit_reason: "Nicht angetreten", date: "2026-03-14" } as const;
+    const record = { reason: "Nicht angetreten", date: "2026-03-14" } as const;
     const status = deriveTeamDraftStatus({
       stored: { ...stored, membership: membership({ austritt: { type: "disqualifikation", ...record } }) },
       draft: draftFrom({ membership: membership({ austritt: { type: "rueckzug", ...record } }) }),
@@ -94,8 +94,8 @@ describe("deriveTeamDraftStatus", () => {
   it("finds an austritt error under any of the record's four paths", () => {
     const status = deriveTeamDraftStatus({
       stored,
-      draft: draftFrom({ membership: membership({ austritt: { type: "disqualifikation", exit_reason: "", date: "2026-03-14" } }) }),
-      fieldErrors: { "austritt.exit_reason": "Bitte gib einen Grund an." },
+      draft: draftFrom({ membership: membership({ austritt: { type: "disqualifikation", reason: "", date: "2026-03-14" } }) }),
+      fieldErrors: { "austritt.reason": "Bitte gib einen Grund an." },
     });
 
     const row = status.byPath.get("austritt");
@@ -106,7 +106,7 @@ describe("deriveTeamDraftStatus", () => {
   it("finds the unpicked route under its own path, and renders the record as still open", () => {
     const status = deriveTeamDraftStatus({
       stored,
-      draft: draftFrom({ membership: membership({ austritt: { type: null, exit_reason: "Nicht angetreten", date: "2026-03-14" } }) }),
+      draft: draftFrom({ membership: membership({ austritt: { type: null, reason: "Nicht angetreten", date: "2026-03-14" } }) }),
       fieldErrors: { "austritt.type": "Bitte wähle, wie das Team ausgeschieden ist." },
     });
 

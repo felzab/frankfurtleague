@@ -22,7 +22,7 @@ describe("a timeline", () => {
           {
             id: "e2",
             mark: { record: "90+3" },
-            title: SERVER_COPY.season.spiel.event(SERVER_COPY.season.spiel.karte.gelb, { record: "Leon Hartmann" }),
+            title: SERVER_COPY.season.spiel.event(SERVER_COPY.season.spiel.card.gelb, { record: "Leon Hartmann" }),
             children: <p>Foulspiel</p>,
           },
         ]}

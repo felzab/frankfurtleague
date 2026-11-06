@@ -299,7 +299,7 @@ class AbortedUndraw:
 class TestAnAbortedUndrawLeavesAllThreeStanding:
     """The two removals and the watermark clear are ONE transaction, so a clear that falls takes both removals back."""
 
-    def test_the_season_keeps_its_fixtures_its_matchdays_and_its_watermark(self, mongo_replica_set_url: str):
+    def test_the_season_keeps_its_spiele_its_matchdays_and_its_watermark(self, mongo_replica_set_url: str):
         """Move the watermark clear outside the callback and this fails: the season is left holding no schedule while claiming one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedUndraw:
@@ -422,7 +422,7 @@ def a_season_undrawn_beside_another(url: str) -> NeighbouringSeasons:
 class TestAnUndrawReachesNoOtherSeason:
     """That the removals are bounded by their `saison_id`, proved against a season standing beside the one undrawn."""
 
-    def test_the_neighbours_fixtures_all_survive(self, mongo_replica_set_url: str):
+    def test_the_neighbours_spiele_all_survive(self, mongo_replica_set_url: str):
         """Empty the fixture delete's `db_filter` and this fails; with one season seeded, the whole db tier stays green."""
 
         neighbours = a_season_undrawn_beside_another(mongo_replica_set_url)
@@ -448,7 +448,7 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
     """An open team row of one season's fixture, as the sweep mints it; the fixture itself need not exist for the removal's filter."""
 
     home = ObjectId()
-    fixture = documents.spiel_document(
+    spiel = documents.spiel_document(
         spiel_id=ObjectId(),
         saison_id=saison_id,
         spiel_nr=1,
@@ -459,7 +459,7 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         time="18:00:00",
     )
 
-    return documents.spielbestaetigung_document(fixture, party={"kind": "team", "team_id": home})
+    return documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": home})
 
 
 class TestAnUndrawTakesTheSeasonsConfirmations:
@@ -486,7 +486,7 @@ def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
     return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
 
 
-async def report_a_drawn_fixture(database: AsyncDatabase) -> None:
+async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
     """A submitted report on a fixture the draw holds: the refusal counts only a report whose fixture stands."""
 
     spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
@@ -527,7 +527,7 @@ class TestASubmittedReportKeepsTheSpielplan:
     def test_the_undraw_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            await report_a_drawn_fixture(database)
+            await report_a_drawn_spiel(database)
             outcome = await outcome_of(call_undraw(database, client))
 
             return drawn, outcome, await counts_now(database), await database[Collection.SPIELBERICHTE].count_documents({})
@@ -542,7 +542,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_fixture(database))
+            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database))
             outcome = await outcome_of(call_undraw(database, client, spielberichte_collection=berichte))
             berichte.assert_landed_inside(serially=0)
 
@@ -606,7 +606,7 @@ class TestTheWindowIsReachedThroughTheRoute:
         assert refused.watermark is not None
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
-    def test_a_single_recorded_fixture_keeps_the_whole_spielplan(self, mongo_replica_set_url: str, record: dict[str, Any]):
+    def test_a_single_recorded_spiel_keeps_the_whole_spielplan(self, mongo_replica_set_url: str, record: dict[str, Any]):
         """Count these off anything but the stored rows and this fails; drop `note` from the projection and the last one does."""
 
         refused = an_undraw_refused_on(mongo_replica_set_url, record=record)
@@ -649,7 +649,7 @@ def seeding_payload(stored: dict[str, Any], team_id: ObjectId) -> FLPatchSpielDa
             "elfmeterschiessen": None,
             "date": None,
             "time": None,
-            "ort": None,
+            "spielort": None,
             "schiedsrichter": None,
             "note": None,
             "version": stored["version"],
@@ -726,7 +726,7 @@ class TestABracketSlotSeededByHandKeepsTheWholeSpielplan:
         assert seeded.stored_team1_quelle is None
         assert seeded.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
 
-    def test_the_season_keeps_every_matchday_and_every_fixture(self, mongo_replica_set_url: str):
+    def test_the_season_keeps_every_matchday_and_every_spiel(self, mongo_replica_set_url: str):
         """The refusal is only worth anything if nothing was removed before it: both collections are counted after it."""
 
         seeded = a_bracket_slot_seeded_by_hand(mongo_replica_set_url)
@@ -752,7 +752,7 @@ def an_undraw_of(url: str, *, seed: Seed) -> UndrawOfNothing:
 class TestAnUndrawOfASeasonHoldingNoSpielplan:
     """A DELETE answers the state asked for. Refusing one would fail a second press, and two admins make that ordinary."""
 
-    def test_a_watermark_standing_with_no_fixtures_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
+    def test_a_watermark_standing_with_no_spiele_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
         """Report the clear off the counts and this fails: the claim is what is removed, and the rule says report it."""
 
         seed = Seed(saison=saison_document(spielplan={"generated_at": TODAY}))

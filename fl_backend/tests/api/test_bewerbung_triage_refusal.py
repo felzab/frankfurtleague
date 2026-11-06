@@ -55,10 +55,10 @@ class TestADeclinesReason:
     @pytest.mark.parametrize("reason", ["Kein\x00Platz", "Kein\x0cPlatz", "Kein\u2028Platz"])
     def test_a_character_no_paragraph_holds_is_refused(self, reason: str):
         with pytest.raises(ValidationError):
-            FLDeclineBewerbungPayload(decision_reason=reason, version=0)
+            FLDeclineBewerbungPayload(reason=reason, version=0)
 
     def test_the_line_breaks_of_a_paragraph_pass(self):
-        assert FLDeclineBewerbungPayload(decision_reason="Kein Platz.\r\nNächstes Jahr gern.", version=0).decision_reason.count("\n") == 1
+        assert FLDeclineBewerbungPayload(reason="Kein Platz.\r\nNächstes Jahr gern.", version=0).reason.count("\n") == 1
 
 
 class TestWhatASeatWriteMoves:

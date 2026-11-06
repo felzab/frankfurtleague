@@ -140,7 +140,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
           ? null
           : {
               title: COPY.shared.austrittSince(austrittZustand(team.austritt.type), dayOf(team.austritt.date)),
-              text: { record: team.austritt.exit_reason },
+              text: { record: team.austritt.reason },
             },
     },
     groups: [

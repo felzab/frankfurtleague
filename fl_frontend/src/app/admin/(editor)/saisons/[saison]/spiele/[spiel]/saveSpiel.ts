@@ -17,7 +17,7 @@ import type { Copy } from "@/core/copy";
 import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 const { shape } = SpielePatchSpielBody;
-const [ortShape] = shape.ort.options;
+const [spielortShape] = shape.spielort.options;
 const [schiedsrichterShape] = shape.schiedsrichter.options;
 const [teamShape] = shape.team1.options;
 const [shootOutShape] = shape.elfmeterschiessen.options;
@@ -40,8 +40,8 @@ const SaveSpiel = z.object({
       team2: z.union([teamShape.shape.team_id, z.null()]),
       date: shape.date,
       time: shape.time,
-      spielort: z.union([ortShape.shape.spielort_id, z.null()]),
-      mietpreis: figure(ortShape.shape.mietpreis),
+      spielort: z.union([spielortShape.shape.spielort_id, z.null()]),
+      mietpreis: figure(spielortShape.shape.mietpreis),
       schiedsrichter: z.union([schiedsrichterShape.shape.schiedsrichter_id, z.null()]),
       payment: figure(schiedsrichterShape.shape.payment),
       hasResult: z.boolean(),
@@ -108,7 +108,7 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
   return {
     date: changes.date === undefined ? stored.date : changes.date,
     time: changes.time === undefined ? stored.time : changes.time,
-    ort: spielort === null || mietpreis === null ? null : { spielort_id: spielort, mietpreis },
+    spielort: spielort === null || mietpreis === null ? null : { spielort_id: spielort, mietpreis },
     schiedsrichter: schiedsrichter === null || payment === null ? null : { schiedsrichter_id: schiedsrichter, payment },
     team1,
     team2,

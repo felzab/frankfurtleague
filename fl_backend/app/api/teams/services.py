@@ -51,7 +51,7 @@ ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStati
 _IS_THIS_TEAM_IN_SLOT_ONE: Mapping[str, Any] = {"$eq": ["$team1.team_id", "$$team_oid"]}
 
 
-def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[str, Any]:
+def _spiele_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[str, Any]:
     """Shared by the `$lookup` stages below: a `$match` per stage is another place to forget the phase filter."""
 
     return {
@@ -63,7 +63,7 @@ def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[
     }
 
 
-def counting_fixtures_match() -> dict[str, Any]:
+def counting_spiele_match() -> dict[str, Any]:
     """Whether a fixture counts. A forfeit does, and a shoot-out is a draw."""
 
     return {
@@ -84,8 +84,8 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
             "pipeline": [
                 {
                     "$match": {
-                        **_fixtures_of_this_team(saison_id, scope),
-                        **counting_fixtures_match(),
+                        **_spiele_of_this_team(saison_id, scope),
+                        **counting_spiele_match(),
                     }
                 },
                 {
@@ -145,7 +145,7 @@ def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) ->
             "pipeline": [
                 {
                     "$match": {
-                        **_fixtures_of_this_team(saison_id, scope),
+                        **_spiele_of_this_team(saison_id, scope),
                         # The flag is the whole rule: `ergebnis: None` beside it would drop the
                         # forfeits, which are nearly every cancellation here.
                         "sonderereignis": {"$in": list(SONDEREREIGNIS_COUNTED_AS_CANCELLED)},
@@ -277,11 +277,11 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
 
 # How much enumeration the transaction `fl_backend/app/api/spiele/crud.py` holds open will pay for.
 # Past it the separation test answers the group instead, soundly rather than exactly.
-CERTAINTY_FIXTURE_LIMIT = 8
+CERTAINTY_SPIEL_LIMIT = 8
 
 
 def _counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
-    """`counting_fixtures_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
+    """`counting_spiele_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:
         return None
@@ -555,7 +555,7 @@ def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
 
     # The same day `_tiers` decides each group on, so the table and the bracket agree on who holds a place.
     by_gruppe, _ = _spiele_by_gruppe(spiele, {team.id: team.gruppe for team in teams})
-    decided_on = {gruppe: _decided_on(fixtures) for gruppe, fixtures in by_gruppe.items()}
+    decided_on = {gruppe: _decided_on(group_spiele) for gruppe, group_spiele in by_gruppe.items()}
     still_in = frozenset(team.id for team in teams if in_the_season_when_decided(team.austritt, decided_on.get(team.gruppe)))
 
     tabelle: dict[FLGruppenNames, list[FLTabelleRow]] = {}
@@ -652,7 +652,7 @@ def _decide_one_gruppe(
     still_to_play: Mapping[CustomObjectId, int],
     has_unattributable: bool,
 ) -> DecidedStanding:
-    """One group's decided placings: exact by walking every ending inside `CERTAINTY_FIXTURE_LIMIT`, and sound above it."""
+    """One group's decided placings: exact by walking every ending inside `CERTAINTY_SPIEL_LIMIT`, and sound above it."""
 
     # `_spiele_by_gruppe` attributes only fixtures with both sides known, so the two side checks
     # below narrow the type rather than branch.
@@ -678,7 +678,7 @@ def _decide_one_gruppe(
     # one group differently.
     settled = frozenset(team.id for team in teams if still_to_play.get(team.id, 0) == 0)
 
-    if len(open_pairs) > CERTAINTY_FIXTURE_LIMIT:
+    if len(open_pairs) > CERTAINTY_SPIEL_LIMIT:
         return DecidedStanding(
             eligible=len(placeable),
             is_complete=is_complete,
@@ -1308,7 +1308,7 @@ def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktRow:
 def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
     """`kontakt_row_without_saison`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
 
-    Judged before the seat, as `app/api/einladungen/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
+    Judged before the seat, as `app/api/invitations/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
     """
 
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
@@ -1355,7 +1355,7 @@ def find_kontakt_seat_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def build_team_fixtures_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+def build_team_spiele_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     """This club's fixtures of one season. Both sides, because a fixture fields a team on either."""
 
     return {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
@@ -1500,14 +1500,14 @@ def offered_gruppen(number_of_gruppen: int) -> tuple[FLGruppenNames, ...]:
     return get_args(FLGruppenNames.__value__)[:number_of_gruppen]
 
 
-def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
+def find_gruppe_move_refusal(*, spiele_drawn: int) -> WriteRefusal | None:
     """Why this team's group move must be refused, or `None`.
 
     The window is a season where THIS team holds no fixture, whatever the season's status: a move
     rewrites none, so a later one leaves one round robin holding the club and the other short.
     """
 
-    if fixtures_drawn == 0:
+    if spiele_drawn == 0:
         return None
 
     return WriteRefusal(

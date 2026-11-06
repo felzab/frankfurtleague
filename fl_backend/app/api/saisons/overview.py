@@ -273,7 +273,7 @@ def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind
     checks: tuple[tuple[FLOverviewGapKind, bool], ...] = (
         ("ergebnis_missing", spiel.date is not None and spiel.date < today and spiel.ergebnis is None),
         ("termin_missing", spiel.date is None or spiel.time is None),
-        ("spielort_missing", spiel.ort is None),
+        ("spielort_missing", spiel.spielort is None),
         ("schiedsrichter_missing", spiel.schiedsrichter is None),
         # A knockout side with neither a club nor a source; the group phase carries no source.
         ("team_missing", open_side),

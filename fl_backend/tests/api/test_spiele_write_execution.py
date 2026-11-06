@@ -154,7 +154,7 @@ def spiel_document(
 ) -> dict[str, Any]:
     saison_phase, date, _ = SPIELTAGE[spieltag_id]
 
-    # `ort` and `schiedsrichter` stay null, so a payload built from this document claims neither, and
+    # `spielort` and `schiedsrichter` stay null, so a payload built from this document claims neither, and
     # the double-booking read is never the thing a failure here is about.
     return documents.spiel_document(
         spiel_id=spiel_id,
@@ -289,7 +289,7 @@ def a_shoot_out_beside_an_open_semi_final() -> list[dict[str, Any]]:
     ]
 
 
-def two_held_fixtures() -> list[dict[str, Any]]:
+def two_held_spiele() -> list[dict[str, Any]]:
     """Three group fixtures on ONE matchday: Alpha stands in the first, Beta in the second, and the third is about to field both.
 
     Distinct scorelines, so a `$set` landing on the wrong fixture shows rather than matching what
@@ -402,14 +402,14 @@ def assignment(schiedsrichter_id: ObjectId, payment: int = 20) -> dict[str, Any]
 def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
     """Two group fixtures at one ground on one matchday, the first carrying `sonderereignis`."""
 
-    ort = booking(SPIELORT)
+    spielort = booking(SPIELORT)
 
     held = spiel_document(spiel_id=GRUPPE_HELD, spiel_nr=GRUPPE_HELD_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(ALPHA), team2=side(BETA))
     filling = spiel_document(
         spiel_id=GRUPPE_FILLING, spiel_nr=GRUPPE_FILLING_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(GAMMA), team2=side(DELTA)
     )
 
-    return [{**held, "ort": ort, "sonderereignis": sonderereignis}, {**filling, "ort": ort}]
+    return [{**held, "spielort": spielort, "sonderereignis": sonderereignis}, {**filling, "spielort": spielort}]
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -518,7 +518,7 @@ class TestTheBookingReadAsksWhoUsedTheGround:
         [("abgebrochen", True), ("ausgefallen", False), ("annulliert", False), ("nichtantreten_team1", False)],
         ids=["abandoned-occupies", "called-off-frees", "annulled-frees", "no-show-frees"],
     )
-    def test_only_a_fixture_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
+    def test_only_a_spiel_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # At 18:30, off the hour both are seeded at: a claim the fixture already made is judged by nobody.
             spiel_data = await payload_for(database, GRUPPE_FILLING, time="18:30:00")
@@ -550,7 +550,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     )
     def test_booking_a_venue_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str, chosen: ObjectId):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
+            spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": chosen, "mietpreis": 80})
 
             with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
@@ -561,7 +561,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert code == Code.BOOKING_UNKNOWN_RESOURCE
         # The whole save is taken back, so the booking does not land without the rule that judges it.
-        assert spiele[GRUPPE_FILLING_NR]["ort"] is None
+        assert spiele[GRUPPE_FILLING_NR]["spielort"] is None
 
     def test_booking_a_referee_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str):
         """The other reference, because a rule reading one only would pass that one and miss this."""
@@ -595,7 +595,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         "kept",
         [
-            pytest.param({"ort": booking(SPIELORT_RETIRED)}, id="retired-venue"),
+            pytest.param({"spielort": booking(SPIELORT_RETIRED)}, id="retired-venue"),
             pytest.param({"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, id="the-ghost"),
         ],
     )
@@ -619,14 +619,14 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         """End to end: the ground and the rent are the payload's, and the document holds nothing the read joins."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": SPIELORT, "mietpreis": 95})
+            spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": SPIELORT, "mietpreis": 95})
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return await spiele_now(database)
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert spiele[GRUPPE_FILLING_NR]["ort"] == booking(SPIELORT, mietpreis=95)
+        assert spiele[GRUPPE_FILLING_NR]["spielort"] == booking(SPIELORT, mietpreis=95)
 
     def test_a_live_referee_is_stored_as_the_payload_books_them(self, mongo_replica_set_url: str):
         """The same on the other reference, whose fee is what the league pays out -- and the venue's case cannot speak for it."""
@@ -646,7 +646,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 class TestTheStateRefusalIsReachedThroughTheRoute:
     """That `find_state_refusal` is WIRED, not merely written: an unwired refusal is a green suite and a dead rule."""
 
-    def test_goals_on_a_fixture_that_awards_nothing_are_refused(self, mongo_replica_set_url: str):
+    def test_goals_on_a_spiel_that_awards_nothing_are_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis="ausgefallen", team1=side(ALPHA, 3), team2=side(BETA, 1))
 
@@ -662,7 +662,7 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
 
 
-class TestTheFixtureRulesAreReachedThroughTheRoute:
+class TestTheSpielRulesAreReachedThroughTheRoute:
     """That the wiring, the result-removal and the occupancy rules are WIRED: each is otherwise tested as a pure function alone."""
 
     @pytest.mark.parametrize(
@@ -712,7 +712,7 @@ class TestTheFixtureRulesAreReachedThroughTheRoute:
         assert after == before, "a refused save wrote something"
 
 
-class TestAFinishedSeasonsFixtureIsRefused:
+class TestAFinishedSeasonsSpielIsRefused:
     """`saison_past` through the route: a finished season's record, its bracket included, is closed to the save."""
 
     @pytest.mark.parametrize("dry_run", [False, True], ids=["the save", "its dry run"])
@@ -738,7 +738,7 @@ class TestAFinishedSeasonsFixtureIsRefused:
 GAMMA_DEPARTED_FROM = "2026-03-20"
 A_DAY_SHORT_OF_THE_EXIT = "2026-03-19"
 
-GAMMA_AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": GAMMA_DEPARTED_FROM}
+GAMMA_AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": GAMMA_DEPARTED_FROM}
 
 
 class TestTheEligibilityRefusalIsReachedThroughTheRoute:
@@ -757,7 +757,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             pytest.param(A_DAY_SHORT_OF_THE_EXIT, Code.SPIEL_OUTSIDE_SPIELTAG, id="moved a day short of it"),
         ],
     )
-    def test_a_fixture_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
+    def test_a_spiel_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
         self, mongo_replica_set_url: str, date: str, error_code: str
     ):
         """The WIDENED case: both sides stay exactly as stored and only `date` moves, which is the save `stays` would otherwise skip."""
@@ -928,7 +928,7 @@ class DoubleReleaseRun:
     after_save: FLSpiel
     preview: FLPatchSpielDataResponse
     saved: FLPatchSpielDataResponse
-    writes_against_the_held_fixture: int
+    writes_against_the_held_spiel: int
 
 
 class TestAReleaseWritesWhatThePureModelPredicts:
@@ -942,7 +942,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             pytest.param(BETA, "2:1", (2, 1), "abgebrochen", id="an abandonment, which names no side"),
         ],
     )
-    def test_the_stored_fixture_is_what_apply_release_to_spiel_predicts(
+    def test_the_stored_spiel_is_what_apply_release_to_spiel_predicts(
         self,
         mongo_replica_set_url: str,
         opponent: ObjectId | None,
@@ -1000,7 +1000,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         # would leave a fixture the admin's next save is refused over.
         assert run.after_save.sonderereignis == (None if sonderereignis in ("nichtantreten_team1", "nichtantreten_team2") else sonderereignis)
 
-    def test_a_fixture_giving_up_both_its_sides_is_emptied_by_one_write(self, mongo_replica_set_url: str):
+    def test_a_spiel_giving_up_both_its_sides_is_emptied_by_one_write(self, mongo_replica_set_url: str):
         """Both clubs of one held fixture, released in a single write.
 
         Side by side the two `$set`s would null `team1` and then set `team1.tore` beneath it --
@@ -1037,7 +1037,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
                 saved=saved,
                 # The action log is where a second `$set` would still show, once merging stopped it
                 # from failing: one released fixture is one row.
-                writes_against_the_held_fixture=await database[Collection.ACTION_LOG].count_documents({"document_id": GRUPPE_HELD}),
+                writes_against_the_held_spiel=await database[Collection.ACTION_LOG].count_documents({"document_id": GRUPPE_HELD}),
             )
 
         run = on_a_seeded_season(
@@ -1057,9 +1057,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             (GRUPPE_HELD_NR, "team2", "Beta"),
         ]
         assert [entry.voided_ergebnis for entry in run.saved.released_sides] == ["2:1", "2:1"]
-        assert run.writes_against_the_held_fixture == 1
+        assert run.writes_against_the_held_spiel == 1
 
-    def test_two_held_fixtures_each_give_up_the_side_its_own_release_names(self, mongo_replica_set_url: str):
+    def test_two_held_spiele_each_give_up_the_side_its_own_release_names(self, mongo_replica_set_url: str):
         """Releases spanning two fixtures reach the fixture each one names.
 
         Written under one id they would all land on the first, leaving the second holding a club the
@@ -1087,7 +1087,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
                 saved=saved,
             )
 
-        run = on_a_seeded_season(mongo_replica_set_url, body, spiele=two_held_fixtures())
+        run = on_a_seeded_season(mongo_replica_set_url, body, spiele=two_held_spiele())
 
         assert {nr: but_its_bookkeeping(spiel) for nr, spiel in run.after_save.items()} == {
             nr: but_its_bookkeeping(spiel) for nr, spiel in run.predicted.items()
@@ -1107,7 +1107,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             (GRUPPE_HELD_OTHER_NR, "Beta", "4:0"),
         ]
 
-    def test_a_released_knockout_fixture_loses_its_shoot_out(self, mongo_replica_set_url: str):
+    def test_a_released_knockout_spiel_loses_its_shoot_out(self, mongo_replica_set_url: str):
         """The shoot-out settled the goals the release deletes; one the write leaves stands beside a null result for the table to misread."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1256,13 +1256,13 @@ async def reopened_by_the_overturn(database: AsyncDatabase, client: AsyncMongoCl
     return ReopeningRun(preview=preview, saved=saved, after_save=await spiele_now(database), faults=await faults_now(database))
 
 
-class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
+class TestASpielTheResolutionReopensKeepsARetiredBooking:
     """The resolution voids a result no request named and refuses nothing: the retired row stays booked, and the queue names it."""
 
     @pytest.mark.parametrize(
         ("booked", "reported"),
         [
-            pytest.param({"ort": booking(SPIELORT_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "ort")], id="venue"),
+            pytest.param({"spielort": booking(SPIELORT_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "spielort")], id="venue"),
             pytest.param(
                 {"schiedsrichter": assignment(SCHIEDSRICHTER_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="referee"
             ),
@@ -1272,7 +1272,7 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
                 {"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="the-ghost"
             ),
             # The control: the fault is the row's retirement, never the reopening.
-            pytest.param({"ort": booking(SPIELORT), "schiedsrichter": assignment(SCHIEDSRICHTER)}, [], id="both-live"),
+            pytest.param({"spielort": booking(SPIELORT), "schiedsrichter": assignment(SCHIEDSRICHTER)}, [], id="both-live"),
         ],
     )
     def test_the_booking_stays_and_the_queue_alone_names_it(self, mongo_replica_set_url: str, booked: dict[str, Any], reported: list[Any]):
@@ -1296,13 +1296,13 @@ def a_lifted_no_show_beside_a_later_booking() -> list[dict[str, Any]]:
     quarter, semi = a_semi_final_recorded_as("nichtantreten_team2")
     later = spiel_document(spiel_id=GRUPPE_BESIDE, spiel_nr=GRUPPE_BESIDE_NR, spieltag_id=SPIELTAG_HALBFINALE, team1=None, team2=None)
 
-    return [quarter, {**semi, "ort": booking(SPIELORT)}, {**later, "time": "19:00:00", "ort": booking(SPIELORT)}]
+    return [quarter, {**semi, "spielort": booking(SPIELORT)}, {**later, "time": "19:00:00", "spielort": booking(SPIELORT)}]
 
 
 class TestALiftedNoShowDoubleBooksAndTheQueueNamesBoth:
     """The resolution clears the no-show with the result, so the fixture claims its slot again: nothing refuses, and the report names both."""
 
-    def test_both_fixtures_are_reported_and_moving_one_clears_them(self, mongo_replica_set_url: str):
+    def test_both_spiele_are_reported_and_moving_one_clears_them(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             run = await reopened_by_the_overturn(database, client)
 
@@ -1315,7 +1315,7 @@ class TestALiftedNoShowDoubleBooksAndTheQueueNamesBoth:
         run, after_the_move = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_lifted_no_show_beside_a_later_booking())
 
         assert run.after_save[HALBFINALE_NR]["sonderereignis"] is None
-        assert booking_faults(run.faults) == [(HALBFINALE_NR, "double_booked", "ort"), (GRUPPE_BESIDE_NR, "double_booked", "ort")]
+        assert booking_faults(run.faults) == [(HALBFINALE_NR, "double_booked", "spielort"), (GRUPPE_BESIDE_NR, "double_booked", "spielort")]
         assert booking_faults(after_the_move) == []
 
 
@@ -1330,9 +1330,9 @@ ANOTHER_SAISON_ID = "2025"
 
 
 def claimed(spiel_id: ObjectId, spiel_nr: int, date: str, time: str, *, saison_id: str = SAISON_ID, **overrides: Any) -> dict[str, Any]:
-    fixture = spiel_document(spiel_id=spiel_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_GRUPPE, team1=None, team2=None)
+    spiel = spiel_document(spiel_id=spiel_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_GRUPPE, team1=None, team2=None)
 
-    return {**fixture, "saison_id": saison_id, "date": date, "time": time, "ort": booking(SPIELORT), **overrides}
+    return {**spiel, "saison_id": saison_id, "date": date, "time": time, "spielort": booking(SPIELORT), **overrides}
 
 
 def holders_at_every_arm() -> list[dict[str, Any]]:
@@ -1410,7 +1410,7 @@ def a_bracket_with_reports(*, quarter_final_at: int) -> tuple[list[dict[str, Any
 
 
 class TestOnlyALandedSaveStamps:
-    def test_an_accepted_save_stamps_its_own_fixtures_report_at_the_seeded_version(self, mongo_replica_set_url: str):
+    def test_an_accepted_save_stamps_its_own_spiele_report_at_the_seeded_version(self, mongo_replica_set_url: str):
         """The semi-final's report stands at the same version, so a stamp not keyed on the fixture shows on it."""
 
         spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)

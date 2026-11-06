@@ -1,8 +1,8 @@
 from typing import Any
 
-from app.api.einladungen.services import (
+from app.api.invitations.services import (
     bestaetigte_empfaenger,
-    plan_einladung_dispatch,
+    plan_invitation_dispatch,
 )
 from tests.documents import kontaktperson_document
 
@@ -24,7 +24,7 @@ def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung
     }
 
 
-EINLADUNG: dict[str, Any] = {"saison_id": "2026", "revoked_at": None}
+INVITATION: dict[str, Any] = {"saison_id": "2026", "revoked_at": None}
 
 
 class TestWhoALinkIsMailedTo:
@@ -56,10 +56,10 @@ class TestATeamTheBanListKeepsTheLinkFrom:
     def test_a_re_send_does_not_reach_past_the_ban(self):
         """Each press would mint over the team's live link while nobody on it can be reached."""
 
-        decided = plan_einladung_dispatch(
+        decided = plan_invitation_dispatch(
             austritt=None,
             kontakte=kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON)),
-            einladung_raw={**EINLADUNG, "sent_at": CONFIRMED_ON},
+            invitation_raw={**INVITATION, "sent_at": CONFIRMED_ON},
             resend=True,
             barred=frozenset({"bramblewick@example.com"}),
         )

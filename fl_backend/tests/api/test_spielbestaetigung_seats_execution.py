@@ -111,7 +111,7 @@ def link(row: str, seat: str) -> str:
     return f"{row}-{seat}"
 
 
-def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1) -> dict[str, Any]:
+def spiel(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1) -> dict[str, Any]:
     """This team at home to the other, as the league's schedule stores it, naming neither."""
 
     sides = {f"team{position}": {"team_id": team_id, "tore": None} for position, team_id in enumerate((TEAM_OID, OTHER_TEAM_OID), start=1)}
@@ -121,9 +121,7 @@ def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1
     )
 
 
-FIXTURES = [
-    fixture(spiel_id, spiel_nr=position) for position, spiel_id in enumerate([SPIEL_OID, ANSWERED_SPIEL_OID, *REASON_SPIEL_OIDS], start=1)
-]
+SPIELE = [spiel(spiel_id, spiel_nr=position) for position, spiel_id in enumerate([SPIEL_OID, ANSWERED_SPIEL_OID, *REASON_SPIEL_OIDS], start=1)]
 
 
 def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
@@ -141,14 +139,14 @@ def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fi
 
 # The team's open row, its answered row, and the other team's open row about the same fixture.
 ROWS = {
-    "open": confirmation_row("open", TEAM_OID, FIXTURES[0]),
+    "open": confirmation_row("open", TEAM_OID, SPIELE[0]),
     "answered": confirmation_row(
         "answered",
         TEAM_OID,
-        FIXTURES[1],
+        SPIELE[1],
         answer={"kind": "zugesagt", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
     ),
-    "other": confirmation_row("other", OTHER_TEAM_OID, FIXTURES[0]),
+    "other": confirmation_row("other", OTHER_TEAM_OID, SPIELE[0]),
 }
 
 Write = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -191,7 +189,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                     {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FAX", kontakte=None)},
                 ]
             )
-            await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in FIXTURES])
+            await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in SPIELE])
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(row) for row in ROWS.values()])
 
             await body(database, client)
@@ -421,19 +419,19 @@ def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, 
 # Ida holds this team's Trainer seat in this season. Every reason typed from that seat goes, her predecessor's
 # among them, the answer recording the seat alone; one from another seat, team or season stays to the season's end.
 REASONS = {
-    "from her seat": declined("hers", TEAM_OID, FIXTURES[2], "trainer", "Ida ist an dem Tag verreist"),
-    "from a seat of another team": declined("left", OTHER_TEAM_OID, FIXTURES[3], "ansprechperson", "Die Fahrt ist zu weit"),
-    "her predecessor's, from her seat": declined("before", TEAM_OID, FIXTURES[4], "trainer", "Lea hat Spätdienst"),
-    "another seat's": declined("seat", TEAM_OID, FIXTURES[5], "ansprechperson", "Die Halle ist belegt"),
-    "another team's, from the same role": declined("team", OTHER_TEAM_OID, FIXTURES[6], "trainer", "Unser Trainer ist krank"),
+    "from her seat": declined("hers", TEAM_OID, SPIELE[2], "trainer", "Ida ist an dem Tag verreist"),
+    "from a seat of another team": declined("left", OTHER_TEAM_OID, SPIELE[3], "ansprechperson", "Die Fahrt ist zu weit"),
+    "her predecessor's, from her seat": declined("before", TEAM_OID, SPIELE[4], "trainer", "Lea hat Spätdienst"),
+    "another seat's": declined("seat", TEAM_OID, SPIELE[5], "ansprechperson", "Die Halle ist belegt"),
+    "another team's, from the same role": declined("team", OTHER_TEAM_OID, SPIELE[6], "trainer", "Unser Trainer ist krank"),
     "from the same seat in another season": declined(
-        "season", TEAM_OID, fixture(LATER_SPIEL_OID, saison_id=LATER_SAISON_ID), "trainer", "Wir fahren ins Landheim"
+        "season", TEAM_OID, spiel(LATER_SPIEL_OID, saison_id=LATER_SAISON_ID), "trainer", "Wir fahren ins Landheim"
     ),
 }
 # Removed by an undraw, so one array image holds both, hers second: a judge taking every element, or the first, fails.
 UNDRAWN = {
-    "another seat's, undrawn": declined("undrawn-seat", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[0]), "ansprechperson", "Halle zu"),
-    "from her seat, undrawn": declined("undrawn-hers", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[1]), "trainer", "Ida ist krank"),
+    "another seat's, undrawn": declined("undrawn-seat", TEAM_OID, spiel(UNDRAWN_SPIEL_OIDS[0]), "ansprechperson", "Halle zu"),
+    "from her seat, undrawn": declined("undrawn-hers", TEAM_OID, spiel(UNDRAWN_SPIEL_OIDS[1]), "trainer", "Ida ist krank"),
 }
 CLEARED = {"from her seat", "her predecessor's, from her seat", "from her seat, undrawn"}
 NAMED = {row["spiel_id"]: name for name, row in {**REASONS, **UNDRAWN}.items()}
@@ -534,7 +532,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"message_id": "msg-1", "state": "delivered", "delivery_reason": None, "at": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "state": "delivered", "reason": None, "at": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )

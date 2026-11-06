@@ -88,7 +88,7 @@ function wordsOf(spiel: FLSpielJoined): string {
   return [
     textOf(team1.name),
     textOf(team2.name),
-    spiel.ort?.name,
+    spiel.spielort?.name,
     whenOf(spiel),
     spiel.date === null ? null : formatDate(dayOf(spiel.date)),
     formatNumber(spiel.spiel_nr),

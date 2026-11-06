@@ -77,7 +77,7 @@ def bracket() -> list[dict[str, Any]]:
         ergebnis="1:3",
         date="2026-05-01",
         time="18:00:00",
-        ort={"spielort_id": SPIELORT, "mietpreis": 80},
+        spielort={"spielort_id": SPIELORT, "mietpreis": 80},
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
     )
     halbfinale = documents.spiel_document(

@@ -44,7 +44,7 @@ from app.api.teams.schemas import (
     FLTeamPageClub,
     FLTeamsFilterParams,
 )
-from app.api.teams.services import build_team_pipeline, counting_fixtures_match
+from app.api.teams.services import build_team_pipeline, counting_spiele_match
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
@@ -215,7 +215,7 @@ async def _league_counts(
         aggregate_many_from_db(
             collection=spiele_collection,
             pipeline=[
-                {"$match": counting_fixtures_match()},
+                {"$match": counting_spiele_match()},
                 *_IN_A_PUBLIC_SAISON,
                 {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}, "spiele": {"$sum": 1}}},
             ],
@@ -301,7 +301,7 @@ async def _landing_saison(
                 FLLandingDecided(
                     id=saison_id,
                     state="decided",
-                    start=start,
+                    starts_at=start,
                     podium=(landing_side(first_place), landing_side(second_place), landing_side(third_place), landing_side(fourth_place)),
                     teams=teams,
                 ),
@@ -312,7 +312,7 @@ async def _landing_saison(
                 FLLandingRunning(
                     id=saison_id,
                     state="running",
-                    start=start,
+                    starts_at=start,
                     recent=FLSpielJoinedListAdapter.validate_python(recent_raw),
                     upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw),
                     teams=teams,
@@ -324,7 +324,7 @@ async def _landing_saison(
                 FLLandingBeforeStart(
                     id=saison_id,
                     state="before_start",
-                    start=start,
+                    starts_at=start,
                     opening_spiel=FLLandingOpeningSpiel.model_validate(first_raw[0]) if first_raw else None,
                     teams=teams,
                 ),

@@ -21,7 +21,7 @@ EARLIER = "2025"
 SPIELTAG = ObjectId("6890a1b2c3d4e5f607420001")
 CLUBS = {name: ObjectId(f"6890a1b2c3d4e5f60742010{index}") for index, name in enumerate(("Alpha", "Beta", "Delta", "Gamma"))}
 
-DISQUALIFIED = {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": "2026-03-01"}
+DISQUALIFIED = {"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-03-01"}
 
 
 def side(name: str, tore: int | None) -> dict[str, Any]:

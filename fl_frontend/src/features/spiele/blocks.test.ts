@@ -26,7 +26,7 @@ const spiel = (tore: readonly [number, number] | null, sonderereignis: FLSondere
   ansetzung_confirmed: null,
   for_third_place: false,
   note: null,
-  ort: null,
+  spielort: null,
   schiedsrichter: null,
   team1: { team_id: GOETHE, name: "Goethe", shorthand: "GOE", tore: tore?.[0] ?? null, austritt_type: null },
   team2: { team_id: HELMHOLTZ, name: "Helmholtz", shorthand: "HEL", tore: tore?.[1] ?? null, austritt_type: null },
@@ -120,10 +120,10 @@ describe("what befell a match", () => {
 });
 
 describe("the pop-up's facts", () => {
-  const ort = { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" };
+  const spielort = { spielort_id: "4".repeat(24), name: "Sportplatz Ahornweg", maps_link: "Sportplatz Ahornweg, Ahornweg 2" };
   const booked: FLSpielJoined = {
     ...spiel(null),
-    ort,
+    spielort,
     schiedsrichter: { name: "Anna A.", name_is_public: true },
   };
   const { fact } = COPY.spielplan;
@@ -131,7 +131,7 @@ describe("the pop-up's facts", () => {
   it("keep all four, a value the match does not hold reading the dash", () => {
     const labels = [fact.date, fact.time, fact.spielort, fact.schiedsrichter];
     expect(popupFactsOf(booked).map((each) => each.label)).toStrictEqual(labels);
-    const unset = popupFactsOf({ ...booked, date: null, time: null, ort: null, schiedsrichter: null });
+    const unset = popupFactsOf({ ...booked, date: null, time: null, spielort: null, schiedsrichter: null });
     expect(unset.map((each) => each.label)).toStrictEqual(labels);
     expect(unset.map((each) => each.value)).toStrictEqual(labels.map(() => COPY.shared.noValue));
   });
@@ -143,7 +143,7 @@ describe("the pop-up's facts", () => {
 
   it("link the venue to its map on another site", () => {
     expect(popupFactsOf(booked).find((each) => each.label === fact.spielort)?.elsewhere).toStrictEqual({
-      href: buildMapsSearchUrl(ort.maps_link),
+      href: buildMapsSearchUrl(spielort.maps_link),
       label: { record: "Sportplatz Ahornweg" },
     });
   });

@@ -3585,7 +3585,7 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
  * The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
  * write changing it raises its `version`, so a report the administrator adopted reads `differing` again until it
  * is adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,
- * so a report a knockout correction re-fielded a side under reads `teams_changed` until it is written again. Writes
+ * so a report a knockout correction re-fielded a side under reads `sides_changed` until it is written again. Writes
  * no fixture: the result is the administrator's to save.
  *
  * `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
@@ -5198,7 +5198,7 @@ export const getTeamsGetInvitationUrl = (teamId: string, saisonId: string) => {
  * The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
  *
  * `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
- * the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
+ * the link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.
  * @summary This team's live registration link for a season, and whether it opens anything
  */
 export const teamsGetInvitation = async (

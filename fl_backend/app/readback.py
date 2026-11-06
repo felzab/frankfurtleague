@@ -16,7 +16,7 @@ from app.api.address_change.schemas import FLAddressChangeRecord
 from app.api.aktionen.schemas import FLAktionRecord
 from app.api.berechtigungen.schemas import FLBerechtigung, FLGrantAnnounced, FLGrantApprovalRequest
 from app.api.bewerbungen.schemas import FLBewerbungRecord
-from app.api.einladungen.schemas import FLEinladungRecord
+from app.api.invitations.schemas import FLInvitationRecord
 from app.api.outbox.schemas import FLOutboxRow
 from app.api.registrierungen.schemas import FLRegistrierungRecord
 from app.api.saisons.schemas import FLSaisonRecord
@@ -47,7 +47,7 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.BEWERBUNGEN: FLBewerbungRecord,
     Collection.ACTION_LOG: FLAktionRecord,
     Collection.BAN_LIST: FLSperrlisteEintragRecord,
-    Collection.INVITATIONS: FLEinladungRecord,
+    Collection.INVITATIONS: FLInvitationRecord,
     Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
     Collection.GRANTS: FLBerechtigung,
     Collection.GRANTS_ANNOUNCED: FLGrantAnnounced,

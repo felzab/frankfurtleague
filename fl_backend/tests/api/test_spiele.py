@@ -7,7 +7,7 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     FLPatchSpielDataPayload,
     FLSpiel,
-    FLSpielOrtFieldPayload,
+    FLSpielortFieldPayload,
     FLSpielQuelleSpiel,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
@@ -42,7 +42,7 @@ def test_rejects_a_time_without_seconds(spiel):
         FLSpiel.model_validate(spiel(time="14:30"))
 
 
-def test_an_abandoned_fixture_keeps_its_slot_and_a_called_off_one_frees_it():
+def test_an_abandoned_spiel_keeps_its_slot_and_a_called_off_one_frees_it():
     """The booking read's own question: an abandoned match used the ground and the referee; a match called off freed both."""
 
     assert "abgebrochen" in SONDEREREIGNIS_KEEPING_ITS_SLOT
@@ -134,7 +134,7 @@ class TestPatchPayload:
         ("model", "composed"),
         [
             (FLSpielTeamFieldPayload, {"name", "shorthand"}),
-            (FLSpielOrtFieldPayload, {"name", "maps_link"}),
+            (FLSpielortFieldPayload, {"name", "maps_link"}),
             (FLSpielSchiedsrichterFieldPayload, {"name"}),
         ],
         ids=["a side", "a venue", "a referee"],
@@ -146,10 +146,10 @@ class TestPatchPayload:
 
     @pytest.mark.parametrize(
         ("model", "kept"),
-        [(FLSpielOrtFieldPayload, "mietpreis"), (FLSpielSchiedsrichterFieldPayload, "payment")],
+        [(FLSpielortFieldPayload, "mietpreis"), (FLSpielSchiedsrichterFieldPayload, "payment")],
         ids=["the rent", "the payment"],
     )
-    def test_what_this_fixture_pays_stays_on_the_payload(self, model, kept):
+    def test_what_this_spiel_pays_stays_on_the_payload(self, model, kept):
         """Deliberately unlike the names beside it: each is this fixture's own record, not a copy of a default."""
 
         assert kept in model.model_fields

@@ -396,7 +396,7 @@ async def decline(
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
             # read finds nothing pending (`TestTheDecline`), so no status term is reached.
             db_filter={"_id": registrierung_id},
-            update=compose_ablehnung_update(by=identifier, decision_reason=ablehnung_data.decision_reason, today=today),
+            update=compose_ablehnung_update(by=identifier, reason=ablehnung_data.reason, today=today),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -421,7 +421,7 @@ async def decline(
                             first_name=str(registrierung_raw["first_name"]),
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,
-                            decision_reason=ablehnung_data.decision_reason,
+                            reason=ablehnung_data.reason,
                         ),
                         reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     )

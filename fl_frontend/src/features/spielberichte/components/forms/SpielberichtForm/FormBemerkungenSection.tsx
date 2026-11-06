@@ -18,7 +18,7 @@ import type { SpielberichtFieldPath } from "./spielberichtDraft";
 
 /** The one free text of a report, for what no field holds. */
 export function FormBemerkungenSection({
-  remarks: bemerkungen,
+  remarks,
   onChange,
   onValidateFields,
 }: {
@@ -41,7 +41,7 @@ export function FormBemerkungenSection({
       <div className={panel.body()}>
         <TextField
           name={BEMERKUNGEN_PATH}
-          value={bemerkungen}
+          value={remarks}
           onChange={onChange}
           onBlur={() => onValidateFields([BEMERKUNGEN_PATH])}
           maxLength={SPIELBERICHT_REMARKS_MAX_LENGTH}

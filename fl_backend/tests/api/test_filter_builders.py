@@ -25,7 +25,7 @@ class TestSpieleFilter:
 
         assert build_spiele_filter(filters=filters)["saison_phase"] == {"$ne": "gruppenphase"}
 
-    def test_team_id_matches_either_side_of_the_fixture_as_an_objectid(self):
+    def test_team_id_matches_either_side_of_the_spiel_as_an_objectid(self):
         """Both sides via `$or`, and as a real `ObjectId`: a string here would match nothing and return empty."""
         filters = FLSpieleFilterParams.model_validate({"team_id": "6890a1b2c3d4e5f607182930"})
 

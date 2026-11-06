@@ -41,7 +41,7 @@ export const FLGruppenNamesSchema = z.enum(FLGruppenNames, { error: "Bitte wähl
 const FLAustrittPayloadSchema = z.object({
   type: z.enum(FLAustrittType, { error: "Bitte wähle, wie das Team ausgeschieden ist." }),
   // Free text written for publication: rendered as authored, never truncated to a label.
-  exit_reason: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
+  reason: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
   date: CustomDateStringSchema,
 });
 
@@ -80,7 +80,7 @@ const FLKontaktpersonPayloadSchema = z.object({
   last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   phone: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
-  // No `geburtsdatum`: the payload carries none, and a mirror requiring one refuses every seat whose
+  // No `birth_date`: the payload carries none, and a mirror requiring one refuses every seat whose
   // person has not confirmed yet.
   einwilligung: FLKontaktKenntnisnahmePayloadSchema,
 });

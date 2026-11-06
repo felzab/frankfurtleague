@@ -60,7 +60,7 @@ const ZEITPUNKT_UHRZEIT = new Intl.DateTimeFormat("de-DE", {
   minute: "2-digit",
 });
 
-/** `uhrzeit` is null only where `at` could not be read, and `datum` then carries the stored value unchanged. */
+/** `time` is null only where `at` could not be read, and `date` then carries the stored value unchanged. */
 export type AktionZeitpunkt = { date: string; time: string | null };
 
 export function formatAktionZeitpunkt(at: string): AktionZeitpunkt {

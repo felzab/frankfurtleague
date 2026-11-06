@@ -63,9 +63,9 @@ DEADLINE = "2026-04-08"
 # Fixed rather than generated, so a failure names the same row every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607960001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960002")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960003")
-OTHER_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960004")
-REVOKED_EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960005")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607960003")
+OTHER_INVITATION_OID = ObjectId("6890a1b2c3d4e5f607960004")
+REVOKED_INVITATION_OID = ObjectId("6890a1b2c3d4e5f607960005")
 
 # The raw link values, which exist in the seed and in a recipient's inbox and nowhere else.
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
@@ -97,7 +97,7 @@ def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
     return documents.team_document(team_id, name, name[:3].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
 
-def einladung_document(
+def invitation_document(
     invitation_id: ObjectId, team_id: ObjectId, token: str, *, revoked_at: str | None = None, saison_id: str = SAISON_ID
 ) -> dict[str, Any]:
     return {
@@ -172,9 +172,9 @@ def on_a_league(
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
             await database[Collection.INVITATIONS].insert_many(
                 [
-                    einladung_document(EINLADUNG_OID, TEAM_OID, TOKEN),
-                    einladung_document(OTHER_EINLADUNG_OID, OTHER_TEAM_OID, OTHER_TOKEN),
-                    einladung_document(REVOKED_EINLADUNG_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
+                    invitation_document(INVITATION_OID, TEAM_OID, TOKEN),
+                    invitation_document(OTHER_INVITATION_OID, OTHER_TEAM_OID, OTHER_TOKEN),
+                    invitation_document(REVOKED_INVITATION_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
                 ]
             )
 
@@ -201,7 +201,7 @@ async def leave(database: AsyncDatabase) -> None:
 
     await database[Collection.SAISON_TEAMS].update_one(
         {"saison_id": SAISON_ID, "team_id": TEAM_OID},
-        {"$set": {"austritt": {"type": "rueckzug", "exit_reason": "Mannschaft zurückgezogen", "date": TODAY}}},
+        {"$set": {"austritt": {"type": "rueckzug", "reason": "Mannschaft zurückgezogen", "date": TODAY}}},
     )
 
 
@@ -338,7 +338,7 @@ class TestWhatASubmissionStores:
 
         assert stored["saison_id"] == SAISON_ID
         assert stored["team_id"] == TEAM_OID
-        assert stored["invitation_id"] == EINLADUNG_OID
+        assert stored["invitation_id"] == INVITATION_OID
         assert stored["status"] == "submitted"
         assert stored["submitted_at"] == TODAY
         # Present and null, never absent: the confirmation fills the first two and a decline the third.
@@ -457,7 +457,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await register(database, client, key=SCHLUESSEL)
-            await database[Collection.INVITATIONS].update_one({"_id": EINLADUNG_OID}, {"$set": {"revoked_at": TODAY}})
+            await database[Collection.INVITATIONS].update_one({"_id": INVITATION_OID}, {"$set": {"revoked_at": TODAY}})
             second = await register(database, client, key=SCHLUESSEL)
 
             return first.registrierung_id, second.registrierung_id

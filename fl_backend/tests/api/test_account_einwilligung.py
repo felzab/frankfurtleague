@@ -293,14 +293,8 @@ class TestTheOwnRecords:
             "Ortrud Zwiebelmayer",
             REFEREE_STORED,
         )
-        # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is, nor the
-        # consent, which is the account page's.
-        assert (record["payment"], "default_payment" in record, "confirmation" in record, "einwilligung" in record) == (
-            20,
-            False,
-            False,
-            False,
-        )
+        # The fee is the referee's own; the link's bookkeeping never is, nor the consent, which is the account page's.
+        assert (record["default_payment"], "confirmation" in record, "einwilligung" in record) == (20, False, False)
         [entry] = account.json()["schiedsrichter"]
         assert (entry["schiedsrichter_id"], entry["givable"], entry["media_offered"]) == (str(REFEREE_OID), True, True)
 
@@ -323,7 +317,7 @@ class TestTheOwnRecords:
 
 @pytest.mark.db
 class TestTheTwoChoices:
-    def test_moving_the_scope_moves_this_row_alone_writes_no_fixture_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
+    def test_moving_the_scope_moves_this_row_alone_writes_no_spiel_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(scope="intern"), headers=_person(IDENTIFIER))
@@ -1048,7 +1042,7 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
     """The person's own registration; one of theirs in each state that leaves nothing to change; a stranger's."""
 
     declined = _registrierung(REGISTRIERUNG_DECLINED, REFEREE_STORED)
-    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", decision_reason=None, today="2026-09-22")["$set"])
+    declined.update(compose_ablehnung_update(by="verwaltung@schule.de", reason=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_OWN, REFEREE_STORED, **choices),

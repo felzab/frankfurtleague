@@ -332,11 +332,11 @@ def a_report_naming(*, scorers: list[ObjectId | None], carded: list[ObjectId]) -
 
     report = spielbericht_document({"_id": ObjectId(), "saison_id": SAISON_ID})
     bericht = report["bericht"]
-    bericht["torschuetzen"] = [
+    bericht["scorers"] = [
         {"side": "team1", "spieler_id": scorer, "minute": str(10 + index), "eigentor": False} for index, scorer in enumerate(scorers)
     ]
-    bericht["karten"] = [
-        {"side": "team2", "spieler_id": pupil, "minute": str(60 + index), "colour": "gelb", "card_reason": "foulspiel"}
+    bericht["cards"] = [
+        {"side": "team2", "spieler_id": pupil, "minute": str(60 + index), "colour": "gelb", "reason": "foulspiel"}
         for index, pupil in enumerate(carded)
     ]
     bericht["ergebnis_vorschlag"] = {"team1_tore": len(scorers), "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None}
@@ -374,16 +374,16 @@ class TestTheirReportEntriesNameTheSentinel:
         spieler_id, other_id, (theirs, elsewhere, nobody), seeded, stored = on_a_league(mongo_replica_set_url, body)
         repointed, before = stored[theirs]["bericht"], seeded[theirs]["bericht"]
 
-        assert [entry["spieler_id"] for entry in repointed["torschuetzen"]] == [GHOST_SPIELER_ID, other_id, None, GHOST_SPIELER_ID]
-        assert [entry["spieler_id"] for entry in repointed["karten"]] == [other_id, GHOST_SPIELER_ID]
+        assert [entry["spieler_id"] for entry in repointed["scorers"]] == [GHOST_SPIELER_ID, other_id, None, GHOST_SPIELER_ID]
+        assert [entry["spieler_id"] for entry in repointed["cards"]] == [other_id, GHOST_SPIELER_ID]
         # Each entry's other fields, and the adoption, are the report's own.
-        assert [{**entry, "spieler_id": None} for entry in [*repointed["torschuetzen"], *repointed["karten"]]] == [
-            {**entry, "spieler_id": None} for entry in [*before["torschuetzen"], *before["karten"]]
+        assert [{**entry, "spieler_id": None} for entry in [*repointed["scorers"], *repointed["cards"]]] == [
+            {**entry, "spieler_id": None} for entry in [*before["scorers"], *before["cards"]]
         ]
-        assert {**repointed, "torschuetzen": None, "karten": None} == {**before, "torschuetzen": None, "karten": None}
+        assert {**repointed, "scorers": None, "cards": None} == {**before, "scorers": None, "cards": None}
         assert (stored[elsewhere], stored[nobody]) == (seeded[elsewhere], seeded[nobody])
         assert spieler_id not in {
-            entry["spieler_id"] for row in stored.values() for entry in [*row["bericht"]["torschuetzen"], *row["bericht"]["karten"]]
+            entry["spieler_id"] for row in stored.values() for entry in [*row["bericht"]["scorers"], *row["bericht"]["cards"]]
         }
 
     def test_the_repoint_reads_an_index_per_kind_of_entry(self, mongo_replica_set_url: str):
@@ -405,7 +405,7 @@ class TestTheirReportEntriesNameTheSentinel:
 
         [(_, plan)] = on_a_league(mongo_replica_set_url, body)
 
-        assert plan == "IXSCAN { bericht.torschuetzen.spieler_id: 1 }, IXSCAN { bericht.karten.spieler_id: 1 }"
+        assert plan == "IXSCAN { bericht.scorers.spieler_id: 1 }, IXSCAN { bericht.cards.spieler_id: 1 }"
 
 
 class TestAHalfDoneLoeschungCommitsNothing:

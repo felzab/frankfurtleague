@@ -922,7 +922,7 @@ export const COPY = catalogue({
       ansetzung: "Ansetzung",
       ergebnis: "Ergebnis",
       /** The players credited with a result's goals, as a field's message names what it must not hold. */
-      torschuetzen: "Torschützen",
+      scorers: "Torschützen",
       note: "Notiz",
       date: SPIEL_FACT.date,
       time: SPIEL_FACT.time,

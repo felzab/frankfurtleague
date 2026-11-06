@@ -10,7 +10,7 @@ from app.api.spiele.schemas import unplayed_filter
 from app.api.spiele.services import (
     BookedSlot,
     find_clash_refusal,
-    find_fixture_date_refusal,
+    find_spiel_date_refusal,
 )
 from app.api.spieler.services import (
     find_squad_capacity_refusal,
@@ -40,10 +40,10 @@ SAISON_RULES = FLSaisonRules(
 )
 
 
-class TestAFixtureSitsInsideItsMatchday:
+class TestASpielSitsInsideItsMatchday:
     @pytest.mark.parametrize("date", ["2026-03-06", "2026-03-20"])
     def test_a_date_outside_is_refused(self, date):
-        refusal = find_fixture_date_refusal(date=date, spieltag_start="2026-03-07", spieltag_end="2026-03-08")
+        refusal = find_spiel_date_refusal(date=date, spieltag_start="2026-03-07", spieltag_end="2026-03-08")
 
         assert refusal is not None
         assert (refusal.error_code, refusal.fields) == (Code.SPIEL_OUTSIDE_SPIELTAG, (("date",),))
@@ -51,21 +51,21 @@ class TestAFixtureSitsInsideItsMatchday:
 
 class TestAMatchdaySitsInsideItsSeason:
     def test_a_start_before_the_season_is_refused(self):
-        refusal = find_spieltag_span_refusal(start="2026-02-28", end="2026-03-08", fixture_dates=[], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-02-28", end="2026-03-08", spiel_dates=[], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
     def test_an_end_after_the_season_is_refused(self):
-        refusal = find_spieltag_span_refusal(start="2026-09-29", end="2026-10-01", fixture_dates=[], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-09-29", end="2026-10-01", spiel_dates=[], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
-    def test_it_applies_to_a_matchday_with_no_fixtures(self):
+    def test_it_applies_to_a_matchday_with_no_spiele(self):
         """A property of the two documents alone, so a create is held to it before any fixture exists."""
 
-        refusal = find_spieltag_span_refusal(start="2026-01-01", end="2026-01-02", fixture_dates=[], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-01-01", end="2026-01-02", spiel_dates=[], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
@@ -141,11 +141,11 @@ class TestASeasonIsLongEnoughForItsSchedule:
         assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELPLAN
 
 
-class TestAMatchdayKeepsCoveringItsFixtures:
-    def test_shrinking_below_a_fixture_is_refused(self):
+class TestAMatchdayKeepsCoveringItsSpiele:
+    def test_shrinking_below_a_spiel_is_refused(self):
         """The mirror of `spiel_outside_spieltag`: the same containment, broken from the container's side."""
 
-        refusal = find_spieltag_span_refusal(start="2026-03-07", end="2026-03-08", fixture_dates=["2026-03-20"], **SPAN)
+        refusal = find_spieltag_span_refusal(start="2026-03-07", end="2026-03-08", spiel_dates=["2026-03-20"], **SPAN)
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_SPIELE
@@ -182,7 +182,7 @@ class TestOneVenueAndOneRefereeAtATime:
 
 
 class TestRetiringAVenueOrAReferee:
-    def test_an_upcoming_fixture_refuses_it_naming_the_fixtures(self):
+    def test_an_upcoming_spiel_refuses_it_naming_the_spiele(self):
         """`retire_blocked`'s reasoning: retiring removes it from every picker while matches are scheduled against it.
 
         The refusal names the fixtures on the path's id, so the dialog says which to move: without them it names none, and
@@ -202,7 +202,7 @@ class TestRetiringAVenueOrAReferee:
 
         spielort_id = ObjectId("6890a1b2c3d4e5f607182930")
 
-        assert build_unplayed_booking_filter(spielort_id) == {"ort.spielort_id": spielort_id, **unplayed_filter()}
+        assert build_unplayed_booking_filter(spielort_id) == {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
 
 class TestASquadEntry:

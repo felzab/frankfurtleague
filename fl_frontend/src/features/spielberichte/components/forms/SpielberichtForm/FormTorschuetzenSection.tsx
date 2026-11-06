@@ -46,7 +46,7 @@ export function FormTorschuetzenSection({
 }) {
   const panel = formPanel();
   const titelId = useId();
-  const listStatus = useFieldStatus<SpielberichtFieldPath>("bericht.torschuetzen");
+  const listStatus = useFieldStatus<SpielberichtFieldPath>("bericht.scorers");
 
   const update = (key: number, change: Partial<TorschuetzeDraft>) =>
     onChange(entries.map((entry) => (entry.key === key ? { ...entry, ...change } : entry)));
@@ -79,7 +79,7 @@ export function FormTorschuetzenSection({
             aria-label="Torschützen"
             className="flex w-full flex-col gap-3">
             {entries.map((entry, index) => {
-              const pfad = `bericht.torschuetzen.${String(index)}`;
+              const pfad = `bericht.scorers.${String(index)}`;
               const wofuer = `Tor ${String(index + 1)}`;
               const optionen = personOptionen(kontext, entry.side, entry.spieler === UNBEKANNT ? "" : entry.spieler);
 

@@ -20,7 +20,7 @@
 // writes would change what another reads (https://playwright.dev/docs/auth). One administrator per
 // end-to-end project (`fl_frontend/playwright.config.ts`), the third the desktop journey's whose save
 // meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
-// administration's journey's (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own
+// administration's journey's (`fl_frontend/e2e/desktop/admin.spec.ts`): each sets up its own
 // passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
 // journey's, are the account acts' three per project and the desktop passkey journeys' two. The owner's
 // code is asked for and never typed (`fl_frontend/e2e/signin.spec.ts`).
@@ -127,7 +127,7 @@ function germanMidnight(isoDay) {
 }
 
 // The link's deadline, fourteen days after the mail that owed it
-// (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`).
+// (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`).
 const LINK_DAYS = 14;
 
 /**
@@ -216,7 +216,7 @@ const GRANTS = [
   ["admin.desktop@example.com", "administration"],
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
-  ["admin.verwaltung@example.com", "administration"],
+  ["admin@example.com", "administration"],
 ].map(([address, admin_tier]) => ({
   _id: ObjectId(),
   address,
@@ -268,15 +268,15 @@ function side(name, tore) {
 }
 
 function booked(venueIndex, refereeIndex) {
-  const ort = VENUES[venueIndex];
+  const spielort = VENUES[venueIndex];
   const schiedsrichter = REFEREES[refereeIndex];
   return {
-    ort: { spielort_id: ort._id, mietpreis: ort.default_mietpreis },
+    spielort: { spielort_id: spielort._id, mietpreis: spielort.default_mietpreis },
     schiedsrichter: { schiedsrichter_id: schiedsrichter._id, payment: schiedsrichter.default_payment },
   };
 }
 
-const UNBOOKED = { ort: null, schiedsrichter: null };
+const UNBOOKED = { spielort: null, schiedsrichter: null };
 
 /**
  * One season's documents, numbered as the draw numbers them. `groups` names each group's four clubs
@@ -476,7 +476,7 @@ const running = season({
 // departed club does (`docs/domain.md`, "A departed club holding drawn fixtures").
 running.saisonTeams.find((row) => row.name === "Weide").austritt = {
   type: "disqualifikation",
-  exit_reason: "Nicht zum Spiel angetreten",
+  reason: "Nicht zum Spiel angetreten",
   date: day(-12),
 };
 
@@ -517,7 +517,7 @@ function ansetzungOf(spiel) {
   const values = {
     date: spiel.date,
     time: spiel.time,
-    spielort_id: spiel.ort.spielort_id,
+    spielort_id: spiel.spielort.spielort_id,
     team1_id: spiel.team1.team_id,
     team2_id: spiel.team2.team_id,
   };
@@ -612,14 +612,14 @@ const REPORTS = [
     spiel_id: REPORTED._id,
     bericht: {
       ergebnis_vorschlag: { team1_tore: 2, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
-      torschuetzen: [
+      scorers: [
         { side: "team1", spieler_id: PUPILS.mia._id, minute: "12", eigentor: false },
         { side: "team2", spieler_id: GHOST_SPIELER._id, minute: "40", eigentor: false },
         { side: "team1", spieler_id: null, minute: "45+2", eigentor: false },
       ],
-      karten: [
-        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", card_reason: "foulspiel" },
-        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", card_reason: null },
+      cards: [
+        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", reason: "foulspiel" },
+        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", reason: null },
       ],
       remarks: null,
       sides: { team1: REPORTED.team1.team_id, team2: REPORTED.team2.team_id },

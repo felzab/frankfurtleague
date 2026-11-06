@@ -112,9 +112,7 @@ def registration(registrierung_id: ObjectId, email: str, *, declined: bool = Fal
     )
 
     return (
-        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", decision_reason=None, today="2026-03-05")["$set"]}
-        if declined
-        else document
+        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", reason=None, today="2026-03-05")["$set"]} if declined else document
     )
 
 
@@ -134,7 +132,7 @@ def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
     """A report naming that due pupil among its scorers, whose repoint writes a log row: what makes a pupil's erasure its costliest."""
 
     report = spielbericht_document({"_id": numbered(7000 + position), "saison_id": "2024"})
-    report["bericht"]["torschuetzen"][0]["spieler_id"] = numbered(position)
+    report["bericht"]["scorers"][0]["spieler_id"] = numbered(position)
 
     return {Collection.SPIELBERICHTE: [report]}
 

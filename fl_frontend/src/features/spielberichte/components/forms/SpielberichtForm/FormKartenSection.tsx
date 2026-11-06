@@ -48,11 +48,11 @@ export function FormKartenSection({
   const titelId = useId();
   const erlassen = gruendeErlassen(
     bestand,
-    eintraege.map((karte) => ({ ...karte, spieler_id: karte.spieler })),
+    eintraege.map((entry) => ({ ...entry, spieler_id: entry.spieler })),
   );
 
   const update = (key: number, change: Partial<KarteDraft>) =>
-    onChange(eintraege.map((karte) => (karte.key === key ? { ...karte, ...change } : karte)));
+    onChange(eintraege.map((entry) => (entry.key === key ? { ...entry, ...change } : entry)));
 
   return (
     <section className={panel.root()}>
@@ -73,26 +73,26 @@ export function FormKartenSection({
           <ul
             aria-label="Karten"
             className="flex w-full flex-col gap-3">
-            {eintraege.map((karte, index) => {
-              const pfad = `bericht.karten.${String(index)}`;
+            {eintraege.map((entry, index) => {
+              const pfad = `bericht.cards.${String(index)}`;
               const wofuer = `Karte ${String(index + 1)}`;
 
               return (
-                <li key={karte.key}>
+                <li key={entry.key}>
                   {/* Each entry repeats „Team“, „Minute“ and the rest: a group named by its title qualifies them (W3C ARIA17). */}
                   <div
                     role="group"
-                    aria-labelledby={`${titelId}-${String(karte.key)}`}
+                    aria-labelledby={`${titelId}-${String(entry.key)}`}
                     className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
                     <div className="flex w-full flex-row items-center justify-between gap-3">
                       <span
-                        id={`${titelId}-${String(karte.key)}`}
+                        id={`${titelId}-${String(entry.key)}`}
                         className="fluid-xs font-bold text-foreground">
                         {wofuer}
                       </span>
                       <EntfernenButton
                         wofuer={wofuer}
-                        onPress={() => onChange(eintraege.filter((other) => other.key !== karte.key))}
+                        onPress={() => onChange(eintraege.filter((other) => other.key !== entry.key))}
                       />
                     </div>
 
@@ -101,23 +101,23 @@ export function FormKartenSection({
                         name={`${pfad}.side`}
                         label="Team"
                         placeholder="Team wählen"
-                        value={karte.side}
+                        value={entry.side}
                         options={seitenOptionen(kontext)}
                         // Another side's squad names other pupils, so the person picked for the first does not survive the switch.
-                        onChange={(seite) => update(karte.key, seite === karte.side ? {} : { side: seite, spieler: "" })}
+                        onChange={(seite) => update(entry.key, seite === entry.side ? {} : { side: seite, spieler: "" })}
                         error={fieldErrors[`${pfad}.side`]}
                       />
                       <AuswahlSelect<string>
                         name={`${pfad}.spieler_id`}
                         label="Spielerin oder Spieler"
-                        placeholder={karte.side === null ? "Zuerst das Team wählen" : "Person wählen"}
-                        value={karte.spieler === "" ? null : karte.spieler}
-                        options={personOptionen(kontext, karte.side, karte.spieler)}
-                        onChange={(spieler) => update(karte.key, { spieler })}
+                        placeholder={entry.side === null ? "Zuerst das Team wählen" : "Person wählen"}
+                        value={entry.spieler === "" ? null : entry.spieler}
+                        options={personOptionen(kontext, entry.side, entry.spieler)}
+                        onChange={(spieler) => update(entry.key, { spieler })}
                         error={fieldErrors[`${pfad}.spieler_id`]}
                         hint={personHinweis({
-                          geleert: geleert.has(karte.key) && karte.spieler === "",
-                          ohneKaderSatz: ohneKader(kontext, karte.side)
+                          geleert: geleert.has(entry.key) && entry.spieler === "",
+                          ohneKaderSatz: ohneKader(kontext, entry.side)
                             ? "Für dieses Team ist kein Kader hinterlegt. Beschreib die Karte dann in den Bemerkungen mit der Rückennummer."
                             : null,
                         })}
@@ -127,34 +127,34 @@ export function FormKartenSection({
                     <div className={FIELD_PAIR_CLASSES}>
                       <MinuteField
                         name={`${pfad}.minute`}
-                        value={karte.minute}
-                        onChange={(minute) => update(karte.key, { minute })}
+                        value={entry.minute}
+                        onChange={(minute) => update(entry.key, { minute })}
                         onBlur={() => onValidateFields([`${pfad}.minute`])}
                       />
                       <AuswahlSelect<FLCardColour>
                         name={`${pfad}.colour`}
                         label="Farbe"
                         placeholder="Farbe wählen"
-                        value={karte.colour}
+                        value={entry.colour}
                         options={FARBE_OPTIONEN}
-                        onChange={(farbe) => update(karte.key, { colour: farbe })}
+                        onChange={(farbe) => update(entry.key, { colour: farbe })}
                         error={fieldErrors[`${pfad}.colour`]}
                       />
                     </div>
 
                     <AuswahlSelect<FLCardReason | typeof KEIN_GRUND>
-                      name={`${pfad}.card_reason`}
+                      name={`${pfad}.reason`}
                       label="Grund"
                       placeholder="Grund wählen"
-                      value={karte.card_reason ?? (karte.colour === "rot" ? KEIN_GRUND : null)}
+                      value={entry.reason ?? (entry.colour === "rot" ? KEIN_GRUND : null)}
                       // Red alone may stand without a reason, so only it offers the way back to none.
-                      options={karte.colour === "rot" ? [{ id: KEIN_GRUND, label: "Kein Grund" }, ...GRUND_OPTIONEN] : GRUND_OPTIONEN}
-                      onChange={(grund) => update(karte.key, { card_reason: grund === KEIN_GRUND ? null : grund })}
-                      error={fieldErrors[`${pfad}.card_reason`]}
+                      options={entry.colour === "rot" ? [{ id: KEIN_GRUND, label: "Kein Grund" }, ...GRUND_OPTIONEN] : GRUND_OPTIONEN}
+                      onChange={(grund) => update(entry.key, { reason: grund === KEIN_GRUND ? null : grund })}
+                      error={fieldErrors[`${pfad}.reason`]}
                       // Marked by hand: a caution's reason is refused empty over the whole list
                       // (`fl_frontend/src/features/spielberichte/schemas.ts :: spielberichtFormSchema`), the leaf taking `null`
                       // for a red and for a caution a stripped card of the stored report excuses.
-                      isRequired={(karte.colour === "gelb" || karte.colour === "gelb_rot") && !erlassen[index]}
+                      isRequired={(entry.colour === "gelb" || entry.colour === "gelb_rot") && !erlassen[index]}
                     />
                   </div>
                 </li>

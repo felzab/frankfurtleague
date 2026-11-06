@@ -45,7 +45,7 @@ SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072800f1")
 # Two groups of two, so the two rows in B fill it and a move into it is refused.
 RULES = rules_document(number_of_gruppen=2, teams_per_gruppe=2, allowed_stufen=["E1", "Q1"])
 
-EXIT = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-04-01"}
+EXIT = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-04-01"}
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
@@ -372,14 +372,14 @@ class TestTheEditorRead:
     def test_each_lock_reads_as_its_write_judges(self, mongo_replica_set_url: str):
         """A control opening where the write refuses is a press answered by a stale page."""
 
-        fixture = spiel_document(
+        spiel = spiel_document(
             spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=SPIELTAG_OID, team1={"team_id": ADLER, "tore": None}
         )
 
         async def body(database: AsyncDatabase) -> Any:
             return await editor(database)
 
-        view = on_a_league(mongo_replica_set_url, body, spiele=[fixture])
+        view = on_a_league(mongo_replica_set_url, body, spiele=[spiel])
 
         assert view.gruppe_locked is True
         assert view.retire_blocked_by == SAISON_ID

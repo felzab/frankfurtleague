@@ -22,7 +22,7 @@ from tests.bans import ban_list
 STORED_SPIEL = {
     "_id": ObjectId("6890a1b2c3d4e5f607200010"),
     "team1": {"team_id": ObjectId("6890a1b2c3d4e5f607200011"), "tore": 2},
-    "ort": {"spielort_id": ObjectId("6890a1b2c3d4e5f607200012")},
+    "spielort": {"spielort_id": ObjectId("6890a1b2c3d4e5f607200012")},
     "schiedsrichter": {"schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607200013")},
     "mitwirkende": [ObjectId("6890a1b2c3d4e5f607200014")],
     "ergebnis": "2:1",
@@ -73,7 +73,7 @@ class TestARecordedRowSurvivesTheResponseModel:
 
         assert before["_id"] == "6890a1b2c3d4e5f607200010"
         assert before["team1"]["team_id"] == "6890a1b2c3d4e5f607200011"
-        assert before["ort"]["spielort_id"] == "6890a1b2c3d4e5f607200012"
+        assert before["spielort"]["spielort_id"] == "6890a1b2c3d4e5f607200012"
         assert before["schiedsrichter"]["schiedsrichter_id"] == "6890a1b2c3d4e5f607200013"
         assert before["mitwirkende"] == ["6890a1b2c3d4e5f607200014"]
 

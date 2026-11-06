@@ -188,7 +188,7 @@ def _spiel(
         "team2_quelle": team2_quelle,
         "date": None,
         "time": None,
-        "ort": None,
+        "spielort": None,
         "schiedsrichter": None,
         "ergebnis": None,
         "elfmeterschiessen": None,

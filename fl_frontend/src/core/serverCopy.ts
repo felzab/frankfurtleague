@@ -28,7 +28,7 @@ const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(form
 // A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
 // path it names, the adoption, which names none, by a code of its own per resource and side.
 const DOUBLE_BOOKED = {
-  ort: "Der Spielort ist zu dieser Zeit schon belegt.",
+  spielort: "Der Spielort ist zu dieser Zeit schon belegt.",
   schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
 };
 const DISQUALIFIED = {
@@ -112,11 +112,11 @@ export const SERVER_COPY = catalogue({
      * is a page read before the deletion, which the same sentence sends to the same box.
      */
     booking_unknown_resource: {
-      ort: "Der Spielort ist stillgelegt.",
+      spielort: "Der Spielort ist stillgelegt.",
       schiedsrichter: "Die eingeteilte Person ist stillgelegt.",
     },
     spiel_double_booked: DOUBLE_BOOKED,
-    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
+    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.spielort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
     /** The league's last owner, whose erasure would leave the administration owned by nobody: the glossary's screen word. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber.",
@@ -190,7 +190,7 @@ export const SERVER_COPY = catalogue({
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
     elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
-    torschuetzen_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
+    scorers_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
   } satisfies Partial<Record<Rule, string>>,
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
@@ -216,9 +216,9 @@ export const SERVER_COPY = catalogue({
     missing: (label: Copy) => `${label} fehlt`,
     /** A report awaiting the administrator, by the state it reads in. */
     report: {
-      vorgeschlagen: "Spielbericht nicht übernommen",
+      proposed: "Spielbericht nicht übernommen",
       differing: "Spielbericht weicht vom Ergebnis ab",
-      teams_changed: "Spielbericht nennt andere Teams",
+      sides_changed: "Spielbericht nennt andere Teams",
     },
     /** A club's proposed date and hour, as a match row writes them; a club the fixture no longer fields is not named. */
     proposal: (when: Copy, team: Words | null) => (team === null ? `Schlägt ${when} vor` : `${textOf(team)} schlägt ${when} vor`),
@@ -242,7 +242,7 @@ export const SERVER_COPY = catalogue({
       fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
       /** By the booking's object, „Spielort“ or „Schiedsrichter“. */
       retired_booking: (booking: Copy) => `${booking} stillgelegt`,
-      double_booked: { ort: "Spielort doppelt belegt", schiedsrichter: "Schiedsrichter doppelt eingeteilt" } satisfies Record<
+      double_booked: { spielort: "Spielort doppelt belegt", schiedsrichter: "Schiedsrichter doppelt eingeteilt" } satisfies Record<
         FLBookingResource,
         string
       >,
@@ -341,7 +341,7 @@ export const SERVER_COPY = catalogue({
     austrittNotice: {
       subject: (team: string) => `${team} spielt nicht mehr mit`,
       lead: { after: (saison: string) => ` ist aus der ${COPY.shared.saisonName(saison)} ausgeschieden.` },
-      fixtures: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
+      spiele: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
     },
 
     /**
@@ -467,7 +467,7 @@ export const SERVER_COPY = catalogue({
      * A team's registration link, to a confirmed contact seat: the link stands alone in the box, to be passed on
      * rather than pressed. It names no end date, since a window moved later moves every link with it.
      */
-    einladung: {
+    invitation: {
       subject: (team: string) => `Registrierungslink für ${team}`,
       passOn: (saison: string, team: string) =>
         `Gib diesen Link an alle weiter, die in der ${COPY.shared.saisonName(saison)} für ${team} spielen.`,
@@ -695,20 +695,20 @@ export const SERVER_COPY = catalogue({
     /** A match's page: its line-ups, and its goals and cards by minute. */
     spiel: {
       aufstellung: "Aufstellung",
-      toreAndKarten: "Tore und Karten",
+      toreAndCards: "Tore und Karten",
       /**
        * The plural the match's empty timeline names until its report is adopted, whose goals and cards are not
        * official before: „Noch keine offiziellen Tore und Karten.“, where an adopted report naming none reads
        * „Noch keine Tore und Karten.“
        */
-      officialToreAndKarten: "offiziellen Tore und Karten",
+      officialToreAndCards: "offiziellen Tore und Karten",
       /** A pupil whose consent publishes no name, or one erased since. */
       anonymous: "anonym",
       /** A goal nobody was named for. */
       unknown: "unbekannt",
       tor: "Tor",
       eigentor: "Eigentor",
-      karte: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
+      card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
       /** A checkpoint's title: what happened, and to whom. */
       event: (what: Copy, who: Words) => `${what} · ${textOf(who)}`,
     },

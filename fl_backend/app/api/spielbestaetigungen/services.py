@@ -13,7 +13,7 @@ from app.api.outbox.schemas import (
     FLSpielEinteilungLiftedData,
     FLSpielMailAnsetzung,
     FLSpielMailAppointment,
-    FLSpielMailFixture,
+    FLSpielMailEntry,
     FLSpielMovedData,
     FLSpielNoticeData,
     FLSpielVorschlagDiscardedData,
@@ -31,8 +31,8 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY,
     FLPatchSpielDataPayload,
     FLSpiel,
-    FLSpielOrtFieldPayload,
-    FLSpielOrtFieldPublic,
+    FLSpielortFieldPayload,
+    FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
 )
@@ -54,7 +54,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielS
 ANSETZUNG_QUELLEN: Final[Mapping[str, str]] = {
     "date": "date",
     "time": "time",
-    "spielort_id": "ort.spielort_id",
+    "spielort_id": "spielort.spielort_id",
     "team1_id": "team1.team_id",
     "team2_id": "team2.team_id",
 }
@@ -80,7 +80,7 @@ def _digest(values: Mapping[str, Any]) -> str:
 
 
 def ansetzung_stand_of(spiel: Mapping[str, Any]) -> str:
-    """The digest of a raw fixture's Ansetzung: `date`, `time`, `ort.spielort_id`, `team1.team_id`, `team2.team_id`.
+    """The digest of a raw fixture's Ansetzung: `date`, `time`, `spielort.spielort_id`, `team1.team_id`, `team2.team_id`.
 
     The ground on purpose: a confirmation binds it too. A sixth input changes every stored row's meaning.
     """
@@ -388,7 +388,7 @@ def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
 ADOPTION_TWINS: Twins = {
     Code.ANSETZUNG_VORSCHLAG_PAST: Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED,
     Code.SPIEL_DOUBLE_BOOKED: {
-        "ort": Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED,
+        "spielort": Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED,
         "schiedsrichter": Code.SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED,
     },
     Code.ELIGIBILITY_DISQUALIFIED: {
@@ -420,7 +420,9 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment)
         elfmeterschiessen=stored.elfmeterschiessen,
         date=vorschlag.date,
         time=vorschlag.time,
-        ort=None if stored.ort is None else FLSpielOrtFieldPayload(spielort_id=stored.ort.spielort_id, mietpreis=stored.ort.mietpreis),
+        spielort=None
+        if stored.spielort is None
+        else FLSpielortFieldPayload(spielort_id=stored.spielort.spielort_id, mietpreis=stored.spielort.mietpreis),
         schiedsrichter=(
             None
             if stored.schiedsrichter is None
@@ -452,7 +454,7 @@ def ansicht_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAns
     """
 
     # Absent rather than null where a projection met a fixture without a ground.
-    ort = spiel.get("ort")
+    spielort = spiel.get("spielort")
 
     return FLSpielbestaetigungViewAnsetzung(
         team1_name=spiel["team1"]["name"],
@@ -460,8 +462,8 @@ def ansicht_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAns
         date=spiel["date"],
         time=spiel["time"],
         spielort=None
-        if not isinstance(ort, Mapping)
-        else FLSpielOrtFieldPublic(spielort_id=ort["spielort_id"], name=ort["name"], maps_link=ort["maps_link"]),
+        if not isinstance(spielort, Mapping)
+        else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_link=spielort["maps_link"]),
     )
 
 
@@ -493,7 +495,7 @@ def ansicht_snapshot_of(
     lage: AnsetzungLage,
     # A club replaced since, by the name its `teams` document holds.
     vereinsnamen: Mapping[Any, str],
-    spielort: FLSpielOrtFieldPublic | None,
+    spielort: FLSpielortFieldPublic | None,
 ) -> FLSpielbestaetigungViewAnsetzung:
     """The Ansetzung a row whose stand moved was about, whole: its clubs by their season names and `spielort`, its ground read now."""
 
@@ -748,7 +750,7 @@ def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
         "saison_id": saison_id,
         "date": {"$gt": today, "$lte": letzter_anfrage_tag(today=today)},
         "time": {"$ne": None},
-        "ort": {"$ne": None},
+        "spielort": {"$ne": None},
         "team1": {"$ne": None},
         "team2": {"$ne": None},
         "ergebnis": None,
@@ -862,7 +864,7 @@ def anfrage_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], to
         isinstance(date, str)
         and today < date <= letzter_anfrage_tag(today=today)
         and spiel.get("time") is not None
-        and isinstance(spiel.get("ort"), Mapping)
+        and isinstance(spiel.get("spielort"), Mapping)
         and _side_id(spiel, "team1") is not None
         and _side_id(spiel, "team2") is not None
         and spiel.get("ergebnis") is None
@@ -1225,7 +1227,7 @@ def austritt_notices_of(
     would stand in for the seat's link mail, whose delivery the team editor reads.
     """
 
-    open_fixtures: dict[Any, list[FLSpielMailFixture]] = {}
+    open_spiele: dict[Any, list[FLSpielMailEntry]] = {}
     ordered = sorted(spiele, key=lambda spiel: (spiel.get("date") is None, spiel.get("date") or "", spiel.get("time") or ""))
     for spiel in ordered:
         team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
@@ -1235,16 +1237,16 @@ def austritt_notices_of(
 
         own_exit = (opponent.get("austritt") or {}).get("date")
         if entscheidung_of(spiel=spiel, austritte=[] if own_exit is None else [own_exit], tag=spiel.get("date")) is None:
-            open_fixtures.setdefault(opponent["team_id"], []).append(
-                FLSpielMailFixture(team1=vereine[team1]["name"], team2=vereine[team2]["name"], date=spiel.get("date"), time=spiel.get("time"))
+            open_spiele.setdefault(opponent["team_id"], []).append(
+                FLSpielMailEntry(team1=vereine[team1]["name"], team2=vereine[team2]["name"], date=spiel.get("date"), time=spiel.get("time"))
             )
 
     departed = vereine[team_id]
     reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=departed["_id"], seat=None)
     notices: dict[Any, list[OwedMail]] = {}
-    for opponent_id, fixtures in open_fixtures.items():
+    for opponent_id, listed in open_spiele.items():
         opponent = vereine[opponent_id]
-        data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, fixtures=fixtures)
+        data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, spiele=listed)
         mails = [
             OwedMail(key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{rollen[0]}", an=address, data=data, reference=reference)
             for address, rollen in group_seats_by_mailbox(kontakte=opponent.get("kontakte"), seats=KONTAKT_ROLLEN)

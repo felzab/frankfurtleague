@@ -76,9 +76,9 @@ const FIELD_DESCRIPTORS = [
       const typeLabel = AUSTRITT_OPTIONS.find((option) => option.value === record.type)?.label ?? nichtHinterlegt("Art");
       // Both fallbacks render a row rather than hiding one: they are the mid-edit states the schema
       // rejects on save, and the change list is where the admin sees what is still missing.
-      return `${typeLabel}: ${record.exit_reason || nichtHinterlegt("Grund")} (ab ${formatSpielDatum(record.date)})`;
+      return `${typeLabel}: ${record.reason || nichtHinterlegt("Grund")} (ab ${formatSpielDatum(record.date)})`;
     },
-    errorPaths: ["austritt", "austritt.type", "austritt.exit_reason", "austritt.date"],
+    errorPaths: ["austritt", "austritt.type", "austritt.reason", "austritt.date"],
   },
   {
     path: "trikot_farbe",

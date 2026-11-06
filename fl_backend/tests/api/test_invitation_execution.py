@@ -8,11 +8,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.einladungen.crud import owed_einladung_mails
-from app.api.einladungen.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload, FLInvitationRecipient
-from app.api.einladungen.services import (
-    find_live_einladung_filter,
-    find_unknown_einladung_refusal,
+from app.api.invitations.crud import owed_invitation_mails
+from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload, FLInvitationRecipient
+from app.api.invitations.services import (
+    find_live_invitation_filter,
+    find_unknown_invitation_refusal,
 )
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
@@ -31,7 +31,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_einladung_test")
+DATABASE_NAME = worker_database("fl_invitation_test")
 
 SAISON_ID = "2026"
 ADMIN = "admin@frankfurtleague.de"
@@ -46,13 +46,13 @@ ALREADY_MAILED = ObjectId("6890a1b2c3d4e5f607260004")
 WITHDRAWN = ObjectId("6890a1b2c3d4e5f607260006")
 NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
-SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
+SEEDED_INVITATION = ObjectId("6890a1b2c3d4e5f607260011")
 
 REGISTRIERUNG: Mapping[str, Any] = {"open": True, "end": "2026-04-30"}
 
 TEAM_NAMES = {TWO_SEATS: "Adler", UNCONFIRMED: "Bieber", NO_BLOCK: "Cronberg", ALREADY_MAILED: "Dornbusch", WITHDRAWN: "Eschborn"}
 
-AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-03-25"}
+AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-25"}
 
 
 def kontaktperson(first_name: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:
@@ -91,7 +91,7 @@ def junction_row(team_id: ObjectId, *, saison_id: str = SAISON_ID) -> dict[str, 
     )
 
 
-def einladung_row(team_id: ObjectId, *, _id: ObjectId | None = None, sent_at: str | None = None) -> dict[str, Any]:
+def invitation_row(team_id: ObjectId, *, _id: ObjectId | None = None, sent_at: str | None = None) -> dict[str, Any]:
     return {
         "_id": _id or ObjectId(),
         "saison_id": SAISON_ID,
@@ -124,8 +124,8 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active") -> Any:
                 )
             )
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(team_id) for team_id in TEAM_NAMES])
-            await database[Collection.INVITATIONS].insert_one(einladung_row(ALREADY_MAILED, _id=SEEDED_EINLADUNG, sent_at="2026-03-15"))
-            await a_sent_mail(database, SEEDED_EINLADUNG, "fendrick@example.com")
+            await database[Collection.INVITATIONS].insert_one(invitation_row(ALREADY_MAILED, _id=SEEDED_INVITATION, sent_at="2026-03-15"))
+            await a_sent_mail(database, SEEDED_INVITATION, "fendrick@example.com")
 
             return await body(database)
 
@@ -139,7 +139,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str)
         await enqueue_mails(
             outbox_collection=database[Collection.OUTBOX],
             session=session,
-            mails=owed_einladung_mails(
+            mails=owed_invitation_mails(
                 invitation_id=invitation_id,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
@@ -334,10 +334,10 @@ class TestReissuingALink:
             first = await mint(database, TWO_SEATS)
             await mint(database, TWO_SEATS)
 
-            found = await database[Collection.INVITATIONS].find_one(dict(find_live_einladung_filter(token_hash=hash_token(first.token))))
+            found = await database[Collection.INVITATIONS].find_one(dict(find_live_invitation_filter(token_hash=hash_token(first.token))))
             by_hash_alone = await database[Collection.INVITATIONS].count_documents({"token_hashes": hash_token(first.token)})
             # A value no mint ever produced, so the second cause is driven rather than assumed.
-            unknown = await database[Collection.INVITATIONS].find_one(dict(find_live_einladung_filter(token_hash=hash_token("never-minted"))))
+            unknown = await database[Collection.INVITATIONS].find_one(dict(find_live_invitation_filter(token_hash=hash_token("never-minted"))))
 
             return found, by_hash_alone, unknown
 
@@ -350,8 +350,8 @@ class TestReissuingALink:
 
         # The only rung both causes exist at: a replaced link and a stranger's guess answer with
         # the SAME refusal, message included, so nothing tells the guess it hit a real link.
-        replaced = find_unknown_einladung_refusal(einladung_raw=found)
-        guessed = find_unknown_einladung_refusal(einladung_raw=unknown)
+        replaced = find_unknown_invitation_refusal(invitation_raw=found)
+        guessed = find_unknown_invitation_refusal(invitation_raw=unknown)
 
         assert replaced is not None
         assert replaced.error_code == Code.DOCUMENT_NOT_FOUND
@@ -434,10 +434,10 @@ class TestTheRuleOfOneLiveInvitation:
 
     def test_a_second_live_row_for_one_team_and_season_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
+            await database[Collection.INVITATIONS].insert_one(invitation_row(TWO_SEATS))
 
             with pytest.raises(DuplicateKeyError):
-                await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
+                await database[Collection.INVITATIONS].insert_one(invitation_row(TWO_SEATS))
 
             return await live_count(database, TWO_SEATS)
 
@@ -545,7 +545,7 @@ class TestTheTeamsMailPress:
             minted = await mint(database, TWO_SEATS)
             first = await mail(database, TWO_SEATS, minted.invitation_id)
             await mail(database, TWO_SEATS, minted.invitation_id)
-            copied = await database[Collection.INVITATIONS].find_one(dict(find_live_einladung_filter(token_hash=hash_token(minted.token))))
+            copied = await database[Collection.INVITATIONS].find_one(dict(find_live_invitation_filter(token_hash=hash_token(minted.token))))
 
             return [entry.email for entry in first.recipient], await owed_for(database, TWO_SEATS), copied is not None
 
@@ -598,7 +598,7 @@ class TestTheSeasonWidePress:
 
         live = on_a_league(mongo_replica_set_url, body)
 
-        assert live is not None and live["_id"] == SEEDED_EINLADUNG
+        assert live is not None and live["_id"] == SEEDED_INVITATION
 
     def test_it_mails_the_confirmed_seats_of_the_team_it_reaches(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -628,7 +628,7 @@ class TestTheSeasonWidePress:
             await database[Collection.BAN_LIST].insert_many(
                 [ban_document("Bramblewick@Example.com", until=bound), ban_document("quillhilde@example.com", until=bound)]
             )
-            await database[Collection.INVITATIONS].insert_one(einladung_row(TWO_SEATS))
+            await database[Collection.INVITATIONS].insert_one(invitation_row(TWO_SEATS))
             shown = await editor(database)
             first = await press(database)
             second = await press(database)
@@ -675,9 +675,9 @@ class TestTheSeasonWidePress:
         """A skip leaves the team exactly as it was, or the link in somebody's inbox stops opening anything."""
 
         async def body(database: AsyncDatabase) -> Any:
-            before = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_EINLADUNG})
+            before = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_INVITATION})
             await press(database)
-            after = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_EINLADUNG})
+            after = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_INVITATION})
 
             return before, after
 
@@ -690,7 +690,7 @@ class TestTheSeasonWidePress:
 
         async def body(database: AsyncDatabase) -> Any:
             await press(database, resend=True)
-            replaced = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_EINLADUNG})
+            replaced = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_INVITATION})
 
             assert replaced is not None
             return replaced["revoked_at"], await live_count(database, ALREADY_MAILED)
@@ -746,7 +746,7 @@ class TestTheSeasonWidePress:
                 today=TODAY,
                 germany_now=MAIL_NOW,
             )
-            seeded = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_EINLADUNG})
+            seeded = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_INVITATION})
 
             assert seeded is not None
             return done, seeded["revoked_at"], await live_count(database, TWO_SEATS), await owed_for(database, TWO_SEATS)

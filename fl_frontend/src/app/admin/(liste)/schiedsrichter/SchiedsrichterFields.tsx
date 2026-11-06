@@ -35,11 +35,11 @@ export function SchiedsrichterFields() {
       />
       <TextField
         label={COPY.admin.payment}
-        name="payment"
+        name="default_payment"
         width="C5"
         kind="digits"
         unit={COPY.shared.unit.euro}
-        isRequired={required.payment}
+        isRequired={required.default_payment}
       />
       <FieldGroup name={COPY.admin.schiedsrichter.kontaktdaten}>
         <TextField

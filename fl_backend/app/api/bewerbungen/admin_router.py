@@ -293,10 +293,10 @@ async def get_bewerbung(
     )
 
 
-def _entscheidung(*, today: str, by: str, decision_reason: str | None) -> dict[str, Any]:
+def _entscheidung(*, today: str, by: str, reason: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
-    return {"made_at": today, "by": by, "decision_reason": decision_reason}
+    return {"made_at": today, "by": by, "reason": reason}
 
 
 async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
@@ -457,7 +457,7 @@ async def accept_bewerbung(
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
-            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, by=by, decision_reason=None)}},
+            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, by=by, reason=None)}},
             session=session,
             expected_version=annahme_data.version,
             return_document=ReturnDocument.BEFORE,
@@ -539,9 +539,7 @@ async def decline_bewerbung(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={
-                "$set": {"status": "declined", "decision": _entscheidung(today=today, by=by, decision_reason=ablehnung_data.decision_reason)}
-            },
+            update={"$set": {"status": "declined", "decision": _entscheidung(today=today, by=by, reason=ablehnung_data.reason)}},
             session=session,
             expected_version=ablehnung_data.version,
             return_document=ReturnDocument.BEFORE,
@@ -559,7 +557,7 @@ async def decline_bewerbung(
                         team=team,
                         saison_id=str(stored_raw["saison_id"]),
                         rollen=seats,
-                        decision_reason=ablehnung_data.decision_reason,
+                        reason=ablehnung_data.reason,
                     ),
                 )
                 for email, seats in people_with_address(kontakte=stored_raw.get("kontakte"))
