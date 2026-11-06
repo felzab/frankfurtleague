@@ -124,9 +124,9 @@ export function formatDayAndTime(day: CalendarDay, time: TimeOfDay): string {
 
 /**
  * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. The
- * runtime's ICU data decides the spaces around the dash (`format.test.ts` holds Node's thin spaces), and a
- * browser's may write others, so a span is formatted on the server and handed to a client component as a
- * string: formatted during a client component's server render, it hydrates against different text.
+ * runtime's ICU data decides the spaces around the dash, and a browser's may write others, so a span is formatted on
+ * the server and handed to a client component as a string: formatted during a client component's server render, it
+ * hydrates against different text.
  */
 export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): string => DATE.formatRange(asInstant(from), asInstant(to));
 
