@@ -2,6 +2,8 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
+import { FactsPlaceholder } from "@/kit/Facts";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
@@ -61,9 +63,24 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         sections: [
-          ["field", "field", "field"],
-          ["pair", "field"],
+          [
+            "field",
+            "field",
+            <FieldPlaceholder
+              key="payment"
+              width="C5"
+            />,
+          ],
+          ["field", "field"],
+          // A confirmed referee's box, as nearly every entry lands: one waiting on its answer adds its act.
+          [
+            <FactsPlaceholder
+              key="confirmation"
+              pairs={2}
+            />,
+          ],
         ],
+        danger: [COPY.shared.verb.retire],
       }}
       editor={readEditor(params)}
     />
@@ -106,14 +123,20 @@ function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: 
 
 /**
  * The Bestätigung's facts: where it stands, and the day the last link went, a fresh one replacing it; the address and
- * the phone stand in their own fields above, each reached from there.
+ * the phone stand in their own fields above, each reached from there. An entry never asked has neither, and no such
+ * block stands for it; once one holds a value both rows stand, the other a dash.
  */
 function confirmationFacts(read: FLSchiedsrichterSingleResponse): Fact[] {
   const standing = standingOf(read);
   const sent = read.schiedsrichter.confirmation?.sent_at ?? null;
+  if (standing === null && sent === null) return [];
   return [
-    ...(standing === null ? [] : [{ label: WORDS.state, value: standing }]),
-    ...(sent === null ? [] : [{ label: COPY.shared.toast.linkSent, value: { record: formatDate(dayOf(sent)) }, figures: true }]),
+    { label: WORDS.state, value: standing ?? COPY.shared.noValue },
+    {
+      label: COPY.shared.toast.linkSent,
+      value: sent === null ? COPY.shared.noValue : { record: formatDate(dayOf(sent)) },
+      figures: true,
+    },
   ];
 }
 

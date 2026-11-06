@@ -28,14 +28,15 @@ const reach = tv({
  * message line under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A
  * field whose line appears with its error alone, the sign-in's address, takes `line={false}`.
  */
-export function FieldPlaceholder({ width, line = true }: { width: "W3" | "C10" | "C5" | "C2" | "column"; line?: boolean }) {
+export function FieldPlaceholder({ width, line = true }: { width: "W3" | "W3L" | "C10" | "C5" | "C2" | "column"; line?: boolean }) {
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
         text={fieldLabel()}
         width="w-24"
       />
-      <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[width]}`)} />
+      {/* The frame's own text size, which a short width's `ch` is counted in. */}
+      <span className={placeholderBar(`rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width[width]}`)} />
       {line && <span className={messageLine()} />}
     </div>
   );

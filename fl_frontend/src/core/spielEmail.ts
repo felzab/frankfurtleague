@@ -9,6 +9,7 @@ import { SERVER_COPY } from "./serverCopy";
 import type { Copy } from "./copy";
 import type { Fact, Mail, Paragraph, Sentence } from "./emailShell";
 import type {
+  FLAustrittNoticeData,
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
   FLSpielMailAnsetzung,
@@ -35,7 +36,8 @@ export function spielBestaetigungsLink(origin: string, token: string): string {
 const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
 
 /** The fixture by its two sides in the fixture's own order, as the schedule lists them. */
-const paarung = ({ team1, team2 }: FLSpielMailAppointment): Copy => COPY.page.spiel({ record: team1 }, { record: team2 });
+const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2">): Copy =>
+  COPY.page.spiel({ record: team1 }, { record: team2 });
 
 const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
 
@@ -197,4 +199,20 @@ export function buildSpielVorschlagVerworfenEmail({ appointment }: FLSpielVorsch
     around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
     WORDS.keptDiscarded,
   ]);
+}
+
+/**
+ * The word to an opponent that a club left the season, listing the fixtures left open between them, an undated one by
+ * what is still to settle. No button and no name, as every notice: the league writes again about each fixture.
+ */
+export function buildAustrittNoticeEmail({ team, saison_id: saison, fixtures }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
+  const words = SERVER_COPY.mail.austrittNotice;
+
+  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)], words.fixtures(fixtures.length)], {
+    title: COPY.page.spiele,
+    facts: fixtures.map((fixture) => ({
+      label: COPY.spielplan.when(dayOf(fixture.date), timeOf(fixture.time)),
+      value: paarung(fixture),
+    })),
+  });
 }

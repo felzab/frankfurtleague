@@ -2610,8 +2610,10 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
  * about a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
  * where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
  * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
- * as it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's
- * seats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.
+ * as it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,
+ * each opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::
+ * owe_the_austritt_notices_in_session`). A club is told at every address its season row's seats hold now, a referee at
+ * the address their record holds; a party nobody is left to tell is told nothing.
  *
  * The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
  * ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -2816,7 +2818,6 @@ export const SpieleGetSpieleAdminQueryParams = zod.object({
   saison_phase: zod
     .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
     .optional(),
-  spiel_status: zod.union([zod.enum(["from_today", "past", "today", "cancelled", "unknown"]), zod.null()]).optional(),
   team_id: zod.union([zod.string().regex(spieleGetSpieleAdminQueryTeamIdOneRegExp), zod.null()]).optional(),
   limit: zod.int().min(1).max(spieleGetSpieleAdminQueryLimitMax).default(spieleGetSpieleAdminQueryLimitDefault),
   sort_by: zod.enum(["date", "time", "spiel_nr", "saison_phase"]).default(spieleGetSpieleAdminQuerySortByDefault),
