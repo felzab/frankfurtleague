@@ -7,8 +7,8 @@ import { useObjectRef } from "react-aria/useObjectRef";
 
 import type { ComponentProps, FormEvent } from "react";
 
-/** React Aria's `Form` types no capture handler, and hands the DOM what it is spread. */
-const REFUSED_RESET = { onResetCapture: (event: FormEvent<HTMLFormElement>) => event.preventDefault() };
+/** React Aria's `Form` types neither a capture handler nor `noValidate`, and hands the DOM what it is spread. */
+const FORM_ATTRIBUTES = { noValidate: true, onResetCapture: (event: FormEvent<HTMLFormElement>) => event.preventDefault() };
 
 /**
  * A server-drawn form, handing `onSend` the fields as the press left them. A hydrated press stays on `onSubmit`, whose
@@ -31,15 +31,14 @@ export function HeldForm({
   ref,
   onSend,
   ...form
-}: Omit<ComponentProps<typeof Form>, "action" | "noValidate" | "onSubmit"> & { onSend: (formData: FormData) => void }) {
+}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit"> & { onSend: (formData: FormData) => void }) {
   const element = useObjectRef(ref);
   const isHeld = useRef(false);
   return (
     <Form
       {...form}
-      {...REFUSED_RESET}
+      {...FORM_ATTRIBUTES}
       ref={element}
-      noValidate
       action={() => {
         if (isHeld.current) return;
         isHeld.current = true;
