@@ -11,13 +11,12 @@ type TeamBannerId =
   | "team.not-in-saison-future"
   | "team.not-in-saison-closed"
   | "team.austritt-entering"
-  | "team.austritt-lifting"
   | "team.austritt-standing"
   | "team.gruppe-changed";
 
 // `saison-kein-eintritt` is where the season panel explains a CLOSED entry, named for the place
 // rather than for either of the two conditions that close it.
-type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-kein-eintritt" | "austritt-entry" | "austritt-aufhebung";
+type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-kein-eintritt" | "austritt-entry";
 
 export type TeamBanner = RailBanner<TeamBannerId> & { inline: TeamBannerSpot | null };
 
@@ -121,18 +120,6 @@ export function buildTeamBanners({
       // The team page and nowhere else: a served fixture side carries the exit TYPE and no reason.
       body: "Er steht danach auf der öffentlichen Teamseite.",
       inline: "austritt-entry",
-    });
-  }
-
-  if (!hasAustritt && storedAustritt !== null) {
-    banners.push({
-      id: "team.austritt-lifting",
-      severity: "warning",
-      raisedBy: "change",
-      // The record rather than its three fields, which the panel holds: what a reader would not
-      // expect is that lifting deletes what was typed rather than parking it.
-      title: "Der Austritt verschwindet mit allem, was dazu eingetragen ist",
-      inline: "austritt-aufhebung",
     });
   }
 

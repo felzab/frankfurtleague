@@ -3828,7 +3828,8 @@ export const TeamsPostSaisonTeamBody = zod
 /**
  * Rewrite a team's row for one season: group, exit record and kit colour.
  *
- * All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
+ * All three are required: an omitted key is a 422. The group and the colour are replaced; a null `austritt` leaves a
+ * stored exit standing, since no write clears one.
  * The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
  * refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
  * (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
@@ -4058,21 +4059,7 @@ export const TeamsPatchTeamSaisonBody = zod
   );
 
 /**
- * Lift the exit standing on a team's row: the repair of a wrong record, a public reason among them.
- *
- * Refused `saison_past` on a finished season. Recalls no notice; a fixture called off is asked afresh once its club is
- * back. 404 where the team holds no row of the season.
- * @summary Lift a team's exit from a season
- */
-export const teamsDeleteAustrittPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const TeamsDeleteAustrittParams = zod.object({
-  team_id: zod.string().regex(teamsDeleteAustrittPathTeamIdRegExp),
-  saison_id: zod.string(),
-});
-
-/**
- * Record how a team left the season, or replace the record standing.
+ * Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
  *
  * Refused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its
  * `earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.

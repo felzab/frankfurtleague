@@ -32634,7 +32634,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
-        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which\nrefuses this write (`saison_past`). A new or changed exit is refused until the season's start date\n(`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.",
+        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required: an omitted key is a 422. The group and the colour are replaced; a null `austritt` leaves a\nstored exit standing, since no write clears one.\nThe contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which\nrefuses this write (`saison_past`). A new or changed exit is refused until the season's start date\n(`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.",
         "operationId": "teams_patch_saison_team",
         "parameters": [
           {
@@ -33006,87 +33006,8 @@
       }
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/austritt": {
-      "delete": {
-        "description": "Lift the exit standing on a team's row: the repair of a wrong record, a public reason among them.\n\nRefused `saison_past` on a finished season. Recalls no notice; a fixture called off is asked afresh once its club is\nback. 404 where the team holds no row of the season.",
-        "operationId": "teams_delete_austritt",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Lift a team's exit from a season",
-        "tags": [
-          "teams"
-        ]
-      },
       "put": {
-        "description": "Record how a team left the season, or replace the record standing.\n\nRefused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its\n`earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
+        "description": "Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.\n\nRefused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its\n`earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
         "operationId": "teams_put_austritt",
         "parameters": [
           {

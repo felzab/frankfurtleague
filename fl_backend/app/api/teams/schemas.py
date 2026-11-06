@@ -664,8 +664,8 @@ class FLPatchSaisonTeamPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     gruppe: FLGruppenNames
-    # No `default=None` on either: `PATCH` replaces every field it takes wholesale, so an omitted key
-    # would silently reinstate a team or clear a colour with nobody having asked for it.
+    # No `default=None` on either, so an omitted key is a refusal rather than a colour cleared with nobody having asked.
+    # A null `austritt` leaves a stored exit standing: no write clears one.
     austritt: FLAustrittPayload | None
     trikot_farbe: FLTrikotFarbe | None
     # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
@@ -713,8 +713,9 @@ class FLTeamsFilterParams(BaseModel):
     sort_by: Literal["name"] = Field(default="name")
     order: FLSortOrder = Field(default="asc")
 
-    # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings row names no leaving date, so a list that un-hid a retired club would say nothing
-    # about which one had left (`READ-SQUAD-002`).
+    # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
+    # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left
+    # (`READ-SQUAD-002`).
     include_inactive: bool = False
 
 

@@ -706,7 +706,8 @@ async def patch_saison_team(
     """
     Rewrite a team's row for one season: group, exit record and kit colour.
 
-    All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
+    All three are required: an omitted key is a 422. The group and the colour are replaced; a null `austritt` leaves a
+    stored exit standing, since no write clears one.
     The contact block is `PATCH .../kontakte`'s, and stays correctable there on a `past` season, which
     refuses this write (`saison_past`). A new or changed exit is refused until the season's start date
     (`austritt_before_saison_start`, its `earliest` the start): before it, the replacement takes a club out.
@@ -763,7 +764,7 @@ async def patch_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id, "saison_id": saison_id},
-            update={"$set": saison_team_data.model_dump(mode="json", exclude={"version"})},
+            update={"$set": saison_team_data.model_dump(mode="json", exclude={"version"} | ({"austritt"} if austritt is None else set()))},
             expected_version=saison_team_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -785,7 +786,7 @@ async def patch_saison_team(
         saison_id=saison_id,
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
-        austritt=saison_team_data.austritt,
+        austritt=updated_raw["austritt"],
         # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
         # sent are the values now stored and the projection has nothing to widen for.
         trikot_farbe=saison_team_data.trikot_farbe,
@@ -886,20 +887,6 @@ async def patch_team_saison(
         return await session.with_transaction(save_the_club_and_its_row)
 
 
-async def _pull_the_season_of_an_exit(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> Mapping[str, Any]:
-    """The season an exit is judged on, refusing a finished one: its table and podium are read off these rows.
-
-    Anchored, so the status and the start belong to the write set: `activate_saison` and `PATCH /saisons/{saison_id}` write
-    this document, so either landing under the exit conflicts and the retry judges the season it left.
-    """
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-    refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
-
-    return saison_raw
-
-
 @router.put(
     f"{by_id('team_id')}/saisons/{{saison_id}}/austritt",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -915,7 +902,7 @@ async def put_austritt(
     today: str = Depends(get_german_date_str),
 ) -> None:
     """
-    Record how a team left the season, or replace the record standing.
+    Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
 
     Refused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its
     `earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
@@ -926,7 +913,13 @@ async def put_austritt(
 
     async def record_the_exit(session: AsyncClientSession) -> None:
         stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=row_filter, projection=["austritt"], session=session)
-        saison_raw = await _pull_the_season_of_an_exit(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
+        # Anchored, so the status and the start belong to the write set: `activate_saison` and `PATCH /saisons/{saison_id}`
+        # write this document, so either landing under the exit conflicts and the retry judges the season it left.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+        # A finished season's table and podium are read off these rows.
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
         start_date = str(saison_raw["start_date"])
         refuse(
             find_austritt_refusal(
@@ -949,42 +942,6 @@ async def put_austritt(
     # One transaction: what the exit owes commits with it or neither does.
     async with transaction_session(db) as session:
         await session.with_transaction(record_the_exit)
-
-
-@router.delete(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/austritt",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Lift a team's exit from a season",
-)
-async def delete_austritt(
-    team_id: CustomRouteObjectId,
-    saison_id: str,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    db: DBClient,
-) -> None:
-    """
-    Lift the exit standing on a team's row: the repair of a wrong record, a public reason among them.
-
-    Refused `saison_past` on a finished season. Recalls no notice; a fixture called off is asked afresh once its club is
-    back. 404 where the team holds no row of the season.
-    """
-
-    row_filter = {"team_id": team_id, "saison_id": saison_id}
-
-    async def lift_the_exit(session: AsyncClientSession) -> None:
-        await _pull_the_season_of_an_exit(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
-        await patch_one_in_db(
-            collection=saison_teams_collection,
-            db_filter=row_filter,
-            update={"$set": {"austritt": None}},
-            expected_version=None,
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
-
-    async with transaction_session(db) as session:
-        await session.with_transaction(lift_the_exit)
 
 
 @router.patch(

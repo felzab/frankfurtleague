@@ -93,7 +93,7 @@ class TestTheJunctionPatchPayload:
 
     @pytest.mark.parametrize("field", ["gruppe", "austritt", "trikot_farbe"])
     def test_every_writable_field_is_required(self, field):
-        """An omitted key defaulting to `None` would reinstate a disqualified club or clear a colour nobody touched."""
+        """An omitted key defaulting to `None` would clear a colour nobody touched."""
 
         body = {"gruppe": "A", "austritt": None, "trikot_farbe": None}
         del body[field]
