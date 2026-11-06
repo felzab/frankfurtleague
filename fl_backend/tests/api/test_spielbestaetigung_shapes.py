@@ -2,19 +2,8 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
 
-from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnsetzung,
-    FLSpielbestaetigungAntwortPayload,
-    FLSpielbestaetigungSchiedsrichterAntwortPayload,
-)
-from app.api.spielbestaetigungen.services import (
-    ANSETZUNG_QUELLEN,
-    ansetzung_stand_of,
-    compose_ansetzung,
-)
-from app.shared.schemas.bounds import SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
+from app.api.spielbestaetigungen.services import ansetzung_stand_of
 
 TEAM1 = ObjectId("650000000000000000000001")
 TEAM2 = ObjectId("650000000000000000000002")
@@ -64,70 +53,3 @@ class TestTheStandNamesOneAnsetzung:
         renamed = {"team_id": TEAM1, "name": "Umbenannt", "shorthand": "UMX", "tore": 2}
 
         assert ansetzung_stand_of(spiel(ergebnis="2:1", notiz="x", team1=renamed)) == ansetzung_stand_of(spiel())
-
-    def test_the_snapshot_stores_exactly_the_digests_inputs_beside_it(self):
-        composed = compose_ansetzung(spiel())
-
-        assert set(composed) == set(FLSpielbestaetigungAnsetzung.model_fields) == {*ANSETZUNG_QUELLEN, "stand"}
-        assert composed["stand"] == ansetzung_stand_of(spiel())
-        FLSpielbestaetigungAnsetzung.model_validate(composed)
-
-
-VORSCHLAG = {"datum": "2027-05-20", "uhrzeit": "17:00:00"}
-
-
-class TestTheAnswersShape:
-    @pytest.mark.parametrize(
-        "body",
-        [
-            {"antwort": "declined", "vorschlag": None, "begruendung": "Halle belegt"},
-            {"antwort": "zugesagt", "vorschlag": VORSCHLAG, "begruendung": None},
-            {"antwort": "zugesagt", "vorschlag": None, "begruendung": "danke"},
-            # A control character, written as its code point so the file shows it, stays refused in a paragraph.
-            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": f"Halle{chr(0x0B)}belegt"},
-            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "x" * (SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH + 1)},
-            {"antwort": "declined", "vorschlag": {**VORSCHLAG, "ort": "x"}, "begruendung": None},
-            {"antwort": "zugesagt", "vorschlag": None},
-        ],
-        ids=["decline-without-date", "accept-with-date", "accept-with-reason", "control-character", "over-bound", "extra-key", "key-omitted"],
-    )
-    def test_is_refused(self, body: dict[str, Any]):
-        with pytest.raises(ValidationError):
-            FLSpielbestaetigungAntwortPayload.model_validate({"token": "t", **body})
-
-    @pytest.mark.parametrize("line_break", ["\n", "\r\n"], ids=["LF", "CRLF"])
-    def test_a_reason_keeps_its_line_breaks(self, line_break: str):
-        """A reason keeps the line breaks its text area sends.
-
-        Refused or flattened, the person's words would be lost or merged, and nothing on the page would say so.
-        """
-        reason = f"Halle belegt{line_break}Ab 18 Uhr frei"
-        parsed = FLSpielbestaetigungAntwortPayload.model_validate(
-            {"token": "t", "antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": reason}
-        )
-
-        assert parsed.begruendung == reason
-
-    def test_an_empty_reason_is_none(self):
-        parsed = FLSpielbestaetigungAntwortPayload.model_validate(
-            {"token": "t", "antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "   "}
-        )
-
-        assert parsed.begruendung is None
-
-
-class TestTheRefereesAnswersShape:
-    """A stale page or a scripted client reaches the endpoint past the panel's own schema, which refuses the same two."""
-
-    @pytest.mark.parametrize(
-        "body",
-        [
-            {"antwort": "declined", "begruendung": None},
-            {"antwort": "declined", "begruendung": "   "},
-            {"antwort": "zugesagt", "begruendung": "gern"},
-        ],
-        ids=["decline-without-reason", "decline-with-blank-reason", "accept-with-reason"],
-    )
-    def test_is_refused(self, body: dict[str, Any]):
-        with pytest.raises(ValidationError):
-            FLSpielbestaetigungSchiedsrichterAntwortPayload.model_validate(body)

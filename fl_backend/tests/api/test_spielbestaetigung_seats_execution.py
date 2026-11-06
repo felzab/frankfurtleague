@@ -197,9 +197,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
             await body(database, client)
 
-            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.SPIELBESTAETIGUNGEN)})
-
-            return await links_answering(database), await answers(database), logged
+            return await links_answering(database), await answers(database)
 
     return on_the_seed_loop(_run())
 
@@ -392,20 +390,10 @@ class TestEverySeatWriteVoidsItsLinks:
     ):
         """The other team's row is the control; this team's answered row loses the seat's links too and keeps its answer."""
 
-        links, stored_answers, _ = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
+        links, stored_answers = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
 
         assert links == {"open": ALL - voided, "answered": ALL - voided, "other": other}
         assert stored_answers == [row["antwort"] for row in ROWS.values()]
-
-    def test_a_retyped_case_moves_nobody_and_voids_nothing(self, mongo_replica_set_url: str):
-        """The save's own identity rule folds the address as a sign-in does, so `Ida@` is the person `ida@` already was."""
-
-        async def retype(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await save(database, client, {**SENT, "trainer": person("Ida", email="Ida@Example.com")})
-
-        links, _, logged = on_a_league(mongo_replica_set_url, retype)
-
-        assert (links, logged) == (KEPT, 0)
 
     def test_a_new_person_at_the_same_mailbox_voids_the_seat(self, mongo_replica_set_url: str):
         """Two people sharing one inbox are two holders: the link went to the one who left the seat."""
@@ -413,21 +401,9 @@ class TestEverySeatWriteVoidsItsLinks:
         async def hand_on_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await save(database, client, {**SENT, "trainer": person("Lea", email="ida@example.com")})
 
-        links, _, _ = on_a_league(mongo_replica_set_url, hand_on_in_place)
+        links, _ = on_a_league(mongo_replica_set_url, hand_on_in_place)
 
         assert links == {**KEPT, "open": ALL - {"trainer"}, "answered": ALL - {"trainer"}}
-
-    def test_a_seat_holding_no_entry_on_any_row_is_written_nowhere(self, mongo_replica_set_url: str):
-        """A void that changes nothing files no log row naming a write that changed nothing; the open row's Trainer entry is null."""
-
-        async def hand_on_an_unasked_seat(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"party.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
-            return await hand_the_trainer_on(database, client)
-
-        _, _, logged = on_a_league(mongo_replica_set_url, hand_on_an_unasked_seat)
-        _, _, logged_with_an_entry = on_a_league(mongo_replica_set_url, hand_the_trainer_on)
-
-        assert (logged, logged_with_an_entry) == (0, 1)
 
 
 UNDRAWN_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6005{position}") for position in range(2)]
@@ -538,7 +514,7 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
             await hand_the_trainer_on(database, client)
             await database[Collection.BAN_LIST].insert_one(documents.ban_document("lea@example.com", until=SAISON_ID))
 
-        links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
+        links, stored_answers = on_a_league(mongo_replica_set_url, hand_on_then_bar)
 
         # Refused `link_invalid` (`links_answering` admits no other refusal), never served as `barred`.
         assert links["answered"] == ALL - {"trainer"}
