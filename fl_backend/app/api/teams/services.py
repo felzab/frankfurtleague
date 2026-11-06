@@ -211,7 +211,7 @@ def build_team_pipeline(
 
     # Withheld at the JOIN rather than downstream: the outer `$project` is an allow-list too, so this
     # is DEPTH -- two of this pipeline's callers are base-tier and the row carries contact records.
-    lookup_pipeline.append({"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1, "name": 1, "shorthand": 1}})
+    lookup_pipeline.append({"$project": {"_id": 0, "gruppe": 1, "austritt": 1, "name": 1, "shorthand": 1}})
 
     pipeline.append(
         {
@@ -266,7 +266,6 @@ def build_team_pipeline(
                     if rules is not None
                     else {}
                 ),
-                "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
                 "austritt": f"${AS_NAME}.austritt",
             }
