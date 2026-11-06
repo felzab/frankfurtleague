@@ -275,10 +275,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
         }
     )
 
-    pipeline.append({"$sort": {filters.sort_by: 1 if filters.order == "asc" else -1, "name": 1}})
-
-    if getattr(filters, "limit", None) is not None:
-        pipeline.append({"$limit": filters.limit})
+    pipeline.append({"$sort": {"name": 1}})
 
     return pipeline
 
