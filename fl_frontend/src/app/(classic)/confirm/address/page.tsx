@@ -39,7 +39,13 @@ type Props = PageProps<"/confirm/address">;
  * mailed-page template, the address on file asked first, then the new mailbox, each confirming or declining.
  */
 export default function AddressChangeConfirmationPage({ searchParams }: Props) {
-  return <MailedPage page={readState(searchParams)} />;
+  return (
+    <MailedPage
+      page={readState(searchParams)}
+      // The link's side is the read's, so the shorter of the two acts, which no button that lands is narrower than.
+      act={COPY.shared.withObject(WORDS.change, "confirm")}
+    />
+  );
 }
 
 async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {

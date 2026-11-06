@@ -44,7 +44,12 @@ const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires
  * address alike.
  */
 export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
-  return <MailedPage page={readState(searchParams)} />;
+  return (
+    <MailedPage
+      page={readState(searchParams)}
+      act={COPY.page.entryConfirmation}
+    />
+  );
 }
 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */

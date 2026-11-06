@@ -132,7 +132,14 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
  * meanwhile the column holds the placeholders of the question, the state a link is opened on: its title, its facts,
  * its sentence and its act.
  */
-export function MailedPage({ page }: { page: Promise<MailedState> }) {
+export function MailedPage({
+  page,
+  act,
+}: {
+  page: Promise<MailedState>;
+  /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
+  act: Copy;
+}) {
   return (
     // Outermost, so neither the state a done answer's re-render reads nor the boundary waiting for it takes the end.
     <OneShotEnd>
@@ -150,8 +157,7 @@ export function MailedPage({ page }: { page: Promise<MailedState> }) {
                 width="w-full"
               />
               <div className="grid gap-3 lg:justify-items-center">
-                {/* The act's own words are the read's, so the commonest stand in, in the column its buttons stand in. */}
-                <span className={buttonPlaceholder()}>{COPY.shared.verb.confirm}</span>
+                <span className={buttonPlaceholder()}>{act}</span>
                 <span className="min-h-5" />
               </div>
             </Waiting>
