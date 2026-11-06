@@ -16,6 +16,7 @@ from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import ExecutionTimeout
 
 from app.core import middlewares
 from app.core.codes import Code
@@ -214,7 +215,7 @@ _FAULT: ContextVar[Callable[[], Awaitable[None]]] = ContextVar("fault")
 
 @functools.cache
 def _served() -> FastAPI:
-    """One app for every case driving a transaction through it, an app per case costing most of this file's run.
+    """One app for every case driving a fault or a transaction through it, an app per case costing most of this file's run.
 
     Built on first use rather than at import, which every xdist worker pays at collection. Its route stands after every
     router, so the first request into it builds them all, inside that case's deadline.
@@ -225,7 +226,7 @@ def _served() -> FastAPI:
     async def faulting() -> None:
         await _FAULT.get()()
 
-    served.add_api_route("/faulting", faulting, methods=["POST"])
+    served.add_api_route("/faulting", faulting, methods=["GET", "POST"])
 
     return served
 
@@ -300,6 +301,7 @@ SAISON_ID = "2026"
 STALL = "sleep(60000) || true"
 
 MINT_FAILED = "mint_failed"
+MINT_OUTCOME_UNKNOWN = "mint_uncertain"
 
 
 def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
@@ -345,6 +347,26 @@ class _StallsOneTeam:
         return self._collection.find(filter, *args, **kwargs)
 
 
+# The shape `with_transaction` hands on when a commit went out and no answer came back within the deadline.
+UNKNOWN_COMMIT_OUTCOME = ExecutionTimeout("timed out", 50, {"ok": 0, "code": 50, "errorLabels": ["UnknownTransactionCommitResult"]})
+
+
+class _CommitOfUnknownOutcomeForOneTeam:
+    """The real collection, with one team's mint raising what `with_transaction` raises for a commit sent and never answered."""
+
+    def __init__(self, collection: AsyncCollection) -> None:
+        self._collection = collection
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def insert_one(self, document: Mapping[str, Any], **rest: Any) -> Any:
+        if document.get("team_id") == STALLED:
+            raise UNKNOWN_COMMIT_OUTCOME
+
+        return await self._collection.insert_one(document, **rest)
+
+
 Pressed = tuple[int, float, dict[str, str | None], dict[ObjectId, list[ObjectId]], dict[ObjectId, ObjectId], dict[str, bool | None]]
 
 
@@ -353,7 +375,11 @@ DISPATCH_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch"
 
 @pytest.fixture(scope="module")
 def pressing_app() -> FastAPI:
-    """The app the press runs on, whose first request into a router branch builds it, inside the case's deadline."""
+    """One app for every press.
+
+    The first request into a router branch builds it, and an app per press would pay that build inside every case. The
+    case that reaches the branch first pays it once, inside its deadline.
+    """
 
     return create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
 
@@ -433,3 +459,35 @@ class TestTheSendPastItsDeadline:
         assert len(live[BEFORE_THE_STALL]) == 1 and live[BEFORE_THE_STALL] != [seeded[BEFORE_THE_STALL]]
         assert live[STALLED] == [seeded[STALLED]]
         assert live[AFTER_THE_DEADLINE] == [seeded[AFTER_THE_DEADLINE]]
+
+    def test_a_commit_of_unknown_outcome_is_answered_as_unknown(self, pressing_app: FastAPI, mongo_replica_set_url: str):
+        """Never as failed: that row tells the admin the earlier link still opens, where the commit may have revoked it."""
+
+        status, _, skipped, _, _, _ = _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
+
+        assert status == 200
+        assert skipped == {str(BEFORE_THE_STALL): None, str(STALLED): MINT_OUTCOME_UNKNOWN, str(AFTER_THE_DEADLINE): None}
+
+
+def _raised_through_the_app(error: Exception) -> Response:
+    """The error raised from a safe route of the real app, so the handler Starlette picks is the one resolved from the class's own MRO."""
+
+    async def raising() -> None:
+        raise error
+
+    async def _answered() -> Response:
+        _FAULT.set(raising)
+        transport = ASGITransport(app=_served(), raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            return await http.get("/faulting")
+
+    return asyncio.run(_answered())
+
+
+class TestACommitOfUnknownOutcomeIsNotCalledFailed:
+    def test_it_answers_its_own_code(self):
+        """Over a safe method, so the label alone can answer: a commit lost to anything but a timeout carries nothing else saying so."""
+
+        response = _raised_through_the_app(UNKNOWN_COMMIT_OUTCOME)
+
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
