@@ -120,6 +120,7 @@ export default function SpielerPage({ params, searchParams }: Props) {
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
+        wait: 30,
         content: season.then(({ saison, filters, shown }) => ({
           table: {
             label: ROUTES.adminSpieler.title,

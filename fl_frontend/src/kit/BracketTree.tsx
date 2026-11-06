@@ -144,7 +144,7 @@ function ThirdPlace({ children }: { /** The row, its card or its card's placehol
 }
 
 /** A round's row while its matches are read: `count` of the card's placeholders, each over the span its match will take. */
-function RowPlaceholder({ count, width }: { count: 1 | 2; width: Width }) {
+function RowPlaceholder({ count, width }: { count: Width; width: Width }) {
   const { row, cell, card } = tree({ columns: key(width), span: key((width / count) as Width) });
   return (
     <div className={row()}>
@@ -162,18 +162,30 @@ function RowPlaceholder({ count, width }: { count: 1 | 2; width: Width }) {
 }
 
 /**
- * The K.-o.-Baum while its rounds are read: two Halbfinale, the match for third place and the Finale, the shape four
- * qualifiers draw, which the league plays, each card the card's placeholder in the tree's own rows, joined by the
- * tree's own lines, so the tree stands where and as wide as it will.
+ * The K.-o.-Baum while its rounds are read: the shape `qualifiers` draw, down to the Halbfinale, the match for third
+ * place and the Finale, each card the card's placeholder in the tree's own rows, joined by the tree's own lines, so the
+ * tree stands where and as wide as it will.
  */
-export function BracketTreePlaceholder() {
-  const width = 2;
+export function BracketTreePlaceholder({ qualifiers }: { qualifiers: 4 | 8 | 16 }) {
+  const width = (qualifiers / 2) as Width;
+  // The rounds down to the Halbfinale, each half the one before, the first the widest.
+  const rounds = ([8, 4, 2] as const).filter((count) => count <= width);
   return (
     <div className={tree().root()}>
-      <RowPlaceholder
-        count={2}
-        width={width}
-      />
+      {rounds.map((count, index) => (
+        <div key={count}>
+          {index > 0 && (
+            <Feeds
+              into={count}
+              width={width}
+            />
+          )}
+          <RowPlaceholder
+            count={count}
+            width={width}
+          />
+        </div>
+      ))}
       <ThirdPlace>
         <RowPlaceholder
           count={1}

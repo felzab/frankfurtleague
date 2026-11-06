@@ -114,6 +114,7 @@ export default function BewerbungenPage({ params, searchParams }: Props) {
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
+        wait: 24,
         content: list.then(({ table }) => ({ table })),
       }}
     />

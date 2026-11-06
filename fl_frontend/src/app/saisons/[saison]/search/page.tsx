@@ -115,6 +115,7 @@ export default function SpielSearchPage({ params, searchParams }: Props) {
       list={{
         kind: "spiele",
         search: { label: COPY.page.spielSearch },
+        wait: 30,
         content: season.then(({ matches, filters }) => {
           const narrowed = filters.some((filter) => filter.value !== null);
           return {

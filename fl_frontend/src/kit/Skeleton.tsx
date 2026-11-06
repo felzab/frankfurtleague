@@ -10,6 +10,13 @@ import type { ReactNode } from "react";
  * text's line height and every glyph, plaque or control by a `placeholderBar` of its size, so the placeholder stands
  * as tall and as wide as the block will and cannot drift from it. A template's wait is its blocks' placeholders,
  * laid out as the blocks are, inside `Waiting`.
+ *
+ * A wait is the page at its real size, since the browser restores a reload against it. Every part above a streamed
+ * hole stands at exactly its landed height. A list draws its own usual size, at most 30 rows or cards, the number its
+ * page states beside it, a list that fits a screen included, so a list landing short does not shrink. A part whose
+ * state the read decides draws, on a rail page, its taller state: nothing stands under `main` there, so a taller wait
+ * collapses unseen where a shorter one loses a reload's place for good. On a classic page, whose footer a collapse
+ * would lift into view, it draws the state that lands most often. A placeholder never shows a state's words.
  */
 const placeholder = tv({
   slots: {

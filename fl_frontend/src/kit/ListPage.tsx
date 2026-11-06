@@ -95,34 +95,62 @@ type ListContent =
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
       /** The table's head, which its placeholder draws while the rows are read. */
       head: TableHead;
+      /** How many rows its wait draws. */
+      wait: number;
       content: Promise<TableContent>;
     }
   | {
       kind: "spieltage";
       /** Each matchday's panel opens with its dates and its act, as the administrator's „Spiele“ list's do. */
       dated?: true;
+      /** How many matchday tabs its wait draws, and how many matches under them. */
+      wait: { tabs: number; matches: number };
       content: Promise<SpieltageContent>;
     }
   | {
       kind: "groups";
       /** Every group's table's head, one for all, which their placeholder draws while the rows are read. */
       head: TableHead;
+      /** How many group cards its wait draws, and how many rows in each. */
+      wait: { groups: number; rows: number };
       content: Promise<GroupsContent>;
     }
   | {
       kind: "cards";
-      /** Each card while it waits, in their order: its title, and the acts its rows carry, which a phone sets on a line of their own. */
-      wait: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }>;
+      /**
+       * Each card while it waits, in their order, its title and the acts its rows carry, which a phone sets on a line of
+       * their own, and how many rows each draws.
+       */
+      wait: { rows: number; cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }> };
       content: Promise<CardsContent>;
     }
-  | { kind: "tree"; content: Promise<TreeContent> }
-  | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> }
-  | { kind: "tiles"; /** The search field's name. */ search: ListSearch; content: Promise<TilesContent> };
+  | {
+      kind: "tree";
+      /** How many teams its wait draws the tree for, which is the tree's shape. */
+      wait: ComponentProps<typeof BracketTreePlaceholder>["qualifiers"];
+      content: Promise<TreeContent>;
+    }
+  | {
+      kind: "spiele";
+      /** The search field's name. */
+      search: ListSearch;
+      /** How many match cards its wait draws. */
+      wait: number;
+      content: Promise<SpieleContent>;
+    }
+  | {
+      kind: "tiles";
+      /** The search field's name. */
+      search: ListSearch;
+      /** How many tiles its wait draws. */
+      wait: number;
+      content: Promise<TilesContent>;
+    };
 
 /**
  * What each kind waits in: the placeholders of the blocks its content is drawn with, laid out as the content lays them,
- * so the wait stands as tall as the first screen of the content will. How many rows, cards or tiles it draws is a
- * typical first screen's, since how many there are is what the read tells.
+ * as many as the page states beside its list (`Skeleton.tsx` has the rule), since how many there are is what the read
+ * tells.
  */
 function ListPlaceholder({ list }: { list: ListContent }) {
   switch (list.kind) {
@@ -130,17 +158,17 @@ function ListPlaceholder({ list }: { list: ListContent }) {
       return (
         <TablePlaceholder
           head={list.head}
-          rows={8}
+          rows={list.wait}
         />
       );
     case "groups":
-      return [0, 1].map((index) => (
+      return Array.from({ length: list.wait.groups }, (_, index) => (
         <CardPlaceholder
           key={index}
           count>
           <TablePlaceholder
             head={list.head}
-            rows={4}
+            rows={list.wait.rows}
             plaques
             bare
           />
@@ -149,13 +177,13 @@ function ListPlaceholder({ list }: { list: ListContent }) {
     case "cards":
       return (
         <CardGrid>
-          {list.wait.map(({ title, acts }) => (
+          {list.wait.cards.map(({ title, acts }) => (
             <CardPlaceholder
               key={title}
               title={title}
               count>
               <CardRowsPlaceholder
-                rows={3}
+                rows={list.wait.rows}
                 {...(acts === undefined ? {} : { acts })}
               />
             </CardPlaceholder>
@@ -164,25 +192,25 @@ function ListPlaceholder({ list }: { list: ListContent }) {
       );
     case "spieltage":
       return (
-        <TabsPlaceholder count={6}>
+        <TabsPlaceholder count={list.wait.tabs}>
           {list.dated === true && <SpieltagHeadPlaceholder />}
           <SpielListPlaceholder
-            count={6}
+            count={list.wait.matches}
             layout="cards"
           />
         </TabsPlaceholder>
       );
     case "tree":
-      return <BracketTreePlaceholder />;
+      return <BracketTreePlaceholder qualifiers={list.wait} />;
     case "spiele":
       return (
         <SpielListPlaceholder
-          count={6}
+          count={list.wait}
           layout="cards"
         />
       );
     case "tiles":
-      return <SchoolTilesPlaceholder count={8} />;
+      return <SchoolTilesPlaceholder count={list.wait} />;
   }
 }
 
