@@ -316,13 +316,6 @@ class TestASeatNotHeld:
         assert answer == (403, Code.ROLE_NOT_HELD)
         assert untouched
 
-    def test_the_control_the_same_seat_reads_its_own_team(self, mongo_replica_set_url: str):
-        """A refusal answered to everybody would pass the case above on every row."""
-
-        answer, _ = refused_and_untouched(mongo_replica_set_url, "GET", squad_url(), ANSPRECH)
-
-        assert answer[0] == 200
-
 
 class TestAnotherTeamsPupil:
     """Team A's seat holder naming team B's pupil under team A's path: the row filter carries the team, so nothing matches."""

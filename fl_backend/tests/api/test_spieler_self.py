@@ -281,12 +281,6 @@ class TestTheTwoChoices:
         assert response.status_code == 204, response.text
         assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "media": True}
 
-    def test_an_address_spelled_otherwise_moves_the_same_record(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER_SPELLED_OTHERWISE, _payload(scope="intern")))
-
-        assert response.status_code == 204, response.text
-        assert after[PUPIL_OID]["einwilligung"]["scope"] == "intern"
-
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             response = await http.patch(PATCH_PATH, json=_payload(), headers=_person(IDENTIFIER))

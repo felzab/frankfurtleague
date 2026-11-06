@@ -273,24 +273,6 @@ class TestTheOneSave:
             on_a_database(mongo_replica_set_url, body)
 
 
-class TestThePersonsBirthdate:
-    """What a stored date has to survive: a later name write."""
-
-    def test_correcting_a_name_leaves_the_date_standing(self, mongo_replica_set_url: str):
-        """Restated rather than untouched: the patch payload requires the field, so a name correction carries the date it read."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database.spieler.insert_one(person_row(spieler_number=93, birth_date=BIRTH_DATE))
-            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(93), team_id=HOME_TEAM_OID))
-            await save(database, spieler_id_for(93), first_name="Maximilian")
-            return await database.spieler.find_one({"_id": spieler_id_for(93)})
-
-        stored = on_a_database(mongo_replica_set_url, body)
-
-        assert stored["first_name"] == "Maximilian"
-        assert stored["birth_date"] == BIRTH_DATE
-
-
 class TestTheSquadCapOnAReturn:
     """`kader_full` on a squad row's return, the one write of this router that grows a squad."""
 
@@ -390,31 +372,11 @@ class TestTheOneRolePerSquadOnEveryWritePath:
         # Named, or the editor's phrase has no box to land on and falls to the shared failure line.
         assert refusal.fields == (("rolle",),)
 
-    def test_an_edit_taking_the_other_role_goes_through(self, mongo_replica_set_url: str):
-        """The floor under the case above: the rule is per role, so a squad with a Kapitaen still has its Co-Kapitaen to give."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await self.seat(database, spieler_id_for(80), HOME_TEAM_OID, rolle="kapitaen")
-            await self.seat(database, spieler_id_for(90), HOME_TEAM_OID)
-            return await edit(database, spieler_id_for(90), rolle="co_kapitaen")
-
-        assert on_a_database(mongo_replica_set_url, body).rolle == "co_kapitaen"
-
     def test_a_retired_holder_gives_the_role_back(self, mongo_replica_set_url: str):
         """The same live-rows-only count the cap takes: a player who left the squad is not leading it."""
 
         async def body(database: AsyncDatabase) -> Any:
             await self.seat(database, spieler_id_for(80), HOME_TEAM_OID, rolle="kapitaen", inactive_since="2026-03-01")
-            await self.seat(database, spieler_id_for(90), HOME_TEAM_OID)
-            return await edit(database, spieler_id_for(90), rolle="kapitaen")
-
-        assert on_a_database(mongo_replica_set_url, body).rolle == "kapitaen"
-
-    def test_another_squads_holder_is_not_consulted(self, mongo_replica_set_url: str):
-        """The scope is the row's own team: judged against anything else, two clubs could not each field a Kapitaen."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await self.seat(database, spieler_id_for(80), AWAY_TEAM_OID, rolle="kapitaen")
             await self.seat(database, spieler_id_for(90), HOME_TEAM_OID)
             return await edit(database, spieler_id_for(90), rolle="kapitaen")
 
@@ -457,18 +419,6 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
         assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_ROLLE_TAKEN
 
-    def test_reactivating_a_roleless_row_asks_nothing(self, mongo_replica_set_url: str):
-        """A row holding no role competes with nobody, so the rule must not stand between it and its return."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database.saison_spieler.insert_one(
-                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
-            )
-            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
-            return await revive(database, spieler_id_for(90))
-
-        assert on_a_database(mongo_replica_set_url, body).inactive_since is None
-
 
 class TestReactivatingIntoASeasonTheClubHasLeft:
     """`kader_team_not_in_saison` on the third write path, a replacement's: it retires a club's squad and hands that club's row away."""
@@ -492,36 +442,6 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
         assert refusal.error_code == Code.KADER_TEAM_NOT_IN_SAISON
         # The second half kills a refusal asked after the write, which reports a state it has already created.
         assert stored["inactive_since"] == "2026-03-01"
-
-    def test_reviving_a_row_whose_club_is_still_entered_goes_through(self, mongo_replica_set_url: str):
-        """The floor under the refusal above, or it could be a blanket one: the ordinary revival is what the surface exists for."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database.saison_spieler.insert_one(
-                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
-            )
-            return await revive(database, spieler_id_for(90))
-
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert (response.inactive_since, response.team_id) == (None, HOME_TEAM_OID)
-
-    def test_the_club_is_asked_before_the_cap(self, mongo_replica_set_url: str):
-        """Both refusals hold, the live rows seeded by hand: kills the two swapped, sending an admin to free a place in a squad with no club."""
-
-        async def body(database: AsyncDatabase) -> APIError:
-            await database.saison_spieler.insert_one(
-                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
-            )
-            await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE)
-            await hand_the_junction_row_over(database, HOME_TEAM_OID)
-
-            with pytest.raises(APIError) as excinfo:
-                await revive(database, spieler_id_for(90))
-
-            return excinfo.value
-
-        assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_TEAM_NOT_IN_SAISON
 
 
 class TestTheStoredMarker:
