@@ -105,6 +105,19 @@ async def view_list(database: Any, **filters: Any) -> Any:
     )
 
 
+async def view_one(database: Any) -> Any:
+    return await get_bewerbung(
+        bewerbung_id=ObjectId(BEWERBUNG_ID.format(PICKED)),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        outbox_collection=database[Collection.OUTBOX],
+        ban_list=ban_list(database),
+        today="2026-03-01",
+    )
+
+
 class TestTheSeasonsListRead:
     """The list page's one read: what its rows and its dialogs need, off one request, and no person's details."""
 
@@ -153,20 +166,22 @@ class TestTheSeasonsListRead:
         assert codes[ObjectId(BEWERBUNG_ID.format(PICKED))] == "ADX"
         assert codes[ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] is None
 
-    def test_the_review_page_reads_its_name_and_its_offer_off_one_request(self, mongo_url: str):
-        async def read(database: Any) -> Any:
-            return await get_bewerbung(
-                bewerbung_id=ObjectId(BEWERBUNG_ID.format(PICKED)),
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                teams_collection=database[Collection.TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                outbox_collection=database[Collection.OUTBOX],
-                ban_list=ban_list(database),
-                today="2026-03-01",
-            )
+    def test_an_accepted_application_reads_where_its_club_stands(self, mongo_url: str):
+        """The decision records neither, so without the season's row the review page's two facts read a dash."""
 
-        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, read))
+        async def read(database: Any) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(VIEW_SAISON, PICKED_CLUB, "Adlerhorst", "ADX", gruppe="B", trikot_farbe="rot")
+            )
+            await database[Collection.BEWERBUNGEN].update_one({"_id": ObjectId(BEWERBUNG_ID.format(PICKED))}, {"$set": {"status": "accepted"}})
+            return await view_one(database)
+
+        entry = on_the_seed_loop(on_the_view_corpus(mongo_url, read)).entry
+
+        assert (entry.gruppe, entry.trikot_farbe) == ("B", "rot")
+
+    def test_the_review_page_reads_its_name_and_its_offer_off_one_request(self, mongo_url: str):
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_url, view_one))
 
         assert (answered.name, answered.shorthand, answered.saison.saison_id, answered.bewerbung.version) == (
             "Adlerhorst",
