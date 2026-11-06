@@ -175,9 +175,9 @@ export function SammelZusage({
         label: TITLE,
         nameLabel: COPY.account.entries.facts.school,
         columns: [
-          { key: "gruppe", label: COPY.team.gruppe },
+          { key: "gruppe", label: COPY.team.gruppe, narrow: true },
           { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true },
-          { key: "shorthand", label: COPY.team.shorthand },
+          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true },
         ],
         rows: shown.map((row) => checkRow(row, run, run.outcomes[row.id], go)),
         empty: { kind: "none", plural: COPY.page.adminBewerbungen, glyph: "bewerbungen" },
