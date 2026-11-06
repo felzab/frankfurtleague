@@ -45,9 +45,9 @@ const YES_NO = [
 const CARDS = YES_NO.map((choice) => ({ ...choice, line: WORD }));
 const OPTIONS = [{ id: "riedberg", label: { record: "Riedberg" } }];
 const ADDRESS_RULES: AddressRules = {
-  required: { strasse: true, hausnummer: true, plz: true, stadtteil: false, stadt: true },
-  maxLength: { strasse: 80, hausnummer: 8, stadtteil: 80, stadt: 80 },
-  plzLength: 5,
+  required: { street: true, house_number: true, postcode: true, district: false, city: true },
+  maxLength: { street: 80, house_number: 8, district: 80, city: 80 },
+  postcodeLength: 5,
 };
 
 /** The markup a server sends, in the document, the person's `edit` already in the browser's hands. */
