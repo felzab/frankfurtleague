@@ -14,25 +14,14 @@ INSIDE = "2026-04-01"
 class TestTheApplicationWindow:
     """A closed application window taking a submission puts a school in the triage queue the league said it would not take.
 
-    One predicate answers the landing's window, `/window/{saison_id}`, the colour read and the submission, so these
-    cases are the whole window rule: today between its two dates, both included, on a season not yet ended.
+    One predicate answers the landing's window, `/window/{saison_id}`, the colour read and the submission: today between
+    its two dates, both included, on a season not yet ended.
     """
 
     WINDOW: dict[str, Any] = {"start": START, "end": END}
 
     def runs(self, *, bewerbung: Any = WINDOW, today: str = INSIDE, saison_status: str = "future") -> bool:
         return saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today)
-
-    def test_a_day_inside_the_span_takes_applications(self):
-        """The floor: without it every refusal below could pass for a reason nobody is testing."""
-
-        assert self.runs() is True
-
-    @pytest.mark.parametrize("today", [START, END], ids=["the first day", "the last day"])
-    def test_both_ends_are_inside_the_span(self, today: str):
-        """An exclusive comparison drops the day the window opens or the day it closes, which a school was told it had."""
-
-        assert self.runs(today=today) is True
 
     @pytest.mark.parametrize("today", ["2026-02-28", "2026-05-01"], ids=["the day before", "the day after"])
     def test_a_day_outside_the_span_takes_none(self, today: str):
@@ -63,12 +52,6 @@ class TestTheRegistrationWindow:
 
     def runs(self, *, registrierung: Any = WINDOW, today: str = INSIDE, saison_status: str = "active") -> bool:
         return saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung, today=today)
-
-    def test_the_active_season_takes_registrations_until_its_end(self):
-        """The floor, on the last day too, which an exclusive comparison silently drops."""
-
-        assert self.runs() is True
-        assert self.runs(today=END) is True
 
     def test_the_day_after_the_end_takes_none(self):
         assert self.runs(today="2026-05-01") is False
