@@ -612,12 +612,12 @@ const REPORTS = [
     spiel_id: REPORTED._id,
     bericht: {
       ergebnis_vorschlag: { team1_tore: 2, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
-      torschuetzen: [
+      scorers: [
         { side: "team1", spieler_id: PUPILS.mia._id, minute: "12", eigentor: false },
         { side: "team2", spieler_id: GHOST_SPIELER._id, minute: "40", eigentor: false },
         { side: "team1", spieler_id: null, minute: "45+2", eigentor: false },
       ],
-      karten: [
+      cards: [
         { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", reason: "foulspiel" },
         { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", reason: null },
       ],

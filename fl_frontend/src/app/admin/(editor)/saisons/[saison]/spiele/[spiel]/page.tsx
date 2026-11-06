@@ -189,7 +189,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
   const words = SERVER_COPY.season.spiel;
   const plaques = { team1: spiel.team1?.shorthand ?? null, team2: spiel.team2?.shorthand ?? null };
   const score = { team1: 0, team2: 0 };
-  return bericht.torschuetzen
+  return bericht.scorers
     .map((tor, index) => ({ tor, index }))
     .toSorted((one, other) => {
       const [a, b] = [minuteOf(one.tor.minute), minuteOf(other.tor.minute)];

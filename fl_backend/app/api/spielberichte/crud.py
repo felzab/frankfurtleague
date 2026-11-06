@@ -254,7 +254,7 @@ async def strip_the_seasons_reports(
         collection=spielberichte_collection,
         db_filter=build_season_report_texts_filter(saison_id),
         # Every card's reason by `$[]`: the cards stand.
-        update={"$set": {"bericht.remarks": None, "bericht.karten.$[].reason": None}},
+        update={"$set": {"bericht.remarks": None, "bericht.cards.$[].reason": None}},
         session=session,
     )
 
@@ -354,8 +354,8 @@ async def repoint_pupil_entries_in_session(
     # an array-filtered update reaches `patch_many_in_db` unnarrowed.
     repointed = await patch_many_in_db(
         collection=spielberichte_collection,
-        db_filter={"$or": [{"bericht.torschuetzen.spieler_id": spieler_id}, {"bericht.karten.spieler_id": spieler_id}]},
-        update={"$set": {"bericht.torschuetzen.$[goal].spieler_id": GHOST_SPIELER_ID, "bericht.karten.$[card].spieler_id": GHOST_SPIELER_ID}},
+        db_filter={"$or": [{"bericht.scorers.spieler_id": spieler_id}, {"bericht.cards.spieler_id": spieler_id}]},
+        update={"$set": {"bericht.scorers.$[goal].spieler_id": GHOST_SPIELER_ID, "bericht.cards.$[card].spieler_id": GHOST_SPIELER_ID}},
         array_filters=[{"goal.spieler_id": spieler_id}, {"card.spieler_id": spieler_id}],
         session=session,
     )

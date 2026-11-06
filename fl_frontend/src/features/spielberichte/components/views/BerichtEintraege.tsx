@@ -27,11 +27,11 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
 
   return (
     <>
-      {bericht.torschuetzen.length > 0 && (
+      {bericht.scorers.length > 0 && (
         <ul
           aria-label="Torschützen"
           className="flex w-full flex-col gap-2">
-          {bericht.torschuetzen.map((tor, index) => (
+          {bericht.scorers.map((tor, index) => (
             <li
               // Entries carry no id of their own; their place in the stored list is stable while this read stands.
               key={index}
@@ -45,19 +45,19 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
         </ul>
       )}
 
-      {bericht.karten.length > 0 && (
+      {bericht.cards.length > 0 && (
         <ul
           aria-label="Karten"
           className="flex w-full flex-col gap-2">
-          {bericht.karten.map((karte, index) => (
+          {bericht.cards.map((entry, index) => (
             <li
               key={index}
               className={`${card()} flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3`}>
-              <span className="font-numeric fluid-sm font-semibold">{`${karte.minute}.`}</span>
-              <span className="min-w-0 flex-1 fluid-sm">{person(karte.spieler_id)}</span>
-              <span className="muted-meta">{team(karte.side)}</span>
-              <span className={labelBadge(karte.colour === "gelb" ? "warning" : "danger")}>{CARD_COLOUR_LABELS[karte.colour]}</span>
-              {karte.reason !== null && <span className="muted-meta">{`Grund: ${CARD_REASON_LABELS[karte.reason]}`}</span>}
+              <span className="font-numeric fluid-sm font-semibold">{`${entry.minute}.`}</span>
+              <span className="min-w-0 flex-1 fluid-sm">{person(entry.spieler_id)}</span>
+              <span className="muted-meta">{team(entry.side)}</span>
+              <span className={labelBadge(entry.colour === "gelb" ? "warning" : "danger")}>{CARD_COLOUR_LABELS[entry.colour]}</span>
+              {entry.reason !== null && <span className="muted-meta">{`Grund: ${CARD_REASON_LABELS[entry.reason]}`}</span>}
             </li>
           ))}
         </ul>

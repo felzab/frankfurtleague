@@ -5245,6 +5245,17 @@ export interface FLSpielberichtSpieler {
 }
 
 /**
+ * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
+ */
+export interface FLSpielberichtScorer {
+  eigentor: boolean;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
+  minute: string;
+  side: FLSpielSide;
+  spieler_id: string | null;
+}
+
+/**
  * The clubs the fixture fielded at the block's last write, null on a slot then open.
  *
  * Stamped by every write and on no payload: entries go by side, and a knockout correction can re-field one.
@@ -5265,17 +5276,6 @@ export const FLSpielberichtState = {
 } as const;
 
 /**
- * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
- */
-export interface FLSpielberichtTorschuetze {
-  eigentor: boolean;
-  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
-  minute: string;
-  side: FLSpielSide;
-  spieler_id: string | null;
-}
-
-/**
  * The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
  *
  * `version` is the one an adoption names (`adopts_bericht`), `sides` the clubs the report is about, and `named`
@@ -5284,9 +5284,9 @@ export interface FLSpielberichtTorschuetze {
 export interface FLSpielEditorBericht {
   ergebnis_vorschlag: FLSpielberichtVorschlag;
   named: FLSpielberichtSpieler[];
+  scorers: FLSpielberichtScorer[];
   sides: FLSpielberichtSides;
   state: FLSpielberichtState;
-  torschuetzen: FLSpielberichtTorschuetze[];
   version: number;
 }
 
@@ -5353,7 +5353,7 @@ export interface FLSpielberichtSpielerPublic {
 /**
  * One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct.
  */
-export interface FLSpielberichtKartePublic {
+export interface FLSpielberichtCardPublic {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
@@ -5364,7 +5364,7 @@ export interface FLSpielberichtKartePublic {
 /**
  * One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.
  */
-export interface FLSpielberichtTorPublic {
+export interface FLSpielberichtScorerPublic {
   eigentor: boolean;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
@@ -5381,8 +5381,8 @@ export interface FLSpielberichtTorPublic {
  */
 export interface FLSpielberichtPublic {
   aufstellungen: FLAufstellungenPublic;
-  karten: FLSpielberichtKartePublic[] | null;
-  torschuetzen: FLSpielberichtTorPublic[] | null;
+  cards: FLSpielberichtCardPublic[] | null;
+  scorers: FLSpielberichtScorerPublic[] | null;
 }
 
 /**
@@ -5422,7 +5422,7 @@ export interface FLSpielPageResponse {
 /**
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
-export interface FLSpielberichtKarte {
+export interface FLSpielberichtCard {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
@@ -5448,21 +5448,21 @@ export interface FLSpielberichtBericht {
   adopted_at: string | null;
   adopted_by: FLByAdmin | null;
   adopted_version: number | null;
+  cards: FLSpielberichtCard[];
   changed_at: string;
   ergebnis_vorschlag: FLSpielberichtVorschlag;
-  karten: FLSpielberichtKarte[];
   remarks: string | null;
+  scorers: FLSpielberichtScorer[];
   sides: FLSpielberichtSides;
   submitted_at: string;
   submitted_by: FLSpielberichtBySchiedsrichter | FLByAdmin;
-  torschuetzen: FLSpielberichtTorschuetze[];
   version: number;
 }
 
 /**
  * One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).
  */
-export interface FLSpielberichtKartePayload {
+export interface FLSpielberichtCardPayload {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
@@ -5473,12 +5473,12 @@ export interface FLSpielberichtKartePayload {
 }
 
 export interface FLSpielberichtBerichtPayload {
-  ergebnis_vorschlag: FLSpielberichtVorschlag;
   /** @maxItems 60 */
-  karten: FLSpielberichtKartePayload[];
+  cards: FLSpielberichtCardPayload[];
+  ergebnis_vorschlag: FLSpielberichtVorschlag;
   remarks: string | null;
   /** @maxItems 60 */
-  torschuetzen: FLSpielberichtTorschuetze[];
+  scorers: FLSpielberichtScorer[];
 }
 
 /**
@@ -6638,12 +6638,12 @@ export const Rule = {
   kontakt_email_twice: "kontakt_email_twice",
   kontakt_phone_twice: "kontakt_phone_twice",
   nichtantreten_with_tore: "nichtantreten_with_tore",
-  nichtantreten_with_torschuetzen: "nichtantreten_with_torschuetzen",
+  nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
   spieltag_ends_before_start: "spieltag_ends_before_start",
   text_version_of_another_wording: "text_version_of_another_wording",
-  torschuetzen_not_matching_tore: "torschuetzen_not_matching_tore",
+  scorers_not_matching_tore: "scorers_not_matching_tore",
   url_not_accepted: "url_not_accepted",
 } as const;
 

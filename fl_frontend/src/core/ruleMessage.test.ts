@@ -28,7 +28,7 @@ describe("the field patterns over the backend's rules", () => {
     expect(rule("kontakt_email_twice")).toStrictEqual({ field: field.taken });
     expect(rule("kontakt_phone_twice")).toStrictEqual({ field: field.taken });
     expect(rule("nichtantreten_with_tore")).toStrictEqual({ field: field.without(COPY.shared.tore) });
-    expect(rule("nichtantreten_with_torschuetzen")).toStrictEqual({ field: field.without(COPY.admin.spiel.torschuetzen) });
+    expect(rule("nichtantreten_with_scorers")).toStrictEqual({ field: field.without(COPY.admin.spiel.scorers) });
   });
 
   it("words a rule no pattern holds as its sentence on the status line, and anything else, a missing bound among it, as unexpected there", () => {

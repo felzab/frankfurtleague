@@ -58,7 +58,7 @@ const PATTERNED = {
   kontakt_phone_twice: () => field.taken,
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_tore: () => field.without(COPY.shared.tore),
-  nichtantreten_with_torschuetzen: () => field.without(COPY.admin.spiel.torschuetzen),
+  nichtantreten_with_scorers: () => field.without(COPY.admin.spiel.scorers),
   // The registration closes before the season starts; `latest` is the day before its start.
   registrierung_window_reaches_saison_start: ({ latest }: Context) => (typeof latest === "string" ? field.latest(dayOf(latest)) : undefined),
   // A season's rules held to what the season already holds, each bound read by the server from the season as it stands.

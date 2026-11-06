@@ -13641,18 +13641,18 @@
             "title": "Named",
             "type": "array"
           },
+          "scorers": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtScorer"
+            },
+            "title": "Scorers",
+            "type": "array"
+          },
           "sides": {
             "$ref": "#/components/schemas/FLSpielberichtSides"
           },
           "state": {
             "$ref": "#/components/schemas/FLSpielberichtState"
-          },
-          "torschuetzen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
-            },
-            "title": "Torschuetzen",
-            "type": "array"
           },
           "version": {
             "title": "Version",
@@ -13664,7 +13664,7 @@
           "version",
           "ergebnis_vorschlag",
           "sides",
-          "torschuetzen",
+          "scorers",
           "named"
         ],
         "title": "FLSpielEditorBericht",
@@ -15148,6 +15148,13 @@
             ],
             "title": "Adopted Version"
           },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
           "changed_at": {
             "format": "date-time",
             "title": "Changed At",
@@ -15155,13 +15162,6 @@
           },
           "ergebnis_vorschlag": {
             "$ref": "#/components/schemas/FLSpielberichtVorschlag"
-          },
-          "karten": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtKarte"
-            },
-            "title": "Karten",
-            "type": "array"
           },
           "remarks": {
             "anyOf": [
@@ -15174,6 +15174,13 @@
               }
             ],
             "title": "Remarks"
+          },
+          "scorers": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtScorer"
+            },
+            "title": "Scorers",
+            "type": "array"
           },
           "sides": {
             "$ref": "#/components/schemas/FLSpielberichtSides"
@@ -15201,13 +15208,6 @@
             ],
             "title": "Submitted By"
           },
-          "torschuetzen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
-            },
-            "title": "Torschuetzen",
-            "type": "array"
-          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -15215,8 +15215,8 @@
         },
         "required": [
           "ergebnis_vorschlag",
-          "torschuetzen",
-          "karten",
+          "scorers",
+          "cards",
           "remarks",
           "sides",
           "submitted_at",
@@ -15233,16 +15233,16 @@
       "FLSpielberichtBerichtPayload": {
         "additionalProperties": false,
         "properties": {
-          "ergebnis_vorschlag": {
-            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
-          },
-          "karten": {
+          "cards": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtKartePayload"
+              "$ref": "#/components/schemas/FLSpielberichtCardPayload"
             },
             "maxItems": 60,
-            "title": "Karten",
+            "title": "Cards",
             "type": "array"
+          },
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
           },
           "remarks": {
             "anyOf": [
@@ -15257,19 +15257,19 @@
             ],
             "title": "Remarks"
           },
-          "torschuetzen": {
+          "scorers": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
+              "$ref": "#/components/schemas/FLSpielberichtScorer"
             },
             "maxItems": 60,
-            "title": "Torschuetzen",
+            "title": "Scorers",
             "type": "array"
           }
         },
         "required": [
           "ergebnis_vorschlag",
-          "torschuetzen",
-          "karten",
+          "scorers",
+          "cards",
           "remarks"
         ],
         "title": "FLSpielberichtBerichtPayload",
@@ -15295,32 +15295,7 @@
         "title": "FLSpielberichtBySchiedsrichter",
         "type": "object"
       },
-      "FLSpielberichtKader": {
-        "description": "Each side's live squad of the season, the pupils a new entry may name.",
-        "properties": {
-          "team1": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtSpieler"
-            },
-            "title": "Team1",
-            "type": "array"
-          },
-          "team2": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtSpieler"
-            },
-            "title": "Team2",
-            "type": "array"
-          }
-        },
-        "required": [
-          "team1",
-          "team2"
-        ],
-        "title": "FLSpielberichtKader",
-        "type": "object"
-      },
-      "FLSpielberichtKarte": {
+      "FLSpielberichtCard": {
         "description": "One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.",
         "properties": {
           "colour": {
@@ -15357,10 +15332,10 @@
           "colour",
           "reason"
         ],
-        "title": "FLSpielberichtKarte",
+        "title": "FLSpielberichtCard",
         "type": "object"
       },
-      "FLSpielberichtKartePayload": {
+      "FLSpielberichtCardPayload": {
         "additionalProperties": false,
         "description": "One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).",
         "properties": {
@@ -15398,10 +15373,10 @@
           "colour",
           "reason"
         ],
-        "title": "FLSpielberichtKartePayload",
+        "title": "FLSpielberichtCardPayload",
         "type": "object"
       },
-      "FLSpielberichtKartePublic": {
+      "FLSpielberichtCardPublic": {
         "description": "One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct.",
         "properties": {
           "colour": {
@@ -15425,7 +15400,32 @@
           "colour",
           "spieler"
         ],
-        "title": "FLSpielberichtKartePublic",
+        "title": "FLSpielberichtCardPublic",
+        "type": "object"
+      },
+      "FLSpielberichtKader": {
+        "description": "Each side's live squad of the season, the pupils a new entry may name.",
+        "properties": {
+          "team1": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "title": "Team1",
+            "type": "array"
+          },
+          "team2": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "title": "Team2",
+            "type": "array"
+          }
+        },
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielberichtKader",
         "type": "object"
       },
       "FLSpielberichtOpenState": {
@@ -15628,11 +15628,11 @@
           "aufstellungen": {
             "$ref": "#/components/schemas/FLAufstellungenPublic"
           },
-          "karten": {
+          "cards": {
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/FLSpielberichtKartePublic"
+                  "$ref": "#/components/schemas/FLSpielberichtCardPublic"
                 },
                 "type": "array"
               },
@@ -15640,13 +15640,13 @@
                 "type": "null"
               }
             ],
-            "title": "Karten"
+            "title": "Cards"
           },
-          "torschuetzen": {
+          "scorers": {
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/FLSpielberichtTorPublic"
+                  "$ref": "#/components/schemas/FLSpielberichtScorerPublic"
                 },
                 "type": "array"
               },
@@ -15654,13 +15654,13 @@
                 "type": "null"
               }
             ],
-            "title": "Torschuetzen"
+            "title": "Scorers"
           }
         },
         "required": [
           "aufstellungen",
-          "torschuetzen",
-          "karten"
+          "scorers",
+          "cards"
         ],
         "title": "FLSpielberichtPublic",
         "type": "object"
@@ -15724,6 +15724,71 @@
           "completed"
         ],
         "title": "FLSpielberichtSchiedsrichterResponse",
+        "type": "object"
+      },
+      "FLSpielberichtScorer": {
+        "description": "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.",
+        "properties": {
+          "eigentor": {
+            "title": "Eigentor",
+            "type": "boolean"
+          },
+          "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute",
+            "type": "string"
+          },
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
+          },
+          "spieler_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
+          }
+        },
+        "required": [
+          "side",
+          "spieler_id",
+          "minute",
+          "eigentor"
+        ],
+        "title": "FLSpielberichtScorer",
+        "type": "object"
+      },
+      "FLSpielberichtScorerPublic": {
+        "description": "One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.",
+        "properties": {
+          "eigentor": {
+            "title": "Eigentor",
+            "type": "boolean"
+          },
+          "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute",
+            "type": "string"
+          },
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
+          },
+          "spieler": {
+            "$ref": "#/components/schemas/FLSpielberichtSpielerPublic"
+          }
+        },
+        "required": [
+          "side",
+          "minute",
+          "eigentor",
+          "spieler"
+        ],
+        "title": "FLSpielberichtScorerPublic",
         "type": "object"
       },
       "FLSpielberichtSides": {
@@ -16013,71 +16078,6 @@
           "name"
         ],
         "title": "FLSpielberichtTeam",
-        "type": "object"
-      },
-      "FLSpielberichtTorPublic": {
-        "description": "One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.",
-        "properties": {
-          "eigentor": {
-            "title": "Eigentor",
-            "type": "boolean"
-          },
-          "minute": {
-            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
-            "title": "Minute",
-            "type": "string"
-          },
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
-          "spieler": {
-            "$ref": "#/components/schemas/FLSpielberichtSpielerPublic"
-          }
-        },
-        "required": [
-          "side",
-          "minute",
-          "eigentor",
-          "spieler"
-        ],
-        "title": "FLSpielberichtTorPublic",
-        "type": "object"
-      },
-      "FLSpielberichtTorschuetze": {
-        "description": "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.",
-        "properties": {
-          "eigentor": {
-            "title": "Eigentor",
-            "type": "boolean"
-          },
-          "minute": {
-            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
-            "title": "Minute",
-            "type": "string"
-          },
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
-          "spieler_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spieler Id"
-          }
-        },
-        "required": [
-          "side",
-          "spieler_id",
-          "minute",
-          "eigentor"
-        ],
-        "title": "FLSpielberichtTorschuetze",
         "type": "object"
       },
       "FLSpielberichtVorschlag": {
@@ -19773,12 +19773,12 @@
           "kontakt_email_twice",
           "kontakt_phone_twice",
           "nichtantreten_with_tore",
-          "nichtantreten_with_torschuetzen",
+          "nichtantreten_with_scorers",
           "registrierung_window_reaches_saison_start",
           "saison_ends_before_start",
           "spieltag_ends_before_start",
           "text_version_of_another_wording",
-          "torschuetzen_not_matching_tore",
+          "scorers_not_matching_tore",
           "url_not_accepted"
         ],
         "type": "string"

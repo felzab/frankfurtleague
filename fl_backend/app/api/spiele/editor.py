@@ -15,10 +15,10 @@ from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
 from app.api.spielberichte.crud import pull_bericht_context, pull_named
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
+    FLSpielberichtScorer,
     FLSpielberichtSides,
     FLSpielberichtSpieler,
     FLSpielberichtState,
-    FLSpielberichtTorschuetze,
     FLSpielberichtVorschlag,
 )
 from app.api.spielberichte.services import bericht_state_of
@@ -93,7 +93,7 @@ class FLSpielEditorBericht(BaseReadModel):
     version: int
     ergebnis_vorschlag: FLSpielberichtVorschlag
     sides: FLSpielberichtSides
-    torschuetzen: list[FLSpielberichtTorschuetze]
+    scorers: list[FLSpielberichtScorer]
     named: list[FLSpielberichtSpieler]
 
 
@@ -206,7 +206,7 @@ async def _spielbericht_of(
         spiel_id=spiel_id,
         session=None,
     )
-    scorers = {tor.spieler_id for tor in bericht.torschuetzen if tor.spieler_id is not None}
+    scorers = {tor.spieler_id for tor in bericht.scorers if tor.spieler_id is not None}
     named = await pull_named(spieler_collection=spieler_collection, context=context, kader_open=False, bericht=block, session=None)
 
     return FLSpielEditorBericht(
@@ -214,7 +214,7 @@ async def _spielbericht_of(
         version=bericht.version,
         ergebnis_vorschlag=bericht.ergebnis_vorschlag,
         sides=bericht.sides,
-        torschuetzen=bericht.torschuetzen,
+        scorers=bericht.scorers,
         named=[spieler for spieler in named if spieler.spieler_id in scorers],
     )
 

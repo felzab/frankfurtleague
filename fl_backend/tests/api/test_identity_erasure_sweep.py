@@ -132,7 +132,7 @@ def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
     """A report naming that due pupil among its scorers, whose repoint writes a log row: what makes a pupil's erasure its costliest."""
 
     report = spielbericht_document({"_id": numbered(7000 + position), "saison_id": "2024"})
-    report["bericht"]["torschuetzen"][0]["spieler_id"] = numbered(position)
+    report["bericht"]["scorers"][0]["spieler_id"] = numbered(position)
 
     return {Collection.SPIELBERICHTE: [report]}
 

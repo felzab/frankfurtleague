@@ -174,15 +174,15 @@ def tor(side: str, spieler_id: ObjectId | None, minute: str = "23") -> dict[str,
 
 
 def bericht(
-    team1: int = 1, team2: int = 0, torschuetzen: list[dict[str, Any]] | None = None, *, stand: int | None = None, **fields: Any
+    team1: int = 1, team2: int = 0, scorers: list[dict[str, Any]] | None = None, *, stand: int | None = None, **fields: Any
 ) -> dict[str, Any]:
     """A write composed on version `stand` of the report, none by default: the form opened on no report."""
 
     return {
         "bericht": {
             "ergebnis_vorschlag": {"team1_tore": team1, "team2_tore": team2, "elfmeterschiessen": None, "sonderereignis": None},
-            "torschuetzen": [tor("team1", LINA)] if torschuetzen is None else torschuetzen,
-            "karten": [{"side": "team2", "spieler_id": MIA, "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
+            "scorers": [tor("team1", LINA)] if scorers is None else scorers,
+            "cards": [{"side": "team2", "spieler_id": MIA, "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
             "remarks": None,
             **fields,
         },
@@ -310,7 +310,7 @@ class TestAFormOpenedBeforeAnotherWrite:
             # Naming no pupil: the outer write holds its own pupils' anchors, which the rival would wait on.
             berichte = BerichteRunningARivalBeforeTheirWrite(
                 database[Collection.SPIELBERICHTE],
-                lambda: put(database, client, bericht(2, 0, [tor("team1", None), tor("team1", None)], karten=[])),
+                lambda: put(database, client, bericht(2, 0, [tor("team1", None), tor("team1", None)], cards=[])),
             )
             outcome = await outcome_of(put(database, client, bericht(), spielberichte_collection=berichte))
 
@@ -350,9 +350,7 @@ class TestEachRefusalWritesNothing:
             pytest.param(NOBODY, nothing, bericht(), Code.ROLE_NOT_HELD, id="no referee record"),
             pytest.param(OTHER_REFEREE_EMAIL, nothing, bericht(), Code.BERICHT_NOT_OFFICIATED, id="another referee"),
             pytest.param(REFEREE_EMAIL, move_to_tomorrow, bericht(), Code.BERICHT_NOT_PLAYED, id="a day still to come"),
-            pytest.param(
-                REFEREE_EMAIL, nothing, bericht(torschuetzen=[tor("team1", MIA)]), Code.BERICHT_NOT_IN_KADER, id="the other side's pupil"
-            ),
+            pytest.param(REFEREE_EMAIL, nothing, bericht(scorers=[tor("team1", MIA)]), Code.BERICHT_NOT_IN_KADER, id="the other side's pupil"),
         ],
     )
     def test_the_referee_s_write_is_refused(
@@ -420,7 +418,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht())
             berichte = BerichteRunningARivalBeforeTheirCorrection(database[Collection.SPIELBERICHTE], lambda: end_the_season(database))
-            korrektur = bericht(torschuetzen=[tor("team1", LINA, "24")], stand=1)
+            korrektur = bericht(scorers=[tor("team1", LINA, "24")], stand=1)
             outcome = await outcome_of(put(database, client, korrektur, spielberichte_collection=berichte))
             berichte.assert_landed_inside(serially=0)
 
@@ -733,7 +731,7 @@ async def a_reported_quarter_final(database: AsyncDatabase, client: AsyncMongoCl
         },
     )
     await correct_the_feeder(database, client, 1, 0)
-    await put(database, client, bericht(torschuetzen=[tor("team1", scorer)], karten=[]), spiel_id=VIERTELFINALE)
+    await put(database, client, bericht(scorers=[tor("team1", scorer)], cards=[]), spiel_id=VIERTELFINALE)
     await correct_the_feeder(database, client, 0, 1)
 
 
@@ -761,7 +759,7 @@ class TestAReportOutlivingItsFixturesClub:
 
             await a_reported_quarter_final(database, client, None)
             moved = await zustaende()
-            await put(database, client, bericht(torschuetzen=[tor("team1", None)], karten=[], stand=1), spiel_id=VIERTELFINALE)
+            await put(database, client, bericht(scorers=[tor("team1", None)], cards=[], stand=1), spiel_id=VIERTELFINALE)
 
             return moved, await zustaende(), await quarter_final_block(database)
 
@@ -777,9 +775,7 @@ class TestAReportOutlivingItsFixturesClub:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_reported_quarter_final(database, client, LINA)
-            again = await outcome_of(
-                put(database, client, bericht(torschuetzen=[tor("team1", LINA)], karten=[], stand=1), spiel_id=VIERTELFINALE)
-            )
+            again = await outcome_of(put(database, client, bericht(scorers=[tor("team1", LINA)], cards=[], stand=1), spiel_id=VIERTELFINALE))
 
             return again, (await quarter_final_block(database))["version"]
 

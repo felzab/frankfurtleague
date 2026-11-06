@@ -233,8 +233,8 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
 
     return {
         "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
-        "torschuetzen": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
-        "karten": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
+        "scorers": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
+        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
         "remarks": None,
         "sides": {"team1": None, "team2": None},
         "submitted_at": at,

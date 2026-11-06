@@ -169,7 +169,7 @@ export const SERVER_COPY = catalogue({
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
     elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
-    torschuetzen_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
+    scorers_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
   } satisfies Partial<Record<Rule, string>>,
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
@@ -595,20 +595,20 @@ export const SERVER_COPY = catalogue({
     /** A match's page: its line-ups, and its goals and cards by minute. */
     spiel: {
       aufstellung: "Aufstellung",
-      toreAndKarten: "Tore und Karten",
+      toreAndCards: "Tore und Karten",
       /**
        * The plural the match's empty timeline names until its report is adopted, whose goals and cards are not
        * official before: „Noch keine offiziellen Tore und Karten.“, where an adopted report naming none reads
        * „Noch keine Tore und Karten.“
        */
-      officialToreAndKarten: "offiziellen Tore und Karten",
+      officialToreAndCards: "offiziellen Tore und Karten",
       /** A pupil whose consent publishes no name, or one erased since. */
       anonymous: "anonym",
       /** A goal nobody was named for. */
       unknown: "unbekannt",
       tor: "Tor",
       eigentor: "Eigentor",
-      karte: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
+      card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
       /** A checkpoint's title: what happened, and to whom. */
       event: (what: Copy, who: Words) => `${what} · ${textOf(who)}`,
     },

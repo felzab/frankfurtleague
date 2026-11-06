@@ -888,8 +888,8 @@ REPORTING_REFEREE_EMAIL = "otto.gruber@example.com"
 NULL_NULL = FLSpielberichtBerichtPayload.model_validate(
     {
         "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
-        "torschuetzen": [],
-        "karten": [],
+        "scorers": [],
+        "cards": [],
         "remarks": None,
     }
 )

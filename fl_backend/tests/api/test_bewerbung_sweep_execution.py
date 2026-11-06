@@ -1761,7 +1761,7 @@ async def report_images_of_every_shape(database: AsyncDatabase, client: AsyncMon
 
     berichte = database[Collection.SPIELBERICHTE]
     singles = [a_report(SAISON_ID), a_report(SAISON_ID, remarks=None), a_report(SAISON_ID, rot_reason=None)]
-    singles[1]["bericht"]["karten"].reverse()
+    singles[1]["bericht"]["cards"].reverse()
     for report in singles:
         await berichte.insert_one(report)
         await patch_one_in_db(
@@ -1962,13 +1962,13 @@ class TestTheSeasonsEndStripsItsConfirmations:
 def a_report(saison_id: str, *, remarks: str | None = "Starker Regen ab der Pause.", rot_reason: str | None = "taetlichkeit") -> dict[str, Any]:
     """A report with a named scorer and two cards, a caution with its reason and a red card with or without one."""
 
-    karten = [
+    cards = [
         {"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"},
         {"side": "team1", "spieler_id": ObjectId(), "minute": "80", "colour": "rot", "reason": rot_reason},
     ]
 
     return documents.spielbericht_document(
-        {"_id": ObjectId(), "saison_id": saison_id}, bericht=documents.bericht_document(remarks=remarks, karten=karten)
+        {"_id": ObjectId(), "saison_id": saison_id}, bericht=documents.bericht_document(remarks=remarks, cards=cards)
     )
 
 
@@ -2026,7 +2026,7 @@ class TestTheSeasonsEndStripsItsReports:
         # The three log rows this season's strip redacted, the undraw's among them, join the pass's count beside every
         # other clock's.
         assert redacted["reports"] == 3
-        assert [(image["bericht"]["remarks"], [karte["reason"] for karte in image["bericht"]["karten"]]) for image in removed] == [
+        assert [(image["bericht"]["remarks"], [card["reason"] for card in image["bericht"]["cards"]]) for image in removed] == [
             (None, [None, None])
         ] * len(undrawn)
         assert response.redacted_action_log == redacted["reports"] + redacted["others"]
@@ -2034,10 +2034,10 @@ class TestTheSeasonsEndStripsItsReports:
             kept = reports[name]["bericht"]
             for left in (stored[name], images[name]):
                 assert left["remarks"] is None, name
-                assert left["karten"] == [{**karte, "reason": None} for karte in kept["karten"]], name
-                assert (left["torschuetzen"], left["ergebnis_vorschlag"]) == (kept["torschuetzen"], kept["ergebnis_vorschlag"]), name
+                assert left["cards"] == [{**card, "reason": None} for card in kept["cards"]], name
+                assert (left["scorers"], left["ergebnis_vorschlag"]) == (kept["scorers"], kept["ergebnis_vorschlag"]), name
         for left in (stored["next season"], images["next season"]):
-            assert (left["remarks"], left["karten"]) == (
+            assert (left["remarks"], left["cards"]) == (
                 reports["next season"]["bericht"]["remarks"],
-                reports["next season"]["bericht"]["karten"],
+                reports["next season"]["bericht"]["cards"],
             )

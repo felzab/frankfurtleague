@@ -2403,6 +2403,10 @@ export const SpielberichtePutSpielberichtBerichtParams = zod.object({
   spiel_id: zod.string().regex(spielberichtePutSpielberichtBerichtPathSpielIdRegExp),
 });
 
+export const spielberichtePutSpielberichtBerichtBodyBerichtCardsItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtCardsMax = 60;
+
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min = 0;
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min = 0;
@@ -2411,19 +2415,42 @@ export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam2ToreOneMin = 0;
 
-export const spielberichtePutSpielberichtBerichtBodyBerichtKartenItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtKartenItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtKartenMax = 60;
-
 export const spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax = 2000;
 
-export const spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenMax = 60;
+export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtScorersMax = 60;
 
 export const SpielberichtePutSpielberichtBerichtBody = zod
   .object({
     bericht: zod.object({
+      cards: zod
+        .array(
+          zod
+            .object({
+              colour: zod.enum(["gelb", "gelb_rot", "rot"]),
+              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemMinuteRegExp),
+              reason: zod.union([
+                zod.enum([
+                  "foulspiel",
+                  "unsportlichkeit",
+                  "handspiel",
+                  "meckern",
+                  "spielverzoegerung",
+                  "wiederholtes_foulspiel",
+                  "grobes_foulspiel",
+                  "taetlichkeit",
+                  "beleidigung",
+                  "notbremse",
+                ]),
+                zod.null(),
+              ]),
+              side: zod.enum(["team1", "team2"]),
+              spieler_id: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdRegExp),
+            })
+            .describe("One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."),
+        )
+        .max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax),
       ergebnis_vorschlag: zod
         .object({
           elfmeterschiessen: zod.union([
@@ -2442,43 +2469,16 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
         .describe(
           "The referee's proposed result, which only the administrator's own save applies.\n\nBoth counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals\ncould never equal.",
         ),
-      karten: zod
-        .array(
-          zod
-            .object({
-              colour: zod.enum(["gelb", "gelb_rot", "rot"]),
-              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtKartenItemMinuteRegExp),
-              reason: zod.union([
-                zod.enum([
-                  "foulspiel",
-                  "unsportlichkeit",
-                  "handspiel",
-                  "meckern",
-                  "spielverzoegerung",
-                  "wiederholtes_foulspiel",
-                  "grobes_foulspiel",
-                  "taetlichkeit",
-                  "beleidigung",
-                  "notbremse",
-                ]),
-                zod.null(),
-              ]),
-              side: zod.enum(["team1", "team2"]),
-              spieler_id: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtKartenItemSpielerIdRegExp),
-            })
-            .describe("One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."),
-        )
-        .max(spielberichtePutSpielberichtBerichtBodyBerichtKartenMax),
       remarks: zod.union([zod.string().min(1).max(spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax), zod.null()]),
-      torschuetzen: zod
+      scorers: zod
         .array(
           zod
             .object({
               eigentor: zod.boolean(),
-              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemMinuteRegExp),
+              minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp),
               side: zod.enum(["team1", "team2"]),
               spieler_id: zod.union([
-                zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenItemSpielerIdOneRegExp),
+                zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtScorersItemSpielerIdOneRegExp),
                 zod.null(),
               ]),
             })
@@ -2486,7 +2486,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
               "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.",
             ),
         )
-        .max(spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenMax),
+        .max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax),
     }),
     bericht_stand: zod.union([zod.int(), zod.null()]),
     version: zod.union([zod.int(), zod.null()]).optional(),

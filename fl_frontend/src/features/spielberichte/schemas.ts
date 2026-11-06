@@ -46,7 +46,7 @@ const FLSpielberichtVorschlagSchema = z.object({
 const torschuetze = <T extends z.ZodType<string | null>>(spieler: T) =>
   z.object({ side: FLSpielSideSchema, spieler_id: spieler, minute: minute, eigentor: z.boolean() });
 
-const karte = <T extends z.ZodType<string>>(spieler: T) =>
+const card = <T extends z.ZodType<string>>(spieler: T) =>
   z.object({
     side: FLSpielSideSchema,
     spieler_id: spieler,
@@ -67,16 +67,16 @@ export type KartenSchluessel = {
  * Whether each card may name no reason (`card_reason_missing`): each caution the season-end strip left reasonless in the
  * stored report excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
  */
-export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
+export const gruendeErlassen = (bestand: readonly KartenSchluessel[], cards: readonly KartenSchluessel[]): boolean[] => {
   const gleich = (eine: KartenSchluessel, andere: KartenSchluessel) =>
     eine.side === andere.side && eine.spieler_id === andere.spieler_id && eine.colour === andere.colour;
-  const ohneGrund = (karte: KartenSchluessel) => karte.colour !== "rot" && karte.reason === null;
+  const ohneGrund = (card: KartenSchluessel) => card.colour !== "rot" && card.reason === null;
 
-  return karten.map(
-    (karte, index) =>
-      karte.colour !== "rot" &&
-      bestand.filter((gespeichert) => ohneGrund(gespeichert) && gleich(gespeichert, karte)).length >
-        karten.slice(0, index).filter((frueher) => ohneGrund(frueher) && gleich(frueher, karte)).length,
+  return cards.map(
+    (card, index) =>
+      card.colour !== "rot" &&
+      bestand.filter((gespeichert) => ohneGrund(gespeichert) && gleich(gespeichert, card)).length >
+        cards.slice(0, index).filter((frueher) => ohneGrund(frueher) && gleich(frueher, card)).length,
   );
 };
 
@@ -95,15 +95,15 @@ const credits = (eintrag: { side: FLSpielSide; eigentor: boolean }, side: FLSpie
 const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z.ZodType>(spieler: {
   torschuetze: TTor;
   /** The whole card list (`kartenListe`): the form's adds the caution rule, judged over the list. */
-  karten: TKarten;
+  cards: TKarten;
 }) =>
   z
     .object({
       ergebnis_vorschlag: FLSpielberichtVorschlagSchema,
-      torschuetzen: z
+      scorers: z
         .array(torschuetze(spieler.torschuetze))
         .max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Torschützen.` }),
-      karten: spieler.karten,
+      cards: spieler.cards,
       remarks: z
         .string()
         .max(SPIELBERICHT_REMARKS_MAX_LENGTH, {
@@ -123,7 +123,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
             "sonderereignis",
           ]);
         }
-        if (bericht.torschuetzen.length > 0) issue("Bei einem Nichtantreten gibt es keine Torschützen.", ["torschuetzen"]);
+        if (bericht.scorers.length > 0) issue("Bei einem Nichtantreten gibt es keine Torschützen.", ["scorers"]);
         return;
       }
 
@@ -136,12 +136,12 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
       }
 
       // By the side each entry CREDITS, never by its `seite`: an own goal counts for the other team.
-      const gezaehlt1 = bericht.torschuetzen.filter((eintrag) => credits(eintrag, "team1")).length;
-      const gezaehlt2 = bericht.torschuetzen.filter((eintrag) => credits(eintrag, "team2")).length;
+      const gezaehlt1 = bericht.scorers.filter((eintrag) => credits(eintrag, "team1")).length;
+      const gezaehlt2 = bericht.scorers.filter((eintrag) => credits(eintrag, "team2")).length;
       if (gezaehlt1 !== team1_tore || gezaehlt2 !== team2_tore) {
         issue(
           `Für jedes Tor braucht es genau einen Eintrag. Die Einträge ergeben ${String(gezaehlt1)}:${String(gezaehlt2)}, das Ergebnis lautet ${String(team1_tore)}:${String(team2_tore)}.`,
-          ["torschuetzen"],
+          ["scorers"],
         );
       }
     });
@@ -149,7 +149,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
 /** The referee's PUT and the administrator's PATCH take this one body, so a refusal names one path on both. */
 export const FLSpielberichtPayloadSchema = z.object({
   // A null scorer is a goal nobody was named for, never an erased pupil, whose entry keeps their id.
-  bericht: berichtPayload({ torschuetze: CustomObjectIdStringSchema.nullable(), karten: kartenListe(karte(CustomObjectIdStringSchema)) }),
+  bericht: berichtPayload({ torschuetze: CustomObjectIdStringSchema.nullable(), cards: kartenListe(card(CustomObjectIdStringSchema)) }),
   // The version the form opened on, `null` where no report stood: one composed on another is refused (`bericht_meanwhile_changed`).
   bericht_stand: z.int().nullable(),
 });
@@ -163,9 +163,9 @@ export function spielberichtFormSchema(bestand: readonly KartenSchluessel[]) {
     bericht: berichtPayload({
       torschuetze: z.string().nonempty({ error: "Bitte wähle, wer getroffen hat, oder „unbekannt“." }),
       // Over the list, never per card: one stripped card excuses one caution, so a card's verdict hangs on the others.
-      karten: kartenListe(karte(z.string().nonempty({ error: "Bitte wähle die Person." }))).superRefine((karten, context) => {
-        const erlassen = gruendeErlassen(bestand, karten);
-        karten.forEach((eintrag, index) => {
+      cards: kartenListe(card(z.string().nonempty({ error: "Bitte wähle die Person." }))).superRefine((cards, context) => {
+        const erlassen = gruendeErlassen(bestand, cards);
+        cards.forEach((eintrag, index) => {
           if (eintrag.colour !== "rot" && eintrag.reason === null && !erlassen[index]) {
             context.addIssue({ code: "custom", message: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.", path: [index, "reason"] });
           }

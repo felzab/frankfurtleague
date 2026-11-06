@@ -343,11 +343,11 @@ type Rule = Literal[
     "kontakt_email_twice",
     "kontakt_phone_twice",
     "nichtantreten_with_tore",
-    "nichtantreten_with_torschuetzen",
+    "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
     "spieltag_ends_before_start",
     "text_version_of_another_wording",
-    "torschuetzen_not_matching_tore",
+    "scorers_not_matching_tore",
     "url_not_accepted",
 ]

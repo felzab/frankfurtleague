@@ -306,7 +306,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             ((f"bericht.{entries}.spieler_id", ASCENDING),),
             "the reports naming a leaving pupil, read inside their erasure's transaction",
         )
-        for entries in ("torschuetzen", "karten")
+        for entries in ("scorers", "cards")
     ),
     # Under the collation the two squad reads sort names by: the report reads it on every form and panel read and twice
     # on every write, the squad page on every read.

@@ -159,7 +159,7 @@ def named_ids_of(bericht: Mapping[str, Any] | FLSpielberichtBerichtPayload | Non
         return named
 
     raw = bericht.model_dump(context={"keep_oid": True}) if isinstance(bericht, FLSpielberichtBerichtPayload) else bericht
-    for entry in [*raw["torschuetzen"], *raw["karten"]]:
+    for entry in [*raw["scorers"], *raw["cards"]]:
         if entry["spieler_id"] is not None:
             named[entry["side"]].add(entry["spieler_id"])
 
@@ -306,14 +306,14 @@ def find_card_reason_missing_refusal(*, payload: FLSpielberichtBerichtPayload) -
     writes a report, and only while its season runs (`saison_past`).
     """
 
-    if all(karte.colour == "rot" or karte.reason is not None for karte in payload.karten):
+    if all(card.colour == "rot" or card.reason is not None for card in payload.cards):
         return None
 
     return WriteRefusal(
         error_code=Code.CARD_REASON_MISSING,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         # The list, a refusal's field being a literal: the form refuses the card itself before any press.
-        fields=(("bericht", "karten"),),
+        fields=(("bericht", "cards"),),
     )
 
 
@@ -483,7 +483,7 @@ def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
     """This season's reports still holding remarks or a card's reason, so a season stripped already is written nothing."""
 
     # `$type` and never `$ne: null`, which a list of cards matches only where no card holds a null reason.
-    return {"saison_id": saison_id, "$or": [{"bericht.remarks": {"$type": "string"}}, {"bericht.karten.reason": {"$type": "string"}}]}
+    return {"saison_id": saison_id, "$or": [{"bericht.remarks": {"$type": "string"}}, {"bericht.cards.reason": {"$type": "string"}}]}
 
 
 def build_season_report_images_filter(saison_id: str) -> Mapping[str, Any]:
@@ -492,7 +492,7 @@ def build_season_report_images_filter(saison_id: str) -> Mapping[str, Any]:
     return {
         "collection": str(Collection.SPIELBERICHTE),
         "before.saison_id": saison_id,
-        "$or": [{"before.bericht.remarks": {"$type": "string"}}, {"before.bericht.karten.reason": {"$type": "string"}}],
+        "$or": [{"before.bericht.remarks": {"$type": "string"}}, {"before.bericht.cards.reason": {"$type": "string"}}],
     }
 
 
@@ -503,13 +503,13 @@ def season_end_report_image_edits(image: Mapping[str, Any], saison_id: str) -> d
     if image.get("saison_id") != saison_id or not isinstance(bericht, Mapping):
         return {}
 
-    holds_a_reason = any(isinstance(karte, Mapping) and karte.get("reason") is not None for karte in bericht.get("karten") or [])
+    holds_a_reason = any(isinstance(card, Mapping) and card.get("reason") is not None for card in bericht.get("cards") or [])
     if bericht.get("remarks") is None and not holds_a_reason:
         return {}
 
     # Both paths whatever the image holds, every reason by `$[]`: one update then serves every single image, where a
     # set per card index would cost the sweep's worst call a command each against its deadline.
-    return {"bericht.remarks": None, "bericht.karten.$[].reason": None}
+    return {"bericht.remarks": None, "bericht.cards.$[].reason": None}
 
 
 # --- The REFEREE'S ERASURE: the reports they sent, and the log images of them.
@@ -559,8 +559,8 @@ def build_public_bericht_pipeline(spiel_id: ObjectId) -> list[Mapping[str, Any]]
     named = [
         {"$ifNull": [path, []]}
         for path in (
-            "$bericht.torschuetzen.spieler_id",
-            "$bericht.karten.spieler_id",
+            "$bericht.scorers.spieler_id",
+            "$bericht.cards.spieler_id",
             *(f"${AUFSTELLUNGEN_FIELD}.{side}.spieler.spieler_id" for side in SIDES),
         )
     ]
@@ -647,7 +647,7 @@ def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, 
     return FLSpielberichtPublic.model_validate(
         {
             AUFSTELLUNGEN_FIELD: {side: aufstellung(side) for side in SIDES},
-            "torschuetzen": None
+            "scorers": None
             if gated is None
             else [
                 {
@@ -656,18 +656,18 @@ def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, 
                     "eigentor": tor["eigentor"],
                     "spieler": spieler(tor["spieler_id"], tor["side"]),
                 }
-                for tor in sorted(gated["torschuetzen"], key=lambda tor: _minute_order(tor["minute"]))
+                for tor in sorted(gated["scorers"], key=lambda tor: _minute_order(tor["minute"]))
             ],
-            "karten": None
+            "cards": None
             if gated is None
             else [
                 {
-                    "side": karte["side"],
-                    "minute": karte["minute"],
-                    "colour": karte["colour"],
-                    "spieler": spieler(karte["spieler_id"], karte["side"]),
+                    "side": card["side"],
+                    "minute": card["minute"],
+                    "colour": card["colour"],
+                    "spieler": spieler(card["spieler_id"], card["side"]),
                 }
-                for karte in sorted(gated["karten"], key=lambda karte: _minute_order(karte["minute"]))
+                for card in sorted(gated["cards"], key=lambda card: _minute_order(card["minute"]))
             ],
         }
     )

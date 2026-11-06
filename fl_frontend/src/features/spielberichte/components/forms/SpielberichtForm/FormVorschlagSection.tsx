@@ -66,9 +66,7 @@ export function FormVorschlagSection({
     // A no-show's result is the league's: the counts, the shoot-out and the scorers go with the pick rather than riding
     // into a save that refuses them.
     const nichtantreten = sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
-    onChange(
-      nichtantreten ? { sonderereignis, team1Tore: null, team2Tore: null, elfmeterschiessen: null, torschuetzen: [] } : { sonderereignis },
-    );
+    onChange(nichtantreten ? { sonderereignis, team1Tore: null, team2Tore: null, elfmeterschiessen: null, scorers: [] } : { sonderereignis });
   };
 
   const setTore = (slot: "team1Tore" | "team2Tore") => (value: number | null) => {

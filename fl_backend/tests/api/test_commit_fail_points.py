@@ -552,7 +552,7 @@ class TestAPupilsLoeschungRefusedAtItsCommit:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.torschuetzen.spieler_id": 1})
+            report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.scorers.spieler_id": 1})
             standing = await database[Collection.SPIELER].count_documents({"_id": pupil})
 
             return commits.answered, (answer.spieler, answer.failed), report, standing
@@ -563,5 +563,5 @@ class TestAPupilsLoeschungRefusedAtItsCommit:
         assert (commits, counted) == ([NO_SUCH_TRANSACTION], (0, 1))
         assert report is not None
         # `a_report_naming` names the pupil as the report's first scorer.
-        assert report["bericht"]["torschuetzen"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
+        assert report["bericht"]["scorers"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
         assert standing == 1

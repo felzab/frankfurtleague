@@ -43,11 +43,11 @@ def tor(side: str, spieler_id: ObjectId | None = None, *, eigentor: bool = False
     return {"side": side, "spieler_id": spieler_id, "minute": minute, "eigentor": eigentor}
 
 
-def payload(team1_tore: int | None, team2_tore: int | None, torschuetzen: list[dict[str, Any]], **fields: Any) -> dict[str, Any]:
+def payload(team1_tore: int | None, team2_tore: int | None, scorers: list[dict[str, Any]], **fields: Any) -> dict[str, Any]:
     return {
         "ergebnis_vorschlag": {"team1_tore": team1_tore, "team2_tore": team2_tore, "elfmeterschiessen": None, "sonderereignis": None},
-        "torschuetzen": torschuetzen,
-        "karten": [],
+        "scorers": scorers,
+        "cards": [],
         "remarks": None,
         **fields,
     }
@@ -95,7 +95,7 @@ def refused_with(code: str, refusal: Any) -> bool:
 
 class TestEveryGoalHasAnEntry:
     def test_a_goal_without_an_entry_is_refused(self):
-        with pytest.raises(ValidationError, match="type=torschuetzen_not_matching_tore,"):
+        with pytest.raises(ValidationError, match="type=scorers_not_matching_tore,"):
             FLSpielberichtBerichtPayload.model_validate(payload(3, 1, [tor("team1"), tor("team2")]))
 
     def test_an_own_goal_counts_for_the_other_side(self):
@@ -103,7 +103,7 @@ class TestEveryGoalHasAnEntry:
 
         assert FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team2", LIVE2, eigentor=True)]))
 
-        with pytest.raises(ValidationError, match="type=torschuetzen_not_matching_tore,"):
+        with pytest.raises(ValidationError, match="type=scorers_not_matching_tore,"):
             FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", LIVE2, eigentor=True)]))
 
     def test_a_no_show_proposes_the_event_alone(self):
@@ -115,7 +115,7 @@ class TestEveryGoalHasAnEntry:
             FLSpielberichtBerichtPayload.model_validate(
                 {**payload(3, 0, []), "ergebnis_vorschlag": {**no_show, "team1_tore": 3, "team2_tore": 0}}
             )
-        with pytest.raises(ValidationError, match="type=nichtantreten_with_torschuetzen,"):
+        with pytest.raises(ValidationError, match="type=nichtantreten_with_scorers,"):
             FLSpielberichtBerichtPayload.model_validate({**payload(None, None, [tor("team1")]), "ergebnis_vorschlag": no_show})
 
     def test_a_played_match_proposes_both_counts(self):
@@ -204,7 +204,7 @@ class TestTheAdoptedStateIsDerivedFromThree:
 
     def test_a_no_show_matches_on_its_event_whatever_goals_the_forfeit_composed(self):
         no_show = {"team1_tore": None, "team2_tore": None, "elfmeterschiessen": None, "sonderereignis": "nichtantreten_team2"}
-        bericht = saved(**ADOPTED, ergebnis_vorschlag=no_show, torschuetzen=[])
+        bericht = saved(**ADOPTED, ergebnis_vorschlag=no_show, scorers=[])
 
         assert bericht_state_of(bericht, gespielt(3, 0, sonderereignis="nichtantreten_team2")) == "adopted"
         assert bericht_state_of(bericht, gespielt(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
@@ -310,12 +310,12 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
         assert update["$inc"] == {"bericht.version": 1}
         assert set(update["$set"]) == {
             "bericht.ergebnis_vorschlag",
-            "bericht.torschuetzen",
-            "bericht.karten",
+            "bericht.scorers",
+            "bericht.cards",
             "bericht.remarks",
             # Re-stamped by every write, so a report the referee sends again about the clubs playing now reads adoptable.
             "bericht.sides",
             "bericht.changed_at",
         }
         # Stored as ObjectIds, which every lookup by id matches.
-        assert update["$set"]["bericht.torschuetzen"][0]["spieler_id"] == LIVE1
+        assert update["$set"]["bericht.scorers"][0]["spieler_id"] == LIVE1
