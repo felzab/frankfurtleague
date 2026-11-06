@@ -550,11 +550,11 @@ export const SERVER_COPY = catalogue({
       title: "Der Weg in die Liga",
       apply: {
         title: "Bewerbung abschicken",
-        text: "Schule, Stufe, 3 Kontaktpersonen und die geplante Kadergröße, solange das Fenster offen ist.",
+        text: "Schule, Stufe, die Kontaktpersonen und die geplante Kadergröße, solange das Fenster offen ist.",
       },
       confirm: {
         title: "Kontaktpersonen bestätigen",
-        text: (days: number) => `Jede der 3 Personen bekommt einen Link und bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen.`,
+        text: (days: number) => `Jede Kontaktperson bekommt einen Link und bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen.`,
       },
       decision: {
         title: "Zusage der Liga",
@@ -751,7 +751,7 @@ export const SERVER_COPY = catalogue({
       bewerbung: {
         heading: "Bewerbung einer Schule",
         form: (kontakte: number) =>
-          `Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team, darunter die Anschrift der Schule, und ${formatNumber(kontakte)} Kontaktpersonen mit Name, E-Mail-Adresse und Telefonnummer; freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.`,
+          `Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team, darunter die Anschrift der Schule, und zu jeder der ${formatNumber(kontakte)} Rollen eine Kontaktperson mit Name, E-Mail-Adresse und Telefonnummer; freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.`,
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
           `Jede Kontaktperson bekommt einen eigenen Link, über den sie ihren Eintrag innerhalb von ${formatNumber(days)} Tagen mit ihrem Geburtsdatum bestätigt oder ihm widerspricht, ebenso wenn die Liga sie selbst einträgt; das Mindestalter ist ${formatNumber(trainerAge)} Jahre als Trainer und sonst ${formatNumber(otherAge)}. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das der Ansprechperson.`,
       },

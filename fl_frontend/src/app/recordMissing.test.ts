@@ -30,7 +30,6 @@ const freshId = (): string => (calls += 1).toString(16).padStart(24, "0");
 /** Every read answering "none" off the API's record-missing refusal, each turned into its caller's `null`. */
 const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getBewerbungById: () => bewerbungen.getBewerbungById(freshId()),
-  getBewerbungWindow: () => bewerbungen.getBewerbungWindow(freshId()),
   getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
   getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
   getAdminSpielplan: () => spiele.getAdminSpielplan("2027"),

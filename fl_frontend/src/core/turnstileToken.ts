@@ -1,12 +1,12 @@
-// A module of its own so the browser's two forms and the server's two checks spell one name each,
+// A module of its own so the browser's forms and the server's checks spell one name each,
 // `fl_frontend/src/core/turnstile.ts` being server-only.
 
 import { COPY } from "./copy";
 
-/** The sign-in form's field the bot check's token travels in. */
+/** The field a form posting to a server action carries the bot check's token in. */
 export const TURNSTILE_FIELD = "cf-turnstile-response";
 
-/** The application form's header for it: the body is the backend's payload, whose schema the token is no part of. */
+/** The registration form's header for it: the body is the backend's payload, whose schema the token is no part of. */
 export const TURNSTILE_HEADER = "X-Turnstile-Response";
 
 /**

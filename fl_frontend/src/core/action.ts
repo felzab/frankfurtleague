@@ -225,6 +225,9 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // The replacement's incoming club retired since the page listed it, which lists none retired.
   "team_retired",
   "invitation_team_not_entered",
+  // The application's window shut, or its picked club went, since the form was read.
+  "bewerbung_window_closed",
+  "bewerbung_picked_team_unusable",
   // A referee's fresh link, which the editor offers only to a live entry with an address and no answer yet: the
   // referee moved since the page was served.
   "schiedsrichter_retired",
