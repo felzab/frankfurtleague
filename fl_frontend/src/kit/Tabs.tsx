@@ -2,6 +2,7 @@ import NextLink from "next/link";
 
 import { COPY } from "@/core/copy";
 
+import { hoverLook } from "./hoverStyles";
 import { PlaceholderLine } from "./Skeleton";
 import { TAB_PARAM } from "./tabChoice";
 import { tv } from "./tv";
@@ -103,8 +104,7 @@ export function Tabs({
                 aria-current={entry.id === selectedKey ? "page" : undefined}
                 data-kit-focus="inset"
                 className={tab({
-                  class:
-                    "text-fg-muted transition-colors duration-(--motion-state) hover:text-fg aria-[current=page]:border-brand aria-[current=page]:text-fg",
+                  class: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "full" })} aria-[current=page]:border-brand aria-[current=page]:text-fg`,
                 })}>
                 {entry.label}
               </NextLink>
