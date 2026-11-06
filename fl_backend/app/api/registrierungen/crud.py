@@ -69,7 +69,7 @@ async def pull_offene_registrierungen(
         collection=registrierungen_collection,
         pipeline=[
             {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort(sort_by="submitted_at", order=order))},
+            {"$sort": dict(build_registrierungen_sort(order=order))},
             {"$limit": limit + 1},
             # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
             # the join runs on reaches this handler, let alone the wire.

@@ -10792,6 +10792,10 @@
       "FLRegistrierungenAdminListResponse": {
         "description": "One season's pending registrations, newest first.",
         "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
           "registrierungen": {
             "items": {
               "$ref": "#/components/schemas/FLRegistrierungAdminRow"
@@ -10801,7 +10805,8 @@
           }
         },
         "required": [
-          "registrierungen"
+          "registrierungen",
+          "complete"
         ],
         "title": "FLRegistrierungenAdminListResponse",
         "type": "object"
@@ -23741,7 +23746,7 @@
     },
     "/api/v0/registrierungen/list/admin": {
       "get": {
-        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nRead whole, as every list but the Protokoll is, the page narrowing what it holds; a declined row waits out its month\nand asks nothing of an administrator. `confirmed` says whether the pupil answered their own link. 404 where no season\nholds that id.",
+        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nThe page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.\n`confirmed` says whether the pupil answered their own link. 404 where no season holds that id. Degrades rather than\nrefusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a\ntripwire would hand them the power to 500 this page, and `complete` reports the cut.",
         "operationId": "registrierungen_get_registrierungen_admin",
         "parameters": [
           {
@@ -23751,6 +23756,18 @@
             "schema": {
               "title": "Saison Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1024,
+              "maximum": 1024,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           }
         ],

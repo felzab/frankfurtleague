@@ -248,16 +248,17 @@ WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"confirmation.token_hashes": 0}
 REGISTRIERUNG_LIST_FIELDS: Final = ("first_name", "last_name", "team_id", "submitted_at", "einwilligung.confirmed_at")
 
 
-def build_registrierungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
-    """The pending list's order, tie-broken by `_id` in `order`'s OWN direction.
+def build_registrierungen_sort(*, order: str) -> list[tuple[str, int]]:
+    """The pending list's order, by `submitted_at` and tie-broken by `_id` in `order`'s OWN direction.
 
-    That direction makes the pair the index's key or its exact inverse; pinned descending,
-    `order=asc` would match neither and scan the collection.
+    One key, the one the collection's queue index sorts on: a second would plan a blocking sort over a
+    list an outside form writes. That direction makes the pair the index's key or its exact inverse;
+    pinned descending, `order=asc` would match neither and scan the collection.
     """
 
     direction = 1 if order == "asc" else -1
 
-    return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))
+    return build_sort(sort_by="submitted_at", order=order, chain=(("_id", direction),))
 
 
 # --- The CONFIRMATION. Every predicate below reads a missing `confirmation` block as "nothing to

@@ -1421,13 +1421,22 @@ export const RegistrierungenGetOpenRegistrierungenQueryParams = zod.object({
 /**
  * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
  *
- * Read whole, as every list but the Protokoll is, the page narrowing what it holds; a declined row waits out its month
- * and asks nothing of an administrator. `confirmed` says whether the pupil answered their own link. 404 where no season
- * holds that id.
+ * The page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.
+ * `confirmed` says whether the pupil answered their own link. 404 where no season holds that id. Degrades rather than
+ * refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
+ * tripwire would hand them the power to 500 this page, and `complete` reports the cut.
  * @summary One Saison's pending Registrierungen for its list
  */
+export const registrierungenGetRegistrierungenAdminQueryLimitDefault = 1024;
+export const registrierungenGetRegistrierungenAdminQueryLimitMax = 1024;
+
 export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
   saison_id: zod.string(),
+  limit: zod
+    .int()
+    .min(1)
+    .max(registrierungenGetRegistrierungenAdminQueryLimitMax)
+    .default(registrierungenGetRegistrierungenAdminQueryLimitDefault),
 });
 
 /**

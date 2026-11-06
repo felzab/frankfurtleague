@@ -4460,6 +4460,7 @@ export interface FLRegistrierungSweepResponse {
  * One season's pending registrations, newest first.
  */
 export interface FLRegistrierungenAdminListResponse {
+  complete: boolean;
   registrierungen: FLRegistrierungAdminRow[];
 }
 
@@ -6513,6 +6514,11 @@ export type RegistrierungenGetOpenRegistrierungenParams = {
 
 export type RegistrierungenGetRegistrierungenAdminParams = {
   saison_id: string;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
 };
 
 export type SaisonsGetSaisonsAdminParams = {

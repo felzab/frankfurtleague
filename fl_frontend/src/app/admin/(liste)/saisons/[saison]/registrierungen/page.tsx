@@ -90,7 +90,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   const shown = answer.registrierungen.filter(
     (row) => (team.value === null || row.team_id === team.value) && (chosen === null || chosen.holds === row.confirmed),
   );
-  return { saison, filters: [team, state] as const, shown };
+  return { saison, filters: [team, state] as const, shown, cut: answer.complete ? null : COPY.admin.registrierung.cut };
 }
 
 /** The table's head, drawn while the rows are read and over them once they are. */
@@ -112,6 +112,7 @@ export default function RegistrierungenPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminRegistrierungen" } }}
       filters={season.then(({ filters }) => filters)}
+      notice={season.then(({ cut }) => cut)}
       list={{
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
