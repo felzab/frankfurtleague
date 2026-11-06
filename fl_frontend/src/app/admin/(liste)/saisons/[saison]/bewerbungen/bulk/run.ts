@@ -50,6 +50,14 @@ export function gruppenFor(
   }));
 }
 
+/** The colours a card may not take: the season's, and each the run's other open applications chose, as `gruppenFor` counts a group. */
+export function takenFor(taken: readonly string[], rows: readonly FLBewerbungListRow[], run: Run, own: string): readonly string[] {
+  const picks = openRows(rows, run)
+    .filter((row) => row.id !== own)
+    .flatMap((row) => run.drafts[row.id]?.trikot_farbe || []);
+  return [...taken, ...picks];
+}
+
 /** One write's answer as its row keeps it. A code another club took is the one refusal its row names by a chip. */
 export function outcomeOf(answer: ActionAnswer): Outcome {
   if (answer.ok) return { kind: "accepted" };

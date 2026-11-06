@@ -17,7 +17,7 @@ import { trikotFarbeLabel } from "@/features/teams/constants";
 
 import { AcceptFields } from "../[bewerbung]/AcceptFields";
 import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
-import { cardOf, gruppenFor, openRows, outcomeOf } from "./run";
+import { cardOf, gruppenFor, openRows, outcomeOf, takenFor } from "./run";
 
 import type { FLBewerbungGruppeOffer, FLBewerbungListRow, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { AcceptRules } from "@/features/bewerbungen/fieldRules";
@@ -87,11 +87,14 @@ export function BulkAccept({
   saison,
   rows: served,
   gruppen,
+  taken,
   rules,
 }: {
   saison: string;
   rows: readonly FLBewerbungListRow[];
   gruppen: readonly FLBewerbungGruppeOffer[];
+  /** The colours another team holds. */
+  taken: readonly string[];
   rules: AcceptRules;
 }) {
   const router = useRouter();
@@ -161,6 +164,7 @@ export function BulkAccept({
         <AcceptFields
           subject={{ wish: card.wunschfarbe, shorthand: card.shorthand }}
           gruppen={gruppenFor(gruppen, rows, run, card.id)}
+          taken={takenFor(taken, rows, run, card.id)}
           rules={rules}
           picked={run.drafts[card.id]}
         />

@@ -32,12 +32,13 @@ const row = (id: string, name: string) =>
     people: 1,
   }) as FLBewerbungListRow;
 
-const run = () => (
+const run = (taken: readonly string[] = []) => (
   <BulkAccept
     saison="2027"
     rows={[row("a", "Goethe-Gymnasium"), row("b", "Schiller-Schule")]}
     gruppen={[{ gruppe: "A", free: 4 }]}
-    rules={{ required: { gruppe: true, trikot_farbe: true } }}
+    taken={taken}
+    rules={{ required: { gruppe: false, trikot_farbe: false } }}
   />
 );
 
@@ -77,5 +78,33 @@ describe("walking a Sammel-Zusage's cards", () => {
 
     expect(screen.getByText("Goethe-Gymnasium")).toBeTruthy();
     expect(screen.getByText(COPY.admin.bewerbung.cardOf(1, 2))).toBeTruthy();
+  });
+});
+
+const colourBox = () => screen.getByRole("button", { name: new RegExp(COPY.team.trikotFarbe) });
+
+// The write refuses a taken colour at the end of the run, on a card long left behind.
+describe("a colour a card may not take", () => {
+  it("closes a taken colour and opens on none where the wish is taken", async () => {
+    render(run(["rot"]));
+    expect(colourBox().textContent).toContain(COPY.shared.notProvided);
+
+    await userEvent.click(colourBox());
+    expect(screen.getByRole("option", { name: "Rot" }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("opens on the wish while it stands free", () => {
+    render(run());
+    expect(colourBox().textContent).toContain("Rot");
+  });
+
+  it("counts an earlier card's pick, the card itself keeping its own", async () => {
+    const { rerender } = render(run());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+    rerender(run());
+
+    // The second card wishes the colour the first one took.
+    expect(screen.getByText("Schiller-Schule")).toBeTruthy();
+    expect(colourBox().textContent).toContain(COPY.shared.notProvided);
   });
 });

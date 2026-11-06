@@ -137,6 +137,7 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
         <AcceptFields
           subject={{ wish: bewerbung.trikot.wunschfarbe, shorthand }}
           gruppen={saison.gruppen}
+          taken={saison.taken}
           rules={ACCEPT_RULES}
         />
       </AcceptDialog>

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { cardOf, gruppenFor, openRows, outcomeOf } from "./run.ts";
+import { cardOf, gruppenFor, openRows, outcomeOf, takenFor } from "./run.ts";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types.ts";
 import type { Draft, Run } from "./run.ts";
@@ -64,6 +64,22 @@ describe("the groups a card offers", () => {
     const skipped = run({ drafts: { a: draft("A") }, skipped: new Set(["a"]) });
 
     expect(gruppenFor(GRUPPEN, ROWS, skipped, "b")[0]?.free).toBe(1);
+  });
+});
+
+describe("the colours a card may not take", () => {
+  const colour = (trikot_farbe: string): Draft => ({ gruppe: "A", trikot_farbe, shorthand: "" });
+
+  it("adds the run's other picks to the season's, leaving a card its own and an empty box none", () => {
+    const picked = run({ drafts: { a: colour("rot"), b: colour("blau"), c: colour("") } });
+
+    expect(takenFor(["gelb"], ROWS, picked, "b")).toStrictEqual(["gelb", "rot"]);
+  });
+
+  it("gives a colour back once its application left the run", () => {
+    const skipped = run({ drafts: { a: colour("rot") }, skipped: new Set(["a"]) });
+
+    expect(takenFor([], ROWS, skipped, "b")).toStrictEqual([]);
   });
 });
 
