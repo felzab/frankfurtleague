@@ -130,6 +130,7 @@ async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClien
     return await get_confirmation_view(
         view_data=FLTokenPayload(token=TOKEN),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
         ban_list=ban_list(database),
