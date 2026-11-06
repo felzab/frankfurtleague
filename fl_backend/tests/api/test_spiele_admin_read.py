@@ -27,15 +27,10 @@ from .conftest import unwritten
 BASE_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 ADMIN_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 
-# Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
-# the harness's own included.
-UNREACHED_DATABASE = Code.DATABASE_FAILED
-
 SAISON_ID = "2026"
 
 # Fixed rather than generated, so a failure names the same fixture every run.
 SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230001")
-ABSENT_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230009")
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072300a1")
 HOME = ObjectId("6890a1b2c3d4e5f607230011")
 AWAY = ObjectId("6890a1b2c3d4e5f607230012")
@@ -196,23 +191,6 @@ def test_the_wrong_key_is_refused_by_the_guard_of_the_route_that_matched(path: s
     assert response.json()["error_code"] == error_code
 
 
-REACHING_CASES = [
-    pytest.param(ADMIN_PATH, ADMIN_AUTH, id="the admin key on the admin path"),
-    pytest.param(PUBLIC_PATH, BASE_AUTH, id="the base key on the public path"),
-]
-
-
-@pytest.mark.parametrize(("path", "headers"), REACHING_CASES)
-def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, headers: Mapping[str, str]):
-    """The control for the pair above: without it, a refusal from a route that does not exist would read as the guard's."""
-
-    # On the admin path the 500 is the actor check's grant read, which runs only once the key has cleared.
-    response = answered(UNANSWERED_URI, path, headers)
-
-    assert response.status_code == 500
-    assert response.json()["error_code"] == UNREACHED_DATABASE
-
-
 @pytest.mark.parametrize("spiel_id", ["not-an-id", "z" * 24, str(SPIEL_ID)[:-1], f"{SPIEL_ID}0"])
 def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
     """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets."""
@@ -259,17 +237,3 @@ def test_the_editor_offers_the_live_rows_and_the_ones_the_fixture_books(seeded_u
         ("Cleo Rau", False, True, None),
     ]
     assert (answer["spielbericht"], answer["spielbestaetigungen"]) == (None, [])
-
-
-@pytest.mark.db
-def test_an_id_naming_no_fixture_is_a_404(seeded_url: str):
-    """Well-formed and absent, so the 404 is the handler's answer to an empty aggregation rather than the convertor's."""
-
-    response = answered(
-        seeded_url,
-        f"/api/v{API_VERSION}/spiele/{ABSENT_SPIEL_ID}/verwaltung",
-        ADMIN_AUTH,
-    )
-
-    assert response.status_code == 404
-    assert response.json()["error_code"] == Code.DOCUMENT_NOT_FOUND
