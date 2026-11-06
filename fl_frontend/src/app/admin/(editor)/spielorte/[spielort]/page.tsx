@@ -2,7 +2,9 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
+import { FieldPair, FieldPlaceholder } from "@/kit/FieldPair";
 
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getSpielort } from "@/features/spielorte/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -46,9 +48,35 @@ export default function SpielortEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         sections: [
-          ["field", "field"],
-          ["pair", "field", "pair"],
+          [
+            <FieldPlaceholder
+              key="name"
+              width="W3L"
+            />,
+            <FieldPlaceholder
+              key="mietpreis"
+              width="C5"
+            />,
+          ],
+          [
+            <FieldPair
+              key="strasse"
+              short="second"
+              phone="pair">
+              <FieldPlaceholder width="W3" />
+              <FieldPlaceholder width="C5" />
+            </FieldPair>,
+            "field",
+            <FieldPair
+              key="stadt"
+              short="first"
+              phone="pair">
+              <FieldPlaceholder width="C5" />
+              <FieldPlaceholder width="W3" />
+            </FieldPair>,
+          ],
         ],
+        danger: [COPY.shared.verb.retire],
       }}
       editor={readEditor(params)}
     />

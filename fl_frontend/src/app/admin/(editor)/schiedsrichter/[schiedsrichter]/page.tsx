@@ -2,6 +2,8 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
+import { FactsPlaceholder } from "@/kit/Facts";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
@@ -61,9 +63,24 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         sections: [
-          ["field", "field", "field"],
-          ["pair", "field"],
+          [
+            "field",
+            "field",
+            <FieldPlaceholder
+              key="payment"
+              width="C5"
+            />,
+          ],
+          ["field", "field"],
+          // A confirmed referee's box, as nearly every entry lands: one waiting on its answer adds its act.
+          [
+            <FactsPlaceholder
+              key="confirmation"
+              pairs={2}
+            />,
+          ],
         ],
+        danger: [COPY.shared.verb.retire],
       }}
       editor={readEditor(params)}
     />
