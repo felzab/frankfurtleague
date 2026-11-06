@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.teams.admin_router import get_team_saison_admin, get_teams_admin, patch_team_saison, post_team_entry
+from app.api.teams.admin_router import delete_team, get_team_saison_admin, get_teams_admin, patch_team_saison, post_team_entry
 from app.api.teams.schemas import FLPatchTeamSaisonPayload, FLPostTeamEntryPayload, FLTeamListState, FLTeamsAdminFilterParams
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -246,6 +246,26 @@ class TestTheOneSave:
             return refused.value.error_code, (await club_now(database))["name"]
 
         assert on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.SAISON_PAST, "Adler")
+
+
+class TestTheRetirement:
+    def test_a_club_in_a_running_season_stays_in_the_league(self, mongo_replica_set_url: str):
+        """Only a stale page reaches this, the button being locked: retired, the club drops out of the reads and placings shift."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            with pytest.raises(APIError) as refused:
+                await delete_team(
+                    team_id=ADLER,
+                    teams_collection=database[Collection.TEAMS],
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    db=database.client,
+                    today=TODAY,
+                )
+
+            return refused.value.error_code, (await club_now(database))["inactive_since"]
+
+        assert on_a_league(mongo_replica_set_url, body, saison_status="active") == (Code.RETIRE_BLOCKED, None)
 
 
 class TestTheEntry:
