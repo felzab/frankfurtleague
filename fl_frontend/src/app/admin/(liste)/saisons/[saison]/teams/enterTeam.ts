@@ -77,7 +77,7 @@ export const enterTeam = action({
   lane: "admin",
   name: "enterTeam",
   input: EnterTeam,
-  ownWords: ["duplicate_key"],
+  ownWords: ["duplicate_key", "bewerbung_picked_team_already_entered"],
   paths: { shorthand: "shorthand" },
   examples: {
     shorthand: COPY.team.shorthandExample,

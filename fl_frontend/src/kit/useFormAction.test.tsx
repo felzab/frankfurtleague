@@ -14,6 +14,7 @@ import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
 import { EditorPage } from "./EditorPage";
 import { OneShotForm } from "./OneShot";
 import { SignInPage } from "./SignInPage";
+import { StepCard } from "./StepCard";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 import { answering, statusOf, useFormAction } from "./useFormAction";
@@ -90,6 +91,18 @@ describe("a form a visitor reaches before hydration", () => {
       />,
     ],
     ["an editor", <HeldEditor key="editor" />],
+    [
+      "a run's card",
+      <StepCard
+        key="step"
+        title={WORDS.title}
+        line={WORDS.title}
+        facts={[]}
+        onNext={() => undefined}
+        onSkip={() => undefined}>
+        <p />
+      </StepCard>,
+    ],
   ])("hands %s to React, never the browser", (_, form) => {
     const held = document.createElement("div");
     held.innerHTML = renderToString(form);

@@ -109,6 +109,22 @@ describe("a request of ours Cloudflare refuses", () => {
   }
 });
 
+describe("Cloudflare declining to judge", () => {
+  /* Garbage tokens can bring a 429 on while the site stands, so passing it would switch the check off on demand. A
+     code in its body judges no token, so it must not read as the visitor's failure. */
+  it.each([
+    ["no code", () => json({}, 429)],
+    ["a code", () => json({ success: false, "error-codes": ["too-many-requests"] }, 429)],
+  ])("refuses the submission on a 429 with %s, asked once, with one line naming the status", async (_, answer) => {
+    answers = [answer];
+
+    expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
+    expect(asked.length).toBe(1);
+    expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
+    expect(logs[0]?.meta ?? "").toMatch(/"status":429/);
+  });
+});
+
 describe("Cloudflare's own failure", () => {
   /* Its page answers internal-error with "Retry the request", and an idempotency key is what makes a retry
      of one judgement safe. */
@@ -148,7 +164,6 @@ describe("a check Cloudflare could not answer", () => {
       },
     ],
     ["a server error", () => json({}, 503)],
-    ["too many requests", () => json({}, 429)],
     ["a body that is no JSON", () => new Response("<html>", { status: 200 })],
     ["a body of another shape", () => json({ ok: true })],
   ];

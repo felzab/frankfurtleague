@@ -1,4 +1,4 @@
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { spieleGetSpielAdmin, spieleGetSpieleSpielplan } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
@@ -15,10 +15,7 @@ export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingl
   return runAdminRead(() =>
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
-    spieleGetSpielAdmin(spielId).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
+    orMissing(spieleGetSpielAdmin(spielId)),
   );
 }
 
@@ -28,10 +25,5 @@ export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingl
  * **Uncached**, as every admin read.
  */
 export async function getAdminSpielplan(saisonId: string): Promise<FLSpieleSpielplanAdminResponse | null> {
-  return runAdminRead(() =>
-    spieleGetSpieleSpielplan({ saison_id: saisonId }).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
+  return runAdminRead(() => orMissing(spieleGetSpieleSpielplan({ saison_id: saisonId })));
 }

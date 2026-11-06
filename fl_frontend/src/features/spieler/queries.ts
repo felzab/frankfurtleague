@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { spielerGetKader, spielerGetSelf, spielerGetSpielerAdmin, spielerGetSpielerSaison } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -15,22 +15,12 @@ import type {
 /** One season's squad rows for the Spieler list, every team's; `null` where no season holds the id. */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
 export async function getSpielerAdmin(saisonId: string): Promise<FLSpielerAdminListResponse | null> {
-  return runAdminRead(() =>
-    spielerGetSpielerAdmin({ saison_id: saisonId }).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
+  return runAdminRead(() => orMissing(spielerGetSpielerAdmin({ saison_id: saisonId })));
 }
 
 /** What the Spieler editor shows, in its one read; `null` where the person holds no squad row of that season. */
 export async function getSpielerSaison(spielerId: string, saisonId: string): Promise<FLSpielerSaisonAdminResponse | null> {
-  return runAdminRead(() =>
-    spielerGetSpielerSaison(spielerId, saisonId).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
+  return runAdminRead(() => orMissing(spielerGetSpielerSaison(spielerId, saisonId)));
 }
 
 /**

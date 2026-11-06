@@ -20,7 +20,8 @@ export const subgroup = tv({
 
 /**
  * A few of a box's fields under their name, each field at its own width, as a school's address stands inside the
- * application's first box, and `FieldRows`' rows under theirs: the fields 8 px apart.
+ * application's first box, and `FieldRows`' rows under theirs: the fields 8 px apart. A dialog parts its fields with
+ * `./FieldGroup.tsx` instead, whose hairline runs to the dialog's edges, which a box inside a page does not have.
  */
 export function FieldSubgroup({ name, children }: { name: Copy; children: ReactNode }) {
   const group = subgroup();

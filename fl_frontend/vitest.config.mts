@@ -28,10 +28,11 @@ export default defineConfig({
           name: "unit",
           include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs", "eslint-rules/**/*.test.mjs"],
           exclude: ["src/**/*.db.test.ts"],
-          // A formatter that drops its `timeZone` prints Berlin's day on a Berlin machine, so `src/core/format.test.ts`
-          // can fail only under another zone. Forks take this, the pool Vitest defaults to; worker threads ignore it
+          // Off both clocks a formatter pins, Berlin's and UTC's: one that drops its `timeZone` prints the runtime's, so
+          // `src/core/format.test.ts` can fail only under a third zone, on every machine. Forks take this, the pool Vitest
+          // defaults to; worker threads ignore it
           // (https://vitest.dev/guide/common-errors#time-zone-does-not-change-in-worker-threads).
-          env: { TZ: "UTC" },
+          env: { TZ: "America/New_York" },
         },
       },
       {

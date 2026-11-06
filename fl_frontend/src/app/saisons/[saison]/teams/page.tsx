@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -27,16 +28,16 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   const saison = await resolvePublicSaisonParam(params);
   const read = await getSaisonTeams(saison);
   if (read === null) notFound();
-  const named = (await searchParams).gruppe;
-  const value = Array.isArray(named) ? named[0] : named;
-  const groups = [...new Set(read.teams.map((team) => team.gruppe))].sort();
+  const options = [...new Set(read.teams.map((team) => team.gruppe))]
+    .sort()
+    .map((gruppe) => ({ id: gruppe, label: SERVER_COPY.season.gruppe(gruppe) }));
   const words = SERVER_COPY.season.filter;
   const filter: Filter = {
     name: "gruppe",
     label: words.gruppe,
     all: words.all,
-    options: groups.map((gruppe) => ({ id: gruppe, label: SERVER_COPY.season.gruppe(gruppe) })),
-    value: groups.find((gruppe) => gruppe === value) ?? null,
+    options,
+    value: filterValue((await searchParams).gruppe, options),
   };
   const teams = [...read.teams].sort((one, other) => one.name.localeCompare(other.name, "de"));
   return { saison, teams, filter };

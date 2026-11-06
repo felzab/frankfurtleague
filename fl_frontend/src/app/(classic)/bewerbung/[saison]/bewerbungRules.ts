@@ -7,6 +7,7 @@ import {
   bewerbungenPostBewerbungBodyKontakteTrainerFirstNameMax,
   bewerbungenPostBewerbungBodyKontakteTrainerLastNameMax,
   bewerbungenPostBewerbungBodySchuleOneAddressHausnummerMax,
+  bewerbungenPostBewerbungBodySchuleOneAddressPlzMax,
   bewerbungenPostBewerbungBodySchuleOneAddressStadtMax,
   bewerbungenPostBewerbungBodySchuleOneAddressStadtteilMax,
   bewerbungenPostBewerbungBodySchuleOneAddressStrasseMax,
@@ -66,6 +67,7 @@ export const BEWERBUNG_RULES = {
     trikotSatz: bewerbungenPostBewerbungBodyTrikotExistingSatzMax,
     wunschgegner: bewerbungenPostBewerbungBodyWunschgegnerOneMax,
   },
+  plzLength: bewerbungenPostBewerbungBodySchuleOneAddressPlzMax,
 } as const;
 
 export type BewerbungRules = typeof BEWERBUNG_RULES;

@@ -1,11 +1,12 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useMemo, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
 import { useHoldLeave } from "./LeaveGuard";
 import { statusOf, useFormAction } from "./useFormAction";
+import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -162,13 +163,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
 
   useHoldLeave(count, discard);
 
-  // The browser's own question before a reload or a closed tab; a navigation inside the site keeps the draft.
-  useEffect(() => {
-    if (count === 0) return undefined;
-    const ask = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", ask);
-    return () => window.removeEventListener("beforeunload", ask);
-  }, [count]);
+  useUnsavedChangesWarning(count > 0);
 
   const [declined, setDeclined] = useState<ActionAnswer | null>(null);
   const { answer } = form;
