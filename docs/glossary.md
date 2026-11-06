@@ -158,12 +158,6 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **In code:** `fl_backend/app/api/spiele/schemas.py :: PHASE_ORDER`; which rounds a season plays is `fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`.\
 **Trap:** `"playoffs"` is **not** one of them — a query-only alias compiled to `saison_phase != "gruppenphase"`, on no stored document; and the club reads, `GET /teams/{team_id}` and the admin list, take `statistik_scope` rather than this filter.
 
-### `spiel_status` — match status
-
-**Is:** the filter's `from_today` · `past` · `today` · `cancelled` · `unknown`, and the label's `ausstehend` in place of `from_today`, derived on both ends and stored nowhere.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielStatus`, compiled by `fl_backend/app/api/spiele/services.py :: build_spiele_filter`; `fl_frontend/src/features/spiele/types.ts :: SpielStatus`, derived by `fl_frontend/src/features/spiele/utils.ts :: computeSpielStatus`.\
-**Trap:** the two differ on purpose — the server's `from_today` is `date >= today` and **includes** today, the client's `ausstehend` is `date > today` and **excludes** it, because a filter selects while a label partitions; `unknown` as a filter returns everything, no branch matching it; and `cancelled` is not the whole of `sonderereignis` — an abandoned fixture took place, so it reads by its date like any other. And „Vorläufig“ is no value of it: the chip lays that word over `ausstehend` from the served confirmation verdict, which no filter reads.
-
 ### `sonderereignis` — what happened to a fixture beyond being played
 
 **Is:** `ausgefallen` · `nichtantreten_team1` · `nichtantreten_team2` · `abgebrochen` · `annulliert`, or `null` where there is nothing to say.\
@@ -343,6 +337,11 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **Is:** the league table's figures, computed per team and season from `spiele` on every read.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built over a read of `spiele` by `fl_backend/app/api/teams/services.py :: build_team_pipeline`, and over fixtures a caller already holds by `fl_backend/app/api/teams/services.py :: build_statistik_by_team` — the bracket resolution's preview.\
 **Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and `statistik_scope` decides which table you get, defaulting to the narrow `gruppenphase` one.
+
+### `Sieg` · `Unentschieden` · `Niederlage` — what a played match gives a club
+
+**Is:** a win, a draw and a loss, each worth the points the season's rules set.\
+**In code:** counted as `siege`, `unentschieden` and `niederlagen` on `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, worth `win_points`, `draw_points` and `loss_points` on `fl_backend/app/api/saisons/schemas.py :: FLSaisonRules`, and held in order by `rules_unentschieden_outvalues_win` and `rules_niederlage_outvalues_unentschieden` in `fl_backend/app/core/codes.py :: Code`.
 
 ### `mietpreis` · `default_mietpreis` — rental price
 

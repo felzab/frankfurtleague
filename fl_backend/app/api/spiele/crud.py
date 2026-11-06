@@ -426,7 +426,7 @@ async def preview_bracket_after_patch(
     season: Sequence[FLSpiel],
     patched: FLSpiel,
     releases: Sequence[SpieltagRelease],
-) -> tuple[list[FLSpielAdvancement], list[FLSpielReleasedSide], list[FLBracketFault]]:
+) -> tuple[list[FLSpielAdvancement], list[FLSpielReleasedSide]]:
     """What saving this payload would move and destroy, writing nothing.
 
     The same `_resolve_one_saison` the save uses, over a season rebuilt in memory with the releases
@@ -453,7 +453,6 @@ async def preview_bracket_after_patch(
     return (
         [report_advancement(advancement) for advancement in resolution.advancements],
         [report_release(release) for release in releases],
-        resolution.bracket_faults,
     )
 
 
@@ -473,7 +472,7 @@ async def advance_bracket_winners(
     saison_id: str,
     rules: FLSaisonRules,
     session: AsyncClientSession,
-) -> tuple[list[FLSpielAdvancement], list[FLBracketFault], list[BookedReferences]]:
+) -> tuple[list[FLSpielAdvancement], list[BookedReferences]]:
     """Resolve one season's bracket and write back every fixture whose slots disagree.
 
     The WHOLE season, not only what the changed match feeds, so the result does not depend on which
@@ -524,7 +523,7 @@ async def advance_bracket_winners(
             return_document=ReturnDocument.BEFORE,
         )
 
-    return [report_advancement(advancement) for advancement in resolution.advancements], resolution.bracket_faults, booked_again
+    return [report_advancement(advancement) for advancement in resolution.advancements], booked_again
 
 
 def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
@@ -808,7 +807,7 @@ async def preview_spiel_save(
         today=today,
     )
     names = await pull_party_names(parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter)
-    advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
+    advanced_to, released_sides = await preview_bracket_after_patch(
         teams_collection=collections.teams,
         saison_id=judged.saison_id,
         rules=judged.rules,
@@ -821,9 +820,7 @@ async def preview_spiel_save(
         advanced_to=advanced_to,
         released_sides=released_sides,
         voided_results=voided_results_of([*advanced_to, *released_sides]),
-        bracket_faults=bracket_faults,
         version=judged.patched.version,
-        bericht_adopted=None,
         recipients=recipients_named(told, names=names),
     )
 
@@ -865,7 +862,7 @@ async def save_spiel_in_session(
         spiele_collection=collections.spiele, season=judged.season, releases=judged.releases, session=session
     )
 
-    advanced_to, bracket_faults, booked_again_by_the_resolution = await advance_bracket_winners(
+    advanced_to, booked_again_by_the_resolution = await advance_bracket_winners(
         spiele_collection=collections.spiele,
         teams_collection=collections.teams,
         saison_id=judged.saison_id,
@@ -897,10 +894,8 @@ async def save_spiel_in_session(
     )
 
     # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
-    uebernommen = (
-        None
-        if adopts_bericht is None
-        else await stamp_the_adoption(
+    if adopts_bericht is not None:
+        await stamp_the_adoption(
             spielberichte_collection=collections.spielberichte,
             spiel_id=spiel_id,
             version=adopts_bericht,
@@ -908,14 +903,11 @@ async def save_spiel_in_session(
             now=now,
             session=session,
         )
-    )
 
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
         voided_results=voided_results,
-        bracket_faults=bracket_faults,
         version=saved[VERSION_FIELD],
-        bericht_adopted=uebernommen,
         recipients=None,
     )

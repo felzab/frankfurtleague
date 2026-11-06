@@ -9367,31 +9367,13 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the\nadoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`. `recipients`, on a\n`dry_run` alone and null on a save, is every party the confirmation pass mails about this fixture once it is saved\nso, and would not as it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.\n`voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:\nthe set a save names in its body to delete them.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed.\n\n`version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and\nnull on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as\nit stands: told of the move, of the referee taken off it, or of its call-off, each by its name.\n`voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:\nthe set a save names in its body to delete them.",
         "properties": {
           "advanced_to": {
             "items": {
               "$ref": "#/components/schemas/FLSpielAdvancement"
             },
             "title": "Advanced To",
-            "type": "array"
-          },
-          "bericht_adopted": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bericht Adopted"
-          },
-          "bracket_faults": {
-            "items": {
-              "$ref": "#/components/schemas/FLBracketFault"
-            },
-            "title": "Bracket Faults",
             "type": "array"
           },
           "recipients": {
@@ -9445,9 +9427,7 @@
           "advanced_to",
           "released_sides",
           "voided_results",
-          "bracket_faults",
           "version",
-          "bericht_adopted",
           "recipients"
         ],
         "title": "FLPatchSpielDataResponse",
@@ -14633,16 +14613,6 @@
         ],
         "title": "FLSpielSideStandings",
         "type": "object"
-      },
-      "FLSpielStatus": {
-        "enum": [
-          "from_today",
-          "past",
-          "today",
-          "cancelled",
-          "unknown"
-        ],
-        "type": "string"
       },
       "FLSpielTeamFieldJoined": {
         "description": "One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not.",
@@ -28630,22 +28600,6 @@
                 }
               ],
               "title": "Saison Phase"
-            }
-          },
-          {
-            "in": "query",
-            "name": "spiel_status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLSpielStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Spiel Status"
             }
           },
           {

@@ -15,7 +15,6 @@ from app.api.spiele.schemas import (
     FLBracketFault,
     FLPatchSpielDataPayload,
     FLSpiel,
-    FLSpielAdvancement,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
 )
@@ -115,14 +114,14 @@ class _SaisonCollection:
         return self.documents if length is None else self.documents[:length]
 
 
-def run_advance(collection: _SaisonCollection) -> tuple[list[FLSpielAdvancement], list[FLBracketFault]]:
+def run_advance(collection: _SaisonCollection) -> None:
     """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured.
 
     The same stand-in serves as every collection: no fixture here carries a `quelle`, so nothing but
     the season is read.
     """
 
-    advanced, faults, _ = asyncio.run(
+    asyncio.run(
         advance_bracket_winners(
             spiele_collection=cast(AsyncCollection, collection),
             teams_collection=cast(AsyncCollection, collection),
@@ -131,8 +130,6 @@ def run_advance(collection: _SaisonCollection) -> tuple[list[FLSpielAdvancement]
             session=cast(AsyncClientSession, object()),
         )
     )
-
-    return advanced, faults
 
 
 class TestTheBracketWriteRefusesATruncatedSeason:
