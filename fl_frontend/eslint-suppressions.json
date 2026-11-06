@@ -673,7 +673,7 @@
       "count": 13
     },
     "react/jsx-no-literals": {
-      "count": 8
+      "count": 6
     }
   },
   "src/features/registrierungen/components/views/RegistrierungView.tsx": {
