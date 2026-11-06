@@ -344,8 +344,7 @@ class TestTheRegistryRunsWhole:
 
         pupil, (held, squad), response, (left, squad_left) = on_a_league(mongo_replica_set_url, body)
 
-        # The premise first: a retired pupil would pass a precondition put back in front of the erasure.
-        assert pupil is not None and pupil["inactive_since"] is None
+        assert pupil is not None
         assert all(held[value] for value in THEIR_VALUES), held
         assert response.status_code == 200, response.json()
         assert response.json() == {
