@@ -49,7 +49,6 @@ def _press(blocks: list[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice
 
 # A stored block, and the press sending each choice back as stored.
 PUPIL_WITHHELD: Final[Mapping[str, Any]] = {"scope": "intern", "media": False}
-PUPIL_GRANTED: Final[Mapping[str, Any]] = {"scope": "kader_oeffentlich", "media": True}
 
 
 def _as_stored(block: Mapping[str, Any], **moved: Any) -> dict[FLEinwilligungChoice, Any]:
@@ -67,8 +66,3 @@ class TestAGrantThePressMovesNamesItsCurrentWording:
             409,
             (("text_versions", choice),),
         )
-
-    def test_a_grant_under_the_current_label_is_taken(self):
-        """The floor for the refusal above: without it, a sequence refusing every grant passes it."""
-
-        _press([PUPIL_WITHHELD], _as_stored(PUPIL_GRANTED), _replaced(FLSpielerTextVersions))

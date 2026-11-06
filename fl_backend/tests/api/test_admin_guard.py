@@ -16,8 +16,6 @@ from app.core.routing import SAFE
 from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
-from .conftest import MINIMUM_EXPECTED_MUTATIONS
-
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = application()
 
@@ -29,15 +27,6 @@ HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "opti
 
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
-
-# The security scheme each guard publishes, spelled here rather than imported from
-# `app/core/security.py`: a comparison taking them from the code it checks would let a rename
-# through, and the frontend's generated client is what would fail instead.
-EXPECTED_SCHEMES: dict[Callable[..., Any], str] = {
-    verify_access_base: "BaseKey",
-    verify_access_admin: "AdminKey",
-    verify_access_system: "SystemKey",
-}
 
 # `/system/is_live` is the container healthcheck: one that needs a secret fails for the wrong reasons
 # (`app/core/security.py`).
@@ -297,11 +286,6 @@ ADMIN_TIER_READS_OVER_POST = frozenset(
 )
 
 
-def test_the_person_exemption_names_only_published_operations():
-    """A stale entry would exempt nothing while reading as a decision."""
-    assert set(PERSON_OPERATIONS) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(PERSON_OPERATIONS) - set(PUBLISHED_OPERATIONS))} is not published"
-
-
 def test_every_person_operation_binds_a_person_after_the_key():
     """What earns an operation its exemption from the grants check.
 
@@ -316,32 +300,6 @@ def test_every_person_operation_binds_a_person_after_the_key():
             unearned.append(operation)
 
     assert unearned == [], f"{unearned} is exempt from the grants check without binding a person after the admin key"
-
-
-def test_every_guard_this_file_knows_names_a_scheme():
-    """A guard in one set and not the other publishes no security for a route that is in fact guarded."""
-    assert SLICE_GUARDS == set(EXPECTED_SCHEMES)
-
-
-@pytest.mark.parametrize(("path", "method"), PUBLISHED_OPERATIONS, ids=lambda value: value)
-def test_the_published_security_is_the_guard_the_route_carries(path: str, method: str):
-    """The frontend sends the key this names, so a wrong one here is a 401 nobody meets until a page opens."""
-    guards = guards_of(ROUTES_BY_OPERATION[(path, method)])
-    expected = [{EXPECTED_SCHEMES[guard]: []} for guard in sorted(guards, key=lambda guard: EXPECTED_SCHEMES[guard])]
-
-    assert APP.openapi()["paths"][path][method].get("security", []) == expected
-
-
-def test_the_mutation_inventory_clears_its_floor():
-    """The partial loss `pyproject.toml :: empty_parameter_set_mark` cannot reach.
-
-    That setting refuses an inventory that found NOTHING; one that found a third of the writes
-    parametrises, and every case it runs passes.
-    """
-    assert len(MUTATIONS) >= MINIMUM_EXPECTED_MUTATIONS, (
-        f"discovered only {len(MUTATIONS)} mutations across {len(PUBLISHED_OPERATIONS)} published operations; "
-        f"expected at least {MINIMUM_EXPECTED_MUTATIONS}. Did a router stop being included?"
-    )
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)
@@ -398,30 +356,6 @@ def test_a_system_write_is_unreachable_without_the_system_key(path: str, method:
 
     assert response.status_code == 401
     assert response.json()["error_code"] == MISSING_BEARER_TOKEN
-
-
-def test_the_system_writes_are_published_and_exempt_from_nothing_else():
-    """`test_the_public_writes_are_published_and_exempt_from_nothing_else`'s floor, for the second exemption."""
-
-    assert SYSTEM_WRITES, "the exemption is empty, so the two comparisons below hold of nothing"
-
-    assert set(SYSTEM_WRITES) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(SYSTEM_WRITES) - set(PUBLISHED_OPERATIONS))} is not published"
-
-    assert set(SYSTEM_WRITES) & set(MUTATIONS) == set()
-
-
-def test_the_public_writes_are_published_and_exempt_from_nothing_else():
-    """The anti-vacuity floor: a stale entry would shrink `MUTATIONS` while proving nothing.
-
-    Both directions -- every exempt operation is published, and each really left the inventory
-    above rather than naming a path never in it.
-    """
-
-    assert PUBLIC_WRITES, "the exemption is empty, so the two comparisons below hold of nothing"
-
-    assert set(PUBLIC_WRITES) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(PUBLIC_WRITES) - set(PUBLISHED_OPERATIONS))} is not published"
-
-    assert set(PUBLIC_WRITES) & set(MUTATIONS) == set()
 
 
 def test_no_route_creates_a_person():

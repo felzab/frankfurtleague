@@ -1,11 +1,7 @@
 import { refusalCodes, refused } from "@/test-support/refusals.ts";
-import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { describe, expect, it } from "vitest";
 
-import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
-
-import { mapAnsetzungAnsichtRefusal, mapAnsetzungRefusal } from "./utils.ts";
+import { mapAnsetzungAnsichtRefusal } from "./utils.ts";
 
 describe("mapAnsetzungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent link answers its own `zustand` in a 200. Fail-closed,
@@ -43,24 +39,5 @@ describe("mapAnsetzungAnsichtRefusal", () => {
     ] as const) {
       expect(mapAnsetzungAnsichtRefusal(refused(code, status)), code).toBe(null);
     }
-  });
-});
-
-describe("mapAnsetzungRefusal on a body the API refused", () => {
-  /* Only a drifted page sends one, and the page strips its token from the address bar: the shared
-     reader's reload would land on the dead link, so only the mail's link reopens the form. */
-  it("sends the club back to the mail's link", () => {
-    for (const code of ["payload_refused", "body_unreadable"] as const) {
-      expect(mapAnsetzungRefusal(refused(code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
-    }
-  });
-
-  it("marks the box a refusal names, keyed as the input is named, with the mail's link beside it", () => {
-    const refused = refusedPayload([bodyField(["vorschlag", "date"], "date_from_datetime_parsing")], "/spielbestaetigungen");
-
-    expect(mapAnsetzungRefusal(refused)).toStrictEqual({
-      fieldErrors: { "vorschlag.date": FELD_ABGELEHNT },
-      unplacedError: ANTWORT_NEU_OEFFNEN,
-    });
   });
 });

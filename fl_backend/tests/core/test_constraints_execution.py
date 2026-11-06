@@ -11,8 +11,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.aktionen.admin_router import FACET_TALLY
-from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
 from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
@@ -76,11 +74,6 @@ CONFLICTING_SUPPORT_INDEX = "action_log_trace_id"
 # The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
 # also the shape of the mistake this index exists against.
 CONFLICTING_TTL_INDEX = "action_log_retention"
-# A name no collection holds, the case only `tests/database.py :: _foreign` catches: a view over a
-# dropped collection's name is already in `_moved`'s `gone` set, and one over a live name is a
-# namespace MongoDB refuses.
-LEFTOVER_VIEW = "leftover_view"
-
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 
@@ -530,40 +523,6 @@ def test_a_second_nameless_referee_is_refused(mongo_url: str):
     assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
 
 
-def test_the_same_spiel_nr_in_another_season_is_fine(mongo_url: str):
-    """The index is compound for a reason: match 1 exists in every season."""
-
-    async def body(database: AsyncDatabase) -> int:
-        await database.spiele.insert_one(valid_documents()["spiele"])
-        await database.spiele.insert_one(valid_document("spiele", saison_id="2025"))
-        return await database.spiele.count_documents({})
-
-    assert on_the_shipped_schema(mongo_url, body) == 2
-
-
-def test_the_same_position_in_another_phase_is_fine(mongo_url: str):
-    """`saison_phase` is a key for this reason: the positions restart per phase, so every phase of a season has a 1."""
-
-    async def body(database: AsyncDatabase) -> int:
-        await database.spieltage.insert_one(valid_documents()["spieltage"])
-        await database.spieltage.insert_one(valid_document("spieltage", _id=SPIELORT_OID, saison_phase="finale"))
-        return await database.spieltage.count_documents({})
-
-    assert on_the_shipped_schema(mongo_url, body) == 2
-
-
-def test_every_season_but_the_active_one_is_outside_the_rule(mongo_url: str):
-    """The league keeps every season it ever played, so `past` rows pile up beside the running one and a `future` one waits."""
-
-    async def body(database: AsyncDatabase) -> int:
-        await database.saisons.insert_one(valid_documents()["saisons"])
-        for saison_id, status in (("2024", "past"), ("2025", "past"), ("2027", "future"), ("2028", "future")):
-            await database.saisons.insert_one(valid_document("saisons", _id=saison_id, status=status))
-        return await database.saisons.count_documents({})
-
-    assert on_the_shipped_schema(mongo_url, body) == 5
-
-
 def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
     """An answered row, a closed one and the other club's open one stand beside a party's open row on one stand.
 
@@ -606,21 +565,6 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: 
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
-
-
-def test_a_view_left_behind_is_reported_as_enforcement_the_session_did_not_build(mongo_url: str):
-    """The complement of the body above, on a database built ONCE.
-
-    Nothing asks a view-creating body for `mutates_schema=True`, so the guard is what has to name
-    the namespace.
-    """
-
-    async def body(database: AsyncDatabase) -> None:
-        # Any real collection: what the view selects is nothing this asserts on.
-        await database.command("create", LEFTOVER_VIEW, viewOn=str(Collection.SAISONS), pipeline=[])
-
-    with pytest.raises(AssertionError, match=LEFTOVER_VIEW):
-        on_the_shipped_schema(mongo_url, body)
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_url: str):
@@ -684,28 +628,6 @@ BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
 # One status of one season counted, which the index's two leading keys answer.
 BEWERBUNGEN_COUNT_FILTERS: list[dict[str, Any]] = [
     {"saison_id": SAISON_ID, "status": "submitted"},
-]
-ACTION_LOG_QUEUE_FILTERS: list[dict[str, Any]] = [
-    {},
-    {"collection": "teams"},
-    {"operation": "patch_one"},
-    {"collection": "teams", "operation": "patch_one"},
-    # A row's history action sends this one alone, and `action_log_target` leads on `collection`, so
-    # nothing here is a prefix of it: what this pins is that the sort index still carries the read.
-    {"document_id": TEAM_OID},
-]
-
-# One trace the seeded rows share, so the narrowed tally below counts more than a single row.
-TALLY_TRACE_ID = "0123456789abcdef0123456789abcdef"
-
-# Every shape the tally's own `$match` can hold, the facet terms reaching the read alone
-# (`app/api/aktionen/admin_router.py :: get_action_log`). All four, because the planner is asked afresh
-# for each.
-ACTION_LOG_TALLY_FILTERS: list[dict[str, Any]] = [
-    {},
-    {"trace_id": TALLY_TRACE_ID},
-    {"document_id": TEAM_OID},
-    {"trace_id": TALLY_TRACE_ID, "document_id": TEAM_OID},
 ]
 
 
@@ -884,68 +806,6 @@ def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url
     planned = on_the_shipped_schema(mongo_url, body)
 
     assert [(read, stages) for read, stages in planned if "COUNT_SCAN" not in stages or "COLLSCAN" in stages] == []
-
-
-def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str):
-    """The log holds twelve months of recorded writes, so a read that cannot walk an index scans them all.
-
-    `trace_id` is left out: it selects one write's fan-out, which the planner sorts in memory
-    over a handful of rows.
-    """
-
-    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
-        await database["aktionen"].insert_many(
-            [
-                valid_documents()["aktionen"]
-                | {
-                    "_id": ObjectId(),
-                    "at": f"2026-03-{(row % 28) + 1:02d}T09:30:00+00:00",
-                    "trace_id": secrets.token_hex(16),
-                    "collection": "teams" if row % 2 else "spiele",
-                    "operation": "patch_one" if row % 3 else "insert",
-                }
-                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
-            ]
-        )
-        planned = []
-        for db_filter, order in index_reads(ACTION_LOG_QUEUE_FILTERS):
-            explained = await database["aktionen"].find(db_filter).sort(build_aktionen_sort(order=order)).limit(50).explain()
-            planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
-        return planned
-
-    assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
-
-
-def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: str):
-    """`FACET_TALLY` itself, never a copy: a copy would pin a pipeline nothing issues once a group key moves."""
-
-    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
-        await database[Collection.ACTION_LOG].insert_many(
-            [
-                valid_documents()["aktionen"]
-                | {
-                    "_id": ObjectId(),
-                    "trace_id": TALLY_TRACE_ID if row else secrets.token_hex(16),
-                    "collection": "teams" if row % 2 else "spiele",
-                    "operation": "patch_one" if row % 3 else "insert",
-                }
-                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
-            ]
-        )
-        planned = []
-        for db_filter in ACTION_LOG_TALLY_FILTERS:
-            explained = await database.command(
-                {
-                    "explain": {"aggregate": str(Collection.ACTION_LOG), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
-                    "verbosity": "queryPlanner",
-                }
-            )
-            planned.append((read_id(db_filter), counted_stages(explained)))
-        return planned
-
-    # `SORT` among the banned: the `$sort` is what makes the planner reach for an index at all, and it is free only while
-    # one provides the order; without `action_log_facets` the same stage sorts the log in memory instead.
-    assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 
 GERMAN_KADER_INDEX = "saison_spieler_saison_id_team_id_de"

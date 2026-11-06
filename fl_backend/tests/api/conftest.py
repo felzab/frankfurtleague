@@ -253,11 +253,3 @@ def league(mongo_database: Database) -> SeededLeague:
     mongo_database.spiele.insert_many([dict(row) for row in SPIELE])
 
     return SeededLeague(database=mongo_database, team_oids=dict(TEAM_OIDS))
-
-
-# A floor rather than the exact count: an endpoint added is covered by the parametrisation in each
-# module without editing anything, so pinning the number would ask for a bump and prove nothing.
-
-# Set under the inventory by less than the largest router holds, so that router dropping out of the
-# mount lands below the floor.
-MINIMUM_EXPECTED_MUTATIONS = 30

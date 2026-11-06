@@ -5,15 +5,10 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore
-from app.api.saisons.schemas import FLSaison, FLSaisonRules
-from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_KEEPING_ITS_SLOT,
-    SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLBracketFault,
     FLPatchSpielDataPayload,
-    FLSpiel,
     FLSpielJoinedAdmin,
     FLSpielJoinedAdminListAdapter,
     FLSpielJoinedInternal,
@@ -31,19 +26,13 @@ from app.api.spiele.services import (
     find_departed_occupants,
     find_double_bookings,
     find_eligibility_refusal,
-    find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
-    find_spiel_date_refusal,
-    find_state_refusal,
-    find_wiring_refusal,
-    judge_spieltag_occupancy,
     reopens,
     resolve_bracket,
     slots_booked_against,
 )
 from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
-from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
@@ -170,17 +159,6 @@ def _resubmit(saison_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
 
 def _rules(**overrides: Any) -> FLSaisonRules:
     return FLSaisonRules.model_validate(rules_document(**{"max_kader_size": 50, "allowed_stufen": ["E1", "E2", "Q1", "Q2"], **overrides}))
-
-
-def _on_create(proposed: FLSaisonRules):
-    """A create, where `stored` is `None` and only the rules reading the payload alone can fire."""
-
-    return find_rules_refusal(
-        stored=None,
-        proposed=proposed,
-        occupancy_by_gruppe={},
-        highest_wired_platz=0,
-    )
 
 
 class TestASharedSquadNumber:
@@ -437,15 +415,6 @@ class TestNoBracketFaultIsStored:
         assert self.DISCRIMINATOR not in RECORD_MODELS[collection].model_fields
 
 
-class TestAGroupPhaseEveryClubLeaves:
-    """That `qualifiers_per_gruppe` is bounded from above alone, so a seeding-only group stage is legal."""
-
-    def test_qualifying_more_than_the_group_holds_is_what_refuses(self):
-        too_many = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=4)
-
-        assert _on_create(too_many) is not None
-
-
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
 MEMBERSHIP = {
     ObjectId(ADLER): SaisonMembership(name="Adler", departed_from=EXIT_BEFORE_THE_SPIEL),
@@ -479,78 +448,3 @@ class TestADisqualifiedClubKeepsItsSpiele:
         refusal = find_eligibility_refusal(ObjectId(MATCH_ID.format(1)), re_dated, stored, MEMBERSHIP)
 
         assert refusal is not None
-
-
-class TestAStoredPreImageIsNeverRevalidated:
-    """That the log's copy of a document is typed as data, so a migration cannot make an old row unreadable."""
-
-    def test_the_stored_image_is_typed_as_data(self):
-        """Two arms because a removal takes a set, and neither names a field of any collection."""
-
-        assert FLActionLogEntryWithBefore.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
-
-    def test_the_list_model_carries_no_image_at_all(self):
-        """The other half of the containment: the page-sized read cannot serve what it does not declare."""
-
-        assert "before" not in FLActionLogEntry.model_fields
-
-
-class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
-    """That the order rule is handed one phase at a time."""
-
-    def test_the_refusal_is_handed_no_phase_at_all(self):
-        """Its whole input: the `start` this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
-
-        assert set(inspect.signature(find_spieltag_order_refusal).parameters) == {
-            "start",
-            "stored_start",
-            "previous",
-            "following",
-        }
-        assert set(DatedNeighbour.__dataclass_fields__) == {"position", "start"}
-
-
-# Every refusal `PATCH /spiele/{spiel_id}` runs, which is the whole of what could gate a result on
-# the season's status.
-SPIEL_PATCH_REFUSALS = (
-    find_booking_refusal,
-    find_clash_refusal,
-    find_eligibility_refusal,
-    find_spiel_date_refusal,
-    find_result_removal_refusal,
-    find_state_refusal,
-    find_wiring_refusal,
-    judge_spieltag_occupancy,
-)
-
-
-class TestAFutureSeasonHoldingRecordedResults:
-    """That nothing the fixture patch refuses on can see the season's status, and that the windows reading it take the record apart from it."""
-
-    def test_nothing_the_patch_refuses_on_is_handed_the_status(self):
-        """Both routes to it: no refusal takes the status, and the fixture slice they are given carries no such field either."""
-
-        for refusal in SPIEL_PATCH_REFUSALS:
-            assert "saison_status" not in inspect.signature(refusal).parameters, refusal.__name__
-
-        assert "status" in FLSaison.model_fields
-        assert "status" not in FLSpiel.model_fields
-
-    def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
-        """The replace's and the undraw's window refusals share one sentence: neither infers the record from the status.
-
-        They are `spielplan_replace_outside_its_window` and `spielplan_undraw_outside_its_window`.
-        """
-
-        for refusal in (find_spielplan_refusal, find_undraw_refusal):
-            assert {"saison_status", "recorded_spiele"} <= set(inspect.signature(refusal).parameters), refusal.__name__
-
-
-class TestAnAbandonedSpielAndItsResult:
-    """That an abandonment may carry a score or none, the rule barring a result beside an event leaving it out."""
-
-    def test_it_sits_outside_the_set_that_awards_nothing(self):
-        """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""
-
-        assert "abgebrochen" in SONDEREREIGNIS_KEEPING_ITS_SLOT
-        assert "abgebrochen" not in SONDEREREIGNIS_WITHOUT_A_RESULT

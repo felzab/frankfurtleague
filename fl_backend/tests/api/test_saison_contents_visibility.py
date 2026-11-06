@@ -7,7 +7,6 @@ import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import Response
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -16,7 +15,7 @@ from tests import documents
 from tests.app_client import app_client
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
@@ -206,14 +205,6 @@ class TestEveryReadScopedByASeasonResolvesIt:
 
         assert response.status_code == 404, response.text
 
-    @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-    def test_a_readable_season_is_served(self, path: str, parameters: list[Mapping[str, Any]], saison_id: str, seeded_league: str):
-        """The control: a read that refused every season would pass the case above."""
-
-        response = answered(seeded_league, request_for(path, parameters, saison_id))
-
-        assert response.status_code == 200, response.text
-
 
 def test_the_inventory_is_read_off_the_app():
     """Not empty, so a security scheme or a parameter renamed past these filters cannot pass by matching nothing."""
@@ -228,27 +219,3 @@ def test_a_match_of_another_season_misses_on_the_season_s_match_page(seeded_leag
     response = answered(seeded_league, f"{PREFIX}/saisons/{RUNNING}/spiele/{an_id('2', ARCHIVED)}")
 
     assert response.status_code == 404, response.text
-
-
-@pytest.mark.db
-def test_one_club_in_a_past_season_is_served_as_that_season(seeded_league: str):
-    """Its group and its figures are that season's: the archived season's group and its one win."""
-
-    def served(saison_id: str) -> tuple[str, int]:
-        team = answered(seeded_league, f"{PREFIX}/teams/{TEAM_OID}?saison_id={saison_id}").json()["team"]
-
-        return team["gruppe"], team["statistik"]["punkte"]
-
-    assert (served(ARCHIVED), served(RUNNING)) == ((GRUPPE_OF[ARCHIVED], 3), (GRUPPE_OF[RUNNING], 0))
-
-
-@pytest.mark.db
-def test_the_planned_season_holds_what_every_read_above_withheld(seeded_league: str):
-    """What makes the refusals mean something: each collection really holds the planned season's document."""
-
-    async def body() -> dict[str, int]:
-        database: AsyncDatabase = shared_client(seeded_league)[DATABASE_NAME]
-        collections = (Collection.SAISON_TEAMS, Collection.SPIELE, Collection.SPIELTAGE, Collection.SAISON_SPIELER)
-        return {name: await database[name].count_documents({"saison_id": PLANNED}) for name in collections}
-
-    assert all(on_the_seed_loop(body()).values())

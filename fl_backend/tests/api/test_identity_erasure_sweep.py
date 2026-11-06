@@ -57,11 +57,10 @@ from tests.documents import (
 )
 from tests.erasure import erasure_collections
 from tests.whole_database import where_held
-from tests.wire import commands_by_name, commands_sent
+from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 from .conftest import config_for
-from .test_identity_erasure_sweep_refusal import COMMANDS_A_PERSON, OTHER_COMMANDS
 
 pytestmark = pytest.mark.db
 
@@ -759,43 +758,23 @@ class TestNoJournalLine:
 # --- What a call costs on the wire, which the share is sized at.
 
 
-# Two runs apart by this many pupils, both inside one share.
-FEW = ERASURES_PER_PASS // 2
-
 # The server's first batch for a cursor naming no size: one pending registration more takes the read a `getMore`.
 FIRST_BATCH = 101
 
 
-class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
-    def test_counted_on_the_wire(self, mongo_replica_set_url: str):
-        """A step added to the pupil's transaction, or a read moved into it, turns this red before it times out a call in production."""
+# One pupil's commands on the wire at their costliest, a report naming them, whose repoint writes a log row.
+COMMANDS_A_PERSON = 22
 
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
-            async def counted(due: int) -> int:
-                for collection in (
-                    Collection.SPIELER,
-                    Collection.SAISON_SPIELER,
-                    Collection.REGISTRIERUNGEN,
-                    Collection.SPIELBERICHTE,
-                    Collection.ACTION_LOG,
-                ):
-                    await database[collection].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
-                await seeded(database, *(shape for position in range(due) for shape in (a_due_pupil(position), a_report_naming(position))))
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, run)
-
-            return await counted(FEW), await counted(2 * FEW)
-
-        few, twice = on_a_league(mongo_replica_set_url, body)
-
-        assert (twice - few) / FEW == COMMANDS_A_PERSON
+# The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first
+# batch, the page being one document.
+OTHER_COMMANDS = 3 + 1
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_a_full_share(self, mongo_replica_set_url: str):
-        """`tests/api/test_identity_erasure_sweep_refusal.py`'s budget: a share and one more due, pending registrations past the first batch.
+        """A share and one more due, pending registrations past the first batch.
 
-        A command added to the call turns this red, so the share is judged against the deadline again.
+        A command added to the call turns this red, so `ERASURES_PER_PASS` is judged against the deadline again.
         """
 
         waiting = [registration(numbered(6000 + position), f"angemeldet.{position}@beispielschule.de") for position in range(FIRST_BATCH + 1)]

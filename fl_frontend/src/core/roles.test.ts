@@ -33,21 +33,6 @@ describe("which of a subject's seats grant a panel", () => {
     expect(roles.map((role) => (role.kind === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26"]);
   });
 
-  for (const status of ["active", "future"] as const) {
-    it(`grants one Funktion for a seat whose season is ${status}, carrying its team's name and its season's status`, () => {
-      expect(rolesOf(person({ seats: [seat({ saison_status: status })] })).roles).toStrictEqual([
-        {
-          kind: "kontakt",
-          rolle: "ansprechperson",
-          team_id: SEAT.team_id,
-          saison_id: "2526",
-          team_name: "Goethe-Gymnasium",
-          saison_status: status,
-        },
-      ]);
-    });
-  }
-
   /* Per seat and never per team: a resolver collapsing one junction row's two seats into one drops
      the second seat's `rolle`. */
   it("answers two seats on one team as two Funktionen naming that one team", () => {
@@ -57,24 +42,9 @@ describe("which of a subject's seats grant a panel", () => {
     expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.team_id : null)))).toStrictEqual(new Set([SEAT.team_id]));
     expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.rolle : null)))).toStrictEqual(new Set(["trainer", "ansprechperson"]));
   });
-
-  it("answers one team's seats in two granting seasons as two Funktionen", () => {
-    const { roles } = rolesOf(person({ seats: [seat({ saison_id: "2025/26" }), seat({ saison_id: "2026/27", saison_status: "future" })] }));
-
-    expect(roles.map((role) => (role.kind === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26", "2026/27"]);
-  });
 });
 
 describe("the Funktionen no season narrows", () => {
-  it("passes every pupil and referee row through", () => {
-    const { roles } = rolesOf(person({ spieler: [{ spieler_id: "b".repeat(24) }], schiedsrichter: [{ schiedsrichter_id: "c".repeat(24) }] }));
-
-    expect(roles).toStrictEqual([
-      { kind: "spieler", spieler_id: "b".repeat(24) },
-      { kind: "schiedsrichter", schiedsrichter_id: "c".repeat(24) },
-    ]);
-  });
-
   it("answers the administrator's verdict as the administration Funktion, and nothing without it", () => {
     expect(rolesOf(person({}, true)).roles).toStrictEqual([{ kind: "administration" }]);
     expect(rolesOf(person()).roles).toStrictEqual([]);

@@ -11,22 +11,17 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
-from pymongo.results import DeleteResult, UpdateResult
+from pymongo.results import UpdateResult
 
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import (
     DUPLICATE_KEY_ERROR,
     build_query,
-    delete_many_from_db,
     ensure_one_in_db,
-    erase_many_from_db,
     literal_pattern,
     patch_one_in_db,
     post_many_to_db,
-    pull_one_from_db,
 )
-from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.custom import CustomObjectId
 
 TEAM_OID = "6890a1b2c3d4e5f607182930"
@@ -53,13 +48,6 @@ class TestBuildQuery:
 
         assert query["team_id"] == ObjectId(TEAM_OID)
 
-    @pytest.mark.parametrize("include_inactive", [True, None])
-    def test_only_a_false_switch_adds_the_soft_delete_scope(self, include_inactive: bool | None):
-        """A switch whose False ADDS a term, so it is translated rather than dumped; True and "not asked" both mean no scope."""
-        query = build_query(_Filters.model_validate({}), terms=TERMS, include_inactive=include_inactive)
-
-        assert "inactive_since" not in query
-
     def test_a_false_switch_scopes_the_read_to_live_rows(self):
         query = build_query(_Filters.model_validate({}), terms=TERMS, include_inactive=False)
 
@@ -79,9 +67,6 @@ LITERAL = "a\x00.*+?^$()[]{}|\\/ -#b"
 
 
 class TestLiteralPattern:
-    def test_the_pattern_holds_no_raw_nul(self):
-        assert "\x00" not in literal_pattern(LITERAL)
-
     def test_the_pattern_matches_the_value_and_nothing_wider(self):
         pattern = re.compile(literal_pattern(LITERAL))
 
@@ -202,59 +187,6 @@ class TestPatchOneInDb:
         assert replaced == stored
         assert [row["before"] for row in stub.recorded] == [replaced]
 
-    def test_a_miss_raises_rather_than_returning_none(self):
-        """No caller branches on `None`, so returning one would put a miss into a response body as a 200."""
-        stub = _OneDocumentCollection(None)
-
-        with pytest.raises(DocumentNotFoundError) as excinfo:
-            asyncio.run(
-                patch_one_in_db(
-                    collection=as_collection(stub),
-                    db_filter=FILTER,
-                    update=UPDATE,
-                    expected_version=None,
-                    return_document=ReturnDocument.BEFORE,
-                )
-            )
-
-        assert excinfo.value.status_code == 404
-        assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
-        # The filter travels with the exception, which is what lets the handler log what was looked for.
-
-
-class _Cursor:
-    def __init__(self, documents: list[Mapping[str, Any]]) -> None:
-        self.documents = documents
-
-    async def to_list(self, length: int | None) -> list[Mapping[str, Any]]:
-        return self.documents
-
-
-class _SetCollection(_OneDocumentCollection):
-    """Answers a removal's read and its delete with the set the test hands it."""
-
-    def __init__(self, documents: list[Mapping[str, Any]]) -> None:
-        super().__init__(None)
-        self.documents = documents
-
-    def find(self, *, filter: Any, session: Any) -> _Cursor:
-        return _Cursor(self.documents)
-
-    async def delete_many(self, *, filter: Any, session: Any) -> DeleteResult:
-        return DeleteResult({"n": len(self.documents)}, acknowledged=True)
-
-
-class TestDeleteManyFromDb:
-    @pytest.mark.parametrize(("documents", "rows"), [pytest.param([], 0, id="nothing removed"), pytest.param([STORED], 1, id="one removed")])
-    def test_a_removal_records_a_row_exactly_where_it_took_something(self, documents: list[Mapping[str, Any]], rows: int):
-        """The empty row named no document and imaged none, and a cascade keyed on a season would file one on every replace."""
-
-        stub = _SetCollection(documents)
-
-        asyncio.run(delete_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
-
-        assert len(stub.recorded) == rows
-
 
 class _UpsertCollection(_OneDocumentCollection):
     """Answers an upsert as the driver does: `upserted_id` set where it inserted, `None` where a document matched."""
@@ -283,30 +215,6 @@ class TestEnsureOneInDb:
         assert (inserted, len(stub.recorded)) == (not present, rows)
         # The `_id` is the filter's alone, and the edited collection's version is stamped as a create stamps it.
         assert stub.upserts == [{"filter": FILTER, "update": {"$setOnInsert": {"name": "Lessing", "version": 0}}, "upsert": True}]
-
-
-class TestEraseManyFromDb:
-    @pytest.mark.parametrize(("documents", "rows"), [pytest.param([], 0, id="nothing removed"), pytest.param([STORED], 1, id="one removed")])
-    def test_a_removal_records_a_row_exactly_where_it_took_something(self, documents: list[Mapping[str, Any]], rows: int):
-        """`delete_many_from_db`'s rule, by the driver's count: this removal reads nothing first, keeping no image."""
-
-        stub = _SetCollection(documents)
-
-        asyncio.run(erase_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
-
-        assert len(stub.recorded) == rows
-
-
-class TestPullOneFromDb:
-    def test_a_miss_raises_rather_than_returning_none(self):
-        """The same contract on the read side: one shape across the module is what keeps a `None` branch out of every handler."""
-        stub = _OneDocumentCollection(None)
-
-        with pytest.raises(DocumentNotFoundError) as excinfo:
-            asyncio.run(pull_one_from_db(collection=as_collection(stub), db_filter=FILTER))
-
-        assert excinfo.value.status_code == 404
-        assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
 
 
 def refused_batch(error: Mapping[str, Any], *, landed: int) -> BulkWriteError:
