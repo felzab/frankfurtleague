@@ -1605,8 +1605,8 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
 def build_form_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
     """What the form's page needs from one aggregation over the season's row, the window's carve-out at this tier.
 
-    A club retired out of the league is no club to apply as, and a row a club left the season on keeps its colour: the
-    assignment stands until an administrator clears it.
+    A club retired out of the league is no club to apply as, and a row a club left the season on keeps its colour
+    (`app/api/teams/crud.py :: refuse_a_taken_colour`).
     """
 
     return [
