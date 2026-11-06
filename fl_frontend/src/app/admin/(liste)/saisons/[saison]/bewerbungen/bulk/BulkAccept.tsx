@@ -79,8 +79,9 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
  * The Sammel-Zusage: one card per complete, undecided application, each with its group, its colour and a new school's
  * code, or left out of the run; then a table of what the run will write, a row leading back to its card; one confirm;
  * and one write per application, each answering on its own row, what is entered staying entered. Where the run stands
- * moves through the address by the History API, so Back walks the cards without a read; what a card chose is held
- * here, and the run's applications are the ones it opened on, a write's fresh render changing neither.
+ * moves through the address by the History API, so Back walks the cards without a read, a skipped one included, which
+ * „Weiter“ brings back into the run; what a card chose is held here, and the run's applications are the ones it opened
+ * on, a write's fresh render changing neither.
  */
 export function BulkAccept({
   saison,
@@ -99,7 +100,12 @@ export function BulkAccept({
   const [rows] = useState(served);
   const [run, setRun] = useState<Run>({ drafts: {}, skipped: new Set(), outcomes: {} });
 
-  const go = (card: string | null) => window.history.pushState(null, "", card === null ? pathname : `${pathname}?${CARD}=${card}`);
+  const addressOf = (card: string | null) => (card === null ? pathname : `${pathname}?${CARD}=${card}`);
+  // A step opens at its top: the browser restores the scroll on Back alone, a push keeping the card it left's.
+  const go = (card: string | null) => {
+    window.history.pushState(null, "", addressOf(card));
+    window.scrollTo(0, 0);
+  };
 
   if (rows.length === 0)
     return (
@@ -121,19 +127,21 @@ export function BulkAccept({
       />
     );
 
-  const leave = (next: Run) => {
-    setRun(next);
-    go(cardOf(rows, next, null)?.id ?? null);
-  };
-
   const card = cardOf(rows, run, named);
   if (card !== null) {
     const outcome = run.outcomes[card.id];
+    // Named before the step: the run opens on the bare address, which Back would read as the next card to choose.
+    const leave = (next: Run) => {
+      setRun(next);
+      window.history.replaceState(null, "", addressOf(card.id));
+      go(cardOf(rows, next, null)?.id ?? null);
+    };
+    const inRun = rows.filter((row) => row === card || !run.skipped.has(row.id));
     return (
       <StepCard
         key={card.id}
         title={{ record: card.name }}
-        line={WORDS.cardOf(rows.filter((row) => !run.skipped.has(row.id)).indexOf(card) + 1, rows.length - run.skipped.size)}
+        line={WORDS.cardOf(inRun.indexOf(card) + 1, inRun.length)}
         facts={factsOf(card)}
         fieldErrors={outcome?.kind === "refused" ? outcome.fieldErrors : undefined}
         onSkip={() => leave({ ...run, skipped: new Set(run.skipped).add(card.id) })}
@@ -145,7 +153,10 @@ export function BulkAccept({
           };
           // A changed card asks afresh: its old refusal speaks of what it held then.
           const { [card.id]: _answered, ...outcomes } = run.outcomes;
-          leave({ ...run, drafts: { ...run.drafts, [card.id]: draft }, outcomes });
+          // A skipped card Back reopened rejoins the run.
+          const skipped = new Set(run.skipped);
+          skipped.delete(card.id);
+          leave({ ...run, skipped, drafts: { ...run.drafts, [card.id]: draft }, outcomes });
         }}>
         <AcceptFields
           subject={{ wish: card.wunschfarbe, shorthand: card.shorthand }}

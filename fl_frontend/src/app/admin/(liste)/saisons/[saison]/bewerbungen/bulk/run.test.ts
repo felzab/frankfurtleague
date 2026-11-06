@@ -22,10 +22,15 @@ describe("which card a run stands at", () => {
     expect(cardOf(ROWS, run({ drafts: { a: draft("A"), b: draft("A"), c: draft("B") } }), "a")?.id).toBe("a");
   });
 
-  it("leaves a card the run no longer holds, and stands at the check page once every one is chosen", () => {
+  /* Back to a skipped card would otherwise change the address and leave the same card standing. */
+  it("opens a skipped card the address names", () => {
+    expect(cardOf(ROWS, run({ skipped: new Set(["a"]) }), "a")?.id).toBe("a");
+  });
+
+  it("leaves an entered card, and stands at the check page once every one is chosen", () => {
     const chosen = { a: draft("A"), c: draft("B") };
 
-    expect(cardOf(ROWS, run({ drafts: chosen, skipped: new Set(["b"]) }), "b")).toBe(null);
+    expect(cardOf(ROWS, run({ drafts: chosen, outcomes: { b: { kind: "accepted" } } }), "b")).toBe(null);
   });
 });
 

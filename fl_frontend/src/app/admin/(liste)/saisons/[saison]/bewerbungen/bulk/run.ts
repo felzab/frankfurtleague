@@ -21,12 +21,16 @@ export const openRows = (rows: readonly FLBewerbungListRow[], { skipped, outcome
   rows.filter((row) => !skipped.has(row.id) && outcomes[row.id]?.kind !== "accepted");
 
 /**
- * Which card a run stands at: the one the address names while the run still holds it, else the first still to be
- * chosen, else none, and the run stands at its check page. A row sent back from there opens its card by name.
+ * Which card a run stands at: the one the address names unless it is entered, else the first still to be chosen, else
+ * none, and the run stands at its check page. A row sent back from there opens its card by name, and Back a card by
+ * its address, a skipped one included.
  */
 export function cardOf(rows: readonly FLBewerbungListRow[], run: Run, named: string | null): FLBewerbungListRow | null {
-  const open = openRows(rows, run);
-  return open.find((row) => row.id === named) ?? open.find((row) => run.drafts[row.id] === undefined) ?? null;
+  return (
+    rows.find((row) => row.id === named && run.outcomes[row.id]?.kind !== "accepted") ??
+    openRows(rows, run).find((row) => run.drafts[row.id] === undefined) ??
+    null
+  );
 }
 
 /**
