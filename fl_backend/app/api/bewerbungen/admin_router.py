@@ -126,12 +126,11 @@ FLBewerbungenAdminFilters = Annotated[FLBewerbungenAdminFilterParams, Query()]
 async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollection) -> FLBewerbungEntryOffer:
     """What an acceptance into this season would meet, by the bounds `app/api/teams/services.py :: find_entry_refusal` judges."""
 
-    [saison_raw, *_] = await aggregate_many_from_db(
-        collection=saisons_collection, pipeline=build_entry_offer_pipeline(saison_id=saison_id)
-    ) or [None]
-    if saison_raw is None:
+    seasons = await aggregate_many_from_db(collection=saisons_collection, pipeline=build_entry_offer_pipeline(saison_id=saison_id))
+    if not seasons:
         raise DocumentNotFoundError()
 
+    saison_raw = seasons[0]
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
     occupied = Counter(row["gruppe"] for row in saison_raw["rows"])
 

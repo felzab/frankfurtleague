@@ -163,10 +163,11 @@ async def get_form(
     nothing more (`READ-BEWERBUNG-001`).
     """
 
-    [saison_raw, *_] = await aggregate_many_from_db(collection=saisons_collection, pipeline=build_form_pipeline(saison_id=saison_id)) or [None]
-    if saison_raw is None:
+    seasons = await aggregate_many_from_db(collection=saisons_collection, pipeline=build_form_pipeline(saison_id=saison_id))
+    if not seasons:
         raise DocumentNotFoundError()
 
+    saison_raw = seasons[0]
     window, saison_status = saison_raw.get("bewerbung"), saison_raw["status"]
     running = saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=window, today=today)
 
