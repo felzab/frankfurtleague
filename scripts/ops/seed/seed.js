@@ -546,11 +546,8 @@ function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn =
 
 // Each state a seat stands in, as the pair of its slot and its entry, built from the `mail` `seats` hands it.
 const openSeat =
-  (firstName, lastName, { sentOn, remindedOn, email } = {}) =>
-  (mail) => {
-    const link = { ...mail, sentOn: sentOn ?? mail.sentOn };
-    return [seated(firstName, lastName, link.sentOn, mail.enteredBy, email), seatLink(link, { remindedOn })];
-  };
+  (firstName, lastName, { remindedOn, email } = {}) =>
+  (mail) => [seated(firstName, lastName, mail.sentOn, mail.enteredBy, email), seatLink(mail, { remindedOn })];
 const confirmedSeat = (firstName, lastName) => (mail) => [
   confirmedPerson(seated(firstName, lastName, mail.sentOn, mail.enteredBy), mail.sentOn + 1),
   seatLink(mail),
@@ -910,16 +907,15 @@ const ACCEPTED_CLUB = application({
   outcome: { status: "accepted", decision: decided(-4) },
 });
 
-// Past its deadline, and it stands: its Ansprechperson's mail bounced, which holds it for an administrator to correct
-// the address (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`).
-const EXPIRED = application({
+// Its Ansprechperson's mail bounced, which the seat's row says, for an administrator to correct the address.
+const BOUNCED = application({
   school: clubRow("Espe", 4),
-  submittedOn: -16,
+  submittedOn: -2,
   wunschfarbe: "orange",
   states: {
     trainer: confirmedSeat("Egon", "Ehlers"),
-    ansprechperson: openSeat("Edda", "Ehlers", { remindedOn: -13 }),
-    stellvertretung: openSeat("Emil", "Ehlers", { remindedOn: -13 }),
+    ansprechperson: openSeat("Edda", "Ehlers"),
+    stellvertretung: openSeat("Emil", "Ehlers"),
   },
 });
 
@@ -990,9 +986,9 @@ const APPLICATIONS = [
       stellvertretung: openSeat("Horst", "Hahnemann"),
     },
   }),
-  EXPIRED,
-  // Past its deadline and unheld: the first pass, a minute after the frontend starts, erases it and mails the
-  // Ansprechperson, the one deletion a journey can read.
+  BOUNCED,
+  // Past its deadline: the first pass, a minute after the frontend starts, erases it and mails the Ansprechperson, the
+  // one deletion a journey can read.
   application({
     school: clubRow("Lärche", 6),
     owner: "laerche",
@@ -1020,25 +1016,25 @@ const APPLICATIONS = [
   ACCEPTED_CLUB,
 ];
 
-// The last mail owed `EXPIRED`'s Ansprechperson, as its final state leaves the row
+// The last mail owed `BOUNCED`'s Ansprechperson, as its final state leaves the row
 // (`fl_backend/app/api/outbox/services.py :: final_update`): it owes nothing and only says what became of the mail.
 const SETTLED_MAILS = [
   {
     _id: ObjectId(),
     key: "made-up/bounced",
     kind: "bewerbung_received",
-    an: EXPIRED.kontakte.ansprechperson.email,
-    reference: { collection: "bewerbungen", id: EXPIRED._id, seat: "ansprechperson" },
+    an: BOUNCED.kontakte.ansprechperson.email,
+    reference: { collection: "bewerbungen", id: BOUNCED._id, seat: "ansprechperson" },
     link: null,
     state: "sent",
-    recorded_at: new Date(`${day(-16)}T09:00:00Z`),
-    deadline: new Date(`${day(-15)}T09:00:00Z`),
+    recorded_at: new Date(`${day(-2)}T09:00:00Z`),
+    deadline: new Date(`${day(-1)}T09:00:00Z`),
     erase_at: new Date(`${day(30)}T09:00:00Z`),
     lease: null,
     leased_until: null,
     attempts: 1,
     message_id: "made-up-message",
-    delivery: { state: "undeliverable", reason: "bounced", at: new Date(`${day(-16)}T09:05:00Z`) },
+    delivery: { state: "undeliverable", reason: "bounced", at: new Date(`${day(-2)}T09:05:00Z`) },
   },
 ];
 
@@ -1067,8 +1063,7 @@ const PLANNED_ROWS = [
     "schwarz",
     rowSeats("linde", -2, {
       trainer: openSeat("Lars", "Lorenz"),
-      // Past its fourteen days: a season row's link lapses and the row stands, no clock taking it.
-      ansprechperson: openSeat("Lotte", "Lorenz", { sentOn: -20 }),
+      ansprechperson: openSeat("Lotte", "Lorenz"),
       stellvertretung: confirmedSeat("Lukas", "Lorenz"),
     }),
   ),
