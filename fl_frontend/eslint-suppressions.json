@@ -1225,11 +1225,6 @@
       "count": 2
     }
   },
-  "src/features/spieler/components/ui/Nachweis.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/features/spieler/components/ui/SpielerAngaben.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
@@ -1271,11 +1266,6 @@
       "count": 2
     }
   },
-  "src/features/spieler/nachweis.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/features/spieler/personActions.ts": {
     "fl/server-action": {
       "count": 2
@@ -1294,40 +1284,9 @@
       "count": 1
     }
   },
-  "src/features/teams/components/forms/GruppeSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 8
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 7
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/teams/components/forms/TrikotFarbeSelect.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 10
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 8
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/features/teams/constants.ts": {
     "no-restricted-syntax": {
-      "count": 9
+      "count": 3
     }
   },
   "src/shared/components/layout/footer/Footer.tsx": {
@@ -1687,11 +1646,6 @@
     },
     "react/forbid-component-props": {
       "count": 2
-    }
-  },
-  "src/shared/components/ui/ConfirmReadoutRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "src/shared/components/ui/ConfirmReveal.tsx": {

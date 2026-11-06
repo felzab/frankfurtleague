@@ -185,8 +185,3 @@ export function useServerFieldErrors(failureTitle?: string) {
 
   return { fieldErrors: refusal.fieldErrors, setFieldErrors, answerFailure, formRef };
 }
-
-/** Whether a failed action result carried anything a field could display. */
-export function hasFieldErrors(fieldErrors: FieldErrors | undefined): fieldErrors is FieldErrors {
-  return !!fieldErrors && Object.keys(fieldErrors).length > 0;
-}

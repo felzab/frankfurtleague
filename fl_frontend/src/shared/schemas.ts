@@ -6,14 +6,6 @@ import { hasAsciiLocalPart, isDeliverableAddress, isSpecialUseAddress, KONTAKT_E
 // `fl_backend/app/shared/schemas/addresses.py` or, for an email address,
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomEmail`; on a WRITE, looser makes the message a lie.
 
-// The final digit sits outside the class, so no accepted value is punctuation and spaces alone
-// (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
-/**
- * A literal space, never `\s`, which inside the anchors would admit newlines and tabs. Exported
- * because `FLKontaktpersonSchema` needs the same rule where the field is required rather than optional.
- */
-export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{2,19}[0-9])$/);
-
 /**
  * `YYYY-MM-DD`, and a day that exists — `z.iso.date()` is a calendar regex rather than a shape one. The refinement
  * closes the one value it and `CustomDateString` disagree on: `\d{4}` admits year 0000 where Python refuses it.
@@ -34,32 +26,6 @@ export const CustomTimeStringSchema = z.string().regex(TIME_REGEX, { error: "Bit
 // Re-exported rather than moved out of every call site: a read model declared in `core` validates
 // the same ids, and `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` this module.
 export { CustomObjectIdStringSchema } from "@/core/objectId";
-
-/** Refused as a URL entirely, which is the format check's answer to give rather than this one's. */
-function carriesUserinfo(value: string): boolean {
-  try {
-    const url = new URL(value);
-
-    return url.username !== "" || url.password !== "";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * For **any** backend-supplied URL reaching an `href`, `src` or `action`, and never bare `z.url()` there: that checks a
- * string parses rather than what scheme it uses, so `javascript:` passes it — a stored-XSS sink on any page linking out.
- */
-export const ExternalUrlSchema = z
-  .url({
-    protocol: /^https?$/,
-    hostname: z.regexes.domain,
-    error: "Bitte gib eine gültige Adresse ein, die mit http:// oder https:// beginnt.",
-  })
-  // `https://frankfurtleague.de@evil.com` resolves to `evil.com`: everything before the `@` is
-  // userinfo, which `hostname` excludes and never checks. A surface that shows the string and
-  // follows the host sends a trusting reader to the attacker.
-  .refine((value) => !carriesUserinfo(value), { error: "Die Adresse darf keine Anmeldedaten vor dem @-Zeichen enthalten." });
 
 // Named rather than written into the schema below.
 // `u` is what makes `\p{L}` a Unicode property class here rather than the letter `p`.

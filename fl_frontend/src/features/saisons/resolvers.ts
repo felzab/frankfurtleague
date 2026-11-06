@@ -8,7 +8,7 @@ import { SAISON_ID_LENGTH } from "./constants";
 import { getAdminSaisons, getSaisonFrame } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
-import type { FLSaisonAdmin, FLSaisonStatus } from "@/core/generated/client/types";
+import type { FLSaisonStatus } from "@/core/generated/client/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 // Untrimmed: `SaisonSelector` matches the raw parameter, so a padded id it cannot find is malformed
@@ -51,16 +51,6 @@ export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
   if (requestedSaisonId !== undefined) return saisons.find((saison) => saison.id === requestedSaisonId);
 
   return saisons.find((saison) => saison.status === "active") ?? saisons[0];
-}
-
-/** Every admin page's season; `undefined` only for a league holding none. */
-export async function resolveAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaisonAdmin | undefined> {
-  const requestedSaisonId = await resolveSaisonId(searchParamsPromise);
-  // The list even where the URL names no season: the running season alone leaves a league before its
-  // first activation with nothing to show.
-  const { saisons } = await getAdminSaisons();
-
-  return selectSaison(saisons, requestedSaisonId);
 }
 
 /**

@@ -1,9 +1,5 @@
 import { asSignInIdentifier } from "@/core/emailAddress";
 
-// Imported by both `fl_frontend/src/features/bewerbungen/schemas.ts` and `./schemas.ts` and by neither
-// in turn: the first imports the second at module level, so a rule living in either is an import cycle
-// that throws whichever loads first.
-
 /**
  * The pairs of seats that must not be one person, in the order the form shows them. The issue lands
  * on the SECOND of each pair: it is the field the applicant reaches next, and the one to change.
@@ -17,7 +13,7 @@ const KONTAKT_PAARE = [
 /**
  * One address on the sign-in fold, as the API compares two seats: trimmed, and ASCII case alone lowered.
  */
-export const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentifier(a) === asSignInIdentifier(b) && a.trim() !== "";
+const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentifier(a) === asSignInIdentifier(b) && a.trim() !== "";
 
 // Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 // start with `49` -- so the order carries nothing.
@@ -42,8 +38,8 @@ function normalisiereTelefon(value: string): string {
 
 /**
  * Compared as digits, so `+49 (0)170 …` and `0170 …` are the one number the backend reads them as.
- * No empty-guard beside `gleicheAdresse`'s: `PHONE_REGEX` ends every accepted value in a digit, so
- * none of them normalises to nothing.
+ * No empty-guard beside `gleicheAdresse`'s: `fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX` ends every
+ * accepted value in a digit, so none of them normalises to nothing.
  */
 const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
 
