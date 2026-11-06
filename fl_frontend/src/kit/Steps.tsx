@@ -1,3 +1,4 @@
+import { COPY } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { buttonPlaceholder } from "./buttonStyles";
@@ -74,7 +75,7 @@ function BandPlaceholder({ sentence }: { sentence: Copy }) {
           ))}
         </span>
       </p>
-      <span className={buttonPlaceholder("w-28")} />
+      <span className={buttonPlaceholder()}>{COPY.page.about}</span>
     </Placeholder>
   );
 }
