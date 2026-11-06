@@ -41,10 +41,7 @@ async function readActiveSaison(): Promise<string | null> {
   return active;
 }
 
-/**
- * The classic public frame around a page, as its layout places it and as the root's not-found page, which
- * renders under the root layout alone, places it again.
- */
+/** The classic public frame around a page, as its layout places it. */
 export function Classic({ children }: { children: ReactNode }) {
   return (
     <ClassicFrame

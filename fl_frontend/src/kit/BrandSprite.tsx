@@ -56,8 +56,7 @@ const MARK_HALF = `${MARK_ID}-half`;
 /**
  * The mark's drawing, once in a document, in the root layout, and a module of its own so no client chunk carries it. A
  * Server Component's `path` elements are serialised into the page's Flight payload, each `d` as a text row, once per
- * logo, and every logo of the frame `not-found.tsx` draws is carried in every page's payload too. A `<use>` is a few
- * bytes there, needs no request, as a file's would, and paints with the document. Hidden by CSS, `hidden` being an HTML
+ * logo. A `<use>` is a few bytes there, needs no request, as a file's would, and paints with the document. Hidden by CSS, `hidden` being an HTML
  * attribute no `svg` honours; a `<use>` still draws what stands under `display: none`.
  */
 export function BrandSprite() {

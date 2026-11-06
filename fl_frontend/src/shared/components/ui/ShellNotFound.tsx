@@ -9,10 +9,7 @@ import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
 /**
- * The not-found answer of an area that has a shell of its own.
- *
- * Both arrivals land here: a `notFound()` from a matched segment, and a mistyped address the area's
- * catch-all hands over.
+ * The not-found answer of an area that has a shell of its own, for a `notFound()` from a matched segment.
  */
 export function ShellNotFound({ message, href, linkLabel }: { message: string; href: string; linkLabel: string }) {
   // The way out links as the shell around it does, keeping the season where that shell's query holds it.
