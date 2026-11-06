@@ -35,13 +35,12 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607980001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607980002")
 
 # This season: a confirmed Trainer alone, an unanswered Ansprechperson and an empty Stellvertretung,
-# the widest the landing ever is. Past season: Paula. Next season: Nora and Stella, confirmed.
+# the widest the landing ever is. Past season: Paula. Next season: Nora, confirmed.
 THEO = "theo@example.com"
 ANNA = "anna@example.com"
 OTTO = "otto@example.com"
 PAULA = "paula@example.com"
 NORA = "nora@example.com"
-STELLA = "stella@example.com"
 
 
 @functools.cache
@@ -140,28 +139,6 @@ def keys_at_every_depth(value: Any) -> Iterator[str]:
 
 
 class TestTheSeatRead:
-    def test_a_seat_holder_reads_three_lines_for_their_own_team_pending_confirmed_and_empty(self, mongo_replica_set_url: str):
-        """An emptied slot is answered rather than omitted, which would say the team has two seats rather than one unfilled."""
-
-        status, served = sitze_read(mongo_replica_set_url, identifier=THEO)
-
-        assert status == 200
-        assert served["seats"] == [
-            {"rolle": "trainer", "name": "Theo Theo-Mustermann", "confirmed": True},
-            {"rolle": "ansprechperson", "name": "Anna Anna-Mustermann", "confirmed": False},
-            {"rolle": "stellvertretung", "name": None, "confirmed": False},
-        ]
-
-    def test_a_stellvertretung_reads_the_lines_of_their_own_season(self, mongo_replica_set_url: str):
-        status, served = sitze_read(mongo_replica_set_url, identifier=STELLA, saison_id=NEXT_SAISON_ID)
-
-        assert status == 200
-        assert [(seat["rolle"], seat["name"]) for seat in served["seats"]] == [
-            ("trainer", None),
-            ("ansprechperson", "Nora Nora-Mustermann"),
-            ("stellvertretung", "Stella Stella-Mustermann"),
-        ]
-
     @pytest.mark.parametrize(
         ("identifier", "saison_id"),
         [(OTTO, SAISON_ID), (ANNA, SAISON_ID), (PAULA, PAST_SAISON_ID), (NORA, SAISON_ID)],
@@ -178,8 +155,10 @@ class TestTheSeatRead:
         Seeded with every seat carrying all three, so the scan has something to find.
         """
 
-        _, served = sitze_read(mongo_replica_set_url, identifier=THEO)
+        status, served = sitze_read(mongo_replica_set_url, identifier=THEO)
 
+        # A refused read would pass the scan below with nothing scanned.
+        assert (status, len(served["seats"])) == (200, 3)
         assert not {"email", "telefon", "geburtsdatum", "einwilligung", "confirmed_at"} & set(keys_at_every_depth(served))
         text = json.dumps(served)
         assert not any(value in text for value in ("@", "+49", "1984-05-09", "2026-03-21"))

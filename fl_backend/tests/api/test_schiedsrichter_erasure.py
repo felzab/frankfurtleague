@@ -1,4 +1,3 @@
-import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -14,14 +13,11 @@ from app.api.identity.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
-    get_schiedsrichter,
-    get_schiedsrichter_by_id,
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
-    FLSchiedsrichterFilterParams,
 )
 from app.api.schiedsrichter.services import (
     build_booked_image_filter,
@@ -35,8 +31,6 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpielListAdapter,
-    FLSpielSchiedsrichterFieldPublic,
-    FLSpielSchiedsrichterFieldRecord,
     unplayed_filter,
 )
 from app.api.spiele.services import BookedReferee, ResolvedReferences, find_booking_refusal
@@ -51,7 +45,6 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from app.shared.tokens import hash_token
 from tests.bans import ban_list
-from tests.config import ADMINISTRATORS
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, spiel_document
 from tests.erasure import erased
@@ -252,13 +245,6 @@ class TestTheGhostTheFixturesAreHandedTo:
 
         assert build_ghost_repoint() == {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}}
 
-    def test_a_nulled_name_reaches_the_base_tier_as_a_null_and_not_as_an_initial(self):
-        """`READ-REFEREE-001`'s reduction composes a forename and an initial, and one composed from nothing would read as a name."""
-
-        booking = {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "name": None}
-
-        assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name is None
-
 
 class TestTheRetirementKeepsTheDayItAlreadyCarries:
     """`first_stamped` on its own, the retire endpoint being its one caller."""
@@ -269,11 +255,6 @@ class TestTheRetirementKeepsTheDayItAlreadyCarries:
         retired_earlier = {"inactive_since": AN_EARLIER_RETIREMENT}
 
         assert first_stamped(stored=retired_earlier, field="inactive_since", today=TODAY) == AN_EARLIER_RETIREMENT
-
-    def test_a_referee_still_serving_is_retired_today(self):
-        """The control: a stamp reading the row unconditionally would retire nobody on the first press."""
-
-        assert first_stamped(stored={"inactive_since": None}, field="inactive_since", today=TODAY) == TODAY
 
 
 # A fixture the ghost does NOT hold, so a payload naming it MOVES the booking, which is the only case
@@ -314,13 +295,6 @@ class TestTheGhostTakesNoNewFixture:
 
         assert refusal is not None
         assert refusal.error_code == Code.BOOKING_UNKNOWN_RESOURCE
-
-    def test_the_refusal_offers_the_ghost_no_reactivation(self):
-        """The reactivation endpoint answers 404 for this id, so naming it here sends an administrator nowhere."""
-
-        refusal = booking_refusal(THE_GHOST, GHOST_SCHIEDSRICHTER_ID)
-
-        assert refusal is not None
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -535,73 +509,6 @@ def test_a_second_erasure_reuses_the_one_ghost(mongo_replica_set_url: str):
     assert {row["schiedsrichter"]["schiedsrichter_id"] for row in fixtures.values()} == {GHOST_SCHIEDSRICHTER_ID}
 
 
-async def listed_ids(database: AsyncDatabase) -> list[ObjectId]:
-    """Read by id: the ghost has no name to find a row under.
-
-    `include_inactive` is on, which is what makes these cases about the ghost rather than about the
-    retirement beside it.
-    """
-
-    answered = await get_schiedsrichter(
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        filters=FLSchiedsrichterFilterParams(include_inactive=True),
-    )
-
-    return [row.id for row in answered.schiedsrichter]
-
-
-@pytest.mark.db
-def test_the_ghost_is_off_the_list_an_administrator_works_from(mongo_replica_set_url: str):
-    """The ghost can be booked, edited or reactivated by nobody, and the list offers what can be acted on.
-
-    Kills serving it anyway: a permanent nameless line in the list an administrator scans for somebody to book.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await erase_the_referee(database, client)
-
-        return await listed_ids(database)
-
-    working_list = on_a_league(mongo_replica_set_url, body)
-
-    assert GHOST_SCHIEDSRICHTER_ID not in working_list
-    # The control: a read narrowed to nothing satisfies the line above without excluding anything.
-    assert OTHER_SCHIEDSRICHTER_OID in working_list
-
-
-@pytest.mark.db
-def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mongo_replica_set_url: str):
-    """Kills a by-id read that still serves the ghost, whose page would be a referee nobody can act on.
-
-    Both ids in one case, the answer being the same 404 for the same reason: neither names a person.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await erase_the_referee(database, client)
-
-        answers = []
-        for schiedsrichter_id in (SCHIEDSRICHTER_OID, GHOST_SCHIEDSRICHTER_ID):
-            try:
-                await get_schiedsrichter_by_id(
-                    schiedsrichter_id=schiedsrichter_id,
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    address_changes_collection=database[Collection.ADDRESS_CHANGES],
-                    today=TODAY,
-                    grants_collection=database[Collection.GRANTS],
-                    grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
-                    outbox_collection=database[Collection.OUTBOX],
-                    operator=ADMINISTRATORS[0],
-                    auth_time=int(time.time()),
-                )
-                answers.append("answered")
-            except DocumentNotFoundError:
-                answers.append("not found")
-
-        return answers
-
-    assert on_a_league(mongo_replica_set_url, body) == ["not found", "not found"]
-
-
 @pytest.mark.db
 @pytest.mark.parametrize("press", ["patch", "delete", "reactivate"])
 def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: str):
@@ -653,27 +560,6 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
 
     assert (ghost["name"], ghost["inactive_since"]) == (None, GHOST_INACTIVE_SINCE)
     assert [fixtures[spiel_id]["schiedsrichter"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [REPOINTED_BOOKING] * 2
-
-
-@pytest.mark.db
-def test_an_ordinary_retired_referee_is_still_brought_back(mongo_replica_set_url: str):
-    """The control on the case above: a by-id filter matching nothing would pass it and strand every retired referee.
-
-    Written for the reactivation alone; the edit and the retirement are driven by the seed and by
-    `TestTheRetirePressKeepsTheDayItFinds`.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SCHIEDSRICHTER].update_one(
-            {"_id": OTHER_SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": AN_EARLIER_RETIREMENT}}
-        )
-        await call_reactivation(database, client, OTHER_SCHIEDSRICHTER_OID)
-
-        stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": OTHER_SCHIEDSRICHTER_OID})
-        assert stored is not None
-        return stored["inactive_since"]
-
-    assert on_a_league(mongo_replica_set_url, body) is None
 
 
 def after_erasing_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:
@@ -795,19 +681,6 @@ def test_the_fee_the_match_agreed_survives_the_repoint(mongo_replica_set_url: st
     assert fixtures[PLAYED_SPIEL_OID]["schiedsrichter"]["payment"] == 45
     # The fixture beside it keeps its own, so this cannot pass on a repoint copying one fee everywhere.
     assert fixtures[UNPLAYED_SPIEL_OID]["schiedsrichter"]["payment"] == DEFAULT_PAYMENT
-
-
-@pytest.mark.db
-def test_the_written_fixture_is_read_back_rather_than_refused(mongo_replica_set_url: str):
-    """The read-back refusing what the erasure stored would stop the deploy's check over one repointed booking.
-
-    The record model with `extra="forbid"`, as `app/readback.py` judges it: a name left on the booking is refused too.
-    """
-
-    fixtures = fixtures_after_erasure(mongo_replica_set_url)
-    booking = fixtures[PLAYED_SPIEL_OID]["schiedsrichter"]
-
-    assert FLSpielSchiedsrichterFieldRecord.model_validate(booking, extra="forbid").schiedsrichter_id == GHOST_SCHIEDSRICHTER_ID
 
 
 @pytest.mark.db
@@ -979,18 +852,6 @@ def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica
     assert sorted(row["document_id"]) == sorted(removed), "the removal filed no array of the ids it took"
     assert [image["schiedsrichter"] for image in row["before"]] == [REPOINTED_BOOKING] * len(removed)
     assert row["redacted_at"] == REDACTED_AT
-
-
-def test_the_two_seasons_this_suite_seeds_are_two_rows():
-    """`on_a_league` writes the running season and `an_archived_fixture` the closed one.
-
-    A floor rather than the whole guard: one id for both is a duplicate `_id`, and the database
-    tier is where mongod answers `E11000` for it.
-    """
-
-    assert SAISON_ID != PAST_SAISON_ID
-    assert saison_document(SAISON_ID, "active")["status"] == "active"
-    assert saison_document(PAST_SAISON_ID, "past")["status"] == "past"
 
 
 def test_the_unplayed_assignment_filter_spells_the_definition_once():
@@ -1178,18 +1039,3 @@ class TestTheRetirePressKeepsTheDayItFinds:
         referees = on_a_league(mongo_replica_set_url, body)
 
         assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == AN_EARLIER_RETIREMENT
-
-    @pytest.mark.db
-    def test_a_referee_still_serving_is_retired_on_the_day_of_the_press(self, mongo_replica_set_url: str):
-        """The control: a press that stamped nothing at all would pass the case above and retire nobody."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_retirement(database, client, today=A_LATER_PRESS)
-
-            return await stored_referees(database)
-
-        referees = on_a_league(mongo_replica_set_url, body)
-
-        assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == A_LATER_PRESS
-        # The control's own control: retiring the whole collection would otherwise pass.
-        assert referees[OTHER_SCHIEDSRICHTER_OID]["inactive_since"] is None

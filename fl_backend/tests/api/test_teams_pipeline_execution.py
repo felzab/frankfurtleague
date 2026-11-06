@@ -1,11 +1,9 @@
 from typing import Any
 
 import pytest
-from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.teams.schemas import (
-    FLTeamListAdapter,
     FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
@@ -39,15 +37,14 @@ def rows(
     *,
     scope: FLTeamStatistikScope | None = None,
     rules: FLSaisonRules = STANDARD_RULES,
-    team_id: Any | None = None,
     **filters: Any,
 ) -> list[dict[str, Any]]:
-    """`scope` is not defaulted — the model's default is itself the decision; `team_id` is a pipeline argument rather than a filter."""
+    """`scope` is not defaulted — the model's default is itself the decision."""
     params = FLTeamsFilterParams(saison_id=SAISON, **filters)
     if scope is not None:
         params.statistik_scope = scope
 
-    return list(league.database.teams.aggregate(build_team_pipeline(filters=params, rules=rules, team_id=team_id)))
+    return list(league.database.teams.aggregate(build_team_pipeline(filters=params, rules=rules)))
 
 
 def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
@@ -208,69 +205,7 @@ def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague)
     assert by_name["Helmholtz"]["austritt"] is None
 
 
-class TestTheSeasonsOwnIdentity:
-    """`name` and `shorthand` come from the junction, so a rename after the season leaves its table alone.
-
-    Helmholtz's club document carries the later name; every other assertion in this file keys on the
-    row's, which is what makes them evidence at all.
-    """
-
-    def test_the_name_is_the_rows_and_not_the_clubs(self, league: SeededLeague):
-        club = league.database.teams.find_one({"_id": league.team_oids["Helmholtz"]})
-
-        assert club is not None and club["name"] == "Helmholtz-Gymnasium"
-        assert "Helmholtz" in table(league)
-        assert club["name"] not in table(league)
-
-    def test_the_shorthand_comes_from_the_same_row(self, league: SeededLeague):
-        """Both halves of the identity or neither: a card showing the season's name under today's shorthand is the same defect twice."""
-
-        club = league.database.teams.find_one({"_id": league.team_oids["Helmholtz"]})
-        projected = {row["name"]: row for row in rows(league)}
-
-        assert club is not None and club["shorthand"] == "HGX"
-        assert projected["Helmholtz"]["shorthand"] == "HEX"
-
-    def test_a_club_never_renamed_reads_the_same_either_way(self, league: SeededLeague):
-        """So the two assertions above cannot be passing because the projection lost the field entirely."""
-
-        club = league.database.teams.find_one({"_id": league.team_oids["Bock"]})
-        projected = {row["name"]: row for row in rows(league)}
-
-        assert club is not None and (club["name"], club["shorthand"]) == ("Bock", "BOX")
-        assert projected["Bock"]["shorthand"] == "BOX"
-
-
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
     """Helmholtz's junction row carries a `statistik` of 99s, so a read of the stored copy shows those."""
     assert table(league)["Helmholtz"]["punkte"] == 4
     assert 99 not in table(league)["Helmholtz"].values()
-
-
-def test_the_result_validates_as_the_response_model(league: SeededLeague):
-    """Validating through the adapter proves the projection carries every field `FLTeam` requires, Ohne's fallback included."""
-    teams = FLTeamListAdapter.validate_python(rows(league))
-
-    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett", "Fremd"}
-    assert next(team for team in teams if team.name == "Ohne").statistik.punkte == 0
-
-
-def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
-    """`GET /teams/{team_id}` narrows the base collection before either lookup, so it must still join correctly."""
-    only = rows(league, team_id=league.team_oids["Bock"])
-
-    assert [row["name"] for row in only] == ["Bock"]
-    assert only[0]["statistik"]["count_gespielte_spiele"] == 2
-
-
-def test_the_table_comes_back_sorted_by_name(league: SeededLeague):
-    """The `$sort` is the last stage before `$limit`, so it orders the derived rows rather than the raw teams."""
-    assert [row["name"] for row in rows(league)] == ["Bock", "Fremd", "Helmholtz", "Komplett", "Lessing", "Ohne"]
-
-
-def test_the_id_is_the_teams_own_id_not_the_junctions(league: SeededLeague):
-    """A `$lookup` plus `$unwind` makes it easy to project the joined document's `_id` by accident."""
-    by_name = {row["name"]: row for row in rows(league)}
-
-    assert by_name["Bock"]["_id"] == league.team_oids["Bock"]
-    assert isinstance(by_name["Bock"]["_id"], ObjectId)

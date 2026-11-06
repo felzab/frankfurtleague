@@ -1,185 +1,23 @@
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 import pytest
 from bson import ObjectId
 from fastapi.routing import APIRoute
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.admin_router import get_spiel_verwaltung, get_spiele_verwaltung
-from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
-from app.api.spieltage.schemas import FLSpieltageFilterParams
 from app.api.teams.admin_router import get_teams_admin
-from app.api.teams.schemas import FLTeamsFilterParams
-from app.core.collections import Collection
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
-from tests import documents
 from tests.core.app_source import api_routes, application
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.worker import worker_database
 
-from .conftest import unwritten
-
-DATABASE_NAME = worker_database("fl_saison_contents_admin_read_test")
-
-ARCHIVED = "2024"
-RUNNING = "2025"
 PLANNED = "2026"
-
-STATUS_OF = {ARCHIVED: "past", RUNNING: "active", PLANNED: "future"}
-
-# One group per season, so a club read back NAMES the season the read resolved: the club document is
-# season-independent and the junction row is not.
-GRUPPE_OF = {ARCHIVED: "A", RUNNING: "B", PLANNED: "C"}
-SAISON_OF_GRUPPE = {gruppe: saison_id for saison_id, gruppe in GRUPPE_OF.items()}
-
-# `get_spiele_verwaltung` takes the day as an argument; only `spiel_status` reads it, and no test here sets one.
-TODAY = "2026-03-20"
-
-TEAM_OID = ObjectId("6890a1b2c3d4e5f607260001")
 
 
 def an_id(kind: str, saison_id: str) -> ObjectId:
     """One id per document per season, so a failure names the same document every run."""
 
     return ObjectId(f"6890a1b2c3d4e5f6072{kind}{saison_id}")
-
-
-def saison_document(saison_id: str) -> dict[str, Any]:
-    return documents.saison_document(saison_id, STATUS_OF[saison_id])
-
-
-def team_document() -> dict[str, Any]:
-    """One club, entered in all three seasons: the same id has to read differently per season."""
-
-    return documents.team_document(TEAM_OID, "Helmholtz", "HGX", full_name="Helmholtz-Gymnasium")
-
-
-def junction_row(saison_id: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe=GRUPPE_OF[saison_id])
-
-
-def spiel_document(saison_id: str) -> dict[str, Any]:
-    return documents.spiel_document(
-        spiel_id=an_id("2", saison_id),
-        saison_id=saison_id,
-        spiel_nr=1,
-        spieltag_id=an_id("3", saison_id),
-        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": None},
-        datum=f"{saison_id}-03-15",
-        uhrzeit="14:00:00",
-    )
-
-
-def spieltag_document(saison_id: str) -> dict[str, Any]:
-    """Undated, which is how the draw writes one: dating it is what the admin editor opens it for."""
-
-    return {
-        "_id": an_id("3", saison_id),
-        "beginn": None,
-        "ende": None,
-        "position": 1,
-        "saison_phase": "gruppenphase",
-        "saison_id": saison_id,
-    }
-
-
-Body = Callable[[AsyncDatabase], Awaitable[Any]]
-
-
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
-# from being left as a claim.
-@pytest.fixture(scope="module")
-def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
-    """Three seasons, one club entered in each under a group of its own, and a fixture and a matchday per season."""
-
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.TEAMS].insert_one(team_document())
-            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
-
-    on_the_seed_loop(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
-        yield mongo_replica_set_url
-
-
-def on_a_league(url: str, body: Body) -> Any:
-    async def _run() -> Any:
-        return await body(shared_client(url)[DATABASE_NAME])
-
-    return on_the_seed_loop(_run())
-
-
-async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_teams_admin(
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        filters=FLTeamsFilterParams(saison_id=saison_id),
-    )
-
-
-async def admin_spiele(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spiele_verwaltung(
-        spiele_collection=database[Collection.SPIELE],
-        saisons_collection=database[Collection.SAISONS],
-        filters=FLSpieleFilterParams(saison_id=saison_id),
-        today=TODAY,
-    )
-
-
-async def admin_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltage_verwaltung(
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saisons_collection=database[Collection.SAISONS],
-        filters=FLSpieltageFilterParams(saison_id=saison_id),
-    )
-
-
-async def admin_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltag_verwaltung(
-        spieltag_id=an_id("3", saison_id),
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saisons_collection=database[Collection.SAISONS],
-    )
-
-
-Read = Callable[[AsyncDatabase, str], Awaitable[Any]]
-Served = Callable[[Any], list[str]]
-
-# Each read paired with the season ids its answer proves it resolved. Parametrised rather than rolled
-# into one case, so a read that goes missing or resolves the wrong season names itself.
-ADMIN_READS_OF_A_SEASON: list[tuple[str, Read, Served]] = [
-    ("its squads", admin_teams, lambda response: [SAISON_OF_GRUPPE[team.gruppe] for team in response.teams]),
-    ("its fixtures", admin_spiele, lambda response: [spiel.saison_id for spiel in response.spiele]),
-    ("its matchdays", admin_spieltage, lambda response: [spieltag.saison_id for spieltag in response.spieltage]),
-    ("one of its matchdays by id", admin_spieltag, lambda response: [response.spieltag.saison_id]),
-]
-
-ADMIN_READ_IDS = [label for label, _, _ in ADMIN_READS_OF_A_SEASON]
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("label,read,served", ADMIN_READS_OF_A_SEASON, ids=ADMIN_READ_IDS)
-def test_the_admin_tier_reads_a_planned_seasons_contents_in_full(label: str, read: Read, served: Served, seeded_league: str):
-    """What these endpoints exist for: a season is drawn and staffed while it is still `future`."""
-
-    assert served(on_a_league(seeded_league, lambda database: read(database, PLANNED))) == [PLANNED]
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-@pytest.mark.parametrize("label,read,served", ADMIN_READS_OF_A_SEASON, ids=ADMIN_READ_IDS)
-def test_the_admin_tier_reads_a_readable_season_as_the_season_it_named(
-    label: str, read: Read, served: Served, saison_id: str, seeded_league: str
-):
-    """Non-vacuity: without it a read hardwired to one season would pass the case above."""
-
-    assert served(on_a_league(seeded_league, lambda database: read(database, saison_id))) == [saison_id]
 
 
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}

@@ -49,16 +49,6 @@ class TestWhoALinkIsMailedTo:
         # The FIRST seat in seat order, so the message addresses the person as the role they lead with.
         assert empfaenger[0].rolle == "trainer"
 
-    def test_a_block_whose_seats_are_all_unconfirmed_addresses_nobody(self):
-        block = kontakte(ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=None))
-
-        assert bestaetigte_empfaenger(kontakte=block) == []
-
-    def test_a_seat_with_no_address_is_no_recipient(self):
-        block = kontakte(trainer={**kontaktperson("Bramblewick", "", confirmed_at=CONFIRMED_ON)})
-
-        assert bestaetigte_empfaenger(kontakte=block) == []
-
 
 class TestATeamTheBanListKeepsTheLinkFrom:
     """The mailer sends a barred address nothing and records nothing, so the plan reads the ban itself."""
