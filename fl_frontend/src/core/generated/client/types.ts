@@ -6326,6 +6326,8 @@ export interface FLTeamSeatsResponse {
   team_id: string;
 }
 
+export type FLTeamShorthandLength = 3;
+
 /**
  * One club as the Teams list shows it: the name it plays this season under, or today's for a club holding no row of it.
  */

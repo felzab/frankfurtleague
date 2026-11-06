@@ -741,10 +741,9 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 
 @pytest.fixture(scope="session")
 def mongo_database(mongo_url: str) -> Iterator[Database]:
-    """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumers are why.
+    """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumer is why.
 
-    `tests/api/test_spieler_saisons_read.py :: squads` and `tests/api/conftest.py :: league` both
-    drop their collections, taking any validator with them.
+    `tests/api/conftest.py :: league` drops its collections, taking any validator with them.
     """
 
     client = MongoClient(mongo_url)

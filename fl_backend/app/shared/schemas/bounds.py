@@ -99,7 +99,10 @@ BEWERBUNG_KADER_SIZE_MAX: Final = 200
 # COHORT rather than `int32`: no German school graduates a thousand pupils in one year.
 BEWERBUNG_STUFENGROESSE_MAX: Final = 999
 
-TEAM_SHORTHAND_LENGTH: Final = 3
+# Published as `ADDRESS_CHANGE_BOUNDS` are: the generated module holding the pattern is server-only, so a control caps a
+# code at `fl_frontend/src/features/bewerbungen/constants.ts :: SHORTHAND_LENGTH`, which is checked against this alias.
+type FLTeamShorthandLength = Literal[3]
+TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
 SAISON_ID_LENGTH: Final = 4
 

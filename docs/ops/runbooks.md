@@ -767,9 +767,9 @@ page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
 administration.** A pupil's registration asks it and is refused (`registrierung_address_barred`), and so do
 an application naming the address on any seat (`bewerbung_address_barred`), an administrator's seat write or
-re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
-and both sweeps withhold the reminder they would send it, logging per season how many they held
-back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
+re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link.
+Both sweeps owe its reminder as they owe any other and stamp the row, and the Postausgang's drain stops the mail as `barred`
+at its hand-out, so no link reaches the address. A grant of the address is refused (`grant_barred`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
 grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead. **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
@@ -1380,9 +1380,10 @@ the hosting holds no snapshot taken before that deploy; delete it then.
 **A snapshot taken before the deploy of the current stored names brings back the names that deploy's
 paste moved: once the restore has completed, run that paste again before the replay below, and once
 more after it**, since a withdrawal journalled before that deploy carries its old scope word, which
-the journal takes as a withholding value and the replay writes back as it stands. This lapses once
-the hosting holds no snapshot taken before that deploy and no journal line of the days before it;
-delete it then.
+the journal takes as a withholding value and the replay writes back as it stands. Here the backend
+stands up with the frontend held, unlike the paste's head, and `uniq_spielbestaetigung_open` stands
+dropped until a boot rebuilds it. This lapses once the hosting holds no snapshot taken before that
+deploy and no journal line of the days before it; delete it then.
 
 **Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
 `fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The

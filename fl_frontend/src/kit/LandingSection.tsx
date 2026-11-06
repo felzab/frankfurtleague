@@ -22,7 +22,7 @@ const section = tv({
 
 /**
  * A section while the read decides it: its eyebrow's and its title's lines, the line of its link on where it has one,
- * over its block's placeholder.
+ * over its block's placeholder. That link takes no size of its own, so neither does its line: both stand on the page's.
  */
 export function LandingSectionPlaceholder({ more, children }: { more?: Copy; children: ReactNode }) {
   const slots = section();
@@ -39,7 +39,7 @@ export function LandingSectionPlaceholder({ more, children }: { more?: Copy; chi
         />
         {more !== undefined && (
           <PlaceholderLine
-            text="text-base"
+            text=""
             words={more}
           />
         )}

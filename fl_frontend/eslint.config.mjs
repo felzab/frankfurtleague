@@ -970,6 +970,12 @@ const DESIGN_BANS = [
       ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
       "The overlay is `Dialog`'s, `ConfirmDialog`'s and `Sheet`'s alone.",
     ],
+    [
+      ["Form"],
+      "Form",
+      ["src/kit/HeldForm.tsx", "src/kit/Dialog.tsx"],
+      "A server-drawn form is `HeldForm`, without which a press before hydration goes out as a GET; a client-drawn one is `Dialog`'s.",
+    ],
     [[String.raw`UNSTABLE_Toast\w*`], "Toast", ["src/kit/Toast.tsx"], "A toast is `appToast` through the kit's `Toast`."],
     [
       ["DateInput", "DateSegment"],

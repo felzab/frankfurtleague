@@ -1,14 +1,19 @@
 import { rollenText } from "@/core/teamVocabulary";
 
-import type { FLBewerbungConfirmationDeadlineDays, FLBewerbungKontaktMinAgeYears, FLSignatoryMinAgeYears } from "@/core/generated/client/types";
+import type {
+  FLBewerbungConfirmationDeadlineDays,
+  FLBewerbungKontaktMinAgeYears,
+  FLSignatoryMinAgeYears,
+  FLTeamShorthandLength,
+} from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 
 /**
- * A club's Kürzel is exactly this many letters, as the backend's pattern `^[A-Z]{3}$` publishes it. A client control
- * cannot import the generated module that holds the pattern, so `constants.test.ts` holds the two equal; a control's
- * `maxLength` and the check of a complete code read the length from here.
+ * A club's Kürzel is exactly this many letters. A client control cannot import the generated module that holds the
+ * pattern, so a control's `maxLength` and the check of a complete code read the length from here, checked against
+ * `fl_backend/app/shared/schemas/bounds.py :: TEAM_SHORTHAND_LENGTH`, so the backend moving it fails the type check here.
  */
-export const SHORTHAND_LENGTH = 3;
+export const SHORTHAND_LENGTH = 3 satisfies FLTeamShorthandLength;
 
 /**
  * The span a contact person's birthdate has to fall in. The floor is checked against the bound

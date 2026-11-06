@@ -238,12 +238,6 @@ SPIELE = [
 
 @pytest.fixture(scope="session")
 def league(mongo_database: Database) -> SeededLeague:
-    """Collections dropped singly: `fl_test` is shared, not owned.
-
-    `squads` in `test_spieler_saisons_read.py` seeds the rest of it, so a clear reaching past
-    what this fixture seeds empties that corpus, and the reverse.
-    """
-
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
 

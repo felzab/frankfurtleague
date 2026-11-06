@@ -830,7 +830,7 @@ export const COPY = catalogue({
        * The editor's boxes, in the order of a season's life: its dates, its rules one box per what they govern (its
        * scoring, its groups and knockout stage, its squads), its windows, then what happens in it.
        */
-      wertung: "Wertung",
+      scoring: "Wertung",
       gruppenUndKoRunde: `Gruppen und ${K_O_RUNDE}`,
       /** The goals a no-show is scored with, named over their two boxes in the Wertung box. */
       forfeit: "Wertung bei Nichtantreten",
@@ -843,7 +843,7 @@ export const COPY = catalogue({
       dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
 
       /** The Wertung box's help behind its ⓘ: what its rules do, one statement a line. */
-      wertungHelp: [
+      scoringHelp: [
         "Punkte und Reihenfolge ordnen die Tabelle und sind ab Saisonbeginn gesperrt.",
         "Ein Nichtantreten zählt als Spiel mit den eingetragenen Toren.",
       ],

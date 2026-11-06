@@ -99,7 +99,7 @@ const fact = tv({
 
 /**
  * The mails' own fact panel in the page's tokens
- * (`fl_frontend/src/core/bewerbungEmail.ts :: renderFakten`). **Every value is read whole**: no
+ * (`fl_frontend/src/core/emailShell.ts :: blockHtml`). **Every value is read whole**: no
  * ellipsis, since a phone has no pointer to hover a `title` with.
  */
 export function FactsBanner({ rows }: { rows: readonly Fact[] }) {
