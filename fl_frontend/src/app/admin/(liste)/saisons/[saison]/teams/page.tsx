@@ -100,6 +100,7 @@ export default function AdminTeamsPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminTeams" } }}
       filters={readFilters(list, searchParams)}
+      filterCount={2}
       create={readCreate(list, params)}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readTeams(list, params, searchParams) }}
     />

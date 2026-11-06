@@ -112,6 +112,7 @@ export default function RegistrierungenPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminRegistrierungen" } }}
       filters={season.then(({ filters }) => filters)}
+      filterCount={2}
       list={{
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
