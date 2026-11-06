@@ -716,6 +716,18 @@ class TestWhatASubmissionIsRefused:
 
         assert on_a_league(mongo_replica_set_url, body, registrierung=PAST_WINDOW, squad=RULES["max_kader_size"]) == 1
 
+    def test_nominees_leave_the_cap_to_an_ordinary_entry(self, mongo_replica_set_url: str):
+        """Counted, a late pupil would shut the link on a regular one, on the page and at the write alike."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, int]:
+            await database[Collection.SAISON_SPIELER].update_many({}, {"$set": {"is_nachnominiert": True}})
+            answer = await view(database)
+            await register(database, client)
+
+            return answer.kader_free, await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == (True, 1)
+
     def test_a_full_squad_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             with pytest.raises(APIError) as refused:
