@@ -366,6 +366,7 @@ export function SpielEditor({
           fields: (
             <Select
               label={WORDS.sonderereignis}
+              labelHidden
               name="sonderereignis"
               options={sonderereignisse}
               width="fit"
@@ -383,6 +384,7 @@ export function SpielEditor({
           fields: (
             <TextField
               label={WORDS.note}
+              labelHidden
               name="note"
               width="W4"
               kind="text"

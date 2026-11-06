@@ -6,10 +6,10 @@ import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
 import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
-import { statusLine } from "./fieldStyles";
+import { fieldFrame, fieldRoot, messageLine, statusLine } from "./fieldStyles";
 import { HelpPopover } from "./HelpPopover";
 import { ScoreRowsPlaceholder } from "./ScoreRows";
-import { PlaceholderLine } from "./Skeleton";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -66,11 +66,12 @@ export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 
 /**
  * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
  * sets them, `FieldRows`' rows of one kind at their width class, a match's score, a subgroup's name over the rows
- * after it, an act of the section (`SectionAct`) by its label, its status line under it, or the placeholder of whatever
- * else the section holds, such as its facts' or a table's.
+ * after it, a field whose label the section's title is (`titled`, at its width), an act of the section (`SectionAct`)
+ * by its label, its status line under it, or the placeholder of whatever else the section holds, such as its facts' or
+ * a table's.
  */
 export type FieldRow =
-  "field" | "pair" | "subhead" | "score" | { rows: 2 | 3; width: "C2" | "C10" } | { act: Copy } | ReactElement;
+  "field" | "pair" | "subhead" | "score" | { rows: 2 | 3; width: "C2" | "C10" } | { titled: "fit" | "W4" } | { act: Copy } | ReactElement;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
   if (isValidElement(row)) return row;
@@ -84,6 +85,13 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
         text={subgroup().name({ class: "mb-0 not-first:mt-2" })}
         width="w-24"
       />
+    );
+  if ("titled" in row)
+    return (
+      <div className={fieldRoot()}>
+        <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[row.titled]}`)} />
+        <span className={messageLine()} />
+      </div>
     );
   if ("act" in row)
     return (
@@ -151,9 +159,10 @@ export function SectionPlaceholder(props: { rows: ReadonlyArray<FieldRow>; dange
 
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content, its 16-px title over a
- * hairline, a one-control section included. One ⓘ may follow the title. An editor's danger box is one too, its edge
- * and title in the danger hue, holding the danger rows, the one place its irreversible and retiring acts stand: flat
- * rows across the box under the rule, each parted from the next by a hairline, with no box of their own.
+ * hairline, a one-control section included, whose one field takes its label as the title alone (`labelHidden`). One ⓘ
+ * may follow the title. An editor's danger box is one too, its edge and title in the danger hue, holding the danger
+ * rows, the one place its irreversible and retiring acts stand: flat rows across the box under the rule, each parted
+ * from the next by a hairline, with no box of their own.
  */
 export function Section({
   title,
