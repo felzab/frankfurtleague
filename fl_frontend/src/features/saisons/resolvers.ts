@@ -64,20 +64,6 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
 }
 
 /**
- * A `[saison_id]` SEGMENT, or not-found. A segment names the page's subject, so unlike the search
- * parameter above there is no fallback: degrading would silently edit a season nobody asked for.
- */
-export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string> {
-  const parsed = z
-    .string()
-    .length(SAISON_ID_LENGTH)
-    .safeParse((await paramsPromise).saison_id);
-  if (!parsed.success) notFound();
-
-  return parsed.data;
-}
-
-/**
  * A public season page's `[saison]` segment: a season the public may read, or `null`. Judged against the frame's list,
  * which filters on the same withheld status as every season read
  * (`fl_backend/app/api/saisons/visibility.py :: resolve_public_saison`), so a page's metadata carries the not-found

@@ -670,29 +670,6 @@ export const BewerbungenSweepSaisonParams = zod.object({
 });
 
 /**
- * Answer which kit colours this season has assigned, so the form can offer the rest.
- *
- * 404 unless that season takes applications today, which is the one state the form reads this in.
- * The SET alone, naming no club (`READ-BEWERBUNG-001`).
- * @summary The kit colours a Saison has already assigned
- */
-export const BewerbungenGetTrikotfarbenParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
- * Return one season's application window, or that it records none; 404 only where no season carries the id.
- *
- * A CLOSED window is served rather than hidden: the page says the deadline has passed, which a
- * 404 could not tell from a mistyped id. A season with no window recorded is served for the same
- * reason, and its existence is the whole of what this tier learns about it.
- * @summary One Saison's application window
- */
-export const BewerbungenGetWindowParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
  * One application, its decision's administrator withheld as the list withholds it.
  *
  * Each seat's `expired` says whether its own deadline has passed today.

@@ -1,14 +1,4 @@
 {
-  "src/app/(public)/bewerbung/[saison_id]/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/(public)/bewerbung/[saison_id]/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/app/(public)/confirm/spiel/page.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -35,11 +25,6 @@
     }
   },
   "src/app/api/bestaetigung/spieler/route.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/app/api/bewerbung/route.ts": {
     "fl/server-action": {
       "count": 1
     }
@@ -611,104 +596,6 @@
       "count": 10
     }
   },
-  "src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 18
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 19
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 27
-    },
-    "react/forbid-component-props": {
-      "count": 31
-    },
-    "react/jsx-no-literals": {
-      "count": 8
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/FormTeamSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 12
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 18
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/kaderBounds.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/forms/BewerbungForm/useBewerbungDraft.ts": {
-    "check-file/folder-naming-convention": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
   "src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 3
@@ -737,11 +624,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/ui/band.ts": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
     }
   },
   "src/features/bewerbungen/components/ui/seite.ts": {
@@ -821,23 +703,6 @@
       "count": 12
     }
   },
-  "src/features/bewerbungen/components/views/BewerbungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 20
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
   "src/features/bewerbungen/constants.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -859,11 +724,6 @@
   "src/features/bewerbungen/refusals.ts": {
     "no-restricted-syntax": {
       "count": 13
-    }
-  },
-  "src/features/bewerbungen/utils.ts": {
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "src/features/bewerbungen/zustellLage.ts": {
@@ -2601,11 +2461,6 @@
       "count": 4
     }
   },
-  "src/shared/components/ui/Autocomplete.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/shared/components/ui/BackButton.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 3
@@ -2646,11 +2501,6 @@
     },
     "react/forbid-component-props": {
       "count": 1
-    }
-  },
-  "src/shared/components/ui/ComboBox.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
     }
   },
   "src/shared/components/ui/ConfirmActionRow.tsx": {
@@ -3279,11 +3129,6 @@
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
     },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/shared/hooks/useTurnstile.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }

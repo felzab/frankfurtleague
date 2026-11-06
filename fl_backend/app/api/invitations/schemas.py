@@ -74,7 +74,7 @@ class FLInvitationResponse(BaseAPIResponse):
     # Null where the team holds none: a link is minted on a press, so holding none is the state
     # every team starts in.
     invitation: FLInvitationRow | None
-    # Composed here rather than derived by the reader, as `FLBewerbungWindowResponse` composes its
+    # Composed here rather than derived by the reader, as `app/api/bewerbungen/schemas.py :: FLBewerbungFormWindow` composes its
     # own: a link is live and opens nothing the moment the registration window shuts.
     running: bool
 

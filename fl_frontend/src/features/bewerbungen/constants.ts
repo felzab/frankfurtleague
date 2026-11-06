@@ -1,5 +1,4 @@
 import { rollenText } from "@/core/teamVocabulary";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import type {
   FLBewerbungConfirmationDeadlineDays,
@@ -75,23 +74,6 @@ export const BEWERBUNG_DECISION_REASON_MAX_LENGTH = 1000;
 export const KUERZEL_LAENGE = 3;
 
 /**
- * The submission's own ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because
- * the public endpoint's `payload_refused` marks an over-long box with a generic sentence rather than the bound's German.
- */
-export const BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH = 500;
-export const BEWERBUNG_KADER_GROESSE_MAX = 200;
-// `TEAM_FULL_NAME_MAX_LENGTH`'s width rather than the team name's: nothing holds an applicant to
-// the league's short name, so what they type is a school's own name.
-export const BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH = 120;
-
-/**
- * How many pupils one Abi-Jahrgang holds, the ones who never play included, mirrored from
- * `fl_backend/app/shared/schemas/bounds.py`. A ceiling against a slipped digit rather than against a
- * real cohort: no school in the league fields an Abi-Jahrgang this size.
- */
-export const BEWERBUNG_STUFENGROESSE_MAX = 999;
-
-/**
  * The span a contact person's birthdate has to fall in. The floor is checked against the bound
  * `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS` publishes, so the backend moving it
  * fails the type check here; the ceiling, mirrored from the same file, refuses a mistyped century rather than a real
@@ -128,17 +110,6 @@ export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLBewerbungConfirm
  */
 export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
 
-/**
- * The picker key standing for „meine Schule ist nicht dabei“.
- *
- * **Not an ObjectId and never one**: every other key in that list is a club id, so a sentinel that
- * could be mistaken for one would submit as `team_id` and name a club nobody picked.
- */
-export const SCHULE_NICHT_IN_LISTE = "neue-schule";
-
-/** What that option reads as, in the trigger as well as in the list — one string, so the two agree. */
-export const SCHULE_NICHT_IN_LISTE_LABEL = "Meine Schule steht nicht in der Liste";
-
 /** The confirmation strip's correction press, which two refusals send the administrator to by its label: one spelling for all three. */
 export const ADRESSE_KORRIGIEREN = "Adresse korrigieren";
 
@@ -147,9 +118,3 @@ export const ADRESSE_KORRIGIEREN = "Adresse korrigieren";
  * control first: one sentence, naming the correction that stands beside the control on the strip.
  */
 export const ERNEUT_OHNE_ADRESSE = `Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „${ADRESSE_KORRIGIEREN}“ ein.`;
-
-/**
- * `KONTAKT_ROLLEN` under its long wording, never a second table: two lists of one set drift, and the
- * triage panel reads one while this form reads the other.
- */
-export const BEWERBUNG_SEATS = KONTAKT_ROLLEN.map(({ value, langform }) => ({ value: value, label: langform }));

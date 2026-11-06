@@ -42,10 +42,19 @@ type Stand = "loading" | "ready" | "interactive" | "failed";
 type TokenRequest = { readonly token: string } | { readonly sentence: Copy };
 
 /**
- * One form's bot check: `widget` stands before the submit, where Cloudflare's example places it, and each
- * press awaits `takeToken`.
+ * Cloudflare's widget sizes this form takes: `compact`, 150 pixels wide, since `normal` and `flexible` take 300 at least,
+ * wider than the sign-in card's content at a 375-pixel phone; `flexible` as wide as a form column holding it.
  */
-export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: () => Promise<TokenRequest> } {
+type BotCheckSize = "compact" | "flexible";
+
+/**
+ * One form's bot check: `widget` stands before the submit, where Cloudflare's example places it, and each
+ * press awaits `takeToken`. With no `siteKey` the form asks no check: nothing is loaded and `widget` is empty.
+ */
+export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: BotCheckSize }): {
+  widget: ReactNode;
+  takeToken: () => Promise<TokenRequest>;
+} {
   const [stand, setStandState] = useState<Stand>("loading");
   // Read by a press, which can run between a callback and the render it causes.
   const standNow = useRef<Stand>("loading");
@@ -103,7 +112,7 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
   // widget, minting and loading Cloudflare's frame of its own.
   useEffect(() => {
     const api = turnstileApi();
-    if (container === null || !isScriptReady || api === undefined) return;
+    if (siteKey === null || container === null || !isScriptReady || api === undefined) return;
 
     const id = api.render(container, {
       sitekey: siteKey,
@@ -113,9 +122,7 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
       // The token is handed over at the press, and no form here posts its own fields.
       "response-field": false,
       language: "de",
-      // 150 pixels wide: `normal` and `flexible` take 300 at least, wider than the sign-in card's
-      // content at a 375-pixel phone.
-      size: "compact",
+      size: size,
       // A widget takes its theme at render alone, so the site's toggle renders it anew.
       theme: theme,
       callback: (minted: string) => onToken(minted),
@@ -138,7 +145,7 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
       setStand("loading");
       api.remove(id);
     };
-  }, [container, isScriptReady, siteKey, theme]);
+  }, [container, isScriptReady, siteKey, size, theme]);
 
   const takeToken = (): Promise<TokenRequest> => {
     const handOver = (minted: string): TokenRequest => {
@@ -167,7 +174,7 @@ export function useTurnstile(siteKey: string): { widget: ReactNode; takeToken: (
   };
 
   return {
-    widget: (
+    widget: siteKey !== null && (
       <>
         <div
           ref={setContainer}

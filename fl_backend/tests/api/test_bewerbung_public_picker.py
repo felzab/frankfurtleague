@@ -1,7 +1,7 @@
-"""BACKEND · the two reads an applying school picks a club from, and the tier the whole public router is served at
+"""BACKEND · the clubs an applying school picks from, and the tier the whole public router is served at
 
-`tests/api/test_bewerbung_public_read.py` holds the other half of that router -- the application
-window, and the colour read, which the rule puts inside its carve-out. A file of its
+`tests/api/test_bewerbung_public_read.py` holds the other half of the form's read -- the application
+window and the colours taken, which the rule puts inside its carve-out. A file of its
 own because the db tier hands a module whole to one worker, so the two halves are timed beside
 each other rather than one behind the other.
 
@@ -41,12 +41,14 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
 pytestmark = pytest.mark.db
 
+FORM = f"{PREFIX}/form/{OPEN_SAISON}"
+
 
 class TestTheClubList:
     """`READ-BEWERBUNG-001`: an anonymous visitor picks from this, so every field is serialised into a public page."""
 
     def test_only_a_club_id_and_a_name_are_served(self, seeded_url: str):
-        response = answered(seeded_url, f"{PREFIX}/schulen")
+        response = answered(seeded_url, FORM)
 
         assert response.status_code == 200
         # Non-vacuous: every live club IS in the body, so what is asserted below is what they carry.
@@ -55,12 +57,12 @@ class TestTheClubList:
 
     @pytest.mark.parametrize("key", sorted(WITHHELD_KEYS))
     def test_no_withheld_key_reaches_the_body(self, seeded_url: str, key: str):
-        assert key not in answered(seeded_url, f"{PREFIX}/schulen").json()["schulen"][0]
+        assert key not in answered(seeded_url, FORM).json()["schulen"][0]
 
     def test_no_withheld_value_reaches_the_body_under_any_key(self, seeded_url: str):
         """Searched as VALUES over the undecoded body: a key RENAMED on the way out satisfies the check above and publishes both."""
 
-        rendered = answered(seeded_url, f"{PREFIX}/schulen").text
+        rendered = answered(seeded_url, FORM).text
 
         for withheld in (ADDRESS["strasse"], ADDRESS["plz"], website_host(CLUBS[0][0]), SCHULFORM, DESCRIPTION):
             assert withheld not in rendered
@@ -68,41 +70,26 @@ class TestTheClubList:
     def test_a_retired_club_is_not_offered(self, seeded_url: str):
         """The picker offers what a school may apply AS, and `find_picked_club_refusal` refuses the same set at the write."""
 
-        assert RETIRED_CLUB[0] not in answered(seeded_url, f"{PREFIX}/schulen").text
+        assert RETIRED_CLUB[0] not in answered(seeded_url, FORM).text
 
     def test_the_list_is_sorted_by_name(self, seeded_url: str):
         """Seeded out of order, so this proves the sort rather than the insertion order."""
 
-        names = [row["name"] for row in answered(seeded_url, f"{PREFIX}/schulen").json()["schulen"]]
+        names = [row["name"] for row in answered(seeded_url, FORM).json()["schulen"]]
 
         assert names == sorted(names)
 
 
-# Every public route, bound once: a route added to one list alone would keep its reachability test
-# and silently lose its unauthorised-answer test.
-PUBLIC_PATHS = [
-    f"{PREFIX}/form/{OPEN_SAISON}",
-    f"{PREFIX}/window/{OPEN_SAISON}",
-    f"{PREFIX}/schulen",
-    f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
-]
-
-
 class TestTheTierTheseReadsAreServedAt:
-    """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch.
+    """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch."""
 
-    It walks the window path too, being one router's tier rather than one endpoint's.
-    """
+    def test_the_base_key_reaches_the_form(self, seeded_url: str):
+        assert answered(seeded_url, FORM).status_code == 200
 
-    @pytest.mark.parametrize("path", PUBLIC_PATHS)
-    def test_the_base_key_reaches_every_one(self, seeded_url: str, path: str):
-        assert answered(seeded_url, path).status_code == 200
-
-    @pytest.mark.parametrize("path", PUBLIC_PATHS)
-    def test_no_key_reaches_none_of_them(self, seeded_url: str, path: str):
+    def test_no_key_reaches_nothing(self, seeded_url: str):
         """Public here means no SESSION, never no key: the edge reaches this application through the frontend, which holds one."""
 
-        response = answered(seeded_url, path, headers={})
+        response = answered(seeded_url, FORM, headers={})
 
         assert response.status_code == 401
         assert response.json()["error_code"] == Code.ACCESS_KEY_REFUSED
