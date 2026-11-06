@@ -269,9 +269,9 @@ export function SaisonEditor({
       ),
     },
     {
-      id: "wertung",
-      title: WORDS.wertung,
-      help: WORDS.wertungHelp,
+      id: "scoring",
+      title: WORDS.scoring,
+      help: WORDS.scoringHelp,
       // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
       ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
