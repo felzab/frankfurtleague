@@ -285,6 +285,7 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
             whatsapp=False,
             media=False,
             at=f"{MAILED_ON_THE_MARK}T08:00:00+00:00",
+            takes_the_notice_back=False,
         ),
         expected_version=None,
         return_document=ReturnDocument.BEFORE,
