@@ -1490,6 +1490,39 @@ class TestTheSeasonRowSeatClock:
             return_document=ReturnDocument.BEFORE,
         )
 
+    def test_the_first_pass_past_its_day_empties_it_and_leaves_the_confirmed_seat(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await self.two_lapsed_seats(database)
+            response = await sweep(database, client)
+            with pytest.raises(APIError) as refused:
+                await view(database, "row-stellvertretung")
+
+            return (
+                response,
+                await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
+                await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
+                await database[Collection.SPIELBESTAETIGUNGEN].find_one({}),
+                refused.value.error_code,
+            )
+
+        response, row, images, confirmation, refusal = on_a_league(mongo_replica_set_url, body)
+
+        assert (row["kontakte"]["ansprechperson"], row["kontakte"]["stellvertretung"]) == (None, None)
+        assert (row["confirmations"]["ansprechperson"], row["confirmations"]["stellvertretung"]) == (None, None)
+        assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] == MAILED_ON_THE_MARK
+        assert row["confirmations"]["trainer"] is not None
+        assert response.kontakt_seats_emptied == 2
+        assert refusal == Code.LINK_INVALID
+
+        # Every image, the emptying write's own pre-image among them.
+        assert images and not any("Bramblewick" in str(image["before"]) for image in images)
+        # The person stands on in the seat they confirmed, whose images are their consent trail.
+        assert all(image["before"]["kontakte"]["trainer"] is not None for image in images)
+
+        assert confirmation["answer"]["reason"] is None
+        assert confirmation["kontakte"]["stellvertretung"] is None
+        assert confirmation["kontakte"]["trainer"] is not None
+
     def test_a_past_seasons_seat_goes_on_its_day_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
         """The mail's promise holds for a link minted shortly before a rollover: only a confirmed seat is the season's record."""
 
