@@ -982,10 +982,11 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The six blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
-    // page header's title and a school's tile.
+    // The seven blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
+    // page header's title, a school's tile and a party's answer.
     {
       allow: [
+        "src/kit/AnswerRows.tsx",
         "src/kit/Table.tsx",
         "src/kit/Card.tsx",
         "src/kit/SpielRow.tsx",

@@ -3,12 +3,12 @@
 import { useState } from "react";
 
 import { AdoptLine } from "@/kit/AdoptLine";
+import { AnswerRows } from "@/kit/AnswerRows";
 import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldPair } from "@/kit/FieldPair";
-import { GroupHead } from "@/kit/GroupHead";
 import { ScoreRows } from "@/kit/ScoreRows";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
@@ -26,11 +26,12 @@ import { adoptsBerichtOf, holdsProposal, isNoShow, NO_SONDEREREIGNIS, takesNoRes
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
+import type { AnswerRow } from "@/kit/AnswerRows";
 import type { EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
-import type { TableRow } from "@/kit/Table";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
@@ -99,11 +100,11 @@ export function SpielEditor({
   noteMax: number;
   /** Whether a booking's money is required beside it, read from the write on the server. */
   required: { mietpreis: boolean; payment: boolean };
-  /** The report's goals as rows, read-only; none while no report stands. */
-  report: readonly TableRow[];
+  /** The report's goals as rows, read-only, none while no report stands, under the head the page's wait draws too. */
+  report: { head: TableHead; rows: readonly TableRow[] };
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
-  answers: readonly TableRow[];
+  answers: readonly AnswerRow[];
   createSpielort: (formData: FormData) => Promise<ActionAnswer>;
   spielortRules: SpielortRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
@@ -396,38 +397,27 @@ export function SpielEditor({
         },
         {
           id: "spielbericht",
-          title: WORDS.spielberichtUndBestaetigungen,
+          title: WORDS.spielbericht,
           fields: (
-            <>
-              <GroupHead text={WORDS.spielbericht} />
-              <Table
-                label={WORDS.spielbericht}
-                nameLabel={COPY.shared.spieler}
-                columns={[
-                  { key: "event", label: WORDS.event },
-                  { key: "minute", label: WORDS.minute, figures: true },
-                  { key: "stand", label: WORDS.ergebnis, figures: true },
-                ]}
-                rows={report}
-                empty={{ kind: "none", plural: COPY.shared.tore }}
-                bare
-                stack
-              />
-              <GroupHead text={WORDS.bestaetigungen} />
-              <Table
-                label={WORDS.bestaetigungen}
-                nameLabel={WORDS.party}
-                columns={[
-                  { key: "answer", label: WORDS.answer },
-                  { key: "proposal", label: COPY.admin.overview.vorschlag },
-                  { key: "reason", label: WORDS.reason, written: true },
-                ]}
-                rows={answers}
-                empty={{ kind: "none", plural: WORDS.bestaetigungen }}
-                bare
-                stack
-              />
-            </>
+            <Table
+              label={WORDS.spielbericht}
+              {...report.head}
+              rows={report.rows}
+              empty={{ kind: "none", plural: COPY.shared.tore }}
+              bare
+              stack
+            />
+          ),
+        },
+        {
+          id: "bestaetigungen",
+          title: WORDS.bestaetigungen,
+          fields: (
+            <AnswerRows
+              label={WORDS.bestaetigungen}
+              rows={answers}
+              empty={{ kind: "none", plural: WORDS.bestaetigungen }}
+            />
           ),
         },
       ])}

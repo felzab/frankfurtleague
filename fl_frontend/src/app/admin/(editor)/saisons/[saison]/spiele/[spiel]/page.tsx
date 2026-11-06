@@ -1,7 +1,9 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { AnswerRowsPlaceholder } from "@/kit/AnswerRows";
 import { EditorShell } from "@/kit/EditorShell";
+import { TablePlaceholder } from "@/kit/Table";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
@@ -30,8 +32,9 @@ import type {
   FLSpielJoinedAdmin,
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
+import type { AnswerRow } from "@/kit/AnswerRows";
 import type { Option } from "@/kit/OptionList";
-import type { TableRow } from "@/kit/Table";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Adoption, Club } from "./SpielEditor";
 import type { SpielValues } from "./spielValues";
@@ -54,6 +57,16 @@ const { ort, schiedsrichter } = SpielePatchSpielBody.shape;
 const REQUIRED = {
   mietpreis: requires(ort.options[0].shape.mietpreis, null),
   payment: requires(schiedsrichter.options[0].shape.payment, null),
+};
+
+/** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it, and the wait its bars. */
+const REPORT_HEAD: TableHead = {
+  nameLabel: COPY.shared.spieler,
+  columns: [
+    { key: "event", label: WORDS.event },
+    { key: "minute", label: WORDS.minute, figures: true },
+    { key: "stand", label: WORDS.ergebnis, figures: true },
+  ],
 };
 
 /** One read of the editor's whole view, for the tab's title and the page alike. */
@@ -94,7 +107,29 @@ export default function SpielEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        sections: [["pair", "pair", "pair"], ["field", "score"], [{ titled: "W4" }], [{ titled: "fit" }], ["field", "field"]],
+        sections: [
+          ["pair", "pair", "pair"],
+          ["field", "score"],
+          [{ titled: "W4" }],
+          [{ titled: "fit" }],
+          [
+            <TablePlaceholder
+              key="report"
+              head={REPORT_HEAD}
+              rows={3}
+              plaques
+              bare
+              linked={false}
+              stack
+            />,
+          ],
+          [
+            <AnswerRowsPlaceholder
+              key="answers"
+              rows={3}
+            />,
+          ],
+        ],
       }}
       editor={readEditor(params)}
     />
@@ -180,27 +215,28 @@ const openRowOf = (rows: readonly FLSpielbestaetigung[], party: (row: FLSpielbes
   rows.find((row) => row.closed === null && party(row));
 
 /**
- * One party's answer as a row: its name, its answer's chip, and the answer's day, the day it is due by, or that the
- * party has not been asked; a declining club's proposed date and its reason in its own words.
+ * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
+ * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined, declined: Copy): TableRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined, declined: Copy): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
-  // One word in one hue, the area's for a state still waiting: the cell beside it says whether the party was asked.
+  // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
   const open = { tone: "warn", label: COPY.template.open } as const;
-  if (row === undefined) return { ...shown, chip: open, cells: { answer: WORDS.notAsked } };
+  if (row === undefined) return { ...shown, chip: open, line: WORDS.notAsked };
   const { answer } = row;
-  if (answer === null) return { ...shown, chip: open, cells: { answer: WORDS.answerBy(dayOf(row.deadline)) } };
-  const cells: Record<string, Words> = {
-    answer: answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) },
-  };
-  if (answer.kind === "zugesagt") return { ...shown, chip: { tone: "success", label: WORDS.zugesagt }, cells };
-  if (answer.vorschlag !== null) cells.proposal = COPY.spielplan.when(dayOf(answer.vorschlag.date), timeOf(answer.vorschlag.time));
-  if (answer.reason !== null) cells.reason = { record: answer.reason };
-  return { ...shown, chip: { tone: "danger", label: declined }, cells };
+  if (answer === null) return { ...shown, chip: open, line: WORDS.answerBy(dayOf(row.deadline)) };
+  const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
+  if (answer.kind === "zugesagt") return { ...shown, chip: { tone: "success", label: WORDS.zugesagt }, line: day };
+  const { vorschlag, reason } = answer;
+  const line =
+    vorschlag === null
+      ? day
+      : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
+  return { ...shown, chip: { tone: "danger", label: declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
 }
 
 /** Each party's answer about the fixture as it stands: both clubs, then the referee where one is booked. */
-function answerRows(view: FLSpieleAdminSingleResponse): TableRow[] {
+function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
   const club = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null
@@ -293,7 +329,7 @@ async function readEditor(params: Props["params"]) {
       sonderereignisse={sonderereignisse}
       noteMax={spielePatchSpielBodyNoteOneMax}
       required={REQUIRED}
-      report={view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht)}
+      report={{ head: REPORT_HEAD, rows: view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht) }}
       adoption={adoptionOf(saved, view.spielbericht)}
       answers={answerRows(view)}
       createSpielort={createSpielort}
