@@ -32,6 +32,8 @@ test("a new school applies, every seat confirms, and the administration accepts 
   await administration.getByRole("main").getByRole("button", { name: "Annehmen", exact: true }).click();
   const dialog = administration.getByRole("dialog", { name: "Bewerbung annehmen" });
   await choose(administration, dialog, /^Gruppe/, /^Gruppe A/);
+  // The box opens on the wish, and a colour given away closes on the form every later application fills.
+  await choose(administration, dialog, /Trikotfarbe/, "Nicht hinterlegt");
   await typeInto(dialog.getByRole("textbox", { name: /^Kürzel/ }), school.slice(0, 3).toUpperCase());
   await dialog.getByRole("button", { name: "Annehmen", exact: true }).click();
   await expect(dialog).toBeHidden();
