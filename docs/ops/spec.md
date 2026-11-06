@@ -624,7 +624,7 @@ which `.gitignore` and `.prettierignore` both cover because it is real data and 
 public.
 
 **`./scripts/ops/local.sh --seed-made-up` fills it with the made-up league instead**
-(`scripts/ops/seed/seed.js`): two seasons, eight clubs, venues, referees and grants, every one
+(`scripts/ops/seed/seed.js`): three seasons, ten clubs, venues, referees and grants, every one
 invented and every date relative to today, replacing the records of every collection of the
 application database and leaving `auth` as it is. It needs no login and reads nothing of production's.
 
