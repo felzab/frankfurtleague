@@ -732,7 +732,7 @@ once the person's own address stands on it again**
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
 has not confirmed, save that address in the referee editor, which on a row still in service mails
 them a confirmation link first, then erase it; a confirmed row's editor refuses the save
-(`schiedsrichter_adresse_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
+(`schiedsrichter_address_only_per_change`) and the address tool finds no row by an empty address, so rewrite it by
 hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
 the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
@@ -761,8 +761,8 @@ record holds the address ([`../datenschutz.md`](../datenschutz.md#6-retention-is
 page says so too, every person page refuses the sessions as no session at all, and each is deleted the next time its browser reaches the sign-in
 page. **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
-administration.** A pupil's registration asks it and is refused (`registrierung_adresse_barred`), and so do
-an application naming the address on any seat (`bewerbung_adresse_barred`), an administrator's seat write or
+administration.** A pupil's registration asks it and is refused (`registrierung_address_barred`), and so do
+an application naming the address on any seat (`bewerbung_address_barred`), an administrator's seat write or
 re-send of a seat to it (`bewerbung_kontakt_barred`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging per season how many they held
 back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`grant_barred`), a grant the Playground
