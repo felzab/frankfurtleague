@@ -6,12 +6,14 @@ from typing import Any, Final, NamedTuple, cast
 
 from app.api.bewerbungen.services import days_after, group_seats_by_mailbox, seat_named
 from app.api.outbox.schemas import (
+    FLAustrittNoticeData,
     FLOutboxData,
     FLOutboxLink,
     FLOutboxReference,
     FLSpielEinteilungLiftedData,
     FLSpielMailAnsetzung,
     FLSpielMailAppointment,
+    FLSpielMailFixture,
     FLSpielMovedData,
     FLSpielNoticeData,
     FLSpielVorschlagDiscardedData,
@@ -34,6 +36,7 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
 )
+from app.api.teams.schemas import FLAustritt
 from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -1185,6 +1188,70 @@ def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, dat
         )
         for address, rollen in group_seats_by_mailbox(kontakte=kontakte, seats=KONTAKT_ROLLEN)
     ]
+
+
+# --- The NOTICE an Austritt owes each opponent, at the exit's own write: a fixture past the asking window holds no row to close.
+
+
+def exit_day_to_tell(*, stored: Mapping[str, Any] | None, proposed: FLAustritt | None) -> str | None:
+    """The day this write's exit tells its opponents of, or `None` where it records no new day: a corrected route or reason tells nobody."""
+
+    day = None if proposed is None else proposed.date
+
+    return None if stored is not None and stored.get("date") == day else day
+
+
+def build_austritt_spiele_filter(*, saison_id: str, team_id: Any, exit_day: str) -> dict[str, Any]:
+    """The club's fixtures its exit reaches: from the day on, as `entscheidung_of` counts it, or undated; `austritt_notices_of` decides."""
+
+    return {
+        "saison_id": saison_id,
+        "$and": [
+            {"$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+            {"$or": [{"date": None}, {"date": {"$gte": exit_day}}]},
+        ],
+    }
+
+
+def austritt_notices_of(
+    *, saison_id: str, team_id: Any, spiele: Iterable[Mapping[str, Any]], vereine: Mapping[Any, Mapping[str, Any]]
+) -> dict[Any, list[OwedMail]]:
+    """Each opponent's notice, one mail per mailbox its season row holds, keyed by that row; `vereine` maps clubs to their season rows.
+
+    One notice however many fixtures, listing every one still open: neither decided, nor called off, nor closed to the
+    opponent by an exit of its own. Keyed by the two clubs and the seat, never the day: an exit moved earlier tells the
+    opponents it newly reaches, and nobody twice. Each mail is about the departed club's row: on the opponent's seat it
+    would stand in for the seat's link mail, whose delivery the team editor reads.
+    """
+
+    open_fixtures: dict[Any, list[FLSpielMailFixture]] = {}
+    ordered = sorted(spiele, key=lambda spiel: (spiel.get("date") is None, spiel.get("date") or "", spiel.get("time") or ""))
+    for spiel in ordered:
+        team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
+        opponent = vereine.get(team2 if team1 == team_id else team1)
+        if opponent is None or team1 is None or team2 is None:
+            continue
+
+        own_exit = (opponent.get("austritt") or {}).get("date")
+        if entscheidung_of(spiel=spiel, austritte=[] if own_exit is None else [own_exit], tag=spiel.get("date")) is None:
+            open_fixtures.setdefault(opponent["team_id"], []).append(
+                FLSpielMailFixture(team1=vereine[team1]["name"], team2=vereine[team2]["name"], date=spiel.get("date"), time=spiel.get("time"))
+            )
+
+    departed = vereine[team_id]
+    reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=departed["_id"], seat=None)
+    notices: dict[Any, list[OwedMail]] = {}
+    for opponent_id, fixtures in open_fixtures.items():
+        opponent = vereine[opponent_id]
+        data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, fixtures=fixtures)
+        mails = [
+            OwedMail(key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{rollen[0]}", an=address, data=data, reference=reference)
+            for address, rollen in group_seats_by_mailbox(kontakte=opponent.get("kontakte"), seats=KONTAKT_ROLLEN)
+        ]
+        if mails:
+            notices[opponent["_id"]] = mails
+
+    return notices
 
 
 # --- A seat write's void: its team's rows' entries, answered and closed ones too, of every seat whose holder the write moves.

@@ -1,16 +1,20 @@
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any
+from datetime import datetime
+from typing import Any, Final
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
+from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
     ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
     AnsetzungLage,
     SeatVoid,
+    austritt_notices_of,
+    build_austritt_spiele_filter,
     build_holding_filter,
     build_referee_images_filter,
     build_referee_rows_filter,
@@ -18,12 +22,14 @@ from app.api.spielbestaetigungen.services import (
     build_season_images_filter,
     build_season_reasons_filter,
     build_seat_entry_images_filter,
+    exit_day_to_tell,
     referee_image_edits,
     season_end_image_edits,
     seat_entry_image_edits,
 )
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.api.spiele.services import build_named_spiele_pipeline
+from app.api.teams.schemas import FLAustritt
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -31,6 +37,7 @@ from app.core.crud import (
     erase_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
+    pull_whole_from_db,
     redact_log_rows_in_db,
 )
 from app.core.readonly import ReadCollection
@@ -396,9 +403,9 @@ async def anchor_the_mailboxes_told(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows the notice step read its notices' mailboxes off.
+    """Write the season rows a write read its notices' mailboxes off.
 
-    An erasure or a Widerspruch empties the seat on that row and writes nothing the notice step writes.
+    An erasure or a Widerspruch empties the seat on that row and writes nothing the notices' write writes.
     """
 
     await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)
@@ -417,3 +424,59 @@ async def anchor_the_referees_told(
     """
 
     await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)
+
+
+# --- An AUSTRITT's opponents.
+
+# What `austritt_notices_of` judges and lists of a fixture, which holds no name: each club's comes off its season row.
+AUSTRITT_SPIEL_FIELDS: Final = ["team1", "team2", "date", "time", "ergebnis", "sonderereignis"]
+
+
+async def owe_the_austritt_notices_in_session(
+    *,
+    spiele_collection: ReadCollection,
+    saison_teams_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    saison_id: str,
+    team_id: Any,
+    # The row's stored exit, which a save resubmitting it leaves as it was.
+    stored: Mapping[str, Any] | None,
+    proposed: FLAustritt | None,
+    now: datetime,
+    # REQUIRED: the exit and its notices commit or fail together.
+    session: AsyncClientSession,
+) -> None:
+    """Owe each opponent of a club leaving the season its notice, wherever the save records a new exit day.
+
+    Called by every save of the row, which `exit_day_to_tell` sorts. A lifted exit recalls no notice.
+    """
+
+    exit_day = exit_day_to_tell(stored=stored, proposed=proposed)
+    if exit_day is None:
+        return
+
+    spiele = await pull_whole_from_db(
+        collection=spiele_collection,
+        db_filter=build_austritt_spiele_filter(saison_id=saison_id, team_id=team_id, exit_day=exit_day),
+        what=f"team {team_id}'s fixtures in season {saison_id}",
+        projection=AUSTRITT_SPIEL_FIELDS,
+        session=session,
+    )
+    sides = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")}
+    vereine = await pull_whole_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": list({team_id, *sides} - {None})}},
+        what=f"team {team_id}'s opponents in season {saison_id}",
+        projection=["team_id", "name", "kontakte", "austritt"],
+        session=session,
+    )
+
+    notices = austritt_notices_of(saison_id=saison_id, team_id=team_id, spiele=spiele, vereine={row["team_id"]: row for row in vereine})
+    if not notices:
+        return
+
+    # Ahead of the mails: what each was read off, so a seat emptied or an address moved beside this write conflicts with it.
+    await anchor_the_mailboxes_told(saison_teams_collection=saison_teams_collection, saison_team_ids=sorted(notices, key=str), session=session)
+    await enqueue_mails(
+        outbox_collection=outbox_collection, session=session, mails=[mail for mails in notices.values() for mail in mails], now=now
+    )
