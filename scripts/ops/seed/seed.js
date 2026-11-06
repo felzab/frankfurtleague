@@ -302,6 +302,9 @@ const UNBOOKED = { spielort: null, schiedsrichter: null };
  * in draw order, `dates` each matchday's span, `play` what happened in the fixture of a number, and
  * `knockout` who stands in each knockout fixture, where anybody does yet.
  */
+// One per row of a season: a colour is one team's, and a save of a row holding another's is refused.
+const SEASON_COLOURS = ["blau", "gruen", "rot", "gelb", "orange", "weiss", "schwarz", "grau"];
+
 function season({ id, status, start, end, drawn, groups, dates, play, knockout = {} }) {
   const spieltage = [];
   const spiele = [];
@@ -373,19 +376,19 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
     registrierung: null,
   };
 
-  const saisonTeams = Object.entries(groups).flatMap(([gruppe, names]) =>
-    names.map((name, index) => ({
+  const saisonTeams = Object.entries(groups)
+    .flatMap(([gruppe, names]) => names.map((name) => ({ gruppe, name })))
+    .map(({ gruppe, name }, index) => ({
       _id: ObjectId(),
       saison_id: id,
       team_id: club[name]._id,
       gruppe,
       austritt: null,
-      trikot_farbe: index % 2 === 0 ? "blau" : "gruen",
+      trikot_farbe: SEASON_COLOURS[index],
       kontakte: null,
       name,
       shorthand: club[name].shorthand,
-    })),
-  );
+    }));
 
   return { saison, saisonTeams, spieltage, spiele };
 }
