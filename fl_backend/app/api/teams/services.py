@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -21,18 +22,21 @@ from app.api.teams.schemas import (
     FLTabelle,
     FLTabelleRow,
     FLTeam,
+    FLTeamGruppeOffer,
+    FLTeamListState,
+    FLTeamsAdminRow,
     FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_query
+from app.core.crud import VERSION_FIELD, build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktRow
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
@@ -1407,6 +1411,118 @@ def find_kontakt_seat_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
+def build_team_fixtures_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+    """This club's fixtures of one season. Both sides, because a fixture fields a team on either."""
+
+    return {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
+
+
+def compose_saison_team(
+    *, saison_id: str, team_id: Any, gruppe: FLGruppenNames, trikot_farbe: FLTrikotFarbe | None, name: str, shorthand: str
+) -> dict[str, Any]:
+    """One club's row of a season as an entry writes it: no departure and no people yet."""
+
+    return {
+        "saison_id": saison_id,
+        "team_id": team_id,
+        "gruppe": gruppe,
+        # These two required by `FLTeamMembership`, so a row without one is unreadable.
+        "austritt": None,
+        "trikot_farbe": trikot_farbe,
+        "kontakte": None,
+        # Copied rather than joined on read: once the season is `past` this is the name it was played under, which makes
+        # the copy in its fixtures true rather than merely old.
+        "name": name,
+        "shorthand": shorthand,
+    }
+
+
+def gruppe_offer(*, rules: FLSaisonRules, gruppen: Iterable[str]) -> list[FLTeamGruppeOffer]:
+    """Every group the season offers and whether it is full, by `find_entry_refusal`'s count: a row carrying an `austritt` keeps its place."""
+
+    occupied = Counter(gruppen)
+    offered = offered_gruppen(rules.number_of_gruppen)
+
+    return [FLTeamGruppeOffer(gruppe=gruppe, full=occupied[gruppe] >= rules.teams_per_gruppe) for gruppe in offered]
+
+
+def composite_version(*, team: Mapping[str, Any], row: Mapping[str, Any]) -> int:
+    """The one count the team editor reads and saves on: the club's and its season row's added.
+
+    Each only ever rises, so their sum stands exactly where neither has moved, and a page holds one number for its one
+    save (`fl_frontend/src/kit/useEditor.ts :: EditorRecord`).
+    """
+
+    return int(team.get(VERSION_FIELD) or 0) + int(row.get(VERSION_FIELD) or 0)
+
+
+def find_stale_team_save_refusal(*, version: int, team: Mapping[str, Any], row: Mapping[str, Any]) -> WriteRefusal | None:
+    """`version_stale`: the club or its season row has moved since the editor read them."""
+
+    if composite_version(team=team, row=row) == version:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
+def teams_admin_rows(
+    *,
+    rows: Sequence[Mapping[str, Any]],
+    clubs: Sequence[Mapping[str, Any]],
+    state: FLTeamListState | None,
+    gruppe: FLGruppenNames | None,
+) -> list[FLTeamsAdminRow]:
+    """The Teams list: the season's rows, or under `retired` the league's retired clubs, each club in no season row with no group.
+
+    A club is retired from the league rather than from a season, so that one filter reads past the season's rows: it is
+    the way back to a club no season list holds. `rows` and `clubs` arrive sorted by name.
+    """
+
+    retired = {club["_id"]: club["inactive_since"] for club in clubs if club.get("inactive_since") is not None}
+    entered = {row["team_id"]: row for row in rows}
+
+    def listed(row: Mapping[str, Any]) -> FLTeamsAdminRow:
+        kontakte = row.get("kontakte") or {}
+        seats = [seat for slot in KONTAKT_ROLLEN if isinstance(seat := kontakte.get(slot), Mapping)]
+
+        return FLTeamsAdminRow(
+            id=row["team_id"],
+            name=row["name"],
+            shorthand=row["shorthand"],
+            gruppe=row["gruppe"],
+            seats_filled=len(seats),
+            seats_confirmed=sum(1 for seat in seats if _seat_is_stamped(seat)),
+            austritt_type=(row.get("austritt") or {}).get("type"),
+            inactive_since=retired.get(row["team_id"]),
+        )
+
+    if state == "retired":
+        chosen = [
+            listed(entered[club["_id"]])
+            if club["_id"] in entered
+            else FLTeamsAdminRow(
+                id=club["_id"],
+                name=club["name"],
+                shorthand=club["shorthand"],
+                gruppe=None,
+                seats_filled=0,
+                seats_confirmed=0,
+                austritt_type=None,
+                inactive_since=club["inactive_since"],
+            )
+            for club in clubs
+            if club["_id"] in retired
+        ]
+    else:
+        chosen = [listed(row) for row in rows]
+        if state == "active":
+            chosen = [row for row in chosen if row.austritt_type is None and row.inactive_since is None]
+        if state == "departed":
+            chosen = [row for row in chosen if row.austritt_type is not None]
+
+    return [row for row in chosen if gruppe is None or row.gruppe == gruppe]
+
+
 def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
     """`duplicate_key` on the shorthand: another club, a retired one included, holds it.
 
@@ -1658,11 +1774,20 @@ def find_replacement_refusal(
     return None
 
 
+# A club standing in one of these is still in the league's programme, so `retire_blocked` refuses retiring it.
+_RETIRE_BLOCKING_STATUSES: tuple[str, ...] = ("active", "future")
+
+
+def saison_blocking_retirement(saisons: Iterable[Mapping[str, Any]]) -> str | None:
+    """The newest of these seasons `retire_blocked` refuses over, which the editor names, or `None`."""
+
+    return max((str(saison["_id"]) for saison in saisons if saison["status"] in _RETIRE_BLOCKING_STATUSES), default=None)
+
+
 def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:
     """Why retiring this club must be refused, or `None`; a club whose seasons are all `past` may be retired."""
 
-    blocking = sorted({saison_status for saison_status in saison_statuses if saison_status in ("active", "future")})
-    if not blocking:
+    if not any(saison_status in _RETIRE_BLOCKING_STATUSES for saison_status in saison_statuses):
         return None
 
     return WriteRefusal(

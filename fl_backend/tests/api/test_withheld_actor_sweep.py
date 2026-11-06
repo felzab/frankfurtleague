@@ -34,7 +34,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.core.app_source import api_routes, application
 from tests.database import a_clean_database_sync
-from tests.documents import ban_document, saison_document
+from tests.documents import ban_document, saison_document, saison_team_document, team_document
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
@@ -100,6 +100,7 @@ NAMES_AN_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/registrierungen": "/api/v0/registrierungen",
     "/api/v0/sperrliste": "/api/v0/sperrliste",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/invitation": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/invitation",
+    "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/admin": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/admin",
 }
 
 _PERSON_RECORDS = "a person's own record, whose address a ban withholds nowhere: the administrator takes it away by hand"
@@ -133,7 +134,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spieltage/{spieltag_id:objectid}/admin": "one matchday",
     "/api/v0/spielorte": "venues",
     "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
-    "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
+    "/api/v0/teams/list/admin": "a season's clubs by name, their seats counted",
     "/api/v0/teams/saisons": "clubs and their seasons",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/self/seats": "one team's seat holders by name, as the seat holders read them",
     "/api/v0/spielberichte": "a season's reports by state, naming nobody",
@@ -158,6 +159,8 @@ def _seed(url: str, *, ban_until: str | None) -> None:
     try:
         database = a_clean_database_sync(client, url, DATABASE_NAME)
         database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Adler", "ADL"))
+        database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADL"))
         database[Collection.GRANTS].insert_many(
             [
                 *grants_for_the_suite(),

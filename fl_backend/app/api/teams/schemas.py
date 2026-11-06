@@ -14,6 +14,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.api.einladungen.schemas import FLTeamLinkState
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
@@ -56,6 +57,7 @@ from app.shared.schemas.literals import (
     FLKontaktEnteredBy,
     FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
+    FLSaisonStatus,
     FLSchulform,
     FLSortOrder,
     FLTrikotFarbe,
@@ -118,6 +120,8 @@ class FLAustrittPayload(FLAustritt):
 
     On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     exit_reason: Annotated[
         str,
@@ -581,6 +585,59 @@ class FLPatchTeamPayload(_TeamPayload):
     version: int | None = None
 
 
+class FLPatchTeamSaisonPayload(_TeamPayload):
+    """The team editor's one save: the club, and its colour and group in the season the page stands under.
+
+    Replaced wholesale, as `FLPatchTeamPayload` is. No seat and no `austritt`: a seat is its dialog's, and an exit is the
+    danger box's own write, which owes mail.
+    """
+
+    gruppe: FLGruppenNames
+    trikot_farbe: FLTrikotFarbe | None
+    # `FLTeamSaisonAdminResponse.version` as the editor read it.
+    version: int = Field(ge=0)
+
+
+class FLPatchTeamSaisonResponse(BaseAPIResponse):
+    """The count the editor's next save sends."""
+
+    version: int = Field(ge=0)
+
+
+class FLEntryKnownClub(BaseModel):
+    """A club the league holds, picked from the list's create dialog."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["known"]
+    team_id: CustomObjectId
+
+
+class FLEntryNewClub(BaseModel):
+    """A club the entry founds, in the transaction that enters it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["new"]
+    team: FLPostTeamPayload
+
+
+class FLPostTeamEntryPayload(BaseModel):
+    """One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    club: Annotated[FLEntryKnownClub | FLEntryNewClub, Field(discriminator="kind")]
+    gruppe: FLGruppenNames
+    trikot_farbe: FLTrikotFarbe | None
+
+
+class FLPostTeamEntryResponse(BaseAPIResponse):
+    """The club the entry wrote a row for, whose editor the list opens."""
+
+    team_id: CustomObjectId
+
+
 class FLPostSaisonTeamPayload(BaseModel):
     """One team's membership of one season. `team_id` comes from the path, `saison_id` from here."""
 
@@ -678,9 +735,91 @@ class FLTeamSingleFilterParams(BaseModel):
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
 
-class FLTeamsListResponse(BaseAPIResponse):
+# The list's status filter: in the season, out of it, or out of the league.
+type FLTeamListState = Literal["active", "departed", "retired"]
+
+
+class FLTeamsAdminFilterParams(BaseModel):
+    """What the Teams list narrows on, each filter held in the page's address."""
+
+    saison_id: str
+    gruppe: FLGruppenNames | None = None
+    state: FLTeamListState | None = None
+
+
+class FLTeamsAdminRow(BaseReadModel):
+    """One club as the Teams list shows it: the name it plays this season under, or today's for a club holding no row of it."""
+
+    id: CustomObjectId
+    name: str
+    shorthand: str
+    gruppe: FLGruppenNames | None
+    # Counted per read off the row's seats, never stored.
+    seats_filled: int = Field(ge=0)
+    seats_confirmed: int = Field(ge=0)
+    # The type alone, as a standing row carries it.
+    austritt_type: FLAustrittType | None
+    inactive_since: CustomOptionalDateString
+
+
+class FLTeamGruppeOffer(BaseReadModel):
+    """One group a season offers, closed where it is full."""
+
+    gruppe: FLGruppenNames
+    full: bool
+
+
+class FLTeamEntryClub(BaseReadModel):
+    """A club the entry's picker offers: one still in the league that holds no row of the season."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    name: str
+    shorthand: str
+
+
+class FLTeamEntryOffer(BaseReadModel):
+    """What the list's create dialog offers, and why the entry would be refused now."""
+
+    clubs: list[FLTeamEntryClub]
+    gruppen: list[FLTeamGruppeOffer]
+    # Only a `future` season takes an entry; every other refusal is about the group or the club the dialog picks.
+    closed: bool
+
+
+class FLTeamsAdminListResponse(BaseAPIResponse):
+    """One season's Teams list, and what its create dialog offers."""
+
     format: Literal["list"] = "list"
-    teams: list[FLTeam]
+    teams: list[FLTeamsAdminRow]
+    entry: FLTeamEntryOffer
+
+
+class FLTeamSaisonFacts(BaseReadModel):
+    """The season a team editor stands under, as far as the editor's locks read it."""
+
+    id: str
+    status: FLSaisonStatus
+    start_date: CustomDateString
+    # `app/api/saisons/services.py :: has_started`, which an exit is refused before.
+    begun: bool
+
+
+class FLTeamSaisonAdminResponse(BaseAPIResponse):
+    """What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet."""
+
+    # The one count this page saves on (`app/api/teams/services.py :: composite_version`).
+    version: int = Field(ge=0)
+    team: FLTeamRecord
+    saison: FLTeamSaisonFacts
+    # Null for a club holding no row of the season, a retired one reached through the list's filter.
+    membership: FLTeamMembership | None
+    gruppen: list[FLTeamGruppeOffer]
+    # Whether the group's write would refuse `entry_gruppe_locked`, the club's fixtures being drawn.
+    gruppe_locked: bool
+    # The newest running or planned season the club stands in, which `retire_blocked` refuses over.
+    retire_blocked_by: str | None
+    # Null with `membership`.
+    link: FLTeamLinkState | None
 
 
 class FLTeamsSingleResponse(BaseAPIResponse):

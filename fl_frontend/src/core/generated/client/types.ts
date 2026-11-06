@@ -2223,6 +2223,45 @@ export interface FLEinwilligung {
 }
 
 /**
+ * A club the league holds, picked from the list's create dialog.
+ */
+export interface FLEntryKnownClub {
+  kind: "known";
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export interface FLPostTeamPayload {
+  address: FLAddressPayload;
+  /** @maxLength 4096 */
+  description: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  full_name: string;
+  /**
+   * @minLength 1
+   * @maxLength 60
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
+  shorthand: string;
+  website_url: string | null;
+}
+
+/**
+ * A club the entry founds, in the transaction that enters it.
+ */
+export interface FLEntryNewClub {
+  kind: "new";
+  team: FLPostTeamPayload;
+}
+
+/**
  * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
  */
 export interface FLErasureAddressPayload {
@@ -4136,6 +4175,46 @@ export interface FLPatchTeamResponse {
 }
 
 /**
+ * The team editor's one save: the club, and its colour and group in the season the page stands under.
+ *
+ * Replaced wholesale, as `FLPatchTeamPayload` is. No seat and no `austritt`: a seat is its dialog's, and an exit is the
+ * danger box's own write, which owes mail.
+ */
+export interface FLPatchTeamSaisonPayload {
+  address: FLAddressPayload;
+  /** @maxLength 4096 */
+  description: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  full_name: string;
+  gruppe: FLGruppenNames;
+  /**
+   * @minLength 1
+   * @maxLength 60
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
+  shorthand: string;
+  trikot_farbe: FLTrikotFarbe | null;
+  /** @minimum 0 */
+  version: number;
+  website_url: string | null;
+}
+
+/**
+ * The count the editor's next save sends.
+ */
+export interface FLPatchTeamSaisonResponse {
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
  * One school's application, as the public form submits it.
  *
  * `status`, `submitted_at` and `decision` are the server's.
@@ -4308,26 +4387,21 @@ export interface FLPostSpielortPayload {
   name: string;
 }
 
-export interface FLPostTeamPayload {
-  address: FLAddressPayload;
-  /** @maxLength 4096 */
-  description: string;
-  /**
-   * @minLength 1
-   * @maxLength 120
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  full_name: string;
-  /**
-   * @minLength 1
-   * @maxLength 60
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
-  shorthand: string;
-  website_url: string | null;
+/**
+ * One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.
+ */
+export interface FLPostTeamEntryPayload {
+  club: FLEntryKnownClub | FLEntryNewClub;
+  gruppe: FLGruppenNames;
+  trikot_farbe: FLTrikotFarbe | null;
+}
+
+/**
+ * The club the entry wrote a row for, whose editor the list opens.
+ */
+export interface FLPostTeamEntryResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
 }
 
 /**
@@ -6221,6 +6295,51 @@ export interface FLTeam {
 }
 
 /**
+ * A club the entry's picker offers: one still in the league that holds no row of the season.
+ */
+export interface FLTeamEntryClub {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  name: string;
+  shorthand: string;
+}
+
+/**
+ * One group a season offers, closed where it is full.
+ */
+export interface FLTeamGruppeOffer {
+  full: boolean;
+  gruppe: FLGruppenNames;
+}
+
+/**
+ * What the list's create dialog offers, and why the entry would be refused now.
+ */
+export interface FLTeamEntryOffer {
+  closed: boolean;
+  clubs: FLTeamEntryClub[];
+  gruppen: FLTeamGruppeOffer[];
+}
+
+/**
+ * The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team.
+ */
+export interface FLTeamLinkState {
+  invitation: FLInvitationRow | null;
+  paused: boolean;
+  running: boolean;
+  skipped: FLInvitationSkipReason | null;
+}
+
+export type FLTeamListState = (typeof FLTeamListState)[keyof typeof FLTeamListState];
+
+export const FLTeamListState = {
+  active: "active",
+  departed: "departed",
+  retired: "retired",
+} as const;
+
+/**
  * One junction row as seen from its club: which season, which group, and the record if any.
  */
 export interface FLTeamMembership {
@@ -6308,6 +6427,56 @@ export interface FLTeamPageResponse {
 }
 
 /**
+ * The club document as it is STORED, and what the write endpoints echo.
+ *
+ * The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
+ * -- and a club being created holds no row yet.
+ */
+export interface FLTeamRecord {
+  address: FLAddress;
+  /** @maxLength 4096 */
+  description: string;
+  /** @minLength 1 */
+  full_name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  /** @minLength 1 */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+  version: number;
+  website_url: string | null;
+}
+
+/**
+ * The season a team editor stands under, as far as the editor's locks read it.
+ */
+export interface FLTeamSaisonFacts {
+  begun: boolean;
+  id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start_date: string;
+  status: FLSaisonStatus;
+}
+
+/**
+ * What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet.
+ */
+export interface FLTeamSaisonAdminResponse {
+  gruppe_locked: boolean;
+  gruppen: FLTeamGruppeOffer[];
+  link: FLTeamLinkState | null;
+  membership: FLTeamMembership | null;
+  retire_blocked_by: string | null;
+  saison: FLTeamSaisonFacts;
+  team: FLTeamRecord;
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
  * One seat as the people beside it see it: who holds it and whether they answered their link.
  *
  * No address, telephone number or birthdate: only administrators see those.
@@ -6353,9 +6522,30 @@ export interface FLTeamWithMemberships {
   website_url: string | null;
 }
 
-export interface FLTeamsListResponse {
+/**
+ * One club as the Teams list shows it: the name it plays this season under, or today's for a club holding no row of it.
+ */
+export interface FLTeamsAdminRow {
+  austritt_type: FLAustrittType | null;
+  gruppe: FLGruppenNames | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  name: string;
+  /** @minimum 0 */
+  seats_confirmed: number;
+  /** @minimum 0 */
+  seats_filled: number;
+  shorthand: string;
+}
+
+/**
+ * One season's Teams list, and what its create dialog offers.
+ */
+export interface FLTeamsAdminListResponse {
+  entry: FLTeamEntryOffer;
   format: "list";
-  teams: FLTeam[];
+  teams: FLTeamsAdminRow[];
 }
 
 /**
@@ -6703,34 +6893,10 @@ export const SpieltageGetSpieltageAdminOrder = {
 } as const;
 
 export type TeamsGetTeamsAdminParams = {
-  saison_id?: string | null;
+  saison_id: string;
   gruppe?: FLGruppenNames | null;
-  has_austritt?: boolean | null;
-  austritt_type?: FLAustrittType | null;
-  statistik_scope?: TeamsGetTeamsAdminStatistikScope;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "name";
-  order?: TeamsGetTeamsAdminOrder;
-  include_inactive?: boolean;
+  state?: FLTeamListState | null;
 };
-
-export type TeamsGetTeamsAdminStatistikScope = (typeof TeamsGetTeamsAdminStatistikScope)[keyof typeof TeamsGetTeamsAdminStatistikScope];
-
-export const TeamsGetTeamsAdminStatistikScope = {
-  gruppenphase: "gruppenphase",
-  total: "total",
-} as const;
-
-export type TeamsGetTeamsAdminOrder = (typeof TeamsGetTeamsAdminOrder)[keyof typeof TeamsGetTeamsAdminOrder];
-
-export const TeamsGetTeamsAdminOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type TeamsGetTeamParams = {
   saison_id?: string | null;

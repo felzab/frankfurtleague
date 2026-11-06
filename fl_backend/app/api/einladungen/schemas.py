@@ -114,6 +114,18 @@ class FLInvitationLinkRow(BaseModel):
     sent_at: CustomOptionalDateString
 
 
+class FLTeamLinkState(BaseModel):
+    """The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team."""
+
+    invitation: FLInvitationRow | None
+    # `FLInvitationResponse.running`'s judgement of the window.
+    running: bool
+    # Whether the season stands paused: the window can read closed for its dates alone.
+    paused: bool
+    # Why the season's press would pass this team over today, `None` where it would mail it.
+    skipped: FLInvitationSkipReason | None
+
+
 class FLInvitationDispatchPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

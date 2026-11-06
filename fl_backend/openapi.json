@@ -2926,6 +2926,7 @@
         "type": "object"
       },
       "FLAustrittPayload": {
+        "additionalProperties": false,
         "description": "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
         "properties": {
           "date": {
@@ -5233,6 +5234,48 @@
             "$ref": "#/components/schemas/FLCitedMediaTextVersion"
           }
         ]
+      },
+      "FLEntryKnownClub": {
+        "additionalProperties": false,
+        "description": "A club the league holds, picked from the list's create dialog.",
+        "properties": {
+          "kind": {
+            "const": "known",
+            "title": "Kind",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "team_id"
+        ],
+        "title": "FLEntryKnownClub",
+        "type": "object"
+      },
+      "FLEntryNewClub": {
+        "additionalProperties": false,
+        "description": "A club the entry founds, in the transaction that enters it.",
+        "properties": {
+          "kind": {
+            "const": "new",
+            "title": "Kind",
+            "type": "string"
+          },
+          "team": {
+            "$ref": "#/components/schemas/FLPostTeamPayload"
+          }
+        },
+        "required": [
+          "kind",
+          "team"
+        ],
+        "title": "FLEntryNewClub",
+        "type": "object"
       },
       "FLErasureAddressPayload": {
         "additionalProperties": false,
@@ -9610,6 +9653,108 @@
         "title": "FLPatchTeamResponse",
         "type": "object"
       },
+      "FLPatchTeamSaisonPayload": {
+        "additionalProperties": false,
+        "description": "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale, as `FLPatchTeamPayload` is. No seat and no `austritt`: a seat is its dialog's, and an exit is the\ndanger box's own write, which owes mail.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/FLAddressPayload"
+          },
+          "description": {
+            "maxLength": 4096,
+            "title": "Description",
+            "type": "string"
+          },
+          "full_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Full Name",
+            "type": "string"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "schulform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchulform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shorthand": {
+            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTrikotFarbe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          },
+          "website_url": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website Url"
+          }
+        },
+        "required": [
+          "name",
+          "shorthand",
+          "description",
+          "full_name",
+          "schulform",
+          "website_url",
+          "address",
+          "gruppe",
+          "trikot_farbe",
+          "version"
+        ],
+        "title": "FLPatchTeamSaisonPayload",
+        "type": "object"
+      },
+      "FLPatchTeamSaisonResponse": {
+        "description": "The count the editor's next save sends.",
+        "properties": {
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "FLPatchTeamSaisonResponse",
+        "type": "object"
+      },
       "FLPostBewerbungPayload": {
         "additionalProperties": false,
         "description": "One school's application, as the public form submits it.\n\n`status`, `submitted_at` and `decision` are the server's.",
@@ -10064,6 +10209,65 @@
           "default_mietpreis"
         ],
         "title": "FLPostSpielortPayload",
+        "type": "object"
+      },
+      "FLPostTeamEntryPayload": {
+        "additionalProperties": false,
+        "description": "One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.",
+        "properties": {
+          "club": {
+            "discriminator": {
+              "mapping": {
+                "known": "#/components/schemas/FLEntryKnownClub",
+                "new": "#/components/schemas/FLEntryNewClub"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLEntryKnownClub"
+              },
+              {
+                "$ref": "#/components/schemas/FLEntryNewClub"
+              }
+            ],
+            "title": "Club"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTrikotFarbe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "club",
+          "gruppe",
+          "trikot_farbe"
+        ],
+        "title": "FLPostTeamEntryPayload",
+        "type": "object"
+      },
+      "FLPostTeamEntryResponse": {
+        "description": "The club the entry wrote a row for, whose editor the list opens.",
+        "properties": {
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id"
+        ],
+        "title": "FLPostTeamEntryResponse",
         "type": "object"
       },
       "FLPostTeamPayload": {
@@ -18278,6 +18482,128 @@
         "title": "FLTeam",
         "type": "object"
       },
+      "FLTeamEntryClub": {
+        "description": "A club the entry's picker offers: one still in the league that holds no row of the season.",
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "shorthand"
+        ],
+        "title": "FLTeamEntryClub",
+        "type": "object"
+      },
+      "FLTeamEntryOffer": {
+        "description": "What the list's create dialog offers, and why the entry would be refused now.",
+        "properties": {
+          "closed": {
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "clubs": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamEntryClub"
+            },
+            "title": "Clubs",
+            "type": "array"
+          },
+          "gruppen": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamGruppeOffer"
+            },
+            "title": "Gruppen",
+            "type": "array"
+          }
+        },
+        "required": [
+          "clubs",
+          "gruppen",
+          "closed"
+        ],
+        "title": "FLTeamEntryOffer",
+        "type": "object"
+      },
+      "FLTeamGruppeOffer": {
+        "description": "One group a season offers, closed where it is full.",
+        "properties": {
+          "full": {
+            "title": "Full",
+            "type": "boolean"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          }
+        },
+        "required": [
+          "gruppe",
+          "full"
+        ],
+        "title": "FLTeamGruppeOffer",
+        "type": "object"
+      },
+      "FLTeamLinkState": {
+        "description": "The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team.",
+        "properties": {
+          "invitation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLInvitationRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "skipped": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLInvitationSkipReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "invitation",
+          "running",
+          "paused",
+          "skipped"
+        ],
+        "title": "FLTeamLinkState",
+        "type": "object"
+      },
+      "FLTeamListState": {
+        "enum": [
+          "active",
+          "departed",
+          "retired"
+        ],
+        "type": "string"
+      },
       "FLTeamMembership": {
         "description": "One junction row as seen from its club: which season, which group, and the record if any.",
         "properties": {
@@ -18684,6 +19010,190 @@
         "title": "FLTeamPageSpiel",
         "type": "object"
       },
+      "FLTeamRecord": {
+        "description": "The club document as it is STORED, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "description": {
+            "maxLength": 4096,
+            "title": "Description",
+            "type": "string"
+          },
+          "full_name": {
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schulform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchulform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shorthand": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
+          "website_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website Url"
+          }
+        },
+        "required": [
+          "name",
+          "shorthand",
+          "description",
+          "full_name",
+          "schulform",
+          "website_url",
+          "address",
+          "id",
+          "inactive_since",
+          "version"
+        ],
+        "title": "FLTeamRecord",
+        "type": "object"
+      },
+      "FLTeamSaisonAdminResponse": {
+        "description": "What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet.",
+        "properties": {
+          "gruppe_locked": {
+            "title": "Gruppe Locked",
+            "type": "boolean"
+          },
+          "gruppen": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamGruppeOffer"
+            },
+            "title": "Gruppen",
+            "type": "array"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTeamLinkState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "membership": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTeamMembership"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retire_blocked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retire Blocked By"
+          },
+          "saison": {
+            "$ref": "#/components/schemas/FLTeamSaisonFacts"
+          },
+          "team": {
+            "$ref": "#/components/schemas/FLTeamRecord"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "team",
+          "saison",
+          "membership",
+          "gruppen",
+          "gruppe_locked",
+          "retire_blocked_by",
+          "link"
+        ],
+        "title": "FLTeamSaisonAdminResponse",
+        "type": "object"
+      },
+      "FLTeamSaisonFacts": {
+        "description": "The season a team editor stands under, as far as the editor's locks read it.",
+        "properties": {
+          "begun": {
+            "title": "Begun",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "start_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FLSaisonStatus"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "start_date",
+          "begun"
+        ],
+        "title": "FLTeamSaisonFacts",
+        "type": "object"
+      },
       "FLTeamSeat": {
         "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: only administrators see those.",
         "properties": {
@@ -18899,8 +19409,12 @@
         "title": "FLTeamWithMemberships",
         "type": "object"
       },
-      "FLTeamsListResponse": {
+      "FLTeamsAdminListResponse": {
+        "description": "One season's Teams list, and what its create dialog offers.",
         "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/FLTeamEntryOffer"
+          },
           "format": {
             "const": "list",
             "default": "list",
@@ -18909,7 +19423,7 @@
           },
           "teams": {
             "items": {
-              "$ref": "#/components/schemas/FLTeam"
+              "$ref": "#/components/schemas/FLTeamsAdminRow"
             },
             "title": "Teams",
             "type": "array"
@@ -18917,9 +19431,82 @@
         },
         "required": [
           "format",
-          "teams"
+          "teams",
+          "entry"
         ],
-        "title": "FLTeamsListResponse",
+        "title": "FLTeamsAdminListResponse",
+        "type": "object"
+      },
+      "FLTeamsAdminRow": {
+        "description": "One club as the Teams list shows it: the name it plays this season under, or today's for a club holding no row of it.",
+        "properties": {
+          "austritt_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAustrittType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gruppe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLGruppenNames"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "seats_confirmed": {
+            "minimum": 0.0,
+            "title": "Seats Confirmed",
+            "type": "integer"
+          },
+          "seats_filled": {
+            "minimum": 0.0,
+            "title": "Seats Filled",
+            "type": "integer"
+          },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "shorthand",
+          "gruppe",
+          "seats_filled",
+          "seats_confirmed",
+          "austritt_type",
+          "inactive_since"
+        ],
+        "title": "FLTeamsAdminRow",
         "type": "object"
       },
       "FLTeamsSaisonsResponse": {
@@ -31355,23 +31942,16 @@
     },
     "/api/v0/teams/list/admin": {
       "get": {
-        "description": "List a season's teams for the admin surfaces, a `future` season's included.\n\nNo base-tier season gate: a club is entered while its season is still planned, so an admin who\ncannot see one cannot enter it.",
+        "description": "The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.\n\nNo base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state\nthe type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every\nretired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,\neach group with whether it is full, and `closed` where the season is not `future`, which the entry refuses. 404\nwhere no season holds that id.",
         "operationId": "teams_get_teams_admin",
         "parameters": [
           {
             "in": "query",
             "name": "saison_id",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
+              "title": "Saison Id",
+              "type": "string"
             }
           },
           {
@@ -31392,95 +31972,18 @@
           },
           {
             "in": "query",
-            "name": "has_austritt",
+            "name": "state",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "boolean"
+                  "$ref": "#/components/schemas/FLTeamListState"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Has Austritt"
-            }
-          },
-          {
-            "in": "query",
-            "name": "austritt_type",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLAustrittType"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Austritt Type"
-            }
-          },
-          {
-            "in": "query",
-            "name": "statistik_scope",
-            "required": false,
-            "schema": {
-              "default": "gruppenphase",
-              "enum": [
-                "gruppenphase",
-                "total"
-              ],
-              "title": "Statistik Scope",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "const": "name",
-              "default": "name",
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "include_inactive",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Include Inactive",
-              "type": "boolean"
+              "title": "State"
             }
           }
         ],
@@ -31489,7 +31992,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLTeamsListResponse"
+                  "$ref": "#/components/schemas/FLTeamsAdminListResponse"
                 }
               }
             },
@@ -31541,7 +32044,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Teams for a Saison, for the admin surfaces",
+        "summary": "One season's Teams list and what its create dialog offers",
         "tags": [
           "teams"
         ]
@@ -31549,7 +32052,7 @@
     },
     "/api/v0/teams/saisons": {
       "get": {
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams/list/admin` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and per seat why the tool refuses that change this\nadministrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was\never owed.",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\nEach membership names the live change of each seat's address, which the address tool shows, and per seat why the\ntool refuses that change this administrator. Each seat's link names what became of the last mail carrying it,\n`delivery` null where none was ever owed.",
         "operationId": "teams_get_team_saisons",
         "responses": {
           "200": {
@@ -31609,6 +32112,94 @@
           }
         ],
         "summary": "Every team with its season memberships",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/v0/teams/saisons/{saison_id}/entry": {
+      "post": {
+        "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,\nnaming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.",
+        "operationId": "teams_post_team_entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostTeamEntryPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostTeamEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Enter a club into a season, one the league holds or a new one",
         "tags": [
           "teams"
         ]
@@ -32225,6 +32816,360 @@
           }
         ],
         "summary": "Change a seat holder's own WhatsApp and media consent on one team's season",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/admin": {
+      "get": {
+        "description": "Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.\n\n`version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for\na club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.\n`gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused\n`entry_gruppe_locked`, and `retire_blocked_by` the season `retire_blocked` refuses over, by each write's own judgement.\n`link` is the live registration link, the window's judgement of it, and why the season's press would pass the team\nover. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no\nseason holds that id.",
+        "operationId": "teams_get_team_saison_admin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLTeamSaisonAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One team in one season for the admin editor",
+        "tags": [
+          "teams"
+        ]
+      },
+      "patch": {
+        "description": "Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.\n\nRefused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per\npart: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour\nchanges, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one\nincluded, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and\n`entry_gruppe_full` refuse it. 404 where the club holds no row of the season.",
+        "operationId": "teams_patch_team_saison",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchTeamSaisonPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchTeamSaisonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Save the team editor: the club and its row of the season, in one transaction",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/austritt": {
+      "delete": {
+        "description": "Lift the exit standing on a team's row: the repair of a wrong record, a public reason among them.\n\nRefused `saison_past` on a finished season. Recalls no notice; a fixture called off is asked afresh once its club is\nback. 404 where the team holds no row of the season.",
+        "operationId": "teams_delete_austritt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Lift a team's exit from a season",
+        "tags": [
+          "teams"
+        ]
+      },
+      "put": {
+        "description": "Record how a team left the season, or replace the record standing.\n\nRefused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its\n`earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
+        "operationId": "teams_put_austritt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLAustrittPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Record a team's exit from a season",
         "tags": [
           "teams"
         ]
