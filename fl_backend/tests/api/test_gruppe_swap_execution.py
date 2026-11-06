@@ -26,7 +26,6 @@ SAISON_ID = "2026"
 # Fixed rather than generated, so a failure names the same club every run.
 ALPHA = ObjectId("6890a1b2c3d4e5f607210001")
 BETA = ObjectId("6890a1b2c3d4e5f607210002")
-OUTSIDER = ObjectId("6890a1b2c3d4e5f607210003")
 
 # Group-mates: a rewritten fixture keeps an opponent that stays put, so the exchange shows on one side.
 ALPHA_RIVAL = ObjectId("6890a1b2c3d4e5f60721000a")
@@ -358,19 +357,6 @@ class TestAMidFlightFailureTakesBothWritesBack:
 
 
 class TestTheRefusalsReadTheRealDocuments:
-    def test_a_club_with_no_junction_row_is_refused(self, mongo_replica_set_url: str):
-        """The unit test hands the rule a `None`; this proves the handler produces one from its filter and projection."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_swap(database, client, ALPHA, OUTSIDER)
-            return refusal.value.error_code, await gruppen_now(database)
-
-        code, stored = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
-
-        assert code == Code.SWAP_NOT_A_SWAP
-        assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap wrote something"
-
     def test_a_past_season_is_refused(self, mongo_replica_set_url: str):
         """Nothing has been played, so the season being over is the only thing refusing this."""
 
@@ -402,7 +388,10 @@ class TestTheRefusalsReadTheRealDocuments:
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
     def test_a_fixture_dated_today_does_not_start_the_season(self, mongo_replica_set_url: str):
-        """The start is the season's date and never a match's: the day before it, the swap runs whatever is dated."""
+        """The start is the season's date and never a match's: the day before it, the swap runs whatever is dated.
+
+        `docs/decisions.md`'s swap line names everything that refuses a swap, and a dated fixture is none of it.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)

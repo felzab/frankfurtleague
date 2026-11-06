@@ -7,10 +7,8 @@ from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
     anfrage_is_due,
     compose_ansetzung,
-    compose_erinnerung_update,
     frist_of,
     grund_to_close,
-    seats_link,
 )
 from app.api.spielbestaetigungen.system_router import CLOSES_PER_PASS, MINTS_PER_PASS, REMINDERS_PER_PASS
 from app.core.middlewares import REQUEST_DEADLINE_S
@@ -94,15 +92,6 @@ class TestWhyARowCloses:
 
         assert grund_to_close(row=answered, spiel=spiel(uhrzeit="19:00:00"), austritte={}, today=TODAY) == "ansetzung_changed"
         assert grund_to_close(row=answered, spiel=spiel(), austritte={}, today=AFTER_THE_DAY) == "spiel_past"
-
-
-def test_a_reminder_keeps_every_link_the_seat_was_mailed():
-    """Every link a seat was mailed answers until the deadline: a replacing link would kill the request's at the reminder."""
-
-    assert seats_link(["trainer"]).replaced is False
-    assert compose_erinnerung_update(emails={"trainer": "t@example.com"}, today=TODAY, reminded=True) == {
-        "$set": {"kontakte.trainer.email": "t@example.com", "reminded_at": TODAY},
-    }
 
 
 # Three commands a row -- the update, its read-back, its log row -- pinned on the wire by

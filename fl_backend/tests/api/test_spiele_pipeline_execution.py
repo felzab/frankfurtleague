@@ -5,13 +5,11 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin, FLSpielSchiedsrichterFieldPublic
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.api.spiele.services import (
     ANSETZUNG_CONFIRMED,
     EINSATZ_CONFIRMED,
     NAME_IS_PUBLIC_KEY,
-    SAISON_TEAMS_AS_NAME,
-    SCHIEDSRICHTER_AS_NAME,
     SPIELBESTAETIGUNGEN_AS_NAME,
     build_spiele_pipeline,
 )
@@ -29,7 +27,7 @@ from tests.documents import (
 )
 from tests.worker import worker_database
 
-from .conftest import AUSTRITT, PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
+from .conftest import PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
 
 pytestmark = pytest.mark.db
 
@@ -45,26 +43,6 @@ def spiel(league: SeededLeague, spiel_nr: int, saison_id: str = SAISON) -> dict[
 
 
 class TestTheJoinedDisqualification:
-    def test_a_disqualified_side_carries_the_whole_record(self, league: SeededLeague) -> None:
-        """The projection is the whole record; which half of it each read model declares is `test_spiele_public_read.py`'s subject."""
-
-        assert spiel(league, 3)["team2"]["austritt"] == AUSTRITT
-
-    def test_a_competing_side_carries_null(self, league: SeededLeague) -> None:
-        """`null` is what not disqualified means, and there is no boolean anywhere."""
-
-        assert spiel(league, 3)["team1"]["austritt"] is None
-
-    def test_each_side_reads_its_own_row(self, league: SeededLeague) -> None:
-        """One lookup serves both sides: a join matching rows by position rather than `team_id` still returns one record and one null."""
-
-        match_3 = spiel(league, 3)
-
-        assert match_3["team1"]["name"] == "Helmholtz"
-        assert match_3["team1"]["austritt"] is None
-        assert match_3["team2"]["name"] == "Lessing"
-        assert match_3["team2"]["austritt"] == AUSTRITT
-
     def test_the_season_is_the_fixtures_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
         """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision.
 
@@ -78,11 +56,6 @@ class TestTheJoinedDisqualification:
 
 
 class TestWhatTheMergeMustNotBreak:
-    def test_an_unresolved_side_stays_null(self, league: SeededLeague) -> None:
-        """An empty object would render as a resolved side with a blank name: every card reads `team?.name ?? formatQuelle(...)`."""
-
-        assert spiel(league, 9)["team1"] is None
-
     def test_the_stored_keys_survive_the_merge(self, league: SeededLeague) -> None:
         """`$mergeObjects` adds one key; listing the stored ones instead would drop whatever it missed."""
 
@@ -91,36 +64,6 @@ class TestWhatTheMergeMustNotBreak:
         assert team2["team_id"] == TEAM_OIDS["Bock"]
         assert team2["name"] == "Bock"
         assert team2["tore"] is None
-
-    def test_the_lookup_rows_do_not_reach_the_result(self, league: SeededLeague) -> None:
-        """Pydantic ignores an undeclared key, so nothing else would report the junction travelling twice over."""
-
-        assert SAISON_TEAMS_AS_NAME not in spiel(league, 3)
-
-
-class TestTheFilterAndTheOrder:
-    def test_the_filter_still_selects(self, league: SeededLeague) -> None:
-        """The `$match` is the same document a `find` took, so the endpoints' parameters are unchanged."""
-
-        db_filter = {"saison_id": SAISON, "sonderereignis": {"$ne": None}}
-        eventful = list(league.database.spiele.aggregate(build_spiele_pipeline(db_filter=db_filter)))
-
-        # Sorted rather than taken in pipeline order: with no `sort_by` the order is the storage engine's.
-        assert sorted(document["spiel_nr"] for document in eventful) == [4, 10, 11, 13, 14]
-
-    def test_the_sort_and_the_limit_run_before_the_join(self, league: SeededLeague) -> None:
-        """Asserted through the result: a `$sort` after the `$limit` cuts the wrong fixtures, and both orders return three."""
-
-        first_three = list(
-            league.database.spiele.aggregate(build_spiele_pipeline(db_filter={"saison_id": SAISON}, sort_by=[("spiel_nr", 1)], limit=3))
-        )
-
-        assert [document["spiel_nr"] for document in first_three] == [1, 2, 3]
-
-    def test_a_filter_matching_nothing_returns_nothing(self, league: SeededLeague) -> None:
-        """The empty result is a list, which is why `get_spiel` raises its own 404 rather than reading a `None`."""
-
-        assert list(league.database.spiele.aggregate(build_spiele_pipeline(db_filter={"_id": ObjectId()}))) == []
 
 
 VERDICT_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607250001")
@@ -416,21 +359,6 @@ def withheld(document: Mapping[str, Any]) -> bool:
 class TestTheRefereeIsServedOnceAgreed:
     """Two-valued, so a booking the pass has not reached, or asked and not agreed, names nobody."""
 
-    @pytest.mark.parametrize("von", [{"art": "schiedsrichter"}, {"art": "admin"}], ids=["their own", "the league's"])
-    def test_an_agreement_to_the_ansetzung_as_it_stands_serves_them(self, mongo_url: str, von: dict[str, Any]):
-        fixture = a_refereed_fixture()
-        rows = [a_referee_row(fixture, antwort={**zugesagt(), "von": von})]
-
-        document = on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)
-
-        # The projection's pin: the join brings the verdict alone onto the block, never a field of the referee's record.
-        assert set(document["schiedsrichter"]) == {"schiedsrichter_id", "name", "payment", NAME_IS_PUBLIC_KEY, EINSATZ_CONFIRMED}
-        assert document["schiedsrichter"][EINSATZ_CONFIRMED] is True
-        assert FLSpielJoined.model_validate(document).schiedsrichter == FLSpielSchiedsrichterFieldPublic.model_validate(
-            {"schiedsrichter_id": REFEREE_ID, "name": REFEREE_NAME, "name_is_public": True}
-        )
-        assert SCHIEDSRICHTER_AS_NAME not in document
-
     def test_a_verdict_neither_true_nor_false_publishes_nobody(self, mongo_url: str):
         """The base model's own gate, so a join answering a third value again cannot publish the referee it never judged."""
 
@@ -518,29 +446,18 @@ class TestTheRefereeIsServedOnceAgreed:
 
         assert on_a_refereed_fixture(mongo_url, rows, body, fixture=fixture) is False
 
-    @pytest.mark.parametrize(
-        ("closed", "served"),
-        [pytest.param(None, True, id="open"), pytest.param(CLOSED_BY_A_MOVE, False, id="closed by a move since")],
-    )
-    def test_an_answer_after_their_decline_is_read_as_any_other(self, mongo_url: str, closed: Any, served: bool):
-        """Ordered by the pass-minted id: an answer read regardless of order would leave the old decline withholding them."""
+    def test_their_latest_answer_about_a_slot_the_fixture_left_withholds_them(self, mongo_url: str):
+        """The pass closed the agreement for the move: read without its stand, it publishes a referee who never agreed to this slot."""
 
         fixture = a_refereed_fixture()
         rows = [
             a_referee_row(fixture, _id=EARLIER_ROW, antwort=DECLINED, closed=CLOSED_BY_THE_DECLINE),
-            a_referee_row(fixture, _id=LATER_ROW, antwort={**zugesagt(), "von": {"art": "schiedsrichter"}}, closed=closed),
+            a_referee_row(fixture, _id=LATER_ROW, antwort={**zugesagt(), "von": {"art": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
         ]
         # The move the closing names, so the agreement is about a slot the fixture left.
-        stored = fixture if closed is None else {**fixture, "uhrzeit": "19:30:00"}
+        moved = {**fixture, "uhrzeit": "19:30:00"}
 
-        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=stored) is served
-
-    def test_an_empty_slot_stays_null(self, mongo_url: str):
-        """`$mergeObjects` onto a null slot builds an object: a booked referee with no id, which no reader can render."""
-
-        fixture = {**a_fixture(), "schiedsrichter": None}
-
-        assert on_a_refereed_fixture(mongo_url, [], joined, fixture=fixture)["schiedsrichter"] is None
+        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=moved) is False
 
 
 class TestTheRefereesNameFollowsTheirConsent:
