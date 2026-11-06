@@ -1527,6 +1527,34 @@ class TestAResendRacingAnAnswer:
         assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == landed
 
+    def test_a_confirmation_landing_after_the_read_is_judged_with_the_deletion_day(self, mongo_replica_set_url: str):
+        """Two seats share the earliest day, and the other's answer leaves it on the pressed seat alone: the fresh link moves the day."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            bewerbungen = database[Collection.BEWERBUNGEN]
+            await bewerbungen.update_one(
+                {"_id": RESEND_BEWERBUNG},
+                {
+                    "$set": {
+                        "erasure_announced_at": "2026-03-30",
+                        "kontakte.stellvertretung.einwilligung.confirmed_at": None,
+                        "confirmations.ansprechperson.deadline": "2026-04-05",
+                        "confirmations.stellvertretung.deadline": "2026-04-05",
+                    }
+                },
+            )
+
+            async def the_confirmation() -> None:
+                await bewerbungen.update_one({"_id": RESEND_BEWERBUNG}, {"$set": {"kontakte.stellvertretung.einwilligung.confirmed_at": TODAY}})
+
+            racing = ApplicationsRunningARivalAfterTheirRead(bewerbungen, the_confirmation)
+            await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
+
+            return await stored_bewerbung(database, RESEND_BEWERBUNG)
+
+        assert on_a_league(mongo_replica_set_url, body)["erasure_announced_at"] is None
+
     def test_a_correction_landing_after_the_read_is_where_the_fresh_link_goes(self, mongo_replica_set_url: str):
         """The re-send's link replaces the correction's, so it has to reach the corrected mailbox rather than the one replaced."""
 
