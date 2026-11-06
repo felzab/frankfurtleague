@@ -262,6 +262,8 @@ export function SaisonEditor({
             isRequired={required.end}
             value={draft.end}
             onChange={(day) => set("end", day)}
+            // A span ending before it begins is refused here, before the write sees it.
+            {...(draft.start === null ? {} : { minValue: draft.start })}
           />
         </FieldRows>
       ),
@@ -430,6 +432,8 @@ export function SaisonEditor({
               isRequired={bewerbungSet && required.bewerbungEnd}
               value={draft.bewerbungEnd}
               onChange={(day) => set("bewerbungEnd", day)}
+              // A span ending before it begins is refused here, before the write sees it.
+              {...(draft.bewerbungStart === null ? {} : { minValue: draft.bewerbungStart })}
             />
           </FieldRows>
           <Checkbox

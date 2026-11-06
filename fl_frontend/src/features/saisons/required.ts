@@ -11,6 +11,8 @@ export const CREATE_REQUIRED = {
   end: requires(create.end_date, ""),
 };
 
+export type SaisonCreateRequired = typeof CREATE_REQUIRED;
+
 const patch = SaisonsPatchSaisonBody.shape;
 const rules = patch.rules.shape;
 // The application window is none or both of its days: what the window asks of each once it is set.
