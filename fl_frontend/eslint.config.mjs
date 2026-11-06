@@ -930,7 +930,7 @@ const DESIGN_BANS = [
       ["Tooltip", "TooltipTrigger", "OverlayArrow"],
       "Tooltip",
       ["src/kit/Tooltip.tsx"],
-      "A tooltip is the kit's `Tooltip`, which an icon-only `Button` and a glyph segment render.",
+      "A tooltip is the kit's `Tooltip`, which an icon-only `Button`, a locked act's reason and a glyph segment render.",
     ],
     [
       ["Popover"],
@@ -968,7 +968,7 @@ const DESIGN_BANS = [
     {
       regex: kitModule("Tooltip"),
       message:
-        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons`, a link of the collapsed rail or `Link`'s icon-only placement, and nothing else.",
+        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons`, a link of the collapsed rail or `Link`'s icon-only placement, or says a locked act's reason, and nothing else.",
     },
     PRODUCTION,
     { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
