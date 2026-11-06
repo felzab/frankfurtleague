@@ -359,7 +359,7 @@ class TestWhatTheNoticesNeed:
         assert schule_name(bewerbung_raw=application(schule=None, team_id="club-1"), club_names={"club-1": "Adler"}) == "Adler"
         assert schule_name(bewerbung_raw=application(schule=None, team_id="club-9"), club_names={}) == ""
 
-    def test_the_submitter_is_the_ansprechperson_and_the_notice_names_every_seat_that_mailbox_holds(self):
+    def test_the_notice_goes_to_the_ansprechperson_and_names_every_seat_that_mailbox_holds(self):
         """The double-seated case is the one the single-seat spelling gets wrong: it names one seat to a reader holding two."""
 
         assert ansprechperson_mailbox(kontakte=kontakte()) == ("ansgar@example.com", ["ansprechperson"])

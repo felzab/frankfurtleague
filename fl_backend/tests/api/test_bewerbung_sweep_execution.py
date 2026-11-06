@@ -258,8 +258,8 @@ async def reminded(database: AsyncDatabase) -> set[Any]:
     return {row["reference"]["id"] for row in rows}
 
 
-async def refuse_the_submitters_address(database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> None:
-    """The submitter's last mail, sent and refused by the provider: what the clocks read is what a drain and a real event leave."""
+async def refuse_the_ansprechpersons_address(database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> None:
+    """The Ansprechperson's last mail, sent and refused by the provider: what the clocks read is what a drain and a real event leave."""
 
     await a_mail_that_bounced(database, client, bewerbung_id=bewerbung_id, seat="ansprechperson", an="wraxlington@example.com")
 
@@ -445,7 +445,7 @@ class TestTheReminderClock:
 
 
 class TestTheFourteenDayClock:
-    def test_the_pass_loescht_the_candidate_and_owes_the_submitter_the_notice_naming_who_never_answered(self, mongo_replica_set_url: str):
+    def test_the_pass_loescht_the_candidate_and_owes_the_ansprechperson_the_notice_naming_who_never_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client, now=MAIL_NOW)
 
@@ -530,7 +530,7 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
     def test_the_pass_takes_it_and_owes_the_notice_as_for_any_address(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await refuse_the_submitters_address(database, client, DELETE_OID)
+            await refuse_the_ansprechpersons_address(database, client, DELETE_OID)
             response = await sweep(database, client, now=MAIL_NOW)
 
             return response.erased, await stored(database, DELETE_OID), await owed(database, "bewerbung_erasure")
@@ -544,7 +544,7 @@ class TestAnApplicationWhoseNoticeCannotArrive:
         """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await refuse_the_submitters_address(database, client, REMIND_OID)
+            await refuse_the_ansprechpersons_address(database, client, REMIND_OID)
             await sweep(database, client, now=MAIL_NOW)
 
             return await owed(database, "bewerbung_reminder")

@@ -546,7 +546,7 @@ async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.OUTBOX].find({}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
 
 
-class TestWhatAWiderspruchOwesTheSubmitter:
+class TestWhatAWiderspruchOwesTheAnsprechperson:
     """The notice naming who refused, owed in the decline's own transaction; a confirmation owes nobody anything."""
 
     def test_another_seats_decline_owes_the_ansprechperson_the_notice_naming_who_refused(self, mongo_replica_set_url: str):

@@ -3377,7 +3377,7 @@
         "type": "object"
       },
       "FLBewerbungEinwilligungAnswerResponse": {
-        "description": "What the answer did; a Widerspruch's notice to the submitter is owed in the same write.",
+        "description": "What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -3679,7 +3679,7 @@
         "type": "object"
       },
       "FLBewerbungErasureData": {
-        "description": "The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.",
+        "description": "The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.",
         "properties": {
           "kind": {
             "const": "bewerbung_erasure",
@@ -4131,7 +4131,7 @@
         "type": "object"
       },
       "FLBewerbungObjectionData": {
-        "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
+        "description": "A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4170,7 +4170,7 @@
         "type": "object"
       },
       "FLBewerbungPerson": {
-        "description": "Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.",
+        "description": "Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -4200,7 +4200,7 @@
         "type": "object"
       },
       "FLBewerbungReceivedData": {
-        "description": "The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.",
+        "description": "The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -21760,7 +21760,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
+        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {

@@ -1477,7 +1477,7 @@ export const FLEinwilligungErgebnis = {
 } as const;
 
 /**
- * What the answer did; a Widerspruch's notice to the submitter is owed in the same write.
+ * What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write.
  */
 export interface FLBewerbungEinwilligungAnswerResponse {
   birth_date: string | null;
@@ -1618,7 +1618,7 @@ export interface FLBewerbungEntryOffer {
 }
 
 /**
- * Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.
+ * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
  */
 export interface FLBewerbungPerson {
   first_name: string | null;
@@ -1627,7 +1627,7 @@ export interface FLBewerbungPerson {
 }
 
 /**
- * The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.
+ * The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.
  */
 export interface FLBewerbungErasureData {
   kind: "bewerbung_erasure";
@@ -1795,7 +1795,7 @@ export interface FLBewerbungListRow {
 }
 
 /**
- * A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.
+ * A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -1808,7 +1808,7 @@ export interface FLBewerbungObjectionData {
 }
 
 /**
- * The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.
+ * The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer.
  */
 export interface FLBewerbungReceivedData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */

@@ -533,8 +533,7 @@ class FLBewerbungFormResponse(BaseAPIResponse):
 FLBewerbungEinwilligungZustand = Literal["valid", "confirmed", "declined", "expired", "saison_past", "barred"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
-# the person on. The page picks its wording by it, and the route handler mails an application's
-# messages for the first alone.
+# the person on. The page picks its wording by it.
 FLEinwilligungQuelle = Literal["bewerbung", "saison"]
 
 # What an answer on either kind of link did.
@@ -607,7 +606,7 @@ FLBewerbungEinwilligungAnswerPayload = Annotated[FLBewerbungEinwilligungGiven | 
 
 
 class FLBewerbungEinwilligungAnswerResponse(BaseAPIResponse):
-    """What the answer did; a Widerspruch's notice to the submitter is owed in the same write."""
+    """What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write."""
 
     quelle: Literal["bewerbung"] = "bewerbung"
     ergebnis: FLEinwilligungErgebnis
