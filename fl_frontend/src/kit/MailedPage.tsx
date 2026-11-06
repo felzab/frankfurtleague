@@ -86,6 +86,24 @@ export type MailedState =
   // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
   | { state: "legacy"; view: ReactNode };
 
+/**
+ * A mailed page's tab title, its state's own heading, so the tab never asks a question the page has closed; `route` is
+ * the row's title, for the old view whose heading the view keeps. Read off the same read as the page, which the page
+ * memoizes with React's `cache`, since a link's state decides its heading.
+ */
+export function mailedTitle(state: MailedState, route: Copy): Copy {
+  switch (state.state) {
+    case "invalid":
+      return COPY.template.linkInvalid;
+    case "legacy":
+      return route;
+    case "question":
+    case "alreadyDone":
+    case "end":
+      return state.title;
+  }
+}
+
 /** The page once its link is read, in the boundary's place. */
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;

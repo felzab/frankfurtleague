@@ -1,4 +1,6 @@
-import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { cache } from "react";
+
+import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { requires } from "@/core/action";
 import { now } from "@/core/clock";
@@ -23,13 +25,14 @@ import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.kontaktConfirmation;
-  return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
-}
-
 type Props = PageProps<"/confirm/kontakt">;
+
+/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
+export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
+  const row = ROUTES.kontaktConfirmation;
+  const title = mailedTitle(await readState(searchParams), row.title);
+  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+}
 
 const WORDS = SERVER_COPY.kontaktConfirmation;
 
@@ -54,8 +57,9 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
 }
 
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
-async function readView(token: string): Promise<FLBewerbungEinwilligungViewResponse | null> {
-  return runWithIncomingTrace(() =>
+// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+const readView = cache(async (token: string): Promise<FLBewerbungEinwilligungViewResponse | null> =>
+  runWithIncomingTrace(() =>
     bewerbungenGetEinwilligungView({ token: token }).catch((error: unknown) => {
       // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
       if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
@@ -63,8 +67,8 @@ async function readView(token: string): Promise<FLBewerbungEinwilligungViewRespo
       }
       throw error;
     }),
-  );
-}
+  ),
+);
 
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
 function alreadyDone(view: FLBewerbungEinwilligungViewResponse, kind: "confirmed" | "objected"): MailedState {
