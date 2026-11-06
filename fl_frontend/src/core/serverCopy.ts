@@ -367,7 +367,7 @@ export const SERVER_COPY = catalogue({
      * A team's registration link, to a confirmed contact seat: the link stands alone in the box, to be passed on
      * rather than pressed. It names no end date, since a window moved later moves every link with it.
      */
-    einladung: {
+    invitation: {
       subject: (team: string) => `Registrierungslink für ${team}`,
       passOn: (saison: string, team: string) =>
         `Gib diesen Link an alle weiter, die in der ${COPY.shared.saisonName(saison)} für ${team} spielen.`,

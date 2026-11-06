@@ -29,11 +29,11 @@ from app.api.address_change.system_router import get_address_change_address
 from app.api.berechtigungen.admin_router import delete_approval_request, get_grants
 from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.einladungen.services import compose_einladung
 from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.journal_replay import Read, Window, plan_replay, replay_line
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
+from app.api.invitations.services import compose_invitation
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
@@ -1717,7 +1717,7 @@ class TestTheAdministratorFollowsTheirMove:
             await granted(database)
             await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOREIGN_EMAIL, until="2030", created_by=EMAIL))
             await database[Collection.INVITATIONS].insert_one(
-                compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY, sent_at=None)
+                compose_invitation(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY, sent_at=None)
             )
             await database[Collection.BEWERBUNGEN].insert_one(
                 documents.bewerbung_document(

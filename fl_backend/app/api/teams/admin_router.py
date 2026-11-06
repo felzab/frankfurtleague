@@ -14,9 +14,9 @@ from app.api.address_change.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import seat_addresses, seat_named
-from app.api.einladungen.crud import einladung_bezug, owed_einladung_mails
-from app.api.einladungen.schemas import (
-    FLEinladung,
+from app.api.invitations.crud import invitation_reference, owed_invitation_mails
+from app.api.invitations.schemas import (
+    FLInvitation,
     FLInvitationMailPayload,
     FLInvitationMailResponse,
     FLInvitationMintResponse,
@@ -25,16 +25,16 @@ from app.api.einladungen.schemas import (
     FLInvitationWriteResponse,
     FLTeamLinkState,
 )
-from app.api.einladungen.services import (
+from app.api.invitations.services import (
     WITHOUT_TOKEN_HASH,
     bestaetigte_empfaenger,
     build_live_team_filter,
-    compose_einladung,
+    compose_invitation,
     compose_revocation_update,
     compose_sent_update,
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
-    plan_einladung_dispatch,
+    plan_invitation_dispatch,
 )
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
@@ -242,10 +242,10 @@ async def _served_invitation(live: Mapping[str, Any], *, ban_list: BanList, outb
     """One live link as a read serves it: its minter withheld where the ban list holds that address, and what became of its last mail."""
 
     # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
-    erstellt_von = FLEinladung.model_validate(live).created_by
+    erstellt_von = FLInvitation.model_validate(live).created_by
     barred = await barred_addresses(ban_list, [sign_in_identifier(erstellt_von)])
     withheld = withheld_actor(erstellt_von, barred)
-    lage = await state_of(outbox_collection=outbox_collection, reference=einladung_bezug(live["_id"]))
+    lage = await state_of(outbox_collection=outbox_collection, reference=invitation_reference(live["_id"]))
 
     return FLInvitationRow.model_validate({**live, "created_by": withheld, "created_by_barred": withheld is None, "delivery": lage})
 
@@ -433,10 +433,10 @@ async def get_team_saison_admin(
             invitation=await _served_invitation(live[0], ban_list=ban_list, outbox_collection=outbox_collection) if live else None,
             running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=registrierung),
             paused=registrierung is not None and not registrierung["open"],
-            skipped=plan_einladung_dispatch(
+            skipped=plan_invitation_dispatch(
                 austritt=row_raw.get("austritt"),
                 kontakte=row_raw.get("kontakte"),
-                einladung_raw=live[0] if live else None,
+                invitation_raw=live[0] if live else None,
                 resend=False,
                 barred=barred,
             ).skipped,
@@ -1423,7 +1423,7 @@ async def post_invitation(
             session=session,
         )
 
-        document = compose_einladung(
+        document = compose_invitation(
             saison_id=saison_id,
             team_id=team_id,
             token_hashes=[token_hash],
@@ -1439,12 +1439,12 @@ async def post_invitation(
     # One transaction over the revoke and the mint: `uniq_invitation_live` refuses the second live row
     # outright, so the two landing apart would leave the mint failing against the team's own old link.
     async with transaction_session(db) as session:
-        einladung_id = await session.with_transaction(mint_the_link)
+        invitation_id = await session.with_transaction(mint_the_link)
 
     return FLInvitationMintResponse(
         saison_id=saison_id,
         team_id=team_id,
-        invitation_id=einladung_id,
+        invitation_id=invitation_id,
         token=raw_token,
         created_at=today,
         created_by=created_by,
@@ -1545,7 +1545,7 @@ async def post_invitation_dispatch(
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
-            mails=owed_einladung_mails(
+            mails=owed_invitation_mails(
                 invitation_id=mail_data.invitation_id,
                 team_name=str(row["name"]),
                 saison_id=saison_id,
@@ -1582,7 +1582,7 @@ async def get_invitation(
     The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
 
     `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
-    the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
+    the link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung", "status"])
@@ -1596,11 +1596,11 @@ async def get_invitation(
         projection=WITHOUT_TOKEN_HASH,
     )
 
-    einladung = await _served_invitation(live[0], ban_list=ban_list, outbox_collection=outbox_collection) if live else None
+    invitation = await _served_invitation(live[0], ban_list=ban_list, outbox_collection=outbox_collection) if live else None
 
     return FLInvitationResponse(
         saison_id=saison_id,
         team_id=team_id,
-        invitation=einladung,
+        invitation=invitation,
         running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
     )

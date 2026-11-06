@@ -27,8 +27,8 @@ from pymongo.errors import OperationFailure
 
 from app.api.address_change.crud import end_an_emptied_change_in_session
 from app.api.berechtigungen.antraege import compose_approval_request
-from app.api.einladungen.services import compose_einladung, compose_revocation_update
 from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
+from app.api.invitations.services import compose_invitation, compose_revocation_update
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -709,7 +709,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     await database[Collection.INVITATIONS].insert_one(
         {
             "_id": INVITED_BY_THEM_OID,
-            **compose_einladung(
+            **compose_invitation(
                 saison_id=SAISON_ID,
                 team_id=HOME_TEAM_OID,
                 token_hashes=["hash-of-their-invite"],

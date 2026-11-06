@@ -13,7 +13,7 @@ from pydantic import (
 )
 from pydantic_core import InitErrorDetails
 
-from app.api.einladungen.schemas import FLInvitationLinkRow
+from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic

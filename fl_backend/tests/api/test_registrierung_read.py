@@ -22,7 +22,7 @@ OTHER_SAISON_ID = "2027"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607950001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607950002")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607950003")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607950003")
 
 OFFEN_OID = ObjectId("6890a1b2c3d4e5f607950011")
 BESTAETIGT_OID = ObjectId("6890a1b2c3d4e5f607950012")
@@ -47,7 +47,7 @@ def registrierung_document(
         "_id": registrierung_id,
         "saison_id": saison_id,
         "team_id": team_id,
-        "invitation_id": EINLADUNG_OID,
+        "invitation_id": INVITATION_OID,
         "submitted_at": submitted_at,
         "status": "submitted",
         "first_name": first_name,

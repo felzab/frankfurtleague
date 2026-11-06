@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.api.einladungen.schemas import FLTeamLinkState
+from app.api.invitations.schemas import FLTeamLinkState
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal

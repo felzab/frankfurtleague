@@ -17,9 +17,9 @@ import {
   buildBewerbungWiderspruchEmail,
   buildBewerbungZusageEmail,
 } from "./bewerbungEmail";
-import { buildEinladungEmail } from "./einladungEmail";
 import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
+import { buildInvitationEmail } from "./invitationEmail";
 import { buildKontaktBestaetigungEmail } from "./kontaktEmail";
 import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
@@ -106,7 +106,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   registrierung_confirmation: (data, handout) => buildRegistrierungBestaetigungEmail(data, minted(handout)),
   registrierung_reminder: (data, handout) => buildRegistrierungErinnerungEmail(data, minted(handout)),
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
-  invitation: (data, handout) => buildEinladungEmail(data, minted(handout)),
+  invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktBestaetigungEmail(data, minted(handout)),
   ban: buildSperreEmail,
   grant: buildBerechtigungEmail,

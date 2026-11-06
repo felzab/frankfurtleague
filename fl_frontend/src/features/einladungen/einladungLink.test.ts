@@ -4,8 +4,8 @@ import { assertRedactedAtTheEdge } from "@/test-support/edgeRedaction.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { SITE_URL } from "@/core/brand.ts";
-import { buildEinladungEmail, einladungsLink } from "@/core/einladungEmail.ts";
 import { renderMail } from "@/core/emailShell.ts";
+import { buildInvitationEmail, invitationLink } from "@/core/invitationEmail.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -25,11 +25,11 @@ const EINLADUNG_ID = "b".repeat(24);
 
 describe("the invite link the mail carries", () => {
   it("puts the token on the origin it was handed, under the registration page's path", () => {
-    expect(einladungsLink(ORIGIN, "beispiel-eins")).toBe(`${ORIGIN}/registrierung?token=beispiel-eins`);
+    expect(invitationLink(ORIGIN, "beispiel-eins")).toBe(`${ORIGIN}/registrierung?token=beispiel-eins`);
   });
 
   it("names a parameter the edge's own redaction map replaces", () => {
-    assertRedactedAtTheEdge(einladungsLink(ORIGIN, "beispiel-eins"));
+    assertRedactedAtTheEdge(invitationLink(ORIGIN, "beispiel-eins"));
   });
 });
 
@@ -55,7 +55,7 @@ describe("the origin each press mints its invite link on", () => {
 
   it("is the one the builder is handed in the mail a hand-out sends, and never the published one", () => {
     const { text } = renderMail(
-      buildEinladungEmail({ kind: "invitation", team: "Ernst-Reuter-Schule", saison_id: SAISON_ID }, { origin: ORIGIN, token: "token-mail" }),
+      buildInvitationEmail({ kind: "invitation", team: "Ernst-Reuter-Schule", saison_id: SAISON_ID }, { origin: ORIGIN, token: "token-mail" }),
     );
 
     assert.ok(

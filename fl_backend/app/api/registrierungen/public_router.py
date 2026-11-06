@@ -8,7 +8,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import build_schluessel_filter, days_after, payload_fingerabdruck
-from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
+from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import person_at_the_address
@@ -109,17 +109,17 @@ WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 # this exists for. The INVITE authorises instead.
 
 
-async def _open_einladung(*, invitations_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
+async def _open_invitation(*, invitations_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
     """The live invite a presented link opens, or a refusal.
 
     ONE code for unknown and for revoked, the reason `link_invalid` records: nothing tells a
     stranger's guess from a link an administrator replaced.
     """
 
-    einladung_raw = await invitations_collection.find_one(find_live_einladung_filter(token_hash=hash_token(token)), session=session)
-    refuse(find_unknown_einladung_refusal(einladung_raw=einladung_raw))
+    invitation_raw = await invitations_collection.find_one(find_live_invitation_filter(token_hash=hash_token(token)), session=session)
+    refuse(find_unknown_invitation_refusal(invitation_raw=invitation_raw))
 
-    return einladung_raw
+    return invitation_raw
 
 
 @router.post(
@@ -145,10 +145,10 @@ async def post_invitation_view(
     invalid; only a link that opens no live invite, or whose team has left the season, is refused.
     """
 
-    einladung_raw = await _open_einladung(invitations_collection=invitations_collection, token=view_data.token)
+    invitation_raw = await _open_invitation(invitations_collection=invitations_collection, token=view_data.token)
 
-    saison_id = str(einladung_raw["saison_id"])
-    team_id = einladung_raw["team_id"]
+    saison_id = str(invitation_raw["saison_id"])
+    team_id = invitation_raw["team_id"]
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION)
     rules = saison_raw.get("rules") or {}
@@ -263,9 +263,9 @@ async def post_registrierung(
         if aufgenommen is not None:
             refuse(find_schon_aufgenommen_refusal(saved=aufgenommen.get("idempotency_fingerprint"), fingerabdruck=fingerabdruck))
 
-        einladung_raw = await _open_einladung(invitations_collection=invitations_collection, token=registrierung_data.token, session=session)
-        saison_id = str(einladung_raw["saison_id"])
-        team_id = einladung_raw["team_id"]
+        invitation_raw = await _open_invitation(invitations_collection=invitations_collection, token=registrierung_data.token, session=session)
+        saison_id = str(invitation_raw["saison_id"])
+        team_id = invitation_raw["team_id"]
 
         # The ROW rather than a count: the answer's `team` is the junction's own copy of the name,
         # which the confirmation mail addresses the pupil by, and one read serves both.
@@ -315,7 +315,7 @@ async def post_registrierung(
                 **compose_registrierung(
                     saison_id=saison_id,
                     team_id=team_id,
-                    invitation_id=einladung_raw["_id"],
+                    invitation_id=invitation_raw["_id"],
                     first_name=registrierung_data.first_name,
                     last_name=registrierung_data.last_name,
                     email=str(registrierung_data.email),

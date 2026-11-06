@@ -1308,7 +1308,7 @@ def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktRow:
 def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
     """`kontakt_row_without_saison`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
 
-    Judged before the seat, as `app/api/einladungen/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
+    Judged before the seat, as `app/api/invitations/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
     """
 
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):

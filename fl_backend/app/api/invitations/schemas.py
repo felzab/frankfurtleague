@@ -8,7 +8,7 @@ from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
-class FLEinladung(BaseReadModel):
+class FLInvitation(BaseReadModel):
     """One minted link as it is served, without its hash."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -26,13 +26,13 @@ class FLEinladung(BaseReadModel):
     sent_at: CustomOptionalDateString
 
 
-class FLEinladungRecord(FLEinladung):
-    """One minted link as `einladungen` stores it: the hash of the copied link and of every mailed one, each live."""
+class FLInvitationRecord(FLInvitation):
+    """One minted link as `invitations` stores it: the hash of the copied link and of every mailed one, each live."""
 
     token_hashes: list[str]
 
 
-class FLInvitationRow(FLEinladung):
+class FLInvitationRow(FLInvitation):
     """One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."""
 
     # Null exactly where `created_by_barred` is set, as the grants list withholds its actors.

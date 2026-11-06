@@ -11,27 +11,27 @@ from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.einladungen.crud import owed_einladung_mails
-from app.api.einladungen.schemas import (
-    FLEinladung,
+from app.api.identity.crud import due_count, saison_statuses
+from app.api.identity.schemas import FLErasurePreviewResponse
+from app.api.identity.services import closed_by, statuses_after_activating
+from app.api.invitations.crud import owed_invitation_mails
+from app.api.invitations.schemas import (
+    FLInvitation,
     FLInvitationDispatchPayload,
     FLInvitationDispatchResponse,
     FLInvitationLinkRow,
 )
-from app.api.einladungen.services import (
-    LIVE_EINLADUNG,
+from app.api.invitations.services import (
+    LIVE_INVITATION,
     WITHOUT_TOKEN_HASH,
-    EinladungDispatchPlan,
+    InvitationDispatchPlan,
     bestaetigte_empfaenger,
     build_live_team_filter,
-    compose_einladung,
+    compose_invitation,
     compose_revocation_update,
     find_saison_vorbei_refusal,
-    plan_einladung_dispatch,
+    plan_invitation_dispatch,
 )
-from app.api.identity.crud import due_count, saison_statuses
-from app.api.identity.schemas import FLErasurePreviewResponse
-from app.api.identity.services import closed_by, statuses_after_activating
 from app.api.outbox.services import enqueue_mails
 from app.api.saisons.crud import (
     count_spiele_by_saison,
@@ -413,7 +413,7 @@ async def get_saison_admin(
                 recipient=team.plan.recipient,
                 skipped=team.plan.skipped,
                 has_link=team.live is not None,
-                sent_at=None if team.live is None else FLEinladung.model_validate(team.live).sent_at,
+                sent_at=None if team.live is None else FLInvitation.model_validate(team.live).sent_at,
             )
             for team in planned
         ],
@@ -1265,7 +1265,7 @@ class _PlannedTeam(NamedTuple):
 
     team: Mapping[str, Any]
     live: Mapping[str, Any] | None
-    plan: EinladungDispatchPlan
+    plan: InvitationDispatchPlan
 
 
 async def _plan_the_dispatch(
@@ -1275,7 +1275,7 @@ async def _plan_the_dispatch(
     invitations_collection: AsyncCollection,
     ban_list: BanList,
 ) -> list[_PlannedTeam]:
-    """Every team of the season planned by `plan_einladung_dispatch`, the function the press decides each team by.
+    """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
 
     `resend` left false, as the editor's press sends it. Read outside any transaction, for the editor's read: the press
     plans each team again in its own.
@@ -1288,7 +1288,7 @@ async def _plan_the_dispatch(
     # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
     live = await pull_many_from_db(
         collection=invitations_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_EINLADUNG},
+        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_INVITATION},
         limit=len(team_ids) or 1,
         projection=dict(WITHOUT_TOKEN_HASH),
     )
@@ -1297,15 +1297,15 @@ async def _plan_the_dispatch(
 
     planned: list[_PlannedTeam] = []
     for team in entered:
-        einladung_raw = by_team.get(team["team_id"])
-        plan = plan_einladung_dispatch(
+        invitation_raw = by_team.get(team["team_id"])
+        plan = plan_invitation_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
-            einladung_raw=einladung_raw,
+            invitation_raw=invitation_raw,
             resend=False,
             barred=barred,
         )
-        planned.append(_PlannedTeam(team=team, live=einladung_raw, plan=plan))
+        planned.append(_PlannedTeam(team=team, live=invitation_raw, plan=plan))
 
     return planned
 
@@ -1348,10 +1348,10 @@ async def _mail_one_team(
             projection=dict(WITHOUT_TOKEN_HASH),
             session=session,
         )
-        plan = plan_einladung_dispatch(
+        plan = plan_invitation_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
-            einladung_raw=live[0] if live else None,
+            invitation_raw=live[0] if live else None,
             resend=resend,
             barred=barred,
         )
@@ -1371,7 +1371,7 @@ async def _mail_one_team(
         post_operation = await post_one_to_db(
             collection=invitations_collection,
             # No link of its own: each mail below mints one at its hand-out.
-            document=compose_einladung(
+            document=compose_invitation(
                 saison_id=saison_id, team_id=team["team_id"], token_hashes=[], created_by=created_by, today=today, sent_at=today
             ),
             session=session,
@@ -1379,7 +1379,7 @@ async def _mail_one_team(
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
-            mails=owed_einladung_mails(
+            mails=owed_invitation_mails(
                 invitation_id=post_operation.inserted_id,
                 team_name=team["name"],
                 saison_id=saison_id,

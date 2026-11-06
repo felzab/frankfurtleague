@@ -23,7 +23,7 @@ from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
 from app.api.berechtigungen.antraege import compose_approval_request
-from app.api.einladungen.services import compose_einladung
+from app.api.invitations.services import compose_invitation
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import log_stamp
@@ -189,7 +189,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             ]
         )
         database[Collection.INVITATIONS].insert_one(
-            compose_einladung(
+            compose_invitation(
                 saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01", sent_at=None
             )
         )

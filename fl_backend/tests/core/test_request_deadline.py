@@ -384,7 +384,7 @@ def pressing_app() -> FastAPI:
 
 
 def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any]) -> Pressed:
-    """One press over ASGI, the route handed `stand_in` for its `einladungen` collection.
+    """One press over ASGI, the route handed `stand_in` for its `invitations` collection.
 
     Answers the status, the time, the press's three counts, each team's live links and its seeded link.
     """

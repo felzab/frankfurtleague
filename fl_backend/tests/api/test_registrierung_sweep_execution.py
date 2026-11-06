@@ -52,7 +52,7 @@ CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607970004")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607970005")
 OTHER_SEASON_OID = ObjectId("6890a1b2c3d4e5f607970006")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607970011")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607970021")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607970021")
 
 TEAM_NAME = "Adler"
 
@@ -80,7 +80,7 @@ def registrierung(registrierung_id: ObjectId, *, saison_id: str = SAISON_ID, **o
         "_id": registrierung_id,
         "saison_id": saison_id,
         "team_id": TEAM_OID,
-        "invitation_id": EINLADUNG_OID,
+        "invitation_id": INVITATION_OID,
         "submitted_at": MAILED_ON_THE_MARK,
         "status": "submitted",
         "first_name": "Quillhilde",

@@ -2,8 +2,8 @@
 
 import { isFreshlySignedIn } from "@/core/auth/sessionStamps";
 import { frontend_config } from "@/core/config";
-import { einladungsLink } from "@/core/einladungEmail";
 import { isRecordMissing } from "@/core/errors";
+import { invitationLink } from "@/core/invitationEmail";
 import { KONTAKTE_ABSCHNITT } from "@/features/teams/constants";
 import { getTeamSaisons } from "@/features/teams/queries";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
@@ -55,7 +55,7 @@ export async function postEinladungAction(
       token: mintOperation.token,
       // Spelled here and never in the panel: `frontend_config.AUTH_URL` is server-only, and a link
       // built in the browser would carry whichever host the page was opened on.
-      link: einladungsLink(new URL(frontend_config.AUTH_URL).origin, mintOperation.token),
+      link: invitationLink(new URL(frontend_config.AUTH_URL).origin, mintOperation.token),
       message: "Der neue Link gilt ab sofort. Ein vorheriger Link öffnet nichts mehr.",
     };
   });

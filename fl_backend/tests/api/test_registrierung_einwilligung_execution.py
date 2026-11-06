@@ -42,7 +42,7 @@ TOMORROW = "2026-04-02"
 
 # Fixed rather than generated, so a failure names the same row every run.
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607960001")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960002")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607960002")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607960011")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SPIELER_OID = ObjectId("6890a1b2c3d4e5f607960021")
@@ -102,7 +102,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "_id": REGISTRIERUNG_OID,
         "saison_id": SAISON_ID,
         "team_id": TEAM_OID,
-        "invitation_id": EINLADUNG_OID,
+        "invitation_id": INVITATION_OID,
         "submitted_at": "2026-03-26",
         "status": "submitted",
         "first_name": "Quillhilde",

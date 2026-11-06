@@ -5198,7 +5198,7 @@ export const getTeamsGetInvitationUrl = (teamId: string, saisonId: string) => {
  * The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
  *
  * `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
- * the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
+ * the link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.
  * @summary This team's live registration link for a season, and whether it opens anything
  */
 export const teamsGetInvitation = async (
