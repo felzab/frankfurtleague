@@ -398,7 +398,7 @@ class TestTheDaysTheViewNames:
         trainer, ansprechperson = on_a_league(mongo_replica_set_url, body, documents=[fresher])
 
         assert (trainer.deadline, ansprechperson.deadline) == ("2026-04-09", "2026-04-03")
-        assert (trainer.answered_on, trainer.maximum_age) == (None, BEWERBUNG_KONTAKT_MAX_AGE_YEARS)
+        assert (trainer.answered_at, trainer.maximum_age) == (None, BEWERBUNG_KONTAKT_MAX_AGE_YEARS)
 
     @pytest.mark.parametrize("given", [pytest.param({}, id="a confirmation"), pytest.param({"answer": "declined"}, id="a Widerspruch")])
     def test_a_reopened_link_names_the_day_it_was_answered(self, mongo_replica_set_url: str, given: Mapping[str, Any]):
@@ -407,7 +407,7 @@ class TestTheDaysTheViewNames:
 
             return await read_view(database, RAW["stellvertretung"])
 
-        assert on_a_league(mongo_replica_set_url, body).answered_on == TODAY
+        assert on_a_league(mongo_replica_set_url, body).answered_at == TODAY
 
 
 class TestTheLinkIsSpentByTheStamp:
@@ -546,7 +546,7 @@ async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.OUTBOX].find({}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
 
 
-class TestWhatAWiderspruchOwesTheSubmitter:
+class TestWhatAWiderspruchOwesTheAnsprechperson:
     """The notice naming who refused, owed in the decline's own transaction; a confirmation owes nobody anything."""
 
     def test_another_seats_decline_owes_the_ansprechperson_the_notice_naming_who_refused(self, mongo_replica_set_url: str):

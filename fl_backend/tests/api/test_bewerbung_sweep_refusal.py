@@ -359,7 +359,7 @@ class TestWhatTheNoticesNeed:
         assert schule_name(bewerbung_raw=application(schule=None, team_id="club-1"), club_names={"club-1": "Adler"}) == "Adler"
         assert schule_name(bewerbung_raw=application(schule=None, team_id="club-9"), club_names={}) == ""
 
-    def test_the_submitter_is_the_ansprechperson_and_the_notice_names_every_seat_that_mailbox_holds(self):
+    def test_the_notice_goes_to_the_ansprechperson_and_names_every_seat_that_mailbox_holds(self):
         """The double-seated case is the one the single-seat spelling gets wrong: it names one seat to a reader holding two."""
 
         assert ansprechperson_mailbox(kontakte=kontakte()) == ("ansgar@example.com", ["ansprechperson"])
@@ -383,6 +383,7 @@ ROUND_TRIPS_A_ROW = 3
 # `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 SWEEP_OTHER_COMMANDS = 69
 SWEEP_LAPSED_OTHER_COMMANDS = 46
+SWEEP_PAST_LAPSED_OTHER_COMMANDS = 43
 
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
@@ -390,8 +391,12 @@ def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment
     """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
 
     per_command_s, round_trip_s = 0.00138, 0.036
-    # A pass clears blocks or lapsed seats, never both, so each is judged beside the reminders on its own.
-    calls = [(BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS), (LAPSED_SEAT_ROWS_PER_PASS, SWEEP_LAPSED_OTHER_COMMANDS)]
+    # A pass clears blocks or lapsed seats, never both, so each is judged on its own; a past season's own end leaves no reminder.
+    calls = [
+        (REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS),
+        (REMINDERS_PER_PASS + LAPSED_SEAT_ROWS_PER_PASS, SWEEP_LAPSED_OTHER_COMMANDS),
+        (LAPSED_SEAT_ROWS_PER_PASS, SWEEP_PAST_LAPSED_OTHER_COMMANDS),
+    ]
 
     for rows, others in calls:
-        assert ((REMINDERS_PER_PASS + rows) * ROUND_TRIPS_A_ROW + others) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S
+        assert (rows * ROUND_TRIPS_A_ROW + others) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S

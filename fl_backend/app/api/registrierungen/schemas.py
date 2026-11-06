@@ -33,9 +33,6 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
 # models stay lax.
 
-# One key, and it is the one the collection's queue index sorts on: rows arrive from a public form
-# and a second order would plan a blocking sort over a list nothing bounds.
-
 
 class FLRegistrierungEntscheidung(BaseModel):
     """Who declined this registration, when, and why."""
@@ -161,10 +158,20 @@ class FLRegistrierungAdminRow(BaseReadModel):
     confirmed: bool
 
 
+class FLRegistrierungenAdminFilterParams(BaseModel):
+    """Which season's pending registrations the list reads, whole up to the cap: its page narrows them."""
+
+    saison_id: str
+    # Bounded on both sides for `FLBewerbungenAdminFilterParams.limit`'s reason: a link reaches anybody it is passed to.
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
+
+
 class FLRegistrierungenAdminListResponse(BaseAPIResponse):
     """One season's pending registrations, newest first."""
 
     registrierungen: list[FLRegistrierungAdminRow]
+    # Whether every row was served, which an administrator must be able to trust.
+    complete: bool
 
 
 # --- The CONFIRMATION. The token is the whole credential, as it is for the application's link, so

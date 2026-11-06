@@ -212,6 +212,9 @@
           "confirmation_age",
           "bewerbung_kontakte_unconfirmed",
           "bewerbung_kontakt_email_taken",
+          "bewerbung_kontakt_phone_taken",
+          "bewerbung_kontakt_repeated",
+          "trikot_farbe_taken",
           "bewerbung_key_differing",
           "bewerbung_address_barred",
           "bewerbung_kontakt_barred",
@@ -3253,10 +3256,6 @@
               }
             ]
           },
-          "expired": {
-            "title": "Expired",
-            "type": "boolean"
-          },
           "reminded_at": {
             "anyOf": [
               {
@@ -3273,6 +3272,16 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Sent At",
             "type": "string"
+          },
+          "state": {
+            "enum": [
+              "valid",
+              "confirmed",
+              "declined",
+              "expired"
+            ],
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -3281,7 +3290,7 @@
           "reminded_at",
           "declined_at",
           "delivery",
-          "expired"
+          "state"
         ],
         "title": "FLBewerbungConfirmation",
         "type": "object"
@@ -3377,7 +3386,7 @@
         "type": "object"
       },
       "FLBewerbungEinwilligungAnswerResponse": {
-        "description": "What the answer did; a Widerspruch's notice to the submitter is owed in the same write.",
+        "description": "What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -3532,7 +3541,7 @@
               }
             ]
           },
-          "answered_on": {
+          "answered_at": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3542,7 +3551,7 @@
                 "type": "null"
               }
             ],
-            "title": "Answered On"
+            "title": "Answered At"
           },
           "deadline": {
             "anyOf": [
@@ -3622,7 +3631,7 @@
           "minimum_age",
           "maximum_age",
           "deadline",
-          "answered_on",
+          "answered_at",
           "media_minimum_age"
         ],
         "title": "FLBewerbungEinwilligungViewResponse",
@@ -3662,24 +3671,27 @@
             "title": "Gruppen",
             "type": "array"
           },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "taken": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken",
+            "type": "array"
           }
         },
         "required": [
-          "saison_id",
           "status",
-          "gruppen"
+          "gruppen",
+          "taken"
         ],
         "title": "FLBewerbungEntryOffer",
         "type": "object"
       },
       "FLBewerbungErasureData": {
-        "description": "The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.",
+        "description": "The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.",
         "properties": {
           "kind": {
             "const": "bewerbung_erasure",
@@ -3718,10 +3730,6 @@
       "FLBewerbungFormResponse": {
         "description": "What one season's application form shows, whichever state its page takes.",
         "properties": {
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
           "schulen": {
             "items": {
               "$ref": "#/components/schemas/FLBewerbungSchuleOption"
@@ -3748,7 +3756,6 @@
           }
         },
         "required": [
-          "saison_id",
           "window",
           "schulen",
           "taken"
@@ -3757,32 +3764,27 @@
         "type": "object"
       },
       "FLBewerbungFormWindow": {
-        "description": "A season's application window as the form's page judges it.",
+        "description": "A season's application window as the form's page shows it.",
         "properties": {
-          "end": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "End",
-            "type": "string"
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "saison_ended": {
-            "title": "Saison Ended",
-            "type": "boolean"
-          },
           "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "upcoming",
+              "closed",
+              "ended"
+            ],
+            "title": "State",
             "type": "string"
           }
         },
         "required": [
           "start",
-          "end",
-          "running",
-          "saison_ended"
+          "state"
         ],
         "title": "FLBewerbungFormWindow",
         "type": "object"
@@ -3896,29 +3898,15 @@
         "type": "object"
       },
       "FLBewerbungKontaktSeatResponse": {
-        "description": "A seat's address as the write left it, and every seat it reached; the link is owed there in the same write.",
+        "description": "A seat's address as the write left it; the link is owed there in the same write.",
         "properties": {
-          "confirmation_deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmation Deadline",
-            "type": "string"
-          },
           "email": {
             "title": "Email",
             "type": "string"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
           }
         },
         "required": [
-          "email",
-          "rollen",
-          "confirmation_deadline"
+          "email"
         ],
         "title": "FLBewerbungKontaktSeatResponse",
         "type": "object"
@@ -4131,7 +4119,7 @@
         "type": "object"
       },
       "FLBewerbungObjectionData": {
-        "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
+        "description": "A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4170,7 +4158,7 @@
         "type": "object"
       },
       "FLBewerbungPerson": {
-        "description": "Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.",
+        "description": "Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -4200,7 +4188,7 @@
         "type": "object"
       },
       "FLBewerbungReceivedData": {
-        "description": "The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.",
+        "description": "The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6869,43 +6857,6 @@
         "title": "FLInvitationRecipient",
         "type": "object"
       },
-      "FLInvitationResponse": {
-        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.",
-        "properties": {
-          "invitation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLInvitationRow"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_id",
-          "invitation",
-          "running"
-        ],
-        "title": "FLInvitationResponse",
-        "type": "object"
-      },
       "FLInvitationRow": {
         "description": "One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address.",
         "properties": {
@@ -7534,7 +7485,7 @@
         "type": "object"
       },
       "FLKontaktSeatResponse": {
-        "description": "Where the seat write's link went, and the row's count of writes after it.",
+        "description": "Where the seat write's link went.",
         "properties": {
           "email": {
             "anyOf": [
@@ -7546,15 +7497,10 @@
               }
             ],
             "title": "Email"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
           }
         },
         "required": [
-          "email",
-          "version"
+          "email"
         ],
         "title": "FLKontaktSeatResponse",
         "type": "object"
@@ -10829,6 +10775,10 @@
       "FLRegistrierungenAdminListResponse": {
         "description": "One season's pending registrations, newest first.",
         "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
           "registrierungen": {
             "items": {
               "$ref": "#/components/schemas/FLRegistrierungAdminRow"
@@ -10838,7 +10788,8 @@
           }
         },
         "required": [
-          "registrierungen"
+          "registrierungen",
+          "complete"
         ],
         "title": "FLRegistrierungenAdminListResponse",
         "type": "object"
@@ -11679,101 +11630,6 @@
         "title": "FLSaisonRules",
         "type": "object"
       },
-      "FLSaisonSpielerResponse": {
-        "description": "A junction row, which has no read model of its own -- so it is echoed as it was written.",
-        "properties": {
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "is_nachnominiert": {
-            "title": "Is Nachnominiert",
-            "type": "boolean"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "team_id",
-          "nummer",
-          "position",
-          "stufe",
-          "rolle",
-          "spieler_id",
-          "saison_id",
-          "is_nachnominiert",
-          "inactive_since",
-          "version"
-        ],
-        "title": "FLSaisonSpielerResponse",
-        "type": "object"
-      },
       "FLSaisonStatus": {
         "enum": [
           "past",
@@ -12052,7 +11908,7 @@
         "type": "object"
       },
       "FLSaisonTeamKontakte": {
-        "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season is the record of who was reachable while it ran.",
+        "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season keeps those who confirmed their seat.",
         "properties": {
           "ansprechperson": {
             "anyOf": [
@@ -18089,12 +17945,20 @@
             },
             "title": "Gruppen",
             "type": "array"
+          },
+          "taken": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken",
+            "type": "array"
           }
         },
         "required": [
           "clubs",
           "gruppen",
-          "closed"
+          "closed",
+          "taken"
         ],
         "title": "FLTeamEntryOffer",
         "type": "object"
@@ -18705,6 +18569,13 @@
           "saison": {
             "$ref": "#/components/schemas/FLTeamSaisonFacts"
           },
+          "taken_trikot_farben": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken Trikot Farben",
+            "type": "array"
+          },
           "team": {
             "$ref": "#/components/schemas/FLTeamRecord"
           },
@@ -18721,6 +18592,7 @@
           "membership",
           "gruppen",
           "gruppe_locked",
+          "taken_trikot_farben",
           "retire_blocked_by",
           "link"
         ],
@@ -18891,110 +18763,11 @@
         "title": "FLTeamStatistik",
         "type": "object"
       },
-      "FLTeamWithMemberships": {
-        "description": "The stored club document plus every season membership it holds.\n\nA DIFFERENT question from `FLTeam`, not a projection: that one joins strictly against one season,\nso a club outside it is absent by design.",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/FLAddress"
-          },
-          "description": {
-            "maxLength": 4096,
-            "title": "Description",
-            "type": "string"
-          },
-          "full_name": {
-            "minLength": 1,
-            "title": "Full Name",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "memberships": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamMembership"
-            },
-            "title": "Memberships",
-            "type": "array"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "schulform": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchulform"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          },
-          "website_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Website Url"
-          }
-        },
-        "required": [
-          "name",
-          "shorthand",
-          "description",
-          "full_name",
-          "schulform",
-          "website_url",
-          "address",
-          "id",
-          "inactive_since",
-          "version",
-          "memberships"
-        ],
-        "title": "FLTeamWithMemberships",
-        "type": "object"
-      },
       "FLTeamsAdminListResponse": {
         "description": "One season's Teams list, and what its create dialog offers.",
         "properties": {
           "entry": {
             "$ref": "#/components/schemas/FLTeamEntryOffer"
-          },
-          "format": {
-            "const": "list",
-            "default": "list",
-            "title": "Format",
-            "type": "string"
           },
           "teams": {
             "items": {
@@ -19005,7 +18778,6 @@
           }
         },
         "required": [
-          "format",
           "teams",
           "entry"
         ],
@@ -19093,23 +18865,6 @@
           "inactive_since"
         ],
         "title": "FLTeamsAdminRow",
-        "type": "object"
-      },
-      "FLTeamsSaisonsResponse": {
-        "description": "Every club, retired ones included, each with its memberships. Sorted by name.",
-        "properties": {
-          "teams": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamWithMemberships"
-            },
-            "title": "Teams",
-            "type": "array"
-          }
-        },
-        "required": [
-          "teams"
-        ],
-        "title": "FLTeamsSaisonsResponse",
         "type": "object"
       },
       "FLTeamsSingleResponse": {
@@ -19238,8 +18993,6 @@
           "ergebnis_missing_tore",
           "good_spieler_exceed_kader",
           "grant_wording_stale",
-          "kontakt_email_twice",
-          "kontakt_phone_twice",
           "nichtantreten_with_tore",
           "nichtantreten_with_scorers",
           "registrierung_window_reaches_saison_start",
@@ -20739,24 +20492,17 @@
     },
     "/api/v0/bewerbungen": {
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.",
+        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one\nalready on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number\nare refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
             "in": "header",
             "name": "idempotency-key",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "format": "uuid4",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idempotency-Key"
+              "format": "uuid4",
+              "title": "Idempotency-Key",
+              "type": "string"
             }
           }
         ],
@@ -21098,7 +20844,7 @@
     },
     "/api/v0/bewerbungen/list/admin": {
       "get": {
-        "description": "One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`\ntaken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous\npublic form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.",
+        "description": "One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`\ntaken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous\npublic form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.\nEvery application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.",
         "operationId": "bewerbungen_get_bewerbungen_admin",
         "parameters": [
           {
@@ -21108,18 +20854,6 @@
             "schema": {
               "title": "Saison Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
             }
           }
         ],
@@ -21412,7 +21146,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nA colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {
@@ -21760,7 +21494,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban\nlist holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.",
+        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,\n`bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no\nseat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -23888,7 +23622,7 @@
     },
     "/api/v0/registrierungen/list/admin": {
       "get": {
-        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nRead whole, as every list but the Protokoll is, the page narrowing what it holds; a declined row waits out its month\nand asks nothing of an administrator. `confirmed` says whether the pupil answered their own link. 404 where no season\nholds that id.",
+        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nThe page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.\n`confirmed` says whether the pupil answered their own link. 404 where no season holds that id. Degrades rather than\nrefusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a\ntripwire would hand them the power to 500 this page, and `complete` reports the cut.",
         "operationId": "registrierungen_get_registrierungen_admin",
         "parameters": [
           {
@@ -23898,6 +23632,18 @@
             "schema": {
               "title": "Saison Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1024,
+              "maximum": 1024,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           }
         ],
@@ -29208,14 +28954,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -29480,14 +29219,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -30496,7 +30228,7 @@
     },
     "/api/v0/teams/list/admin": {
       "get": {
-        "description": "The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.\n\nNo base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state\nthe type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every\nretired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,\neach group with whether it is full, and `closed` where the season is not `future`, which the entry refuses. 404\nwhere no season holds that id.",
+        "description": "The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.\n\nNo base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state\nthe type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every\nretired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,\neach group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`\nthe colours the season's rows hold. 404 where no season holds that id.",
         "operationId": "teams_get_teams_admin",
         "parameters": [
           {
@@ -30604,76 +30336,9 @@
         ]
       }
     },
-    "/api/v0/teams/saisons": {
-      "get": {
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\nEach membership names the live change of each seat's address, which the address tool shows, and per seat why the\ntool refuses that change this administrator. Each seat's link names what became of the last mail carrying it,\n`delivery` null where none was ever owed.",
-        "operationId": "teams_get_team_saisons",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLTeamsSaisonsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Every team with its season memberships",
-        "tags": [
-          "teams"
-        ]
-      }
-    },
     "/api/v0/teams/saisons/{saison_id}/entry": {
       "post": {
-        "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,\nnaming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.",
+        "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,\nnaming `shorthand`. A retired club is refused `team_retired`, a club the season already holds\n`bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the\nseason and the group as an entry is.",
         "operationId": "teams_post_team_entry",
         "parameters": [
           {
@@ -31103,7 +30768,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.\n\n`version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for\na club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.\n`gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused\n`entry_gruppe_locked`, and `retire_blocked_by` the season `retire_blocked` refuses over, by each write's own judgement.\n`link` is the live registration link, the window's judgement of it, and why the season's press would pass the team\nover. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no\nseason holds that id.",
+        "description": "Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.\n\n`version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for\na club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.\n`gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused\n`entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season\n`retire_blocked` refuses over, by each write's own judgement.\n`link` is the live registration link, the window's judgement of it, and why the season's press would pass the team\nover. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no\nseason holds that id.",
         "operationId": "teams_get_team_saison_admin",
         "parameters": [
           {
@@ -31189,7 +30854,7 @@
         ]
       },
       "patch": {
-        "description": "Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.\n\nRefused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per\npart: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour\nchanges, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one\nincluded, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and\n`entry_gruppe_full` refuse it. 404 where the club holds no row of the season.",
+        "description": "Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.\n\nRefused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per\npart: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour\nchanges, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one\nincluded, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and\n`entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming\n`trikot_farbe`. 404 where the club holds no row of the season.",
         "operationId": "teams_patch_team_saison",
         "parameters": [
           {
@@ -31287,7 +30952,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/austritt": {
       "put": {
-        "description": "Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.\n\nRefused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its\n`earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
+        "description": "Record how a team left the season, once: an exit is never lifted and never replaced.\n\nRefused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;\n`saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`\nthe start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
         "operationId": "teams_put_austritt",
         "parameters": [
           {
@@ -31459,92 +31124,6 @@
           }
         ],
         "summary": "Revoke this team's live registration link for a season",
-        "tags": [
-          "teams"
-        ]
-      },
-      "get": {
-        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last mail owed about it — `delivery` null means nobody was ever owed it, which is a state rather than a delivery failure.\nThe minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.\n\n`running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.",
-        "operationId": "teams_get_invitation",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLInvitationResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "This team's live registration link for a season, and whether it opens anything",
         "tags": [
           "teams"
         ]

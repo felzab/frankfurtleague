@@ -5,7 +5,7 @@ import pytest
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_CANCELLED, FLSpiel
-from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
+from app.api.teams.schemas import FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import (
     AS_NAME,
     CANCELLED_AS_NAME,
@@ -61,18 +61,17 @@ def reads(node: Any, *path: str) -> bool:
     return any(candidate[index : index + width] == path for candidate in _paths(node) for index in range(len(candidate) - width + 1))
 
 
-# Keyword rather than `**kwargs`: a typo becomes a type error. `scope` is undefaulted, or the model's default could drift.
+# Keyword rather than `**kwargs`: a typo becomes a type error. `scope` is undefaulted, or the pipeline's default could drift.
 def build(
     *,
     rules: FLSaisonRules = STANDARD_RULES,
     saison_id: str = "2026",
     scope: FLTeamStatistikScope | None = None,
 ) -> Pipeline:
-    filters = FLTeamsFilterParams(saison_id=saison_id)
-    if scope is not None:
-        filters.statistik_scope = scope
+    if scope is None:
+        return build_team_pipeline(saison_id=saison_id, rules=rules)
 
-    return build_team_pipeline(filters=filters, rules=rules)
+    return build_team_pipeline(saison_id=saison_id, rules=rules, statistik_scope=scope)
 
 
 def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
@@ -93,12 +92,6 @@ def junction_match(pipeline: Pipeline) -> Mapping[str, Any] | None:
 
 def projection(pipeline: Pipeline) -> Mapping[str, Any]:
     return next(stage["$project"] for stage in pipeline if "$project" in stage)
-
-
-def test_requires_a_resolved_saison_id():
-    """Statistics are per season, so an unresolved filter must raise rather than sum nothing."""
-    with pytest.raises(ValueError, match="saison_id"):
-        build_team_pipeline(filters=FLTeamsFilterParams(), rules=STANDARD_RULES)
 
 
 def test_counts_a_match_exactly_when_it_carries_an_ergebnis():

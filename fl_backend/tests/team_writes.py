@@ -8,9 +8,10 @@ from typing import Any, NamedTuple
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.bewerbungen.services import compose_einwilligung
 from app.api.sperrliste.lookup import ban_list_saison
 from app.api.teams.admin_router import KONTAKT_WRITE_FIELDS, patch_team_saison, write_the_contact_block
-from app.api.teams.schemas import FLKontaktMint, FLPatchTeamSaisonPayload, FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload
+from app.api.teams.schemas import FLKontaktMint, FLKontaktSeatPayload, FLPatchTeamSaisonPayload
 from app.core.collections import Collection
 from app.core.crud import pull_one_from_db
 from app.core.transactions import transaction_session
@@ -56,17 +57,23 @@ async def save_the_team(
 
 
 class BlockWritten(NamedTuple):
-    """The row's block as stored after the write, and each person it owed a link."""
+    """Each person the write owed a link."""
 
-    saison_id: str
-    team_id: Any
-    kontakte: FLSaisonTeamKontakte | None
     confirmations: list[FLKontaktMint]
+
+
+def seat_sent(seat: Mapping[str, Any], *, today: str) -> dict[str, Any]:
+    """One seat as `compose_seat_block` hands it on: the person as the seat write's payload takes them, under the record it bears them with."""
+
+    sent = {field: value for field, value in seat.items() if field != "einwilligung"}
+    person = FLKontaktSeatPayload.model_validate({**sent, "version": 0}).model_dump(mode="json", exclude={"version"}, exclude_unset=True)
+
+    return {**person, "einwilligung": compose_einwilligung(today=today, entered_by="liga")}
 
 
 async def write_the_block(
     database: AsyncDatabase,
-    block: Mapping[str, Any] | None,
+    block: Mapping[str, Any],
     *,
     team_id: Any,
     saison_id: str,
@@ -77,7 +84,7 @@ async def write_the_block(
 ) -> BlockWritten:
     """What `put_kontakt_seat` stores, for a block it composes: several seats moving at once are the writer's own cases."""
 
-    proposed = None if block is None else FLSaisonTeamKontaktePayload.model_validate(block).model_dump(mode="json")
+    proposed = {slot: seat_sent(seat, today=today) if isinstance(seat, Mapping) else seat for slot, seat in block.items()}
     rows = database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection
     bans = ban_list(database)
     governing_saison_id = await ban_list_saison(bans)
@@ -90,7 +97,7 @@ async def write_the_block(
             projection=KONTAKT_WRITE_FIELDS,
             session=session,
         )
-        updated, confirmations = await write_the_contact_block(
+        confirmations = await write_the_contact_block(
             stored=stored,
             proposed=proposed,
             expected_version=version,
@@ -108,14 +115,7 @@ async def write_the_block(
             session=session,
         )
 
-        written = updated["kontakte"]
-
-        return BlockWritten(
-            saison_id=saison_id,
-            team_id=team_id,
-            kontakte=None if written is None else FLSaisonTeamKontakte.model_validate(written),
-            confirmations=confirmations,
-        )
+        return BlockWritten(confirmations=confirmations)
 
     async with transaction_session(database.client) as session:
         return await session.with_transaction(write)

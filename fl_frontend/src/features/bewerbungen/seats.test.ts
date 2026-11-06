@@ -21,7 +21,7 @@ const entry = (overrides: Partial<FLBewerbungConfirmation> = {}): FLBewerbungCon
   reminded_at: null,
   declined_at: null,
   delivery: null,
-  expired: false,
+  state: "valid",
   ...overrides,
 });
 
@@ -43,23 +43,28 @@ describe("where a seat stands", () => {
   it("parts a seat its person objected to from one an erasure emptied", () => {
     const read = bewerbung({
       kontakte: { trainer: person(null), ansprechperson: null, stellvertretung: null, trainer_is_also: null },
-      confirmations: { trainer: entry(), ansprechperson: entry({ declined_at: "2026-11-03" }), stellvertretung: null },
+      confirmations: { trainer: entry(), ansprechperson: entry({ state: "declined", declined_at: "2026-11-03" }), stellvertretung: null },
     });
 
-    expect(seat(read, "ansprechperson")?.state).toBe("objected");
+    expect(seat(read, "ansprechperson")?.state).toBe("declined");
     expect(seat(read, "stellvertretung")).toMatchObject({ state: "erased", day: null });
   });
 
   it("reads a seat past its own deadline as lapsed, its neighbour still open", () => {
-    const read = bewerbung({ confirmations: { trainer: entry({ expired: true }), ansprechperson: entry(), stellvertretung: entry() } });
+    const read = bewerbung({ confirmations: { trainer: entry({ state: "expired" }), ansprechperson: entry(), stellvertretung: entry() } });
 
     expect(seat(read, "trainer")?.state).toBe("expired");
-    expect(seat(read, "ansprechperson")?.state).toBe("open");
+    expect(seat(read, "ansprechperson")?.state).toBe("valid");
   });
 
   /* A decided application's links open nothing, whatever day their deadline names. */
   it("names no day on a seat a decision left unanswered", () => {
-    expect(seat(bewerbung({ status: "declined" }), "trainer")).toMatchObject({ state: "expired", day: null });
+    const spent = bewerbung({
+      status: "declined",
+      confirmations: { trainer: entry({ state: "expired" }), ansprechperson: entry(), stellvertretung: entry() },
+    });
+
+    expect(seat(spent, "trainer")).toMatchObject({ state: "expired", day: null });
   });
 
   it("adds a chip where the seat's last mail met trouble", () => {

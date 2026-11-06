@@ -6,7 +6,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spieler.admin_router import get_spieler_admin, get_spieler_saison
-from app.api.spieler.services import mark_shared_nummern_per_squad
+from app.api.spieler.services import mark_shared_nummern
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_SPIELER_ID
@@ -103,7 +103,7 @@ class TestTheShirtMarker:
             {"team_id": OTHER_TEAM_OID, "nummer": "7", "inactive_since": None},
         ]
 
-        assert [row["nummer_double"] for row in mark_shared_nummern_per_squad(rows)] == [False, False]
+        assert [row["nummer_double"] for row in mark_shared_nummern(rows)] == [False, False]
 
     def test_an_ausgetragen_row_neither_doubles_nor_is_marked(self):
         rows = [
@@ -111,7 +111,7 @@ class TestTheShirtMarker:
             {"team_id": TEAM_OID, "nummer": "7", "inactive_since": "2026-03-01"},
         ]
 
-        assert [row["nummer_double"] for row in mark_shared_nummern_per_squad(rows)] == [False, False]
+        assert [row["nummer_double"] for row in mark_shared_nummern(rows)] == [False, False]
 
 
 @pytest.mark.db

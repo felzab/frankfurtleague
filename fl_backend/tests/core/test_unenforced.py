@@ -179,14 +179,14 @@ class TestASharedSquadNumber:
     def test_the_marker_compares_the_stored_string_between_live_rows_alone(self):
         """`07` beside `7` is two shirts; an ausgetragen row wearing `9` marks neither itself nor the live `9`."""
 
-        live = {"inactive_since": None}
+        live = {"team_id": "one squad", "inactive_since": None}
         rows = [
             {"nummer": "1", **live},
             {"nummer": "1", **live},
             {"nummer": "07", **live},
             {"nummer": "7", **live},
             {"nummer": "9", **live},
-            {"nummer": "9", "inactive_since": "2026-03-01"},
+            {"nummer": "9", "team_id": "one squad", "inactive_since": "2026-03-01"},
             {"nummer": None, **live},
             {"nummer": None, **live},
         ]

@@ -32,7 +32,6 @@ from app.api.teams.schemas import (
     FLTeamGruppeOffer,
     FLTeamListState,
     FLTeamsAdminRow,
-    FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
     normalise_phone,
@@ -184,24 +183,30 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
-    # Without a season the junction join stops being strict -- one row per season a club played --
-    # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
-    if filters.saison_id is None:
-        raise ValueError("build_team_pipeline requires a resolved saison_id -- the junction join and the statistics are both season-scoped.")
-
+def build_team_pipeline(
+    *,
+    saison_id: str,
+    rules: FLSaisonRules | None,
+    team_id: Any | None = None,
+    # Defaults to the GROUP TABLE, so a read naming none is the correct standing rather than the playoff-polluted one.
+    statistik_scope: FLTeamStatistikScope = "gruppenphase",
+    # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
+    # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left
+    # (`READ-SQUAD-002`).
+    include_inactive: bool = False,
+) -> list[Mapping[str, Any]]:
     pipeline: list[Mapping[str, Any]] = []
 
     if team_id is not None:
         pipeline.append({"$match": {"_id": team_id}})
 
     # Clubs that left the league -- never a team that left one season, which keeps its row.
-    if not filters.include_inactive:
-        pipeline.extend(build_retirement_stages(filters.saison_id))
+    if not include_inactive:
+        pipeline.extend(build_retirement_stages(saison_id))
 
     lookup_pipeline: list[Mapping[str, Any]] = [
         {"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}},
-        {"$match": {"saison_id": filters.saison_id}},
+        {"$match": {"saison_id": saison_id}},
     ]
 
     # Withheld at the JOIN rather than downstream: the outer `$project` is an allow-list too, so this
@@ -219,22 +224,16 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
         }
     )
 
-    strict_join = bool(getattr(filters, "saison_id", None))
-    pipeline.append(
-        {
-            "$unwind": {
-                "path": f"${AS_NAME}",
-                "preserveNullAndEmptyArrays": not strict_join,
-            }
-        }
-    )
+    # Strict: a club with no row of the season drops out, where a lenient join would return one row
+    # per season it played and a table of zeros that reads as an answer.
+    pipeline.append({"$unwind": f"${AS_NAME}"})
 
     # After the strict unwind, so the matches are only summed for teams that survive the join.
     # A scoring rule IS the table, so `rules=None` derives none -- `build_statistik_by_team` is
     # the other way to one, over fixtures this collection has not stored.
     if rules is not None:
-        pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
-        pipeline.append(build_cancelled_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
+        pipeline.append(build_statistik_lookup_stage(saison_id=saison_id, rules=rules, scope=statistik_scope))
+        pipeline.append(build_cancelled_lookup_stage(saison_id=saison_id, scope=statistik_scope))
 
     # One projection, one team shape: a reduced variant trims the response and saves no query work,
     # since every lookup runs either way.
@@ -886,14 +885,15 @@ def build_decided_standings(
     }
 
 
-def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
-    """Every club with every junction row it holds.
+def build_team_saisons_pipeline(team_id: Any) -> list[Mapping[str, Any]]:
+    """One club with every junction row it holds.
 
     UNLIKE `build_team_pipeline`: no season resolution, no strict join, no statistics -- the
-    question is club-centric, so retired clubs stay in.
+    question is club-centric, so a retired club stays in.
     """
 
     return [
+        {"$match": {"_id": team_id}},
         {
             "$lookup": {
                 "from": Collection.SAISON_TEAMS,
@@ -923,7 +923,6 @@ def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
                 "as": "memberships",
             }
         },
-        {"$sort": {"name": 1}},
     ]
 
 
@@ -1105,15 +1104,12 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
-def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
-    """Each seat's record and its birthdate, composed here rather than taken from the payload.
+def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
+    """Each seat's record and its birthdate, off the stored block.
 
-    A seat its person keeps keeps its record; any other is born under the payload's label granting
-    nothing.
+    A seat its person keeps keeps its record and its date. Any other keeps the record `compose_seat_block` bore it with,
+    so nothing of a person who left travels to the one seated.
     """
-
-    if kontakte is None:
-        return None
 
     stored_block = stored if isinstance(stored, Mapping) else {}
     composed = dict(kontakte)
@@ -1124,12 +1120,12 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
             continue
 
         stored_slot = stored_block.get(slot)
-        einwilligung = _confirmation_held_by(stored_slot, seat=seat)
-        if einwilligung is None:
-            # Born afresh: nothing of a person who left travels to the
-            # one seated, and nobody filling a seat for another person may give their media consent.
-            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "media": False, "entered_by": "liga"}
-        composed[slot] = {**seat, "birth_date": _birth_date_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
+        kept = _confirmation_held_by(stored_slot, seat=seat)
+        composed[slot] = {
+            **seat,
+            "birth_date": _birth_date_held_by(stored_slot, seat=seat),
+            "einwilligung": seat["einwilligung"] if kept is None else kept,
+        }
 
     return composed
 
@@ -1161,8 +1157,8 @@ def compose_seat_block(
 def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktRolle]) -> WriteRefusal | None:
     """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
 
-    `FLSaisonTeamKontaktePayload`'s rule over a block, asked of the seats this write leaves. The seats it writes are one
-    person, so they are never compared with each other.
+    `app/api/bewerbungen/services.py :: find_repeated_contact_refusal`'s rule, asked of the seats this write leaves. The seats
+    it writes are one person, so they are never compared with each other.
     """
 
     person = kontakte[seats[0]]
@@ -1236,15 +1232,14 @@ def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]
     return owed
 
 
-def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> Any:
-    """The whole link block a contacts save leaves; null with a cleared block.
+def compose_bestaetigungen_nach(
+    *, kontakte: Mapping[str, Any], stored_kontakte: Any, stored_bestaetigungen: Any, minted: Mapping[str, Any]
+) -> dict[str, Any]:
+    """The whole link block a seat write leaves.
 
     Whole rather than dotted: a `$set` into an absent or null block leaves it short of its keys, or is
     `PathNotViable`.
     """
-
-    if not isinstance(kontakte, Mapping):
-        return None
 
     stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
@@ -1256,10 +1251,9 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
             continue
 
         seat = kontakte.get(slot)
-        held = stored_slots.get(slot)
-        # A seat staying empty keeps a Widerspruch's record of itself; a seat the save empties, or hands
-        # to a person it mints nothing for, loses its link, so the person who left it holds nothing live.
-        keeps = held is None if not isinstance(seat, Mapping) else _seat_held_by(held, seat=seat) is not None
+        # A seat staying empty keeps a Widerspruch's record of itself; a seat handed to a person the write
+        # mints nothing for loses its link, so the person who left it holds nothing live.
+        keeps = not isinstance(seat, Mapping) or _seat_held_by(stored_slots.get(slot), seat=seat) is not None
         block[slot] = stored_links.get(slot) if keeps else None
 
     return block
@@ -1510,6 +1504,18 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
     return WriteRefusal(error_code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT, fields=(("shorthand",),))
 
 
+def find_trikot_farbe_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`trikot_farbe_taken` on the colour: another row of the season holds it, and a season's kit colour is one team's.
+
+    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
+    """
+
+    if not taken:
+        return None
+
+    return WriteRefusal(error_code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("trikot_farbe",),))
+
+
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
     """Why this CLUB may not be entered into any season, or `None`.
 
@@ -1546,20 +1552,30 @@ def find_gruppe_move_refusal(*, spiele_drawn: int) -> WriteRefusal | None:
     )
 
 
-def find_austritt_refusal(
-    *, proposed: Mapping[str, Any], stored: Mapping[str, Any] | None, start_date: str, started: bool
-) -> WriteRefusal | None:
+def find_austritt_standing_refusal(*, stored: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """`version_stale`: this row's exit stands, so the page offering another was read before it.
+
+    An exit is never lifted, and its notices and closed confirmations have gone out, so nothing replaces it, whatever
+    the write carries. The record's presence is the whole comparison: the write sends no version.
+    """
+
+    if stored is None:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
+def find_austritt_refusal(*, start_date: str, started: bool) -> WriteRefusal | None:
     """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
 
     Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
     exit standing then would leave the swap fielding a departed club. The season save refuses moving the start past a
     stored exit (`saison_start_austritt_stored`), so an exit never stands on a season that reads as unstarted again.
-    `started` is `app/api/saisons/services.py :: has_started`. The record as the payload dumps it beside the stored one,
-    so a save resubmitting a stored exit passes and only a new or changed one is judged. `earliest` is the first day an
-    exit may be recorded, on the exit record as a whole rather than its date: no date the exit could carry passes sooner.
+    `started` is `app/api/saisons/services.py :: has_started`. `earliest` is the first day an exit may be recorded, on the
+    exit record as a whole rather than its date: no date the exit could carry passes sooner.
     """
 
-    if started or proposed == stored:
+    if started:
         return None
 
     return WriteRefusal(

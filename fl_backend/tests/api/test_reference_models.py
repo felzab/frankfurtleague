@@ -19,7 +19,7 @@ from app.api.spielorte.schemas import FLPostSpielortPayload
 from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLSpieltag
 from app.api.teams.schemas import (
     FLAustrittPayload,
-    FLKontaktpersonPayload,
+    FLKontaktSeatPayload,
     FLPostTeamPayload,
 )
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
@@ -251,7 +251,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "last_name": "Koerner",
             "email": "a.koerner@example.de",
             "phone": "+49 170 1234567",
-            "einwilligung": {"scope": "kontaktdaten", "date": "2026-01-15"},
+            "version": 0,
         }
         austritt = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-01"}
 
@@ -266,8 +266,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
             "team.shorthand": (FLPostTeamPayload, team_payload, ("shorthand",)),
-            "kontaktperson.last_name": (FLKontaktpersonPayload, kontaktperson, ("last_name",)),
-            "kontaktperson.first_name": (FLKontaktpersonPayload, kontaktperson, ("first_name",)),
+            "kontaktperson.last_name": (FLKontaktSeatPayload, kontaktperson, ("last_name",)),
+            "kontaktperson.first_name": (FLKontaktSeatPayload, kontaktperson, ("first_name",)),
             "saison_team.austritt.reason": (FLAustrittPayload, austritt, ("reason",)),
         }
 

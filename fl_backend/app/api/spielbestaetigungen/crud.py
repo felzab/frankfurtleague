@@ -22,14 +22,12 @@ from app.api.spielbestaetigungen.services import (
     build_season_images_filter,
     build_season_reasons_filter,
     build_seat_entry_images_filter,
-    exit_day_to_tell,
     referee_image_edits,
     season_end_image_edits,
     seat_entry_image_edits,
 )
 from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spiele.services import build_named_spiele_pipeline
-from app.api.teams.schemas import FLAustritt
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -442,21 +440,12 @@ async def owe_the_austritt_notices_in_session(
     outbox_collection: AsyncCollection,
     saison_id: str,
     team_id: Any,
-    # The row's stored exit, which a save resubmitting it leaves as it was.
-    stored: Mapping[str, Any] | None,
-    proposed: FLAustritt,
+    exit_day: str,
     now: datetime,
     # REQUIRED: the exit and its notices commit or fail together.
     session: AsyncClientSession,
 ) -> None:
-    """Owe each opponent of a club leaving the season its notice, wherever the save records a new exit day.
-
-    Called by every write of an exit, which `exit_day_to_tell` sorts.
-    """
-
-    exit_day = exit_day_to_tell(stored=stored, proposed=proposed)
-    if exit_day is None:
-        return
+    """Owe each opponent of a club leaving the season its notice, at the exit's own write, which happens once."""
 
     spiele = await pull_whole_from_db(
         collection=spiele_collection,

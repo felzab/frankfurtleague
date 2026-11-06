@@ -25,7 +25,8 @@ export const deregisterSpieler = action({
 
 /**
  * Brings an ausgetragen row back into its squad with what it held. A squad full since is refused in the status line's
- * own sentence; a club a replacement took out of the season is a stale page.
+ * own sentence; a club a replacement took out of the season, and a role given away since, are a stale page, and the
+ * reload shows the page's lock.
  */
 export const reactivateSpieler = action({
   lane: "admin",

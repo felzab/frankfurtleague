@@ -176,7 +176,7 @@ function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
               rules={SEAT_RULES}
               write={writeSeat}
               carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
-              link={state === "open" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null}
+              link={state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null}
             />
           ),
         }

@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.core.crud import Anchored
 from app.core.sentinels import GHOST_SPIELER_ID
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
 from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpielerTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
@@ -172,22 +172,9 @@ class FLSpielerSingleResponse(BaseAPIResponse):
 
     spieler_id: CustomObjectId
     # Nullable for `FLSpielerPublic.first_name`'s reason: this path is masked by the same predicate
-    # (`READ-PUPIL-003`), and the admin echo below re-declares the forename it is served whole.
+    # (`READ-PUPIL-003`), and the admin read below re-declares the forename it is served whole.
     first_name: str | None
     last_name: str | None
-
-
-class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
-    """A junction row, which has no read model of its own -- so it is echoed as it was written."""
-
-    spieler_id: CustomObjectId
-    saison_id: str
-    is_nachnominiert: bool
-    # `app/core/crud.py :: set_inactive_since` is the field's one writer and stamps a German date, so
-    # the row's own calendar rule refuses nothing this echo can serve.
-    inactive_since: CustomOptionalDateString
-    # The writes counted so far, which the editor's save sends back.
-    version: int = 0
 
 
 class FLSpielerAdminRow(BaseReadModel):
@@ -326,7 +313,7 @@ class FLPatchSpielerSaisonPayload(_KaderRowFields):
     # would leave one whose age no page can read.
     birth_date: CustomDateString
     # `FLSpielerSaisonAdminResponse.version` as the editor read it.
-    version: int = Field(ge=0)
+    version: CustomVersion
 
 
 class FLSpielerSelfKaderRow(BaseModel):

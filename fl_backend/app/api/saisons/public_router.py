@@ -42,7 +42,6 @@ from app.api.teams.schemas import (
     FLSaisonTeamsResponse,
     FLTabelleResponse,
     FLTeamPageClub,
-    FLTeamsFilterParams,
 )
 from app.api.teams.services import build_team_pipeline, counting_spiele_match
 from app.core.collections import Collection
@@ -476,7 +475,7 @@ async def _clubs_of(*, teams_collection: AsyncCollection, saison_id: str) -> lis
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
-        pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=None),
+        pipeline=build_team_pipeline(saison_id=saison_id, rules=None),
         collation=GERMAN_COLLATION,
     )
 
@@ -514,14 +513,15 @@ async def get_team(
     404 for a season this tier may not read and for a club the season does not hold.
     """
 
-    # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
-    # was given it by something.
-    club_filters = FLTeamsFilterParams(saison_id=saison_id, include_inactive=True)
     # Beside the resolve, for `_spielplan_of`'s reason: each needs the path's id alone, and none is served before the
     # resolve has passed.
     saison, club_raw, spiele_raw, kader_raw = await asyncio.gather(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        aggregate_many_from_db(collection=teams_collection, pipeline=build_team_pipeline(filters=club_filters, rules=None, team_id=team_id)),
+        # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
+        # was given it by something.
+        aggregate_many_from_db(
+            collection=teams_collection, pipeline=build_team_pipeline(saison_id=saison_id, rules=None, team_id=team_id, include_inactive=True)
+        ),
         aggregate_many_from_db(
             collection=spiele_collection,
             pipeline=[

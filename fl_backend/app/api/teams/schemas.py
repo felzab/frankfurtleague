@@ -1,6 +1,6 @@
 import re
 from collections.abc import Mapping
-from typing import Annotated, Final, Literal, Self, get_args
+from typing import Annotated, Final, Literal, get_args
 
 from pydantic import (
     AfterValidator,
@@ -11,14 +11,11 @@ from pydantic import (
     RootModel,
     StringConstraints,
     TypeAdapter,
-    model_validator,
 )
 
 from app.api.invitations.schemas import FLTeamLinkState
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
-from app.core.exceptions import rule_refusal
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     AUSTRITT_REASON_MAX_LENGTH,
@@ -48,7 +45,6 @@ from app.shared.schemas.einwilligung import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
-    KONTAKT_ROLLEN,
     FLAddressChangeViewableDenied,
     FLAustrittType,
     FLGruppenNames,
@@ -128,14 +124,7 @@ class FLAustrittPayload(FLAustritt):
     ]
 
 
-# Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
-# both on every write path, and a payload declaring either is a route to an answer nobody gave.
-class _KontaktKenntnisnahmeWritable(BaseModel):
-    scope: Literal["kontaktdaten"]
-    date: CustomDateString
-
-
-class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
+class FLKontaktKenntnisnahme(BaseReadModel):
     """How this person's record came to be held, and what they answered.
 
     Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
@@ -144,10 +133,10 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     """
 
     scope: FLKontaktKenntnisnahmeScope
+    date: CustomDateString
     # The day this person confirmed the seat themselves; null until they do.
     confirmed_at: CustomOptionalDateString
-    # The one consent on this record, to photographs, video and interviews, and on the READ model
-    # alone for `scope`'s reason.
+    # The one consent on this record, to photographs, video and interviews.
     media: bool
     # Written once, by the write that seats the person, and moved by nothing else: who seated them,
     # the applicant or the league.
@@ -179,7 +168,7 @@ class FLSaisonTeamKontakte(BaseModel):
     """The three people a team is reached through, for ONE season.
 
     On the junction rather than the club: a school's staff turns over between seasons, and a
-    finished season is the record of who was reachable while it ran.
+    finished season keeps those who confirmed their seat.
     """
 
     # Nullable per SLOT: a person's erasure empties the slots naming them and must not reach the
@@ -280,16 +269,12 @@ class FLSaisonTeamAddressChange(BaseModel):
     viewable_denied: FLSaisonTeamAddressChangeDenied
 
 
+# Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
+# Pydantic cannot un-inherit a field: no payload takes a birthdate, the date being the person's own
+# to enter at their confirmation, and no payload takes a consent record, which the server composes.
 # The ceilings are here and not on the read models above for `FLAddressPayload`'s reason: refusing a
 # stored value on read answers 500 for a whole list over one row, and locks out the write that would
 # repair it.
-class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
-    model_config = ConfigDict(extra="forbid")
-
-
-# Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
-# Pydantic cannot un-inherit a field: no payload takes a birthdate, so none is here, and the two
-# below differ on the consent shape alone.
 class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -301,65 +286,6 @@ class _KontaktpersonWritablePayload(BaseModel):
     # Here rather than beside the format: the pattern caps the length inside itself, which makes it
     # a ceiling.
     phone: str = Field(pattern=PHONE_REGEX)
-
-
-class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
-    # No birthdate on this payload or the public one: the date is the person's own to enter at their
-    # confirmation.
-    einwilligung: FLKontaktKenntnisnahmePayload
-
-
-class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
-    """The write side of the three, with the empty slot an erasure leaves."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # Accepted empty so a row an erasure emptied stays editable; required, any later edit to that row
-    # would re-collect the person who asked to be forgotten.
-    trainer: FLKontaktpersonPayload | None
-    ansprechperson: FLKontaktpersonPayload | None
-    stellvertretung: FLKontaktpersonPayload | None
-
-    @model_validator(mode="after")
-    def the_trainer_equals_the_seat_they_also_hold(self) -> Self:
-        """Where one person holds two seats, the two blocks agree field for field.
-
-        A mismatch is a drifted client, and stored it leaves two records of one person, unpaired by the
-        erasure and mailed two links.
-        """
-
-        if self.trainer_is_also is None:
-            return self
-
-        seat = getattr(self, self.trainer_is_also)
-
-        # An empty side is a seat an erasure or a Widerspruch emptied, which names nobody to compare.
-        if seat is not None and self.trainer is not None and seat != self.trainer:
-            raise ValueError(f"the seat '{self.trainer_is_also}' the Trainer also holds carries other details than the Trainer's")
-
-        return self
-
-    @model_validator(mode="after")
-    def the_distinct_people_share_no_email_or_telephone(self) -> Self:
-        """Two DIFFERENT people may not be reachable at one address or one number.
-
-        The seat the Trainer also holds is left out of the comparison: it is the same person, and
-        the rule above has already held the two blocks equal.
-        """
-
-        seats = [seat for seat in KONTAKT_ROLLEN if seat != self.trainer_is_also]
-        people: list[_KontaktpersonWritablePayload] = [person for seat in seats if (person := getattr(self, seat)) is not None]
-
-        # On the sign-in fold: two seats one sign-in reaches are one identity.
-        emails = [sign_in_identifier(person.email) for person in people]
-        if len(set(emails)) != len(emails):
-            raise rule_refusal("kontakt_email_twice", "two contact persons share one email address")
-
-        phones = [normalise_phone(person.phone) for person in people]
-        if len(set(phones)) != len(phones):
-            raise rule_refusal("kontakt_phone_twice", "two contact persons share one telephone number")
-
-        return self
 
 
 class FLTeamStatistik(BaseReadModel):
@@ -511,27 +437,8 @@ class FLTeamMembership(BaseReadModel):
     version: int = 0
 
 
-class FLTeamWithMemberships(FLTeamRecord):
-    """The stored club document plus every season membership it holds.
-
-    A DIFFERENT question from `FLTeam`, not a projection: that one joins strictly against one season,
-    so a club outside it is absent by design.
-    """
-
-    memberships: list[FLTeamMembership]
-
-
-FLTeamWithMembershipsListAdapter = TypeAdapter(list[FLTeamWithMemberships])
-
-
-class FLTeamsSaisonsResponse(BaseAPIResponse):
-    """Every club, retired ones included, each with its memberships. Sorted by name."""
-
-    teams: list[FLTeamWithMemberships]
-
-
 # Private for `_TeamWritable`'s reason. The bounded address sits here rather than on that base, which
-# `FLTeam`, `FLTeamRecord` and `FLTeamWithMemberships` share.
+# `FLTeam` and `FLTeamRecord` share.
 class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 
@@ -583,7 +490,7 @@ class FLPatchTeamSaisonPayload(_TeamPayload):
     gruppe: FLGruppenNames
     trikot_farbe: FLTrikotFarbe | None
     # `FLTeamSaisonAdminResponse.version` as the editor read it.
-    version: int = Field(ge=0)
+    version: CustomVersion
 
 
 class FLPatchTeamSaisonResponse(BaseAPIResponse):
@@ -645,28 +552,12 @@ class FLKontaktSeatPayload(_KontaktpersonWritablePayload):
     version: CustomVersion
 
 
-class FLTeamsFilterParams(BaseModel):
-    """What a club read narrows on: the season views' and the club page's reads, each built in code."""
-
-    # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
-    saison_id: str | None = None
-
-    # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
-    # playoff-polluted one.
-    statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
-
-    # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
-    # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left
-    # (`READ-SQUAD-002`).
-    include_inactive: bool = False
-
-
 class FLTeamSingleFilterParams(BaseModel):
     """What `GET /teams/{team_id}` accepts: only what chooses WHICH SEASON'S figures to derive."""
 
     saison_id: str | None = None
-    # Spelled again rather than shared with `FLTeamsFilterParams`: a base holding this default would
-    # put a ratified one behind an inheritance edit made for some unrelated field.
+    # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
+    # playoff-polluted one.
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
 
@@ -720,12 +611,13 @@ class FLTeamEntryOffer(BaseReadModel):
     gruppen: list[FLTeamGruppeOffer]
     # Only a `future` season takes an entry; every other refusal is about the group or the club the dialog picks.
     closed: bool
+    # The colours a row of the season holds, which `trikot_farbe_taken` refuses.
+    taken: list[FLTrikotFarbe]
 
 
 class FLTeamsAdminListResponse(BaseAPIResponse):
     """One season's Teams list, and what its create dialog offers."""
 
-    format: Literal["list"] = "list"
     teams: list[FLTeamsAdminRow]
     entry: FLTeamEntryOffer
 
@@ -754,6 +646,8 @@ class FLTeamSaisonAdminResponse(BaseAPIResponse):
     gruppen: list[FLTeamGruppeOffer]
     # Whether the group's write would refuse `entry_gruppe_locked`, the club's fixtures being drawn.
     gruppe_locked: bool
+    # The colours another row of the season holds, which `trikot_farbe_taken` refuses; this club's own stays open to it.
+    taken_trikot_farben: list[FLTrikotFarbe]
     # The newest running or planned season the club stands in, which `retire_blocked` refuses over.
     retire_blocked_by: str | None
     # Null with `membership`.
@@ -777,12 +671,10 @@ class FLKontaktMint(BaseModel):
 
 
 class FLKontaktSeatResponse(BaseAPIResponse):
-    """Where the seat write's link went, and the row's count of writes after it."""
+    """Where the seat write's link went."""
 
     # The address the fresh link is owed to, as stored. Null where the seat keeps its person, who keeps their link.
     email: str | None
-    # What the next seat write on this row sends.
-    version: int
 
 
 class FLKontaktInviteResponse(BaseAPIResponse):

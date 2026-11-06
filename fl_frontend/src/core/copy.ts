@@ -1129,6 +1129,8 @@ export const COPY = catalogue({
     /** The Registrierungen list. */
     registrierung: {
       search: "Registrierungen suchen",
+      /** Over a list the read's cap cut, which a link passed around reaches. */
+      cut: "Nicht alle Registrierungen sind geladen.",
     },
   },
 

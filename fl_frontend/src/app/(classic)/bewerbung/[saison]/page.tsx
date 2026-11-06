@@ -5,11 +5,9 @@ import { FieldPlaceholder } from "@/kit/FieldPair";
 import { MailedPage } from "@/kit/MailedPage";
 import { SwitchPlaceholder } from "@/kit/Switch";
 
-import { now } from "@/core/clock";
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
 import { orMissing } from "@/core/errors";
-import { dayIn } from "@/core/format";
 import { bewerbungenGetForm } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
@@ -55,8 +53,7 @@ async function readState(params: Props["params"]): Promise<MailedState> {
   const form = await readForm(saison);
   if (form === null) notFound();
 
-  // Berlin's day, which the backend judges the window on.
-  const end = endOf(form.window, dayIn(now()));
+  const end = endOf(form.window);
   if (end !== null) return { state: "end", ...end };
 
   return {

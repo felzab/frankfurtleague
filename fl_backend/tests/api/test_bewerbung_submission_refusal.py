@@ -21,8 +21,9 @@ from app.api.bewerbungen.services import (
     compose_einwilligung,
     compose_kontakte,
     confirmation_deadline_from,
+    find_repeated_contact_refusal,
 )
-from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_phone
+from app.api.teams.schemas import FLKontaktperson, normalise_phone
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_STUFENGROESSE_MAX,
@@ -131,10 +132,6 @@ def test_the_corpus_this_module_moves_one_field_of_is_valid():
 # A date no living contact person could carry: born after the bound's floor whatever `today` is.
 A_CHILDS_BIRTHDATE = "2018-01-01"
 
-# What the junction's own editor sends for one person's consent: the source and the stamp are on no
-# payload.
-JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"scope": "kontaktdaten", "date": TODAY}
-
 
 class TestNoBirthdateOnAnyPayload:
     """The date reaches the league from its own person at their confirmation, so no payload spells the key."""
@@ -155,23 +152,6 @@ class TestNoBirthdateOnAnyPayload:
             FLBewerbungKontaktpersonPayload.model_validate(person(birth_date=None))
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
-
-    def test_the_junction_payload_refuses_the_key_as_the_public_one_does(self):
-        """Refused rather than bounded: an age floor on this payload would still let an administrator name a date only its subject may give."""
-
-        junction_person = {**person(), "birth_date": A_CHILDS_BIRTHDATE, "einwilligung": dict(JUNCTION_EINWILLIGUNG)}
-
-        with pytest.raises(ValidationError) as failure:
-            FLKontaktpersonPayload.model_validate(junction_person)
-
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "birth_date")]
-
-    def test_the_junction_payload_takes_a_whole_person_without_one(self):
-        """The floor under the case above: required, every save composed before that seat's person answers would be refused."""
-
-        composed = FLKontaktpersonPayload.model_validate({**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)})
-
-        assert "birth_date" not in composed.model_dump(mode="json")
 
     def test_a_stored_contact_with_no_date_still_reads(self):
         """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""
@@ -234,8 +214,16 @@ SHARED_CONTACT_DETAILS = [
 ]
 
 
+def repeated_boxes(block: Mapping[str, Any]) -> tuple[Any, ...]:
+    """The boxes the submission's rule names over this block, none where it passes."""
+
+    refusal = find_repeated_contact_refusal(kontakte=block)
+
+    return () if refusal is None else refusal.fields
+
+
 class TestTheThreeSeatsAreThreePeople:
-    """The two `model_validator`s, so `payload_refused` rather than a rule's code: shape rules about the body, which the model judges."""
+    """The block's one `model_validator`, and `find_repeated_contact_refusal`, which names the boxes a model's rule cannot."""
 
     def test_three_distinct_people_pass(self):
         """The floor under every refusal below."""
@@ -249,6 +237,7 @@ class TestTheThreeSeatsAreThreePeople:
         block = kontakte(**{seat: person(), "trainer_is_also": seat})
 
         assert FLBewerbungKontaktePayload.model_validate(block).trainer_is_also == seat
+        assert repeated_boxes(block) == ()
 
     @pytest.mark.parametrize("seat", ["ansprechperson", "stellvertretung"])
     def test_a_seat_declared_identical_and_filled_differently_is_refused(self, seat: str):
@@ -267,8 +256,17 @@ class TestTheThreeSeatsAreThreePeople:
 
         other = {**person(first_name="Andere", email="andere@example.com", phone="+49 170 9999999"), field: value}
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: other}))
+        assert repeated_boxes(kontakte(**{seat: other})) == (("kontakte", seat, field),)
+
+    def test_one_refusal_names_every_repeated_box(self):
+        """Each box its own press would ask the bot check again for one form."""
+
+        other = person(first_name="Andere", email="QUILLHILDE@example.com", phone="0170 1234567")
+
+        assert repeated_boxes(kontakte(stellvertretung=other)) == (
+            ("kontakte", "stellvertretung", "email"),
+            ("kontakte", "stellvertretung", "phone"),
+        )
 
     def test_an_email_repeated_in_another_case_is_still_one_address(self):
         """A mailbox is addressed the same however the local part is capitalised, so the comparison folds case.
@@ -278,8 +276,7 @@ class TestTheThreeSeatsAreThreePeople:
 
         other = person(first_name="Andere", email="QUILLHILDE@Example.com", phone="+49 170 9999999")
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
+        assert repeated_boxes(kontakte(ansprechperson=other)) == (("kontakte", "ansprechperson", "email"),)
 
     @pytest.mark.parametrize("written", ONE_LINE_TWO_WAYS)
     def test_one_number_written_two_ways_is_still_one_number(self, written: str):
@@ -292,8 +289,7 @@ class TestTheThreeSeatsAreThreePeople:
         trainer = person(phone="0170 1234567")
         other = person(first_name="Andere", phone=written, email="andere@example.com")
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other))
+        assert repeated_boxes(kontakte(trainer=trainer, ansprechperson=other)) == (("kontakte", "ansprechperson", "phone"),)
 
     def test_two_people_on_genuinely_different_lines_still_pass(self):
         """The control for the parametrisation above: a rule refusing every pair would satisfy it."""
@@ -301,7 +297,7 @@ class TestTheThreeSeatsAreThreePeople:
         trainer = person(phone="0170 1234567")
         other = person(first_name="Andere", phone="+49 (0)171 7654321", email="andere@example.com")
 
-        assert FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other)) is not None
+        assert repeated_boxes(kontakte(trainer=trainer, ansprechperson=other)) == ()
 
     def test_the_seat_left_out_of_the_comparison_is_the_declared_one_alone(self):
         """The narrowing is per-seat, not a blanket exemption: the third person is still held distinct from both."""
@@ -312,8 +308,7 @@ class TestTheThreeSeatsAreThreePeople:
             trainer_is_also="ansprechperson",
         )
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(block)
+        assert repeated_boxes(block) == (("kontakte", "stellvertretung", "email"),)
 
 
 class TestWhatTheServerComposes:
@@ -676,7 +671,7 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "confirmation_deadline": confirmation_deadline_from(today=TODAY),
         # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
         "confirmations": {
-            seat: {**entry, "delivery": None, "expired": False}
+            seat: {**entry, "delivery": None, "state": "valid"}
             for seat, entry in minted_confirmations(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
         },
         **overrides,

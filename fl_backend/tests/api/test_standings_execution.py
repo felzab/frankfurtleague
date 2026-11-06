@@ -8,7 +8,7 @@ from pymongo.database import Database
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
-from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistikScope
+from app.api.teams.schemas import FLTeamStatistikScope
 from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
@@ -164,8 +164,7 @@ class TestTheTwoDerivationsAgree:
     @pytest.mark.db
     @pytest.mark.parametrize("scope", ["gruppenphase", "total"])
     def test_the_figures_match_the_pipelines_over_the_same_spiele(self, seeded: Database, scope: FLTeamStatistikScope):
-        filters = FLTeamsFilterParams(saison_id=SAISON_ID, statistik_scope=scope)
-        rows = list(seeded[Collection.TEAMS].aggregate(build_team_pipeline(filters=filters, rules=RULES)))
+        rows = list(seeded[Collection.TEAMS].aggregate(build_team_pipeline(saison_id=SAISON_ID, rules=RULES, statistik_scope=scope)))
 
         derived = build_statistik_by_team(season_in_scope(scope), RULES)
 

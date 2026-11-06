@@ -401,9 +401,12 @@ be dismissed, its search and filters then reading the newest rows alone. Answeri
 deliberate choice over refusing past a threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
 them the power to decide when the page stops working.
 
-**What truncation costs is the oldest rows, which is where applications submitted before a flood sit.** The list is
-newest first, so what a cut-short answer keeps is the newest rows, and the page offers no way to the others: its
-search and its filters narrow the rows it holds. A marked Dublette keeps its mark, the collision being decided on the
+**What truncation costs is the oldest unconfirmed rows, which is where applications submitted before a flood sit.** The
+list is newest first, so a cut-short answer keeps the newest rows, and past them every application with a confirmed
+seat, read apart because a flood's seats never confirm
+(`fl_backend/app/api/bewerbungen/services.py :: build_confirmed_seat_filter`). The Sammel-Zusage takes complete
+applications alone, so a cut costs it nothing. The page offers no way to the other rows: its filters narrow the rows
+it holds. A marked Dublette keeps its mark, the collision being decided on the
 server over every open application of the season, never over the rows served
 (`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), but its partner is not always among the
 rows. Unconfirmed rows clear by themselves: the sweep deletes an application a day after its earliest outstanding

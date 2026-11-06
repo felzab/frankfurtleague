@@ -30,7 +30,7 @@ async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection:
         projection={"first_name": 1, "last_name": 1, "einwilligung": 1},
     )
 
-    # Redacted HERE and whole on the admin echo: this path is base-tier and answers any id it is
+    # Redacted HERE and whole on the admin read: this path is base-tier and answers any id it is
     # handed, and an id is no secret -- every administrator's page and link carries one.
     served = public_person(
         first_name=spieler_raw.get("first_name"),

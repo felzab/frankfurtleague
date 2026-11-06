@@ -260,14 +260,14 @@ class FLBewerbungLinkData(BaseModel):
 
 
 class FLBewerbungPerson(BaseModel):
-    """Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats."""
+    """Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats."""
 
     first_name: str | None
     rollen: list[FLKontaktRolle] = Field(min_length=1)
 
 
 class FLBewerbungReceivedData(BaseModel):
-    """The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer."""
+    """The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer."""
 
     kind: Literal["bewerbung_received"]
     saison_id: str
@@ -303,7 +303,7 @@ class FLBewerbungAbsageData(BaseModel):
 
 
 class FLBewerbungErasureData(BaseModel):
-    """The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write."""
+    """The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write."""
 
     kind: Literal["bewerbung_erasure"]
     saison_id: str
@@ -312,7 +312,7 @@ class FLBewerbungErasureData(BaseModel):
 
 
 class FLBewerbungObjectionData(BaseModel):
-    """A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too."""
+    """A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too."""
 
     kind: Literal["bewerbung_objection"]
     saison_id: str

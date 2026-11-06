@@ -17,14 +17,14 @@ from app.api.invitations.services import (
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
 from app.api.sperrliste.services import compose_barred_until_saison_id
-from app.api.teams.admin_router import delete_invitation, get_invitation, post_invitation, post_invitation_dispatch
+from app.api.teams.admin_router import delete_invitation, get_team_saison_admin, post_invitation, post_invitation_dispatch
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.tokens import hash_token
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
+from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HeldCollection
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
@@ -171,13 +171,24 @@ async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
 
 
 async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
-    return await get_invitation(
+    """The team editor's read, whose `link` serves the live invitation."""
+
+    return await get_team_saison_admin(
         team_id=team_id,
         saison_id=SAISON_ID,
-        invitations_collection=database[Collection.INVITATIONS],
+        teams_collection=database[Collection.TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        invitations_collection=database[Collection.INVITATIONS],
+        address_changes_collection=database[Collection.ADDRESS_CHANGES],
+        grants_collection=database[Collection.GRANTS],
+        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
+        today=TODAY,
+        operator=ADMIN,
+        auth_time=0,
     )
 
 
@@ -508,14 +519,15 @@ class TestTheStateRead:
         """The grants list's rule on every admin read: no barred address is served in plain."""
 
         async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.TEAMS].insert_one(team_document(TWO_SEATS, TEAM_NAMES[TWO_SEATS], "ZWE"))
             await mint(database, TWO_SEATS)
             if barred:
                 await database[Collection.BAN_LIST].insert_one(
                     ban_document(ADMIN, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
                 )
-            state = await read_state(database, TWO_SEATS)
+            link = (await read_state(database, TWO_SEATS)).link
 
-            return state.invitation and (state.invitation.created_by, state.invitation.created_by_barred), state.model_dump_json()
+            return link.invitation and (link.invitation.created_by, link.invitation.created_by_barred), link.model_dump_json()
 
         served, rendered = on_a_league(mongo_replica_set_url, body)
 

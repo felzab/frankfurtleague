@@ -43,15 +43,15 @@ const SaveTeam = z.object({
 /**
  * Saves the team editor's one record, the club and its row of the season, in one transaction, answering the sum the
  * next save sends. The write replaces both whole, so every field left alone is sent as stored, read again here. A club
- * or a row moved since the editor read them is refused as stale, a Kürzel another club holds on its box, and a group
- * filled or drawn since the page's read is the stale page it is.
+ * or a row moved since the editor read them is refused as stale, a Kürzel another club holds and a colour another row
+ * holds on their boxes, and a group filled or drawn since the page's read is the stale page it is.
  */
 export const saveTeam = action({
   lane: "admin",
   name: "saveTeam",
   input: SaveTeam,
-  ownWords: ["duplicate_key", "saison_past"],
-  paths: { shorthand: "changes.shorthand" },
+  ownWords: ["duplicate_key", "saison_past", "trikot_farbe_taken"],
+  paths: { shorthand: "changes.shorthand", trikot_farbe: "changes.trikot_farbe" },
   examples: {
     "changes.shorthand": COPY.team.shorthandExample,
     "changes.plz": COPY.admin.spielort.plzExample,

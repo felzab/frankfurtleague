@@ -37,7 +37,7 @@ from app.api.invitations.services import compose_invitation
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
-from app.api.teams.admin_router import get_team_saisons
+from app.api.teams.admin_router import get_team_saison_admin
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -1302,10 +1302,8 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
                 denied = {Code.OWN_ADDRESS: "own_address", Code.ADMIN_ADDRESS: "admin_address"}[refused.error_code]
 
             referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
-            teams = await call(get_team_saisons, database, client, today=TODAY, operator=reader)
-            [seats] = [
-                row.address_change for team in teams.teams for row in team.memberships if row.saison_id == SAISON_ID and team.id == TEAM_OID
-            ]
+            team = await call(get_team_saison_admin, database, client, team_id=TEAM_OID, saison_id=SAISON_ID, today=TODAY, operator=reader)
+            seats = team.membership.address_change
             reveal = await call(get_erasure_view, database, client, view_data=FLErasureAddressPayload(email=NEW_EMAIL), operator=reader)
             served = {
                 "referee": (referee.address_change_id, referee.address_change_viewable_denied),
@@ -1966,6 +1964,8 @@ class TestWhatTheEffectLeavesTheLoeschung:
             return call(get_confirmation_view, database, client, view_data=payload, today=TODAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # The registration's club stands in the season: a club holding no row takes no answer from any link.
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX"))
             before = await view(database, client)
             await confirmed_and_moved(database, client)
             return before, await refused_code(view(database, client))

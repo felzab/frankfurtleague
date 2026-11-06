@@ -6,10 +6,11 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import find_already_entered_refusal
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
 from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.teams.schemas import FLTabelle, FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.schemas import FLTabelle, FLTeamListAdapter
 from app.api.teams.services import (
     build_tabelle,
     build_team_pipeline,
@@ -19,6 +20,7 @@ from app.api.teams.services import (
     find_entry_refusal,
     find_gruppe_move_refusal,
     find_shorthand_refusal,
+    find_trikot_farbe_refusal,
 )
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -38,6 +40,35 @@ from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLTrikotFarbe
+
+
+async def refuse_a_taken_colour(
+    *,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    saison_id: str,
+    trikot_farbe: FLTrikotFarbe | None,
+    # The row the write saves, whose own colour is no other's; `None` for an entry.
+    own_id: Any,
+    # REQUIRED, for `refuse_a_full_gruppe`'s reason: the anchor closes the race.
+    session: AsyncClientSession,
+) -> None:
+    """Refuse `trikot_farbe_taken`: another row of the season holds this colour, a club that left it among them.
+
+    A row that left keeps its colour until an administrator clears it (`app/api/bewerbungen/services.py ::
+    build_form_pipeline`). No colour is free for any number of rows. Reached from two packages, as the capacity rule is.
+    """
+
+    if trikot_farbe is None:
+        return
+
+    # The capacity rule's anchor: a count is a read, so two writes naming one colour pass unless they meet in one write set.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+    other_rows = {} if own_id is None else {"_id": {"$ne": own_id}}
+    held = await saison_teams_collection.count_documents(
+        {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, limit=1, session=session
+    )
+    refuse(find_trikot_farbe_refusal(taken=held > 0))
 
 
 async def refuse_a_full_gruppe(
@@ -126,7 +157,7 @@ async def enter_a_club(
     gruppe: FLGruppenNames,
     trikot_farbe: FLTrikotFarbe | None,
     session: AsyncClientSession,
-) -> Mapping[str, Any]:
+) -> None:
     """Judge this club's entry into the season and write its row, in the caller's transaction; everything judged is read in-session."""
 
     # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than inserting
@@ -137,6 +168,11 @@ async def enter_a_club(
     # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another group, so nobody should
     # be handed a capacity figure to act on first.
     refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+
+    # A club a dialog offered and an acceptance entered since: by this code, ahead of the junction's unique index, which
+    # answers only a race.
+    entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": team_id}, limit=1, session=session)
+    refuse(find_already_entered_refusal(entered=entered > 0))
 
     await refuse_a_full_gruppe(
         saison_teams_collection=saison_teams_collection,
@@ -149,13 +185,19 @@ async def enter_a_club(
         rules=FLSaisonRules.model_validate(saison_raw["rules"]),
         session=session,
     )
+    await refuse_a_taken_colour(
+        saison_teams_collection=saison_teams_collection,
+        saisons_collection=saisons_collection,
+        saison_id=saison_id,
+        trikot_farbe=trikot_farbe,
+        own_id=None,
+        session=session,
+    )
 
     document = compose_saison_team(
         saison_id=saison_id, team_id=team_id, gruppe=gruppe, trikot_farbe=trikot_farbe, name=team_raw["name"], shorthand=team_raw["shorthand"]
     )
     await post_one_to_db(collection=saison_teams_collection, document=document, session=session)
-
-    return document
 
 
 async def refuse_a_gruppe_move(
@@ -194,10 +236,11 @@ async def write_the_club(
     saisons_collection: AsyncCollection,
     team_id: Any,
     club: Mapping[str, Any],
-    expected_version: int | None,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
     """Write a club and rewrite the name and shorthand its unfinished seasons' rows carry; the stored club.
+
+    The caller judged its version, on reads this transaction's writes conflict with.
 
     Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
     rewrites; a `past` season keeps the name it was played under.
@@ -209,7 +252,7 @@ async def write_the_club(
         collection=teams_collection,
         db_filter={"_id": team_id},
         update={"$set": dict(club)},
-        expected_version=expected_version,
+        expected_version=None,
         session=session,
         return_document=ReturnDocument.AFTER,
     )
@@ -248,7 +291,7 @@ async def pull_tabelle(
     teams_raw, spiele_raw = await asyncio.gather(
         aggregate_many_from_db(
             collection=teams_collection,
-            pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=rules),
+            pipeline=build_team_pipeline(saison_id=saison_id, rules=rules),
             collation=GERMAN_COLLATION,
         ),
         pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"}),
@@ -257,20 +300,18 @@ async def pull_tabelle(
     return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)
 
 
-async def _pull_team_field(
-    *, teams_collection: ReadCollection, team_ids: Iterable[Any], field: str, session: AsyncClientSession | None
-) -> dict[Any, str]:
-    """One field of these clubs' `teams` documents, one read and no command for none; a club no document holds is absent."""
+async def _pull_team_fields(
+    *, teams_collection: ReadCollection, team_ids: Iterable[Any], fields: list[str], session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """These fields of these clubs' `teams` documents, one read and no command for none; a club no document holds is absent."""
 
     wanted = list({team_id for team_id in team_ids if team_id is not None})
     if not wanted:
-        return {}
+        return []
 
-    teams = await pull_many_from_db(
-        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=[field], limit=LIST_LIMIT_MAX, session=session
+    return await pull_many_from_db(
+        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=fields, limit=LIST_LIMIT_MAX, session=session
     )
-
-    return {team["_id"]: str(team.get(field) or "") for team in teams}
 
 
 async def pull_team_names(
@@ -278,13 +319,17 @@ async def pull_team_names(
 ) -> dict[Any, str]:
     """These clubs' names off their `teams` documents."""
 
-    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="name", session=session)
+    teams = await _pull_team_fields(teams_collection=teams_collection, team_ids=team_ids, fields=["name"], session=session)
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}
 
 
-async def pull_team_codes(*, teams_collection: ReadCollection, team_ids: Iterable[Any]) -> dict[Any, str]:
-    """These clubs' codes off their `teams` documents."""
+async def pull_team_names_and_codes(*, teams_collection: ReadCollection, team_ids: Iterable[Any]) -> tuple[dict[Any, str], dict[Any, str]]:
+    """These clubs' names and their codes off their `teams` documents, in one read."""
 
-    return await _pull_team_field(teams_collection=teams_collection, team_ids=team_ids, field="shorthand", session=None)
+    teams = await _pull_team_fields(teams_collection=teams_collection, team_ids=team_ids, fields=["name", "shorthand"], session=None)
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}, {team["_id"]: str(team.get("shorthand") or "") for team in teams}
 
 
 async def void_moved_seats(

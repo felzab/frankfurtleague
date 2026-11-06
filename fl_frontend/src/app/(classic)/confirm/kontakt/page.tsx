@@ -69,8 +69,8 @@ async function readView(token: string): Promise<FLBewerbungEinwilligungViewRespo
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
 function alreadyDone(view: FLBewerbungEinwilligungViewResponse, kind: "confirmed" | "objected"): MailedState {
   // The view serves the answer's day on these two states alone; one missing is a backend older than this page.
-  if (view.answered_on === null) return INVALID;
-  const day = dayOf(view.answered_on);
+  if (view.answered_at === null) return INVALID;
+  const day = dayOf(view.answered_at);
   const { title } = END[kind];
   return kind === "confirmed"
     ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }

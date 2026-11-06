@@ -97,6 +97,9 @@ export const SERVER_COPY = catalogue({
     state_ergebnis_on_a_non_event: COPY.shared.field.without(COPY.shared.tore),
     // A rule of their own rather than a unique index: a seat of an application or a season row, and a squad's one Kapitän per team.
     bewerbung_kontakt_email_taken: COPY.shared.field.taken,
+    bewerbung_kontakt_phone_taken: COPY.shared.field.taken,
+    bewerbung_kontakt_repeated: COPY.shared.field.taken,
+    trikot_farbe_taken: COPY.shared.field.taken,
     kontakt_email_taken: COPY.shared.field.taken,
     kontakt_phone_taken: COPY.shared.field.taken,
     kader_rolle_taken: COPY.shared.field.taken,

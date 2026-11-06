@@ -2,7 +2,7 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, replace
 from http import HTTPStatus
-from typing import Any, Final, NamedTuple, cast
+from typing import Any, Final, NamedTuple
 
 from app.api.bewerbungen.services import days_after, group_seats_by_mailbox, seat_named
 from app.api.outbox.schemas import (
@@ -36,7 +36,6 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
 )
-from app.api.teams.schemas import FLAustritt
 from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -949,7 +948,7 @@ def kontakt_address(*, kontakte: Any, seat: str) -> str | None:
     return email if isinstance(email, str) and email else None
 
 
-def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
+def link_groups(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) -> list[list[FLKontaktRolle]]:
     """The seats as links: one per seat, a mirrored Trainer sharing the link of the seat it holds too where both are among `seats`.
 
     Two seats one press answers are one thing to do, as one address is one mail
@@ -960,7 +959,7 @@ def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRo
     groups: dict[str, list[FLKontaktRolle]] = {}
     for seat in seats:
         anchor = str(zugleich) if seat == "trainer" and zugleich in seats else seat
-        groups.setdefault(anchor, []).append(cast(FLKontaktRolle, seat))
+        groups.setdefault(anchor, []).append(seat)
 
     return list(groups.values())
 
@@ -1194,12 +1193,6 @@ def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, dat
 
 
 # --- The NOTICE an Austritt owes each opponent, at the exit's own write: a fixture past the asking window holds no row to close.
-
-
-def exit_day_to_tell(*, stored: Mapping[str, Any] | None, proposed: FLAustritt) -> str | None:
-    """The day this write's exit tells its opponents of, or `None` where it records no new day: a corrected route or reason tells nobody."""
-
-    return None if stored is not None and stored.get("date") == proposed.date else proposed.date
 
 
 def build_austritt_spiele_filter(*, saison_id: str, team_id: Any, exit_day: str) -> dict[str, Any]:

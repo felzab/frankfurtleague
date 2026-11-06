@@ -132,6 +132,29 @@ class TestRecordingAnExitFromTheSeason:
 
         assert on_a_season(mongo_replica_set_url, body)["austritt"] == EXIT
 
+    @pytest.mark.parametrize(
+        "second",
+        [
+            pytest.param(EXIT, id="the same exit pressed again"),
+            pytest.param({"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-05-01"}, id="another exit"),
+        ],
+    )
+    def test_a_write_on_a_row_whose_exit_stands_is_a_stale_page_and_changes_nothing(self, mongo_replica_set_url: str, second: dict[str, Any]):
+        """Told opponents and closed confirmations stay told and closed, so no later press may rewrite the record they answered."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await call_put(database, dict(EXIT))
+            before = await stored_row(database)
+            with pytest.raises(APIError) as refused:
+                await call_put(database, second)
+
+            return refused.value.error_code, before, await stored_row(database)
+
+        code, before, after = on_a_season(mongo_replica_set_url, body)
+
+        assert code == Code.VERSION_STALE
+        assert after == before, "a refused write changed the row"
+
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`saison_past`: an exit recorded on a finished season would move its table and podium after the fact."""
 

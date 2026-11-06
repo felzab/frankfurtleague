@@ -619,10 +619,9 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
 # merit, and a test asserting IXSCAN there would pass for the wrong reason.
 ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
 
-# A triage tab's read, the one `bewerbungen_saison_id_status_queue` serves: one season, its status term
-# an `$in` as `build_bewerbungen_status_term` composes it.
+# A triage tab's read, the one `bewerbungen_saison_id_status_queue` serves: one season, one status.
 BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
-    {"saison_id": SAISON_ID, "status": {"$in": ["submitted"]}},
+    {"saison_id": SAISON_ID, "status": "submitted"},
 ]
 
 # One status of one season counted, which the index's two leading keys answer.
@@ -754,13 +753,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
         )
         planned = []
         for db_filter, order in index_reads(BEWERBUNGEN_QUEUE_FILTERS):
-            explained = (
-                await database["bewerbungen"]
-                .find(db_filter)
-                .sort(build_bewerbungen_sort(sort_by="submitted_at", order=order))
-                .limit(50)
-                .explain()
-            )
+            explained = await database["bewerbungen"].find(db_filter).sort(build_bewerbungen_sort(order=order)).limit(50).explain()
             planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
         return planned
 

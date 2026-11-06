@@ -6,6 +6,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.admin_router import get_registrierungen_admin
+from app.api.registrierungen.schemas import FLRegistrierungenAdminFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
@@ -97,12 +98,12 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def read(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Any:
+async def read(database: AsyncDatabase, saison_id: str = SAISON_ID, limit: int = 1024) -> Any:
     return await get_registrierungen_admin(
-        saison_id=saison_id,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        filters=FLRegistrierungenAdminFilterParams(saison_id=saison_id, limit=limit),
     )
 
 
@@ -121,6 +122,16 @@ class TestWhetherThePupilConfirmed:
 
 
 class TestWhatTheReadServes:
+    def test_a_list_past_the_cap_says_it_is_cut(self, mongo_replica_set_url: str):
+        """Rows a passed-on link can write: served short rather than a 500, and saying so."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            return await read(database, limit=1)
+
+        answered = on_a_league(mongo_replica_set_url, body)
+
+        assert (len(answered.registrierungen), answered.complete) == (1, False)
+
     def test_no_token_hash_and_no_address_reaches_the_answer(self, mongo_replica_set_url: str):
         """The list shows neither, and what the read projects is what crosses the wire."""
 

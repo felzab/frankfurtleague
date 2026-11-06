@@ -139,6 +139,12 @@ def on_a_league(
                     team_document(OTHER_TEAM_OID, OTHER_TEAM_NAME, f"{OTHER_SCHOOL}-Gymnasium"),
                 ]
             )
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    documents.saison_team_document(SAISON_ID, TEAM_OID, TEAM_NAME, "ADX"),
+                    documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, OTHER_TEAM_NAME, "OTX"),
+                ]
+            )
             await database[Collection.REGISTRIERUNGEN].insert_many(
                 registrierungen if registrierungen is not None else [registrierung_document()]
             )
@@ -463,14 +469,20 @@ class TestTheLinkIsSpentByTheStamp:
 
         assert on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.LINK_EXPIRED
 
-    def test_a_departed_clubs_link_reads_over_and_takes_no_answer(self, mongo_replica_set_url: str):
-        """Its club takes no one in, so the pupil's answer would stand on a registration nobody can ever admit."""
+    @pytest.mark.parametrize("route", ["austritt", "replacement"])
+    def test_a_departed_clubs_link_reads_over_and_takes_no_answer(self, mongo_replica_set_url: str, route: str):
+        """Its club takes no one in, so the pupil's answer would stand on a registration nobody can ever admit.
+
+        Either way out: a replacement hands the club's row to another club, so it leaves no record to read, only no row.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": YESTERDAY}
-            await database[Collection.SAISON_TEAMS].insert_one(
-                documents.saison_team_document(SAISON_ID, TEAM_OID, TEAM_NAME, "ADX", austritt=austritt)
-            )
+            club_row = {"saison_id": SAISON_ID, "team_id": TEAM_OID}
+            if route == "austritt":
+                austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": YESTERDAY}
+                await database[Collection.SAISON_TEAMS].update_one(club_row, {"$set": {"austritt": austritt}})
+            else:
+                await database[Collection.SAISON_TEAMS].delete_one(club_row)
             view = await read_view(database, RAW)
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW)

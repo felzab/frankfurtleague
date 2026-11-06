@@ -126,8 +126,10 @@ async def edit(database: AsyncDatabase, spieler_id: ObjectId, *, nummer: str | N
     return FLSaisonSpielerRow.model_validate(await database.saison_spieler.find_one({"spieler_id": spieler_id, "saison_id": SAISON_ID}))
 
 
-async def revive(database: AsyncDatabase, spieler_id: ObjectId) -> Any:
-    return await reactivate_saison_spieler(
+async def revive(database: AsyncDatabase, spieler_id: ObjectId) -> FLSaisonSpielerRow:
+    """The return, answering the row as stored."""
+
+    await reactivate_saison_spieler(
         spieler_id=spieler_id,
         saison_id=SAISON_ID,
         saison_spieler_collection=database.saison_spieler,
@@ -135,6 +137,8 @@ async def revive(database: AsyncDatabase, spieler_id: ObjectId) -> Any:
         saisons_collection=database.saisons,
         db=database.client,
     )
+
+    return FLSaisonSpielerRow.model_validate(await database.saison_spieler.find_one({"spieler_id": spieler_id, "saison_id": SAISON_ID}))
 
 
 async def hand_the_junction_row_over(database: AsyncDatabase, team_id: ObjectId) -> None:

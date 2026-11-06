@@ -72,13 +72,6 @@ class TestTheClubList:
 
         assert RETIRED_CLUB[0] not in answered(seeded_url, FORM).text
 
-    def test_the_list_is_sorted_by_name(self, seeded_url: str):
-        """Seeded out of order, so this proves the sort rather than the insertion order."""
-
-        names = [row["name"] for row in answered(seeded_url, FORM).json()["schulen"]]
-
-        assert names == sorted(names)
-
 
 class TestTheTierTheseReadsAreServedAt:
     """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch."""

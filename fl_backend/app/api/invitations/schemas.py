@@ -64,21 +64,6 @@ class FLInvitationWriteResponse(BaseAPIResponse):
     invitation_id: CustomObjectId
 
 
-# Here rather than in `teams/schemas.py`, whose endpoint answers it: there it would close an import cycle through
-# `bewerbungen/schemas.py`.
-class FLInvitationResponse(BaseAPIResponse):
-    """The team's live link for one season, or nothing, beside the window deciding what it opens."""
-
-    saison_id: CustomNonEmptyString
-    team_id: CustomObjectId
-    # Null where the team holds none: a link is minted on a press, so holding none is the state
-    # every team starts in.
-    invitation: FLInvitationRow | None
-    # Composed here rather than derived by the reader, as `app/api/bewerbungen/schemas.py :: FLBewerbungFormWindow` composes its
-    # own: a link is live and opens nothing the moment the registration window shuts.
-    running: bool
-
-
 class FLInvitationRecipient(BaseModel):
     """One mailbox a link goes to, and the seat it is addressed as."""
 
@@ -118,7 +103,8 @@ class FLTeamLinkState(BaseModel):
     """The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team."""
 
     invitation: FLInvitationRow | None
-    # `FLInvitationResponse.running`'s judgement of the window.
+    # Composed here rather than derived by the reader, as `app/api/bewerbungen/schemas.py :: FLBewerbungFormWindow` composes its
+    # own: a link is live and opens nothing the moment the registration window shuts.
     running: bool
     # Whether the season stands paused: the window can read closed for its dates alone.
     paused: bool

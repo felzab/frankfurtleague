@@ -75,7 +75,6 @@ import type {
   FLInvitationMailPayload,
   FLInvitationMailResponse,
   FLInvitationMintResponse,
-  FLInvitationResponse,
   FLInvitationViewResponse,
   FLInvitationWriteResponse,
   FLKaderResponse,
@@ -138,7 +137,6 @@ import type {
   FLSaisonFrameResponse,
   FLSaisonOverviewResponse,
   FLSaisonsAdminListResponse,
-  FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAnswerResponse,
   FLSaisonTeamsResponse,
@@ -195,7 +193,6 @@ import type {
   FLTeamsAdminListResponse,
   FLTeamSaisonAdminResponse,
   FLTeamSeatsResponse,
-  FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
   FLTokenPayload,
   FLUndrawSpielplanResponse,
@@ -829,11 +826,13 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
  * is answered.
  *
- * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
+ * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
+ * already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number
+ * are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -966,6 +965,7 @@ export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewer
  * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
  * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
  * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
+ * Every application with a confirmed seat is served past the newest rows, which a flood can fill and no flood confirms.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdmin = async (
@@ -1048,6 +1048,7 @@ export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
  * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
  * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
+ * A colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.
  * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */
@@ -1190,8 +1191,9 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
  *
  * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
  * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
- * address another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban
- * list holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
+ * address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
+ * `bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no
+ * seat is a 404.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeat = async (
@@ -2190,9 +2192,10 @@ export const getRegistrierungenGetRegistrierungenAdminUrl = (params: Registrieru
 /**
  * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
  *
- * Read whole, as every list but the Protokoll is, the page narrowing what it holds; a declined row waits out its month
- * and asks nothing of an administrator. `confirmed` says whether the pupil answered their own link. 404 where no season
- * holds that id.
+ * The page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.
+ * `confirmed` says whether the pupil answered their own link. 404 where no season holds that id. Degrades rather than
+ * refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
+ * tripwire would hand them the power to 500 this page, and `complete` reports the cut.
  * @summary One Saison's pending Registrierungen for its list
  */
 export const registrierungenGetRegistrierungenAdmin = async (
@@ -4240,8 +4243,8 @@ export const spielerDeleteSaisonSpieler = async (
   spielerId: string,
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonSpielerResponse> => {
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerDeleteSaisonSpielerUrl(spielerId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielerDeleteSaisonSpielerUrl(spielerId, saisonId), {
     ...options,
     method: "DELETE",
   });
@@ -4326,8 +4329,8 @@ export const spielerReactivateSaisonSpieler = async (
   spielerId: string,
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonSpielerResponse> => {
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerReactivateSaisonSpielerUrl(spielerId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielerReactivateSaisonSpielerUrl(spielerId, saisonId), {
     ...options,
     method: "POST",
   });
@@ -4614,8 +4617,8 @@ export const getTeamsGetTeamsAdminUrl = (params: TeamsGetTeamsAdminParams) => {
  * No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
  * the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
  * retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
- * each group with whether it is full, and `closed` where the season is not `future`, which the entry refuses. 404
- * where no season holds that id.
+ * each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
+ * the colours the season's rows hold. 404 where no season holds that id.
  * @summary One season's Teams list and what its create dialog offers
  */
 export const teamsGetTeamsAdmin = async (
@@ -4623,25 +4626,6 @@ export const teamsGetTeamsAdmin = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLTeamsAdminListResponse> => {
   return adminKeyTransport<FLTeamsAdminListResponse>(getTeamsGetTeamsAdminUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getTeamsGetTeamSaisonsUrl = () => {
-  return `/api/v0/teams/saisons`;
-};
-
-/**
- * Every team, retired ones included, each with every season membership it holds. Sorted by name.
- *
- * Each membership names the live change of each seat's address, which the address tool shows, and per seat why the
- * tool refuses that change this administrator. Each seat's link names what became of the last mail carrying it,
- * `delivery` null where none was ever owed.
- * @summary Every team with its season memberships
- */
-export const teamsGetTeamSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsSaisonsResponse> => {
-  return adminKeyTransport<FLTeamsSaisonsResponse>(getTeamsGetTeamSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -4655,7 +4639,9 @@ export const getTeamsPostTeamEntryUrl = (saisonId: string) => {
  * Enter a club into a `future` season in a group and a colour, founding it first where it is new.
  *
  * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
- * naming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.
+ * naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
+ * `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
+ * season and the group as an entry is.
  * @summary Enter a club into a season, one the league holds or a new one
  */
 export const teamsPostTeamEntry = async (
@@ -4799,7 +4785,8 @@ export const getTeamsGetTeamSaisonAdminUrl = (teamId: string, saisonId: string) 
  * `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
  * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
  * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
- * `entry_gruppe_locked`, and `retire_blocked_by` the season `retire_blocked` refuses over, by each write's own judgement.
+ * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
+ * `retire_blocked` refuses over, by each write's own judgement.
  * `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
  * over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
  * season holds that id.
@@ -4827,7 +4814,8 @@ export const getTeamsPatchTeamSaisonUrl = (teamId: string, saisonId: string) => 
  * part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
  * changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
  * included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
- * `entry_gruppe_full` refuse it. 404 where the club holds no row of the season.
+ * `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
+ * `trikot_farbe`. 404 where the club holds no row of the season.
  * @summary Save the team editor: the club and its row of the season, in one transaction
  */
 export const teamsPatchTeamSaison = async (
@@ -4861,10 +4849,11 @@ export const getTeamsPutAustrittUrl = (teamId: string, saisonId: string) => {
 };
 
 /**
- * Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
+ * Record how a team left the season, once: an exit is never lifted and never replaced.
  *
- * Refused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its
- * `earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+ * Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
+ * `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
+ * the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
  * @summary Record a team's exit from a season
  */
 export const teamsPutAustritt = async (
@@ -4912,32 +4901,6 @@ export const teamsDeleteInvitation = async (
   return adminKeyTransport<FLInvitationWriteResponse>(getTeamsDeleteInvitationUrl(teamId, saisonId), {
     ...options,
     method: "DELETE",
-  });
-};
-
-export const getTeamsGetInvitationUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation`;
-};
-
-/**
- * What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
- *
- * **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
- * of the last mail owed about it — `delivery` null means nobody was ever owed it, which is a state rather than a delivery failure.
- * The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
- *
- * `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
- * the link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.
- * @summary This team's live registration link for a season, and whether it opens anything
- */
-export const teamsGetInvitation = async (
-  teamId: string,
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLInvitationResponse> => {
-  return adminKeyTransport<FLInvitationResponse>(getTeamsGetInvitationUrl(teamId, saisonId), {
-    ...options,
-    method: "GET",
   });
 };
 
