@@ -18,7 +18,7 @@ from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, saison_status_lookup
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
-from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELF_REFEREE_ORDER, build_self_referee_filter
+from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
@@ -278,7 +278,7 @@ def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_referee_filter(identifier)},
-        {"$project": {"name": 1, "schule": 1, "kontakt": 1, "birth_date": 1, "inactive_since": 1, EINWILLIGUNG_FELD: 1}},
+        {"$project": {"name": 1, "schule": 1, "kontakt": 1, "birth_date": 1, "inactive_since": 1, EINWILLIGUNG_FIELD: 1}},
     ]
 
 
