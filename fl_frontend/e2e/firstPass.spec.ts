@@ -20,8 +20,9 @@ test("an application whose 14 days lapsed is deleted, and its Ansprechperson tol
   await mailedMessage("ansprechperson.laerche@example.com", SUBJECT.deleted, SINCE_THE_START);
 
   await page.goto(`/admin/saisons/${SAISON}/bewerbungen`);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Bewerbungen" })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("link", { name: "Lärche" })).toHaveCount(0);
+  // A row the pass leaves first: the list's placeholder holds no Lärche either.
+  await expect(page.getByRole("main").getByRole("link", { name: "Espe", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Lärche", exact: true })).toHaveCount(0);
 });
 
 test("the referee booked on a departed club's fixture is told", async () => {
