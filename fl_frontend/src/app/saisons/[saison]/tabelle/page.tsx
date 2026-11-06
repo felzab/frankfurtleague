@@ -41,7 +41,7 @@ export default function TabellePage({ params }: Props) {
 const { column } = SERVER_COPY.season;
 
 const COLUMNS: TableProps["columns"] = [
-  { key: "spiele", label: column.spiele, figures: true, width: "pair" },
+  { key: "spiele", label: column.spiele, figures: true, width: "marked" },
   { key: "siege", label: column.siege, figures: true, hideOnPhone: true, width: "count" },
   { key: "unentschieden", label: column.unentschieden, figures: true, hideOnPhone: true, width: "count" },
   { key: "niederlagen", label: column.niederlagen, figures: true, hideOnPhone: true, width: "count" },
