@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 import { act } from "@testing-library/react";
-import { Form } from "react-aria-components/Form";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -16,6 +15,7 @@ import { ComboBox } from "./ComboBox";
 import { DateField } from "./DateField";
 import { EditorPage } from "./EditorPage";
 import { FieldRows } from "./FieldRows";
+import { HeldForm } from "./HeldForm";
 import { LeaveGuardProvider, useLeaveGuard } from "./LeaveGuard";
 import { RadioGroup } from "./RadioGroup";
 import { SearchField } from "./SearchField";
@@ -24,7 +24,7 @@ import { Switch } from "./Switch";
 import { TextField } from "./TextField";
 import { TimeField } from "./TimeField";
 import { useEditor } from "./useEditor";
-import { formSend } from "./useFormAction";
+import { useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { ReactElement } from "react";
@@ -533,7 +533,7 @@ const replayed = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)
 function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
   const [email, setEmail] = useState("");
   return (
-    <Form {...formSend((formData) => send(formData.get("email")))}>
+    <HeldForm onSend={(formData) => send(formData.get("email"))}>
       <TextField
         label={WORD}
         name="email"
@@ -542,7 +542,7 @@ function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
         value={email}
         onChange={setEmail}
       />
-    </Form>
+    </HeldForm>
   );
 }
 
@@ -655,17 +655,57 @@ describe("a press held across hydration over a field edited before it", () => {
     container.remove();
   });
 
+  // React takes the held press's function at the hydrating commit, so run through it the replay would miss the first send.
+  it("sends one code for a press landing between the hydrating commit and the replay of a held one", async () => {
+    const mailed = Promise.withResolvers<ActionAnswer>();
+    const mail = vi.fn((_: string) => mailed.promise);
+    function Address() {
+      const [value, setValue] = useState("");
+      const send = useFormAction(mail, { resetOnLeave: false });
+      useLayoutEffect(() => queueMicrotask(() => press(document.body)), []);
+      return (
+        <SignInPage
+          view="address"
+          title={COPY.signIn.title}
+          row={null}
+          address={{ label: WORD, value, onChange: setValue }}
+          check={null}
+          send={{
+            label: COPY.signIn.sendCode,
+            onPress: (address) => {
+              if (!send.isPending) send.submit(address);
+            },
+          }}
+          or={COPY.signIn.or}
+          passkey={{ label: COPY.signIn.withPasskey, onPress: () => undefined }}
+        />
+      );
+    }
+    const container = drawn(<Address />, (root) => {
+      typeInto(root, "lena@example.com");
+      press(root);
+    });
+
+    await hydrated(container, <Address />);
+    await replayed();
+
+    // `useActionState` runs a second send once the first has answered.
+    await act(async () => mailed.resolve({ ok: true, value: undefined }));
+    expect(mail).toHaveBeenCalledExactlyOnceWith("lena@example.com");
+    container.remove();
+  });
+
   it("keeps an uncontrolled field's text through the same press", async () => {
     const send = vi.fn();
     const page = (
-      <Form {...formSend((formData) => void send(formData.get("name")))}>
+      <HeldForm onSend={(formData) => void send(formData.get("name"))}>
         <TextField
           label={WORD}
           name="name"
           width="W3"
           kind="text"
         />
-      </Form>
+      </HeldForm>
     );
     const container = drawn(page, (root) => {
       typeInto(root, "Lena");

@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 
-import { Form } from "react-aria-components/Form";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
@@ -11,8 +9,8 @@ import { Card } from "./Card";
 import { ActRow } from "./Dialog";
 import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
+import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
-import { formSend } from "./useFormAction";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
@@ -49,11 +47,11 @@ export function StepCard({
       title={title}
       line={line}
       body="fields">
-      <Form
+      <HeldForm
         className="grid gap-4"
         validationErrors={fieldErrors}
         onInvalid={() => setBlocked(true)}
-        {...formSend(onNext)}>
+        onSend={onNext}>
         <Facts facts={facts} />
         <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>
@@ -73,7 +71,7 @@ export function StepCard({
             onPress={() => setBlocked(false)}
           />
         </ActRow>
-      </Form>
+      </HeldForm>
     </Card>
   );
 }

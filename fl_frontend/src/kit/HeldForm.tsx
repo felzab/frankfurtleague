@@ -1,0 +1,49 @@
+"use client";
+
+import { useRef } from "react";
+
+import { Form } from "react-aria-components/Form";
+import { useObjectRef } from "react-aria/useObjectRef";
+
+import type { ComponentProps, FormEvent } from "react";
+
+/** React Aria's `Form` types no capture handler, and hands the DOM what it is spread. */
+const REFUSED_RESET = { onResetCapture: (event: FormEvent<HTMLFormElement>) => event.preventDefault() };
+
+/**
+ * A server-drawn form, handing `onSend` the fields as the press left them. A hydrated press stays on `onSubmit`, whose
+ * `preventDefault` keeps it out of `action`.
+ *
+ * A press before hydration is the browser's own unless held, a GET carrying every field in the URL. A function `action`
+ * has React's server output keep the press and replay it once the form hydrates, after each field has replayed its
+ * change (`./useEarlyEdit.ts`). React takes that function at the hydrating commit, so it knows neither those changes nor
+ * a send a press right after the commit began, and only presses again, onto the current render's `onSubmit`. It does so
+ * in a microtask, out of the transition React runs it in, so a busy state renders as a person's press renders it. React
+ * replays every press a slow page gathered in one task, ahead of any render, where a busy guard knows none of them, so
+ * only the first presses again. React resets a form after such a press, which would take each field back to its first
+ * value, so the reset is refused in the capture phase, ahead of React Aria's listener on the form, which heeds it.
+ */
+export function HeldForm({
+  ref,
+  onSend,
+  ...form
+}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit"> & { onSend: (formData: FormData) => void }) {
+  const element = useObjectRef(ref);
+  const isHeld = useRef(false);
+  return (
+    <Form
+      {...form}
+      {...REFUSED_RESET}
+      ref={element}
+      action={() => {
+        if (isHeld.current) return;
+        isHeld.current = true;
+        queueMicrotask(() => element.current?.requestSubmit());
+      }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSend(new FormData(event.currentTarget));
+      }}
+    />
+  );
+}
