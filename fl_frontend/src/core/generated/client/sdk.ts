@@ -2748,8 +2748,8 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
  * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
  * being a deliberate act rather than a bulk one.
  *
- * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an
- * empty list.
+ * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
+ * counts.
  *
  * **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
  * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
