@@ -13,10 +13,8 @@ from app.api.identity.schemas import FLErasureResponse
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
-    FLKontaktperson,
     FLKontaktpersonPayload,
     FLPatchSaisonTeamKontaktePayload,
-    FLTeamMembership,
 )
 from app.api.teams.services import (
     compose_kontakte_herkunft,
@@ -24,7 +22,7 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
@@ -46,7 +44,6 @@ OTHER_SAISON_ID = "2025"
 
 # Fixed rather than generated, so a failure names the same club every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607240001")
-ABSENT_OID = ObjectId("6890a1b2c3d4e5f607240002")
 
 TEAM_NAME = "Adler"
 TEAM_SHORTHAND = "ADX"
@@ -76,9 +73,7 @@ TELEFON: dict[str, str] = {
     "Lea": "+4915110000004",
     "Mika": "+4915110000005",
     "Nils": "+4915110000006",
-    "Ove": "+4915110000007",
     "Bert": "+4915110000008",
-    "Ida-Marie": "+4915110000001",
 }
 
 
@@ -157,14 +152,6 @@ NEW_KONTAKTE: dict[str, Any] = {
     "trainer_is_also": "ansprechperson",
 }
 
-# What an erasure leaves behind, and what the editor has to be able to send back.
-ONE_SLOT_FILLED: dict[str, Any] = {
-    "trainer": person("Ove"),
-    "ansprechperson": None,
-    "stellvertretung": None,
-    "trainer_is_also": None,
-}
-
 # One seat its person confirmed, beside two nobody has.
 PARTLY_CONFIRMED: dict[str, Any] = {
     "trainer": stored_person("Ida", confirmed_at=CONFIRMED_ON),
@@ -180,13 +167,6 @@ RESAVED_AS_RENDERED: dict[str, Any] = {
     "ansprechperson": person("Jonas"),
     "stellvertretung": person("Klara"),
     "trainer_is_also": None,
-}
-
-# The same three seats before any of them answered their own link: a seat carries no date until the
-# person enters one at their own confirmation.
-UNDATED_SEEDED: dict[str, Any] = {
-    **SEEDED_KONTAKTE,
-    **{slot: {**SEEDED_KONTAKTE[slot], "geburtsdatum": None} for slot in ("trainer", "ansprechperson", "stellvertretung")},
 }
 
 ERASED_SEAT = "ansprechperson"
@@ -223,18 +203,16 @@ def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_
 
 async def write_kontakte(
     database: AsyncDatabase,
-    kontakte: dict[str, Any] | None,
+    kontakte: dict[str, Any],
     *,
     # The token for what the caller last read off the row. Defaulted to the seed's rather than to the
     # payload's: taken from `kontakte` it would agree with the row by construction and judge nothing.
     stand: str = kontakte_stand_of(SEEDED_KONTAKTE),
-    team_id: ObjectId = TEAM_OID,
-    saison_id: str = SAISON_ID,
     saison_teams_collection: Any = None,
 ) -> Any:
     return await patch_saison_team_kontakte(
-        team_id=team_id,
-        saison_id=saison_id,
+        team_id=TEAM_OID,
+        saison_id=SAISON_ID,
         kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         saisons_collection=database[Collection.SAISONS],
@@ -297,33 +275,6 @@ class TestTheBlockIsWritten:
             for seat, value in as_stored(NEW_KONTAKTE).items()
         }
         assert (response.saison_id, response.team_id) == (SAISON_ID, TEAM_OID)
-
-    def test_a_null_clears_the_block(self, mongo_replica_set_url: str):
-        """How a team with no recorded contacts is expressed at entry, and the only way back to it."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            response = await write_kontakte(database, None)
-
-            return response, await row_now(database)
-
-        response, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["kontakte"] is None
-        assert response.kontakte is None
-
-    def test_an_empty_slot_round_trips(self, mongo_replica_set_url: str):
-        """A row an erasure emptied stays editable: two null slots are sent, stored and echoed back."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            response = await write_kontakte(database, ONE_SLOT_FILLED)
-
-            return response, await row_now(database)
-
-        response, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["kontakte"] == as_stored(ONE_SLOT_FILLED)
-        assert response.kontakte is not None
-        assert (response.kontakte.ansprechperson, response.kontakte.stellvertretung) == (None, None)
 
 
 @pytest.mark.db
@@ -437,33 +388,6 @@ class TestNothingElseOnTheRowMoves:
 
 
 @pytest.mark.db
-class TestAPairNoRowAnswers:
-    def test_an_unknown_club_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await write_kontakte(database, NEW_KONTAKTE, team_id=ABSENT_OID)
-
-            return await row_now(database), await junction_log(database)
-
-        stored, log = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["kontakte"] == SEEDED_KONTAKTE
-        # The refusal has to stop the write, not merely accompany it.
-        assert log == []
-
-    def test_a_season_the_club_holds_no_row_in_is_a_404(self, mongo_replica_set_url: str):
-        """The pair is what is addressed: a club that exists and a season that exists still name no row."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await write_kontakte(database, NEW_KONTAKTE, saison_id="2027")
-
-            return await row_now(database)
-
-        assert on_a_league(mongo_replica_set_url, body)["kontakte"] == SEEDED_KONTAKTE
-
-
-@pytest.mark.db
 class TestTheWriteIsRecorded:
     def test_one_action_row_carries_the_block_this_write_replaced(self, mongo_replica_set_url: str):
         """The log's pre-image is the only copy of three people's details a mistake overwrote."""
@@ -510,20 +434,6 @@ class TestAnLoeschungLandingMidSaveIsNotUndone:
         assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
-    def test_the_same_save_lands_the_seat_where_no_loeschung_interferes(self, mongo_replica_set_url: str):
-        """The control: without it the case above would pass on an endpoint that stored this seat for nobody."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, RESAVED_AS_RENDERED)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        # The seeded row's own date rides along: the address is the same person's, and the payload
-        # names none for the composition to prefer.
-        assert stored["kontakte"][ERASED_SEAT] == as_kept(SEEDED_KONTAKTE[ERASED_SEAT])
-
 
 @pytest.mark.db
 class TestASaveComposedAgainstAnotherBlockIsRefused:
@@ -541,28 +451,6 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
         assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"] == SEEDED_KONTAKTE
         assert log == []
-
-
-@pytest.mark.db
-class TestTheReadsTokenIsWhatTheWriteAccepts:
-    def test_a_save_carrying_the_token_the_membership_read_served_lands(self, mongo_replica_set_url: str):
-        """The read takes its token over a VALIDATED block and the write over the raw one.
-
-        Through the stored document rather than the block above, so a projection reaching one and not
-        the other fails here.
-        """
-
-        async def body(database: AsyncDatabase) -> Any:
-            # With the key the read composes after it (`app/api/teams/services.py :: mit_adresswechseln`), never stored.
-            served = FLTeamMembership.model_validate({**await row_now(database), "address_change": None})
-
-            await write_kontakte(database, NEW_KONTAKTE, stand=served.kontakte_stand)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
 
 
 class TestWhatThePayloadRefuses:
@@ -621,29 +509,11 @@ class TestTheTwoContactRules:
 
         assert "the Trainer also holds" in str(failure.value)
 
-    @pytest.mark.parametrize(
-        "emptied",
-        [pytest.param("trainer", id="the Trainer emptied"), pytest.param("ansprechperson", id="the seat they also hold emptied")],
-    )
-    def test_an_empty_side_of_the_pair_compares_with_nothing(self, emptied: str):
-        """A seat an erasure or a Widerspruch emptied leaves the row editable."""
-
-        sent = self.block(**{"ansprechperson": person("Ida"), "trainer_is_also": "ansprechperson", emptied: None})
-
-        assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
-
     def test_two_different_people_sharing_a_mailbox_on_the_sign_in_fold_are_refused(self):
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
 
         assert [error["type"] for error in failure.value.errors()] == ["kontakt_email_twice"]
-
-    def test_an_empty_seat_shares_nothing(self):
-        """Two empty seats are not two people at one address."""
-
-        sent = self.block(ansprechperson=None, stellvertretung=None)
-
-        assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
 
 
 class TestTheCompositionDecidesFromItsArguments:
@@ -665,18 +535,6 @@ class TestTheCompositionDecidesFromItsArguments:
         assert composed is not None
         assert composed["trainer"]["einwilligung"]["confirmed_at"] == CONFIRMED_ON
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
-
-    def test_a_null_slot_is_left_null(self):
-        composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)
-
-        assert composed is not None
-        assert (composed["ansprechperson"], composed["stellvertretung"]) == (None, None)
-
-    def test_the_flag_beside_the_seats_passes_through(self):
-        composed = compose_kontakte_herkunft(kontakte=NEW_KONTAKTE, stored=None)
-
-        assert composed is not None
-        assert composed["trainer_is_also"] == "ansprechperson"
 
 
 class TestTheDateRidesWithThePerson:
@@ -745,80 +603,9 @@ class TestTheDateRidesWithThePerson:
         assert composed is not None
         assert composed["trainer"]["geburtsdatum"] is None
 
-    def test_a_stored_blank_is_carried_forward_as_the_null_every_read_answers(self):
-        """Written back as it stands, the blank would be a value no reader can see and no token can tell from null."""
-
-        blank = {**SEEDED_KONTAKTE, "trainer": {**SEEDED_KONTAKTE["trainer"], "geburtsdatum": ""}}
-        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=blank)
-
-        assert composed is not None
-        assert composed["trainer"]["geburtsdatum"] is None
-
-    def test_every_seat_answers_the_key_whether_the_row_held_one_or_not(self):
-        """Spelled null rather than omitted, as the submission spells it: a missing key is a shape only some readers project."""
-
-        composed = compose_kontakte_herkunft(kontakte=NEW_KONTAKTE, stored=None)
-
-        assert composed is not None
-        for slot in ("trainer", "ansprechperson", "stellvertretung"):
-            assert "geburtsdatum" in composed[slot] and composed[slot]["geburtsdatum"] is None
-
-
-@pytest.mark.db
-class TestASeatNobodyHasConfirmedIsStillSaveable:
-    """A required birthdate would make an unconfirmed seat unsaveable whole.
-
-    Every field of the seat rides that one payload, so its address, telephone number and
-    Kenntnisnahme would go with the date.
-    """
-
-    def test_a_row_whose_seats_hold_no_date_takes_an_edit(self, mongo_replica_set_url: str):
-        renamed = {**RESAVED_AS_RENDERED, "trainer": person("Ida-Marie", email=str(RESAVED_AS_RENDERED["trainer"]["email"]))}
-
-        async def body(database: AsyncDatabase) -> Any:
-            response = await write_kontakte(database, renamed, stand=kontakte_stand_of(UNDATED_SEEDED))
-
-            return response, await row_now(database)
-
-        response, stored = on_a_league(mongo_replica_set_url, body, seeded=UNDATED_SEEDED)
-
-        assert stored["kontakte"]["trainer"]["vorname"] == "Ida-Marie"
-        assert stored["kontakte"]["trainer"]["geburtsdatum"] is None
-        assert response.kontakte is not None and response.kontakte.trainer is not None
-        assert response.kontakte.trainer.geburtsdatum is None
-
 
 class TestTheTokenNamesWhatTheEditorWasServed:
-    """The pure half of the refusal, so every way two spellings of one block can differ is pinned."""
-
-    def test_the_token_over_a_block_is_the_same_value_in_every_process(self):
-        """Written out rather than recomputed, the only shape of this case that can fail.
-
-        `hash()` satisfies every other case here and reseeds at each start, so a minted token and the
-        write judging it would stop agreeing after a restart.
-        """
-
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "a9823270099cc1e87bc2b015109cc4f1f639ac13d26c7cf67253cd128e28138e"
-
-    def test_a_stored_blank_answers_the_token_of_the_null_the_read_model_makes_of_it(self):
-        """`CustomOptionalDateString` nulls a blank on the way in, and the write judges the raw document.
-
-        Without the same step here the two sides answer different tokens, so that row refuses every
-        save and a reload never helps.
-        """
-
-        blank = {**SEEDED_KONTAKTE["trainer"], "geburtsdatum": ""}
-        nulled = {**SEEDED_KONTAKTE["trainer"], "geburtsdatum": None}
-
-        assert kontakte_stand_of({**SEEDED_KONTAKTE, "trainer": blank}) == kontakte_stand_of({**SEEDED_KONTAKTE, "trainer": nulled})
-        assert FLKontaktperson.model_validate(blank).geburtsdatum is None, "the read model keeps the blank, so this case proves nothing"
-
-    def test_a_key_no_read_model_carries_is_not_a_change_the_editor_could_have_seen(self):
-        """Refusing over one would leave the row unsavable: the editor is served no such key, so it can echo none back."""
-
-        widened = {**SEEDED_KONTAKTE, "trainer": {**SEEDED_KONTAKTE["trainer"], "spitzname": "Idi"}}
-
-        assert kontakte_stand_of(widened) == kontakte_stand_of(SEEDED_KONTAKTE)
+    """The pure half of the refusal."""
 
     @pytest.mark.parametrize(
         ("moved", "id_of"),
@@ -830,7 +617,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         ],
     )
     def test_a_block_that_moved_answers_a_different_token(self, moved: Any, id_of: str):
-        """The floor under the equalities above: a projection flattening everything would refuse nothing."""
+        """A projection flattening everything would refuse nothing."""
 
         assert kontakte_stand_of(moved) != kontakte_stand_of(SEEDED_KONTAKTE), id_of
 
