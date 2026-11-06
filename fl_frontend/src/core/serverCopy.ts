@@ -357,6 +357,8 @@ export const SERVER_COPY = catalogue({
       status: "Stand der Bewerbung",
       /** The title of a seat's own facts. */
       entry: "Dein Eintrag",
+      /** A seat a Widerspruch or an erasure emptied, where a mail lists a person by first name and seats. */
+      unnamed: "Ohne Namen",
 
       /**
        * The Ansprechperson's link mail. It says an application came in, never that the reader sent it, and names no
@@ -948,7 +950,6 @@ export const SERVER_COPY = catalogue({
     },
   },
 
-  // Session 6: its page reads these.
   /**
    * The fixed text of a contact person's confirmation page, `ROUTES.kontaktConfirmation`, titled
    * `COPY.page.entryConfirmation`: for whose application or team the person stands and as what, what is stored and until
@@ -986,6 +987,8 @@ export const SERVER_COPY = catalogue({
     teamDeparted: (team: Words) => `${textOf(team)} ist aus der Saison ausgeschieden.`,
     /** The last line, around the privacy notice's title, which the page sets as its link. */
     more: MORE,
+    /** The page's one paragraph, its sentences in reading order, each chosen by the seat's record and row. */
+    text: (...sentences: Copy[]) => sentences.join(" "),
   },
 
   /**

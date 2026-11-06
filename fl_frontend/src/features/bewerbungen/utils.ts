@@ -2,14 +2,13 @@ import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { medienZuJung } from "@/features/account/einwilligung";
-import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { isRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { alterAusserhalb, BEWERBUNG_MAX_ALTER, SCHULE_NICHT_IN_LISTE } from "./constants";
+import { BEWERBUNG_MAX_ALTER, SCHULE_NICHT_IN_LISTE } from "./constants";
 
-import type { FLBewerbung, FLBewerbungEinwilligungViewResponse, FLBewerbungWindowResponse, FLTrainerAlso } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungWindowResponse, FLTrainerAlso } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungHerkunft } from "./constants";
 import type {
@@ -18,9 +17,7 @@ import type {
   BewerbungKontakteDraft,
   BewerbungKontaktpersonDraft,
   BewerbungSchuleDraft,
-  EinwilligungAnsicht,
   FensterZustand,
-  LinkZustand,
   NamedTeam,
 } from "./types";
 
@@ -176,100 +173,6 @@ export const MEDIEN_NOCH_NICHT = `Fotos, Videos und Interviews kannst Du mit die
 /** Every confirmation page's media refusal, at the floor its link's view serves, or naming none where it went unread. */
 export const medienNochNicht = (medienMindestalter: number | null): string =>
   medienMindestalter === null ? MEDIEN_NOCH_NICHT : `${medienZuJung(medienMindestalter)} ${MEDIEN_AUSSCHALTEN}`;
-
-/** The contact page's age refusal where the link's view serves no floor to name: both bounds, as `alterAusserhalb` names them. */
-const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt.";
-
-/** What one refused confirmation shows: a sentence, a field's message, or the panel the link opens on. */
-export type EinwilligungRefusal = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  unplacedError?: string;
-  zustand?: LinkZustand | "saison_past";
-  /** The view a closed season's page names its cause from, as the read after the refusal answered it. */
-  ansicht?: FLBewerbungEinwilligungViewResponse;
-};
-
-// A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller
-// reading the view in front of the switch spends a backend read on each of them.
-/**
- * A confirmation refusal as what the page should show, or `null` where the code is none of these.
- *
- * The floors are the token's own view's: a number of this mapper's own would be wrong for two of the
- * three seats.
- */
-export async function mapEinwilligungRefusal(
-  error: unknown,
-  gelesen: () => Promise<EinwilligungAnsicht | null>,
-): Promise<EinwilligungRefusal | null> {
-  if (!isRefusal(error)) return null;
-
-  const ansicht = async () => {
-    const link = await gelesen();
-    return link?.zustand === "valid" ? link.ansicht : null;
-  };
-  // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
-  const stand = async (sonst: LinkZustand | "saison_past"): Promise<EinwilligungRefusal> => {
-    const link = await gelesen();
-    if (link === null || link.zustand === "valid") return { zustand: sonst };
-
-    // With the read it came from: the page's own read predates the press, and names a team that left since as a
-    // season that ended.
-    return link.zustand === "saison_past" ? { zustand: link.zustand, ansicht: link.ansicht } : { zustand: link.zustand };
-  };
-
-  switch (error.serverErrorCode) {
-    // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
-    // mail's link replaces.
-    case "body_unreadable":
-    case "payload_refused":
-      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    case "link_invalid":
-      return { zustand: "invalid" };
-    // Judged ahead of the seat and the ban, which the view ranks first: an answer given in another window, or a ban
-    // entered since, reads as the view says, and the spent link's panel stands for the rest.
-    case "link_expired":
-      return stand("expired");
-    // A season row's link whose season ended or whose team left, which still takes a Widerspruch, unless the ban the
-    // press judges after it bars the address: the view's page either way.
-    case "kontakt_saison_past":
-      return stand("saison_past");
-    // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
-    // that it confirmed. Which way it went is the read's to say.
-    case "bewerbung_seat_already_answered":
-      return stand("invalid");
-    // The one refusal that spends no token, so it lands on the field and the typed date survives it;
-    // a `zustand` here would swap a live form for a dead-link panel. A view that went unread names no floor.
-    case "confirmation_age": {
-      const floor = (await ansicht())?.minimum_age ?? null;
-      return { fieldErrors: { birth_date: floor === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(floor) } };
-    }
-    // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
-    // The floor is the view's as the age refusal's is, so a view that went unread names none.
-    case "media_age":
-      return { error: medienNochNicht((await ansicht())?.media_minimum_age ?? null) };
-    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
-    // form either: the page offers no Widerspruch to a barred address.
-    case "link_barred":
-      return { zustand: "barred" };
-    default:
-      return null;
-  }
-}
-
-/** A refused confirmation read as the panel it renders, or `null` where the read failed instead. */
-export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | null {
-  if (!isRefusal(error)) return null;
-
-  // A token the backend will not parse matches no record, so the page calls the link void rather
-  // than offering a reload that cannot succeed. The two
-  // tiers bound its length apart.
-  if (error.serverErrorCode === "payload_refused") return "invalid";
-
-  // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
-  // token nothing could place, and a code nobody planned reads the same way.
-  return isRuleRefusal(error) ? "invalid" : null;
-}
 
 /**
  * Which state a season's window puts the page in.

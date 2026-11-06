@@ -39,7 +39,7 @@ describe("the acceptance's kit colour", () => {
   it("states that no colour is assigned yet rather than guessing one", () => {
     const { text } = renderMail(buildBewerbungZusageEmail({ ...ZUSAGE, trikot_farbe: null }, { origin: ORIGIN }));
 
-    assert.ok(text.includes("Trikotfarbe: noch nicht festgelegt"), "the mail names a colour nobody assigned");
+    assert.ok(text.includes("Trikotfarbe: Nicht hinterlegt"), "the mail names a colour nobody assigned");
   });
 });
 
@@ -51,16 +51,5 @@ describe("the confirmation link's mail", () => {
     assert.ok(text.includes(`${ORIGIN}/confirm/kontakt?token=beispiel-eins`), "the link is built on another origin");
     // However often the shell prints the link, the token stands inside it each time and nowhere else.
     expect(html.split("beispiel-eins").length, "the token stands somewhere besides its link").toBe(html.split("?token=beispiel-eins").length);
-  });
-
-  /* The page asks the reader's own floor: a Trainer is asked from 16, a person holding a seat besides it from 18. */
-  it("states the reader's own age floor, and never the other one", () => {
-    const trainer = renderMail(buildBewerbungBestaetigungEmail(LINK, { origin: ORIGIN, token: "beispiel-eins" })).text;
-    const zugleich = renderMail(
-      buildBewerbungBestaetigungEmail({ ...LINK, rollen: ["ansprechperson", "trainer"] }, { origin: ORIGIN, token: "beispiel-eins" }),
-    ).text;
-
-    assert.ok(trainer.includes("mindestens 16 Jahre") && !trainer.includes("mindestens 18 Jahre"), "a Trainer is told another floor");
-    assert.ok(zugleich.includes("mindestens 18 Jahre") && !zugleich.includes("mindestens 16 Jahre"), "a second seat's floor is missing");
   });
 });

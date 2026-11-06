@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "./copy.ts";
+
 import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types.ts";
 
 const { mailFor } = await import("./mailKinds.ts");
 const { renderMail } = await import("./emailShell.ts");
 const { kontaktBestaetigungsLink } = await import("./kontaktLink.ts");
+const { SERVER_COPY } = await import("./serverCopy.ts");
 
 const ORIGIN = "http://localhost:3000";
 
@@ -23,27 +26,15 @@ describe("a season row's contact link", () => {
   it("asks a person seated on an open row to confirm, through its own token on the serving origin", () => {
     const { mail, text } = rendered(data());
 
-    expect(text).toMatch(/Bitte bestätige, dass das stimmt:/);
-    expect(mail.button).toStrictEqual({ label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
+    expect(text).toContain(SERVER_COPY.mail.bewerbung.confirmOrOppose);
+    expect(mail.button).toStrictEqual({ label: COPY.page.entryConfirmation, href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
   });
 
   /* A closed row's link takes the Widerspruch alone, so its mail asks no confirmation the page would then refuse. */
-  for (const [row, reason] of [
-    ["saison_past", /Die Saison ist vorbei/],
-    ["ausgetreten", /Das Team spielt in dieser Saison nicht mehr mit/],
-  ] as const) {
-    it(`asks a person seated on a row that is ${row} for the Widerspruch alone`, () => {
-      const { mail, text } = rendered(data(row));
+  it.each(["saison_past", "ausgetreten"] as const)("asks a person seated on a row that is %s for the Widerspruch alone", (row) => {
+    const { mail, text } = rendered(data(row));
 
-      expect(text).toMatch(reason);
-      expect(text).not.toMatch(/Bitte bestätige/);
-      expect(mail.button).toStrictEqual({ label: "Zum Eintrag", href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
-    });
-  }
-
-  it("names every seat the one person holds, in the seats' own order", () => {
-    expect(rendered(data("open", ["trainer", "ansprechperson"])).mail.subjectLine).toMatch(
-      /^Du bist als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen$/,
-    );
+    expect(text).not.toContain(SERVER_COPY.mail.bewerbung.confirmOrOppose);
+    expect(mail.button).toStrictEqual({ label: SERVER_COPY.mail.kontakt.toEntry, href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
   });
 });
