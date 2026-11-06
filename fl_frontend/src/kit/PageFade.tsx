@@ -10,7 +10,8 @@ import type { ReactNode } from "react";
  * stays still. React starts the fade only where no DOM element of the arriving or leaving subtree stands above
  * it, which is why no element of `RailPage` or `ClassicPage` holds it, so a boundary whose skeleton and content
  * are each a whole page fades with no more than that. It writes a name of its own on each element at its top, over any
- * name a stylesheet gives that element, so a part that must keep its own name, as the title strip does, stands beside it.
+ * name a stylesheet gives that element, so a part that must keep its own name, as the title strip and the editor's bar
+ * do, stands beside it.
  */
 export function PageFade({ children }: { children: ReactNode }) {
   return (

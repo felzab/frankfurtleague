@@ -26,17 +26,32 @@ const reach = tv({
 /**
  * A field while the record filling it is read: its label's line, its frame at its width class's size, and the
  * message line under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A
- * field whose line appears with its error alone, the sign-in's address, takes `line={false}`.
+ * field whose line appears with its error alone, the sign-in's address, takes `line={false}`. Its label's bar adds
+ * nothing to the width the field is laid out at, so a pair's short side stands as wide as its field. `figures` says a
+ * C5 field holds digits, whose `ch` is the numeric face's, as C2's and C10's always do.
  */
-export function FieldPlaceholder({ width, line = true }: { width: "W3" | "W3L" | "C10" | "C5" | "C2" | "column" | "fit"; line?: boolean }) {
+export function FieldPlaceholder({
+  width,
+  figures = false,
+  line = true,
+}: {
+  width: "W3" | "W3L" | "C10" | "C5" | "C2" | "column" | "fit";
+  figures?: boolean;
+  line?: boolean;
+}) {
+  const numeric = figures || width === "C2" || width === "C10";
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
-        text={fieldLabel()}
-        width="w-24"
+        text={fieldLabel({ class: "self-stretch" })}
+        width="w-full max-w-24"
       />
-      {/* The frame's own text size, which a short width's `ch` is counted in. */}
-      <span className={placeholderBar(`rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width[width]}`)} />
+      {/* The frame's own text size and face, which a short width's `ch` is counted in. */}
+      <span
+        className={placeholderBar(
+          `rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width[width]} ${numeric ? fieldFrame.variants.figures.true : ""}`,
+        )}
+      />
       {line && <span className={messageLine()} />}
     </div>
   );
