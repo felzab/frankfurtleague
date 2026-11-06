@@ -32,7 +32,7 @@ from app.api.spieltage.services import (
 )
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection
+from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection, SpieltageReadCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
@@ -52,7 +52,7 @@ router = APIRouter(
     summary="Spieltage for the admin surfaces",
 )
 async def get_spieltage_admin(
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieltageFilterParams = Depends(),
 ) -> FLSpieltageListResponse:
@@ -93,7 +93,7 @@ async def get_spieltage_admin(
 )
 async def get_spieltag_admin(
     spieltag_id: CustomRouteObjectId,
-    spieltage_collection: SpieltageCollection,
+    spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsCollection,
 ) -> FLSpieltagAdminResponse:
     """

@@ -49,6 +49,7 @@ from app.core.crud import (
     pull_one_from_db,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSpielSide
@@ -209,7 +210,7 @@ async def write_bericht(
     )
 
 
-async def count_submitted_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
+async def count_submitted_berichte(*, spielberichte_collection: ReadCollection, saison_id: str, session: AsyncClientSession | None) -> int:
     """How many of the season's fixtures hold a submitted report, under `session`, joined as the reads join so the two agree."""
 
     counted = await aggregate_many_from_db(
@@ -221,7 +222,7 @@ async def count_submitted_berichte(*, spielberichte_collection: AsyncCollection,
     return counted[0]["berichte"] if counted else 0
 
 
-async def pull_states(*, spielberichte_collection: AsyncCollection, saison_id: str) -> list[FLSpielberichtStateEntry]:
+async def pull_states(*, spielberichte_collection: ReadCollection, saison_id: str) -> list[FLSpielberichtStateEntry]:
     """Every report of one season holding a block, each with its state against its fixture as stored now."""
 
     rows = await aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_state_pipeline(saison_id=saison_id))
