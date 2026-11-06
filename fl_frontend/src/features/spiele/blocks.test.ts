@@ -118,14 +118,17 @@ describe("the pop-up's facts", () => {
   };
   const { fact } = COPY.spielplan;
 
-  it("leave out every value the match does not hold", () => {
-    expect(popupFactsOf({ ...booked, date: null, time: null, ort: null, schiedsrichter: null })).toStrictEqual([]);
-    expect(popupFactsOf(booked).map((each) => each.label)).toStrictEqual([fact.date, fact.time, fact.spielort, fact.schiedsrichter]);
+  it("keep all four, a value the match does not hold reading the dash", () => {
+    const labels = [fact.date, fact.time, fact.spielort, fact.schiedsrichter];
+    expect(popupFactsOf(booked).map((each) => each.label)).toStrictEqual(labels);
+    const unset = popupFactsOf({ ...booked, date: null, time: null, ort: null, schiedsrichter: null });
+    expect(unset.map((each) => each.label)).toStrictEqual(labels);
+    expect(unset.map((each) => each.value)).toStrictEqual(labels.map(() => COPY.shared.noValue));
   });
 
-  it("hold no referee whose name the public read withholds", () => {
-    const labels = popupFactsOf({ ...booked, schiedsrichter: { name: null, name_is_public: false } }).map((each) => each.label);
-    expect(labels).not.toContain(fact.schiedsrichter);
+  it("read the dash for a referee whose name the public read withholds", () => {
+    const withheld = popupFactsOf({ ...booked, schiedsrichter: { name: null, name_is_public: false } });
+    expect(withheld.find((each) => each.label === fact.schiedsrichter)?.value).toBe(COPY.shared.noValue);
   });
 
   it("link the venue to its map on another site", () => {

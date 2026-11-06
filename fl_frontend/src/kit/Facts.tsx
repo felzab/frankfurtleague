@@ -15,7 +15,8 @@ import type { IconName } from "./Icon";
 
 /**
  * One fact: its label, and its value as a record's data, a link to it on the site, or a link to it on
- * another site, such as a venue on a map. An absent value is left out.
+ * another site, such as a venue on a map. A value the record does not hold is `COPY.shared.noValue`, the row
+ * staying, so a record's block keeps one shape.
  */
 export type Fact = {
   label: Copy;
