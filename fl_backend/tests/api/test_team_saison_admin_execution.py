@@ -282,6 +282,19 @@ class TestTheEntry:
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.DUPLICATE_KEY, (("shorthand",),))
 
+    def test_a_club_the_season_holds_is_refused_by_its_code(self, mongo_replica_set_url: str):
+        """A dialog left open over an acceptance: named by its code, so the screen words it where the unique index would not."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            with pytest.raises(APIError) as refused:
+                await enter(database, {"kind": "known", "team_id": str(ADLER)})
+
+            return refused.value.error_code, await database[Collection.SAISON_TEAMS].count_documents({"team_id": ADLER, "saison_id": SAISON_ID})
+
+        code, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (code, rows) == (Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED, 1)
+
     def test_a_retired_club_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as refused:

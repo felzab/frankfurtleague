@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.visibility import resolve_public_saison
-from app.api.teams.schemas import FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams, FLTeamsSingleResponse
+from app.api.teams.schemas import FLTeam, FLTeamSingleFilterParams, FLTeamsSingleResponse
 from app.api.teams.services import build_team_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db
@@ -33,16 +33,12 @@ async def get_team(
     # to be refused whatever the club.
     saison = await resolve_public_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
-    # A retired club stays addressable by id: a caller holding one was given it by something.
-    pipeline_filters = FLTeamsFilterParams(
-        saison_id=saison.id,
-        statistik_scope=filters.statistik_scope,
-        include_inactive=True,
-    )
-
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
-        pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison.rules, team_id=team_id),
+        # A retired club stays addressable by id: a caller holding one was given it by something.
+        pipeline=build_team_pipeline(
+            saison_id=saison.id, rules=saison.rules, team_id=team_id, statistik_scope=filters.statistik_scope, include_inactive=True
+        ),
         collation=GERMAN_COLLATION,
     )
     if not teams_raw:

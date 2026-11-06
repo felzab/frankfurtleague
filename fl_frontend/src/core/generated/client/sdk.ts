@@ -4638,7 +4638,8 @@ export const getTeamsPostTeamEntryUrl = (saisonId: string) => {
  * Enter a club into a `future` season in a group and a colour, founding it first where it is new.
  *
  * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
- * naming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.
+ * naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
+ * `bewerbung_picked_team_already_entered`, and the season and the group as an entry is.
  * @summary Enter a club into a season, one the league holds or a new one
  */
 export const teamsPostTeamEntry = async (

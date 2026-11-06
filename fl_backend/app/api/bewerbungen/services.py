@@ -224,7 +224,7 @@ def find_picked_club_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefu
 
 
 def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
-    """Why this club may not apply for this season, or `None`.
+    """Why this club may not apply for this season or be entered into it, or `None`.
 
     A club already holding the season's junction row is IN it, so an application would ask for
     something already granted. A shared season is not refused: two schools may apply on one day.

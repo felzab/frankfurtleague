@@ -693,7 +693,6 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                         "schulform": "gymnasium_g9",
                         "address": dict(ADDRESS),
                     },
-                    expected_version=None,
                     session=session,
                 )
 

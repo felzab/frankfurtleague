@@ -6,10 +6,11 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import find_already_entered_refusal
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
 from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.teams.schemas import FLTabelle, FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.schemas import FLTabelle, FLTeamListAdapter
 from app.api.teams.services import (
     build_tabelle,
     build_team_pipeline,
@@ -126,7 +127,7 @@ async def enter_a_club(
     gruppe: FLGruppenNames,
     trikot_farbe: FLTrikotFarbe | None,
     session: AsyncClientSession,
-) -> Mapping[str, Any]:
+) -> None:
     """Judge this club's entry into the season and write its row, in the caller's transaction; everything judged is read in-session."""
 
     # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than inserting
@@ -137,6 +138,11 @@ async def enter_a_club(
     # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another group, so nobody should
     # be handed a capacity figure to act on first.
     refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+
+    # A club a dialog offered and an acceptance entered since: by this code, ahead of the junction's unique index, which
+    # answers only a race.
+    entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": team_id}, limit=1, session=session)
+    refuse(find_already_entered_refusal(entered=entered > 0))
 
     await refuse_a_full_gruppe(
         saison_teams_collection=saison_teams_collection,
@@ -154,8 +160,6 @@ async def enter_a_club(
         saison_id=saison_id, team_id=team_id, gruppe=gruppe, trikot_farbe=trikot_farbe, name=team_raw["name"], shorthand=team_raw["shorthand"]
     )
     await post_one_to_db(collection=saison_teams_collection, document=document, session=session)
-
-    return document
 
 
 async def refuse_a_gruppe_move(
@@ -194,10 +198,11 @@ async def write_the_club(
     saisons_collection: AsyncCollection,
     team_id: Any,
     club: Mapping[str, Any],
-    expected_version: int | None,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
     """Write a club and rewrite the name and shorthand its unfinished seasons' rows carry; the stored club.
+
+    The caller judged its version, on reads this transaction's writes conflict with.
 
     Every fixture reads its sides' names from their season rows, so a rename reaches the fixtures of each season it
     rewrites; a `past` season keeps the name it was played under.
@@ -209,7 +214,7 @@ async def write_the_club(
         collection=teams_collection,
         db_filter={"_id": team_id},
         update={"$set": dict(club)},
-        expected_version=expected_version,
+        expected_version=None,
         session=session,
         return_document=ReturnDocument.AFTER,
     )
@@ -248,7 +253,7 @@ async def pull_tabelle(
     teams_raw, spiele_raw = await asyncio.gather(
         aggregate_many_from_db(
             collection=teams_collection,
-            pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=rules),
+            pipeline=build_team_pipeline(saison_id=saison_id, rules=rules),
             collation=GERMAN_COLLATION,
         ),
         pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"}),

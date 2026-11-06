@@ -490,7 +490,7 @@ class FLPatchTeamSaisonPayload(_TeamPayload):
     gruppe: FLGruppenNames
     trikot_farbe: FLTrikotFarbe | None
     # `FLTeamSaisonAdminResponse.version` as the editor read it.
-    version: int = Field(ge=0)
+    version: CustomVersion
 
 
 class FLPatchTeamSaisonResponse(BaseAPIResponse):
@@ -552,28 +552,12 @@ class FLKontaktSeatPayload(_KontaktpersonWritablePayload):
     version: CustomVersion
 
 
-class FLTeamsFilterParams(BaseModel):
-    """What a club read narrows on: the season views' and the club page's reads, each built in code."""
-
-    # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
-    saison_id: str | None = None
-
-    # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
-    # playoff-polluted one.
-    statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
-
-    # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
-    # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left
-    # (`READ-SQUAD-002`).
-    include_inactive: bool = False
-
-
 class FLTeamSingleFilterParams(BaseModel):
     """What `GET /teams/{team_id}` accepts: only what chooses WHICH SEASON'S figures to derive."""
 
     saison_id: str | None = None
-    # Spelled again rather than shared with `FLTeamsFilterParams`: a base holding this default would
-    # put a ratified one behind an inheritance edit made for some unrelated field.
+    # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
+    # playoff-polluted one.
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
 

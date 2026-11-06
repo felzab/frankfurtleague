@@ -9,7 +9,7 @@ from app.api.saisons.public_router import get_teams as get_saison_teams
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.public_router import get_team
-from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
+from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
@@ -235,9 +235,8 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
         """The RAW documents, before any model sees them: what the driver returned is what a leak would have to travel in."""
 
         async def body(database: AsyncDatabase) -> Any:
-            filters = FLTeamsFilterParams(saison_id=SAISON)
             rules = FLSaisonRules.model_validate(saison_document()["rules"])
-            pipeline = build_team_pipeline(filters=filters, rules=rules)
+            pipeline = build_team_pipeline(saison_id=SAISON, rules=rules)
             stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Helmholtz"]})
 
             return stored, await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)

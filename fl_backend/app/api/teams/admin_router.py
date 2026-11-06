@@ -528,7 +528,8 @@ async def post_team_entry(
     Enter a club into a `future` season in a group and a colour, founding it first where it is new.
 
     A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
-    naming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.
+    naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
+    `bewerbung_picked_team_already_entered`, and the season and the group as an entry is.
     """
 
     async def found_and_enter(session: AsyncClientSession) -> Any:
@@ -688,8 +689,6 @@ async def patch_team_saison(
             saisons_collection=saisons_collection,
             team_id=team_id,
             club=team_data.model_dump(mode="json", exclude={"gruppe", "trikot_farbe", "version"}),
-            # The sum above judged both, on reads this transaction's writes conflict with.
-            expected_version=None,
             session=session,
         )
 

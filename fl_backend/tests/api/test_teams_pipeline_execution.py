@@ -4,7 +4,6 @@ import pytest
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.teams.schemas import (
-    FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
 )
@@ -39,12 +38,11 @@ def rows(
     rules: FLSaisonRules = STANDARD_RULES,
     **filters: Any,
 ) -> list[dict[str, Any]]:
-    """`scope` is not defaulted — the model's default is itself the decision."""
-    params = FLTeamsFilterParams(saison_id=SAISON, **filters)
+    """`scope` is not defaulted — the pipeline's default is itself the decision."""
     if scope is not None:
-        params.statistik_scope = scope
+        filters["statistik_scope"] = scope
 
-    return list(league.database.teams.aggregate(build_team_pipeline(filters=params, rules=rules)))
+    return list(league.database.teams.aggregate(build_team_pipeline(saison_id=SAISON, rules=rules, **filters)))
 
 
 def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:

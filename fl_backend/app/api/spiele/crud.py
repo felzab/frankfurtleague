@@ -66,7 +66,7 @@ from app.api.spiele.services import (
     stored_in_slice,
     voided_results_of,
 )
-from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.schemas import FLTeamListAdapter
 from app.api.teams.services import (
     ZERO_STATISTIK,
     DecidedStanding,
@@ -123,7 +123,7 @@ async def _resolve_one_saison(
         # junction join its index.
         teams_raw = await aggregate_many_from_db(
             collection=teams_collection,
-            pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=None),
+            pipeline=build_team_pipeline(saison_id=saison_id, rules=None),
             session=session,
         )
 

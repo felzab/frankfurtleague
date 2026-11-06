@@ -32,7 +32,6 @@ from app.api.teams.schemas import (
     FLTeamGruppeOffer,
     FLTeamListState,
     FLTeamsAdminRow,
-    FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
     normalise_phone,
@@ -184,24 +183,30 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
-    # Without a season the junction join stops being strict -- one row per season a club played --
-    # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
-    if filters.saison_id is None:
-        raise ValueError("build_team_pipeline requires a resolved saison_id -- the junction join and the statistics are both season-scoped.")
-
+def build_team_pipeline(
+    *,
+    saison_id: str,
+    rules: FLSaisonRules | None,
+    team_id: Any | None = None,
+    # Defaults to the GROUP TABLE, so a read naming none is the correct standing rather than the playoff-polluted one.
+    statistik_scope: FLTeamStatistikScope = "gruppenphase",
+    # Retired CLUBS, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
+    # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left
+    # (`READ-SQUAD-002`).
+    include_inactive: bool = False,
+) -> list[Mapping[str, Any]]:
     pipeline: list[Mapping[str, Any]] = []
 
     if team_id is not None:
         pipeline.append({"$match": {"_id": team_id}})
 
     # Clubs that left the league -- never a team that left one season, which keeps its row.
-    if not filters.include_inactive:
-        pipeline.extend(build_retirement_stages(filters.saison_id))
+    if not include_inactive:
+        pipeline.extend(build_retirement_stages(saison_id))
 
     lookup_pipeline: list[Mapping[str, Any]] = [
         {"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}},
-        {"$match": {"saison_id": filters.saison_id}},
+        {"$match": {"saison_id": saison_id}},
     ]
 
     # Withheld at the JOIN rather than downstream: the outer `$project` is an allow-list too, so this
@@ -219,22 +224,16 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
         }
     )
 
-    strict_join = bool(getattr(filters, "saison_id", None))
-    pipeline.append(
-        {
-            "$unwind": {
-                "path": f"${AS_NAME}",
-                "preserveNullAndEmptyArrays": not strict_join,
-            }
-        }
-    )
+    # Strict: a club with no row of the season drops out, where a lenient join would return one row
+    # per season it played and a table of zeros that reads as an answer.
+    pipeline.append({"$unwind": f"${AS_NAME}"})
 
     # After the strict unwind, so the matches are only summed for teams that survive the join.
     # A scoring rule IS the table, so `rules=None` derives none -- `build_statistik_by_team` is
     # the other way to one, over fixtures this collection has not stored.
     if rules is not None:
-        pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
-        pipeline.append(build_cancelled_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
+        pipeline.append(build_statistik_lookup_stage(saison_id=saison_id, rules=rules, scope=statistik_scope))
+        pipeline.append(build_cancelled_lookup_stage(saison_id=saison_id, scope=statistik_scope))
 
     # One projection, one team shape: a reduced variant trims the response and saves no query work,
     # since every lookup runs either way.
