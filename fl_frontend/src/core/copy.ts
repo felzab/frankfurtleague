@@ -1034,8 +1034,10 @@ export const COPY = catalogue({
       cut: "Nicht alle Bewerbungen sind geladen.",
       /** The acceptance of a new school, whose address the created team's page then shows (`docs/datenschutz.md` section 4). */
       addressPublic: "Die Adresse der Schule steht danach öffentlich auf der Teamseite.",
-      /** „E-Mail an“'s value in both dialogs: each decision mails every seat. */
+      /** „E-Mail an“'s value in the acceptance: it waits on every seat's answer, so every seat holds a person to mail. */
       allSeats: "Alle Kontaktpersonen",
+      /** „E-Mail an“'s value in the decline: a seat past the mailbox bound has heard of no application, so it hears of no decline. */
+      mailedSeats: "Angeschriebene Kontaktpersonen",
       /** The bulk card's line over the record's name. */
       cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} von ${formatNumber(total)}`,
       /** The object of the bulk's button and of its question. */
