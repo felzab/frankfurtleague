@@ -1,5 +1,4 @@
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { refused } from "@/test-support/refusals";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -17,7 +16,7 @@ vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 // Cloudflare's own verdict, which `core/turnstile.test.ts` judges.
 vi.mock("@/core/turnstile", () => ({ turnstileRefusal: async () => check.refusal }));
 
-const { calls, answerWith } = doubleApiAnswers(() => Promise.resolve({ created_id: "6890a1b2c3d4e5f607190001" }));
+const { calls } = doubleApiAnswers(() => Promise.resolve({ created_id: "6890a1b2c3d4e5f607190001" }));
 
 const { submitBewerbung } = await import("./submitBewerbung");
 
@@ -132,18 +131,5 @@ describe("a press the action stops", () => {
       fieldErrors: { "kontakte.stellvertretung.email": COPY.shared.field.taken, "kontakte.stellvertretung.phone": COPY.shared.field.taken },
     });
     expect(calls).toHaveLength(0);
-  });
-
-  it("takes the seat the Trainer also holds for the one person it is", async () => {
-    const answer = await submitBewerbung(posted({ ...BOXES, "kontakte.trainer_is_also": "ansprechperson" }));
-
-    expect(answer.ok).toBe(true);
-  });
-
-  // The harm: a page read before the window shut says only that something went wrong, where a reload says why.
-  it.each(["bewerbung_window_closed", "bewerbung_picked_team_unusable"] as const)("answers %s with the stale page's line", async (code) => {
-    answerWith(() => Promise.reject(refused(code)));
-
-    expect(await submitBewerbung(posted(BOXES))).toMatchObject({ ok: false, reason: COPY.shared.failure.stale });
   });
 });

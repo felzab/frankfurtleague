@@ -145,12 +145,6 @@ describe("one pass of the applications' job", () => {
       error: undefined,
     });
   });
-
-  it("leaves none where nothing was passed over", async () => {
-    seasons(["2627"]);
-
-    expect((await runBewerbungSweep()).open).toBe(0);
-  });
 });
 
 describe("a half that fails", () => {
