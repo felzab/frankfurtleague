@@ -15,7 +15,7 @@ const SEAT_TITLE = { trainer: "Trainerin oder Trainer", ansprechperson: "Ansprec
 
 type Seat = keyof typeof SEAT_TITLE;
 
-/** The three seats of an application, in the form's order and the review page's. */
+/** The three seats of an application, in the form's order. */
 export const SEATS = ["trainer", "ansprechperson", "stellvertretung"] as const satisfies readonly Seat[];
 
 /** One person, as a seat's four boxes take them. */
