@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { COPY } from "@/core/copy";
+
 import { buttonPlaceholder } from "./buttonStyles";
 import { formColumn, RailPage } from "./RailFrame";
 import { editorBarLook } from "./railStyles";
@@ -39,7 +41,7 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
             <Placeholder layout={editorBarLook().bar()}>
               <span className={editorBarLook().row()}>
                 <span className="min-w-0 flex-1" />
-                <span className={buttonPlaceholder("w-24")} />
+                <span className={buttonPlaceholder()}>{COPY.shared.verb.save}</span>
               </span>
             </Placeholder>
           }>

@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { COPY } from "@/core/copy";
+
 import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
@@ -12,11 +14,12 @@ import { EmptyState } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { Filters } from "./Filters";
+import { Icon } from "./Icon";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { lockedLine } from "./lockedLine";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { Placeholder, Waiting } from "./Skeleton";
+import { Placeholder, SAISON_WORDS, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
@@ -201,7 +204,13 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
 function FiltersPlaceholder() {
   return (
     <Placeholder>
-      <span className={buttonPlaceholder("w-24 lg:hidden")} />
+      <span className={buttonPlaceholder("lg:hidden")}>
+        <Icon
+          glyph="filter"
+          size={16}
+        />
+        {COPY.shared.filter}
+      </span>
       <span className="max-lg:hidden">
         <FieldPlaceholder width="C10" />
       </span>
@@ -220,11 +229,20 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
-/** The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. */
+/**
+ * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
+ * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide.
+ */
 function CreatePlaceholder() {
   return (
     <Placeholder>
-      <span className={buttonPlaceholder("w-36")} />
+      <span className={buttonPlaceholder()}>
+        <Icon
+          glyph="create"
+          size={16}
+        />
+        {actLabel({ verb: "create", object: SAISON_WORDS })}
+      </span>
     </Placeholder>
   );
 }

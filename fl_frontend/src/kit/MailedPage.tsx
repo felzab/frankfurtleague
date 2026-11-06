@@ -150,7 +150,8 @@ export function MailedPage({ page }: { page: Promise<MailedState> }) {
                 width="w-full"
               />
               <div className="grid gap-3 lg:justify-items-center">
-                <span className={buttonPlaceholder("w-full lg:w-40")} />
+                {/* The act's own words are the read's, so the commonest stand in, in the column its buttons stand in. */}
+                <span className={buttonPlaceholder()}>{COPY.shared.verb.confirm}</span>
                 <span className="min-h-5" />
               </div>
             </Waiting>
