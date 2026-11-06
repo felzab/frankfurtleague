@@ -39,6 +39,10 @@ const nextConfig: NextConfig = {
     },
   },
   experimental: {
+    // Off because the router otherwise re-requests one link's payload without end on every page
+    // with record rows, about 400 requests a second (vercel/next.js#100055). Removed by the Next
+    // upgrade that carries the fix, then measured again.
+    optimisticRouting: false,
     // Session 8: goes with HeroUI's packages.
     // HeroUI's root is imported for `useOverlayState` alone, which no subpath publishes.
     // `@heroui/styles` is consumed as CSS and every icon by its own subpath, so neither has a root

@@ -19,8 +19,7 @@ test("asking for a code sets no cookie, for a member or a stranger", async ({ pa
     await askForCode(page, address);
 
     // Every cookie the site holds, whatever request set it, by name alone: a signed-out visitor holds none
-    // until a passkey ceremony starts, which nothing here presses. Scoped to the site, since the bot check
-    // loads from another host, whose cookies are not the site's; never left unscoped, which reads them all.
+    // until a passkey ceremony starts, which nothing here presses. Scoped to the site, whose cookies these are.
     const names = (await context.cookies(String(baseURL))).map((cookie) => cookie.name);
     expect(names, `the site's cookies after the send for ${address}`).toEqual([]);
   }
