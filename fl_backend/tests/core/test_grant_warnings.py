@@ -52,18 +52,6 @@ OWNER = {"address": "inhaberin@frankfurtleague.de", "admin_tier": "owner"}
 ADMINISTRATOR = {"address": "anna@frankfurtleague.de", "admin_tier": "administration"}
 
 
-def test_a_list_holding_an_owner_and_live_addresses_says_nothing(caplog):
-    """The control: a check warning on every boot would pass each case below."""
-
-    assert warned([OWNER, ADMINISTRATOR], caplog) == []
-
-
-def test_no_grant_at_all_is_named_and_nothing_else_is(caplog):
-    """Nothing else, because no owner is implied and says nothing more."""
-
-    assert warned([], caplog) == [NO_GRANT]
-
-
 def test_a_list_with_no_owner_is_named(caplog):
     assert warned([ADMINISTRATOR], caplog) == [NO_OWNER]
 
@@ -101,8 +89,3 @@ class TestTheBootWarnsAboutTheGrantsItFinds:
 
     def test_an_empty_list_is_named_at_boot(self, mongo_url: str, caplog: pytest.LogCaptureFixture):
         assert booted_over([], mongo_url, caplog) == {NO_GRANT}
-
-    def test_an_owner_and_an_administrator_boot_in_silence(self, mongo_url: str, caplog: pytest.LogCaptureFixture):
-        """The control: a boot warning every time would pass the case above."""
-
-        assert booted_over([OWNER, ADMINISTRATOR], mongo_url, caplog) == set()

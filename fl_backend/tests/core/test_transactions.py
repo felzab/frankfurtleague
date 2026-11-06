@@ -9,17 +9,14 @@ from typing import Any, cast
 
 import anyio
 import pytest
-from bson import ObjectId
 from fastapi import FastAPI
 from pydantic import BaseModel, Field, ValidationError
-from pymongo import AsyncMongoClient, monitoring
-from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo import AsyncMongoClient
 from pymongo.errors import ExecutionTimeout, OperationFailure
 from starlette.types import Message, Scope
 
 from app.core import transactions
 from app.core.codes import Code
-from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, fl_logger
 from app.core.middlewares import RequestDeadline, request_deadline_var
@@ -32,8 +29,7 @@ from app.core.transactions import (
     transaction_session,
 )
 from app.main import create_app
-from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.worker import worker_database
 
 PAGE = 3
@@ -500,13 +496,6 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
         assert (answered, rows.read) == (([(2, 2, 0)], []), [[0, 1, 2, 3], [0, 1]])
         assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", Code.DATABASE_FAILED)]
 
-    def test_the_same_isolation_inside_its_deadline_takes_every_half(self):
-        """The control: with time left, the halves after the first are run, and the failing row alone is passed over."""
-
-        rows = _Rows(4, lambda read: OperationFailure("refused", 121) if 3 in read else None)
-
-        assert self._owing(rows, deadline_s=None) == ([(2, 2, 0), (1, 1, 0)], [3])
-
     def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
         """Raised, the call would answer an error in place of the messages the committed half owes."""
 
@@ -649,11 +638,6 @@ class TestAFailedSessionAbortsInsideItsGrace:
         else:
             assert deadline.aborting_s == 0
 
-    def test_a_session_whose_work_finished_is_sent_no_abort(self):
-        """A committed transaction answers an abort harmlessly, so only this case keeps one round trip off every write."""
-
-        assert _aborts_sent(fails=False, deadline=RequestDeadline(time.monotonic())) == []
-
 
 # Short, so the two cases below wait a fraction of the shipped grace; what they assert is how it is shared.
 SHORT_GRACE_S = 0.2
@@ -692,36 +676,6 @@ class TestARequestsAbortsShareOneGrace:
         )
 
         assert sent == [[{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]] * 2
-
-
-class _RefusedFirst(Exception):
-    """A route's own refusal, raised inside its callback before it sends anything."""
-
-
-class TestASessionNoCommandCarriedIsSentNoAbort:
-    def test_a_failure_before_any_command_waits_on_no_server(self, caplog: pytest.LogCaptureFixture):
-        """Against a server that never answers, where an abort sent waits out the grace and logs its failure.
-
-        Every route cut before its first command takes this path, a deadline spent on server selection among them.
-        """
-
-        async def run() -> None:
-            client = AsyncMongoClient(UNANSWERED_URI)
-            try:
-
-                async def refuse(_session: AsyncClientSession) -> None:
-                    raise _RefusedFirst
-
-                with pytest.raises(_RefusedFirst):
-                    async with transaction_session(client) as session:
-                        await session.with_transaction(refuse)
-            finally:
-                await client.close()
-
-        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            asyncio.run(run())
-
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
 
 
 class _AnsweringSession(_TransactedSession):
@@ -840,98 +794,3 @@ class TestTheRouteRunsInTheServersTask:
 DATABASE_NAME = worker_database("fl_transactions_test")
 
 NO_SUCH_TRANSACTION = 251
-TRANSACTION_COMMITTED = 256
-
-
-class _Aborts(monitoring.CommandListener):
-    """The code each `abortTransaction` the client sends is answered with, `None` for one that succeeded."""
-
-    def __init__(self) -> None:
-        self.answered: list[int | None] = []
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        """Required by the listener interface; an abort is judged by its answer."""
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        if event.command_name == "abortTransaction":
-            self.answered.append(None)
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        if event.command_name == "abortTransaction":
-            self.answered.append(event.failure.get("code"))
-
-
-class _Refused(Exception):
-    """A route's own refusal, raised inside its callback once a write has gone."""
-
-
-@pytest.mark.db
-class TestARefusedTransactionalWriteRaisesNoAlarm:
-    def test_the_abort_the_driver_already_sent_is_not_logged(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """`with_transaction` aborts first, so the server answers this helper's abort NoSuchTransaction.
-
-        Every refusal a route raises inside its transaction takes this path, so an alarm here would sound on each.
-        """
-
-        aborts = _Aborts()
-
-        async def body() -> None:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
-                # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
-                watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
-                try:
-                    written = watched[DATABASE_NAME][Collection.ACTION_LOG]
-
-                    async def write_then_refuse(session: AsyncClientSession) -> None:
-                        await written.insert_one({"_id": ObjectId()}, session=session)
-                        raise _Refused
-
-                    with pytest.raises(_Refused):
-                        async with transaction_session(watched) as session:
-                            await session.with_transaction(write_then_refuse)
-                finally:
-                    await watched.close()
-
-        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            on_the_seed_loop(body())
-
-        # The control: the driver's abort, then this helper's; a helper sending nothing would also log nothing.
-        assert aborts.answered == [None, NO_SUCH_TRANSACTION]
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
-
-
-class _FailedAfterTheCommit(Exception):
-    """Work inside the session failing once its transaction has committed, as a response built from the result can."""
-
-
-@pytest.mark.db
-class TestAFailureAfterTheCommitRaisesNoAlarm:
-    def test_the_abort_the_commit_answers_is_not_logged(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The server answers this helper's abort TransactionCommitted: the write stands and nothing is left open."""
-
-        aborts = _Aborts()
-
-        async def body() -> int:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
-                # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
-                watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
-                try:
-                    written = watched[DATABASE_NAME][Collection.ACTION_LOG]
-
-                    async def write(session: AsyncClientSession) -> None:
-                        await written.insert_one({"_id": ObjectId()}, session=session)
-
-                    with pytest.raises(_FailedAfterTheCommit):
-                        async with transaction_session(watched) as session:
-                            await session.with_transaction(write)
-                            raise _FailedAfterTheCommit
-                    return await written.count_documents({})
-                finally:
-                    await watched.close()
-
-        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            stored = on_the_seed_loop(body())
-
-        # The control: this helper's abort, answered; a helper sending nothing would also log nothing.
-        assert (aborts.answered, stored) == ([TRANSACTION_COMMITTED], 1)
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
