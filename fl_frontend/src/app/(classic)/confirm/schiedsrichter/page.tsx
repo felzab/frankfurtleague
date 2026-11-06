@@ -1,9 +1,13 @@
 import { cache } from "react";
 
+import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { requires } from "@/core/action";
 import { now } from "@/core/clock";
+import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { bornAfter, bornBy, dayIn, dayOf } from "@/core/format";
@@ -35,6 +39,8 @@ const WORDS = SERVER_COPY.schiedsrichterConfirmation;
 
 const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
+const { scope } = SCHIEDSRICHTER_WORDINGS;
+
 const { shape } = SchiedsrichterPostConfirmationBody;
 
 /** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
@@ -50,7 +56,21 @@ export default function SchiedsrichterConfirmationPage({ searchParams }: Props) 
   return (
     <MailedPage
       page={readState(searchParams)}
+      facts={0}
       act={COPY.page.entryConfirmation}
+      second={COPY.shared.verb.oppose}
+      // Any day's words are about as long, set unseen, so the paragraph stands as many lines as it will at every width.
+      sentence={WORDS.question("2027-01-31")}
+      fields={
+        <>
+          <FieldPlaceholder width="C10" />
+          <RadioGroupPlaceholder
+            label={scope.question}
+            choices={[scope.options.kader_public, scope.options.internal]}
+          />
+          <ConsentLinePlaceholder line={scope.line} />
+        </>
+      }
     />
   );
 }

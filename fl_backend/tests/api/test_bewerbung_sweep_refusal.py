@@ -13,12 +13,13 @@ from app.api.bewerbungen.services import (
     group_seats_by_mailbox,
     lapsed_seats,
     one_month_after,
+    owed_erasure,
     reminder_seats,
     schule_name,
     seat_reminder_is_due,
     unreachable_seats,
 )
-from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
+from app.api.outbox.schemas import FLBewerbungErasureData, FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
 from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
@@ -363,6 +364,17 @@ class TestWhatTheNoticesNeed:
             ["trainer", "ansprechperson"],
         )
         assert ansprechperson_mailbox(kontakte=kontakte(ansprechperson=None), confirmations=mailed) == (None, [])
+
+    def test_the_deletion_notice_names_only_those_who_never_answered(self):
+        """A partly answered application is this notice's ordinary shape, and once it has gone nothing shows the school its list is wrong."""
+
+        partly_answered = application(kontakte=kontakte(stellvertretung=kontaktperson_document("Stellan", confirmed_at=YESTERDAY)))
+
+        mail = owed_erasure(bewerbung_raw=partly_answered, saison_id="2026")
+
+        assert mail is not None
+        assert isinstance(mail.data, FLBewerbungErasureData)
+        assert [person.first_name for person in mail.data.pending] == ["Quillhilde", "Ansgar"]
 
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
         assert first_name_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"

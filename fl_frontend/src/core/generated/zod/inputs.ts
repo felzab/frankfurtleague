@@ -565,8 +565,8 @@ export const BewerbungenPostBewerbungBody = zod
 /**
  * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
  *
- * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
- * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
+ * A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
+ * naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
  * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `media_age`, and
  * on a team's season row `link_expired` and `kontakt_saison_past`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
@@ -762,7 +762,7 @@ export const BewerbungenPatchEinwilligungBody = zod
   );
 
 /**
- * Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.
+ * Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
  *
  * The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
  * so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
@@ -3908,8 +3908,9 @@ export const TeamsInviteKontaktParams = zod.object({
 /**
  * Hand this season's junction row, and every fixture on it, to another club.
  *
- * Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
- * live squad rows are retired, in ONE transaction: the schedule survives.
+ * Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
+ * their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
+ * the schedule survives.
  * @summary Replace a club in a season, keeping its schedule
  */
 export const teamsReplaceSaisonTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

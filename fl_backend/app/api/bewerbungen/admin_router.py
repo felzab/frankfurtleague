@@ -53,6 +53,7 @@ from app.api.bewerbungen.services import (
     find_seat_write_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
+    mailed_seats,
     mit_vorenthaltener_entscheidung,
     owed_link,
     paired_seat,
@@ -490,7 +491,7 @@ async def decline_bewerbung(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLDeclineBewerbungResponse:
     """
-    Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.
+    Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
 
     The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
     so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
@@ -500,7 +501,7 @@ async def decline_bewerbung(
         stored_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            projection=["status", "saison_id", "schule", "team_id", "kontakte"],
+            projection=["status", "saison_id", "schule", "team_id", "kontakte", "confirmations"],
             session=session,
         )
         refuse(find_triage_refusal(status=str(stored_raw["status"])))
@@ -531,7 +532,9 @@ async def decline_bewerbung(
                         reason=ablehnung_data.reason,
                     ),
                 )
-                for email, seats in people_with_address(kontakte=stored_raw.get("kontakte"))
+                for email, seats in people_with_address(
+                    kontakte=stored_raw.get("kontakte"), seats=mailed_seats(confirmations=stored_raw.get("confirmations"))
+                )
             ],
             now=germany_now,
         )
@@ -616,11 +619,15 @@ async def resend_einwilligung(
 
     # The judgement is in the FILTER, so a decision or an answer landing after the read leaves the row
     # untouched rather than overwritten.
-    async def mint_on(stored: Mapping[str, Any], seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
+    async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
         async def mint_unless_barred(session: AsyncClientSession) -> Mapping[str, Any]:
             """Write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
 
             governing_saison_id = await ban_list_saison(ban_list, session=session)
+            # In-session, as the seat write reads them: the filter holds the pressed seats alone, and the deletion day is every seat's.
+            stored = await pull_one_from_db(
+                collection=bewerbungen_collection, db_filter=db_filter, projection=["kontakte", "confirmations"], session=session
+            )
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_resend_filter(bewerbung_id=bewerbung_id, seats=seats),
@@ -657,7 +664,7 @@ async def resend_einwilligung(
             return await session.with_transaction(mint_unless_barred)
 
     try:
-        matched = await mint_on(bewerbung_raw, seats)
+        matched = await mint_on(seats)
     except DocumentNotFoundError:
         # The judgement above was read outside the write's transaction, so a decision or an answer
         # landing between them leaves the filter matching nothing. Judged again rather than answered as
@@ -666,7 +673,7 @@ async def resend_einwilligung(
         seats = seats_judged_on(reread)
         # A re-read that passes is a row that moved back between the two, a decline and then a seat write:
         # one more write, whose own miss is the only one answering 404.
-        matched = await mint_on(reread, seats)
+        matched = await mint_on(seats)
 
     return FLBewerbungEinwilligungResendResponse(
         rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), confirmation_deadline=confirmation_deadline

@@ -2,22 +2,25 @@
 
 import { useState } from "react";
 
-import { Form } from "react-aria-components/Form";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { Card } from "./Card";
+import { buttonPlaceholder } from "./buttonStyles";
+import { Card, CardPlaceholder } from "./Card";
 import { ActRow } from "./Dialog";
-import { Facts } from "./Facts";
+import { Facts, FactsPlaceholder } from "./Facts";
 import { StatusLine } from "./FieldParts";
+import { statusLine } from "./fieldStyles";
+import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
-import { formSend } from "./useFormAction";
+import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { TableProps } from "./Table";
+
+const stepCard = tv({ slots: { body: "grid gap-4", inputs: "grid justify-items-start gap-4" } });
 
 /**
  * One record of a run in its card, as the record's list row is one line: its name, where it stands in the run, the facts
@@ -44,18 +47,19 @@ export function StepCard({
   children: ReactNode;
 }) {
   const [isBlocked, setBlocked] = useState(false);
+  const { body, inputs } = stepCard();
   return (
     <Card
       title={title}
       line={line}
       body="fields">
-      <Form
-        className="grid gap-4"
+      <HeldForm
+        className={body()}
         validationErrors={fieldErrors}
         onInvalid={() => setBlocked(true)}
-        {...formSend(onNext)}>
+        onSend={onNext}>
         <Facts facts={facts} />
-        <div className="grid justify-items-start gap-4">{children}</div>
+        <div className={inputs()}>{children}</div>
         <ActRow>
           <StatusLine
             status={isBlocked ? { tone: "error", text: COPY.template.checkFields } : null}
@@ -73,8 +77,28 @@ export function StepCard({
             onPress={() => setBlocked(false)}
           />
         </ActRow>
-      </Form>
+      </HeldForm>
     </Card>
+  );
+}
+
+/** A record's card while the run is read: its head, `facts` of its facts, its inputs' placeholders and its acts. */
+export function StepCardPlaceholder({ facts, children }: { facts: number; children: ReactNode }) {
+  const { body, inputs } = stepCard();
+  return (
+    <CardPlaceholder
+      line
+      body="fields">
+      <div className={body()}>
+        <FactsPlaceholder pairs={facts} />
+        <div className={inputs()}>{children}</div>
+        <ActRow>
+          <span className={statusLine({ placement: "row" })} />
+          <span className={buttonPlaceholder()}>{COPY.shared.verb.skip}</span>
+          <span className={buttonPlaceholder()}>{COPY.shared.verb.next}</span>
+        </ActRow>
+      </div>
+    </CardPlaceholder>
   );
 }
 

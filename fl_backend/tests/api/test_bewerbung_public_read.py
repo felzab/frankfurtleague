@@ -282,6 +282,35 @@ class TestTheWindowReads:
         assert response.json()["bewerbung_opens_on"] == sooner["start"]
 
     @pytest.mark.parametrize(
+        ("saisons", "held"),
+        [
+            pytest.param(
+                [
+                    _saison("2027", bewerbung={"open": False, "start": "2026-03-01", "end": "2026-05-31"}),
+                    _saison("2026", bewerbung=None, status="active"),
+                ],
+                True,
+                id="next year's window paused beside a season holding none",
+            ),
+            pytest.param(
+                [
+                    _saison("2027", bewerbung=None),
+                    _saison("2026", bewerbung={"open": True, "start": "2026-03-01", "end": "2026-05-31"}, status="past"),
+                ],
+                False,
+                id="a window on an ended season alone",
+            ),
+        ],
+    )
+    def test_the_landing_says_whether_a_season_not_ended_holds_a_window(self, mongo_url: str, saisons: list[dict[str, Any]], held: bool):
+        """Both open on no day, so this alone keeps a pause from telling a school to wait for next season."""
+
+        response = answered(mongo_url, f"/api/v{API_VERSION}/saisons/landing", database_name=seeded_with(mongo_url, saisons))
+
+        assert response.json()["bewerbung_opens_on"] is None
+        assert response.json()["bewerbung_window_held"] is held
+
+    @pytest.mark.parametrize(
         ("saison_id", "state"),
         [
             pytest.param(NOT_YET_OPEN_SAISON, "upcoming", id="a span not yet begun"),

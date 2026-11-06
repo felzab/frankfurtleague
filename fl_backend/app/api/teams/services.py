@@ -211,7 +211,7 @@ def build_team_pipeline(
 
     # Withheld at the JOIN rather than downstream: the outer `$project` is an allow-list too, so this
     # is DEPTH -- two of this pipeline's callers are base-tier and the row carries contact records.
-    lookup_pipeline.append({"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1, "name": 1, "shorthand": 1}})
+    lookup_pipeline.append({"$project": {"_id": 0, "gruppe": 1, "austritt": 1, "name": 1, "shorthand": 1}})
 
     pipeline.append(
         {
@@ -266,7 +266,6 @@ def build_team_pipeline(
                     if rules is not None
                     else {}
                 ),
-                "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
                 "austritt": f"${AS_NAME}.austritt",
             }
@@ -1232,33 +1231,6 @@ def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]
     return owed
 
 
-def compose_confirmations_after(
-    *, kontakte: Mapping[str, Any], stored_kontakte: Any, stored_confirmations: Any, minted: Mapping[str, Any]
-) -> dict[str, Any]:
-    """The whole link block a seat write leaves.
-
-    Whole rather than dotted: a `$set` into an absent or null block leaves it short of its keys, or is
-    `PathNotViable`.
-    """
-
-    stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
-    stored_links = stored_confirmations if isinstance(stored_confirmations, Mapping) else {}
-    block: dict[str, Any] = {}
-
-    for slot in KONTAKT_ROLLEN:
-        if slot in minted:
-            block[slot] = minted[slot]
-            continue
-
-        seat = kontakte.get(slot)
-        # A seat staying empty keeps a Widerspruch's record of itself; a seat handed to a person the write
-        # mints nothing for loses its link, so the person who left it holds nothing live.
-        keeps = not isinstance(seat, Mapping) or _seat_held_by(stored_slots.get(slot), seat=seat) is not None
-        block[slot] = stored_links.get(slot) if keeps else None
-
-    return block
-
-
 def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle, ...]:
     """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody."""
 
@@ -1274,6 +1246,13 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
 
 
 def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
+    """The whole link block a write leaves: each link minted, and every other seat's as stored.
+
+    Whole rather than dotted: a `$set` into an absent or null block leaves it short of its keys, or is
+    `PathNotViable`. A person a write newly seats stands unconfirmed, so `links_owed` mints their link and
+    no seat keeps the link of the person who left it; an empty seat keeps a Widerspruch's record of itself.
+    """
+
     stored_links = stored_confirmations if isinstance(stored_confirmations, Mapping) else {}
 
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}

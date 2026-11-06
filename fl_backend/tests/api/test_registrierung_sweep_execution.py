@@ -3,7 +3,7 @@ import functools
 import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -157,7 +157,9 @@ def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema:
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY) -> Any:
+async def sweep(
+    database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY, now: datetime = MAIL_NOW
+) -> Any:
     return await sweep_registrierungen(
         saison_id=saison_id,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -168,7 +170,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
-        germany_now=MAIL_NOW,
+        germany_now=now,
     )
 
 
@@ -254,6 +256,19 @@ class TestTheReminderClock:
         # answers, so the chase is owed on it exactly as on a link with days left.
         assert (first, after_first) == (2, sorted([REMIND_OID, INSIDE_OID]))
         assert (second, owed) == (0, 2)
+
+    def test_a_row_an_address_change_moved_is_reminded_again_the_same_day(self, mongo_replica_set_url: str):
+        """The move kills the links and clears the stamp: a reminder swallowed here leaves the row stamped with no link left."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            # As `app/api/address_change/crud.py :: _registrierung_move` leaves an unanswered row.
+            await database[Collection.REGISTRIERUNGEN].update_one({"_id": REMIND_OID}, {"$set": {"confirmation.reminded_at": None}})
+            await sweep(database, client, now=MAIL_NOW + timedelta(hours=1))
+
+            return (await reminded_ids(database)).count(REMIND_OID)
+
+        assert on_a_league(mongo_replica_set_url, body) == 2
 
     def test_an_address_the_rule_refuses_is_barred_by_nothing_and_the_pass_goes_on(self, mongo_replica_set_url: str):
         """A stored row may hold an address today's rule refuses, and no ban can be keyed on it."""

@@ -67,6 +67,7 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
   return (
     <MailedPage
       page={readState(searchParams)}
+      facts={4}
       act={COPY.page.entryConfirmation}
       second={COPY.shared.verb.oppose}
       sentence={SENTENCE_WORDS}

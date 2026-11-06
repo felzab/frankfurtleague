@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { CalloutPlaceholder } from "@/kit/Callout";
 import { FieldGroupPlaceholder } from "@/kit/FieldGroup";
 import { FieldPlaceholder } from "@/kit/FieldPair";
-import { StepCardPlaceholder, StepsPage } from "@/kit/StepsPage";
+import { StepCardPlaceholder } from "@/kit/StepCard";
+import { StepsPage } from "@/kit/StepsPage";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";

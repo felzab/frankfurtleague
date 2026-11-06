@@ -655,8 +655,8 @@ their Widerspruch.** On an application, which of the three cases below you are i
 that seat's own link, not by the person's role; a seat on a team's season row is the fourth:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
-  page the link opens, empties the seat at once and tells the Ansprechperson, where one stands and is
-  not the person objecting, so the school can name somebody else
+  page the link opens, empties the seat at once and tells the Ansprechperson, where one stands, was
+  mailed and is not the person objecting, so the school can name somebody else
   (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second

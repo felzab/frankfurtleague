@@ -13,7 +13,7 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.public_router import get_confirmation_view, post_invitation_view, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegistrierungAdmitPayload
@@ -28,7 +28,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.main import create_app
 from app.shared.folding import league_address
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -627,7 +627,10 @@ class TestAMailboxPastTheBound:
 
         assert (stored, more) == (OPEN_LINKS_PER_MAILBOX + 1, 0)
         assert confirmation["sent_at"] is None
-        assert not erinnerung_is_due(registrierung_raw={"status": "submitted", "confirmation": confirmation}, today="2099-01-01")
+        # On the mark, inside the deadline: the sent day is all that stands between this row and its reminder.
+        the_mark = days_after(day=TODAY, days=REGISTRIERUNG_REMINDER_DAYS)
+        assert not erinnerung_is_due(registrierung_raw={"status": "submitted", "confirmation": confirmation}, today=the_mark)
+        assert erinnerung_is_due(registrierung_raw={"status": "submitted", "confirmation": {**confirmation, "sent_at": TODAY}}, today=the_mark)
 
     def test_a_plus_tag_is_the_same_mailbox(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

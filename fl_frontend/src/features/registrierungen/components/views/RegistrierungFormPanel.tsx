@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer, `RegistrierungView.tsx`.
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { useBotCheck } from "@/kit/useBotCheck";
@@ -9,6 +10,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
+import { COPY } from "@/core/copy";
 import { ConfirmationResult } from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { NummerField } from "@/features/spieler/components/forms/NummerField";
@@ -181,11 +183,7 @@ export function RegistrierungFormPanel({
         <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Deine Registrierung ist eingegangen</h2>
         {/* The recovery path in the answer page's own words: no administrator may edit a stored
             address, so registering again is the only route back from a typo. */}
-        <p className="max-w-md muted-hint">
-          Bestätige Deine Registrierung über den Link in der E-Mail. Erst dann kann Dein Team Dich in den Kader aufnehmen. Bestätigst Du nicht
-          innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine Mail bekommen? Prüfe
-          die Adresse und registriere Dich einfach erneut.
-        </p>
+        <p className="max-w-md muted-hint">{COPY.registrierung.received(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)}</p>
       </ConfirmationResult>
     );
   }

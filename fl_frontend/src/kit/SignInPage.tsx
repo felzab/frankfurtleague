@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-import { Form } from "react-aria-components/Form";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
@@ -13,11 +11,11 @@ import { CodeField } from "./CodeField";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { statusLine } from "./fieldStyles";
+import { HeldForm } from "./HeldForm";
 import { Link } from "./Link";
 import { PlaceholderLine, Waiting } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
-import { formSend } from "./useFormAction";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -324,11 +322,11 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
     <>
       {/* The column's 16 px above the field, as the board drew the view. */}
       <ClassicTitle text={title} />
-      <Form
+      <HeldForm
         ref={form}
         validationErrors={address.error}
         // The send's press is the form's submit, so `Enter` in the field sends too.
-        {...formSend((formData) => send(String(formData.get("email"))))}
+        onSend={(formData) => send(String(formData.get("email")))}
         className={slots.form()}>
         <TextField
           label={address.label}
@@ -349,7 +347,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
           type="submit"
           {...button}
         />
-      </Form>
+      </HeldForm>
       {/* Decoration: the passkey's button carries its own name. */}
       <div
         aria-hidden

@@ -16,6 +16,7 @@ from app.api.bewerbungen.services import (
     build_deletion_filter,
     build_erinnerung_filter,
     build_lapsed_seats_filter,
+    closed_chases,
     compose_erinnerung_update,
     compose_lapsed_seats_update,
     decline_loeschung_is_due,
@@ -43,7 +44,15 @@ from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, se
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import (
+    anchor_in_db,
+    erase_many_from_db,
+    patch_many_in_db,
+    patch_one_in_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    redact_log_rows_in_db,
+)
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
@@ -61,6 +70,7 @@ from app.core.recording import build_redaction_filter, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
@@ -70,7 +80,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other 69: 246 commands at 36 ms plus 1.38 ms take 9.20 s
+# Both shares at three commands a row beside the worst call's other 75: 252 commands at 36 ms plus 1.38 ms take 9.42 s
 # of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 36
 
@@ -232,7 +242,10 @@ async def sweep_saison(
         return len(rows), result.deleted_count, redacted
 
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
-        """Stamp each seat due its one reminder and owe its person the mail, in one transaction. Read in-session, so a retry re-judges."""
+        """Stamp each seat due its one reminder and owe its person the mail, in one transaction. Read in-session, so a retry re-judges.
+
+        Answers the rows mailed. A seat no mail reaches is stamped outside the share, a page of them at a few commands.
+        """
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -249,18 +262,18 @@ async def sweep_saison(
         states = await states_of(
             outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
-        # One mail a person: an address is one person, whose one link answers every seat they hold.
-        people_of = {
-            row["_id"]: people
-            for row, people in batch.judged(
-                rows,
-                lambda row: people_with_address(
-                    kontakte=row.get("kontakte"),
-                    seats=reminder_seats(bewerbung_raw=row, today=today, unreachable=unreachable_seats(row=row, states=states)),
-                ),
+
+        def chase_of(row: Mapping[str, Any]) -> tuple[list[tuple[str, list[FLKontaktRolle]]], list[FLKontaktRolle]]:
+            unreachable = unreachable_seats(row=row, states=states)
+            seats = reminder_seats(bewerbung_raw=row, today=today, unreachable=unreachable)
+
+            # One mail a person: an address is one person, whose one link answers every seat they hold.
+            return people_with_address(kontakte=row.get("kontakte"), seats=seats), closed_chases(
+                bewerbung_raw=row, today=today, unreachable=unreachable
             )
-            if people
-        }
+
+        chases = batch.judged(rows, chase_of)
+        people_of = {row["_id"]: people for row, (people, _) in chases if people}
         chased = [row for row in rows if row["_id"] in people_of]
         # One read for the page: a mail names the school, and the row holds only its id.
         club_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in chased], session=session)
@@ -286,8 +299,11 @@ async def sweep_saison(
         # Owed mails built before any stamp, the share cut from the rows they carry: a refused row writes nothing and
         # costs no second attempt, and the rows past the share stay due.
         taken = batch.judged(chased, reminders_of)[: batch.share]
-        batch.took([row for row, _ in taken])
-        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
+        refused = {row_id for row_id, _ in batch.refused}
+        closing = {row["_id"]: seats for row, (_, seats) in chases if seats and row["_id"] not in refused}
+        mailing = {row["_id"] for row, _ in taken}
+        written = batch.took([row for row in rows if row["_id"] in closing or row["_id"] in mailing])
+        refuse_a_stalled_page(read=len(rows), moved=len(written), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
 
         for row, _ in taken:
             await patch_one_in_db(
@@ -298,6 +314,15 @@ async def sweep_saison(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
+        # One write a seat, however many rows: a page's worth at the mail's three commands a row would outrun the deadline.
+        for seat in KONTAKT_ROLLEN:
+            if ids := [row_id for row_id, seats in closing.items() if seat in seats]:
+                await patch_many_in_db(
+                    collection=bewerbungen_collection,
+                    db_filter={"_id": {"$in": ids}},
+                    update=compose_erinnerung_update(seats=[seat], today=today),
+                    session=session,
+                )
         # In the stamps' own transaction: a stamp never stands without its mail, nor a mail without its stamp.
         await enqueue_mails(
             outbox_collection=outbox_collection,

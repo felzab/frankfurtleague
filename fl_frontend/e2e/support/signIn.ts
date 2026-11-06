@@ -44,7 +44,7 @@ async function sendFromHere(page: Page, address: string): Promise<void> {
   // press lands on during the press itself (https://github.com/reactwg/react-18/discussions/37).
   // Before that, text in the field is the browser's until the field replays it on hydrating
   // (`fl_frontend/src/kit/useEarlyEdit.ts`), and React replays a press held with it
-  // (`fl_frontend/src/kit/useFormAction.ts :: holdPress`).
+  // (`fl_frontend/src/kit/HeldForm.tsx`).
   await field.click();
   await field.fill(address);
 
