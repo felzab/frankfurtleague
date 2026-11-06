@@ -74,7 +74,7 @@ export const getBewerbungWindow = cache(async (saisonId: string): Promise<{ wind
   runWithIncomingTrace(() =>
     bewerbungenGetWindow(saisonId)
       // The answer naming no window carries the one key a window has not got.
-      .then((antwort) => ("window" in antwort ? { window: null } : { window: antwort }))
+      .then((response) => ("window" in response ? { window: null } : { window: response }))
       .catch((error: unknown) => {
         if (isRecordMissing(error)) return null;
         throw error;

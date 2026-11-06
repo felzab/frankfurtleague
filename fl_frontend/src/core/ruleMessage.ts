@@ -55,7 +55,7 @@ const PATTERNED = {
   address_in_free_text: () => field.without(COPY.signIn.address),
   // A rule over the contact block, which the backend reports at the block; the kind says which field repeats.
   kontakt_email_twice: () => field.taken,
-  kontakt_telefon_twice: () => field.taken,
+  kontakt_phone_twice: () => field.taken,
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
   nichtantreten_with_tore: () => field.without(COPY.shared.tore),
   nichtantreten_with_torschuetzen: () => field.without(COPY.admin.spiel.torschuetzen),

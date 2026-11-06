@@ -30,13 +30,13 @@ type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "s
  * The season is part of the key: one club applying in two seasons is two applications, not a
  * duplicate a triage has to decide between.
  */
-function duplicatesKey(bewerbung: Kandidat): { art: BewerbungDublette; key: string } | null {
-  if (bewerbung.team_id !== null) return { art: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
+function duplicatesKey(bewerbung: Kandidat): { kind: BewerbungDublette; key: string } | null {
+  if (bewerbung.team_id !== null) return { kind: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
 
   // As served: the backend folds a code on arrival and again as it serves one, so two spellings of one code are one value.
   const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand;
 
-  return kuerzel === "" ? null : { art: "kuerzel", key: `${bewerbung.saison_id} kuerzel ${kuerzel}` };
+  return kuerzel === "" ? null : { kind: "kuerzel", key: `${bewerbung.saison_id} kuerzel ${kuerzel}` };
 }
 
 // **Shown, never refused**: uniqueness on an unauthenticated form lets a stranger lock a school out
@@ -64,7 +64,7 @@ export function markBewerbungDubletten(
 
     if (schluessel === null || !kollidiert.has(schluessel.key)) continue;
 
-    dubletten.set(bewerbung.id, schluessel.art);
+    dubletten.set(bewerbung.id, schluessel.kind);
   }
 
   return dubletten;

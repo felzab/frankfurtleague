@@ -45,14 +45,14 @@ export default function AccountErasurePage() {
 async function readState(): Promise<MailedState> {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
-  if (token === null || !(await erasureLinkStands(token))) return { state: "ungueltig", next: TO_ACCOUNT };
+  if (token === null || !(await erasureLinkStands(token))) return { state: "invalid", next: TO_ACCOUNT };
 
   // A signed-out browser signs in and returns to this page, whose cookie holds the token past the sign-in.
   const link = ROUTES.accountErasure.path();
   const subject = await getSubjectSession();
   if (subject === null) {
     return {
-      state: "ende",
+      state: "end",
       tone: "info",
       title: COPY.page.accountErasure,
       next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) as Route },
@@ -89,7 +89,8 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
 
-  for (const { vorname, nachname } of spieler) add(ENTRIES.spieler, { record: nachname === null ? vorname : `${vorname} ${nachname}` });
+  for (const { first_name: firstName, last_name: lastName } of spieler)
+    add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
   for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, name === null ? COPY.shared.notProvided : { record: name });
   for (const { rolle, team_name, saison_id } of seats) {
     add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));

@@ -37,7 +37,7 @@ CONSENT: dict[str, Any] = own_einwilligung_document(text_versions=SPIELER_TEXT_V
 def registrierung_document(
     registrierung_id: ObjectId,
     *,
-    vorname: str,
+    first_name: str,
     team_id: ObjectId = TEAM_OID,
     saison_id: str = SAISON_ID,
     einwilligung: Any = None,
@@ -50,19 +50,19 @@ def registrierung_document(
         "invitation_id": EINLADUNG_OID,
         "submitted_at": submitted_at,
         "status": "submitted",
-        "vorname": vorname,
-        "nachname": f"{vorname}-Brandt",
-        "email": f"{vorname.lower()}@beispielschule.de",
+        "first_name": first_name,
+        "last_name": f"{first_name}-Brandt",
+        "email": f"{first_name.lower()}@beispielschule.de",
         "position": None,
         "nummer": None,
         "stufe": "Q1",
-        "geburtsdatum": None if einwilligung is None else "2009-05-04",
+        "birth_date": None if einwilligung is None else "2009-05-04",
         "einwilligung": einwilligung,
         "confirmation": {
             "token_hashes": [TOKEN_HASH],
             "sent_at": submitted_at,
             "reminded_at": None,
-            "frist": "2026-04-08",
+            "deadline": "2026-04-08",
         },
         "decision": None,
     }
@@ -82,9 +82,9 @@ def on_a_league(url: str, body: Body) -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             await database[Collection.REGISTRIERUNGEN].insert_many(
                 [
-                    registrierung_document(OFFEN_OID, vorname="Thessaly"),
-                    registrierung_document(BESTAETIGT_OID, vorname="Quillhilde", einwilligung=dict(CONSENT), submitted_at="2026-04-02"),
-                    registrierung_document(FREMDES_TEAM_OID, vorname="Wraxlington", team_id=OTHER_TEAM_OID, saison_id=OTHER_SAISON_ID),
+                    registrierung_document(OFFEN_OID, first_name="Thessaly"),
+                    registrierung_document(BESTAETIGT_OID, first_name="Quillhilde", einwilligung=dict(CONSENT), submitted_at="2026-04-02"),
+                    registrierung_document(FREMDES_TEAM_OID, first_name="Wraxlington", team_id=OTHER_TEAM_OID, saison_id=OTHER_SAISON_ID),
                 ]
             )
 

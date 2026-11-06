@@ -85,7 +85,7 @@ def address() -> PayloadFactory:
 
 @pytest.fixture
 def kontakt() -> PayloadFactory:
-    return _factory({"telefon": "+49 69 1234567", "email": "kontakt@example.com"})
+    return _factory({"phone": "+49 69 1234567", "email": "kontakt@example.com"})
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ def statistik() -> PayloadFactory:
             "tore_geschossen": 7,
             "tore_kassiert": 4,
             "punkte": 6,
-            "count_abgesagte_spiele": 1,
+            "count_cancelled_spiele": 1,
         }
     )
 
@@ -126,17 +126,17 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
 
 @pytest.fixture
 def spiel_team_field() -> PayloadFactory:
-    return _factory({"team_id": TEAM_ID, "name": "Carl-Schurz", "tore": 2, "shorthand": "CSX"})
+    return _factory({"team_id": TEAM_ID, "tore": 2})
 
 
 @pytest.fixture
 def spiel_ort_field() -> PayloadFactory:
-    return _factory({"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80})
+    return _factory({"spielort_id": SPIELORT_ID, "mietpreis": 80})
 
 
 @pytest.fixture
 def spiel_schiedsrichter_field() -> PayloadFactory:
-    return _factory({"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "A. Referee", "payment": 20})
+    return _factory({"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": 20})
 
 
 @pytest.fixture
@@ -149,12 +149,12 @@ def spiel(
         {
             "_id": SPIEL_ID,
             "team1": spiel_team_field(),
-            "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LEX", tore=1),
+            "team2": spiel_team_field(team_id=SPIELER_ID, tore=1),
             # A group-phase fixture: both sides are drawn by the schedule, so neither has a source.
             "team1_quelle": None,
             "team2_quelle": None,
-            "datum": "2026-03-15",
-            "uhrzeit": "18:00:00",
+            "date": "2026-03-15",
+            "time": "18:00:00",
             "ort": spiel_ort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
@@ -226,8 +226,8 @@ def spieler() -> PayloadFactory:
     return _factory(
         {
             "_id": SPIELER_ID,
-            "vorname": "Max",
-            "nachname": "Mustermann",
+            "first_name": "Max",
+            "last_name": "Mustermann",
             "stufe": "Q2",
             "nummer": "10",
             # `Angriff`, not `Sturm`: the enum closed on this spelling.
@@ -236,7 +236,7 @@ def spieler() -> PayloadFactory:
             "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
-            "geburtsdatum": "2009-05-04",
+            "birth_date": "2009-05-04",
             "einwilligung": dict(EINWILLIGUNG),
         }
     )
@@ -248,8 +248,8 @@ def spieltag() -> PayloadFactory:
         {
             "_id": SPIELTAG_ID,
             # No `name`: a matchday's label is composed by the reader, from `position` and the phase.
-            "beginn": "2026-03-15",
-            "ende": "2026-03-15",
+            "start": "2026-03-15",
+            "end": "2026-03-15",
             "count_spiele": 4,
             "position": 1,
             "saison_phase": "gruppenphase",

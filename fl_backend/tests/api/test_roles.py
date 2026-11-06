@@ -85,7 +85,7 @@ SCHIEDSRICHTER_RETIREMENT_OPEN_OID = ObjectId("6890a1b2c3d4e5f607830036")
 
 
 def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
-    return kontaktperson_document("Anna", confirmed_at=confirmed_at, nachname="Müller", email=email, telefon="+49 69 5550101")
+    return kontaktperson_document("Anna", confirmed_at=confirmed_at, last_name="Müller", email=email, phone="+49 69 5550101")
 
 
 def _junction(
@@ -138,7 +138,7 @@ def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str | None, *
         "name": name,
         "schule": None,
         "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
+        "kontakt": {"phone": "+49 69 5550202", "email": email},
         "inactive_since": None,
         **fields,
     }

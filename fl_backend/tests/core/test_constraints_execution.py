@@ -16,7 +16,7 @@ from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
 from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
-from app.api.spielberichte.crud import pull_bericht_lage
+from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
 from app.core.constraints import (
@@ -88,9 +88,9 @@ ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314"
 SEATED: Final = {"date": "2026-01-15"}
 
 
-def kontaktperson(vorname: str) -> dict[str, Any]:
+def kontaktperson(first_name: str) -> dict[str, Any]:
     """A function rather than a constant: the nested consent has to be fresh per slot too, which a `dict()` of a shared one is not."""
-    return kontaktperson_document(vorname, confirmed_at="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
 
 
 def valid_documents() -> dict[str, dict[str, Any]]:
@@ -109,7 +109,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "number_of_gruppen": 4,
                 "teams_per_gruppe": 4,
                 "tiebreak_order": "tordifferenz",
-                "max_kadergroesse": 18,
+                "max_kader_size": 18,
                 "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
                 # Which levels this season offers — a subset of the league's set.
                 "allowed_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
@@ -153,14 +153,14 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "inactive_since": None,
         },
         "spiele": {
-            "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LEX"},
-            "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"},
+            "team1": {"team_id": TEAM_OID, "tore": 2},
+            "team2": {"team_id": SPIELER_OID, "tore": 1},
             "team1_quelle": None,
             "team2_quelle": None,
-            "datum": "2026-03-15",
-            "uhrzeit": "18:00:00",
-            "ort": {"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
-            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": "A. Referee", "payment": 20},
+            "date": "2026-03-15",
+            "time": "18:00:00",
+            "ort": {"spielort_id": SPIELORT_OID, "mietpreis": 80},
+            "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "payment": 20},
             "ergebnis": "2:1",
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_OID,
@@ -172,8 +172,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "spieltage": {
             "_id": SPIELTAG_OID,
             # No `name` and no `count_spiele`: one is composed by the reader, the other derived, and neither stored.
-            "beginn": "2026-03-15",
-            "ende": "2026-03-15",
+            "start": "2026-03-15",
+            "end": "2026-03-15",
             "position": 1,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
@@ -191,7 +191,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "name": "A. Referee",
             "schule": None,
             "default_payment": 20,
-            "kontakt": {"telefon": None, "email": None},
+            "kontakt": {"phone": None, "email": None},
             "inactive_since": None,
         },
         # Undecided, proposing a school rather than picking a club: both are nullable and exactly
@@ -266,7 +266,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "created_by": "admin@example.invalid",
             "revoked_at": None,
         },
-        # Every key the submission writes, `geburtsdatum`, `einwilligung` and `decision`
+        # Every key the submission writes, `birth_date`, `einwilligung` and `decision`
         # included: each is a stored null rather than an absent key, which is what `required` means.
         "registrierungen": {
             "_id": REGISTRIERUNG_OID,
@@ -275,19 +275,19 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "invitation_id": INVITATION_OID,
             "submitted_at": "2026-03-16",
             "status": "submitted",
-            "vorname": "Thessaly",
-            "nachname": "Okonkwo-Brandt",
+            "first_name": "Thessaly",
+            "last_name": "Okonkwo-Brandt",
             "email": "thessaly@example.invalid",
             "position": "Mittelfeld",
             "nummer": "17",
             "stufe": "Q1",
-            "geburtsdatum": None,
+            "birth_date": None,
             "einwilligung": None,
             "confirmation": {
                 "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
                 "sent_at": "2026-03-16",
                 "reminded_at": None,
-                "frist": "2026-03-23",
+                "deadline": "2026-03-23",
             },
             "decision": None,
         },
@@ -313,15 +313,15 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 saison_id=SAISON_ID,
                 spiel_nr=1,
                 spieltag_id=SPIELTAG_OID,
-                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX", "tore": None},
-                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HEX", "tore": None},
-                datum="2026-03-15",
-                uhrzeit="18:00:00",
-                ort={"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
+                team1={"team_id": TEAM_OID, "tore": None},
+                team2={"team_id": OTHER_TEAM_OID, "tore": None},
+                date="2026-03-15",
+                time="18:00:00",
+                ort={"spielort_id": SPIELORT_OID, "mietpreis": 80},
             ),
-            party={"art": "team", "team_id": TEAM_OID},
+            party={"kind": "team", "team_id": TEAM_OID},
             _id=SPIELBESTAETIGUNG_OID,
-            frist="2026-03-08",
+            deadline="2026-03-08",
             kontakte={
                 "trainer": {"token_hashes": ["e" * 64]},
                 "ansprechperson": {"token_hashes": ["e" * 64], "delivery": None},
@@ -399,7 +399,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_schiedsrichter_name": (valid_documents()["schiedsrichter"], valid_document("schiedsrichter", _id=TEAM_OID, default_payment=25)),
     "uniq_saison_id_saison_phase_position": (
         valid_documents()["spieltage"],
-        valid_document("spieltage", _id=SPIELORT_OID, ende="2026-03-22"),
+        valid_document("spieltage", _id=SPIELORT_OID, end="2026-03-22"),
     ),
     # The second row differs in its reason and its author: the index refuses on the hash alone, and
     # a pair agreeing in everything would pass while keyed on anything at all.
@@ -432,7 +432,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # Two persons differing in their name and sharing an address: the index refuses on the address alone.
     "uniq_spieler_email": (
         valid_document("spieler", email="pupil@example.invalid"),
-        valid_document("spieler", _id=TEAM_OID, vorname="Zweite", email="pupil@example.invalid"),
+        valid_document("spieler", _id=TEAM_OID, first_name="Zweite", email="pupil@example.invalid"),
     ),
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
@@ -449,7 +449,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # Two reports of one fixture differing in their whole block: the index refuses on the fixture alone.
     "uniq_spielbericht_spiel_id": (
         valid_documents()["spielberichte"],
-        valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(bemerkungen="Zweiter Bericht")),
+        valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(remarks="Zweiter Bericht")),
     ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
     "uniq_address_change_address": (
@@ -571,16 +571,16 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
     A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
     """
 
-    antwort = {"art": "zugesagt", "am": "2026-03-01", "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
+    answer = {"kind": "zugesagt", "at": "2026-03-01", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
 
     async def body(database: AsyncDatabase) -> int:
         await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
-        await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=TEAM_OID, antwort=antwort))
+        await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=TEAM_OID, answer=answer))
         await database.spielbestaetigungen.insert_one(
-            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"at": "2026-03-02", "grund": "abgesagt"})
+            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"at": "2026-03-02", "reason": "cancelled"})
         )
         await database.spielbestaetigungen.insert_one(
-            valid_document("spielbestaetigungen", _id=SPIELTAG_OID, party={"art": "team", "team_id": OTHER_TEAM_OID})
+            valid_document("spielbestaetigungen", _id=SPIELTAG_OID, party={"kind": "team", "team_id": OTHER_TEAM_OID})
         )
         return await database.spielbestaetigungen.count_documents({})
 
@@ -995,13 +995,11 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
 
 async def the_report_kader(database: AsyncDatabase) -> Issued:
-    await database[Collection.SPIELE].insert_one(
-        valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"})
-    )
+    await database[Collection.SPIELE].insert_one(valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "tore": 1}))
 
     return await sent_by(
         database,
-        lambda kader, session: pull_bericht_lage(
+        lambda kader, session: pull_bericht_context(
             spiele_collection=database[Collection.SPIELE],
             saisons_collection=database[Collection.SAISONS],
             saison_spieler_collection=kader,
@@ -1146,10 +1144,10 @@ class TestTwoRefereesOpenRowsOnOneStand:
                     valid_document(
                         "spielbestaetigungen",
                         _id=row_id,
-                        party={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
+                        party={"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
                         kontakte=None,
                     )
                 )
-            return await database.spielbestaetigungen.count_documents({"antwort": None, "closed": None})
+            return await database.spielbestaetigungen.count_documents({"answer": None, "closed": None})
 
         assert on_the_shipped_schema(mongo_url, body) == 2

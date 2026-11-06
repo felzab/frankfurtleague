@@ -43,7 +43,7 @@ SPIEL_ID = "6890a1b2c3d4e5f60725{:04d}"
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    return documents.rules_document(**{"teams_per_gruppe": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, **overrides})
+    return documents.rules_document(**{"teams_per_gruppe": STORED_PER_GROUP, "max_kader_size": STORED_KADER, **overrides})
 
 
 def saison_document() -> dict[str, Any]:
@@ -55,8 +55,8 @@ def spieltag_document() -> dict[str, Any]:
 
     return {
         "_id": SPIELTAG_OID,
-        "beginn": "2026-03-15",
-        "ende": "2026-03-15",
+        "start": "2026-03-15",
+        "end": "2026-03-15",
         "position": 1,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON_ID,
@@ -90,7 +90,7 @@ A_WEEK_LATER = "2026-03-22"
 def drawn_spiele() -> list[dict[str, Any]]:
     """One matchday's fixtures. A null `quelle` on either side, so nothing here can be read as a wired placing."""
 
-    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum=FIRST_FIXTURE_DAY) for nr in range(1, DRAWN_FIXTURES + 1)]
+    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, date=FIRST_FIXTURE_DAY) for nr in range(1, DRAWN_FIXTURES + 1)]
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -118,7 +118,7 @@ def on_a_database(
 async def date_the_matchday(database: AsyncDatabase, day: str) -> None:
     """What precedes a moved start: `saison_span_below_spieltage` keeps every dated matchday inside the season."""
 
-    await database[Collection.SPIELTAGE].update_one({"_id": SPIELTAG_OID}, {"$set": {"beginn": day, "ende": day}})
+    await database[Collection.SPIELTAGE].update_one({"_id": SPIELTAG_OID}, {"$set": {"start": day, "end": day}})
 
 
 async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
@@ -163,7 +163,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
 
         async def body(database: AsyncDatabase) -> APIError:
             with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, max_kadergroesse=REFUSED_KADER)
+                await patch_the_rules(database, max_kader_size=REFUSED_KADER)
 
             return refusal.value
 
@@ -228,7 +228,7 @@ class TestTheStartMovesNoLaterPastAStoredExit:
         which no page shows. An earlier start reopens nothing, so it is saved.
         """
 
-        exit_record = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": SAISON_START}
+        exit_record = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": SAISON_START}
         an_earlier_start = "2026-03-08"
 
         async def body(database: AsyncDatabase) -> tuple[APIError, str, str]:
@@ -259,7 +259,7 @@ class TestTheStartIsFixedOnceAFixtureHasTakenPlace:
     def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
         """One fixture holding a result fixes the start, and the refusal writes nothing."""
 
-        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, datum=FIRST_FIXTURE_DAY, ergebnis="1:0")]
+        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_FIXTURE_DAY, ergebnis="1:0")]
 
         async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
             await date_the_matchday(database, A_WEEK_LATER)

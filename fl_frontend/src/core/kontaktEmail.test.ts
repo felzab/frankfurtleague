@@ -10,7 +10,7 @@ const ORIGIN = "http://localhost:3000";
 
 /** One person's link as a contacts save owes it, on an open row unless `row` names a closed one. */
 const data = (row: FLKontaktRow = "open", rollen: FLKontaktLinkData["rollen"] = ["ansprechperson"]) =>
-  ({ kind: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", rollen, frist: "2026-10-17", row }) as const;
+  ({ kind: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", rollen, deadline: "2026-10-17", row }) as const;
 
 const rendered = (facts: ReturnType<typeof data>) => {
   const mail = mailFor("kontakt_confirmation", facts, { token: "beispiel-eins", secret: null, origin: ORIGIN });
@@ -28,14 +28,14 @@ describe("a season row's contact link", () => {
   });
 
   /* A closed row's link takes the Widerspruch alone, so its mail asks no confirmation the page would then refuse. */
-  for (const [row, grund] of [
+  for (const [row, reason] of [
     ["saison_past", /Die Saison ist vorbei/],
     ["ausgetreten", /Das Team spielt in dieser Saison nicht mehr mit/],
   ] as const) {
     it(`asks a person seated on a row that is ${row} for the Widerspruch alone`, () => {
       const { mail, text } = rendered(data(row));
 
-      expect(text).toMatch(grund);
+      expect(text).toMatch(reason);
       expect(text).not.toMatch(/Bitte bestätige/);
       expect(mail.button).toStrictEqual({ label: "Zum Eintrag", href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
     });

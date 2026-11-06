@@ -18,7 +18,7 @@ from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIA_MIN_AGE_YEARS,
-    SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS,
+    SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 from app.shared.schemas.kontakt import FLKontakt
@@ -191,7 +191,7 @@ TOKEN_HASHES_PATH: Final = f"{CONFIRMATION_FIELD}.token_hashes"
 DECLINED_AT_PATH: Final = f"{CONFIRMATION_FIELD}.declined_at"
 ADDRESS_PATH: Final = "kontakt.email"
 
-EINWILLIGUNG_FELD: Final = "einwilligung"
+EINWILLIGUNG_FIELD: Final = "einwilligung"
 
 # The instant the hourly pass erases an unanswered or declined entry (`app/api/schiedsrichter/system_router.py ::
 # sweep_schiedsrichter`), its log images with it, which a TTL index deleting the row would leave for the log's twelve
@@ -209,25 +209,28 @@ def build_erasure_due_filter(*, now: datetime) -> Mapping[str, Any]:
 def confirmation_deadline_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
 
-    return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS)
+    return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS)
 
 
-def erase_at_from(*, frist: str) -> datetime:
+def erase_at_from(*, deadline: str) -> datetime:
     """The German midnight closing the deadline's day: the link still answers on that day, so the entry outlives it."""
 
-    return datetime.combine(date.fromisoformat(frist) + timedelta(days=1), time(), tzinfo=clock.GERMANY)
+    return datetime.combine(date.fromisoformat(deadline) + timedelta(days=1), time(), tzinfo=clock.GERMANY)
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
     """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today, nobody reminded."""
 
-    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "frist": confirmation_deadline_from(today=today)}
+    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "deadline": confirmation_deadline_from(today=today)}
 
 
 def compose_mint_update(*, today: str) -> dict[str, Any]:
     """The WHOLE block, so every link the referee was sent before stops working at this write, and the clock it restarts."""
 
-    return {CONFIRMATION_FIELD: compose_confirmation(today=today), ERASE_AT_FIELD: erase_at_from(frist=confirmation_deadline_from(today=today))}
+    return {
+        CONFIRMATION_FIELD: compose_confirmation(today=today),
+        ERASE_AT_FIELD: erase_at_from(deadline=confirmation_deadline_from(today=today)),
+    }
 
 
 def compose_einwilligung(*, scope: str, media: bool, today: str) -> dict[str, Any]:
@@ -246,7 +249,7 @@ def compose_einwilligung(*, scope: str, media: bool, today: str) -> dict[str, An
 
 
 def compose_confirmation_update(
-    *, geburtsdatum: str, scope: str, media: bool, text_versions: TextVersions, today: str, at: str
+    *, birth_date: str, scope: str, media: bool, text_versions: TextVersions, today: str, at: str
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is.
 
@@ -259,7 +262,7 @@ def compose_confirmation_update(
     record = compose_initial(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
     # The clock goes with the answer: a confirmed entry stays until its person or the league ends it.
-    return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
+    return {"$set": {"birth_date": birth_date, EINWILLIGUNG_FIELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
 
 
 def compose_decline_update(*, today: str) -> Mapping[str, Any]:
@@ -274,7 +277,7 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {TOKEN_HASHES_PATH: token_hash}
 
 
-def vorname_of(name: Any) -> str | None:
+def first_name_of(name: Any) -> str | None:
     """The forename inside the one `name` field this collection stores.
 
     Split rather than stored apart, as every other referee surface reads the whole name. Only the
@@ -286,16 +289,16 @@ def vorname_of(name: Any) -> str | None:
     return parts[0] if parts else None
 
 
-def link_is_over(*, frist: str, today: str) -> bool:
+def link_is_over(*, deadline: str, today: str) -> bool:
     """Whether the deadline has passed: its own day still takes the answer."""
 
-    return frist < today
+    return deadline < today
 
 
 def deadline_passed(block: Mapping[str, Any] | None, *, today: str) -> bool:
     """Whether the link a referee holds has passed its deadline; false where they hold none."""
 
-    return block is not None and link_is_over(frist=block["frist"], today=today)
+    return block is not None and link_is_over(deadline=block["deadline"], today=today)
 
 
 def is_declined(confirmation: Any) -> bool:
@@ -325,10 +328,10 @@ def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, 
     if is_declined(confirmation):
         return "declined"
 
-    return "expired" if link_is_over(frist=confirmation["frist"], today=today) else "valid"
+    return "expired" if link_is_over(deadline=confirmation["deadline"], today=today) else "valid"
 
 
-def answered_on_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: Any, confirmation: Mapping[str, Any]) -> str | None:
+def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: Any, confirmation: Mapping[str, Any]) -> str | None:
     """The day of the answer `state` shows, the consent's or the objection's; `None` where it shows none.
 
     Off the state rather than the record, so a barred link names no day its page does not show.
@@ -359,10 +362,10 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     )
 
 
-def find_expired_token_refusal(*, frist: str, today: str) -> WriteRefusal | None:
+def find_expired_token_refusal(*, deadline: str, today: str) -> WriteRefusal | None:
     """Why this link is over, or `None`."""
 
-    if not link_is_over(frist=frist, today=today):
+    if not link_is_over(deadline=deadline, today=today):
         return None
 
     return WriteRefusal(
@@ -398,31 +401,31 @@ def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
+def find_alter_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing.
 
     The bounds go with the refusal, so the field's message names the range the write judges.
     """
 
-    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=geburtsdatum, today=today) <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
+    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return None
 
     return WriteRefusal(
         error_code=Code.CONFIRMATION_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("geburtsdatum",),),
+        fields=(("birth_date",),),
         bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
     )
 
 
-def find_media_refusal(*, geburtsdatum: str, media: bool, today: str) -> WriteRefusal | None:
+def find_media_refusal(*, birth_date: str, media: bool, today: str) -> WriteRefusal | None:
     """Why this referee's media consent is refused, or `None`.
 
     Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
     page sends every referee below the floor.
     """
 
-    if not media or whole_years_between(born=geburtsdatum, today=today) >= MEDIA_MIN_AGE_YEARS:
+    if not media or whole_years_between(born=birth_date, today=today) >= MEDIA_MIN_AGE_YEARS:
         return None
 
     return WriteRefusal(
@@ -493,7 +496,7 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
     """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox."""
 
     # A CONFIRMED referee's address is never the save's (`find_confirmed_address_refusal`).
-    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
+    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FIELD)):
         return False
 
     return _address_moves(stored=stored, payload_email=payload_email)
@@ -505,7 +508,7 @@ def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: 
     Only an address change moves it. Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
     """
 
-    if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)) or not _address_moves(stored=stored, payload_email=payload_email):
+    if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FIELD)) or not _address_moves(stored=stored, payload_email=payload_email):
         return None
 
     return WriteRefusal(
@@ -543,7 +546,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 
     return (
         stored.get("inactive_since") is not None
-        and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FELD), confirmation=stored.get(CONFIRMATION_FIELD))
+        and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD))
         and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
     )
 
@@ -551,8 +554,8 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
 # of the row is what must not reach them.
 CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
-    f"{CONFIRMATION_FIELD}.frist": 1,
+    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
+    f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,
     # For the ban list alone, as the answer's read takes it: the response model declares no field to
     # carry it.
@@ -564,8 +567,8 @@ CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
 # Narrower than the view's: the answer takes its wording from the payload rather than the row. The
 # address is what the press asks the ban list of, and no answer carries it.
 CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
-    f"{CONFIRMATION_FIELD}.frist": 1,
+    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
+    f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,
     "kontakt.email": 1,
 }
@@ -574,7 +577,7 @@ CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
 INVITE_FIELDS: Mapping[str, int] = {
     "inactive_since": 1,
     "kontakt.email": 1,
-    f"{EINWILLIGUNG_FELD}.confirmed_at": 1,
+    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     DECLINED_AT_PATH: 1,
 }
 
@@ -595,10 +598,10 @@ SELF_FIELDS: Mapping[str, int] = {
     "name": 1,
     "schule": 1,
     "kontakt": 1,
-    "geburtsdatum": 1,
+    "birth_date": 1,
     "default_payment": 1,
     "inactive_since": 1,
-    EINWILLIGUNG_FELD: 1,
+    EINWILLIGUNG_FIELD: 1,
 }
 
 

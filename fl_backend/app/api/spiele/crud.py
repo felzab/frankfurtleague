@@ -10,7 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import stamp_the_adoption
-from app.api.spielberichte.services import seiten_of
+from app.api.spielberichte.services import sides_of
 from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_told_of_the_change
 from app.api.spiele.schemas import (
     SPIEL_PATCH_WRITTEN_FIELDS,
@@ -88,7 +88,7 @@ from app.core.crud import (
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
+from app.shared.schemas.literals import FLGruppenNames, FLSpielSide
 
 
 async def _resolve_one_saison(
@@ -230,7 +230,7 @@ async def pull_slot_holders(
     # A cursor rather than `pull_many_from_db`: the list cap would truncate a busy ground's bookings in silence.
     holders = await spiele_collection.find(
         build_slot_holder_filter(claims),
-        {"saison_id": 1, "spiel_nr": 1, "datum": 1, "uhrzeit": 1, "ort": 1, "schiedsrichter": 1},
+        {"saison_id": 1, "spiel_nr": 1, "date": 1, "time": 1, "ort": 1, "schiedsrichter": 1},
         session=session,
     ).to_list(length=None)
 
@@ -277,16 +277,16 @@ async def pull_saison_membership(
     return {
         row["team_id"]: SaisonMembership(
             name=row["name"],
-            # The `.get` is for the null record: a present `austritt` always carries a `datum`.
-            departed_from=(row["austritt"] or {}).get("datum"),
+            # The `.get` is for the null record: a present `austritt` always carries a `date`.
+            departed_from=(row["austritt"] or {}).get("date"),
         )
         for row in rows
     }
 
 
 class SpieltagSpan(NamedTuple):
-    beginn: str | None
-    ende: str | None
+    start: str | None
+    end: str | None
 
 
 async def pull_spieltag_span(
@@ -300,13 +300,13 @@ async def pull_spieltag_span(
     `find_one` rather than `pull_one_from_db`'s 404: the date rule leaves a missing matchday alone.
     """
 
-    row = await spieltage_collection.find_one({"_id": spieltag_id}, {"beginn": 1, "ende": 1}, session=session)
+    row = await spieltage_collection.find_one({"_id": spieltag_id}, {"start": 1, "end": 1}, session=session)
     if row is None:
         return None
 
     # RAW, never through `str()`: a drawn matchday stores a null span, and "None" sorts above every
     # date, so a stringified one would refuse every fixture the season drew.
-    return SpieltagSpan(beginn=row["beginn"], ende=row["ende"])
+    return SpieltagSpan(start=row["start"], end=row["end"])
 
 
 async def pull_booked_venue(
@@ -553,7 +553,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     )
 
 
-def _other_side(side: FLSpielSeite) -> FLSpielSeite:
+def _other_side(side: FLSpielSide) -> FLSpielSide:
     """The side facing `side`. One spelling, so the model and the `$set` cannot pair the two differently."""
 
     return "team2" if side == "team1" else "team1"
@@ -716,7 +716,7 @@ async def _judge_spiel_save(
     # The session is what makes a matchday widened by a concurrent write visible.
     span = await pull_spieltag_span(spieltage_collection=collections.spieltage, spieltag_id=stored.spieltag_id, session=session)
     if span is not None:
-        refuse(find_fixture_date_refusal(datum=payload.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
+        refuse(find_fixture_date_refusal(date=payload.date, spieltag_start=span.start, spieltag_end=span.end))
 
     # Read whatever the payload names, unchanged reference included: the booking rule judges the row each reference
     # names, and judges the reference alone where it is new or reopened.
@@ -740,7 +740,7 @@ async def _judge_spiel_save(
     booked = await pull_booked_slots(
         spiele_collection=collections.spiele, spiel_id=spiel_id, claims=find_claims_made(stored, payload), session=session
     )
-    refuse(find_clash_refusal(datum=payload.datum, uhrzeit=payload.uhrzeit, booked=booked))
+    refuse(find_clash_refusal(date=payload.date, time=payload.time, booked=booked))
 
     return _JudgedSave(
         saison_id=saison_id,
@@ -763,7 +763,7 @@ async def pull_party_names(
 ) -> dict[tuple[str, Any], str]:
     """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
 
-    referee_ids = {party["schiedsrichter_id"] for party in parties if party["art"] == "schiedsrichter"}
+    referee_ids = {party["schiedsrichter_id"] for party in parties if party["kind"] == "schiedsrichter"}
     referees = await pull_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": {"$in": list(referee_ids)}},
@@ -904,7 +904,7 @@ async def save_spiel_in_session(
             spielberichte_collection=collections.spielberichte,
             spiel_id=spiel_id,
             version=adopts_bericht,
-            seiten=seiten_of(saved),
+            sides=sides_of(saved),
             now=now,
             session=session,
         )

@@ -9,15 +9,15 @@ import { fieldRoot } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 
 import type { Copy } from "@/core/copy";
-import type { Uhrzeit } from "@/core/format";
+import type { TimeOfDay } from "@/core/format";
 import type { Time } from "@internationalized/date";
 
-const toUhrzeit = (time: Time | null): Uhrzeit | null =>
-  // `Time` writes itself as `HH:MM:SS`, a form `Uhrzeit` names.
-  time === null ? null : (time.toString() as Uhrzeit);
+const toTimeOfDay = (time: Time | null): TimeOfDay | null =>
+  // `Time` writes itself as `HH:MM:SS`, a form `TimeOfDay` names.
+  time === null ? null : (time.toString() as TimeOfDay);
 
-const fromUhrzeit = (uhrzeit: Uhrzeit | null | undefined): Time | null | undefined =>
-  uhrzeit === null || uhrzeit === undefined ? uhrzeit : parseTime(uhrzeit);
+const fromTimeOfDay = (time: TimeOfDay | null | undefined): Time | null | undefined =>
+  time === null || time === undefined ? time : parseTime(time);
 
 /** Enter a time of day: segmented, on the 24-hour clock, „19:30“. The value is the stored `HH:MM:SS`. */
 export function TimeField({
@@ -37,17 +37,17 @@ export function TimeField({
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
-  value?: Uhrzeit | null;
-  defaultValue?: Uhrzeit | null;
-  onChange?: (uhrzeit: Uhrzeit | null) => void;
+  value?: TimeOfDay | null;
+  defaultValue?: TimeOfDay | null;
+  onChange?: (time: TimeOfDay | null) => void;
 }) {
   return (
     <AriaTimeField<Time>
       className={fieldRoot()}
       name={name}
-      value={fromUhrzeit(value)}
-      defaultValue={fromUhrzeit(defaultValue)}
-      onChange={onChange && ((time) => onChange(toUhrzeit(time)))}
+      value={fromTimeOfDay(value)}
+      defaultValue={fromTimeOfDay(defaultValue)}
+      onChange={onChange && ((time) => onChange(toTimeOfDay(time)))}
       hourCycle={24}
       shouldForceLeadingZeros
       isRequired={isRequired}

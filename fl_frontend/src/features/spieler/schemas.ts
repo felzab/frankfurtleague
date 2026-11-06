@@ -33,12 +33,12 @@ const FLSpielerRolleSchema = z.enum(FLSpielerRolle, { error: "Bitte wähle eine 
  */
 export const FLPatchSpielerPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   // The form submits null for an empty box, never an empty string — a surname often arrives later.
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }).nullable(),
+  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }).nullable(),
   // Never null: a save clearing the date the person's registration carried would leave one whose age
   // no page can read.
-  geburtsdatum: CustomDateStringSchema,
+  birth_date: CustomDateStringSchema,
 });
 export type FLPatchSpielerPayload = z.infer<typeof FLPatchSpielerPayloadSchema>;
 

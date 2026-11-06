@@ -20,7 +20,7 @@ const SaveSpieltag = z.object({
   // The matchday's version as the editor read it.
   version: shape.version,
   // A box emptied sends no day, which the write cannot take: refused below on its box.
-  changes: z.object({ beginn: z.union([shape.beginn, z.null()]), ende: z.union([shape.ende, z.null()]) }).partial(),
+  changes: z.object({ start: z.union([shape.start, z.null()]), end: z.union([shape.end, z.null()]) }).partial(),
 });
 
 /**
@@ -36,26 +36,26 @@ export const saveSpieltag = action({
     "spieltag_ends_before_start",
     "spieltag_outside_saison",
     "spieltag_span_below_spiele",
-    "spieltag_beginn_out_of_order",
+    "spieltag_start_out_of_order",
     // The editor opened before its season finished: the write refuses a finished season's matchday whole.
     "saison_past",
   ],
   // The span's own rule names the end it refuses, as the box's own check does before the send.
-  paths: { ende: "changes.ende" },
+  paths: { end: "changes.end" },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAdminSpieltag(id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const { beginn, ende } = { ...valuesOf(stored.spieltag), ...changes };
+    const { start, end } = { ...valuesOf(stored.spieltag), ...changes };
     // A day emptied, or one the matchday never held and the editor left empty, which the write cannot take.
     const required = COPY.shared.field.required;
-    if (beginn === null || ende === null) {
+    if (start === null || end === null) {
       return {
         ok: false,
-        fieldErrors: { ...(beginn === null ? { "changes.beginn": required } : {}), ...(ende === null ? { "changes.ende": required } : {}) },
+        fieldErrors: { ...(start === null ? { "changes.start": required } : {}), ...(end === null ? { "changes.end": required } : {}) },
       };
     }
-    const written = await spieltagePatchSpieltag(id, { beginn, ende, version });
+    const written = await spieltagePatchSpieltag(id, { start, end: end, version });
     return { ok: true, value: written.version };
   },
 });

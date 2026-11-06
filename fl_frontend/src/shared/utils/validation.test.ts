@@ -18,12 +18,12 @@ describe("toFieldErrors", () => {
     // Two refines can land on one path; the field renders whichever this function keeps.
     const found = toFieldErrors(
       errorWith([
-        { path: ["ende"], message: "Das Ende darf nicht vor dem Beginn liegen." },
-        { path: ["ende"], message: "Wähle einen Tag innerhalb der Saison." },
+        { path: ["end"], message: "Das Ende darf nicht vor dem Beginn liegen." },
+        { path: ["end"], message: "Wähle einen Tag innerhalb der Saison." },
       ]),
     );
 
-    expect(found).toStrictEqual({ ende: "Das Ende darf nicht vor dem Beginn liegen." });
+    expect(found).toStrictEqual({ end: "Das Ende darf nicht vor dem Beginn liegen." });
   });
 
   it("carries a path named for a prototype key, which `in` would drop in silence", () => {

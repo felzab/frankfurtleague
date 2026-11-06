@@ -65,7 +65,7 @@ export const BEWERBUNG_HERKUNFT_LABELS: Record<BewerbungHerkunft, string> = {
  * The decline reason's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend
  * enforcement point reads it from here, so the schema and the input cannot disagree about the cap.
  */
-export const BEWERBUNG_GRUND_MAX_LENGTH = 1000;
+export const BEWERBUNG_DECISION_REASON_MAX_LENGTH = 1000;
 
 /**
  * A club's Kürzel is exactly this many letters, as the backend's pattern `^[A-Z]{3}$` publishes it. A client control

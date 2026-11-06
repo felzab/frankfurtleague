@@ -55,7 +55,7 @@ async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:
     return str(saison_raw["_id"])
 
 
-async def pull_massgebliche_saison_id(saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> str | None:
+async def pull_governing_saison_id(saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> str | None:
     """The season a count of seasons is reckoned from: the running one.
 
     `None` rather than a 404 where none runs, so the caller decides what that means.

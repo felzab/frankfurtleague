@@ -7,9 +7,9 @@ export const CLASH_BUFFER_TEXT = "vier Stunden";
 
 /**
  * The reason box's bound on a fixture confirmation, mirroring the backend's
- * `SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`).
+ * `SPIELBESTAETIGUNG_REASON_MAX_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`).
  */
-export const SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH = 500;
+export const SPIELBESTAETIGUNG_REASON_MAX_LENGTH = 500;
 
 /**
  * The one German spelling of each Sonderereignis. **A label table and never a predicate**: what a

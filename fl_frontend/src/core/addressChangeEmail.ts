@@ -44,7 +44,7 @@ export function buildAddressChangeEmail({ way, valid_until: validUntil }: FLAddr
       kind: "security",
       subjectLine: COPY.shared.withObject(WORDS.newAddress, "confirm"),
       origin: site,
-      vorname: "",
+      firstName: "",
       paragraphs: [[WORDS.new.question], LINK_VALID],
       button: { label: COPY.shared.withObject(COPY.signIn.address, "confirm"), href: addressChangeLink(site, token) },
     };
@@ -55,7 +55,7 @@ export function buildAddressChangeEmail({ way, valid_until: validUntil }: FLAddr
     kind: "security",
     subjectLine: "Neue E-Mail-Adresse bestätigen",
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [
       [
         `Die Verwaltung der ${BRAND_NAME} hat diese E-Mail-Adresse für ein Konto eingetragen.`,
@@ -75,7 +75,10 @@ export function buildAddressChangeEmail({ way, valid_until: validUntil }: FLAddr
  * The mail to the address on file. It names no new address, which the page its link opens shows: the change may be
  * somebody else's mistake or a pretext, and a mail travels further than the page it links.
  */
-export function buildAddressChangeNoticeEmail({ way, vorname }: FLAddressChangeNoticeData, { origin, token: stopToken }: MailLink): Mail {
+export function buildAddressChangeNoticeEmail(
+  { way, first_name: firstName }: FLAddressChangeNoticeData,
+  { origin, token: stopToken }: MailLink,
+): Mail {
   const site = mailOrigin(origin);
 
   // The person's own change asks the address on file first: its link confirms or declines the change.
@@ -84,7 +87,7 @@ export function buildAddressChangeNoticeEmail({ way, vorname }: FLAddressChangeN
       kind: "security",
       subjectLine: COPY.page.addressChangeConfirmation,
       origin: site,
-      vorname: vorname ?? "",
+      firstName: firstName ?? "",
       paragraphs: [[WORDS.previous.question, SERVER_COPY.mail.addressChange.previousEffect], LINK_VALID],
       button: { label: COPY.shared.withObject(WORDS.change, "confirm"), href: addressChangeLink(site, stopToken) },
     };
@@ -96,7 +99,7 @@ export function buildAddressChangeNoticeEmail({ way, vorname }: FLAddressChangeN
     // Telling of the change and asking nothing: a real holder refuses a pretext by the stop alone.
     subjectLine: "Deine E-Mail-Adresse soll sich ändern",
     origin: site,
-    vorname: vorname ?? "",
+    firstName: firstName ?? "",
     paragraphs: [
       [
         "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, weil diese Adresse nicht mehr erreichbar sein soll.",
@@ -114,13 +117,16 @@ export function buildAddressChangeNoticeEmail({ way, vorname }: FLAddressChangeN
  * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4,
  * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
  */
-export function buildAddressChangeEffectiveEmail({ vorname, instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
+export function buildAddressChangeEffectiveEmail(
+  { first_name: firstName, instant }: FLAddressChangeEffectiveData,
+  { origin }: MailOrigin,
+): Mail {
   const { subject, lead } = SERVER_COPY.mail.addressChange.effective;
   return {
     kind: "security",
     subjectLine: subject,
     origin: mailOrigin(origin),
-    vorname: vorname ?? "",
+    firstName: firstName ?? "",
     // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
     paragraphs: [[[`${lead.before} `, { strong: formatInstant(instant) }, ` ${lead.after}`]]],
   };
@@ -136,7 +142,7 @@ export function buildAddressChangeDiscardedEmail(_data: FLAddressChangeDiscarded
     kind: "security",
     subjectLine: subject,
     origin: mailOrigin(origin),
-    vorname: "",
+    firstName: "",
     paragraphs: [[lead]],
   };
 }

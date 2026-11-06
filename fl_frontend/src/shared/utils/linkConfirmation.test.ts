@@ -14,9 +14,9 @@ afterEach(() => {
 });
 
 /** What each arm was handed, in the order the helper handed it. */
-function drive(antwort: Parameters<typeof reportRefusedConfirmation<string>>[0]): string[] {
+function drive(response: Parameters<typeof reportRefusedConfirmation<string>>[0]): string[] {
   const seen: string[] = [];
-  reportRefusedConfirmation(antwort, {
+  reportRefusedConfirmation(response, {
     onState: (state) => seen.push(`zustand:${state}`),
     onRefusal: () => seen.push("refusal"),
   });

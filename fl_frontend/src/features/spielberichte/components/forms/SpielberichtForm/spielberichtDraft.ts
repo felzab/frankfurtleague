@@ -2,18 +2,18 @@ import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
 import { deriveDraftStatus, emptyAsNull, numberAsNull } from "@/shared/utils/draftStatus";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../../constants";
+import { CARD_COLOUR_LABELS, CARD_REASON_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../../constants";
 import { spielerLabel } from "../../../utils";
 
 import type {
-  FLKartenFarbe,
-  FLKartenGrund,
+  FLCardColour,
+  FLCardReason,
   FLSaisonPhase,
   FLSpielberichtBerichtPayload,
   FLSpielberichtPayload,
   FLSpielberichtSpieler,
   FLSpielberichtVorschlag,
-  FLSpielSeite,
+  FLSpielSide,
 } from "@/core/generated/client/types";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -28,11 +28,11 @@ export type SpielberichtKontext = {
   readonly team1Name: string;
   readonly team2Name: string;
   readonly saisonPhase: FLSaisonPhase;
-  readonly kader: Readonly<Record<FLSpielSeite, readonly KaderOption[]>>;
+  readonly kader: Readonly<Record<FLSpielSide, readonly KaderOption[]>>;
   /** The pupils the stored block names outside both live squads, so an older entry keeps its name. */
   readonly named: readonly KaderOption[];
   /** The sides fielding another club than the report's last write found there. */
-  readonly seitenGeaendert: ReadonlySet<FLSpielSeite>;
+  readonly seitenGeaendert: ReadonlySet<FLSpielSide>;
 };
 
 /**
@@ -43,7 +43,7 @@ export const UNBEKANNT = "unbekannt";
 
 export type TorschuetzeDraft = {
   readonly key: number;
-  readonly seite: FLSpielSeite | null;
+  readonly side: FLSpielSide | null;
   readonly spieler: string;
   readonly minute: string;
   readonly eigentor: boolean;
@@ -51,11 +51,11 @@ export type TorschuetzeDraft = {
 
 export type KarteDraft = {
   readonly key: number;
-  readonly seite: FLSpielSeite | null;
+  readonly side: FLSpielSide | null;
   readonly spieler: string;
   readonly minute: string;
-  readonly farbe: FLKartenFarbe | null;
-  readonly grund: FLKartenGrund | null;
+  readonly colour: FLCardColour | null;
+  readonly card_reason: FLCardReason | null;
 };
 
 export type SpielberichtDraft = {
@@ -65,7 +65,7 @@ export type SpielberichtDraft = {
   readonly sonderereignis: FLSpielberichtSonderereignis | null;
   readonly torschuetzen: readonly TorschuetzeDraft[];
   readonly karten: readonly KarteDraft[];
-  readonly bemerkungen: string;
+  readonly remarks: string;
   /** Whom the block is about: the clubs the report's last write found, or those the fixture fields now, which a save stamps. */
   readonly fuerTeams: "bericht" | "spiel";
 };
@@ -82,7 +82,7 @@ function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft
       sonderereignis: null,
       torschuetzen: [],
       karten: [],
-      bemerkungen: "",
+      remarks: "",
       fuerTeams: "spiel",
     };
   }
@@ -94,20 +94,20 @@ function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft
     sonderereignis: stored.ergebnis_vorschlag.sonderereignis,
     torschuetzen: stored.torschuetzen.map((entry, key) => ({
       key,
-      seite: entry.seite,
+      side: entry.side,
       spieler: entry.spieler_id ?? UNBEKANNT,
       minute: entry.minute,
       eigentor: entry.eigentor,
     })),
     karten: stored.karten.map((karte, key) => ({
       key,
-      seite: karte.seite,
+      side: karte.side,
       spieler: karte.spieler_id,
       minute: karte.minute,
-      farbe: karte.farbe,
-      grund: karte.grund,
+      colour: karte.colour,
+      card_reason: karte.card_reason,
     })),
-    bemerkungen: stored.bemerkungen ?? "",
+    remarks: stored.remarks ?? "",
     fuerTeams: "spiel",
   };
 }
@@ -129,15 +129,15 @@ export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontex
   const block = draftOf(stored);
   if (kontext.seitenGeaendert.size === 0) return { saved: block, entwurf: block, geleert: { torschuetzen: new Set(), karten: new Set() } };
 
-  const stale = (seite: FLSpielSeite | null, spieler: string): boolean =>
-    seite !== null &&
-    kontext.seitenGeaendert.has(seite) &&
+  const stale = (side: FLSpielSide | null, spieler: string): boolean =>
+    side !== null &&
+    kontext.seitenGeaendert.has(side) &&
     spieler !== "" &&
     spieler !== UNBEKANNT &&
-    !kontext.kader[seite].some((option) => option.id === spieler);
+    !kontext.kader[side].some((option) => option.id === spieler);
   const geleert = {
-    torschuetzen: new Set(block.torschuetzen.filter((entry) => stale(entry.seite, entry.spieler)).map((entry) => entry.key)),
-    karten: new Set(block.karten.filter((karte) => stale(karte.seite, karte.spieler)).map((karte) => karte.key)),
+    torschuetzen: new Set(block.torschuetzen.filter((entry) => stale(entry.side, entry.spieler)).map((entry) => entry.key)),
+    karten: new Set(block.karten.filter((karte) => stale(karte.side, karte.spieler)).map((karte) => karte.key)),
   };
 
   return {
@@ -164,9 +164,15 @@ export function formPayloadOf(draft: SpielberichtDraft) {
         elfmeterschiessen: draft.elfmeterschiessen,
         sonderereignis: draft.sonderereignis,
       },
-      torschuetzen: draft.torschuetzen.map(({ seite, spieler, minute, eigentor }) => ({ seite, spieler_id: spieler, minute, eigentor })),
-      karten: draft.karten.map(({ seite, spieler, minute, farbe, grund }) => ({ seite, spieler_id: spieler, minute, farbe, grund })),
-      bemerkungen: emptyAsNull(draft.bemerkungen),
+      torschuetzen: draft.torschuetzen.map(({ side, spieler, minute, eigentor }) => ({ side, spieler_id: spieler, minute, eigentor })),
+      karten: draft.karten.map(({ side, spieler, minute, colour, card_reason }) => ({
+        side,
+        spieler_id: spieler,
+        minute,
+        colour,
+        card_reason,
+      })),
+      remarks: emptyAsNull(draft.remarks),
     },
   };
 }
@@ -186,13 +192,13 @@ export function wirePayloadOf(draft: SpielberichtDraft, stand: number | null): F
       ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtVorschlag,
       torschuetzen: form.bericht.torschuetzen.map((entry) => ({
         ...entry,
-        seite: entry.seite as FLSpielSeite,
+        side: entry.side as FLSpielSide,
         spieler_id: entry.spieler_id === UNBEKANNT ? null : entry.spieler_id,
       })),
       karten: form.bericht.karten.map((karte) => ({
         ...karte,
-        seite: karte.seite as FLSpielSeite,
-        farbe: karte.farbe as FLKartenFarbe,
+        side: karte.side as FLSpielSide,
+        colour: karte.colour as FLCardColour,
       })),
     },
   };
@@ -209,8 +215,8 @@ export type SpielberichtFieldPath =
   | "bericht.ergebnis_vorschlag.sonderereignis"
   | "bericht.torschuetzen"
   | "bericht.karten"
-  | "bericht.bemerkungen"
-  | "bericht.seiten";
+  | "bericht.remarks"
+  | "bericht.sides";
 
 /** What the change list says of a value still to enter, in words: a lone dash would do a word's job. */
 const OFFEN = "offen";
@@ -230,11 +236,11 @@ const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minut
 function descriptorsFor(
   kontext: SpielberichtKontext,
 ): readonly (FLFieldDescriptor<SpielberichtDraft, SpielberichtFieldGroup> & { path: SpielberichtFieldPath })[] {
-  const teamName = (seite: FLSpielSeite | null): string => (seite === null ? OFFEN : seite === "team1" ? kontext.team1Name : kontext.team2Name);
-  const personName = (seite: FLSpielSeite | null, spieler: string): string => {
+  const teamName = (side: FLSpielSide | null): string => (side === null ? OFFEN : side === "team1" ? kontext.team1Name : kontext.team2Name);
+  const personName = (side: FLSpielSide | null, spieler: string): string => {
     if (spieler === UNBEKANNT) return TORSCHUETZE_UNBEKANNT_LABEL;
     if (spieler === "") return OFFEN;
-    const kader = seite === null ? [] : kontext.kader[seite];
+    const kader = side === null ? [] : kontext.kader[side];
     return [...kader, ...kontext.named].find((option) => option.id === spieler)?.label ?? spieler;
   };
 
@@ -279,7 +285,7 @@ function descriptorsFor(
         listText(
           torschuetzen.map(
             (entry) =>
-              `${teamName(entry.seite)}: ${personName(entry.seite, entry.spieler)}, ${minuteText(entry.minute)}${entry.eigentor ? ", Eigentor" : ""}`,
+              `${teamName(entry.side)}: ${personName(entry.side, entry.spieler)}, ${minuteText(entry.minute)}${entry.eigentor ? ", Eigentor" : ""}`,
           ),
         ),
     },
@@ -291,14 +297,14 @@ function descriptorsFor(
         listText(
           karten.map(
             (karte) =>
-              `${teamName(karte.seite)}: ${personName(karte.seite, karte.spieler)}, ${minuteText(karte.minute)}, ${karte.farbe === null ? OFFEN : KARTEN_FARBE_LABELS[karte.farbe]}${karte.grund === null ? "" : `, ${KARTEN_GRUND_LABELS[karte.grund]}`}`,
+              `${teamName(karte.side)}: ${personName(karte.side, karte.spieler)}, ${minuteText(karte.minute)}, ${karte.colour === null ? OFFEN : CARD_COLOUR_LABELS[karte.colour]}${karte.card_reason === null ? "" : `, ${CARD_REASON_LABELS[karte.card_reason]}`}`,
           ),
         ),
     },
-    { path: "bericht.bemerkungen", label: "Bemerkungen", group: "Spielbericht", read: (draft) => emptyAsNull(draft.bemerkungen) },
+    { path: "bericht.remarks", label: "Bemerkungen", group: "Spielbericht", read: (draft) => emptyAsNull(draft.remarks) },
     {
       // No control writes it: the save stamps the clubs playing now, and the row says the report moves to them.
-      path: "bericht.seiten",
+      path: "bericht.sides",
       label: "Teams",
       group: "Spielbericht",
       read: ({ fuerTeams }) => (fuerTeams === "bericht" ? "andere Teams" : `${kontext.team1Name} vs. ${kontext.team2Name}`),
@@ -321,13 +327,13 @@ export function deriveSpielberichtDraftStatus({
 }
 
 /** The form's view of a report read, either reader's: a side not yet filled is named as the cards name it. */
-export function kontextOf(read: Pick<SpielberichtAnsicht, "spiel" | "kader" | "named" | "seiten_changed">): SpielberichtKontext {
+export function kontextOf(read: Pick<SpielberichtAnsicht, "spiel" | "kader" | "named" | "sides_changed">): SpielberichtKontext {
   return {
     team1Name: read.spiel.team1?.name ?? PLACEHOLDER.slot,
     team2Name: read.spiel.team2?.name ?? PLACEHOLDER.slot,
     saisonPhase: read.spiel.saison_phase,
     kader: { team1: read.kader.team1.map(kaderOptionOf), team2: read.kader.team2.map(kaderOptionOf) },
     named: read.named.map(kaderOptionOf),
-    seitenGeaendert: new Set(read.seiten_changed),
+    seitenGeaendert: new Set(read.sides_changed),
   };
 }

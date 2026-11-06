@@ -2,7 +2,7 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { catalogue, COPY, textOf } from "./copy";
-import { formatDatum, formatDatumLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDate, formatDateLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -41,7 +41,7 @@ const DISQUALIFIED = {
 const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
 // In the two parts around its day, which a mail sets semibold between them.
 const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
-const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDatumLong(until)}${ENTRY_DEADLINE.after}`;
+const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
@@ -158,7 +158,7 @@ export const SERVER_COPY = catalogue({
     /** A matchday's dates: past its season's, short of one of its dated matches, or out of its phase's order of matchdays. */
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
-    spieltag_beginn_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
+    spieltag_start_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
   } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**
@@ -190,7 +190,7 @@ export const SERVER_COPY = catalogue({
     } satisfies Record<FLOverviewCardName, string>,
     answerDue: "Antwort heute fällig",
     /** By the deadline the clubs' answer was due on, the earliest where the row's clubs were given several. */
-    answerOverdue: (deadline: CalendarDay) => `Antwort seit ${formatDatum(deadline)} überfällig`,
+    answerOverdue: (deadline: CalendarDay) => `Antwort seit ${formatDate(deadline)} überfällig`,
     /** What a fixture lacks, by its own word: „Termin“, or the label its box carries in the match editor. */
     missing: (label: Copy) => `${label} fehlt`,
     /** A report awaiting the administrator, by the state it reads in. */
@@ -238,7 +238,7 @@ export const SERVER_COPY = catalogue({
    */
   mail: {
     /** The one greeting: the first name where it is known. */
-    greeting: (vorname: string) => (vorname === "" ? "Hallo," : `Hallo ${vorname},`),
+    greeting: (firstName: string) => (firstName === "" ? "Hallo," : `Hallo ${firstName},`),
     /** Under the button, above its link printed to copy. */
     buttonLink: "Falls der Knopf nicht geht, öffne diesen Link:",
     /**
@@ -263,8 +263,8 @@ export const SERVER_COPY = catalogue({
      * they hold.
      */
     spiel: {
-      requestSubject: (day: CalendarDay) => `Spieltermin am ${formatDatumLong(day)} bestätigen`,
-      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDatumLong(day)}`,
+      requestSubject: (day: CalendarDay) => `Spieltermin am ${formatDateLong(day)} bestätigen`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDateLong(day)}`,
       /** Both answers named before the press, as the page offers both. */
       confirmAsk: (team: Words) => `Bestätige den Termin für ${textOf(team)} oder schlag einen anderen vor.`,
       answerMissing: (team: Words) => `Die Antwort von ${textOf(team)} fehlt noch.`,
@@ -274,8 +274,8 @@ export const SERVER_COPY = catalogue({
       firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
 
       /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
-      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDatumLong(day)}`,
-      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} verlegt`,
+      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDateLong(day)}`,
+      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} verlegt`,
       moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
       /**
        * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
@@ -291,11 +291,11 @@ export const SERVER_COPY = catalogue({
         schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
       },
       /** A club taken off a fixture it was asked about, around the moment it was asked about. */
-      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDatumLong(day)}`,
+      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDateLong(day)}`,
       void: { before: (spiel: Words) => `Die Anfrage zu ${textOf(spiel)} am `, after: " gilt nicht mehr." },
 
       /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
-      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDatumLong(day)} fällt aus`,
+      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
       cancelled: { before: (spiel: Words) => `${textOf(spiel)} am `, after: " fällt aus." },
       reinstated: {
         team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
@@ -303,15 +303,15 @@ export const SERVER_COPY = catalogue({
       },
 
       /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
-      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDatumLong(day)}`,
+      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDateLong(day)}`,
       booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
       sayYesOrNo: "Sag zu oder ab.",
       /** A referee taken off a fixture, around the moment they were booked for. */
-      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDatumLong(day)}`,
+      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDateLong(day)}`,
       unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am `, after: " nicht mehr." },
 
       /** A club's proposal the league discarded, around the moment that stands. */
-      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDatumLong(day)}`,
+      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDateLong(day)}`,
       kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am `, after: "." },
       keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
     },
@@ -518,7 +518,7 @@ export const SERVER_COPY = catalogue({
       /** The opening match's matchday, before its two plaques. */
       spieltag: COPY.shared.spieltag,
       /** An open window's deadline, on the season card and the steps' band alike. */
-      windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDatum(until)}`,
+      windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDate(until)}`,
       last: "Zuletzt",
       next: "Als Nächstes",
       place: placeName,
@@ -812,7 +812,7 @@ export const SERVER_COPY = catalogue({
           "Automatisierte Entscheidungen im Sinne von Art. 22 DSGVO treffen wir nicht. Einen Datenschutzbeauftragten haben wir nicht bestellt. Beschweren kannst du dich bei einer Datenschutzaufsichtsbehörde, für uns beim Hessischen Beauftragten für Datenschutz und Informationsfreiheit, Postfach 3163, 65021 Wiesbaden.",
       },
       /** The notice's last paragraph: the day its words took effect. */
-      stand: (day: CalendarDay) => `Stand: ${formatDatumLong(day)}`,
+      stand: (day: CalendarDay) => `Stand: ${formatDateLong(day)}`,
     },
 
     legalNotice: {
@@ -859,7 +859,7 @@ export const SERVER_COPY = catalogue({
     ageCheck,
     /** The deadline of a seat in an application, which goes whole when one seat stays unconfirmed. */
     applicationDeadline: (kontakte: number, until: CalendarDay) =>
-      `Bestätigen nicht alle ${formatNumber(kontakte)} Kontaktpersonen bis zum ${formatDatumLong(until)}, löschen wir die Bewerbung.`,
+      `Bestätigen nicht alle ${formatNumber(kontakte)} Kontaktpersonen bis zum ${formatDateLong(until)}, löschen wir die Bewerbung.`,
     /** The deadline of a seat on a team's season, which goes alone. */
     seatDeadline: entryDeadline,
     /**
@@ -890,7 +890,7 @@ export const SERVER_COPY = catalogue({
     deadline: ENTRY_DEADLINE,
     /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
     question: (until: CalendarDay) =>
-      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDatumLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
+      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
     /** The two ends of an answer, each a title; a link opened again after it titles it with the day (`COPY.shared.end.doneOn`). */
     confirmed: "Eintrag bestätigt",
     objected: "Widersprochen",
@@ -908,7 +908,7 @@ export const SERVER_COPY = catalogue({
     stored:
       "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,
-    deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDatumLong(until)}, löschen wir deine Registrierung.`,
+    deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
     objectionRight: OBJECTION_RIGHT,
     more: MORE,
   },

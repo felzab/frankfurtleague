@@ -76,7 +76,7 @@ class TestTheSaisonsPipeline:
         }
 
     def test_it_sorts_by_forename_then_surname(self):
-        assert build_spieler_saisons_pipeline()[-1] == {"$sort": {"vorname": 1, "nachname": 1}}
+        assert build_spieler_saisons_pipeline()[-1] == {"$sort": {"first_name": 1, "last_name": 1}}
 
 
 class TestWhyTheSeasonScopedReadCannotAnswerIt:
@@ -88,8 +88,8 @@ class TestWhyTheSeasonScopedReadCannotAnswerIt:
             FLSpieler.model_validate(
                 {
                     "_id": SPIELER_OIDS["Ohne"],
-                    "vorname": "Ohne",
-                    "nachname": "Squad",
+                    "first_name": "Ohne",
+                    "last_name": "Squad",
                     "inactive_since": None,
                 }
             )
@@ -108,10 +108,10 @@ class TestTheResponseModel:
                 "spieler": [
                     {
                         "_id": str(SPIELER_OIDS["Ohne"]),
-                        "vorname": "Ohne",
-                        "nachname": "Squad",
+                        "first_name": "Ohne",
+                        "last_name": "Squad",
                         "inactive_since": None,
-                        "geburtsdatum": "2009-05-04",
+                        "birth_date": "2009-05-04",
                         "einwilligung": EINWILLIGUNG,
                         "email": STORED_ADDRESS,
                         "address_change_id": None,
@@ -130,10 +130,10 @@ class TestTheResponseModel:
             FLSpielerWithMemberships.model_validate(
                 {
                     "_id": str(SPIELER_OIDS["Abel"]),
-                    "vorname": "Anna",
-                    "nachname": "Abel",
+                    "first_name": "Anna",
+                    "last_name": "Abel",
                     "inactive_since": None,
-                    "geburtsdatum": "2009-05-04",
+                    "birth_date": "2009-05-04",
                     "einwilligung": EINWILLIGUNG,
                     "email": STORED_ADDRESS,
                     "address_change_id": None,
@@ -158,10 +158,10 @@ class TestTheResponseModel:
         player = FLSpielerWithMemberships.model_validate(
             {
                 "_id": str(SPIELER_OIDS["Abel"]),
-                "vorname": "Anna",
-                "nachname": "Abel",
+                "first_name": "Anna",
+                "last_name": "Abel",
                 "inactive_since": None,
-                "geburtsdatum": "2009-05-04",
+                "birth_date": "2009-05-04",
                 "einwilligung": EINWILLIGUNG,
                 "email": STORED_ADDRESS,
                 "address_change_id": None,
@@ -253,9 +253,9 @@ class TestTheAddressASignedInPersonIsJoinedOn:
         """The refusal IS the posture: a mistyped address is corrected by registering again, and a route accepting one would undo that."""
         assert "email" not in FLPatchSpielerPayload.model_fields
 
-        names = {"vorname": "Wiltrudis", "nachname": "Meier", "geburtsdatum": "2009-05-04"}
+        names = {"first_name": "Wiltrudis", "last_name": "Meier", "birth_date": "2009-05-04"}
 
-        assert FLPatchSpielerPayload.model_validate(names).vorname == "Wiltrudis"
+        assert FLPatchSpielerPayload.model_validate(names).first_name == "Wiltrudis"
         assert_rejects(FLPatchSpielerPayload, {**names, "email": STORED_ADDRESS}, "email")
 
 
@@ -316,7 +316,7 @@ class TestTheSaisonsPipelineExecuted:
         raw = list(squads.spieler.aggregate(build_spieler_saisons_pipeline()))
         # With the key the read composes after the pipeline (`app/api/spieler/admin_router.py :: get_spieler_saisons`).
         parsed = (FLSpielerWithMemberships.model_validate({**row, "address_change_viewable_denied": None}) for row in raw)
-        return {player.nachname or "": player for player in parsed}
+        return {player.last_name or "": player for player in parsed}
 
     def test_it_returns_every_player_exactly_once(self, squads: Database):
         """One row per PERSON, including the one who plays two seasons — the unwind's failure, undone."""
@@ -348,8 +348,8 @@ class TestTheSaisonsPipelineExecuted:
         """Two people share a forename here, so the second key really decides an order rather than being carried untested."""
         raw = list(squads.spieler.aggregate(build_spieler_saisons_pipeline()))
 
-        assert [row["vorname"] for row in raw] == ["A", "A", "B", "C", "O"]
-        assert [row["nachname"] for row in raw][:2] == ["Abel", "Alt"]
+        assert [row["first_name"] for row in raw] == ["A", "A", "B", "C", "O"]
+        assert [row["last_name"] for row in raw][:2] == ["Abel", "Alt"]
 
     def test_the_consent_record_reaches_this_read_whole(self, squads: Database):
         """Through a real aggregation: nothing is projected at the root, so the record rides on the stored document."""

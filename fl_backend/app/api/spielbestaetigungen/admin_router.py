@@ -152,7 +152,7 @@ async def enter_spielbestaetigung(
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["antwort", "closed"],
+            projection=["answer", "closed"],
             session=session,
         )
         refuse(find_eintragen_refusal(spielbestaetigung_raw=row))
@@ -163,7 +163,7 @@ async def enter_spielbestaetigung(
             return await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
-                update=compose_eintragen_update(begruendung=eintragen_data.begruendung, today=today),
+                update=compose_eintragen_update(reason=eintragen_data.reason, today=today),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.AFTER,
@@ -222,7 +222,7 @@ async def discard_spielbestaetigung(
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "spiel_id", "party", "ansetzung", "antwort", "closed"],
+            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
             session=session,
         )
         spiel = await judged(row, session)
@@ -231,7 +231,7 @@ async def discard_spielbestaetigung(
             discarded = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_verwerfbar_filter()},
-                update=compose_closing_update(grund="discarded", today=today),
+                update=compose_closing_update(reason="discarded", today=today),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.AFTER,
@@ -250,7 +250,7 @@ async def discard_spielbestaetigung(
             verein = next((verein for verein in vereine if verein["team_id"] == row["party"]["team_id"]), None)
             names = vereinsnamen_of(spielbestaetigung_raw=row, lage=AnsetzungLage(spiel=spiel, vereine=vereine))
             data = notice_daten_of(
-                grund="discarded", partei_art="team", appointment=spiel_mail_termin_of(spielbestaetigung_raw=row, names=names)
+                reason="discarded", party_kind="team", appointment=spiel_mail_termin_of(spielbestaetigung_raw=row, names=names)
             )
             mails = (
                 []
@@ -327,13 +327,13 @@ async def adopt_spielbestaetigung(
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "spiel_id", "party", "ansetzung", "antwort", "closed"],
+            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
             session=session,
         )
         # The whole fixture: the save carries every field of it but the day and the hour.
         spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, session=session)
         refuse(find_adoption_refusal(spielbestaetigung_raw=row, spiel=spiel))
-        vorschlag = FLSpielbestaetigungAppointment.model_validate(row["antwort"]["vorschlag"])
+        vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
         refuse(as_judged_on_stored_state(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 
         # A discard of the same proposal writes this row, so the two conflict and the retry refuses the later one: a club

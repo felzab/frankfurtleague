@@ -5,9 +5,9 @@ import { EditorShell } from "@/kit/EditorShell";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum, timeOf } from "@/core/format";
+import { dayOf, formatDate, timeOf } from "@/core/format";
 import { FLSonderereignis } from "@/core/generated/client/types";
-import { SpielePatchSpielBody, spielePatchSpielBodyNotizOneMax } from "@/core/generated/zod/inputs";
+import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { ereignisOf, quelleWords, vorschauOf } from "@/features/spiele/blocks";
@@ -53,7 +53,7 @@ const { ort, schiedsrichter } = SpielePatchSpielBody.shape;
 /** Whether a booking's money is required beside it, read off the write's schema. */
 const REQUIRED = {
   mietpreis: requires(ort.options[0].shape.mietpreis, null),
-  honorar: requires(schiedsrichter.options[0].shape.payment, null),
+  payment: requires(schiedsrichter.options[0].shape.payment, null),
 };
 
 /** One read of the editor's whole view, for the tab's title and the page alike. */
@@ -103,8 +103,8 @@ function scorerOf(bericht: FLSpielEditorBericht, spielerId: string | null): Word
   const words = SERVER_COPY.season.spiel;
   if (spielerId === null) return words.unknown;
   const named = bericht.named.find((spieler) => spieler.spieler_id === spielerId);
-  if (named === undefined || named.vorname === null) return words.anonymous;
-  return { record: named.nachname === null ? named.vorname : `${named.vorname} ${named.nachname}` };
+  if (named === undefined || named.first_name === null) return words.anonymous;
+  return { record: named.last_name === null ? named.first_name : `${named.first_name} ${named.last_name}` };
 }
 
 /** A minute as the report writes it, „45+2“, in the order it was played. */
@@ -128,9 +128,9 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
       return a[0] - b[0] || a[1] - b[1] || one.index - other.index;
     })
     .map(({ tor, index }) => {
-      const counts = tor.eigentor ? (tor.seite === "team1" ? "team2" : "team1") : tor.seite;
+      const counts = tor.eigentor ? (tor.side === "team1" ? "team2" : "team1") : tor.side;
       score[counts] += 1;
-      const plaque = plaques[tor.seite];
+      const plaque = plaques[tor.side];
       return {
         id: String(index),
         name: scorerOf(bericht, tor.spieler_id),
@@ -185,14 +185,14 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   // One word in one hue, the area's for a state still waiting: the cell beside it says whether the party was asked.
   const open = { tone: "warn", label: COPY.template.open } as const;
   if (row === undefined) return { ...shown, chip: open, cells: { answer: WORDS.notAsked } };
-  const { antwort } = row;
-  if (antwort === null) return { ...shown, chip: open, cells: { answer: WORDS.answerBy(dayOf(row.frist)) } };
+  const { answer } = row;
+  if (answer === null) return { ...shown, chip: open, cells: { answer: WORDS.answerBy(dayOf(row.deadline)) } };
   const cells: Record<string, Words> = {
-    answer: antwort.von.art === "admin" ? WORDS.enteredByLeague : { record: formatDatum(dayOf(antwort.am)) },
+    answer: answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) },
   };
-  if (antwort.art === "zugesagt") return { ...shown, chip: { tone: "success", label: WORDS.zugesagt }, cells };
-  if (antwort.vorschlag !== null) cells.proposal = COPY.spielplan.when(dayOf(antwort.vorschlag.datum), timeOf(antwort.vorschlag.uhrzeit));
-  if (antwort.begruendung !== null) cells.reason = { record: antwort.begruendung };
+  if (answer.kind === "zugesagt") return { ...shown, chip: { tone: "success", label: WORDS.zugesagt }, cells };
+  if (answer.vorschlag !== null) cells.proposal = COPY.spielplan.when(dayOf(answer.vorschlag.date), timeOf(answer.vorschlag.time));
+  if (answer.reason !== null) cells.reason = { record: answer.reason };
   return { ...shown, chip: { tone: "danger", label: declined }, cells };
 }
 
@@ -207,7 +207,7 @@ function answerRows(view: FLSpieleAdminSingleResponse): TableRow[] {
             side,
             { record: team.name },
             team.shorthand,
-            openRowOf(rows, (row) => row.party.art === "team" && row.party.team_id === team.team_id),
+            openRowOf(rows, (row) => row.party.kind === "team" && row.party.team_id === team.team_id),
             WORDS.abgelehnt,
           ),
         ];
@@ -220,8 +220,8 @@ function answerRows(view: FLSpieleAdminSingleResponse): TableRow[] {
             "schiedsrichter",
             booked.name === null ? COPY.shared.notProvided : { record: booked.name },
             null,
-            openRowOf(rows, (row) => row.party.art === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
-            WORDS.abgesagt,
+            openRowOf(rows, (row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
+            WORDS.cancelled,
           ),
         ];
   return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
@@ -288,7 +288,7 @@ async function readEditor(params: Props["params"]) {
         price: person.default_payment,
       }))}
       sonderereignisse={sonderereignisse}
-      notizMax={spielePatchSpielBodyNotizOneMax}
+      noteMax={spielePatchSpielBodyNoteOneMax}
       required={REQUIRED}
       report={view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht)}
       adoption={adoptionOf(saved, view.spielbericht)}

@@ -5,9 +5,9 @@ import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { postSpielbestaetigungAntwort } from "./mutations";
+import { postSpielbestaetigungAnswer } from "./mutations";
 import { SchiedsrichterAbsageSchema } from "./schemas";
-import { ABSAGE_GESPEICHERT, mapSchiedsrichterAntwortRefusal, ZUSAGE_GESPEICHERT } from "./utils";
+import { ABSAGE_GESPEICHERT, mapSchiedsrichterAnswerRefusal, ZUSAGE_GESPEICHERT } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { SchiedsrichterAbsage } from "./schemas";
@@ -25,7 +25,7 @@ async function antworten<Z extends "zugesagt" | "abgelehnt">(
   try {
     await sende();
   } catch (error) {
-    const refusal = mapSchiedsrichterAntwortRefusal(error);
+    const refusal = mapSchiedsrichterAnswerRefusal(error);
     if (refusal !== null) return { ...refusalResult(refusal), unplacedError: refusal.unplacedError };
     throw error;
   }
@@ -39,7 +39,7 @@ export async function zusagenSpielbestaetigungAction(spielbestaetigungId: string
     const id = CustomObjectIdStringSchema.safeParse(spielbestaetigungId);
     if (!id.success) return { success: false, error: VALIDATION_FAILED };
 
-    return antworten(() => postSpielbestaetigungAntwort(id.data, { antwort: "zugesagt", begruendung: null }), "zugesagt", ZUSAGE_GESPEICHERT);
+    return antworten(() => postSpielbestaetigungAnswer(id.data, { answer: "zugesagt", reason: null }), "zugesagt", ZUSAGE_GESPEICHERT);
   });
 }
 
@@ -56,11 +56,7 @@ export async function absagenSpielbestaetigungAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
-    const begruendung = validated.data.begruendung;
-    return antworten(
-      () => postSpielbestaetigungAntwort(id.data, { antwort: "declined", begruendung: begruendung }),
-      "abgelehnt",
-      ABSAGE_GESPEICHERT,
-    );
+    const reason = validated.data.reason;
+    return antworten(() => postSpielbestaetigungAnswer(id.data, { answer: "declined", reason }), "abgelehnt", ABSAGE_GESPEICHERT);
   });
 }

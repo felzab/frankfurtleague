@@ -56,10 +56,10 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
   });
 
   it("marks the box a refusal names, keyed as the input is named, with the mail's link beside it", () => {
-    const refused = refusedPayload([bodyField(["vorschlag", "datum"], "date_from_datetime_parsing")], "/spielbestaetigungen");
+    const refused = refusedPayload([bodyField(["vorschlag", "date"], "date_from_datetime_parsing")], "/spielbestaetigungen");
 
     expect(mapAnsetzungRefusal(refused)).toStrictEqual({
-      fieldErrors: { "vorschlag.datum": FELD_ABGELEHNT },
+      fieldErrors: { "vorschlag.date": FELD_ABGELEHNT },
       unplacedError: ANTWORT_NEU_OEFFNEN,
     });
   });

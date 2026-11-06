@@ -29,7 +29,7 @@ describe("the document's locale", () => {
         params: Promise.resolve({}),
         modal: null,
         children: h(AppDatePicker, {
-          name: "datum",
+          name: "date",
           label: "Datum",
           calendarLabel: "Datum auswählen",
           value: parseDate(DAY),

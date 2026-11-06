@@ -25,10 +25,10 @@ const MEMBERSHIP: FLSpielerMembership = {
 /** Complete at construction, typed as the generated read: a drifted field fails where the fixture is built. */
 const SPIELER: FLSpielerWithMemberships = {
   id: "6890a1b2c3d4e5f607180003",
-  vorname: "X",
-  nachname: null,
+  first_name: "X",
+  last_name: null,
   inactive_since: null,
-  geburtsdatum: "2009-05-04",
+  birth_date: "2009-05-04",
   // As the pupil's own confirmation stamps it, each choice evidenced under its wording.
   einwilligung: {
     scope: "kader_oeffentlich",

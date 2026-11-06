@@ -53,7 +53,7 @@ SAISON_ID = "2026"
 TODAY = "2026-04-01"
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607950001")
 
-REGISTRIERUNG: dict[str, Any] = {"offen": True, "end": "2026-04-30"}
+REGISTRIERUNG: dict[str, Any] = {"open": True, "end": "2026-04-30"}
 
 Body = Callable[[AsyncDatabase, AsyncClient], Awaitable[Any]]
 
@@ -154,10 +154,10 @@ class TestTheClubsContacts:
         """Seating somebody new mints them a link, which is a step-up write whatever else the save does."""
 
         newcomer = {
-            "vorname": "Ida",
-            "nachname": "Musterfrau",
+            "first_name": "Ida",
+            "last_name": "Musterfrau",
             "email": "ida@example.com",
-            "telefon": "+4917010000001",
+            "phone": "+4917010000001",
             # A seat the applicant's form would store, so the step-up alone refuses.
             "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
         }
@@ -177,9 +177,9 @@ class TestTheClubsContacts:
             "Ida",
             confirmed_at="2026-03-02",
             einwilligung={"date": "2026-03-01"},
-            nachname="Musterfrau",
+            last_name="Musterfrau",
             email="ida@example.com",
-            telefon="+4917010000001",
+            phone="+4917010000001",
         )
         seated = {**self.NOBODY, "trainer": confirmed}
 

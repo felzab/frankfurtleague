@@ -27,15 +27,15 @@ async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection:
     spieler_raw = await pull_one_from_db(
         collection=spieler_collection,
         db_filter=build_spieler_filter(spieler_id),
-        projection={"vorname": 1, "nachname": 1, "einwilligung": 1},
+        projection={"first_name": 1, "last_name": 1, "einwilligung": 1},
     )
 
     # Redacted HERE and whole on the admin echo: this path is base-tier and answers any id it is
     # handed, and an id is no secret -- every administrator's page and link carries one.
     served = public_person(
-        vorname=spieler_raw.get("vorname"),
-        nachname=spieler_raw.get("nachname"),
+        first_name=spieler_raw.get("first_name"),
+        last_name=spieler_raw.get("last_name"),
         einwilligung=spieler_raw.get("einwilligung"),
     )
 
-    return FLSpielerSingleResponse(spieler_id=spieler_raw["_id"], vorname=served.vorname, nachname=served.nachname)
+    return FLSpielerSingleResponse(spieler_id=spieler_raw["_id"], first_name=served.first_name, last_name=served.last_name)

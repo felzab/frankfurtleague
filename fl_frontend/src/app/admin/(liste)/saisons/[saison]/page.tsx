@@ -11,7 +11,7 @@ import { dayOf, formatList, timeOf } from "@/core/format";
 import { saisonsGetSaisonOverview } from "@/core/generated/client/sdk";
 import {
   SpielbestaetigungenEnterSpielbestaetigungBody,
-  spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax,
+  spielbestaetigungenEnterSpielbestaetigungBodyReasonMax,
   SpielbestaetigungenEnterSpielbestaetigungParams,
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
@@ -81,7 +81,7 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
 }
 
 /** A stored day and hour as the catalogue's sentences take a slot. */
-const slotOf = (datum: string | null, uhrzeit: string | null) => ({ day: dayOf(datum), time: timeOf(uhrzeit) });
+const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
 const BOOKED = { ort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
@@ -125,12 +125,12 @@ function ReasonField() {
     <TextField
       label={COPY.admin.overview.reason}
       // The name `enterZusage` reads the reason by.
-      name="begruendung"
+      name="reason"
       // A paragraph: a reason a person writes, at four lines, its line breaks kept.
       width="W4"
       kind="text"
-      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.begruendung, "")}
-      maxLength={spielbestaetigungenEnterSpielbestaetigungBodyBegruendungMax}
+      isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.reason, "")}
+      maxLength={spielbestaetigungenEnterSpielbestaetigungBodyReasonMax}
     />
   );
 }
@@ -161,8 +161,8 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
     }
     case "vorschlag_open": {
       const team = clubOf(spiel, row.team_id);
-      const proposed = slotOf(row.vorschlag.datum, row.vorschlag.uhrzeit);
-      const current = slotOf(spiel.datum, spiel.uhrzeit);
+      const proposed = slotOf(row.vorschlag.date, row.vorschlag.time);
+      const current = slotOf(spiel.date, spiel.time);
       const [from, to] = [COPY.spielplan.when(current.day, current.time), COPY.spielplan.when(proposed.day, proposed.time)];
       return {
         line: WORDS.proposal(to, team),
@@ -196,8 +196,8 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
           <TerminDialog
             spiel={spiel.id}
             version={spiel.version}
-            datum={dayOf(spiel.datum)}
-            uhrzeit={timeOf(spiel.uhrzeit)}
+            date={dayOf(spiel.date)}
+            time={timeOf(spiel.time)}
           />
         ),
       };

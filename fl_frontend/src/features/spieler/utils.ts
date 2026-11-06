@@ -96,8 +96,8 @@ export function nummerPayload(typed: string | null): string | null {
  * An UNKNOWN cap refuses nothing: a squad the caller could not bound keeps its writes on offer
  * rather than losing them to a figure nothing there could read.
  */
-export function squadIsFull(liveRows: number | undefined, maxKadergroesse: number | null): boolean {
+export function squadIsFull(liveRows: number | undefined, maxKaderSize: number | null): boolean {
   // `>=` and never `>`, the comparison the write path makes over the same count
   // (`fl_backend/app/api/spieler/services.py :: find_squad_capacity_refusal`).
-  return maxKadergroesse !== null && (liveRows ?? 0) >= maxKadergroesse;
+  return maxKaderSize !== null && (liveRows ?? 0) >= maxKaderSize;
 }

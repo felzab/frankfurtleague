@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import { postSpielbestaetigung } from "@/features/spielbestaetigungen/mutations";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
-import { FLSpielbestaetigungAntwortPayloadSchema } from "@/features/spielbestaetigungen/schemas";
+import { FLSpielbestaetigungAnswerPayloadSchema } from "@/features/spielbestaetigungen/schemas";
 import { mapAnsetzungRefusal } from "@/features/spielbestaetigungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      const parsed = FLSpielbestaetigungAntwortPayloadSchema.safeParse(body);
+      const parsed = FLSpielbestaetigungAnswerPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 

@@ -61,7 +61,13 @@ def junction_row(saison_id: str) -> dict[str, Any]:
     return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe=GRUPPE_OF[saison_id])
 
 
-def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
+def opponent_row() -> dict[str, Any]:
+    """Every fielded club holds its season's row: a read joins a side's name from it, and a fixture stores none."""
+
+    return documents.saison_team_document(ARCHIVED, OPPONENT_OID, "Lessing", "LSX", gruppe=GRUPPE_OF[ARCHIVED])
+
+
+def spieler_document(spieler_id: ObjectId, first_name: str) -> dict[str, Any]:
     """A player of that club, holding a row in all three seasons.
 
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
@@ -69,7 +75,7 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
 
     published = documents.own_einwilligung_document(text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20")
 
-    return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
+    return documents.spieler_document(spieler_id, first_name, "Müller", einwilligung=published)
 
 
 def squad_row(saison_id: str) -> dict[str, Any]:
@@ -86,19 +92,19 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=an_id("3", saison_id),
-        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": 2 if won else None},
-        team2={"team_id": OPPONENT_OID, "name": "Lessing", "shorthand": "LSX", "tore": 0} if won else None,
+        team1={"team_id": TEAM_OID, "tore": 2 if won else None},
+        team2={"team_id": OPPONENT_OID, "tore": 0} if won else None,
         ergebnis="2:0" if won else None,
-        datum=f"{saison_id}-03-15",
-        uhrzeit="14:00:00",
+        date=f"{saison_id}-03-15",
+        time="14:00:00",
     )
 
 
 def spieltag_document(saison_id: str) -> dict[str, Any]:
     return {
         "_id": an_id("3", saison_id),
-        "beginn": f"{saison_id}-03-15",
-        "ende": f"{saison_id}-03-15",
+        "start": f"{saison_id}-03-15",
+        "end": f"{saison_id}-03-15",
         "position": 1,
         "saison_phase": "gruppenphase",
         "saison_id": saison_id,
@@ -115,7 +121,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.TEAMS].insert_one(team_document())
-            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
+            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF] + [opponent_row()])
             await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))

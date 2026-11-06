@@ -106,9 +106,9 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     media: bool | None
     evidence_state: FLEinwilligungState
     # As the registration stores them: the facts the account page's box names its pupil by.
-    vorname: str
-    nachname: str
-    geburtsdatum: CustomOptionalDateString
+    first_name: str
+    last_name: str
+    birth_date: CustomOptionalDateString
 
 
 class FLAccountAddressChangeOpen(BaseModel):

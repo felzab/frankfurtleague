@@ -29,7 +29,7 @@ export function buildEinladungEmail({ team, saison_id: saisonId }: FLInvitationD
     kind: "notice",
     subjectLine: WORDS.subject(team),
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [[WORDS.passOn(saisonId, team)]],
     block: { link: einladungsLink(site, token) },
     afterBlock: [

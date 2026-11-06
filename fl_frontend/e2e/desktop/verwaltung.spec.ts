@@ -97,8 +97,8 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie vs. Eiche" })).toBeVisible();
 
   // The kick-off's hour, then its minutes: the segmented field moves on by itself after two digits.
-  const uhrzeit = page.getByRole("group", { name: /^Uhrzeit/ });
-  await uhrzeit.getByRole("spinbutton").first().click();
+  const time = page.getByRole("group", { name: /^Uhrzeit/ });
+  await time.getByRole("spinbutton").first().click();
   await page.keyboard.type("1830");
   // The editor's save bar is a landmark of its own, named by its act, so its line is read inside it.
   const bar = page.getByRole("region", { name: "Speichern" });
@@ -109,8 +109,8 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
 
   // Read back from the server: the match now kicks off at 18:30.
   await page.reload();
-  await expect(uhrzeit.getByRole("spinbutton").first()).toHaveText("18");
-  await expect(uhrzeit.getByRole("spinbutton").nth(1)).toHaveText("30");
+  await expect(time.getByRole("spinbutton").first()).toHaveText("18");
+  await expect(time.getByRole("spinbutton").nth(1)).toHaveText("30");
 
   // --- The matchday editor -----------------------------------------------------------------------
 

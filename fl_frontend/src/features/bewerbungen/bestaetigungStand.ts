@@ -70,7 +70,7 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung,
               ? { art: "unbeantwortet" }
               : { art: "pending", verschicktAm: verlauf.sent_at, erinnertAm: verlauf.reminded_at };
 
-    const name = person === null ? null : `${person.vorname} ${person.nachname}`;
+    const name = person === null ? null : `${person.first_name} ${person.last_name}`;
 
     return {
       rolle: value,
@@ -229,12 +229,12 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[], teamName: 
  */
 export function loeschungsSatz({
   staende,
-  frist,
+  deadline: frist,
   submitted: eingereicht,
   istAbgelaufen,
 }: {
   staende: readonly SitzBestaetigung[];
-  frist: string;
+  deadline: string;
   submitted: boolean;
   /** The read's judgement of the deadline on the server's day, never this browser's. */
   istAbgelaufen: boolean;

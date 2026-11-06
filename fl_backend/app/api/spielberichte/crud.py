@@ -11,30 +11,30 @@ from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
+    FLSpielberichtBy,
     FLSpielberichtSpieler,
     FLSpielberichtStateEntry,
-    FLSpielberichtVon,
 )
 from app.api.spielberichte.services import (
-    SEITEN,
+    SIDES,
     SPIEL_FIELDS,
-    BerichtLage,
-    bericht_unveraendert,
-    bericht_zustand_of,
+    BerichtContext,
+    bericht_state_of,
+    bericht_unchanged,
     build_bericht_kader_pipeline,
-    build_eingereichte_pipeline,
     build_referee_report_images_filter,
     build_referee_reports_filter,
     build_season_report_images_filter,
     build_season_report_texts_filter,
-    build_zustand_pipeline,
+    build_state_pipeline,
+    build_submitted_pipeline,
     compose_bericht_update,
-    compose_neuer_bericht,
-    genannte_ids,
+    compose_new_bericht,
     live_kader,
+    named_ids_of,
     referee_report_image_edits,
     season_end_report_image_edits,
-    seiten_of,
+    sides_of,
     team_id_of,
 )
 from app.api.spiele.services import build_named_spiele_pipeline
@@ -49,19 +49,20 @@ from app.core.crud import (
     pull_one_from_db,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import FLSpielSeite
+from app.shared.schemas.literals import FLSpielSide
 
 
-async def pull_bericht_lage(
+async def pull_bericht_context(
     *,
     spiele_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     spiel_id: ObjectId,
     session: AsyncClientSession | None,
-) -> BerichtLage:
+) -> BerichtContext:
     """The fixture, its season's status and both clubs' squads, under `session`.
 
     `document_not_found` for a fixture that does not exist.
@@ -74,7 +75,7 @@ async def pull_bericht_lage(
     if not found:
         raise DocumentNotFoundError()
     spiel = found[0]
-    team_ids = [team_id for seite in SEITEN if (team_id := team_id_of(spiel, seite)) is not None]
+    team_ids = [team_id for side in SIDES if (team_id := team_id_of(spiel, side)) is not None]
     saison_id = str(spiel["saison_id"])
 
     kader = await aggregate_many_from_db(
@@ -86,22 +87,22 @@ async def pull_bericht_lage(
 
     saison = await saisons_collection.find_one({"_id": saison_id}, projection={"_id": 0, "status": 1}, session=session)
 
-    return BerichtLage(spiel=spiel, kader=kader, saison_status=None if saison is None else saison.get("status"))
+    return BerichtContext(spiel=spiel, kader=kader, saison_status=None if saison is None else saison.get("status"))
 
 
-async def pull_beendete_saison_ids(*, saisons_collection: AsyncCollection, session: AsyncClientSession | None) -> list[str]:
-    """Every ended season, by the status `app/api/spielberichte/services.py :: ist_abgeschlossen` reads, under `session`."""
+async def pull_ended_saison_ids(*, saisons_collection: AsyncCollection, session: AsyncClientSession | None) -> list[str]:
+    """Every ended season, by the status `app/api/spielberichte/services.py :: is_concluded` reads, under `session`."""
 
     saisons = await pull_many_from_db(collection=saisons_collection, db_filter={"status": "past"}, projection=["_id"], session=session)
 
     return [str(saison["_id"]) for saison in saisons]
 
 
-async def pull_genannt(
+async def pull_named(
     *,
     spieler_collection: AsyncCollection,
-    lage: BerichtLage,
-    kader_offen: bool,
+    context: BerichtContext,
+    kader_open: bool,
     bericht: Mapping[str, Any] | None,
     session: AsyncClientSession | None,
 ) -> list[FLSpielberichtSpieler]:
@@ -110,16 +111,16 @@ async def pull_genannt(
     An erased pupil's entries name the sentinel, which comes nameless and reads „anonym“.
     """
 
-    live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)} if kader_offen else set()
-    ausserhalb = set().union(*genannte_ids(bericht).values()) - live
-    zeilen = {row["spieler_id"]: row for row in lage.kader if row["spieler_id"] in ausserhalb}
+    live = {row["spieler_id"] for side in SIDES for row in live_kader(context, side)} if kader_open else set()
+    ausserhalb = set().union(*named_ids_of(bericht).values()) - live
+    zeilen = {row["spieler_id"]: row for row in context.kader if row["spieler_id"] in ausserhalb}
     # A pupil of neither side's club, such as one of a club a knockout slot has since replaced: read off their record.
     rest = ausserhalb - zeilen.keys()
     personen = (
         []
         if not rest
         else await pull_many_from_db(
-            collection=spieler_collection, db_filter={"_id": {"$in": sorted(rest)}}, projection=["vorname", "nachname"], session=session
+            collection=spieler_collection, db_filter={"_id": {"$in": sorted(rest)}}, projection=["first_name", "last_name"], session=session
         )
     )
 
@@ -130,8 +131,8 @@ async def pull_genannt(
         *(
             FLSpielberichtSpieler(
                 spieler_id=spieler_id,
-                vorname=benannt.get(spieler_id, {}).get("vorname"),
-                nachname=benannt.get(spieler_id, {}).get("nachname"),
+                first_name=benannt.get(spieler_id, {}).get("first_name"),
+                last_name=benannt.get(spieler_id, {}).get("last_name"),
                 nummer=None,
             )
             for spieler_id in sorted(rest)
@@ -161,7 +162,7 @@ async def write_bericht(
     spiel_raw: Mapping[str, Any],
     saved: Mapping[str, Any] | None,
     payload: FLSpielberichtBerichtPayload,
-    by: FLSpielberichtVon,
+    by: FLSpielberichtBy,
     now: datetime,
     # REQUIRED with no default: the `version` the form was served, or None for a write naming none, so no caller
     # leaves the check out unasked.
@@ -175,8 +176,8 @@ async def write_bericht(
 
     # Off the fixture this write judged: a correction landing mid-write leaves the clubs before it stamped, and the
     # report reads `teams_changed`, never adoptable.
-    seiten = seiten_of(spiel_raw)
-    if saved is not None and bericht_unveraendert(payload, saved.get("bericht"), seiten):
+    sides = sides_of(spiel_raw)
+    if saved is not None and bericht_unchanged(payload, saved.get("bericht"), sides):
         return saved
 
     if saved is None:
@@ -187,16 +188,16 @@ async def write_bericht(
             document={
                 "saison_id": spiel_raw["saison_id"],
                 "spiel_id": spiel_raw["_id"],
-                "bericht": compose_neuer_bericht(payload, by=by, seiten=seiten, now=now),
+                "bericht": compose_new_bericht(payload, by=by, sides=sides, now=now),
             },
             session=session,
         )
         return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
     update = (
-        {"$set": {"bericht": compose_neuer_bericht(payload, by=by, seiten=seiten, now=now)}}
+        {"$set": {"bericht": compose_new_bericht(payload, by=by, sides=sides, now=now)}}
         if saved.get("bericht") is None
-        else compose_bericht_update(payload, seiten=seiten, now=now)
+        else compose_bericht_update(payload, sides=sides, now=now)
     )
     # `AFTER`: inside the transaction the patch reads the document back for its log anyway.
     return await patch_one_in_db(
@@ -209,29 +210,29 @@ async def write_bericht(
     )
 
 
-async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
+async def count_submitted_berichte(*, spielberichte_collection: ReadCollection, saison_id: str, session: AsyncClientSession | None) -> int:
     """How many of the season's fixtures hold a submitted report, under `session`, joined as the reads join so the two agree."""
 
     counted = await aggregate_many_from_db(
         collection=spielberichte_collection,
-        pipeline=[*build_eingereichte_pipeline(saison_id=saison_id, spiel_fields={"_id": 1}), {"$count": "berichte"}],
+        pipeline=[*build_submitted_pipeline(saison_id=saison_id, spiel_fields={"_id": 1}), {"$count": "berichte"}],
         session=session,
     )
 
     return counted[0]["berichte"] if counted else 0
 
 
-async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id: str) -> list[FLSpielberichtStateEntry]:
+async def pull_states(*, spielberichte_collection: ReadCollection, saison_id: str) -> list[FLSpielberichtStateEntry]:
     """Every report of one season holding a block, each with its state against its fixture as stored now."""
 
-    rows = await aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_zustand_pipeline(saison_id=saison_id))
+    rows = await aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_state_pipeline(saison_id=saison_id))
 
     entries = []
     for row in rows:
         bericht = FLSpielberichtBericht.model_validate(row["bericht"])
         entries.append(
             FLSpielberichtStateEntry(
-                spiel_id=row["spiel_id"], state=bericht_zustand_of(bericht, row["spiel"]), ergebnis_vorschlag=bericht.ergebnis_vorschlag
+                spiel_id=row["spiel_id"], state=bericht_state_of(bericht, row["spiel"]), ergebnis_vorschlag=bericht.ergebnis_vorschlag
             )
         )
 
@@ -253,7 +254,7 @@ async def strip_the_seasons_reports(
         collection=spielberichte_collection,
         db_filter=build_season_report_texts_filter(saison_id),
         # Every card's reason by `$[]`: the cards stand.
-        update={"$set": {"bericht.bemerkungen": None, "bericht.karten.$[].grund": None}},
+        update={"$set": {"bericht.remarks": None, "bericht.karten.$[].card_reason": None}},
         session=session,
     )
 
@@ -309,7 +310,7 @@ async def stamp_the_adoption(
     spiel_id: CustomObjectId,
     version: int,
     # The clubs the save leaves on the fixture: a report written about others credits neither.
-    seiten: Mapping[FLSpielSeite, ObjectId | None],
+    sides: Mapping[FLSpielSide, ObjectId | None],
     now: datetime,
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
@@ -321,11 +322,11 @@ async def stamp_the_adoption(
 
     stamped = await patch_many_in_db(
         collection=spielberichte_collection,
-        db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.seiten.{seite}": seiten[seite] for seite in SEITEN}},
+        db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.sides.{side}": sides[side] for side in SIDES}},
         update={
             "$set": {
                 "bericht.adopted_at": now,
-                "bericht.adopted_by": {"art": "admin"},
+                "bericht.adopted_by": {"kind": "admin"},
                 "bericht.adopted_version": version,
             }
         },

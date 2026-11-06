@@ -1,5 +1,5 @@
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatumWithWeekday, formatUhrzeit, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekday, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -34,7 +34,7 @@ type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_que
 type Played = Pick<FLSpielJoined, "ergebnis" | "elfmeterschiessen" | "team1" | "team2">;
 
 /** What a match's row is built from: the public read's and the admin read's alike. */
-type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "datum" | "uhrzeit">;
+type Listed = Sides & Played & Pick<FLSpielJoined, "id" | "saison_id" | "for_third_place" | "date" | "time">;
 
 /** A match's matchday as the page reads serve it beside the match: its `position`, and its phase's count of matchdays. */
 type Matchday = Pick<FLSpielPageResponse, "spieltag_position" | "count_spieltage_in_phase">;
@@ -104,13 +104,13 @@ function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
 }
 
 /** When a match is played, as its row and its bracket card show it. */
-export const whenOf = (spiel: Pick<FLSpielJoined, "datum" | "uhrzeit">): Copy => COPY.spielplan.when(dayOf(spiel.datum), timeOf(spiel.uhrzeit));
+export const whenOf = (spiel: Pick<FLSpielJoined, "date" | "time">): Copy => COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
 
 /**
  * The match editor's Vorschau: the match as it is stored, its pairing, when it is played and its result, else the
  * event that leaves it none, else that none is stored yet. A fact about the record, never its unsaved changes.
  */
-export function vorschauOf(spiel: Sides & Played & Pick<FLSpielJoined, "datum" | "uhrzeit" | "sonderereignis">): Copy {
+export function vorschauOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | "time" | "sonderereignis">): Copy {
   const { team1, team2 } = sidesOf(spiel);
   const tore = toreOf(spiel);
   const result =
@@ -171,11 +171,11 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
  */
 export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   const { fact } = COPY.spielplan;
-  const day = dayOf(spiel.datum);
-  const time = timeOf(spiel.uhrzeit);
+  const day = dayOf(spiel.date);
+  const time = timeOf(spiel.time);
   const facts: (Fact | null)[] = [
-    day === null ? null : { label: fact.datum, glyph: "calendar", value: { record: formatDatumWithWeekday(day) }, figures: true },
-    time === null ? null : { label: fact.uhrzeit, glyph: "uhrzeit", value: { record: formatUhrzeit(time) }, figures: true },
+    day === null ? null : { label: fact.date, glyph: "calendar", value: { record: formatDateWithWeekday(day) }, figures: true },
+    time === null ? null : { label: fact.time, glyph: "time", value: { record: formatTime(time) }, figures: true },
     spiel.ort === null
       ? null
       : {

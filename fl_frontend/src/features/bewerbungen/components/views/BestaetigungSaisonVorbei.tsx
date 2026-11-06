@@ -43,7 +43,7 @@ export function BestaetigungSaisonVorbei({
 }) {
   const objection = useTwoPressConfirm();
 
-  const payload: FLBewerbungEinwilligungDeclined = { token: token, antwort: "declined" };
+  const payload: FLBewerbungEinwilligungDeclined = { token: token, answer: "declined" };
 
   const sende = async (): Promise<void> => {
     const sent = await postPublicForm<WiderspruchAntwort>("/api/bestaetigung/kontakt", payload);

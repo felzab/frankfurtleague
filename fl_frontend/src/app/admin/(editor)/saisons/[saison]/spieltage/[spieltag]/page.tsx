@@ -24,8 +24,8 @@ type Props = PageProps<"/admin/saisons/[saison]/spieltage/[spieltag]">;
 
 /** The matchday write's two dates, each required where its schema takes no empty one. */
 const REQUIRED = {
-  beginn: requires(SpieltagePatchSpieltagBody.shape.beginn, null),
-  ende: requires(SpieltagePatchSpieltagBody.shape.ende, null),
+  start: requires(SpieltagePatchSpieltagBody.shape.start, null),
+  end: requires(SpieltagePatchSpieltagBody.shape.end, null),
 };
 
 /** One read of the matchday by its id, its editor's one view read, for the tab's title and the page alike. */

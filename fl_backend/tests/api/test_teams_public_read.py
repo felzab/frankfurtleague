@@ -40,8 +40,8 @@ RETIRED_ON = "2026-08-01"
 # The three values a leak would carry: a teacher's mailbox, the number the league runs its whole
 # WhatsApp channel on, and a private person's date of birth.
 KONTAKT_EMAIL = "a.koerner@helmholtz.example.de"
-KONTAKT_TELEFON = "+49 170 1234567"
-KONTAKT_GEBURTSDATUM = "1984-05-09"
+KONTAKT_PHONE = "+49 170 1234567"
+KONTAKT_BIRTH_DATE = "1984-05-09"
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
@@ -58,13 +58,13 @@ def team_document(key: str, shorthand: str, *, inactive_since: str | None) -> di
     return documents.team_document(TEAM_OIDS[key], key, shorthand, full_name=f"{key}-Gymnasium", inactive_since=inactive_since)
 
 
-def kontaktperson(nachname: str) -> dict[str, Any]:
+def kontaktperson(last_name: str) -> dict[str, Any]:
     return {
-        "vorname": "Anke",
-        "nachname": nachname,
+        "first_name": "Anke",
+        "last_name": last_name,
         "email": KONTAKT_EMAIL,
-        "telefon": KONTAKT_TELEFON,
-        "geburtsdatum": KONTAKT_GEBURTSDATUM,
+        "phone": KONTAKT_PHONE,
+        "birth_date": KONTAKT_BIRTH_DATE,
         "einwilligung": confirmed_kenntnisnahme(),
     }
 
@@ -146,8 +146,8 @@ def fixture(spiel_id: ObjectId, nr: int, saison_id: str, **overrides: Any) -> di
             saison_id=saison_id,
             spiel_nr=nr,
             spieltag_id=GRUPPENPHASE_SPIELTAG,
-            datum=f"{saison_id}-03-15",
-            uhrzeit="14:00:00",
+            date=f"{saison_id}-03-15",
+            time="14:00:00",
         ),
         **overrides,
     }
@@ -246,11 +246,11 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
 
         # Every case of this class would pass as well over a season whose rows carried no contacts at all.
         assert stored["kontakte"]["trainer"]["email"] == KONTAKT_EMAIL
-        assert stored["kontakte"]["stellvertretung"]["geburtsdatum"] == KONTAKT_GEBURTSDATUM
+        assert stored["kontakte"]["stellvertretung"]["birth_date"] == KONTAKT_BIRTH_DATE
         assert rows, "the pipeline matched nothing, so withholding is not what this proves"
         for row in rows:
             assert "kontakte" not in row
-            assert KONTAKT_TELEFON not in repr(row)
+            assert KONTAKT_PHONE not in repr(row)
 
     def test_the_season_s_club_list_serves_none_of_it(self, seeded_url: str):
         response = on_a_league(seeded_url, read_saison_teams)
@@ -273,4 +273,4 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
 
         assert response.team.name == "Helmholtz"
         assert KONTAKT_EMAIL not in response.model_dump_json()
-        assert KONTAKT_GEBURTSDATUM not in response.model_dump_json()
+        assert KONTAKT_BIRTH_DATE not in response.model_dump_json()

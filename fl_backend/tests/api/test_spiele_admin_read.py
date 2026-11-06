@@ -46,11 +46,11 @@ MIETPREIS = 80
 PAYMENT = 30
 
 PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
-ADMIN_PATH = f"{PUBLIC_PATH}/verwaltung"
+ADMIN_PATH = f"{PUBLIC_PATH}/admin"
 
 # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
 # than through a plain `find`.
-AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSTRITT = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def spiel_document() -> dict[str, Any]:
@@ -63,8 +63,8 @@ def spiel_document() -> dict[str, Any]:
         spieltag_id=SPIELTAG_ID,
         team1={"team_id": HOME, "tore": 2},
         team2={"team_id": AWAY, "tore": 1},
-        datum="2026-03-15",
-        uhrzeit="14:00:00",
+        date="2026-03-15",
+        time="14:00:00",
         ort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
@@ -111,7 +111,13 @@ def schiedsrichter_rows() -> list[dict[str, Any]]:
             name="Cleo Rau",
             default_payment=25,
             einwilligung=None,
-            confirmation={"token_hashes": [], "sent_at": "2026-03-01", "reminded_at": None, "frist": "2026-03-15", "declined_at": "2026-03-02"},
+            confirmation={
+                "token_hashes": [],
+                "sent_at": "2026-03-01",
+                "reminded_at": None,
+                "deadline": "2026-03-15",
+                "declined_at": "2026-03-02",
+            },
         ),
         {
             **documents.schiedsrichter_document(
@@ -195,7 +201,7 @@ def test_the_wrong_key_is_refused_by_the_guard_of_the_route_that_matched(path: s
 def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
     """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets."""
 
-    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/verwaltung"
+    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
 
     assert answered(UNANSWERED_URI, path, ADMIN_AUTH).status_code == 404
 

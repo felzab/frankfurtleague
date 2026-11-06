@@ -125,7 +125,7 @@ def notice(
         "link": None,
         "state": "open",
         "recorded_at": QUEUED,
-        "frist": QUEUED + DELIVERY_DEADLINE,
+        "deadline": QUEUED + DELIVERY_DEADLINE,
         "erase_at": QUEUED + DELIVERY_DEADLINE + RETENTION,
         "lease": None,
         "leased_until": None,
@@ -142,7 +142,7 @@ def decided(bewerbung_id: ObjectId, by: str) -> dict[str, Any]:
         "declined",
         kontakte=kontakte_document(),
         submitted_at="2026-03-01",
-        decision={"made_at": "2026-03-10", "by": by, "grund": "Keine Halle"},
+        decision={"made_at": "2026-03-10", "by": by, "decision_reason": "Keine Halle"},
     )
 
 
@@ -152,14 +152,14 @@ def declined(registrierung_id: ObjectId, by: str) -> dict[str, Any]:
         f"pupil-{registrierung_id}@beispiel.de",
         saison_id=RUNNING,
         team_id=ObjectId(),
-        vorname="Rita",
-        nachname="Registriert",
+        first_name="Rita",
+        last_name="Registriert",
         token=str(registrierung_id),
         submitted_at="2026-03-20",
-        frist="2026-03-27",
+        deadline="2026-03-27",
     )
 
-    return {**stored, **compose_ablehnung_update(by=by, grund="Nicht in der Stufe", today="2026-03-22")["$set"]}
+    return {**stored, **compose_ablehnung_update(by=by, decision_reason="Nicht in der Stufe", today="2026-03-22")["$set"]}
 
 
 async def a_league_she_administered(database: AsyncDatabase) -> None:

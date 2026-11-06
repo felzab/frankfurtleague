@@ -75,14 +75,14 @@ def gruppen_fixture(
     sonderereignis: str | None = None,
     tore: tuple[int | None, int | None] = (None, None),
     spieltag_id: ObjectId = SPIELTAG,
-    datum: str | None = None,
+    date: str | None = None,
 ) -> dict[str, Any]:
     return spiel_document(
         spiel_id=ObjectId(),
         saison_id=SAISON_ID,
         spiel_nr=spiel_nr,
         spieltag_id=spieltag_id,
-        datum=datum,
+        date=date,
         team1=side(home, tore[0]),
         team2=side(away, tore[1]),
         ergebnis=ergebnis,
@@ -96,7 +96,7 @@ def knockout_fixture(
     sonderereignis: str | None = None,
     spieltag_id: ObjectId = KNOCKOUT_SPIELTAG,
     spiel_nr: int = KNOCKOUT_SPIEL_NR,
-    datum: str | None = None,
+    date: str | None = None,
 ) -> dict[str, Any]:
     """Its own matchday by default, so a knockout fixture shares a matchday with no group fixture."""
 
@@ -106,7 +106,7 @@ def knockout_fixture(
         spiel_nr=spiel_nr,
         spieltag_id=spieltag_id,
         saison_phase="viertelfinale",
-        datum=datum,
+        date=date,
         ergebnis=ergebnis,
         sonderereignis=sonderereignis,
     )
@@ -400,7 +400,7 @@ class TestTheRefusalsReadTheRealDocuments:
         stored = on_a_seeded_season(
             mongo_replica_set_url,
             body,
-            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=TODAY), gruppen_fixture(2, BETA_RIVAL, BETA)],
+            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, date=TODAY), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
         assert stored[ALPHA] == "B" and stored[BETA] == "A"

@@ -39,7 +39,7 @@ DATABASE_NAME = worker_database("fl_capacity_isolation_test")
 
 SAISON = "2026"
 TEAMS_PER_GROUP = 4
-MAX_KADERGROESSE = 18
+MAX_KADER_SIZE = 18
 
 # The season field every writer judged against one of that season's bounds advances, which is the
 # whole of what puts two of them in one write set.
@@ -61,7 +61,7 @@ def saison_document() -> dict[str, Any]:
     """`future`, which is the one status `entry_saison_not_future` admits an entry under."""
 
     return documents.saison_document(
-        SAISON, "future", rules=documents.rules_document(teams_per_gruppe=TEAMS_PER_GROUP, max_kadergroesse=MAX_KADERGROESSE)
+        SAISON, "future", rules=documents.rules_document(teams_per_gruppe=TEAMS_PER_GROUP, max_kader_size=MAX_KADER_SIZE)
     )
 
 
@@ -92,11 +92,11 @@ def squad_document(index: int, team_index: int, *, inactive_since: str | None = 
     )
 
 
-def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
+def spieltag_document(position: int, start: str) -> dict[str, Any]:
     return {
         "_id": oid(4000 + position),
-        "beginn": beginn,
-        "ende": beginn,
+        "start": start,
+        "end": start,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON,
         "position": position,
@@ -109,8 +109,8 @@ def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
 SEATED: Final = {"date": "2026-01-15"}
 
 
-def kontaktperson(vorname: str) -> dict[str, Any]:
-    return kontaktperson_document(vorname, confirmed_at="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
+def kontaktperson(first_name: str) -> dict[str, Any]:
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
 
 
 def bewerbung_document(index: int) -> dict[str, Any]:
@@ -188,12 +188,12 @@ async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, tea
     )
 
 
-async def redate(database: AsyncDatabase, client: AsyncMongoClient, position: int, beginn: str, saisons: Any) -> Any:
+async def redate(database: AsyncDatabase, client: AsyncMongoClient, position: int, start: str, saisons: Any) -> Any:
     stored = await database[Collection.SPIELTAGE].find_one({"_id": oid(4000 + position)}, {"version": 1})
     assert stored is not None
     return await patch_spieltag(
         spieltag_id=oid(4000 + position),
-        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=beginn, version=stored["version"]),
+        spieltag_data=FLPatchSpieltagPayload(start=start, end=start, version=stored["version"]),
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=saisons,
         spiele_collection=database[Collection.SPIELE],
@@ -247,9 +247,9 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
             Collection.SAISONS: [saison_document()],
             Collection.TEAMS: [team_document(1), team_document(2)],
             Collection.SAISON_TEAMS: [junction_document(1, "A"), junction_document(2, "B")],
-            Collection.SPIELER: [spieler_document(index) for index in [*range(1, MAX_KADERGROESSE), 90, 91, 92]],
+            Collection.SPIELER: [spieler_document(index) for index in [*range(1, MAX_KADER_SIZE), 90, 91, 92]],
             Collection.SAISON_SPIELER: [
-                *(squad_document(index, 1) for index in range(1, MAX_KADERGROESSE)),
+                *(squad_document(index, 1) for index in range(1, MAX_KADER_SIZE)),
                 # Its club is the OTHER one, so the transfer below moves a live row into the full
                 # squad rather than a row already counted in it.
                 squad_document(91, 2),
@@ -296,7 +296,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
             mongo_replica_set_url, lambda database, client, saisons: self._add(database, client, 91, saisons)
         )
 
-        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADERGROESSE)
+        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
@@ -315,7 +315,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
 
         outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, transfer)
 
-        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADERGROESSE)
+        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
@@ -333,7 +333,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
 
         outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, bring_back)
 
-        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADERGROESSE)
+        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
@@ -352,9 +352,9 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
 
             rows = await database[Collection.SPIELTAGE].find({"saison_id": SAISON}).sort([("position", 1)]).to_list(length=None)
 
-            return outcome, seasons.season_reads, [row["beginn"] for row in rows], await anchor_now(database)
+            return outcome, seasons.season_reads, [row["start"] for row in rows], await anchor_now(database)
 
-        outcome, season_reads, beginns, anchor = on_a_league(
+        outcome, season_reads, starts, anchor = on_a_league(
             mongo_replica_set_url,
             body,
             {
@@ -364,7 +364,7 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
         )
 
         # The rival's advance stands and the postponement does not, so the phase reads forwards.
-        assert (outcome, beginns) == (Code.SPIELTAG_BEGINN_OUT_OF_ORDER, [STANDING_FIRST, ADVANCED_SECOND])
+        assert (outcome, starts) == (Code.SPIELTAG_START_OUT_OF_ORDER, [STANDING_FIRST, ADVANCED_SECOND])
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )

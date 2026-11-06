@@ -375,7 +375,7 @@ function KontaktpersonFields({
           <dl className={FIELD_PAIR_CLASSES}>
             <LinkStandAngaben
               verschicktAm={link.sent_at}
-              frist={link.frist}
+              deadline={link.deadline}
               istAbgelaufen={link.expired}
               zustellung={link.delivery}
             />
@@ -422,10 +422,10 @@ function KontaktpersonInputs({
       <div className={FIELD_PAIR_CLASSES}>
         <TextField
           isReadOnly={isMirrored}
-          name={`kontakte.${rolle}.vorname`}
-          value={person.vorname}
-          onChange={(next) => onChange({ ...person, vorname: next })}
-          onBlur={() => onFieldLeft([`kontakte.${rolle}.vorname`])}
+          name={`kontakte.${rolle}.first_name`}
+          value={person.first_name}
+          onChange={(next) => onChange({ ...person, first_name: next })}
+          onBlur={() => onFieldLeft([`kontakte.${rolle}.first_name`])}
           maxLength={KONTAKT_NAME_MAX_LENGTH}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Vorname</FieldLabel>
           <Input className={FIELD_INPUT_CLASSES} />
@@ -434,10 +434,10 @@ function KontaktpersonInputs({
 
         <TextField
           isReadOnly={isMirrored}
-          name={`kontakte.${rolle}.nachname`}
-          value={person.nachname}
-          onChange={(next) => onChange({ ...person, nachname: next })}
-          onBlur={() => onFieldLeft([`kontakte.${rolle}.nachname`])}
+          name={`kontakte.${rolle}.last_name`}
+          value={person.last_name}
+          onChange={(next) => onChange({ ...person, last_name: next })}
+          onBlur={() => onFieldLeft([`kontakte.${rolle}.last_name`])}
           maxLength={KONTAKT_NAME_MAX_LENGTH}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Nachname</FieldLabel>
           <Input className={FIELD_INPUT_CLASSES} />
@@ -464,10 +464,10 @@ function KontaktpersonInputs({
         <TextField
           isReadOnly={isMirrored}
           type="tel"
-          name={`kontakte.${rolle}.telefon`}
-          value={person.telefon}
-          onChange={(next) => onChange({ ...person, telefon: next })}
-          onBlur={() => onFieldLeft([`kontakte.${rolle}.telefon`])}>
+          name={`kontakte.${rolle}.phone`}
+          value={person.phone}
+          onChange={(next) => onChange({ ...person, phone: next })}
+          onBlur={() => onFieldLeft([`kontakte.${rolle}.phone`])}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Telefon</FieldLabel>
           <Input
             placeholder="z.B. 069 1234567"
@@ -482,10 +482,10 @@ function KontaktpersonInputs({
             the payload carries no `geburtsdatum` for a message to land on. */}
         <TextField
           isReadOnly
-          value={formatSpielDatum(person.geburtsdatum, kontaktGeburtsdatumLeer(person.einwilligung.confirmed_at))}
+          value={formatSpielDatum(person.birth_date, kontaktGeburtsdatumLeer(person.einwilligung.confirmed_at))}
           onChange={() => undefined}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
-          <Input className={readoutClasses(person.geburtsdatum === null)} />
+          <Input className={readoutClasses(person.birth_date === null)} />
         </TextField>
       </div>
 

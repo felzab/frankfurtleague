@@ -10,11 +10,11 @@ import type { KontaktpersonDraft } from "@/features/teams/types";
 import type { FLKontakteDraftFields } from "./kontakteDraftStatus";
 
 const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
-  vorname: "Erika",
-  nachname: "Mustermann",
+  first_name: "Erika",
+  last_name: "Mustermann",
   email: "erika@beispiel.de",
-  telefon: "069 1234567",
-  geburtsdatum: "1990-01-01",
+  phone: "069 1234567",
+  birth_date: "1990-01-01",
   einwilligung: kenntnisnahme({ date: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
@@ -23,8 +23,8 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
 const block = (overrides: Partial<NonNullable<FLKontakteDraftFields["kontakte"]>> = {}): FLKontakteDraftFields => ({
   kontakte: {
     trainer: person(),
-    ansprechperson: person({ vorname: "Max" }),
-    stellvertretung: person({ vorname: "Lena" }),
+    ansprechperson: person({ first_name: "Max" }),
+    stellvertretung: person({ first_name: "Lena" }),
     trainer_is_also: null,
     ...overrides,
   },
@@ -158,7 +158,7 @@ describe("deriveKontakteDraftStatus", () => {
      person may still be missing. Read as `null` the row renders as a REMOVAL, so a half-filled seat
      would report itself as one nobody sits in. */
   it("renders a seat holding no name as a person still on file", () => {
-    const nameless = person({ vorname: "", nachname: "" });
+    const nameless = person({ first_name: "", last_name: "" });
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: nameless }), fieldErrors: {} });
 
     expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(
@@ -174,8 +174,8 @@ describe("deriveKontakteDraftStatus", () => {
     ["2025-09-02", "Geburtsdatum nicht hinterlegt"],
   ] as const) {
     it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${words}“`, () => {
-      const ohneDatum = person({ geburtsdatum: null, einwilligung: { ...person().einwilligung, confirmed_at: bestaetigtAm } });
-      const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: ohneDatum }), fieldErrors: {} });
+      const withoutDate = person({ birth_date: null, einwilligung: { ...person().einwilligung, confirmed_at: bestaetigtAm } });
+      const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: withoutDate }), fieldErrors: {} });
 
       expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(`Erika Mustermann, erika@beispiel.de, 069 1234567, ${words}`);
     });
@@ -219,11 +219,11 @@ describe("deriveKontakteDraftStatus", () => {
  */
 const candidatePaths = (rolle: KontaktRolle): string[] => [
   `kontakte.${rolle}`,
-  `kontakte.${rolle}.vorname`,
-  `kontakte.${rolle}.nachname`,
+  `kontakte.${rolle}.first_name`,
+  `kontakte.${rolle}.last_name`,
   `kontakte.${rolle}.email`,
-  `kontakte.${rolle}.telefon`,
-  `kontakte.${rolle}.geburtsdatum`,
+  `kontakte.${rolle}.phone`,
+  `kontakte.${rolle}.birth_date`,
   `kontakte.${rolle}.einwilligung`,
   `kontakte.${rolle}.einwilligung.date`,
 ];
@@ -252,9 +252,9 @@ describe("kontaktSeatPaths", () => {
       "kontakte.trainer.einwilligung",
       "kontakte.trainer.einwilligung.date",
       "kontakte.trainer.email",
-      "kontakte.trainer.nachname",
-      "kontakte.trainer.telefon",
-      "kontakte.trainer.vorname",
+      "kontakte.trainer.first_name",
+      "kontakte.trainer.last_name",
+      "kontakte.trainer.phone",
     ]);
   });
 
@@ -263,7 +263,7 @@ describe("kontaktSeatPaths", () => {
      in. */
   it("leaves the birthdate out, no payload carrying one for a message to land on", () => {
     for (const { value: rolle } of KONTAKT_ROLLEN) {
-      assert.ok(!kontaktSeatPaths(rolle).includes(`kontakte.${rolle}.geburtsdatum`), `${rolle} re-judges a path nothing reports under`);
+      assert.ok(!kontaktSeatPaths(rolle).includes(`kontakte.${rolle}.birth_date`), `${rolle} re-judges a path nothing reports under`);
     }
   });
 });

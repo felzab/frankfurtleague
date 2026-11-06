@@ -240,7 +240,7 @@ async def sweep_saison(
                     saison_id=saison_id,
                     schule=schule,
                     # The deadline the first mail gave; a reminder does not move it.
-                    frist=str(row["confirmation_deadline"]),
+                    deadline=str(row["confirmation_deadline"]),
                     # The day too: a re-send clears the stamp, and the seat's next reminder is a mail of its own.
                     key=f"{Collection.BEWERBUNGEN}/{row['_id']}/reminder/{seats[0]}/{today}",
                 )

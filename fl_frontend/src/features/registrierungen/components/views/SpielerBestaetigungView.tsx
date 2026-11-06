@@ -122,7 +122,7 @@ function wahlZeilen(umfang: FLEinwilligungScope | null, media: boolean | null) {
 }
 
 type Antwort =
-  | { success: true; ergebnis: "confirmed"; geburtsdatum: string | null; umfang: FLEinwilligungScope | null; media: boolean | null }
+  | { success: true; ergebnis: "confirmed"; birth_date: string | null; umfang: FLEinwilligungScope | null; media: boolean | null }
   | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
@@ -187,12 +187,12 @@ export function SpielerBestaetigungView({
           <p className={ABSATZ_CLASSES}>
             Danke. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
           </p>
-          {stand.wording.seite === "bestaetigung_spieler" ? (
+          {stand.wording.page === "bestaetigung_spieler" ? (
             <GespeicherteAngaben
               zeilen={[
-                ...(stand.gespeichert.geburtsdatum === null
+                ...(stand.gespeichert.birth_date === null
                   ? []
-                  : [{ label: "Geburtsdatum", value: formatSpielDatum(stand.gespeichert.geburtsdatum) }]),
+                  : [{ label: "Geburtsdatum", value: formatSpielDatum(stand.gespeichert.birth_date) }]),
                 ...wahlZeilen(stand.gespeichert.umfang, stand.gespeichert.media),
               ]}
             />
@@ -258,8 +258,8 @@ function SpielerBestaetigungForm({
   const [isPending, startSending] = useTransition();
   // Nothing preselected: a media switch that opened on and a scope already picked are consents nobody
   // gave on this page.
-  const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungScope | null; media: boolean }>({
-    geburtsdatum: "",
+  const [entwurf, setEntwurf] = useState<{ birth_date: string; umfang: FLEinwilligungScope | null; media: boolean }>({
+    birth_date: "",
     umfang: null,
     media: false,
   });
@@ -268,7 +268,7 @@ function SpielerBestaetigungForm({
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
   // person, so a schema on a constant would let the press through at the wrong number.
-  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.minimum_age, fassung.seite);
+  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.minimum_age, fassung.page);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
@@ -278,21 +278,21 @@ function SpielerBestaetigungForm({
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.minimum_age);
 
-  const fragtWahlen = fassung.seite === "bestaetigung_spieler";
+  const fragtWahlen = fassung.page === "bestaetigung_spieler";
 
   // Off the date the age check reads, at the served media age: with no date yet the age is unknown,
   // and a switch offered then would be one the write refuses for anybody under it.
   const medienAngeboten =
     fragtWahlen &&
-    entwurf.geburtsdatum !== "" &&
-    entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.media_minimum_age).spaeteste;
+    entwurf.birth_date !== "" &&
+    entwurf.birth_date <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.media_minimum_age).spaeteste;
 
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
     token: token,
     // None from the returning page: the press takes the stored person's (`registrierung_choices_unsuitable` refuses one sent).
-    geburtsdatum: fragtWahlen ? entwurf.geburtsdatum : null,
+    birth_date: fragtWahlen ? entwurf.birth_date : null,
     // Both choices null from the returning page, which asks neither (`registrierung_choices_unsuitable` refuses any other).
     umfang: fragtWahlen ? entwurf.umfang : null,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
@@ -305,7 +305,7 @@ function SpielerBestaetigungForm({
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // telling a 190-year-old to ask their team for a place is the wrong repair.
-  const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
+  const istZuJung = fieldErrors.birth_date !== undefined && entwurf.birth_date !== "" && entwurf.birth_date > spaeteste;
 
   const sende = () => {
     const body = payload();
@@ -347,7 +347,7 @@ function SpielerBestaetigungForm({
         setSubmitFieldErrors({}, {});
         onAbschluss({
           zustand: "erfolg",
-          gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, media: antwort.media },
+          gespeichert: { birth_date: antwort.birth_date, umfang: antwort.umfang, media: antwort.media },
         });
       });
     });
@@ -368,12 +368,12 @@ function SpielerBestaetigungForm({
           {fragtWahlen ? (
             <div className={FIELD_PAIR_CLASSES}>
               <AppDatePicker
-                name="geburtsdatum"
+                name="birth_date"
                 label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
                 calendarLabel="Geburtsdatum auswählen"
-                value={toCalendarDate(entwurf.geburtsdatum)}
-                onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-                onBlur={() => validatePaths("bestaetigung", payload(), ["geburtsdatum"])}
+                value={toCalendarDate(entwurf.birth_date)}
+                onChange={(next) => setEntwurf({ ...entwurf, birth_date: next?.toString() ?? "" })}
+                onBlur={() => validatePaths("bestaetigung", payload(), ["birth_date"])}
                 hint={`Daran prüfen wir, ob Du mindestens ${String(ansicht.minimum_age)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
                 minValue={parseDate(frueheste)}
                 maxValue={parseDate(spaeteste)}
@@ -386,7 +386,7 @@ function SpielerBestaetigungForm({
           )}
         </section>
 
-        {fassung.seite === "bestaetigung_spieler" ? (
+        {fassung.page === "bestaetigung_spieler" ? (
           <WahlenAbschnitte
             umfang={entwurf.umfang}
             media={entwurf.media}

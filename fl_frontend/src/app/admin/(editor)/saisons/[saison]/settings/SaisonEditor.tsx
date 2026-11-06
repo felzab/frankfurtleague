@@ -16,7 +16,7 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
-import { formatDatum, formatNumber } from "@/core/format";
+import { formatDate, formatNumber } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
@@ -250,7 +250,7 @@ export function SaisonEditor({
         // A season's two days, sharing their row at every width.
         <FieldColumns>
           <DateField
-            label={WORDS.beginn}
+            label={WORDS.start}
             name="start"
             isRequired={required.start}
             isDisabled={facts.takenPlace}
@@ -258,7 +258,7 @@ export function SaisonEditor({
             onChange={(day) => set("start", day)}
           />
           <DateField
-            label={WORDS.ende}
+            label={WORDS.end}
             name="end"
             isRequired={required.end}
             value={draft.end}
@@ -418,14 +418,14 @@ export function SaisonEditor({
       fields: (
         <FieldColumns>
           <DateField
-            label={WORDS.beginn}
+            label={WORDS.start}
             name="bewerbungStart"
             isRequired={bewerbungSet && required.bewerbungStart}
             value={draft.bewerbungStart}
             onChange={(day) => set("bewerbungStart", day)}
           />
           <DateField
-            label={WORDS.ende}
+            label={WORDS.end}
             name="bewerbungEnd"
             isRequired={bewerbungSet && required.bewerbungEnd}
             value={draft.bewerbungEnd}
@@ -440,7 +440,7 @@ export function SaisonEditor({
       fields: (
         <>
           <DateField
-            label={WORDS.ende}
+            label={WORDS.end}
             name="registrierungEnd"
             value={draft.registrierungEnd}
             onChange={(day) => set("registrierungEnd", day)}
@@ -473,7 +473,7 @@ export function SaisonEditor({
               { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
               ...(facts.spielplan.drawnOn === null
                 ? []
-                : [{ label: WORDS.drawnOn, value: { record: formatDatum(facts.spielplan.drawnOn) }, figures: true }]),
+                : [{ label: WORDS.drawnOn, value: { record: formatDate(facts.spielplan.drawnOn) }, figures: true }]),
             ]}
           />
         ),

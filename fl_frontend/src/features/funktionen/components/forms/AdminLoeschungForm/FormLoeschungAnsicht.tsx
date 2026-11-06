@@ -47,7 +47,7 @@ function zeilenOf(
   saisonHref: (path: string) => string,
 ): Zeile[] {
   return [
-    ...spieler.map(({ vorname, nachname, kader }) => {
+    ...spieler.map(({ first_name: vorname, last_name: nachname, kader }) => {
       const kaderTeile = kader.map(({ team_name, saison_id }) =>
         team_name === null ? `im Kader der Saison ${saison_id}` : `im Kader von ${team_name}, Saison ${saison_id}`,
       );
@@ -58,13 +58,13 @@ function zeilenOf(
     ...schiedsrichter.map(({ name }) => ({
       text: name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`,
     })),
-    ...seats.map(({ rolle, team_name, saison_id, vorname, nachname }) => ({
+    ...seats.map(({ rolle, team_name, saison_id, first_name: vorname, last_name: nachname }) => ({
       text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
-    ...bewerbungen.map(({ rolle, saison_id, vorname, nachname }) => ({
+    ...bewerbungen.map(({ rolle, saison_id, first_name: vorname, last_name: nachname }) => ({
       text: `${rollenLangform([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
-    ...registrierungen.map(({ team_name, saison_id, vorname, nachname }) => ({
+    ...registrierungen.map(({ team_name, saison_id, first_name: vorname, last_name: nachname }) => ({
       text:
         team_name === null
           ? `Registrierung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`

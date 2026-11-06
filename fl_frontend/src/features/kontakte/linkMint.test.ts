@@ -6,18 +6,18 @@ import { kontakteMayMoveLinks } from "./linkMint.ts";
 import type { FLKontaktperson, FLKontaktpersonPayload } from "@/core/generated/client/types";
 
 const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
-  vorname,
-  nachname: "Meier",
+  first_name: vorname,
+  last_name: "Meier",
   email,
-  telefon: "069 501",
-  geburtsdatum: null,
+  phone: "069 501",
+  birth_date: null,
   einwilligung: kenntnisnahme({ date: "2026-10-03", confirmed_at: null }),
 });
 const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontaktpersonPayload => ({
-  vorname,
-  nachname: "Meier",
+  first_name: vorname,
+  last_name: "Meier",
   email,
-  telefon,
+  phone: telefon,
   einwilligung: { scope: "kontaktdaten", date: "2026-10-03" },
 });
 

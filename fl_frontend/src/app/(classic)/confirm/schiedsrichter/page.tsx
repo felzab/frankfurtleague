@@ -30,12 +30,12 @@ type Props = PageProps<"/confirm/schiedsrichter">;
 
 const WORDS = SERVER_COPY.schiedsrichterConfirmation;
 
-const INVALID: MailedState = { state: "ungueltig", next: TO_HOME };
+const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
 const { shape } = SchiedsrichterPostConfirmationBody;
 
 /** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
-const REQUIRED = { geburtsdatum: requires(shape.geburtsdatum, null), scope: requires(shape.scope, null) };
+const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires(shape.scope, null) };
 
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
@@ -63,8 +63,8 @@ async function readView(token: string): Promise<FLSchiedsrichterConfirmationView
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
 function alreadyDone(view: FLSchiedsrichterConfirmationViewResponse, kind: "confirmed" | "objected"): MailedState {
   // The view serves the answer's day on these two states alone; one missing is a backend older than this page.
-  if (view.answered_on === null) return INVALID;
-  const day = dayOf(view.answered_on);
+  if (view.answered_at === null) return INVALID;
+  const day = dayOf(view.answered_at);
   const { title } = END[kind];
   return kind === "confirmed"
     ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
@@ -94,7 +94,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
       return {
         state: "question",
         title: COPY.page.entryConfirmation,
-        sentence: WORDS.question(dayOf(view.frist)),
+        sentence: WORDS.question(dayOf(view.deadline)),
         action: answerSchiedsrichter,
         acts: { primary: COPY.page.entryConfirmation, secondary: COPY.shared.verb.oppose },
         carry: { token: token },

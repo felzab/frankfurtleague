@@ -40,7 +40,7 @@ import type { FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { RegistrierungFormDraft } from "../../types";
 
-type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });
+type RegistrierungAnswer = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });
 
 const NICHT_ABGESCHICKT = `Deine Registrierung wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
@@ -52,7 +52,7 @@ const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert erneut 
 
 const POSITION_OPTIONS = FLSpielerPositionSchema.options;
 
-const buildEmptyDraft = (): RegistrierungFormDraft => ({ vorname: "", nachname: "", email: "", nummer: "", position: null, stufe: null });
+const buildEmptyDraft = (): RegistrierungFormDraft => ({ first_name: "", last_name: "", email: "", nummer: "", position: null, stufe: null });
 
 /**
  * The registration form the invite opens.
@@ -109,7 +109,7 @@ export function RegistrierungFormPanel({
         return;
       }
 
-      const sent = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, {
+      const sent = await postPublicForm<RegistrierungAnswer>("/api/registrierung", payload, {
         idempotencyKey: schluessel,
         turnstileToken: request.token,
       });
@@ -124,24 +124,24 @@ export function RegistrierungFormPanel({
         return;
       }
 
-      const antwort = sent.body;
+      const response = sent.body;
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
       startSending(() => {
-        if (!antwort.success) {
+        if (!response.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
-          if (antwort.outcome === "unknown") {
+          if (response.outcome === "unknown") {
             appToast.danger(UNKLAR_TITEL, { description: REGISTRIERUNG_UNKLAR });
             return;
           }
 
           // Renewed only where a box carries the judgement: the row whose mail was refused is stored, so
           // the corrected address is a new registration. A sentence alone keeps its replay.
-          if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+          if (response.fieldErrors !== undefined || response.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
 
           // The invite died between the open and the press: the answer is the whole page, never a toast.
-          if (antwort.zustand !== undefined) {
+          if (response.zustand !== undefined) {
             onLinkTot();
             return;
           }
@@ -150,15 +150,15 @@ export function RegistrierungFormPanel({
           reportSubmitFailure(
             {
               success: false,
-              error: antwort.error ?? NICHT_ABGESCHICKT,
-              fieldErrors: antwort.fieldErrors,
-              unplacedError: antwort.unplacedError,
+              error: response.error ?? NICHT_ABGESCHICKT,
+              fieldErrors: response.fieldErrors,
+              unplacedError: response.unplacedError,
             },
             { registrierung: payload },
             {
               raise: (shown) =>
                 appToast.failure(
-                  antwort.schonAngekommen === true ? "Registrierung schon angekommen" : "Registrierung nicht abgeschickt",
+                  response.schonAngekommen === true ? "Registrierung schon angekommen" : "Registrierung nicht abgeschickt",
                   shown,
                 ),
             },
@@ -211,10 +211,10 @@ export function RegistrierungFormPanel({
         <div className={panel.body()}>
           <div className={FIELD_PAIR_CLASSES}>
             <TextField
-              name="vorname"
-              value={draft.vorname}
-              onChange={(next) => setDraft({ ...draft, vorname: next })}
-              onBlur={() => validateFields(["vorname"])}
+              name="first_name"
+              value={draft.first_name}
+              onChange={(next) => setDraft({ ...draft, first_name: next })}
+              onBlur={() => validateFields(["first_name"])}
               maxLength={KONTAKT_NAME_MAX_LENGTH}>
               <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
               <Input className={FIELD_INPUT_CLASSES} />
@@ -222,10 +222,10 @@ export function RegistrierungFormPanel({
             </TextField>
 
             <TextField
-              name="nachname"
-              value={draft.nachname}
-              onChange={(next) => setDraft({ ...draft, nachname: next })}
-              onBlur={() => validateFields(["nachname"])}
+              name="last_name"
+              value={draft.last_name}
+              onChange={(next) => setDraft({ ...draft, last_name: next })}
+              onBlur={() => validateFields(["last_name"])}
               maxLength={KONTAKT_NAME_MAX_LENGTH}>
               <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
               <Input className={FIELD_INPUT_CLASSES} />

@@ -17,9 +17,9 @@ export function SchiedsrichterAngaben({ eintrag }: { eintrag: FLSchiedsrichterSe
       <Angabe label="Name">{eintrag.name}</Angabe>
       <Angabe label="Schule">{eintrag.schule ?? <Leer />}</Angabe>
       <Angabe label="E-Mail-Adresse">{adresseVon(eintrag.kontakt.email)}</Angabe>
-      <Angabe label="Telefon">{eintrag.kontakt.telefon ?? <Leer />}</Angabe>
-      <Angabe label="Geburtsdatum">{eintrag.geburtsdatum ? formatSpielDatum(eintrag.geburtsdatum) : <Leer />}</Angabe>
-      <Angabe label="Honorar">{formatEuro(eintrag.honorar)}</Angabe>
+      <Angabe label="Telefon">{eintrag.kontakt.phone ?? <Leer />}</Angabe>
+      <Angabe label="Geburtsdatum">{eintrag.birth_date ? formatSpielDatum(eintrag.birth_date) : <Leer />}</Angabe>
+      <Angabe label="Honorar">{formatEuro(eintrag.payment)}</Angabe>
     </dl>
   );
 }

@@ -9,7 +9,7 @@ import { Label } from "@heroui/react/label";
 import { TextArea } from "@heroui/react/textarea";
 
 import { ablehnenBewerbungAction } from "@/features/bewerbungen/actions";
-import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_DECISION_REASON_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLAblehnenBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -37,7 +37,7 @@ import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
  * judges it: a second spelling here is a bound the two tiers can disagree about.
  */
 const zuLangSatz = (grund: string): string | null => {
-  const geprueft = FLAblehnenBewerbungPayloadSchema.shape.grund.safeParse(grund);
+  const geprueft = FLAblehnenBewerbungPayloadSchema.shape.decision_reason.safeParse(grund);
 
   return geprueft.success ? null : (geprueft.error.issues[0]?.message ?? null);
 };
@@ -92,13 +92,13 @@ export function AdminBewerbungAblehnenSection({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await ablehnenBewerbungAction({ id: bewerbungId, grund: grund }).catch(unansweredAction);
+      const res = await ablehnenBewerbungAction({ id: bewerbungId, decision_reason: grund }).catch(unansweredAction);
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
       startTransition(() => {
         if (!res.success) {
-          const fieldError = res.fieldErrors?.grund ?? null;
+          const fieldError = res.fieldErrors?.decision_reason ?? null;
           setGrundError(fieldError);
 
           if (fieldError === null) appToast.failure("Bewerbung nicht abgelehnt", res);
@@ -138,7 +138,7 @@ export function AdminBewerbungAblehnenSection({
         <p className="muted-hint">Die Entscheidung wird mit Deinem Namen und dem heutigen Datum bei der Bewerbung gespeichert.</p>
 
         <TextField
-          name="grund"
+          name="decision_reason"
           value={grund}
           onChange={(next) => {
             setGrundError(null);
@@ -161,7 +161,7 @@ export function AdminBewerbungAblehnenSection({
         {/* The count, not a progress bar: what a writer needs near the cap is the number of
             characters left, and the field is refused above it rather than truncated. */}
         <p className="fluid-xxs font-medium text-foreground-muted">
-          {String(trimmedGrund.length)} von {String(BEWERBUNG_GRUND_MAX_LENGTH)} Zeichen
+          {String(trimmedGrund.length)} von {String(BEWERBUNG_DECISION_REASON_MAX_LENGTH)} Zeichen
         </p>
 
         {isConfirming && !isEmpty && (

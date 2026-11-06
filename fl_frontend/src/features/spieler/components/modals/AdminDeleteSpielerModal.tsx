@@ -18,7 +18,7 @@ export function AdminDeleteSpielerModal({
   onRetired,
 }: {
   // The name's parts rather than the list's joined `fullName`: the editor holds the stored record, which carries none.
-  spielerData: Pick<AdminSpielerRow, "id" | "vorname" | "nachname"> | null;
+  spielerData: Pick<AdminSpielerRow, "id" | "first_name" | "last_name"> | null;
   isOpen: boolean;
   onClose: () => void;
   onRetired: () => void;

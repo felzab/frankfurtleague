@@ -39,7 +39,7 @@ def rows_seating(*identifiers: str) -> Mapping[str, Any]:
 
 
 # The address rides along because `find_matching_slots` picks the seat by it, off the row itself.
-SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+SEAT_FIELDS: tuple[str, ...] = ("email", "first_name", "last_name")
 
 
 def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:
@@ -124,7 +124,7 @@ def seat_name(seat: Any) -> PersonName | None:
     if not isinstance(seat, Mapping):
         return None
 
-    name = (person_name_key(seat.get("vorname")), person_name_key(seat.get("nachname")))
+    name = (person_name_key(seat.get("first_name")), person_name_key(seat.get("last_name")))
 
     return name if all(name) else None
 

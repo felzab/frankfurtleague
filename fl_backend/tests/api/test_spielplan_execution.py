@@ -73,7 +73,7 @@ SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a 
 STORED_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607760001")
 STORED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607760002")
 
-UNDATED_SPIEL_FIELDS: tuple[str, ...] = ("datum", "uhrzeit", "ort", "schiedsrichter")
+UNDATED_SPIEL_FIELDS: tuple[str, ...] = ("date", "time", "ort", "schiedsrichter")
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
@@ -132,8 +132,8 @@ def a_stored_matchday() -> dict[str, Any]:
 
     return {
         "_id": STORED_SPIELTAG_OID,
-        "beginn": None,
-        "ende": None,
+        "start": None,
+        "end": None,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON_ID,
         "position": 1,
@@ -443,7 +443,7 @@ class TestNothingTheDrawWritesIsDated:
     def test_no_matchday_carries_a_span(self, mongo_replica_set_url: str):
         drawn = a_drawn_season(mongo_replica_set_url)
 
-        assert [row["position"] for row in drawn.spieltage if row["beginn"] is not None or row["ende"] is not None] == []
+        assert [row["position"] for row in drawn.spieltage if row["start"] is not None or row["end"] is not None] == []
 
     def test_no_fixture_carries_a_date_a_ground_or_a_referee(self, mongo_replica_set_url: str):
         drawn = a_drawn_season(mongo_replica_set_url)
@@ -613,9 +613,9 @@ class TestEachRefusalIsReachedThroughTheRoute:
 
 
 # Each installs a validator on one collection, so the write named below is refused where it
-# stands. `datum` is null on every drawn fixture and `spielplan` is an object on every watermark.
+# stands. `date` is null on every drawn fixture and `spielplan` is an object on every watermark.
 NARROWED_VALIDATORS: dict[Collection, dict[str, Any]] = {
-    Collection.SPIELE: {"$jsonSchema": {"bsonType": "object", "properties": {"datum": {"bsonType": "string"}}}},
+    Collection.SPIELE: {"$jsonSchema": {"bsonType": "object", "properties": {"date": {"bsonType": "string"}}}},
     Collection.SAISONS: {"$jsonSchema": {"bsonType": "object", "properties": {"spielplan": {"bsonType": "string"}}}},
 }
 
@@ -652,7 +652,7 @@ class TestAFailedDrawLeavesNothingBehind:
     @pytest.mark.parametrize(
         ("narrowed", "refused_field"),
         [
-            pytest.param(Collection.SPIELE, "datum", id="the fixtures, once the matchdays are written"),
+            pytest.param(Collection.SPIELE, "date", id="the fixtures, once the matchdays are written"),
             pytest.param(Collection.SAISONS, "spielplan", id="the watermark, once both collections are written"),
         ],
     )
@@ -681,7 +681,7 @@ class TestAFailedDrawLeavesNothingBehind:
 
         # Asserted on the code, so this cannot pass because something failed before the first write.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got code {aborted.write_error}"
-        # `datum` sits on no matchday: the write that fell is the one this case narrowed, so the
+        # `date` sits on no matchday: the write that fell is the one this case narrowed, so the
         # writes before it had already run.
         assert aborted.refused_field == refused_field
         assert (aborted.spieltage, aborted.spiele) == (0, 0), "a rolled-back draw left documents behind"
@@ -703,7 +703,7 @@ REDRAWN_TODAY = "2026-08-25"
 # `app/api/saisons/services.py :: holds_a_recorded_fact` calls recorded.
 A_RECORD = "abgebrochen"
 
-# The one record the DRAW itself never writes a key for, so a projection missing `notiz` reads a
+# The one record the DRAW itself never writes a key for, so a projection missing `note` reads a
 # noted fixture as untouched and the replace destroys the note.
 A_NOTE = "Platz gesperrt"
 
@@ -711,13 +711,10 @@ A_NOTE = "Platz gesperrt"
 # accept rather than one this file invented.
 A_BOOKED_ORT: dict[str, Any] = {
     "spielort_id": ObjectId("6890a1b2c3d4e5f607760101"),
-    "name": "Sporthalle Nord",
-    "maps_link": "https://maps.test/nord",
     "mietpreis": 120,
 }
 A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
     "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607760102"),
-    "name": "R. Mustermann",
     "payment": 40,
 }
 
@@ -729,7 +726,7 @@ RECORDS_CLOSING_THE_WINDOW = (
     pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
     pytest.param({"ort": A_BOOKED_ORT}, id="a booked venue"),
     pytest.param({"schiedsrichter": A_BOOKED_SCHIEDSRICHTER}, id="a booked referee"),
-    pytest.param({"notiz": A_NOTE}, id="an admin's note"),
+    pytest.param({"note": A_NOTE}, id="an admin's note"),
 )
 
 # Wider than the drawn shape, so `rules_capacity_below_use` and `rules_spieltag_over_its_phase` both read the other way and
@@ -793,13 +790,13 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
-        datum="2026-05-01",
-        uhrzeit="18:00:00",
+        team1={"team_id": home, "tore": None},
+        team2={"team_id": ObjectId(), "tore": None},
+        date="2026-05-01",
+        time="18:00:00",
     )
 
-    return documents.spielbestaetigung_document(fixture, party={"art": "team", "team_id": home})
+    return documents.spielbestaetigung_document(fixture, party={"kind": "team", "team_id": home})
 
 
 def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
@@ -893,7 +890,7 @@ NULL_NULL = FLSpielberichtBerichtPayload.model_validate(
         "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
         "torschuetzen": [],
         "karten": [],
-        "bemerkungen": None,
+        "remarks": None,
     }
 )
 
@@ -1009,7 +1006,7 @@ async def a_reportable_fixture(database: AsyncDatabase) -> ObjectId:
     assert spiel is not None, "the premise: the season is drawn"
     await database[Collection.SPIELE].update_one(
         {"_id": spiel["_id"]},
-        {"$set": {"datum": PLAYED_ON, "schiedsrichter": {"schiedsrichter_id": REPORTING_REFEREE, "name": "Otto Gruber", "payment": 20}}},
+        {"$set": {"date": PLAYED_ON, "schiedsrichter": {"schiedsrichter_id": REPORTING_REFEREE, "payment": 20}}},
     )
 
     return spiel["_id"]
@@ -1254,7 +1251,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
 
         # On the code, so this cannot pass because the replace fell before it deleted anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
-        assert aborted.refused_field == "datum"
+        assert aborted.refused_field == "date"
         assert aborted.watermark == {"generated_at": TODAY}
         # The first draw's three rows and nothing else: the deletes are recorded in-session, so the
         # abort takes their rows back too.

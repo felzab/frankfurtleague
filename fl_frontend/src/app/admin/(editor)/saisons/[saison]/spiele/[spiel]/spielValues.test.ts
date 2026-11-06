@@ -7,19 +7,19 @@ import type { Proposal, SpielValues } from "./spielValues";
 const STORED: SpielValues = {
   team1: "64b000000000000000000003",
   team2: "64b000000000000000000004",
-  datum: null,
-  uhrzeit: null,
+  date: null,
+  time: null,
   spielort: null,
   mietpreis: "",
   schiedsrichter: null,
-  honorar: "",
+  payment: "",
   hasResult: false,
   tore1: "",
   tore2: "",
   shootOut1: "",
   shootOut2: "",
   sonderereignis: NO_SONDEREREIGNIS,
-  notiz: "",
+  note: "",
 };
 
 /** The referee's report proposing 3:1, at its second version. */

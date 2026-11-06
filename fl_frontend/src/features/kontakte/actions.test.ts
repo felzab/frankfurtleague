@@ -37,22 +37,22 @@ const { refused } = await import("@/test-support/refusals.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
 /** A number per person: two seats sharing one are refused as one person entered twice. */
-const TELEFON: Record<string, string> = { Anna: "069 501", Bernd: "069 502", Clara: "069 503" };
+const PHONE: Record<string, string> = { Anna: "069 501", Bernd: "069 502", Clara: "069 503" };
 
 /** One seat as an administrator types it into the editor, under the running label. */
-const seat = (vorname: string, email: string) => ({
-  vorname,
-  nachname: "Meier",
+const seat = (firstName: string, email: string) => ({
+  first_name: firstName,
+  last_name: "Meier",
   email,
-  telefon: TELEFON[vorname] ?? "069 1234567",
+  phone: PHONE[firstName] ?? "069 1234567",
   einwilligung: { scope: "kontaktdaten" as const, date: "2026-10-03" },
 });
 
 /** The same seat as the read model stores it, unconfirmed. */
-const storedSeat = (vorname: string, email: string) => ({
-  ...seat(vorname, email),
-  geburtsdatum: null,
-  einwilligung: kenntnisnahme({ ...seat(vorname, email).einwilligung, confirmed_at: null }),
+const storedSeat = (firstName: string, email: string) => ({
+  ...seat(firstName, email),
+  birth_date: null,
+  einwilligung: kenntnisnahme({ ...seat(firstName, email).einwilligung, confirmed_at: null }),
 });
 
 const BLOCK = {
@@ -155,7 +155,7 @@ describe("a contacts save from a session past the step-up window", () => {
 
     const res = await patchSaisonTeamKontakteAction({
       ...PAYLOAD,
-      kontakte: { ...BLOCK, trainer: { ...BLOCK.trainer, telefon: "069 7654321" } },
+      kontakte: { ...BLOCK, trainer: { ...BLOCK.trainer, phone: "069 7654321" } },
     });
 
     expect(res).not.toStrictEqual(stepUpRequired());

@@ -40,7 +40,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 # --- The LINK's view and answer.
 
 # What the VIEW reads off the fixture through the name join: the Ansetzung's inputs, what the page states of it, and
-# what `grund_to_close` decides on. Never the referee, the rent or the note.
+# what `reason_to_close` decides on. Never the referee, the rent or the note.
 ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
@@ -49,7 +49,7 @@ ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
 }
 
 # What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee, whom
-# `grund_to_close` compares a referee's row against. The referee's id alone, never the name the join puts beside it.
+# `reason_to_close` compares a referee's row against. The referee's id alone, never the name the join puts beside it.
 JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
 
 
@@ -80,7 +80,7 @@ def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
     return {
         "_id": 0,
         "team_id": 1,
-        "austritt.datum": 1,
+        "austritt.date": 1,
         "name": 1,
         # The other club's row and every other seat load no address.
         f"kontakte.{seat}.email": {"$cond": [{"$eq": ["$team_id", team_id]}, f"$kontakte.{seat}.email", "$$REMOVE"]},
@@ -131,15 +131,15 @@ async def pull_vorschlag_offen(
         {
             "saison_id": spielbestaetigung_raw["saison_id"],
             "spiel_id": spielbestaetigung_raw["spiel_id"],
-            "party.art": "team",
+            "party.kind": "team",
             "party.team_id": {"$ne": spielbestaetigung_raw["party"]["team_id"]},
             "ansetzung.stand": spielbestaetigung_raw["ansetzung"]["stand"],
-            "antwort.art": "declined",
+            "answer.kind": "declined",
             "closed": None,
         },
-        projection={"antwort.vorschlag": 1},
+        projection={"answer.vorschlag": 1},
     )
-    vorschlag = ((other or {}).get("antwort") or {}).get("vorschlag")
+    vorschlag = ((other or {}).get("answer") or {}).get("vorschlag")
 
     return FLSpielbestaetigungAppointment.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
 
@@ -180,13 +180,13 @@ EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
     "spiel_id": 1,
     "party": 1,
     "ansetzung": 1,
-    "antwort.art": 1,
-    "antwort.von.art": 1,
-    "antwort.begruendung": 1,
+    "answer.kind": 1,
+    "answer.by.kind": 1,
+    "answer.reason": 1,
     "closed": 1,
 }
 
-EIGENE_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.datum": 1}
+EIGENE_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.date": 1}
 
 
 async def pull_eigene_lagen(
@@ -299,7 +299,7 @@ async def strip_the_seasons_confirmations(
     await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_season_reasons_filter(saison_id),
-        update={"$set": {"antwort.begruendung": None}},
+        update={"$set": {"answer.reason": None}},
         session=session,
     )
 

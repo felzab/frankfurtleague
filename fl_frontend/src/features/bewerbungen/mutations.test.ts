@@ -33,9 +33,13 @@ describe("how each triage endpoint is addressed", () => {
   });
 
   it("posts the decline to its own endpoint, the id in the path and out of the body", async () => {
-    await ablehnenBewerbung({ id: ID, grund: "Die Liga ist voll." });
+    await ablehnenBewerbung({ id: ID, decision_reason: "Die Liga ist voll." });
 
-    expect(lastSent()).toStrictEqual({ endpoint: `/bewerbungen/${ID}/decline`, method: "POST", body: { grund: "Die Liga ist voll." } });
+    expect(lastSent()).toStrictEqual({
+      endpoint: `/bewerbungen/${ID}/decline`,
+      method: "POST",
+      body: { decision_reason: "Die Liga ist voll." },
+    });
   });
 });
 
@@ -60,10 +64,10 @@ describe("how each contact repair is addressed", () => {
      the application and the seat is typed, so a path-only request would seat nobody. */
   it("posts the reseat with the seat in the path and the person in the body", async () => {
     const person = {
-      vorname: "Berta",
-      nachname: "Beispiel",
+      first_name: "Berta",
+      last_name: "Beispiel",
       email: "berta@example.de",
-      telefon: "069 1234567",
+      phone: "069 1234567",
     };
 
     await besetzenKontaktSitz({ id: ID, rolle: "stellvertretung", ...person });

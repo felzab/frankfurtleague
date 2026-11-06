@@ -37,35 +37,33 @@ const seatOf =
 const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const person = seatOf(rolle)(source);
   if (person === null) return null;
-  const name = `${person.vorname} ${person.nachname}`.trim();
+  const name = `${person.first_name} ${person.last_name}`.trim();
 
   return [
     name === "" ? nichtHinterlegt("Name") : name,
     emptyAsNull(person.email) ?? nichtHinterlegt("E-Mail"),
-    emptyAsNull(person.telefon) ?? nichtHinterlegt("Telefon"),
+    emptyAsNull(person.phone) ?? nichtHinterlegt("Telefon"),
     // Read out rather than judged: the date is the person's own to enter at their confirmation, so an
     // unconfirmed seat without one is waiting on them rather than half filled in.
-    person.geburtsdatum
-      ? `geboren am ${formatSpielDatum(person.geburtsdatum)}`
-      : kontaktGeburtsdatumLeer(person.einwilligung.confirmed_at, true),
+    person.birth_date ? `geboren am ${formatSpielDatum(person.birth_date)}` : kontaktGeburtsdatumLeer(person.einwilligung.confirmed_at, true),
   ].join(", ");
 };
 
 const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const record = seatOf(rolle)(source)?.einwilligung ?? null;
   if (record === null) return null;
-  const datum = record.date === "" ? nichtHinterlegt("Datum") : `ab ${formatSpielDatum(record.date)}`;
+  const date = record.date === "" ? nichtHinterlegt("Datum") : `ab ${formatSpielDatum(record.date)}`;
 
   // Who seated the person, where the record says: a new seat's is the save's to stamp, so it is
   // never guessed.
-  return record.entered_by === null ? datum : `${eingetragenVonLabel(record.entered_by)}, ${datum}`;
+  return record.entered_by === null ? date : `${eingetragenVonLabel(record.entered_by)}, ${date}`;
 };
 
 /**
  * A seat's fields report under their own keys, so the row has to look for all of them. No
- * `geburtsdatum`: the payload carries none, so nothing can report a failure there.
+ * `birth_date`: the payload carries none, so nothing can report a failure there.
  */
-const personErrorPaths = (path: string): string[] => [path, `${path}.vorname`, `${path}.nachname`, `${path}.email`, `${path}.telefon`];
+const personErrorPaths = (path: string): string[] => [path, `${path}.first_name`, `${path}.last_name`, `${path}.email`, `${path}.phone`];
 
 const einwilligungErrorPaths = (path: string): string[] => [path, `${path}.date`];
 

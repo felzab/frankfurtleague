@@ -19,7 +19,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb, EINWILLIGUNG_UMFANG_OPTIONS } from "./constants";
 
-import type { FLRegistrierungConfirmationViewResponseSeite } from "@/core/generated/client/types";
+import type { FLRegistrierungConfirmationViewResponsePage } from "@/core/generated/client/types";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link erneut.";
@@ -43,8 +43,8 @@ const registrierungToken = z
  */
 export const FLPostRegistrierungPayloadSchema = z.object({
   token: registrierungToken,
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   position: FLSpielerPositionSchema.nullable(),
   // The squad payload's own field, never a second regex: a pupil types the number an administrator
@@ -69,7 +69,7 @@ const FLEinwilligungScopeSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
  */
 export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   token: registrierungToken,
-  geburtsdatum: CustomDateStringSchema.nullable(),
+  birth_date: CustomDateStringSchema.nullable(),
   scope: FLEinwilligungScopeSchema.nullable(),
   // Separately answered from `umfang`, and the endpoint stores both: one press carries two
   // consents, and a media permission folded into the scope would be one nobody gave on its own.
@@ -83,11 +83,11 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
  * The page's own, built at the floor the link answered: the date is judged against the German day
  * here as the endpoint judges it, so both tiers refuse the same two numbers on the same day.
  */
-export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungConfirmationViewResponseSeite) {
+export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungConfirmationViewResponsePage) {
   // The new pupil's three tightened past the payload's null: an unanswered scope is a field error before any press.
   return seite === "bestaetigung_spieler"
     ? FLRegistrierungBestaetigungPayloadSchema.extend({
-        geburtsdatum: CustomDateStringSchema.refine(
+        birth_date: CustomDateStringSchema.refine(
           (datum) => {
             const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
@@ -98,7 +98,7 @@ export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number
         scope: FLEinwilligungScopeSchema,
         media: z.boolean(),
       })
-    : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), scope: z.null(), media: z.null() });
+    : FLRegistrierungBestaetigungPayloadSchema.extend({ birth_date: z.null(), scope: z.null(), media: z.null() });
 }
 
 /**
@@ -110,8 +110,8 @@ export const FLRegistrierungAufnehmenPayloadSchema = z.object({
 });
 
 /** A fixed choice and never free text: the decline note picks its sentence from it, and nothing a team types reaches the pupil. */
-const FLRegistrierungAblehnungsgrundSchema = z.enum(["other_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
+const FLRegistrierungDecisionReasonSchema = z.enum(["other_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
 
 export const FLRegistrierungAblehnenPayloadSchema = z.object({
-  grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
+  decision_reason: FLRegistrierungDecisionReasonSchema.nullable(),
 });

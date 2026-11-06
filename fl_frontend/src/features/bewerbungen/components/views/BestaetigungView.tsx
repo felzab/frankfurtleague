@@ -40,7 +40,7 @@ export type BestaetigungStart =
 
 type Stand =
   | BestaetigungStart
-  | { zustand: "erfolg"; ansicht: FLBewerbungEinwilligungViewResponse; geburtsdatum: string | null; whatsapp: boolean; media: boolean }
+  | { zustand: "erfolg"; ansicht: FLBewerbungEinwilligungViewResponse; birth_date: string | null; whatsapp: boolean; media: boolean }
   | { zustand: "widersprochen-neu"; ansicht: FLBewerbungEinwilligungViewResponse };
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
@@ -168,7 +168,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
               the seat are what they just confirmed, and the heading above says they did. */}
           <GespeicherteAngaben
             zeilen={[
-              { label: "Geburtsdatum", value: formatSpielDatum(stand.geburtsdatum) },
+              { label: "Geburtsdatum", value: formatSpielDatum(stand.birth_date) },
               { label: "WhatsApp", value: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
               medienZeile(stand.media),
             ]}

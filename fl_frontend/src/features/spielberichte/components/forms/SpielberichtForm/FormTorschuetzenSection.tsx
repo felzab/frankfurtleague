@@ -15,7 +15,7 @@ import { AuswahlSelect } from "./AuswahlSelect";
 import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personHinweis, personOptionen, seitenOptionen } from "./eintragFelder";
 import { UNBEKANNT } from "./spielberichtDraft";
 
-import type { FLSpielSeite } from "@/core/generated/client/types";
+import type { FLSpielSide } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielberichtFieldPath, SpielberichtKontext, TorschuetzeDraft } from "./spielberichtDraft";
 
@@ -81,7 +81,7 @@ export function FormTorschuetzenSection({
             {entries.map((entry, index) => {
               const pfad = `bericht.torschuetzen.${String(index)}`;
               const wofuer = `Tor ${String(index + 1)}`;
-              const optionen = personOptionen(kontext, entry.seite, entry.spieler === UNBEKANNT ? "" : entry.spieler);
+              const optionen = personOptionen(kontext, entry.side, entry.spieler === UNBEKANNT ? "" : entry.spieler);
 
               return (
                 <li key={entry.key}>
@@ -103,29 +103,29 @@ export function FormTorschuetzenSection({
                     </div>
 
                     <div className={FIELD_PAIR_CLASSES}>
-                      <AuswahlSelect<FLSpielSeite>
-                        name={`${pfad}.seite`}
+                      <AuswahlSelect<FLSpielSide>
+                        name={`${pfad}.side`}
                         label="Team"
                         placeholder="Team wählen"
-                        value={entry.seite}
+                        value={entry.side}
                         options={seitenOptionen(kontext)}
                         // Another side's squad names other pupils, so a person picked for the first does not survive the switch.
                         onChange={(seite) =>
-                          update(entry.key, seite === entry.seite ? {} : { seite, spieler: entry.spieler === UNBEKANNT ? UNBEKANNT : "" })
+                          update(entry.key, seite === entry.side ? {} : { side: seite, spieler: entry.spieler === UNBEKANNT ? UNBEKANNT : "" })
                         }
-                        error={fieldErrors[`${pfad}.seite`]}
+                        error={fieldErrors[`${pfad}.side`]}
                       />
                       <AuswahlSelect<string>
                         name={`${pfad}.spieler_id`}
                         label="Spielerin oder Spieler"
-                        placeholder={entry.seite === null ? "Zuerst das Team wählen" : "Person wählen"}
+                        placeholder={entry.side === null ? "Zuerst das Team wählen" : "Person wählen"}
                         value={entry.spieler === "" ? null : entry.spieler}
                         options={[{ id: UNBEKANNT, label: TORSCHUETZE_UNBEKANNT_LABEL }, ...optionen]}
                         onChange={(spieler) => update(entry.key, { spieler })}
                         error={fieldErrors[`${pfad}.spieler_id`]}
                         hint={personHinweis({
                           geleert: geleert.has(entry.key) && entry.spieler === "",
-                          ohneKaderSatz: ohneKader(kontext, entry.seite)
+                          ohneKaderSatz: ohneKader(kontext, entry.side)
                             ? "Für dieses Team ist kein Kader hinterlegt. Jedes Tor trägst Du dann als „unbekannt“ ein."
                             : null,
                         })}

@@ -7,7 +7,7 @@ import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
-import { dayOf, formatDatum } from "@/core/format";
+import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountEinwilligungen } from "@/features/account/queries";
@@ -31,7 +31,7 @@ const { entries: WORDS } = COPY.account;
 const fact = (label: Copy, value: string | null): Fact[] => (value === null || value === "" ? [] : [{ label, value: { record: value } }]);
 
 /** A birthdate as a list writes a day. */
-const birthday = (datum: string | null): Fact[] => fact(WORDS.facts.birthday, datum === null ? null : formatDatum(dayOf(datum)));
+const birthday = (date: string | null): Fact[] => fact(WORDS.facts.birthday, date === null ? null : formatDate(dayOf(date)));
 
 /** Why the media choice may not be given, where the record is short of its floor and the choice is not held. */
 const mediaFrom = (offered: boolean, floor: number): Copy | null => (offered ? null : WORDS.mediaFrom(floor));
@@ -46,7 +46,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             id: `spieler-${spieler.spieler_id}`,
             title: COPY.shared.kader,
             description: WORDS.description.spieler,
-            facts: [...fact(COPY.shared.name, `${spieler.vorname} ${spieler.nachname ?? ""}`.trim()), ...birthday(spieler.geburtsdatum)],
+            facts: [...fact(COPY.shared.name, `${spieler.first_name} ${spieler.last_name ?? ""}`.trim()), ...birthday(spieler.birth_date)],
             save: { kind: "spieler" },
             scope: spieler.einwilligung.scope,
             media: spieler.einwilligung.media,
@@ -61,10 +61,10 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     description: WORDS.description.schiedsrichter,
     facts: [
       ...fact(COPY.shared.name, row.name),
-      ...birthday(row.geburtsdatum),
+      ...birthday(row.birth_date),
       ...fact(WORDS.facts.school, row.schule),
       ...fact(COPY.signIn.address, row.kontakt.email),
-      ...fact(WORDS.facts.phone, row.kontakt.telefon),
+      ...fact(WORDS.facts.phone, row.kontakt.phone),
     ],
     save: { kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id },
     scope: row.einwilligung.scope,
@@ -83,8 +83,8 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             title: COPY.page.registrierung,
             description: WORDS.description.registrierung,
             facts: [
-              ...fact(COPY.shared.name, `${row.vorname} ${row.nachname}`),
-              ...birthday(row.geburtsdatum),
+              ...fact(COPY.shared.name, `${row.first_name} ${row.last_name}`),
+              ...birthday(row.birth_date),
               // The team's season, or the season alone where the team no longer stands.
               ...fact(
                 WORDS.facts.team,

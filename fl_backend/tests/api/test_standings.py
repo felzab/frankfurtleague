@@ -35,14 +35,14 @@ RULES = FLSaisonRules(
     number_of_gruppen=4,
     teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=18,
+    max_kader_size=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=STUFEN,
 )
 
 # The day before every fixture the factory dates (2026-03-15), so every case using it reads an exit before the group
 # was decided; the cases on the date itself spell theirs out.
-AUSGETRETEN = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSGETRETEN = {"type": "disqualifikation", "exit_reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 # One member serves for the same reason: the walk reads the SET a fixture's `sonderereignis` falls in.
 CALLED_OFF, *_ = SONDEREREIGNIS_WITHOUT_A_RESULT
@@ -942,7 +942,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=3), a_team(2, punkte=3)]
         decided = standing(teams, [played(9, 1, 2)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -953,7 +953,7 @@ class TestSeedingTheSlot:
         """A typo, not an outcome: erasing a team over a number nobody can resolve destroys more than it reports."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 5}, spiel, stored=stored)
 
@@ -967,7 +967,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=6, geschossen=5, kassiert=5), a_team(2, punkte=6, geschossen=5, kassiert=5)]
         decided = standing(teams, [played(1, 1, 2, 1, 1)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -978,15 +978,15 @@ class TestSeedingTheSlot:
         """Idempotence across the group-seeded half too."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
         assert resolution.advancements == []
 
 
-def austritt_on(datum: str, route: str = "disqualifikation") -> dict[str, Any]:
-    return {"type": route, "grund": "Ausgeschieden", "datum": datum}
+def austritt_on(date: str, route: str = "disqualifikation") -> dict[str, Any]:
+    return {"type": route, "exit_reason": "Ausgeschieden", "date": date}
 
 
 class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
@@ -1023,7 +1023,7 @@ class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
     def test_an_undated_fixture_that_can_still_award_points_vacates_it(self, a_team: TeamFactory, played: MatchFactory):
         """Nothing says the group was decided before the exit, so the place is not the departed club's."""
 
-        teams, spiele = self._group(a_team, played, austritt_on("2026-12-31"), datum=None)
+        teams, spiele = self._group(a_team, played, austritt_on("2026-12-31"), date=None)
 
         assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
 
@@ -1032,7 +1032,7 @@ class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
         """It awards nothing, and still nothing says the group was decided before the exit, so the place is not the departed club's."""
 
         teams, spiele = self._group(a_team, played, austritt_on("2026-03-16"))
-        spiele.append(played(4, *sides, datum=None, sonderereignis=CALLED_OFF))
+        spiele.append(played(4, *sides, date=None, sonderereignis=CALLED_OFF))
 
         assert TEAM_ID.format(1) not in platz_by_team_id(teams, spiele)
         assert standing(teams, spiele).by_platz[1].id == teams[1].id
@@ -1049,16 +1049,16 @@ class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
 
         teams = [a_team(1, punkte=9, austritt=austritt_on("2026-03-16")), a_team(2, punkte=6), a_team(3), a_team(4)]
         dated = [played(nr, home, away, 1, 0) for nr, (home, away) in enumerate(all_pairs([1, 2, 3, 4])[:-1], start=1)]
-        spiele = [*dated, played(6, 3, 4, datum=None, **last)]
+        spiele = [*dated, played(6, 3, 4, date=None, **last)]
 
         assert standing(teams, spiele).by_platz[1].id == teams[1].id
 
-    @pytest.mark.parametrize(("datum", "seeded"), [("2026-03-21", True), ("2026-03-20", False)], ids=["after", "on the day"])
-    def test_the_walk_weighs_the_day_of_a_fixture_still_to_play(self, a_team: TeamFactory, played: MatchFactory, datum: str, seeded: bool):
+    @pytest.mark.parametrize(("date", "seeded"), [("2026-03-21", True), ("2026-03-20", False)], ids=["after", "on the day"])
+    def test_the_walk_weighs_the_day_of_a_fixture_still_to_play(self, a_team: TeamFactory, played: MatchFactory, date: str, seeded: bool):
         """With a fixture still open the group is decided on its day, which the walk reads for every ending alike."""
 
-        teams = [a_team(1, punkte=9, austritt=austritt_on(datum)), a_team(2, punkte=3), a_team(3, punkte=0)]
-        spiele = [played(1, 1, 2, 1, 0), played(2, 1, 3, 1, 0), played(3, 2, 3, datum="2026-03-20")]
+        teams = [a_team(1, punkte=9, austritt=austritt_on(date)), a_team(2, punkte=3), a_team(3, punkte=0)]
+        spiele = [played(1, 1, 2, 1, 0), played(2, 1, 3, 1, 0), played(3, 2, 3, date="2026-03-20")]
 
         holder = standing(teams, spiele).by_platz.get(1)
 

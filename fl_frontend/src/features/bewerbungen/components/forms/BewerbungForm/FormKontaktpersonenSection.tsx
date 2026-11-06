@@ -142,10 +142,10 @@ export function FormKontaktpersonenSection({
             <div className={FIELD_PAIR_CLASSES}>
               <TextField
                 aria-describedby={zeigtAltersHinweis ? altersHinweisId : undefined}
-                name={path("vorname")}
-                value={person.vorname}
-                onChange={(next) => onChange({ ...person, vorname: next })}
-                onBlur={() => onFieldLeft([path("vorname")])}
+                name={path("first_name")}
+                value={person.first_name}
+                onChange={(next) => onChange({ ...person, first_name: next })}
+                onBlur={() => onFieldLeft([path("first_name")])}
                 maxLength={KONTAKT_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
                 <Input className={FIELD_INPUT_CLASSES} />
@@ -153,10 +153,10 @@ export function FormKontaktpersonenSection({
               </TextField>
 
               <TextField
-                name={path("nachname")}
-                value={person.nachname}
-                onChange={(next) => onChange({ ...person, nachname: next })}
-                onBlur={() => onFieldLeft([path("nachname")])}
+                name={path("last_name")}
+                value={person.last_name}
+                onChange={(next) => onChange({ ...person, last_name: next })}
+                onBlur={() => onFieldLeft([path("last_name")])}
                 maxLength={KONTAKT_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
                 <Input className={FIELD_INPUT_CLASSES} />
@@ -185,10 +185,10 @@ export function FormKontaktpersonenSection({
 
               <TextField
                 type="tel"
-                name={path("telefon")}
-                value={person.telefon}
-                onChange={(next) => onChange({ ...person, telefon: next })}
-                onBlur={() => onFieldLeft([path("telefon")])}>
+                name={path("phone")}
+                value={person.phone}
+                onChange={(next) => onChange({ ...person, phone: next })}
+                onBlur={() => onFieldLeft([path("phone")])}>
                 <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
                 <Input
                   placeholder="z.B. 069 1234567"

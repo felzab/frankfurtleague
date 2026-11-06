@@ -64,7 +64,7 @@ PLAYED_AS = {
     PHANTOM: ("Phantom", "PHX"),
 }
 
-EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
+EXIT = {"type": "rueckzug", "exit_reason": "Zu wenige Spieler", "date": "2026-04-01"}
 
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072600f1")
 
@@ -87,11 +87,11 @@ SQUAD_PERSON_ID = "6890a1b2c3d4e5f60726b{:03d}"
 # What the OUTGOING school filled in. Seeded on every row so the clearing below has something to
 # clear: a test over a row that carried no contacts would pass against an endpoint that clears none.
 OUTGOING_KONTAKTPERSON = {
-    "vorname": "Anke",
-    "nachname": "Koerner",
+    "first_name": "Anke",
+    "last_name": "Koerner",
     "email": "a.koerner@outgoing.example.de",
-    "telefon": "+49 170 1234567",
-    "geburtsdatum": "1984-05-09",
+    "phone": "+49 170 1234567",
+    "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }
 
@@ -188,17 +188,17 @@ def gruppen_fixture(
     sonderereignis: str | None = None,
     tore: tuple[int | None, int | None] = (None, None),
     saison_id: str = SAISON_ID,
-    datum: str = FIRST_GROUP_FIXTURE_DAY,
+    date: str = FIRST_GROUP_FIXTURE_DAY,
 ) -> dict[str, Any]:
-    """`datum`, `uhrzeit` and `spieltag_id` are the schedule a replacement leaves standing, so every fixture carries all three."""
+    """`date`, `time` and `spieltag_id` are the schedule a replacement leaves standing, so every fixture carries all three."""
 
     return spiel_document(
         spiel_id=ObjectId(),
         saison_id=saison_id,
         spiel_nr=spiel_nr,
         spieltag_id=SPIELTAG_OID,
-        datum=datum,
-        uhrzeit="18:00:00",
+        date=date,
+        time="18:00:00",
         team1=side(home, tore[0]),
         team2=side(away, tore[1]),
         ergebnis=ergebnis,
@@ -215,8 +215,8 @@ def knockout_fixture(spiel_nr: int, home: ObjectId) -> dict[str, Any]:
         spiel_nr=spiel_nr,
         spieltag_id=SPIELTAG_OID,
         saison_phase="viertelfinale",
-        datum="2026-05-20",
-        uhrzeit="18:00:00",
+        date="2026-05-20",
+        time="18:00:00",
         team1=side(home),
     )
 
@@ -431,7 +431,7 @@ class TestAllFourLayersMoveTogether:
         before, after = on_a_seeded_season(mongo_replica_set_url, body)
 
         for spiel_nr in before:
-            for field in ("_id", "datum", "uhrzeit", "spieltag_id", "saison_phase", "spiel_nr"):
+            for field in ("_id", "date", "time", "spieltag_id", "saison_phase", "spiel_nr"):
                 assert after[spiel_nr][field] == before[spiel_nr][field], f"spiel {spiel_nr} lost its {field}"
 
         assert after[1]["team2"] == before[1]["team2"], "the opponent was rewritten"
@@ -439,7 +439,7 @@ class TestAllFourLayersMoveTogether:
 
 # Who sat in all three seats before the contacts editor handed them to Anke: an earlier holder, who
 # exists in the log alone once the replacement has run.
-EARLIER_KONTAKTPERSON = {**OUTGOING_KONTAKTPERSON, "vorname": "Bodo", "email": "b.lindner@outgoing.example.de", "telefon": "+49 170 7654321"}
+EARLIER_KONTAKTPERSON = {**OUTGOING_KONTAKTPERSON, "first_name": "Bodo", "email": "b.lindner@outgoing.example.de", "phone": "+49 170 7654321"}
 
 
 class TestTheOutgoingPeopleLeaveTheLog:

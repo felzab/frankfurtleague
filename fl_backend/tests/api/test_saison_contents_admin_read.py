@@ -5,8 +5,8 @@ import pytest
 from bson import ObjectId
 from fastapi.routing import APIRoute
 
-from app.api.spiele.admin_router import get_spiel_verwaltung, get_spiele_verwaltung
-from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
+from app.api.spiele.admin_router import get_spiel_admin, get_spiele_admin
+from app.api.spieltage.admin_router import get_spieltag_admin, get_spieltage_admin
 from app.api.teams.admin_router import get_teams_admin
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
@@ -35,10 +35,10 @@ ROUTES = list(api_routes(application()))
 # literal segment reaching an id route is the failure these paths are shaped to rule out.
 ADMIN_TIER_ROUTES: list[tuple[str, Callable[..., Any]]] = [
     ("/api/v0/teams/list/admin", get_teams_admin),
-    ("/api/v0/spiele/list/verwaltung", get_spiele_verwaltung),
-    ("/api/v0/spieltage/list/verwaltung", get_spieltage_verwaltung),
-    (f"/api/v0/spieltage/{an_id('3', PLANNED)}/verwaltung", get_spieltag_verwaltung),
-    (f"/api/v0/spiele/{an_id('2', PLANNED)}/verwaltung", get_spiel_verwaltung),
+    ("/api/v0/spiele/list/admin", get_spiele_admin),
+    ("/api/v0/spieltage/list/admin", get_spieltage_admin),
+    (f"/api/v0/spieltage/{an_id('3', PLANNED)}/admin", get_spieltag_admin),
+    (f"/api/v0/spiele/{an_id('2', PLANNED)}/admin", get_spiel_admin),
 ]
 
 ADMIN_TIER_ROUTE_IDS = [endpoint.__name__ for _, endpoint in ADMIN_TIER_ROUTES]
@@ -86,7 +86,7 @@ def test_the_inventory_names_every_admin_tier_read_of_a_seasons_contents():
     mounted = {
         route.path
         for route in ROUTES
-        if "GET" in (route.methods or set()) and route.path.endswith(("/verwaltung", "/admin")) and route.path.startswith(GATED_PREFIXES)
+        if "GET" in (route.methods or set()) and route.path.endswith("/admin") and route.path.startswith(GATED_PREFIXES)
     }
     covered = {route.path for route in (answering(path) for path, _ in ADMIN_TIER_ROUTES) if route is not None}
 

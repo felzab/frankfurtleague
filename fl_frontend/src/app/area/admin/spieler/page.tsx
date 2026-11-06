@@ -59,11 +59,11 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   // a retired row alone.
   const liveSquadRows = countLiveSquadRows({ spieler: membershipsRes.spieler, saisonId: selectedSaisonId, exceptSpielerId: null });
   // Absent where an id names no season, which `squadIsFull` reads as unknown and refuses nothing.
-  const maxKadergroesse = selectedSaison?.rules.max_kadergroesse ?? null;
+  const maxKaderSize = selectedSaison?.rules.max_kader_size ?? null;
 
   const saisonTeams: SpielerTeamOption[] = teamsInSaison(teamsRes.teams, selectedSaisonId).map((team) => ({
     ...team,
-    isSquadFull: squadIsFull(liveSquadRows[team.teamId], maxKadergroesse),
+    isSquadFull: squadIsFull(liveSquadRows[team.teamId], maxKaderSize),
   }));
 
   const rows: AdminSpielerRow[] = membershipsRes.spieler.map((spieler) => {
@@ -72,8 +72,8 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
 
     return {
       id: spieler.id,
-      vorname: spieler.vorname,
-      nachname: spieler.nachname,
+      first_name: spieler.first_name,
+      last_name: spieler.last_name,
       fullName: kaderName(spieler),
       inactive_since: spieler.inactive_since,
       selected:

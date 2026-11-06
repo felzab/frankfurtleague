@@ -237,9 +237,9 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             text_versions={"scope": "2025-09", "media": "2025-09"},
         )
         registrierung = {
-            "vorname": "Ida",
-            "nachname": "Muster",
-            "geburtsdatum": "2009-05-04",
+            "first_name": "Ida",
+            "last_name": "Muster",
+            "birth_date": "2009-05-04",
             "einwilligung": compose_initial(
                 block={
                     "scope": "intern",

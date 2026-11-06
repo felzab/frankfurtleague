@@ -12,8 +12,8 @@ export const PLACEHOLDER = {
    * Read beside a card's „Ohne Datum“ chip and alone in a dialog or a list, so it names what is still to be settled
    * rather than restating the chip's absence; a played fixture or a finished season takes `entity`.
    */
-  datum: "Termin offen",
-  uhrzeit: "--:--",
+  date: "Termin offen",
+  time: "--:--",
   ergebnis: "-:-",
   /**
    * A stored field held empty where nothing is still to come: a venue or a referee nobody assigned, a played
@@ -36,7 +36,7 @@ const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" 
 export const formatEuro = (value: number): string => EUR.format(value);
 
 /** Normalises a stored `HH:MM[:SS]` time to `HH:MM`, or returns the placeholder. */
-export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: string = PLACEHOLDER.uhrzeit): string {
+export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: string = PLACEHOLDER.time): string {
   if (!uhrzeit) return fallback;
   return uhrzeit.slice(0, 5);
 }
@@ -63,7 +63,7 @@ const SPIEL_DATE_FORMATTER = new Intl.DateTimeFormat("de-DE", {
 });
 
 /** Formats a `YYYY-MM-DD` fixture date as a German calendar date, stable across server and client. */
-export function formatSpielDatum(datum: string | null, fallback: string = PLACEHOLDER.datum): string {
+export function formatSpielDatum(datum: string | null, fallback: string = PLACEHOLDER.date): string {
   if (!datum) return fallback;
   // Midday UTC holds the same calendar date from UTC-11 to UTC+11, so the instant alone cannot shift the day.
   return SPIEL_DATE_FORMATTER.format(new Date(`${datum}T12:00:00Z`));

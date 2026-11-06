@@ -66,7 +66,7 @@ export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({
       />
       <div className={IDENTITY_STACK_CLASSES}>
         <div className={IDENTITY_HEAD_CLASSES}>
-          <span className={IDENTITY_NAME_CLASSES}>{`${registrierung.vorname} ${registrierung.nachname}`}</span>
+          <span className={IDENTITY_NAME_CLASSES}>{`${registrierung.first_name} ${registrierung.last_name}`}</span>
           <span className={labelBadge(registrierung.confirmed ? "success" : "warning")}>
             {registrierung.confirmed ? BESTAETIGT_MARKE.ja : BESTAETIGT_MARKE.nein}
           </span>
@@ -84,7 +84,7 @@ export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({
       <RowActionLink
         href={withSaisonId(`/area/admin/kontakte/${registrierung.team_id}`, registrierung.saison_id)}
         label="Kontakte bearbeiten"
-        subject={`${registrierung.teamName ?? NO_TEAM}, Registrierung von ${registrierung.vorname} ${registrierung.nachname}`}>
+        subject={`${registrierung.teamName ?? NO_TEAM}, Registrierung von ${registrierung.first_name} ${registrierung.last_name}`}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"

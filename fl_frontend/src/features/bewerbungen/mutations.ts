@@ -15,7 +15,7 @@ import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import type {
   FLAcceptBewerbungPayload,
   FLAcceptBewerbungResponse,
-  FLBewerbungEinwilligungAntwortResponse,
+  FLBewerbungEinwilligungAnswerResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
   FLBewerbungEinwilligungResendResponse,
@@ -29,7 +29,7 @@ import type {
   FLDeclineBewerbungResponse,
   FLKontaktRolle,
   FLPostBewerbungPayload,
-  FLSaisonTeamEinwilligungAntwortResponse,
+  FLSaisonTeamEinwilligungAnswerResponse,
   FLSweepSaisonsResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
@@ -50,8 +50,11 @@ export async function annehmenBewerbung({
 
 // Moves `status` and `entscheidung` and nothing else: what the school wrote stays the record the
 // decision was taken against.
-export async function ablehnenBewerbung({ id, grund }: { id: string } & FLDeclineBewerbungPayload): Promise<FLDeclineBewerbungResponse> {
-  return bewerbungenDeclineBewerbung(id, { grund: grund });
+export async function ablehnenBewerbung({
+  id,
+  decision_reason,
+}: { id: string } & FLDeclineBewerbungPayload): Promise<FLDeclineBewerbungResponse> {
+  return bewerbungenDeclineBewerbung(id, { decision_reason });
 }
 
 /** Records one school's application. */
@@ -70,7 +73,7 @@ export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<
 /** Records one contact person's answer and spends their token. */
 export async function postEinwilligung(
   payload: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined,
-): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> {
+): Promise<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse> {
   return bewerbungenPostEinwilligung(payload);
 }
 
@@ -103,16 +106,16 @@ export async function korrigierenKontaktEmail({
 export async function besetzenKontaktSitz({
   id,
   rolle,
-  vorname,
-  nachname,
+  first_name: firstName,
+  last_name: lastName,
   email,
-  telefon,
+  phone,
 }: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSeatPayload): Promise<FLBewerbungKontaktEmailResponse> {
   return bewerbungenPostKontaktSeat(id, rolle, {
-    vorname: vorname,
-    nachname: nachname,
+    first_name: firstName,
+    last_name: lastName,
     email: email,
-    telefon: telefon,
+    phone,
   });
 }
 

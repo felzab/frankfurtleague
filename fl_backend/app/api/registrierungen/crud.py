@@ -24,13 +24,13 @@ from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
-PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "email")
+PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "birth_date", "email")
 
 # What a confirmation link reads of a person: who they are and whether they confirmed, for the page,
 # and the birthdate the returning page takes as given. Never a choice: no link read serves one.
 PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
     *PERSON_IDENTITY_FIELDS,
-    "geburtsdatum",
+    "birth_date",
     "einwilligung.confirmed_at",
 )
 
@@ -76,7 +76,7 @@ async def pull_offene_registrierungen(
             {
                 "$project": {
                     **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
-                    **{field: 1 for field in ("email", "geburtsdatum", "einwilligung.confirmed_at")},
+                    **{field: 1 for field in ("email", "birth_date", "einwilligung.confirmed_at")},
                 }
             },
         ],

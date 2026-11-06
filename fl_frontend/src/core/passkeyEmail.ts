@@ -37,7 +37,7 @@ function build(event: PasskeyEvent, { instant, origin, account }: Occasion): Mai
     kind: "security",
     subjectLine: event.subject,
     origin: site,
-    vorname: "",
+    firstName: "",
     paragraphs: [event.paragraph(formatInstant(instant))],
     // The one place either event can be acted on.
     button: { label: COPY.shared.end.toAccount, href: `${site}${account}` },

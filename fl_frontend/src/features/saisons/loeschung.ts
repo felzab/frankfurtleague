@@ -31,26 +31,26 @@ export async function sweepLoeschung(lauf: (after: string | null) => Promise<FLE
   try {
     let after: string | null = null;
     do {
-      const antwort = await lauf(after);
+      const response = await lauf(after);
       summe = {
-        completed_saison_id: antwort.completed_saison_id,
-        spieler: summe.spieler + antwort.spieler,
-        saison_spieler: summe.saison_spieler + antwort.saison_spieler,
-        registrierungen: summe.registrierungen + antwort.registrierungen,
-        skipped: summe.skipped + antwort.skipped,
-        failed: summe.failed + antwort.failed,
-        remaining: antwort.remaining,
+        completed_saison_id: response.completed_saison_id,
+        spieler: summe.spieler + response.spieler,
+        saison_spieler: summe.saison_spieler + response.saison_spieler,
+        registrierungen: summe.registrierungen + response.registrierungen,
+        skipped: summe.skipped + response.skipped,
+        failed: summe.failed + response.failed,
+        remaining: response.remaining,
       };
 
       // A place not past the one sent would loop for ever, the hourly pass skipping every tick behind it; fixed-length
       // hex compares in id order.
-      if (after !== null && antwort.after !== null && antwort.after <= after) {
+      if (after !== null && response.after !== null && response.after <= after) {
         throw new ContractBreakError("The deletion answered a place not past the one it was sent.");
       }
 
       // The pass's one end: `verbleibend` counts a failing person, who stays due, and a call erasing nobody may stand
       // in front of a due person the next call reaches.
-      after = antwort.after;
+      after = response.after;
     } while (after !== null);
   } catch (error) {
     const { remaining: _unbekannt, ...bisher } = summe;

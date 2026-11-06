@@ -17,11 +17,11 @@ import type { FLKontaktperson, FLTeamMembership } from "@/core/generated/client/
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 
 const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
-  vorname: "Erika",
-  nachname: "Mustermann",
+  first_name: "Erika",
+  last_name: "Mustermann",
   email: "erika@beispiel.de",
-  telefon: "069 1234567",
-  geburtsdatum: "1990-01-01",
+  phone: "069 1234567",
+  birth_date: "1990-01-01",
   einwilligung: kenntnisnahme({ date: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
@@ -29,8 +29,8 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
 /** Three DIFFERENT people, so a seat written over the wrong one shows up rather than reading as a no-op. */
 const block = (overrides: Partial<SaisonTeamKontakteDraft> = {}): SaisonTeamKontakteDraft => ({
   trainer: person(),
-  ansprechperson: person({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321", geburtsdatum: "1985-05-05" }),
-  stellvertretung: person({ vorname: "Lena", email: "lena@beispiel.de", telefon: "069 2345678" }),
+  ansprechperson: person({ first_name: "Max", email: "max@beispiel.de", phone: "069 7654321", birth_date: "1985-05-05" }),
+  stellvertretung: person({ first_name: "Lena", email: "lena@beispiel.de", phone: "069 2345678" }),
   trainer_is_also: null,
   ...overrides,
 });
@@ -44,7 +44,7 @@ describe("mirrorKontakte", () => {
     const mirrored = mirrorKontakte(draft);
 
     expect(mirrored.trainer).toStrictEqual(draft.ansprechperson);
-    expect(mirrored.trainer?.vorname).toBe("Max");
+    expect(mirrored.trainer?.first_name).toBe("Max");
     // ONE record in two seats rather than two kept in step, which is what stops them drifting.
     expect(mirrored.trainer).toBe(mirrored.ansprechperson);
   });
@@ -55,7 +55,7 @@ describe("mirrorKontakte", () => {
     const mirrored = mirrorKontakte(block({ trainer_is_also: "stellvertretung" }));
 
     expect(mirrored.trainer).toBe(mirrored.stellvertretung);
-    expect(mirrored.ansprechperson?.vorname, "the seat the claim does not name was touched").toBe("Max");
+    expect(mirrored.ansprechperson?.first_name, "the seat the claim does not name was touched").toBe("Max");
   });
 
   it("leaves every seat untouched while the claim names nobody", () => {
@@ -72,9 +72,9 @@ describe("mirrorKontakte", () => {
   it("leaves the draft's own trainer standing, so lifting the claim returns it", () => {
     const draft = block({ trainer_is_also: "ansprechperson" });
 
-    expect(mirrorKontakte(draft).trainer?.vorname, "the composed payload does not read the named seat").toBe("Max");
-    expect(draft.trainer?.vorname, "composing overwrote the draft's own trainer").toBe("Erika");
-    expect(mirrorKontakte({ ...draft, trainer_is_also: null }).trainer?.vorname).toBe("Erika");
+    expect(mirrorKontakte(draft).trainer?.first_name, "the composed payload does not read the named seat").toBe("Max");
+    expect(draft.trainer?.first_name, "composing overwrote the draft's own trainer").toBe("Erika");
+    expect(mirrorKontakte({ ...draft, trainer_is_also: null }).trainer?.first_name).toBe("Erika");
   });
 
   /* An empty named seat under a standing claim empties the Trainer with it: that seat IS the trainer,
@@ -99,7 +99,7 @@ describe("applySeatPresence", () => {
     expect(applySeatPresence(block(), "stellvertretung", false).next.stellvertretung).toBe(null);
 
     const opened = applySeatPresence(block({ trainer: null }), "trainer", true).next;
-    expect(opened.trainer?.vorname).toBe("");
+    expect(opened.trainer?.first_name).toBe("");
     expect(opened.trainer?.einwilligung.confirmed_at).toBe(null);
   });
 
@@ -109,12 +109,12 @@ describe("applySeatPresence", () => {
   it("reaches no seat beside its own, claim or no claim", () => {
     const shared = applySeatPresence(block({ trainer_is_also: "ansprechperson" }), "trainer", false).next;
     expect(shared.trainer).toBe(null);
-    expect(shared.ansprechperson?.vorname, "emptying the Trainer emptied the seat the claim names").toBe("Max");
+    expect(shared.ansprechperson?.first_name, "emptying the Trainer emptied the seat the claim names").toBe("Max");
 
     const alone = applySeatPresence(block(), "trainer", false).next;
     expect(alone.trainer).toBe(null);
-    expect(alone.ansprechperson?.vorname).toBe("Max");
-    expect(alone.stellvertretung?.vorname).toBe("Lena");
+    expect(alone.ansprechperson?.first_name).toBe("Max");
+    expect(alone.stellvertretung?.first_name).toBe("Lena");
   });
 
   /* What the composed payload does with it: the Trainer reads the named seat, so emptying that seat
@@ -154,15 +154,15 @@ describe("applySharedSeat", () => {
     const on = applySharedSeat(block(), "stellvertretung");
 
     expect(on.next.trainer_is_also).toBe("stellvertretung");
-    expect(on.next.trainer?.vorname, "taking the claim up overwrote the Trainer's own person").toBe("Erika");
-    expect(on.next.stellvertretung?.vorname, "the named seat lost its own person").toBe("Lena");
-    expect(on.next.ansprechperson?.vorname).toBe("Max");
+    expect(on.next.trainer?.first_name, "taking the claim up overwrote the Trainer's own person").toBe("Erika");
+    expect(on.next.stellvertretung?.first_name, "the named seat lost its own person").toBe("Lena");
+    expect(on.next.ansprechperson?.first_name).toBe("Max");
 
     const off = applySharedSeat(block({ trainer_is_also: "ansprechperson" }), null);
 
     expect(off.next.trainer_is_also).toBe(null);
-    expect(off.next.trainer?.vorname, "lifting the claim did not return the Trainer's own person").toBe("Erika");
-    expect(off.next.ansprechperson?.vorname, "lifting the claim overwrote a second real person").toBe("Max");
+    expect(off.next.trainer?.first_name, "lifting the claim did not return the Trainer's own person").toBe("Erika");
+    expect(off.next.ansprechperson?.first_name, "lifting the claim overwrote a second real person").toBe("Max");
   });
 });
 
@@ -231,9 +231,9 @@ describe("addressOnlyConfirmedSeatLabels", () => {
   it("names a confirmed seat whose draft changes the address and keeps the name, and no other", () => {
     expect(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de" }) }))).toStrictEqual(["Trainer"]);
     expect(
-      addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de", nachname: "Lovelace" }) })),
+      addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de", last_name: "Lovelace" }) })),
     ).toStrictEqual([]);
-    expect(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
+    expect(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ last_name: "Lovelace" }) }))).toStrictEqual([]);
     expect(addressOnlyConfirmedSeatLabels(block(), block())).toStrictEqual([]);
 
     const open = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
@@ -250,10 +250,10 @@ describe("renamedConfirmedSeatLabels", () => {
   /* Both halves. Without the stamp, a seat nobody confirmed raises the dialog over a save that loses
      nothing; without the identity, correcting a telephone number raises it too. */
   it("names a seat only where a confirmed person is replaced by another", () => {
-    expect(renamedConfirmedSeatLabels(block(), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual(["Trainer"]);
+    expect(renamedConfirmedSeatLabels(block(), block({ trainer: person({ last_name: "Lovelace" }) }))).toStrictEqual(["Trainer"]);
     expect(renamedConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de" }) }))).toStrictEqual(["Trainer"]);
     expect(renamedConfirmedSeatLabels(block(), block())).toStrictEqual([]);
-    expect(renamedConfirmedSeatLabels(block(), block({ trainer: person({ telefon: "069 999999" }) }))).toStrictEqual([]);
+    expect(renamedConfirmedSeatLabels(block(), block({ trainer: person({ phone: "069 999999" }) }))).toStrictEqual([]);
   });
 
   /* A seat nobody confirmed has no stamp for the save to take, so a warning over one would name a seat
@@ -261,28 +261,28 @@ describe("renamedConfirmedSeatLabels", () => {
   it("stays silent where the stored seat carries no confirmation", () => {
     const open = person({ einwilligung: { ...person().einwilligung, confirmed_at: null } });
 
-    expect(renamedConfirmedSeatLabels(block({ trainer: open }), block({ trainer: person({ nachname: "Lovelace" }) }))).toStrictEqual([]);
+    expect(renamedConfirmedSeatLabels(block({ trainer: open }), block({ trainer: person({ last_name: "Lovelace" }) }))).toStrictEqual([]);
   });
 
   /* The server reads these as one person and keeps the stamp, so each is a save the banner must let
      through silently. The decomposed probe is built from code points, rendering as its partner. */
   it("stays silent where the case, the inner spacing or the Unicode form is the whole difference", () => {
-    expect(howStored({ vorname: "Erika" }, { vorname: "ERIKA" })).toStrictEqual([]);
-    expect(howStored({ vorname: "Anna Maria" }, { vorname: " Anna   Maria " })).toStrictEqual([]);
-    expect(howStored({ nachname: `Mu${String.fromCharCode(0x308)}ller` }, { nachname: "Müller" })).toStrictEqual([]);
+    expect(howStored({ first_name: "Erika" }, { first_name: "ERIKA" })).toStrictEqual([]);
+    expect(howStored({ first_name: "Anna Maria" }, { first_name: " Anna   Maria " })).toStrictEqual([]);
+    expect(howStored({ last_name: `Mu${String.fromCharCode(0x308)}ller` }, { last_name: "Müller" })).toStrictEqual([]);
     expect(howStored({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" })).toStrictEqual([]);
   });
 
   /* „Weiß“ and „Weiss“ are two families: the save drops the stamp, so the banner has to name the seat. */
   it("names a seat where „ß“ against „ss“ is the whole difference", () => {
-    expect(howStored({ nachname: "Weiß" }, { nachname: "WEISS" })).toStrictEqual(["Trainer"]);
+    expect(howStored({ last_name: "Weiß" }, { last_name: "WEISS" })).toStrictEqual(["Trainer"]);
   });
 
   /* The three fields are compared apart: folded into one run, „Anna Maria Weiß“ reads the same however
      the two boxes split it, and the stamp the server clears would go unannounced. */
   it("names a seat where a name moved from one box into the other", () => {
-    const heldBack = block({ trainer: person({ vorname: "Anna Maria", nachname: "Weiß" }) });
-    const typed = block({ trainer: person({ vorname: "Anna", nachname: "Maria Weiß" }) });
+    const heldBack = block({ trainer: person({ first_name: "Anna Maria", last_name: "Weiß" }) });
+    const typed = block({ trainer: person({ first_name: "Anna", last_name: "Maria Weiß" }) });
 
     expect(renamedConfirmedSeatLabels(heldBack, typed)).toStrictEqual(["Trainer"]);
   });
@@ -291,7 +291,7 @@ describe("renamedConfirmedSeatLabels", () => {
      seats, which is why the caller hands over the mirrored block. */
   it("names the Trainer as well where the shared-seat claim points at the renamed seat", () => {
     const heldBack = block({ trainer_is_also: "ansprechperson" });
-    const typed = { ...heldBack, ansprechperson: person({ vorname: "Max", nachname: "Anders", email: "max@beispiel.de" }) };
+    const typed = { ...heldBack, ansprechperson: person({ first_name: "Max", last_name: "Anders", email: "max@beispiel.de" }) };
 
     expect(renamedConfirmedSeatLabels(mirrorKontakte(heldBack), mirrorKontakte(typed))).toStrictEqual(["Ansprechperson", "Trainer"]);
   });
@@ -352,7 +352,7 @@ describe("resolveTeamSaisonMembership", () => {
   it("holds the selected season's own row where there is one", () => {
     const resolved = resolveTeamSaisonMembership([membership("2023"), membership("2025")], { id: "2025", status: "past" });
 
-    expect(resolved.membership?.kontakte?.trainer?.vorname).toBe("Erika");
+    expect(resolved.membership?.kontakte?.trainer?.first_name).toBe("Erika");
     expect(resolved.saisonStatus).toBe("past");
   });
 
@@ -369,7 +369,7 @@ describe("what a seat's switch does to what was entered", () => {
   /* A switch is not a delete. Rebuilt from `buildEmptyKontaktperson`, turning a seat off and on again
      threw away everything the admin had typed into it, with no undo and no warning. */
   it("gives the person back when the seat is switched on again", () => {
-    const erikaSeat = person({ vorname: "Erika", email: "erika@beispiel.de" });
+    const erikaSeat = person({ first_name: "Erika", email: "erika@beispiel.de" });
     const fullBlock = block({ ansprechperson: erikaSeat });
 
     const takenOut = applySeatPresence(fullBlock, "ansprechperson", false);
@@ -385,7 +385,7 @@ describe("what a seat's switch does to what was entered", () => {
     const emptyBlock = applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true);
 
     expect(emptyBlock.next.ansprechperson, "switching an empty seat on left it holding nobody").not.toBe(null);
-    expect(emptyBlock.next.ansprechperson?.vorname, "an untouched seat opened holding somebody's name").toBe("");
+    expect(emptyBlock.next.ansprechperson?.first_name, "an untouched seat opened holding somebody's name").toBe("");
   });
 
   /* Re-judged on the way to empty only: a seat just switched back on holds values the admin entered

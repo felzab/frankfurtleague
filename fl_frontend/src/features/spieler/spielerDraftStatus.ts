@@ -13,9 +13,9 @@ import type { SpielerTeamOption } from "./types";
  * untouched, `membership` while the player is in no squad for the selected season at all.
  */
 export type FLSpielerDraftFields = {
-  vorname: string;
-  nachname: string;
-  geburtsdatum: string | null;
+  first_name: string;
+  last_name: string;
+  birth_date: string | null;
   membership: {
     team_id: string | null;
     nummer: string;
@@ -30,15 +30,15 @@ type FLSpielerFieldGroup = "Person" | typeof KADER_ABSCHNITT;
 export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
 
 const FIELD_DESCRIPTORS = [
-  { path: "vorname", label: "Vorname", group: "Person", read: (source) => emptyAsNull(source.vorname) },
-  { path: "nachname", label: "Nachname", group: "Person", read: (source) => emptyAsNull(source.nachname) },
+  { path: "first_name", label: "Vorname", group: "Person", read: (source) => emptyAsNull(source.first_name) },
+  { path: "last_name", label: "Nachname", group: "Person", read: (source) => emptyAsNull(source.last_name) },
   {
-    path: "geburtsdatum",
+    path: "birth_date",
     label: "Geburtsdatum",
     group: "Person",
     // Formatted, as every sibling rail is: the `DatePicker` beside this row shows the German day,
     // and a change row quoting the stored ISO string is one nobody can check against the control.
-    read: (source) => (source.geburtsdatum === null ? null : formatSpielDatum(source.geburtsdatum)),
+    read: (source) => (source.birth_date === null ? null : formatSpielDatum(source.birth_date)),
   },
 ] as const satisfies readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[];
 

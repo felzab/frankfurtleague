@@ -30,7 +30,7 @@ CustomKontaktName = Annotated[
 class FLKontakt(BaseModel):
     # No empty-string coercion either, as `FLSchiedsrichter.schule` has none: a read answers the
     # value as stored rather than a repaired copy of it.
-    telefon: str | None
+    phone: str | None
     email: str | None
 
 
@@ -41,7 +41,7 @@ class FLKontaktPayload(FLKontakt):
     # on a base would refuse a stored key the collection has grown.
     model_config = ConfigDict(extra="forbid")
 
-    telefon: CustomOptionalPhoneString
+    phone: CustomOptionalPhoneString
     # Required where the telephone is not: an administrator enters a referee, and the address is the
     # only route by which that person learns they were entered (Art. 14(3) GDPR).
     email: CustomEmail

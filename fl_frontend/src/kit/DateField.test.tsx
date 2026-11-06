@@ -16,7 +16,7 @@ function Field({ day }: { day: CalendarDay }) {
     <Form onSubmit={(event) => event.preventDefault()}>
       <DateField
         label={COPY.page.spiele}
-        name="datum"
+        name="date"
         defaultValue={day}
         minValue="2026-09-01"
         maxValue="2027-06-30"

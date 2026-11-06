@@ -108,37 +108,37 @@ describe("PHONE_REGEX", () => {
   ];
 
   it("accepts every spelling of a German number the tree already uses", () => {
-    for (const telefon of IN_USE) {
-      expect(PHONE_REGEX.test(telefon), `expected ${JSON.stringify(telefon)} to be accepted`).toBe(true);
+    for (const phone of IN_USE) {
+      expect(PHONE_REGEX.test(phone), `expected ${JSON.stringify(phone)} to be accepted`).toBe(true);
     }
   });
 
   // The API stores what it is sent and the club page shows it, so a value with no digit in it is a
   // number handed to whoever tries to ring the school.
   it("refuses a value carrying no digit at all", () => {
-    for (const telefon of ["   ", "().", "---", "(  )"]) {
-      expect(PHONE_REGEX.test(telefon), `expected ${JSON.stringify(telefon)} to be refused`).toBe(false);
+    for (const phone of ["   ", "().", "---", "(  )"]) {
+      expect(PHONE_REGEX.test(phone), `expected ${JSON.stringify(phone)} to be refused`).toBe(false);
     }
   });
 
   // How the rule reaches the case above: every telephone number ends in a digit, and no floor over
   // the digit count fits a pattern that carries its own ceiling as well.
   it("refuses a value trailing off into a space or punctuation", () => {
-    for (const telefon of ["(069)", "069 ", "069-"]) {
-      expect(PHONE_REGEX.test(telefon), `expected ${JSON.stringify(telefon)} to be refused`).toBe(false);
+    for (const phone of ["(069)", "069 ", "069-"]) {
+      expect(PHONE_REGEX.test(phone), `expected ${JSON.stringify(phone)} to be refused`).toBe(false);
     }
   });
 
   // The pattern carries the ceiling itself, no length bound standing beside it, so taking the final
   // digit out of the run must leave the window where it was: a `{3,20}` run beside one stores 21.
   it("keeps the twenty-character ceiling and the three-character floor", () => {
-    for (const [telefon, accepted] of [
+    for (const [phone, accepted] of [
       ["0".repeat(3), true],
       ["0".repeat(20), true],
       ["0".repeat(2), false],
       ["0".repeat(21), false],
     ] as const) {
-      expect(PHONE_REGEX.test(telefon), `expected ${String(telefon.length)} characters to be ${String(accepted)}`).toBe(accepted);
+      expect(PHONE_REGEX.test(phone), `expected ${String(phone.length)} characters to be ${String(accepted)}`).toBe(accepted);
     }
   });
 });

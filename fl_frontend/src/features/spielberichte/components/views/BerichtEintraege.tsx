@@ -1,10 +1,10 @@
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 
-import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../constants";
+import { CARD_COLOUR_LABELS, CARD_REASON_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../constants";
 import { spielerLabel } from "../../utils";
 
-import type { FLSpielberichtBericht, FLSpielSeite } from "@/core/generated/client/types";
+import type { FLSpielberichtBericht, FLSpielSide } from "@/core/generated/client/types";
 import type { SpielberichtAnsicht } from "../../types";
 
 /**
@@ -15,8 +15,8 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
   const { spiel } = lesen;
 
   // A side fielding another club since is named by its place, never by the club now on it, which the entry is not about.
-  const team = (seite: FLSpielSeite) =>
-    lesen.seiten_changed.includes(seite)
+  const team = (seite: FLSpielSide) =>
+    lesen.sides_changed.includes(seite)
       ? `früheres ${seite === "team1" ? "Team 1" : "Team 2"}`
       : ((seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "");
   const person = (spielerId: string | null): string => {
@@ -38,7 +38,7 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
               className={`${card()} flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3`}>
               <span className="font-numeric fluid-sm font-semibold">{`${tor.minute}.`}</span>
               <span className="min-w-0 flex-1 fluid-sm">{person(tor.spieler_id)}</span>
-              <span className="muted-meta">{team(tor.seite)}</span>
+              <span className="muted-meta">{team(tor.side)}</span>
               {tor.eigentor && <span className={labelBadge("warning")}>Eigentor</span>}
             </li>
           ))}
@@ -55,18 +55,18 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
               className={`${card()} flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3`}>
               <span className="font-numeric fluid-sm font-semibold">{`${karte.minute}.`}</span>
               <span className="min-w-0 flex-1 fluid-sm">{person(karte.spieler_id)}</span>
-              <span className="muted-meta">{team(karte.seite)}</span>
-              <span className={labelBadge(karte.farbe === "gelb" ? "warning" : "danger")}>{KARTEN_FARBE_LABELS[karte.farbe]}</span>
-              {karte.grund !== null && <span className="muted-meta">{`Grund: ${KARTEN_GRUND_LABELS[karte.grund]}`}</span>}
+              <span className="muted-meta">{team(karte.side)}</span>
+              <span className={labelBadge(karte.colour === "gelb" ? "warning" : "danger")}>{CARD_COLOUR_LABELS[karte.colour]}</span>
+              {karte.card_reason !== null && <span className="muted-meta">{`Grund: ${CARD_REASON_LABELS[karte.card_reason]}`}</span>}
             </li>
           ))}
         </ul>
       )}
 
-      {bericht.bemerkungen !== null && (
+      {bericht.remarks !== null && (
         <div className="flex w-full flex-col gap-y-1">
           <p className="fluid-xs font-bold text-foreground">Bemerkungen</p>
-          <p className="fluid-sm whitespace-pre-line text-foreground">{bericht.bemerkungen}</p>
+          <p className="fluid-sm whitespace-pre-line text-foreground">{bericht.remarks}</p>
         </div>
       )}
     </>

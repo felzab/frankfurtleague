@@ -41,7 +41,7 @@ const SaveSaison = z.object({
       gruppen: numberBox(rules.number_of_gruppen),
       teamsPerGruppe: numberBox(rules.teams_per_gruppe),
       qualifiers: numberBox(rules.qualifiers_per_gruppe),
-      maxKader: numberBox(rules.max_kadergroesse),
+      maxKader: numberBox(rules.max_kader_size),
       stufen: fromBox<readonly string[], typeof rules.allowed_stufen>(rules.allowed_stufen),
       forfeitWinner: numberBox(rules.forfeit_ergebnis.shape.sieger_tore),
       forfeitLoser: numberBox(rules.forfeit_ergebnis.shape.verlierer_tore),
@@ -72,8 +72,8 @@ function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonP
   if (bewerbungStart !== null && bewerbungEnd === null)
     return { ok: false, fieldErrors: { "changes.bewerbungEnd": COPY.shared.field.required } };
   const registrierungEnd = either(changes.registrierungEnd, saison.registrierung?.end ?? null);
-  // `offen` is the link's own flag, which the box sets as its pause.
-  const paused = either(changes.registrierungPaused, saison.registrierung?.offen === false);
+  // `open` is the link's own flag, which the box sets as its pause.
+  const paused = either(changes.registrierungPaused, saison.registrierung?.open === false);
 
   return {
     start_date: either(changes.start, saison.start_date),
@@ -86,7 +86,7 @@ function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonP
       number_of_gruppen: either(changes.gruppen, stored.number_of_gruppen),
       teams_per_gruppe: either(changes.teamsPerGruppe, stored.teams_per_gruppe),
       qualifiers_per_gruppe: either(changes.qualifiers, stored.qualifiers_per_gruppe),
-      max_kadergroesse: either(changes.maxKader, stored.max_kadergroesse),
+      max_kader_size: either(changes.maxKader, stored.max_kader_size),
       allowed_stufen: either(changes.stufen, stored.allowed_stufen),
       forfeit_ergebnis: {
         sieger_tore: either(changes.forfeitWinner, stored.forfeit_ergebnis.sieger_tore),
@@ -94,7 +94,7 @@ function payloadOf(saison: FLSaisonAdmin, changes: Changes): Omit<FLPatchSaisonP
       },
     },
     bewerbung: bewerbungStart === null || bewerbungEnd === null ? null : { start: bewerbungStart, end: bewerbungEnd },
-    registrierung: registrierungEnd === null ? null : { end: registrierungEnd, offen: !paused },
+    registrierung: registrierungEnd === null ? null : { end: registrierungEnd, open: !paused },
   };
 }
 
@@ -135,7 +135,7 @@ export const saveSaison = action({
     "rules.number_of_gruppen": "changes.gruppen",
     "rules.teams_per_gruppe": "changes.teamsPerGruppe",
     "rules.qualifiers_per_gruppe": "changes.qualifiers",
-    "rules.max_kadergroesse": "changes.maxKader",
+    "rules.max_kader_size": "changes.maxKader",
     "rules.forfeit_ergebnis.sieger_tore": "changes.forfeitWinner",
     "rules.forfeit_ergebnis.verlierer_tore": "changes.forfeitLoser",
     "bewerbung.start": "changes.bewerbungStart",

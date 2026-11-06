@@ -166,10 +166,10 @@ export function BewerbungForm({
     // stopped feeding would judge a value nobody can reach any more.
     validatePicked(
       BEWERBUNG_SEATS.flatMap(({ value }) => [
-        `kontakte.${value}.vorname`,
-        `kontakte.${value}.nachname`,
+        `kontakte.${value}.first_name`,
+        `kontakte.${value}.last_name`,
         `kontakte.${value}.email`,
-        `kontakte.${value}.telefon`,
+        `kontakte.${value}.phone`,
         `kontakte.${value}.einwilligung.erteilt`,
       ]),
       next,

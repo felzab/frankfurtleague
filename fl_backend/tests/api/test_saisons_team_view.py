@@ -21,11 +21,11 @@ EARLIER = "2025"
 SPIELTAG = ObjectId("6890a1b2c3d4e5f607420001")
 CLUBS = {name: ObjectId(f"6890a1b2c3d4e5f60742010{index}") for index, name in enumerate(("Alpha", "Beta", "Delta", "Gamma"))}
 
-DISQUALIFIED = {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": "2026-03-01"}
+DISQUALIFIED = {"type": "disqualifikation", "exit_reason": "Nicht angetreten", "date": "2026-03-01"}
 
 
 def side(name: str, tore: int | None) -> dict[str, Any]:
-    return {"team_id": CLUBS[name], "name": name, "shorthand": name[:3].upper(), "tore": tore}
+    return {"team_id": CLUBS[name], "tore": tore}
 
 
 def spiel(spiel_nr: int, home: str, away: str, ergebnis: str | None = None) -> dict[str, Any]:
@@ -41,9 +41,9 @@ def spiel(spiel_nr: int, home: str, away: str, ergebnis: str | None = None) -> d
     )
 
 
-def pupil(vorname: str) -> dict[str, Any]:
+def pupil(first_name: str) -> dict[str, Any]:
     published = documents.own_einwilligung_document(text_versions=documents.SPIELER_TEXT_VERSIONS, confirmed_at="2026-01-20")
-    return documents.spieler_document(ObjectId(), vorname, "Müller", einwilligung=published)
+    return documents.spieler_document(ObjectId(), first_name, "Müller", einwilligung=published)
 
 
 @pytest.fixture(scope="module")
@@ -67,7 +67,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                 ]
             )
             await database[Collection.SPIELTAGE].insert_one(
-                {"_id": SPIELTAG, "beginn": None, "ende": None, "position": 2, "saison_phase": "gruppenphase", "saison_id": SAISON}
+                {"_id": SPIELTAG, "start": None, "end": None, "position": 2, "saison_phase": "gruppenphase", "saison_id": SAISON}
             )
             await database[Collection.SPIELE].insert_many(
                 [spiel(1, "Alpha", "Beta", "2:1"), spiel(2, "Beta", "Delta", "0:1"), spiel(3, "Delta", "Alpha")]
@@ -124,7 +124,7 @@ def test_the_club_page_holds_its_own_row_matches_and_squad(seeded_url: str):
     assert response.standing is not None
     assert (response.team.name, response.standing.id, response.standing.platz) == ("Delta", CLUBS["Delta"], 2)
     assert [(match.spiel_nr, match.spieltag_position, match.count_spieltage_in_phase) for match in response.spiele] == [(2, 2, 1), (3, 2, 1)]
-    assert [row.vorname for row in response.kader] == ["Nadja"]
+    assert [row.first_name for row in response.kader] == ["Nadja"]
 
 
 @pytest.mark.db

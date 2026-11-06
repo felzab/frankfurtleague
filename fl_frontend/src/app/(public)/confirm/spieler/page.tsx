@@ -54,7 +54,7 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   return (
     <SpielerBestaetigungView
       start={start}
-      wording={start.zustand === "valid" ? { seite: start.ansicht.seite } : null}
+      wording={start.zustand === "valid" ? { page: start.ansicht.page } : null}
     />
   );
 }

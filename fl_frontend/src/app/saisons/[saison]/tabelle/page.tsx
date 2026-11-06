@@ -76,7 +76,7 @@ function rowOf(saison: string, row: FLTabelleRow, qualifiers: number, rows: read
     muted: row.austritt_type !== null,
     ...(row.austritt_type === null ? {} : { chip: austrittChip(row.austritt_type) }),
     cells: {
-      spiele: statistik.count_abgesagte_spiele > 0 ? { value: played, cancelled: statistik.count_abgesagte_spiele } : played,
+      spiele: statistik.count_cancelled_spiele > 0 ? { value: played, cancelled: statistik.count_cancelled_spiele } : played,
       siege: { record: formatNumber(statistik.siege) },
       unentschieden: { record: formatNumber(statistik.unentschieden) },
       niederlagen: { record: formatNumber(statistik.niederlagen) },

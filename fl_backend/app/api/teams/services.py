@@ -4,12 +4,12 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
+from app.api.bewerbungen.services import confirmation_deadline_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
 from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxStatus
 from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_COUNTED_AS_ABSAGE,
+    SONDEREREIGNIS_COUNTED_AS_CANCELLED,
     SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
@@ -38,8 +38,8 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontak
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
 STATISTIK_AS_NAME = "statistik_data"
-ABSAGE_AS_NAME = "absage_data"
-ABSAGE_COUNT_NAME = "count"
+CANCELLED_AS_NAME = "cancelled_data"
+CANCELLED_COUNT_NAME = "count"
 
 # Derived from the model, so a field added to `FLTeamStatistik` cannot be forgotten here.
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
@@ -128,7 +128,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     }
 
 
-def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
+def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
     """This team's called-off fixtures, counted in a stage of their own.
 
     Never a second accumulator inside the counting `$lookup`: aggregation `$eq: [null, null]` is
@@ -145,12 +145,12 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
                         **_fixtures_of_this_team(saison_id, scope),
                         # The flag is the whole rule: `ergebnis: None` beside it would drop the
                         # forfeits, which are nearly every cancellation here.
-                        "sonderereignis": {"$in": list(SONDEREREIGNIS_COUNTED_AS_ABSAGE)},
+                        "sonderereignis": {"$in": list(SONDEREREIGNIS_COUNTED_AS_CANCELLED)},
                     }
                 },
-                {"$count": ABSAGE_COUNT_NAME},
+                {"$count": CANCELLED_COUNT_NAME},
             ],
-            "as": ABSAGE_AS_NAME,
+            "as": CANCELLED_AS_NAME,
         }
     }
 
@@ -238,7 +238,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
     # the other way to one, over fixtures this collection has not stored.
     if rules is not None:
         pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
-        pipeline.append(build_absage_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
+        pipeline.append(build_cancelled_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
 
     # One projection, one team shape: a reduced variant trims the response and saves no query work,
     # since every lookup runs either way.
@@ -264,7 +264,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
                         "statistik": {
                             "$mergeObjects": [
                                 {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
-                                {"count_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
+                                {"count_cancelled_spiele": {"$ifNull": [{"$first": f"${CANCELLED_AS_NAME}.{CANCELLED_COUNT_NAME}"}, 0]}},
                             ]
                         }
                     }
@@ -305,7 +305,7 @@ def _counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObj
 def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> Mapping[CustomObjectId, FLTeamStatistik]:
     """Every team's figures over the fixtures GIVEN, for a caller holding a season the collection does not.
 
-    `build_statistik_lookup_stage` and `build_absage_lookup_stage` restated. It filters nothing:
+    `build_statistik_lookup_stage` and `build_cancelled_lookup_stage` restated. It filters nothing:
     pass exactly the fixtures the scope names.
     """
 
@@ -318,9 +318,9 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
         for team_id in sides:
             figures.setdefault(team_id, dict(ZERO_STATISTIK))
 
-        if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_ABSAGE:
+        if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_CANCELLED:
             for team_id in sides:
-                figures[team_id]["count_abgesagte_spiele"] += 1
+                figures[team_id]["count_cancelled_spiele"] += 1
 
         counted = _counted_goals(spiel)
         if counted is None:
@@ -521,9 +521,9 @@ def _decided_on(spiele: Iterable[FLSpielCommon]) -> str | None:
 
     days: list[str] = []
     for spiel in spiele:
-        if spiel.datum is None:
+        if spiel.date is None:
             return None
-        days.append(spiel.datum)
+        days.append(spiel.date)
 
     return max(days, default=None)
 
@@ -536,7 +536,7 @@ def in_the_season_when_decided(austritt: FLAustritt | None, decided_on: str | No
     and for either route out, since no rule keyed on a club having left reads `type`.
     """
 
-    return austritt is None or (decided_on is not None and decided_on < austritt.datum)
+    return austritt is None or (decided_on is not None and decided_on < austritt.date)
 
 
 def _may_hold_a_platz(team: FLTeam, still_to_play: int, decided_on: str | None) -> bool:
@@ -971,7 +971,7 @@ def mit_linkstand(
 
         def expired(seat: str, link: Mapping[str, Any]) -> bool:
             open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
-            return open and saison_link_is_over(frist=link.get("frist"), today=today)
+            return open and saison_link_is_over(deadline=link.get("deadline"), today=today)
 
         return {
             seat: {**link, "expired": expired(seat, link), "delivery": lagen.get((row["_id"], _lage_sitz(row, seat)))}
@@ -1046,7 +1046,7 @@ def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
 
 # Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
 # rather than a claim about which person sits there.
-SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+SEAT_IDENTITY_FIELDS: tuple[str, ...] = ("email", "first_name", "last_name")
 
 
 def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
@@ -1098,7 +1098,7 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     return dict(einwilligung) if _seat_is_stamped(held) else als_unbestaetigt(einwilligung)
 
 
-def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
+def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
     """The date this person already sits behind in this seat, or `None`."""
 
     # The identity alone and never the confirmation beside it: a seat can hold a date under no stamp,
@@ -1110,7 +1110,7 @@ def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str |
     # A stored blank is a date every read already answers as none
     # (`app/api/teams/schemas.py :: _project_seat`), so writing it back would keep a value no reader
     # can see and no token can tell from null.
-    return str(held.get("geburtsdatum")) if held.get("geburtsdatum") else None
+    return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
 def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
@@ -1137,7 +1137,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
             # Born afresh: nothing of a person who left travels to the
             # one seated, and nobody filling a seat for another person may give their media consent.
             einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "media": False, "entered_by": "liga"}
-        composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
+        composed[slot] = {**seat, "birth_date": _birth_date_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
 
     return composed
 
@@ -1153,7 +1153,7 @@ def compose_kontakt_bestaetigung(*, today: str) -> dict[str, Any]:
     before opens nothing from this write on. Written WHOLE wherever a link is owed.
     """
 
-    return {"token_hashes": [], "sent_at": today, "frist": bestaetigungsfrist_from(today=today), "declined_at": None}
+    return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today), "declined_at": None}
 
 
 def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
@@ -1238,7 +1238,7 @@ def _live_link(*, kontakte: Mapping[str, Any], confirmations: Mapping[str, Any],
     if not isinstance(entry, Mapping) or not isinstance(seat, Mapping) or _seat_is_stamped(seat):
         return None
 
-    if entry.get("declined_at") is not None or str(entry.get("frist") or "") < today:
+    if entry.get("declined_at") is not None or str(entry.get("deadline") or "") < today:
         return None
 
     token_hashes = entry.get("token_hashes")
@@ -1304,7 +1304,7 @@ def owed_kontakt_link(
     saison_id: str,
     kontakte: Mapping[str, Any],
     seats: Sequence[FLKontaktRolle],
-    frist: str,
+    deadline: str,
     zeile: FLKontaktRow,
     key: str,
 ) -> tuple[OwedMail, FLKontaktMint]:
@@ -1326,7 +1326,7 @@ def owed_kontakt_link(
                 saison_id=saison_id,
                 schule=str(row.get("name") or ""),
                 rollen=list(seats),
-                frist=frist,
+                deadline=deadline,
                 row=zeile,
             ),
             reference=kontakt_bezug(row["_id"], seats),

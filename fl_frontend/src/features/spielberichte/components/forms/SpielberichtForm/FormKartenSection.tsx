@@ -8,19 +8,19 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
-import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS } from "../../../constants";
+import { CARD_COLOUR_LABELS, CARD_REASON_LABELS } from "../../../constants";
 import { gruendeErlassen } from "../../../schemas";
 import { AuswahlSelect } from "./AuswahlSelect";
 import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personHinweis, personOptionen, seitenOptionen } from "./eintragFelder";
 
-import type { FLKartenFarbe, FLKartenGrund, FLSpielSeite } from "@/core/generated/client/types";
+import type { FLCardColour, FLCardReason, FLSpielSide } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { KartenSchluessel } from "../../../schemas";
 import type { KarteDraft, SpielberichtKontext } from "./spielberichtDraft";
 
-const FARBE_OPTIONEN = (Object.keys(KARTEN_FARBE_LABELS) as FLKartenFarbe[]).map((farbe) => ({ id: farbe, label: KARTEN_FARBE_LABELS[farbe] }));
+const FARBE_OPTIONEN = (Object.keys(CARD_COLOUR_LABELS) as FLCardColour[]).map((farbe) => ({ id: farbe, label: CARD_COLOUR_LABELS[farbe] }));
 const KEIN_GRUND = "kein_grund";
-const GRUND_OPTIONEN = (Object.keys(KARTEN_GRUND_LABELS) as FLKartenGrund[]).map((grund) => ({ id: grund, label: KARTEN_GRUND_LABELS[grund] }));
+const GRUND_OPTIONEN = (Object.keys(CARD_REASON_LABELS) as FLCardReason[]).map((grund) => ({ id: grund, label: CARD_REASON_LABELS[grund] }));
 
 /** One entry per card, each with its reason from the closed list: a reason is chosen here and never retyped in the remarks. */
 export function FormKartenSection({
@@ -97,27 +97,27 @@ export function FormKartenSection({
                     </div>
 
                     <div className={FIELD_PAIR_CLASSES}>
-                      <AuswahlSelect<FLSpielSeite>
-                        name={`${pfad}.seite`}
+                      <AuswahlSelect<FLSpielSide>
+                        name={`${pfad}.side`}
                         label="Team"
                         placeholder="Team wählen"
-                        value={karte.seite}
+                        value={karte.side}
                         options={seitenOptionen(kontext)}
                         // Another side's squad names other pupils, so the person picked for the first does not survive the switch.
-                        onChange={(seite) => update(karte.key, seite === karte.seite ? {} : { seite, spieler: "" })}
-                        error={fieldErrors[`${pfad}.seite`]}
+                        onChange={(seite) => update(karte.key, seite === karte.side ? {} : { side: seite, spieler: "" })}
+                        error={fieldErrors[`${pfad}.side`]}
                       />
                       <AuswahlSelect<string>
                         name={`${pfad}.spieler_id`}
                         label="Spielerin oder Spieler"
-                        placeholder={karte.seite === null ? "Zuerst das Team wählen" : "Person wählen"}
+                        placeholder={karte.side === null ? "Zuerst das Team wählen" : "Person wählen"}
                         value={karte.spieler === "" ? null : karte.spieler}
-                        options={personOptionen(kontext, karte.seite, karte.spieler)}
+                        options={personOptionen(kontext, karte.side, karte.spieler)}
                         onChange={(spieler) => update(karte.key, { spieler })}
                         error={fieldErrors[`${pfad}.spieler_id`]}
                         hint={personHinweis({
                           geleert: geleert.has(karte.key) && karte.spieler === "",
-                          ohneKaderSatz: ohneKader(kontext, karte.seite)
+                          ohneKaderSatz: ohneKader(kontext, karte.side)
                             ? "Für dieses Team ist kein Kader hinterlegt. Beschreib die Karte dann in den Bemerkungen mit der Rückennummer."
                             : null,
                         })}
@@ -131,30 +131,30 @@ export function FormKartenSection({
                         onChange={(minute) => update(karte.key, { minute })}
                         onBlur={() => onValidateFields([`${pfad}.minute`])}
                       />
-                      <AuswahlSelect<FLKartenFarbe>
-                        name={`${pfad}.farbe`}
+                      <AuswahlSelect<FLCardColour>
+                        name={`${pfad}.colour`}
                         label="Farbe"
                         placeholder="Farbe wählen"
-                        value={karte.farbe}
+                        value={karte.colour}
                         options={FARBE_OPTIONEN}
-                        onChange={(farbe) => update(karte.key, { farbe })}
-                        error={fieldErrors[`${pfad}.farbe`]}
+                        onChange={(farbe) => update(karte.key, { colour: farbe })}
+                        error={fieldErrors[`${pfad}.colour`]}
                       />
                     </div>
 
-                    <AuswahlSelect<FLKartenGrund | typeof KEIN_GRUND>
-                      name={`${pfad}.grund`}
+                    <AuswahlSelect<FLCardReason | typeof KEIN_GRUND>
+                      name={`${pfad}.card_reason`}
                       label="Grund"
                       placeholder="Grund wählen"
-                      value={karte.grund ?? (karte.farbe === "rot" ? KEIN_GRUND : null)}
+                      value={karte.card_reason ?? (karte.colour === "rot" ? KEIN_GRUND : null)}
                       // Red alone may stand without a reason, so only it offers the way back to none.
-                      options={karte.farbe === "rot" ? [{ id: KEIN_GRUND, label: "Kein Grund" }, ...GRUND_OPTIONEN] : GRUND_OPTIONEN}
-                      onChange={(grund) => update(karte.key, { grund: grund === KEIN_GRUND ? null : grund })}
-                      error={fieldErrors[`${pfad}.grund`]}
+                      options={karte.colour === "rot" ? [{ id: KEIN_GRUND, label: "Kein Grund" }, ...GRUND_OPTIONEN] : GRUND_OPTIONEN}
+                      onChange={(grund) => update(karte.key, { card_reason: grund === KEIN_GRUND ? null : grund })}
+                      error={fieldErrors[`${pfad}.card_reason`]}
                       // Marked by hand: a caution's reason is refused empty over the whole list
                       // (`fl_frontend/src/features/spielberichte/schemas.ts :: spielberichtFormSchema`), the leaf taking `null`
                       // for a red and for a caution a stripped card of the stored report excuses.
-                      isRequired={(karte.farbe === "gelb" || karte.farbe === "gelb_rot") && !erlassen[index]}
+                      isRequired={(karte.colour === "gelb" || karte.colour === "gelb_rot") && !erlassen[index]}
                     />
                   </div>
                 </li>

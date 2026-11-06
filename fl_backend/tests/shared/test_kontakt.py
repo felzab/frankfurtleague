@@ -69,34 +69,34 @@ def test_accepts_a_local_part_at_and_over_rfc_5321s_64_octets(kontakt, local_par
     assert FLKontaktPayload.model_validate(kontakt(email=address)).email == address
 
 
-@pytest.mark.parametrize("telefon", ["ext. two", "abc", "+", "12", "0" * 21])
-def test_rejects_a_malformed_phone_number(kontakt, telefon):
+@pytest.mark.parametrize("phone", ["ext. two", "abc", "+", "12", "0" * 21])
+def test_rejects_a_malformed_phone_number(kontakt, phone):
     with pytest.raises(ValidationError):
-        FLKontaktPayload.model_validate(kontakt(telefon=telefon))
+        FLKontaktPayload.model_validate(kontakt(phone=phone))
 
 
 @pytest.mark.parametrize(
-    "telefon",
+    "phone",
     ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069 123\x0b4567"],
 )
-def test_rejects_a_phone_number_carrying_a_control_character(kontakt, telefon):
+def test_rejects_a_phone_number_carrying_a_control_character(kontakt, phone):
     """A whitespace class inside `^...$` lets a newline through end to end, and the value is stored and rendered as text."""
     with pytest.raises(ValidationError):
-        FLKontaktPayload.model_validate(kontakt(telefon=telefon))
+        FLKontaktPayload.model_validate(kontakt(phone=phone))
 
 
-@pytest.mark.parametrize("telefon", ["+49 69 1234567", "069 123 45-67", "(069) 1234567", "069.123.4567"])
-def test_accepts_the_phone_formats_in_use(kontakt, telefon):
-    assert FLKontaktPayload.model_validate(kontakt(telefon=telefon)).telefon == telefon
+@pytest.mark.parametrize("phone", ["+49 69 1234567", "069 123 45-67", "(069) 1234567", "069.123.4567"])
+def test_accepts_the_phone_formats_in_use(kontakt, phone):
+    assert FLKontaktPayload.model_validate(kontakt(phone=phone)).phone == phone
 
 
 def test_the_telephone_is_optional(kontakt):
-    assert FLKontaktPayload.model_validate(kontakt(telefon=None)).telefon is None
+    assert FLKontaktPayload.model_validate(kontakt(phone=None)).phone is None
 
 
 def test_coerces_an_empty_telephone_to_none(kontakt):
     """An untouched telephone box must not fail validation: empty means not provided, never malformed."""
-    assert FLKontaktPayload.model_validate(kontakt(telefon="")).telefon is None
+    assert FLKontaktPayload.model_validate(kontakt(phone="")).phone is None
 
 
 def the_referee_body(kontakt: dict[str, Any]) -> dict[str, Any]:
@@ -134,10 +134,10 @@ class TestTheAddressIsRequired:
 class TestTheReadShapeJudgesNeitherMember:
     """The pair's whole point. Each value here is one the payload above refuses and a stored row can hold."""
 
-    @pytest.mark.parametrize("telefon", ["069 1234 ", "069-1234-", "(069) 1234567."])
-    def test_a_stored_number_the_narrowed_rule_would_refuse_is_served(self, kontakt, telefon):
+    @pytest.mark.parametrize("phone", ["069 1234 ", "069-1234-", "(069) 1234567."])
+    def test_a_stored_number_the_narrowed_rule_would_refuse_is_served(self, kontakt, phone):
         """Trailing punctuation, which the rule accepted until a final digit was required of it."""
-        assert FLKontakt.model_validate(kontakt(telefon=telefon)).telefon == telefon
+        assert FLKontakt.model_validate(kontakt(phone=phone)).phone == phone
 
     def test_a_stored_address_the_payload_would_refuse_is_served(self, kontakt):
         """`email-validator`'s tables move without us, so an address it accepted once can stop passing."""
@@ -147,12 +147,12 @@ class TestTheReadShapeJudgesNeitherMember:
 
     def test_a_stored_empty_string_is_answered_as_it_stands(self, kontakt):
         """No coercion on the read side: a repaired copy would report a value the collection does not hold."""
-        parsed = FLKontakt.model_validate(kontakt(telefon="", email=""))
+        parsed = FLKontakt.model_validate(kontakt(phone="", email=""))
 
-        assert parsed.telefon == ""
+        assert parsed.phone == ""
         assert parsed.email == ""
 
     def test_both_members_are_still_required_keys(self):
         """The narrowing is the rule and never the key: a row missing one is the 500 this pair exists to avoid."""
         with pytest.raises(ValidationError):
-            FLKontakt.model_validate({"telefon": None})
+            FLKontakt.model_validate({"phone": None})

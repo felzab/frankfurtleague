@@ -34,12 +34,12 @@ export function SchiedsrichterFields() {
         maxLength={max.schule}
       />
       <TextField
-        label={COPY.admin.honorar}
-        name="honorar"
+        label={COPY.admin.payment}
+        name="payment"
         width="C5"
         kind="digits"
         unit={COPY.shared.unit.euro}
-        isRequired={required.honorar}
+        isRequired={required.payment}
       />
       <FieldGroup name={COPY.admin.schiedsrichter.kontaktdaten}>
         <TextField
@@ -52,10 +52,10 @@ export function SchiedsrichterFields() {
         />
         <TextField
           label={FACTS.phone}
-          name="telefon"
+          name="phone"
           width="W3"
           kind="tel"
-          isRequired={required.telefon}
+          isRequired={required.phone}
         />
       </FieldGroup>
     </>

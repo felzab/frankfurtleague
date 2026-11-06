@@ -147,7 +147,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    * key. One source for both layouts, so the table's cells and the phone cards cannot disagree.
    */
   const renderZeitpunkt = (aktion: FLActionLogEntry) => {
-    const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
+    const { date: datum, time: uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return (
       <div className={IDENTITY_STACK_CLASSES}>
@@ -217,7 +217,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    */
   const renderStandBadge = (aktion: FLActionLogEntry) => {
     if (aktion.redacted_at !== null) {
-      const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
+      const datum = formatAktionZeitpunkt(aktion.redacted_at).date;
 
       // A copy still standing kept all the redaction did not reach: the record's own state, and anybody it left.
       return aktion.stand_secured ? (
@@ -256,7 +256,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
   // The row has no name to be announced by, so the moment it happened is what tells two of them apart.
   const zeitpunktLabel = (aktion: FLActionLogEntry) => {
-    const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
+    const { date: datum, time: uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return uhrzeit === null ? datum : `${datum} um ${uhrzeit} Uhr`;
   };

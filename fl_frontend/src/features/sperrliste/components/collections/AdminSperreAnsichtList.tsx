@@ -37,7 +37,7 @@ const nameOf = (vorname: string, nachname: string | null): string => (nachname =
 const EINTRAEGE: Eintraege = {
   // A squad row each, at its own season: the pupil editor addresses the selected season's row alone.
   spieler: (spieler, saisonHref) =>
-    spieler.flatMap(({ spieler_id, vorname, nachname, kader }): Eintrag[] => {
+    spieler.flatMap(({ spieler_id, first_name: vorname, last_name: nachname, kader }): Eintrag[] => {
       const person = `Spielerin oder Spieler: ${nameOf(vorname, nachname)}`;
       if (kader.length === 0) {
         return [
@@ -79,18 +79,18 @@ const EINTRAEGE: Eintraege = {
     }),
   // At the seat's own season: the contacts editor addresses the selected season's three seats alone.
   seats: (seats) =>
-    seats.map(({ team_id, saison_id, team_name, rolle, vorname, nachname }) => ({
+    seats.map(({ team_id, saison_id, team_name, rolle, first_name: vorname, last_name: nachname }) => ({
       text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
       verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kontakte, href: withSaisonId(`/area/admin/kontakte/${team_id}`, saison_id) }],
     })),
   bewerbungen: (bewerbungen, saisonHref) =>
-    bewerbungen.map(({ bewerbung_id, saison_id, rolle, vorname, nachname }) => ({
+    bewerbungen.map(({ bewerbung_id, saison_id, rolle, first_name: vorname, last_name: nachname }) => ({
       text: `${rollenLangform([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
       verweise: [{ label: SPERRE_ANSICHT_VERWEISE.bewerbung, href: saisonHref(`/area/admin/bewerbungen/${bewerbung_id}`) }],
     })),
   // The registrations list serves the pending ones alone, so a declined one is named with no link.
   registrierungen: (registrierungen, saisonHref) =>
-    registrierungen.map(({ saison_id, team_name, vorname, nachname, status }) => {
+    registrierungen.map(({ saison_id, team_name, first_name: vorname, last_name: nachname, status }) => {
       const art = status === "declined" ? "Abgelehnte Registrierung" : "Registrierung";
 
       return {

@@ -10,8 +10,8 @@ import type { StatTile } from "./StatTiles";
 
 const FOUR = [
   { label: COPY.spielplan.fact.spieltag, value: { record: "1." }, line: COPY.shared.phase.gruppenphase },
-  { label: COPY.spielplan.fact.datum, value: { record: "06.03." }, line: { record: "Samstag 2027" } },
-  { label: COPY.spielplan.fact.uhrzeit, value: { record: "14:00" } },
+  { label: COPY.spielplan.fact.date, value: { record: "06.03." }, line: { record: "Samstag 2027" } },
+  { label: COPY.spielplan.fact.time, value: { record: "14:00" } },
   { label: COPY.spielplan.fact.spielort, value: { record: "Sportplatz Ahornweg" }, words: true },
 ] as const satisfies readonly StatTile[];
 
@@ -34,8 +34,8 @@ describe("the stat tiles", () => {
     ]);
     expect(read).toEqual([
       [COPY.spielplan.fact.spieltag, "1.", "Gruppenphase"],
-      [COPY.spielplan.fact.datum, "06.03.", "Samstag 2027"],
-      [COPY.spielplan.fact.uhrzeit, "14:00"],
+      [COPY.spielplan.fact.date, "06.03.", "Samstag 2027"],
+      [COPY.spielplan.fact.time, "14:00"],
       [COPY.spielplan.fact.spielort, "Sportplatz Ahornweg"],
     ]);
   });
@@ -43,8 +43,8 @@ describe("the stat tiles", () => {
 
 const FIVE = [
   { label: COPY.spielplan.fact.spieltag, value: { record: "1." } },
-  { label: COPY.spielplan.fact.datum, value: { record: "06.03." }, line: { record: "Samstag 2027" } },
-  { label: COPY.spielplan.fact.uhrzeit, value: { record: "14:00" } },
+  { label: COPY.spielplan.fact.date, value: { record: "06.03." }, line: { record: "Samstag 2027" } },
+  { label: COPY.spielplan.fact.time, value: { record: "14:00" } },
   { label: COPY.spielplan.fact.schiedsrichter, value: { record: "2" } },
   { label: COPY.spielplan.fact.spielort, value: { record: "Sportplatz Ahornweg" }, words: true },
 ] as const satisfies readonly StatTile[];

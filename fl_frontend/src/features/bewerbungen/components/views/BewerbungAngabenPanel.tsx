@@ -161,14 +161,14 @@ export function BewerbungAngabenPanel({
                   <p className="muted-hint">Für diese Rolle steht niemand mehr in der Bewerbung.</p>
                 ) : (
                   <dl className={ANGABEN_GRID_CLASSES}>
-                    <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
+                    <Angabe label="Name">{`${person.first_name} ${person.last_name}`}</Angabe>
                     {/* The person's own to enter when they confirm, so the contacts editor's words: whose step
                         it is until then, a field held empty after. */}
                     <Angabe label="Geburtsdatum">
-                      {person.geburtsdatum === null ? (
+                      {person.birth_date === null ? (
                         <Leer>{kontaktGeburtsdatumLeer(person.einwilligung.confirmed_at)}</Leer>
                       ) : (
-                        formatSpielDatum(person.geburtsdatum)
+                        formatSpielDatum(person.birth_date)
                       )}
                     </Angabe>
                     {/* The scheme is a literal prefix here, so neither stored value can steer the href
@@ -190,13 +190,13 @@ export function BewerbungAngabenPanel({
                     {/* Off the STORED number rather than the normalised one: normalising exists to
                         compare two seats, and a dialler takes the spaces and punctuation a school typed. */}
                     <Angabe label="Telefon">
-                      {person.telefon.trim() === "" ? (
+                      {person.phone.trim() === "" ? (
                         <Leer />
                       ) : (
                         <a
-                          href={`tel:${person.telefon.replace(/\s/g, "")}`}
+                          href={`tel:${person.phone.replace(/\s/g, "")}`}
                           className={textLink()}>
-                          {person.telefon}
+                          {person.phone}
                         </a>
                       )}
                     </Angabe>
@@ -289,7 +289,7 @@ export function BewerbungAngabenPanel({
             </Angabe>
             {/* Absent on an acceptance rather than filled in with „angenommen“: what an acceptance
                 did is the club and the season entry it wrote. */}
-            {entscheidung.grund !== null && <Angabe label="Grund">{entscheidung.grund}</Angabe>}
+            {entscheidung.decision_reason !== null && <Angabe label="Grund">{entscheidung.decision_reason}</Angabe>}
           </dl>
         </Panel>
       )}

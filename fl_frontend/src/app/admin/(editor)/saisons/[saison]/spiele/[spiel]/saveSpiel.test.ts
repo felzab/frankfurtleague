@@ -18,8 +18,8 @@ const STORED: FLSpielJoinedAdmin = {
   team2: { team_id: "64b000000000000000000004", name: "Ernst-Reuter-Schule", shorthand: "ER", tore: 2, austritt_type: null },
   team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" },
   team2_quelle: { type: "spiel", spiel_nr: 26, ausgang: "sieger" },
-  datum: "2027-03-14",
-  uhrzeit: "15:30:00",
+  date: "2027-03-14",
+  time: "15:30:00",
   ort: { spielort_id: "64b000000000000000000005", name: "Sportpark Nord", maps_link: "Sportpark Nord, Frankfurt", mietpreis: 60 },
   schiedsrichter: { schiedsrichter_id: "64b000000000000000000006", name: "Lena Brandt", payment: 25 },
   ergebnis: "2:2",
@@ -28,7 +28,7 @@ const STORED: FLSpielJoinedAdmin = {
   sonderereignis: null,
   saison_phase: "halbfinale",
   saison_id: "2027",
-  notiz: "Flutlicht",
+  note: "Flutlicht",
   ansetzung_confirmed: null,
   for_third_place: false,
   version: 3,
@@ -36,8 +36,8 @@ const STORED: FLSpielJoinedAdmin = {
 
 /** The fixture as the write is sent it where the editor changed nothing it shows. */
 const SENT_AS_STORED = {
-  datum: "2027-03-14",
-  uhrzeit: "15:30:00",
+  date: "2027-03-14",
+  time: "15:30:00",
   ort: { spielort_id: "64b000000000000000000005", mietpreis: 60 },
   schiedsrichter: { schiedsrichter_id: "64b000000000000000000006", payment: 25 },
   team1: { team_id: "64b000000000000000000003", tore: 2 },
@@ -46,7 +46,7 @@ const SENT_AS_STORED = {
   team2_quelle: { type: "spiel", spiel_nr: 26, ausgang: "sieger" },
   elfmeterschiessen: { team1: 4, team2: 3 },
   sonderereignis: null,
-  notiz: "Flutlicht",
+  note: "Flutlicht",
   version: 3,
   // The later results the save deletes, as its dry run answered: none here.
   voided_results: [],
@@ -117,7 +117,7 @@ const saving = (changes: Parameters<typeof saveSpiel>[0] extends infer Sent ? (S
 
 describe("the match editor's save", () => {
   it("sends the changes over every field the editor leaves, as stored, on the version it read, answering the new one", async () => {
-    const answer = await saveSpiel(saving({ uhrzeit: "18:00:00" }));
+    const answer = await saveSpiel(saving({ time: "18:00:00" }));
 
     expect(answer).toEqual({ ok: true, value: 4 });
     // The dry run first, deleting nothing here, then the write itself, and no report stamped.
@@ -125,7 +125,7 @@ describe("the match editor's save", () => {
       { endpoint: DRY_RUN, method: "PATCH" },
       { endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" },
     ]);
-    expect(state.sent).toEqual([{ ...SENT_AS_STORED, uhrzeit: "18:00:00" }]);
+    expect(state.sent).toEqual([{ ...SENT_AS_STORED, time: "18:00:00" }]);
   });
 
   it("stands a hand-picked club on its side without the side's source, which the bracket would otherwise put back", async () => {
@@ -151,7 +151,7 @@ describe("the match editor's save", () => {
       ],
     } satisfies FLPatchSpielDataResponse;
 
-    const answer = await saveSpiel(saving({ uhrzeit: "18:00:00" }));
+    const answer = await saveSpiel(saving({ time: "18:00:00" }));
 
     expect(answer).toEqual({ ok: true, value: 4, note: COPY.admin.spiel.alsoChanged([7, 12, 31]) });
   });
@@ -184,12 +184,12 @@ describe("the match editor's save", () => {
   });
 
   it("asks for each booking's money and each side's goals the save needs, writing nothing", async () => {
-    const answer = await saveSpiel(saving({ mietpreis: "", honorar: "", tore2: "" }));
+    const answer = await saveSpiel(saving({ mietpreis: "", payment: "", tore2: "" }));
 
     const required = COPY.shared.field.required;
     expect(answer).toEqual({
       ok: false,
-      fieldErrors: { "changes.mietpreis": required, "changes.honorar": required, "changes.tore2": required },
+      fieldErrors: { "changes.mietpreis": required, "changes.payment": required, "changes.tore2": required },
     });
     expect(state.sent).toEqual([]);
   });
@@ -252,9 +252,9 @@ describe("the match editor's question before it deletes a later result", () => {
     state.dryRun = {
       ...(state.dryRun as FLPatchSpielDataResponse),
       recipients: [
-        { art: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006", name: "Lena Brandt" },
-        { art: "team", team_id: PICKED, name: "Lessing-Gymnasium" },
-        { art: "team", team_id: "64b000000000000000000004", name: "Ernst-Reuter-Schule" },
+        { kind: "schiedsrichter", schiedsrichter_id: "64b000000000000000000006", name: "Lena Brandt" },
+        { kind: "team", team_id: PICKED, name: "Lessing-Gymnasium" },
+        { kind: "team", team_id: "64b000000000000000000004", name: "Ernst-Reuter-Schule" },
       ],
     };
     const question = await asked({ team1: PICKED });
@@ -270,7 +270,7 @@ describe("the match editor's question before it deletes a later result", () => {
 
     // A confirmation covers no mail it was not shown.
     state.sent = [];
-    state.dryRun = { ...served, recipients: [{ art: "team", team_id: PICKED, name: "Lessing-Gymnasium" }] };
+    state.dryRun = { ...served, recipients: [{ kind: "team", team_id: PICKED, name: "Lessing-Gymnasium" }] };
     expect(await saveSpiel({ ...saving({ team1: PICKED }), confirm: question.confirm })).toMatchObject({ ok: false, ask: {} });
     expect(state.sent).toEqual([]);
   });

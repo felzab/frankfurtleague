@@ -18,14 +18,14 @@ const spiel = (tore: readonly [number, number] | null, sonderereignis: FLSondere
   saison_phase: "gruppenphase",
   spiel_nr: 1,
   spieltag_id: "3".repeat(24),
-  datum: "2027-03-13",
-  uhrzeit: "14:00",
+  date: "2027-03-13",
+  time: "14:00",
   ergebnis: tore === null ? null : `${String(tore[0])}:${String(tore[1])}`,
   elfmeterschiessen: null,
   sonderereignis,
   ansetzung_confirmed: null,
   for_third_place: false,
-  notiz: null,
+  note: null,
   ort: null,
   schiedsrichter: null,
   team1: { team_id: GOETHE, name: "Goethe", shorthand: "GOE", tore: tore?.[0] ?? null, austritt_type: null },
@@ -119,8 +119,8 @@ describe("the pop-up's facts", () => {
   const { fact } = COPY.spielplan;
 
   it("leave out every value the match does not hold", () => {
-    expect(popupFactsOf({ ...booked, datum: null, uhrzeit: null, ort: null, schiedsrichter: null })).toStrictEqual([]);
-    expect(popupFactsOf(booked).map((each) => each.label)).toStrictEqual([fact.datum, fact.uhrzeit, fact.spielort, fact.schiedsrichter]);
+    expect(popupFactsOf({ ...booked, date: null, time: null, ort: null, schiedsrichter: null })).toStrictEqual([]);
+    expect(popupFactsOf(booked).map((each) => each.label)).toStrictEqual([fact.date, fact.time, fact.spielort, fact.schiedsrichter]);
   });
 
   it("hold no referee whose name the public read withholds", () => {

@@ -10,14 +10,14 @@ import { TimeField } from "@/kit/TimeField";
 import { COPY } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
-import type { CalendarDay, Uhrzeit } from "@/core/format";
+import type { CalendarDay, TimeOfDay } from "@/core/format";
 
 const ACT = { verb: "set", object: COPY.admin.overview.termin } as const;
 const TITLE = COPY.shared.withObject(ACT.object, ACT.verb);
 
 // Each box posts under the path the match editor's save places its refusal on.
-const DATUM = "changes.datum";
-const UHRZEIT = "changes.uhrzeit";
+const DATE = "changes.date";
+const TIME = "changes.time";
 
 const posted = (form: FormData, name: string): string | null => {
   const value = form.get(name);
@@ -32,21 +32,21 @@ const posted = (form: FormData, name: string): string | null => {
 export function TerminDialog({
   spiel,
   version,
-  datum,
-  uhrzeit,
+  date,
+  time,
 }: {
   spiel: string;
   version: number;
   /** What the fixture already holds, so a row lacking only its time opens on its day. */
-  datum: CalendarDay | null;
-  uhrzeit: Uhrzeit | null;
+  date: CalendarDay | null;
+  time: TimeOfDay | null;
 }) {
   const save = async (form: FormData): Promise<ActionAnswer> => {
     const answer = await saveSpiel({
       id: spiel,
       version,
       adoptsBericht: null,
-      changes: { datum: posted(form, DATUM), uhrzeit: posted(form, UHRZEIT) },
+      changes: { date: posted(form, DATE), time: posted(form, TIME) },
     });
     // The note names the other fixtures the save moved, which the dialog stays open to say.
     if (answer.ok) return { ok: true, value: undefined, ...(answer.note === undefined ? {} : { note: answer.note }) };
@@ -70,14 +70,14 @@ export function TerminDialog({
         short="both"
         phone="pair">
         <DateField
-          label={COPY.admin.spiel.datum}
-          name={DATUM}
-          defaultValue={datum}
+          label={COPY.admin.spiel.date}
+          name={DATE}
+          defaultValue={date}
         />
         <TimeField
-          label={COPY.admin.spiel.uhrzeit}
-          name={UHRZEIT}
-          defaultValue={uhrzeit}
+          label={COPY.admin.spiel.time}
+          name={TIME}
+          defaultValue={time}
         />
       </FieldPair>
     </Dialog>

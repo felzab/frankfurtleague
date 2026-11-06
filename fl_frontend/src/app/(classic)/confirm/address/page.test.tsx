@@ -51,6 +51,6 @@ describe("the person's own change, on a link opened again", () => {
     expect(await stateFor({ ...ended, side: "previous", kind: "declined", released_on: "2026-11-03" })).toMatchObject({
       title: COPY.shared.end.doneOn(WORDS.previous.confirmed, "2026-11-03"),
     });
-    expect(await stateFor({ ...ended, side: "new", kind: "expired" })).toMatchObject({ state: "ungueltig" });
+    expect(await stateFor({ ...ended, side: "new", kind: "expired" })).toMatchObject({ state: "invalid" });
   });
 });

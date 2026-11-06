@@ -9,8 +9,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungAntwortPayload,
-    FLBewerbungEinwilligungAntwortResponse,
+    FLBewerbungEinwilligungAnswerPayload,
+    FLBewerbungEinwilligungAnswerResponse,
     FLBewerbungEinwilligungViewResponse,
     FLBewerbungKuerzelResponse,
     FLBewerbungNoWindowResponse,
@@ -18,18 +18,17 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchuleOptionListAdapter,
     FLBewerbungTrikotFarbenResponse,
     FLBewerbungWindowResponse,
-    FLEinwilligungAntwortResponse,
+    FLEinwilligungAnswerResponse,
     FLPostBewerbungPayload,
-    FLSaisonTeamEinwilligungAntwortResponse,
+    FLSaisonTeamEinwilligungAnswerResponse,
 )
 from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSICHT_FIELDS,
-    EINWILLIGUNG_ANTWORT_FIELDS,
-    SAISON_EINWILLIGUNG_ANTWORT_FIELDS,
+    EINWILLIGUNG_ANSWER_FIELDS,
+    SAISON_EINWILLIGUNG_ANSWER_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
     ansprechperson_mailbox,
     assigned_trikot_farben,
-    bestaetigungsfrist_from,
     bewerbung_bezug,
     bewerbung_schule,
     build_saison_token_filter,
@@ -40,6 +39,7 @@ from app.api.bewerbungen.services import (
     compose_decline_update,
     compose_kontakte,
     compose_saison_decline_update,
+    confirmation_deadline_from,
     find_abweichender_fingerabdruck_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
@@ -48,7 +48,7 @@ from app.api.bewerbungen.services import (
     find_einwilligung_barred_refusal,
     find_expired_token_refusal,
     find_picked_club_refusal,
-    find_saison_frist_refusal,
+    find_saison_deadline_refusal,
     find_saison_vorbei_einwilligung_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
@@ -59,16 +59,16 @@ from app.api.bewerbungen.services import (
     owed_at_submission,
     paired_seat,
     payload_fingerabdruck,
-    saison_frist_of,
+    saison_deadline_of,
     saison_link_pair,
     saison_nimmt_bewerbungen_an,
     saison_schule,
     saison_zustand_of,
     season_has_ended,
     seat_addresses,
+    seat_first_name,
     seat_holding,
     seat_opens_nobody,
-    seat_vorname,
     zustand_of,
 )
 from app.api.einwilligung.services import find_self_media_refusal
@@ -364,7 +364,7 @@ async def post_bewerbung(
         barred = await _any_barred(ban_list=ban_list, hashed=hashed, governing_saison_id=governing_saison_id, session=session)
         refuse(find_barred_refusal(barred=barred))
 
-        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+        confirmation_deadline = confirmation_deadline_from(today=today)
         # The school as the mails name it: proposed, or the picked club as the league holds it, never as the body spells it.
         schule_text = schule.team_name if schule is not None else str((team_raw or {}).get("name") or "")
 
@@ -392,7 +392,7 @@ async def post_bewerbung(
                 # Null until the triage decides, which is what `status == "eingereicht"` claims.
                 "decision": None,
                 # The deadline and each seat's bookkeeping, so the sweep and the links have something to judge.
-                "confirmation_deadline": bestaetigungsfrist,
+                "confirmation_deadline": confirmation_deadline,
                 "confirmations": compose_bestaetigungen(today=today),
                 **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
             },
@@ -407,7 +407,7 @@ async def post_bewerbung(
                 kontakte=stored_kontakte,
                 saison_id=bewerbung_data.saison_id,
                 schule=schule_text,
-                frist=bestaetigungsfrist,
+                deadline=confirmation_deadline,
             ),
             now=germany_now,
         )
@@ -541,11 +541,11 @@ async def get_einwilligung_view(
 
 @router.post(
     "/einwilligung",
-    response_model=FLEinwilligungAntwortResponse,
+    response_model=FLEinwilligungAnswerResponse,
     summary="Confirm or decline one seat of a Bewerbung or of a team's season row",
 )
 async def post_einwilligung(
-    antwort_data: FLBewerbungEinwilligungAntwortPayload,
+    answer_data: FLBewerbungEinwilligungAnswerPayload,
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -557,7 +557,7 @@ async def post_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
+) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
     """Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
 
     A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
@@ -566,10 +566,10 @@ async def post_einwilligung(
     on a team's season row `link_expired` and `kontakt_saison_past`.
     """
 
-    token_hash = hash_token(antwort_data.token)
+    token_hash = hash_token(answer_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and only for the
     # answer that asks the ban.
-    governing_saison_id = await ban_list_saison(ban_list) if antwort_data.antwort == "given" else None
+    governing_saison_id = await ban_list_saison(ban_list) if answer_data.answer == "given" else None
     # One instant for the decline's day and its journal line, so a replay records the day the person declined on.
     at = log_stamp(germany_now)
     journal = Journal()
@@ -580,25 +580,25 @@ async def post_einwilligung(
             hashed = erasure_journal_hash(address, key=config.sperrliste_key)
             journal.note(JournalLine(person_hash=hashed, kind="objection", collection=home, record_id=row["_id"], at=at, seats=seats))
 
-    async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
+    async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAnswerResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
 
         row = await saison_teams_collection.find_one(
-            build_saison_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_ANTWORT_FIELDS, session=session
+            build_saison_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_ANSWER_FIELDS, session=session
         )
         seat = None if row is None else seat_holding(bewerbung_raw=row, token_hash=token_hash)
         refuse(find_unknown_token_refusal(seat=seat))
         assert row is not None and seat is not None
 
         kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
-        refuse(find_saison_frist_refusal(frist=saison_frist_of(confirmations=confirmations, seat=seat), today=today))
+        refuse(find_saison_deadline_refusal(deadline=saison_deadline_of(confirmations=confirmations, seat=seat), today=today))
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         other = saison_link_pair(kontakte=kontakte, confirmations=confirmations, seat=seat, token_hash=token_hash)
         seats = (seat,) if other is None else (seat, other)
 
-        if antwort_data.antwort == "given":
-            geburtsdatum = antwort_data.geburtsdatum
+        if answer_data.answer == "given":
+            birth_date = answer_data.birth_date
 
             # Unanchored: the rollover reads nothing this press writes, so one committing inside it orders as
             # one committing just after.
@@ -616,8 +616,8 @@ async def post_einwilligung(
                 ban_list, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
             )
             refuse(find_einwilligung_barred_refusal(barred=bool(barred)))
-            refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, minimum_age=mindestalter_for(seats)))
-            refuse(find_self_media_refusal(saved=None, media=antwort_data.media, geburtsdatum=geburtsdatum, today=today))
+            refuse(find_alter_refusal(birth_date=birth_date, today=today, minimum_age=mindestalter_for(seats)))
+            refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
 
             await patch_one_in_db(
                 collection=saison_teams_collection,
@@ -625,11 +625,11 @@ async def post_einwilligung(
                 update=compose_confirmation_update(
                     kontakte=kontakte,
                     seats=seats,
-                    geburtsdatum=geburtsdatum,
+                    birth_date=birth_date,
                     today=today,
-                    text_versions=by_choice(antwort_data.text_versions),
-                    whatsapp=antwort_data.whatsapp,
-                    media=antwort_data.media,
+                    text_versions=by_choice(answer_data.text_versions),
+                    whatsapp=answer_data.whatsapp,
+                    media=answer_data.media,
                     at=log_stamp(germany_now),
                 ),
                 session=session,
@@ -637,8 +637,8 @@ async def post_einwilligung(
                 return_document=ReturnDocument.BEFORE,
             )
 
-            return FLSaisonTeamEinwilligungAntwortResponse(
-                ergebnis="confirmed", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp, media=antwort_data.media
+            return FLSaisonTeamEinwilligungAnswerResponse(
+                ergebnis="confirmed", birth_date=birth_date, whatsapp=answer_data.whatsapp, media=answer_data.media
             )
 
         before = await patch_one_in_db(
@@ -682,12 +682,12 @@ async def post_einwilligung(
         )
         journal_the_widerspruch(Collection.SAISON_TEAMS, row, seat, seats)
 
-        return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="declined", geburtsdatum=None, whatsapp=False, media=False)
+        return FLSaisonTeamEinwilligungAnswerResponse(ergebnis="declined", birth_date=None, whatsapp=False, media=False)
 
     @journal.attempted
     async def answer_for_the_person(
         session: AsyncClientSession,
-    ) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
+    ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
 
         One transaction for both branches: a decline is two writes, and a consent judged outside
@@ -695,7 +695,7 @@ async def post_einwilligung(
         """
 
         bewerbung_raw = await bewerbungen_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=EINWILLIGUNG_ANTWORT_FIELDS, session=session
+            build_token_filter(token_hash=token_hash), projection=EINWILLIGUNG_ANSWER_FIELDS, session=session
         )
         if bewerbung_raw is None:
             return await answer_on_the_season_row(session)
@@ -719,14 +719,14 @@ async def post_einwilligung(
 
         # Read before either branch writes: a decline empties this slot, and the message reporting
         # it is the one thing that has to name the person who refused.
-        vorname = seat_vorname(kontakte=kontakte, seat=seat)
+        first_name = seat_first_name(kontakte=kontakte, seat=seat)
         # Present wherever a token is: the submission writes the deadline and the tokens in one
         # insert, and a re-send moves both (`app/api/bewerbungen/services.py :: compose_erneut_update`).
-        bestaetigungsfrist = str(bewerbung_raw["confirmation_deadline"])
+        confirmation_deadline = str(bewerbung_raw["confirmation_deadline"])
         saison_id = str(bewerbung_raw["saison_id"])
 
-        if antwort_data.antwort == "given":
-            geburtsdatum = antwort_data.geburtsdatum
+        if answer_data.answer == "given":
+            birth_date = answer_data.birth_date
 
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
@@ -736,8 +736,8 @@ async def post_einwilligung(
             refuse(find_einwilligung_barred_refusal(barred=bool(barred)))
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
-            refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, minimum_age=mindestalter_for(seats)))
-            refuse(find_self_media_refusal(saved=None, media=antwort_data.media, geburtsdatum=geburtsdatum, today=today))
+            refuse(find_alter_refusal(birth_date=birth_date, today=today, minimum_age=mindestalter_for(seats)))
+            refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
 
             updated_raw = await patch_one_in_db(
                 collection=bewerbungen_collection,
@@ -745,11 +745,11 @@ async def post_einwilligung(
                 update=compose_confirmation_update(
                     kontakte=kontakte,
                     seats=seats,
-                    geburtsdatum=geburtsdatum,
+                    birth_date=birth_date,
                     today=today,
-                    text_versions=by_choice(antwort_data.text_versions),
-                    whatsapp=antwort_data.whatsapp,
-                    media=antwort_data.media,
+                    text_versions=by_choice(answer_data.text_versions),
+                    whatsapp=answer_data.whatsapp,
+                    media=answer_data.media,
                     at=log_stamp(germany_now),
                 ),
                 session=session,
@@ -757,12 +757,12 @@ async def post_einwilligung(
                 return_document=ReturnDocument.AFTER,
             )
 
-            return FLBewerbungEinwilligungAntwortResponse(
+            return FLBewerbungEinwilligungAnswerResponse(
                 quelle="bewerbung",
                 ergebnis="confirmed",
-                geburtsdatum=geburtsdatum,
-                whatsapp=antwort_data.whatsapp,
-                media=antwort_data.media,
+                birth_date=birth_date,
+                whatsapp=answer_data.whatsapp,
+                media=answer_data.media,
             )
 
         updated_raw = await patch_one_in_db(
@@ -803,8 +803,8 @@ async def post_einwilligung(
                             saison_id=saison_id,
                             rollen=abgelehnt_rollen,
                             # Named off the read before the decline: nothing left in the record can say whose entry was refused.
-                            declined=FLBewerbungPerson(vorname=vorname, rollen=list(seats)),
-                            frist=bestaetigungsfrist,
+                            declined=FLBewerbungPerson(first_name=first_name, rollen=list(seats)),
+                            deadline=confirmation_deadline,
                         ),
                         reference=bewerbung_bezug(bewerbung_raw["_id"], abgelehnt_rollen),
                     )
@@ -812,10 +812,10 @@ async def post_einwilligung(
                 now=germany_now,
             )
 
-        return FLBewerbungEinwilligungAntwortResponse(
+        return FLBewerbungEinwilligungAnswerResponse(
             quelle="bewerbung",
             ergebnis="declined",
-            geburtsdatum=None,
+            birth_date=None,
             whatsapp=False,
             media=False,
         )

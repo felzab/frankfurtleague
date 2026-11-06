@@ -30,7 +30,7 @@ import type { RailBanner } from "@/shared/components/ui/railBanner";
 import type { SpielberichtDraft, SpielberichtKontext } from "./spielberichtDraft";
 
 /** The block as the form edits it, and its counter, which the write names as the version it was composed on. */
-type GespeicherterBericht = Pick<FLSpielberichtBericht, "ergebnis_vorschlag" | "torschuetzen" | "karten" | "bemerkungen" | "version">;
+type GespeicherterBericht = Pick<FLSpielberichtBericht, "ergebnis_vorschlag" | "torschuetzen" | "karten" | "remarks" | "version">;
 
 /**
  * The report about other clubs than the fixture fields now, which a save moves to them (`seiten_geaendert`). The body
@@ -162,7 +162,7 @@ export function SpielberichtForm({
               entries={draft.torschuetzen}
               onChange={(torschuetzen) => change({ torschuetzen })}
               onAdd={() =>
-                change({ torschuetzen: [...draft.torschuetzen, { key: neuerKey(), seite: null, spieler: "", minute: "", eigentor: false }] })
+                change({ torschuetzen: [...draft.torschuetzen, { key: neuerKey(), side: null, spieler: "", minute: "", eigentor: false }] })
               }
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
@@ -175,7 +175,7 @@ export function SpielberichtForm({
               eintraege={draft.karten}
               onChange={(karten) => change({ karten })}
               onAdd={() =>
-                change({ karten: [...draft.karten, { key: neuerKey(), seite: null, spieler: "", minute: "", farbe: null, grund: null }] })
+                change({ karten: [...draft.karten, { key: neuerKey(), side: null, spieler: "", minute: "", colour: null, card_reason: null }] })
               }
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
@@ -184,8 +184,8 @@ export function SpielberichtForm({
             />
 
             <FormBemerkungenSection
-              bemerkungen={draft.bemerkungen}
-              onChange={(bemerkungen) => change({ bemerkungen })}
+              remarks={draft.remarks}
+              onChange={(bemerkungen) => change({ remarks: bemerkungen })}
               onValidateFields={validateFields}
             />
           </EditFormLayout>

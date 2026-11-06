@@ -20,11 +20,11 @@ const SEARCH_KEYS = [
   "saison_id",
   "schule.full_name",
   "schule.address.stadt",
-  "kontakte.trainer.nachname",
+  "kontakte.trainer.last_name",
   "kontakte.trainer.email",
-  "kontakte.ansprechperson.nachname",
+  "kontakte.ansprechperson.last_name",
   "kontakte.ansprechperson.email",
-  "kontakte.stellvertretung.nachname",
+  "kontakte.stellvertretung.last_name",
   "kontakte.stellvertretung.email",
 ] as const;
 

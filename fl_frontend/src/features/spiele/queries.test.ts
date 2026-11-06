@@ -27,7 +27,7 @@ const countOf = (endpoint: string): number => reads.filter((read) => read.endpoi
 /** The counts by endpoint, so a per-endpoint delta needs no index into a parallel array. */
 const countsNow = (): Map<string, number> => new Map(ENDPOINTS.map((endpoint) => [endpoint, countOf(endpoint)]));
 
-const ENDPOINTS = ["/spiele/list/verwaltung"];
+const ENDPOINTS = ["/spiele/list/admin"];
 
 /** The read, given a FRESHLY BUILT filter object -- what a page does on every call. */
 const readSeason = async (): Promise<unknown> => getAdminSpiele({ saison_id: SAISON_ID });
@@ -52,7 +52,7 @@ describe("the filtered admin reads across a render pass", () => {
 
   it("separates two filter sets, so a narrowed read is never served the whole season", async () => {
     beginRenderPass();
-    const before = countOf("/spiele/list/verwaltung");
+    const before = countOf("/spiele/list/admin");
 
     // The season editor's own three fixture reads: same season, three different questions.
     await Promise.all([
@@ -61,19 +61,19 @@ describe("the filtered admin reads across a render pass", () => {
       getAdminSpiele({ saison_id: SAISON_ID, saison_phase: "gruppenphase" }),
     ]);
 
-    expect(countOf("/spiele/list/verwaltung") - before, "two different filter sets shared one answer").toBe(3);
+    expect(countOf("/spiele/list/admin") - before, "two different filter sets shared one answer").toBe(3);
   });
 
   it("keys on the filters rather than the order they are written in", async () => {
     beginRenderPass();
-    const before = countOf("/spiele/list/verwaltung");
+    const before = countOf("/spiele/list/admin");
 
     await Promise.all([
       getAdminSpiele({ saison_id: SAISON_ID, saison_phase: "playoffs" }),
       getAdminSpiele({ saison_phase: "playoffs", saison_id: SAISON_ID }),
     ]);
 
-    expect(countOf("/spiele/list/verwaltung") - before, "the same filters written in another order paid for a second round trip").toBe(1);
+    expect(countOf("/spiele/list/admin") - before, "the same filters written in another order paid for a second round trip").toBe(1);
   });
 
   it("is fetched again in the next pass, so no request is served another's copy", async () => {

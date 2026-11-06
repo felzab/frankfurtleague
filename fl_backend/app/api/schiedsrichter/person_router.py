@@ -18,7 +18,7 @@ from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schied
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelfResponse,
 )
-from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, build_self_referee_filter, build_self_referee_pipeline
+from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -51,7 +51,7 @@ async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collecti
     """
     Answer every confirmed referee record the signed-in address holds, with its stored contact details.
 
-    PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
+    PERSON TIER: the fee set for them per fixture as `payment`, never the confirmation link's bookkeeping. A retired
     record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
 
     Refuses an address holding no confirmed referee record (`role_not_held`).
@@ -108,19 +108,19 @@ async def patch_einwilligung(
     @journal.attempted
     async def write(session: AsyncClientSession) -> None:
         row = await schiedsrichter_collection.find_one(
-            eigener_eintrag, projection={"kontakt.email": 1, "geburtsdatum": 1, EINWILLIGUNG_FELD: 1}, session=session
+            eigener_eintrag, projection={"kontakt.email": 1, "birth_date": 1, EINWILLIGUNG_FIELD: 1}, session=session
         )
         # The fold decides, as it does for the read: the filter's pattern is the wider rule.
         refuse(find_own_entry_refusal(held=row is not None and is_own_schiedsrichter(row, identifier)))
         assert row is not None
-        saved = row[EINWILLIGUNG_FELD]
+        saved = row[EINWILLIGUNG_FIELD]
 
         async def may_give() -> bool:
             return may_grant_on_schiedsrichter(await roles_of(identifier, records, session=session), schiedsrichter_id)
 
         await press_einwilligung(
             blocks=[saved],
-            birth_dates=[row.get("geburtsdatum")],
+            birth_dates=[row.get("birth_date")],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
             text_versions=einwilligung_data.text_versions,

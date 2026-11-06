@@ -22,7 +22,7 @@ from app.api.registrierungen.schemas import (
 )
 from app.api.registrierungen.services import (
     BESTAETIGUNG_ANSICHT_FIELDS,
-    BESTAETIGUNG_ANTWORT_FIELDS,
+    BESTAETIGUNG_ANSWER_FIELDS,
     REGISTRIERUNG_LINK,
     build_bestaetigung_filter,
     compose_bestaetigung,
@@ -42,9 +42,9 @@ from app.api.registrierungen.services import (
     find_team_junction_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
-    gespeichertes_geburtsdatum,
+    page_of,
     saison_nimmt_registrierungen_an,
-    seite_of,
+    stored_birth_date,
     zustand_of,
 )
 from app.api.saisons.services import has_started
@@ -76,7 +76,7 @@ from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
@@ -93,7 +93,7 @@ router = APIRouter(
 # What a season read serves this tier: the two rules a form is bounded by, the window, the
 # status the page words a closed link with, and the start the Nachnominierung verdict is judged on,
 # which reaches the holder as that verdict alone. No other field of a season reaches an invite's holder.
-SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kadergroesse", "status", "start_date"]
+SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_size", "status", "start_date"]
 
 # What a replay reads of the registration its key found: the digest it is compared by.
 WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
@@ -104,7 +104,7 @@ WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 
 
 def _live_squad_filter(*, saison_id: str, team_id: Any) -> dict[str, Any]:
-    """Which rows count towards `max_kadergroesse`, as `app/api/spieler/services.py :: build_live_squad_filter` counts them.
+    """Which rows count towards `max_kader_size`, as `app/api/spieler/services.py :: build_live_squad_filter` counts them.
 
     Retired rows are out: a player who left gave their place back. Nothing else is excluded, a
     registration not yet being a squad row.
@@ -179,7 +179,7 @@ async def post_invitation_view(
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
-        kader_free=squad_size < int(rules.get("max_kadergroesse") or 0),
+        kader_free=squad_size < int(rules.get("max_kader_size") or 0),
         nachnominierung=nachnominierung,
     )
 
@@ -284,7 +284,7 @@ async def post_registrierung(
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 
         squad_size = await saison_spieler_collection.count_documents(_live_squad_filter(saison_id=saison_id, team_id=team_id), session=session)
-        refuse(find_kader_refusal(squad_size=squad_size, max_kadergroesse=int(rules.get("max_kadergroesse") or 0)))
+        refuse(find_kader_refusal(squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0)))
 
         barred = await hash_barred(
             ban_list,
@@ -295,7 +295,7 @@ async def post_registrierung(
         )
         refuse(find_barred_refusal(barred=barred))
 
-        frist = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS)
+        deadline = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
 
         created = await post_one_to_db(
             collection=registrierungen_collection,
@@ -304,13 +304,13 @@ async def post_registrierung(
                     saison_id=saison_id,
                     team_id=team_id,
                     invitation_id=einladung_raw["_id"],
-                    vorname=registrierung_data.vorname,
-                    nachname=registrierung_data.nachname,
+                    first_name=registrierung_data.first_name,
+                    last_name=registrierung_data.last_name,
                     email=str(registrierung_data.email),
                     position=registrierung_data.position,
                     nummer=registrierung_data.nummer,
                     stufe=registrierung_data.stufe,
-                    confirmation=compose_bestaetigung(today=today, frist=frist),
+                    confirmation=compose_bestaetigung(today=today, deadline=deadline),
                     today=today,
                 ),
                 **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
@@ -332,7 +332,7 @@ async def post_registrierung(
                         # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
                         team=str((junction_raw or {}).get("name", "")),
                         saison_id=saison_id,
-                        frist_days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
+                        deadline_days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
                     ),
                     reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     link=REGISTRIERUNG_LINK,
@@ -387,7 +387,7 @@ async def get_confirmation_view(
     assert team_raw is not None
 
     person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=None)
-    seite = seite_of(registrierung_raw=raw, person_raw=person)
+    page = page_of(registrierung_raw=raw, person_raw=person)
 
     barred = await barred_addresses(ban_list, [str(raw.get("email") or "")])
 
@@ -396,7 +396,7 @@ async def get_confirmation_view(
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
-        seite=seite,
+        page=page,
         minimum_age=REGISTRIERUNG_MIN_AGE_YEARS,
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
@@ -408,7 +408,7 @@ async def get_confirmation_view(
     summary="Confirm one registration and record the pupil's consent",
 )
 async def post_confirmation(
-    antwort_data: Annotated[FLRegistrierungConfirmationPayload, Body()],
+    answer_data: Annotated[FLRegistrierungConfirmationPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
     spieler_collection: SpielerCollection,
     ban_list: BanListLookup,
@@ -422,7 +422,7 @@ async def post_confirmation(
     `link_barred` and `registrierung_choices_unsuitable`.
     """
 
-    token_hash = hash_token(antwort_data.token)
+    token_hash = hash_token(answer_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
@@ -434,7 +434,7 @@ async def post_confirmation(
         """
 
         raw = await registrierungen_collection.find_one(
-            build_bestaetigung_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANTWORT_FIELDS), session=session
+            build_bestaetigung_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANSWER_FIELDS), session=session
         )
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
@@ -445,35 +445,35 @@ async def post_confirmation(
         # the date this press is judged against, and the page it showed is told to reload rather than
         # stored under the other.
         person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=session)
-        seite = seite_of(registrierung_raw=raw, person_raw=person)
-        saved = gespeichertes_geburtsdatum(seite=seite, person_raw=person)
+        page = page_of(registrierung_raw=raw, person_raw=person)
+        saved = stored_birth_date(page=page, person_raw=person)
         refuse(
             find_wahlen_refusal(
-                seite=seite,
-                scope=antwort_data.scope,
-                media=antwort_data.media,
-                text_versions=antwort_data.text_versions,
-                geburtsdatum=antwort_data.geburtsdatum,
+                page=page,
+                scope=answer_data.scope,
+                media=answer_data.media,
+                text_versions=answer_data.text_versions,
+                birth_date=answer_data.birth_date,
             )
         )
         # Exactly one of the two is set once the refusals above have passed: every stored person carries a birthdate.
-        geburtsdatum = antwort_data.geburtsdatum or saved
-        assert geburtsdatum is not None
+        birth_date = answer_data.birth_date or saved
+        assert birth_date is not None
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         barred = await barred_addresses(ban_list, [str(raw.get("email") or "")], governing_saison_id=governing_saison_id, session=session)
         refuse(find_confirmation_barred_refusal(barred=bool(barred)))
-        refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today))
-        refuse(find_medien_refusal(geburtsdatum=geburtsdatum, media=antwort_data.media is True, today=today))
+        refuse(find_alter_refusal(birth_date=birth_date, today=today))
+        refuse(find_medien_refusal(birth_date=birth_date, media=answer_data.media is True, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,
             db_filter={"_id": raw["_id"]},
             update=compose_confirmation_update(
-                geburtsdatum=geburtsdatum,
-                scope=antwort_data.scope,
-                media=antwort_data.media,
-                text_versions=None if antwort_data.text_versions is None else by_choice(antwort_data.text_versions),
+                birth_date=birth_date,
+                scope=answer_data.scope,
+                media=answer_data.media,
+                text_versions=None if answer_data.text_versions is None else by_choice(answer_data.text_versions),
                 today=today,
                 at=log_stamp(germany_now),
             ),
@@ -486,9 +486,9 @@ async def post_confirmation(
         # states back, and re-reading the row would widen it to everything a registration holds.
         return FLRegistrierungConfirmationResponse(
             ergebnis="confirmed",
-            geburtsdatum=antwort_data.geburtsdatum,
-            scope=antwort_data.scope,
-            media=antwort_data.media,
+            birth_date=answer_data.birth_date,
+            scope=answer_data.scope,
+            media=answer_data.media,
         )
 
     async with transaction_session(db) as session:

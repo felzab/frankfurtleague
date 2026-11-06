@@ -39,7 +39,7 @@ export function FormAustrittSection({
   onArtChange,
   grund,
   onGrundChange,
-  datum,
+  date: datum,
   onDatumChange,
   onValidateFields,
 }: {
@@ -50,7 +50,7 @@ export function FormAustrittSection({
   onArtChange: (next: FLAustrittType) => void;
   grund: string;
   onGrundChange: (next: string) => void;
-  datum: CalendarDate | null;
+  date: CalendarDate | null;
   onDatumChange: (next: CalendarDate | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
@@ -133,10 +133,10 @@ export function FormAustrittSection({
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <TextField
-                name="austritt.grund"
+                name="austritt.exit_reason"
                 value={grund}
                 onChange={onGrundChange}
-                onBlur={() => onValidateFields(["austritt.grund"])}>
+                onBlur={() => onValidateFields(["austritt.exit_reason"])}>
                 <FieldLabel<TeamFieldPath> path="austritt">Grund</FieldLabel>
                 <Input className={FIELD_INPUT_CLASSES} />
                 <FieldError className={FIELD_ERROR_CLASSES} />
@@ -151,12 +151,12 @@ export function FormAustrittSection({
               {/* ARIA only: react-aria marks no control inside a date picker, so the browser cannot
                   refuse it empty. `missingVerdicts` supplies the German instead, on submit. */}
               <AppDatePicker
-                name="austritt.datum"
+                name="austritt.date"
                 label={<FieldLabel<TeamFieldPath> path="austritt">Wirksam ab</FieldLabel>}
                 calendarLabel="Wirksamkeitsdatum auswählen"
                 value={datum}
                 onChange={onDatumChange}
-                onBlur={() => onValidateFields(["austritt.datum"])}
+                onBlur={() => onValidateFields(["austritt.date"])}
               />
             </div>
           </>

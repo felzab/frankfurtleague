@@ -11,8 +11,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.registrierungen.public_router import get_confirmation_view, post_confirmation
 from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload
 from app.api.registrierungen.services import (
-    SEITE_NEU,
-    SEITE_WIEDERKEHREND,
+    PAGE_NEW,
+    PAGE_RETURNING,
     compose_bestaetigung,
 )
 from app.api.sperrliste.services import compose_barred_until_saison_id
@@ -89,7 +89,7 @@ def spieler_document(spieler_id: ObjectId, **overrides: Any) -> dict[str, Any]:
     """One person the league already holds, whose link opens the returning pupil's page."""
 
     person = documents.spieler_document(
-        spieler_id, "Quillhilde", "Brackenmoor", geburtsdatum=A_RETURNING_PUPILS_BIRTHDATE, einwilligung=einwilligung(), email=FOLDED_EMAIL
+        spieler_id, "Quillhilde", "Brackenmoor", birth_date=A_RETURNING_PUPILS_BIRTHDATE, einwilligung=einwilligung(), email=FOLDED_EMAIL
     )
 
     return {**person, **overrides}
@@ -105,15 +105,15 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "invitation_id": EINLADUNG_OID,
         "submitted_at": "2026-03-26",
         "status": "submitted",
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
+        "first_name": "Quillhilde",
+        "last_name": "Brackenmoor",
         "email": FOLDED_EMAIL,
         "position": "Abwehr",
         "nummer": "7",
         "stufe": "Q1",
-        "geburtsdatum": None,
+        "birth_date": None,
         "einwilligung": None,
-        "confirmation": {**compose_bestaetigung(today="2026-03-26", frist=TOMORROW), "token_hashes": [TOKEN_HASH]},
+        "confirmation": {**compose_bestaetigung(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
         "decision": None,
         **overrides,
     }
@@ -164,7 +164,7 @@ async def read_view(database: AsyncDatabase, token: str, *, spieler_collection: 
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
     body = {
         "token": token,
-        "geburtsdatum": AT_THE_FLOOR,
+        "birth_date": AT_THE_FLOOR,
         "scope": "kader_oeffentlich",
         # Off, because the default date is sixteen: a media consent is refused below eighteen.
         "media": False,
@@ -173,7 +173,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     }
 
     return await post_confirmation(
-        antwort_data=FLRegistrierungConfirmationPayload.model_validate(body),
+        answer_data=FLRegistrierungConfirmationPayload.model_validate(body),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         spieler_collection=database[Collection.SPIELER],
         ban_list=ban_list(database),
@@ -202,14 +202,14 @@ class TestWhatALinkOpens:
 
         registration = registrierung_document()
         assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
-        assert registration["vorname"] not in rendered and registration["nachname"] not in rendered
+        assert registration["first_name"] not in rendered and registration["last_name"] not in rendered
         assert FOLDED_EMAIL not in rendered
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
     def test_a_first_timer_is_asked_for_a_date(self, mongo_replica_set_url: str):
         response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW))
 
-        assert response.seite == SEITE_NEU
+        assert response.page == PAGE_NEW
 
     @pytest.mark.parametrize(
         "person",
@@ -221,7 +221,7 @@ class TestWhatALinkOpens:
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), spieler=[person])
 
-        assert response.seite == SEITE_WIEDERKEHREND
+        assert response.page == PAGE_RETURNING
         assert A_RETURNING_PUPILS_BIRTHDATE not in response.model_dump_json()
 
     def test_a_record_nobody_confirmed_makes_no_returning_pupil(self, mongo_replica_set_url: str):
@@ -231,7 +231,7 @@ class TestWhatALinkOpens:
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), spieler=[unconfirmed])
 
-        assert response.seite == SEITE_NEU
+        assert response.page == PAGE_NEW
 
     def test_a_differently_named_pupil_at_the_same_mailbox_is_asked_for_their_own_date(self, mongo_replica_set_url: str):
         """The defect the name narrowing exists for.
@@ -240,12 +240,12 @@ class TestWhatALinkOpens:
         press then stores it onto their own registration.
         """
 
-        sibling = registrierung_document(vorname="Bramblewick")
+        sibling = registrierung_document(first_name="Bramblewick")
         held = [spieler_document(SPIELER_OID)]
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), registrierungen=[sibling], spieler=held)
 
-        assert response.seite == SEITE_NEU
+        assert response.page == PAGE_NEW
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
@@ -268,7 +268,7 @@ class TestWhatAConfirmationWrites:
 
         response, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert document["geburtsdatum"] == AT_THE_FLOOR
+        assert document["birth_date"] == AT_THE_FLOOR
         assert document["einwilligung"] == {
             "scope": "kader_oeffentlich",
             "date": TODAY,
@@ -281,7 +281,7 @@ class TestWhatAConfirmationWrites:
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmation"]["token_hashes"] == [TOKEN_HASH]
-        assert (response.ergebnis, response.geburtsdatum, response.scope, response.media) == (
+        assert (response.ergebnis, response.birth_date, response.scope, response.media) == (
             "confirmed",
             AT_THE_FLOOR,
             "kader_oeffentlich",
@@ -328,15 +328,15 @@ class TestWhatAConfirmationWrites:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             held = await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
-            response = await answer(database, client, RAW, geburtsdatum=None, scope=None, media=None, text_versions=None)
+            response = await answer(database, client, RAW, birth_date=None, scope=None, media=None, text_versions=None)
 
             return response, await stored(database), held, await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
 
         response, document, held, person = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID)])
 
         assert document["einwilligung"] == {"confirmed_at": TODAY}
-        assert document["geburtsdatum"] == A_RETURNING_PUPILS_BIRTHDATE
-        assert (response.ergebnis, response.geburtsdatum, response.scope, response.media) == ("confirmed", None, None, None)
+        assert document["birth_date"] == A_RETURNING_PUPILS_BIRTHDATE
+        assert (response.ergebnis, response.birth_date, response.scope, response.media) == ("confirmed", None, None, None)
         assert person == held
 
     def test_a_stored_date_below_the_floor_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
@@ -344,11 +344,11 @@ class TestWhatAConfirmationWrites:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW, geburtsdatum=None, scope=None, media=None, text_versions=None)
+                await answer(database, client, RAW, birth_date=None, scope=None, media=None, text_versions=None)
 
             return refused.value.error_code, await stored(database)
 
-        too_young = spieler_document(SPIELER_OID, geburtsdatum=A_DAY_SHORT, einwilligung=einwilligung(media=False))
+        too_young = spieler_document(SPIELER_OID, birth_date=A_DAY_SHORT, einwilligung=einwilligung(media=False))
         code, document = on_a_league(mongo_replica_set_url, body, spieler=[too_young])
 
         assert code == Code.CONFIRMATION_AGE
@@ -359,7 +359,7 @@ class TestWhatAConfirmationWrites:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW)).model_dump_json()
 
-        assert registrierung_document()["nachname"] not in rendered and FOLDED_EMAIL not in rendered
+        assert registrierung_document()["last_name"] not in rendered and FOLDED_EMAIL not in rendered
         assert TOKEN_HASH not in rendered and RAW not in rendered
 
 
@@ -383,7 +383,7 @@ class TestTheChoicesThePageAsks:
                 {"scope": None, "media": None},
                 id="the returning page, sent a date",
             ),
-            pytest.param([], THIS_SEASONS_LABELS, {"geburtsdatum": None}, id="the new pupil's page, sent no date"),
+            pytest.param([], THIS_SEASONS_LABELS, {"birth_date": None}, id="the new pupil's page, sent no date"),
         ],
     )
     def test_a_body_not_matching_its_page_is_refused_and_writes_nothing(
@@ -407,7 +407,7 @@ class TestTheLinkIsSpentByTheStamp:
         """The first answer carries `media`, so a refused press that overwrote either half of the pair turns this red."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, media=True)
+            await answer(database, client, RAW, birth_date=AT_THE_MEDIA_AGE, media=True)
 
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, scope="intern", media=False)
@@ -425,7 +425,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
+                await answer(database, client, RAW, birth_date=A_DAY_SHORT)
 
             return conflict.value.error_code, await read_view(database, RAW), await stored(database), await log_rows(database)
 
@@ -438,7 +438,7 @@ class TestTheLinkIsSpentByTheStamp:
 
     def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
         expired = registrierung_document(
-            confirmation={**compose_bestaetigung(today="2026-03-20", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}
+            confirmation={**compose_bestaetigung(today="2026-03-20", deadline=YESTERDAY), "token_hashes": [TOKEN_HASH]}
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -455,7 +455,7 @@ class TestTheLinkIsSpentByTheStamp:
     def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
         """One code for both: a pupil whose registration was declined while their link stood open is told the link is over, not why."""
 
-        entscheidung = {"made_at": YESTERDAY, "by": "admin", "grund": "kein Platz"}
+        entscheidung = {"made_at": YESTERDAY, "by": "admin", "decision_reason": "kein Platz"}
         declined = registrierung_document(status="declined", decision=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -490,7 +490,7 @@ class TestTheMediaAge:
     def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
+                await answer(database, client, RAW, birth_date=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)
 

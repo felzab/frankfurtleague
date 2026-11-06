@@ -161,7 +161,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
         {offen.waits_on === "new_address" && offen.valid_until !== null && (
           <LinkStandAngaben
             verschicktAm={offen.sent_at}
-            frist={offen.valid_until}
+            deadline={offen.valid_until}
             fristArt="zeitpunkt"
             istAbgelaufen={offen.expired}
             zustellung={offen.delivery}

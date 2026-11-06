@@ -68,7 +68,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
     const lines = row.seats.flatMap((seat) =>
       seat.person === null
         ? []
-        : [`${seat.label}: ${seat.person.vorname} ${seat.person.nachname} | ${seat.person.email} | ${seat.person.telefon}`],
+        : [`${seat.label}: ${seat.person.first_name} ${seat.person.last_name} | ${seat.person.email} | ${seat.person.phone}`],
     );
     const copied = await copyTextToClipboard([row.teamName, ...lines].join("\n"));
 
@@ -91,9 +91,9 @@ export const AdminKontakteList = memo(function AdminKontakteList({
         </span>
       ) : (
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate fluid-sm font-semibold text-foreground">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
+          <span className="truncate fluid-sm font-semibold text-foreground">{`${seat.person.first_name} ${seat.person.last_name}`}</span>
           <span className="truncate fluid-xs text-foreground-muted">{seat.person.email}</span>
-          <span className="truncate font-numeric fluid-xs text-foreground-muted">{seat.person.telefon}</span>
+          <span className="truncate font-numeric fluid-xs text-foreground-muted">{seat.person.phone}</span>
         </div>
       )}
     </div>

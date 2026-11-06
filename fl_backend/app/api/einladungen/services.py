@@ -162,21 +162,21 @@ def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLInvitationRecipient]:
             continue
 
         seen.add(address)
-        empfaenger.append(FLInvitationRecipient(rolle=rolle, vorname=str(entry.get("vorname") or ""), email=address))
+        empfaenger.append(FLInvitationRecipient(rolle=rolle, first_name=str(entry.get("first_name") or ""), email=address))
 
     return empfaenger
 
 
-class EinladungVersandPlan(NamedTuple):
+class EinladungDispatchPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
     recipient: list[FLInvitationRecipient]
     skipped: FLInvitationSkipReason | None
 
 
-def plan_einladung_versand(
+def plan_einladung_dispatch(
     *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, resend: bool, barred: Collection[str]
-) -> EinladungVersandPlan:
+) -> EinladungDispatchPlan:
     """Who this team's link goes to, or why it is skipped. The season editor's rows and the press both read it.
 
     `einladung_raw` is the team's live invite, `None` where it holds none. `barred` holds the stored addresses a standing
@@ -186,23 +186,23 @@ def plan_einladung_versand(
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
     if austritt is not None:
-        return EinladungVersandPlan([], "austritt_entered")
+        return EinladungDispatchPlan([], "austritt_entered")
 
     if not isinstance(kontakte, Mapping):
-        return EinladungVersandPlan([], "no_kontaktblock")
+        return EinladungDispatchPlan([], "no_kontaktblock")
 
     empfaenger = bestaetigte_empfaenger(kontakte=kontakte)
     if not empfaenger:
-        return EinladungVersandPlan([], "no_confirmed_kontaktperson")
+        return EinladungDispatchPlan([], "no_confirmed_kontaktperson")
 
     # Ahead of the mail's state, which a barred address's mail settles `barred`: a team reached by
     # nobody else would lose its link to a fresh mint at every press while the ban stands.
     if all(person.email in barred for person in empfaenger):
-        return EinladungVersandPlan([], "kontakte_barred")
+        return EinladungDispatchPlan([], "kontakte_barred")
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
     # reach, and skipping on the row would leave sixteen links unsent for ever.
     if einladung_ist_versendet(einladung_raw) and not resend:
-        return EinladungVersandPlan([], "already_sent")
+        return EinladungDispatchPlan([], "already_sent")
 
-    return EinladungVersandPlan(empfaenger, None)
+    return EinladungDispatchPlan(empfaenger, None)

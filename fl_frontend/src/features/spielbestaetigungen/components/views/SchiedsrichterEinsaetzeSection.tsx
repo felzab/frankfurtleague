@@ -21,7 +21,7 @@ import {
   ZUSAGE_GESPEICHERT,
   ZUSAGE_NICHT_GESPEICHERT,
 } from "@/features/spielbestaetigungen/utils";
-import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
+import { SPIELBESTAETIGUNG_REASON_MAX_LENGTH } from "@/features/spiele/constants";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -68,7 +68,7 @@ const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSelfState, "valid">, { text: s
   expired: { text: "Keine Antwort mehr möglich", ton: null },
   invalid: { text: "Nicht mehr gültig: Termin oder Einteilung haben sich geändert", ton: null },
   // The fixture's word as `SCHLIESSGRUND_LABELS` gives it, never „Abgesagt“ alone, which is the referee's own decline above.
-  abgesagt: { text: "Spiel abgesagt", ton: "danger" },
+  cancelled: { text: "Spiel abgesagt", ton: "danger" },
 };
 
 /** A Zusage the league entered, which puts the referee on the schedule as their own would: never read as theirs. */
@@ -148,7 +148,7 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
 function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelf }) {
   const { ansetzung } = einsatz;
   const paarung = `${ansetzung.team1_name} vs. ${ansetzung.team2_name}`;
-  const datum = formatSpielDatum(ansetzung.datum);
+  const date = formatSpielDatum(ansetzung.date);
 
   return (
     <li
@@ -162,14 +162,14 @@ function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelf }) {
       <dl className={FIELD_PAIR_CLASSES}>
         <Angabe label="Termin">{terminText(ansetzung)}</Angabe>
         <Angabe label="Ort">{ansetzung.spielort?.name ?? <Leer />}</Angabe>
-        {einsatz.state === "declined" && <Angabe label="Begründung">{einsatz.begruendung ?? <Leer />}</Angabe>}
+        {einsatz.state === "declined" && <Angabe label="Begründung">{einsatz.reason ?? <Leer />}</Angabe>}
       </dl>
 
       {einsatz.state === "valid" && (
-        <Antwort
+        <Answer
           spielbestaetigungId={einsatz.id}
           // The words first, which speech input says, then what tells the rows' controls apart (WCAG 2.5.3).
-          wofuer={`${paarung} am ${datum}`}
+          wofuer={`${paarung} am ${date}`}
         />
       )}
     </li>
@@ -187,10 +187,10 @@ function Erledigt({ einsatz }: { einsatz: FLSpielbestaetigungSelf }) {
  * The two answers to one open row: a Zusage armed by its first press and sent by its second, the first answer binding,
  * and a decline behind the disclosure, which takes no answer without its reason. Each is one write.
  */
-function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; wofuer: string }) {
+function Answer({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; wofuer: string }) {
   const zusage = useTwoPressConfirm();
   const [isSendingAbsage, startSendingAbsage] = useTransition();
-  const [begruendung, setBegruendung] = useState("");
+  const [reason, setReason] = useState("");
 
   // The payload the action parses, judging the draft too: a second schema here would refuse at rules the action does not.
   const { reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } = useDraftFieldErrors({
@@ -198,7 +198,7 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
     failureTitle: ABSAGE_NICHT_GESPEICHERT,
   });
 
-  const absage = { begruendung: begruendung };
+  const absage = { reason };
   useForgiveFixed({ absage: absage });
 
   const sendeZusage = () => {
@@ -296,11 +296,11 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
             <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
               {/* One line, as the endpoint stores it: a line break is refused rather than kept. */}
               <TextField
-                name="begruendung"
-                value={begruendung}
-                onChange={setBegruendung}
-                onBlur={() => validatePaths("absage", absage, ["begruendung"])}
-                maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
+                name="reason"
+                value={reason}
+                onChange={setReason}
+                onBlur={() => validatePaths("absage", absage, ["reason"])}
+                maxLength={SPIELBESTAETIGUNG_REASON_MAX_LENGTH}>
                 {/* The row heard after the visible word, as the admin panel's box names its party: two open rows hold a box each. */}
                 <Label className={FIELD_LABEL_CLASSES}>
                   Begründung<span className="sr-only">: {wofuer}</span>

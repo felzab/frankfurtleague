@@ -29,7 +29,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 
 import {
   alterAusserhalb,
-  BEWERBUNG_GRUND_MAX_LENGTH,
+  BEWERBUNG_DECISION_REASON_MAX_LENGTH,
   BEWERBUNG_KADER_GROESSE_MAX,
   BEWERBUNG_MIN_ALTER,
   BEWERBUNG_STUFENGROESSE_MAX,
@@ -61,13 +61,15 @@ export const FLAblehnenBewerbungPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   // Required and non-empty: it is stored on the application AND sent to the people who applied, so a
   // decline with nothing to say is one nobody can act on.
-  grund: z
+  decision_reason: z
     .string()
     // Trimmed before it is measured, and the trimmed value is what the write carries: „   “ is an
     // empty reason, and a decline is stored and mailed once with no way back.
     .trim()
     .nonempty({ error: "Bitte gib einen Grund für die Absage an." })
-    .max(BEWERBUNG_GRUND_MAX_LENGTH, { error: `Der Grund darf höchstens ${String(BEWERBUNG_GRUND_MAX_LENGTH)} Zeichen lang sein.` }),
+    .max(BEWERBUNG_DECISION_REASON_MAX_LENGTH, {
+      error: `Der Grund darf höchstens ${String(BEWERBUNG_DECISION_REASON_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
 });
 
 /**
@@ -84,10 +86,10 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
 
 /** The four fields the applicant types for one seat, with the Kenntnisnahme the form gathers for all three at once. */
 const FLBewerbungKontaktpersonPayloadSchema = z.object({
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
-  telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  phone: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No birthdate: each contact enters their own on the confirmation page, and the key is undeclared
   // here so the API refuses one an older client still sends rather than storing an unchecked date.
   einwilligung: FLBewerbungEinwilligungPayloadSchema,
@@ -115,7 +117,7 @@ const FLBewerbungKontaktePayloadSchema = z
   .superRefine(
     kontaktePersonenRegeln({
       email: FLBewerbungKontaktpersonPayloadSchema.shape.email,
-      telefon: FLBewerbungKontaktpersonPayloadSchema.shape.telefon,
+      phone: FLBewerbungKontaktpersonPayloadSchema.shape.phone,
       zugleich: FLTrainerZugleichSchema,
     }),
     { when: ({ value }) => SITZE_LESBAR.safeParse(value).success },
@@ -281,14 +283,14 @@ export const FLKontaktRolleSchema = z.enum(FLKontaktRolle, {
  */
 export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
   z.discriminatedUnion(
-    "antwort",
+    "answer",
     [
       z.object({
-        antwort: z.literal("given" satisfies FLBewerbungEinwilligungGiven["antwort"]),
+        answer: z.literal("given" satisfies FLBewerbungEinwilligungGiven["answer"]),
         token: einwilligungToken,
         // Each stage only once the one before it passed: the empty picker is the missing date, and an age is
         // judged of a real date alone.
-        geburtsdatum: z
+        birth_date: z
           .string()
           .min(1, { error: "Bitte gib Dein Geburtsdatum ein." })
           .pipe(CustomDateStringSchema)
@@ -308,7 +310,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
         // The wordings this page rendered beside the two switches, which the seat's evidence cites.
         text_versions: textVersionsSchema(SEAT_TEXT_VERSIONS, LINK_FASSUNG_FEHLT),
       }),
-      z.object({ antwort: z.literal("declined" satisfies FLBewerbungEinwilligungDeclined["antwort"]), token: einwilligungToken }),
+      z.object({ answer: z.literal("declined" satisfies FLBewerbungEinwilligungDeclined["answer"]), token: einwilligungToken }),
     ],
     // No control offers another, so a value outside the pair is a drifted client rather than a mistyped
     // answer, and the repair is the reload rather than a choice.
@@ -320,7 +322,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
  * `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` parses a body carrying the token alone, so
  * the seat's own floor is the page's to offer and the endpoint's to refuse.
  */
-export const FLBewerbungEinwilligungAntwortPayloadSchema = buildEinwilligungAntwortPayloadSchema(BEWERBUNG_MIN_ALTER);
+export const FLBewerbungEinwilligungAnswerPayloadSchema = buildEinwilligungAntwortPayloadSchema(BEWERBUNG_MIN_ALTER);
 
 /** Which application and which of its seats. Both travel in the path, so the request carries no body at all. */
 export const FLEinwilligungErneutPayloadSchema = z.object({
@@ -348,8 +350,8 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
 export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
-  telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  phone: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
 });

@@ -85,10 +85,10 @@ describe("one pass of the pupils' deletion", () => {
   });
 
   /** Answers a call carrying no place with the failing front, and the call carrying `ORT` with the due pupil behind it. */
-  const vorneDann = <T>(vorne: T, dahinter: T, ende: T) => {
+  const vorneDann = <T>(vorne: T, dahinter: T, end: T) => {
     let ohneOrt = 0;
     // Bounded: a loop dropping the place ends on its fourth call rather than hanging.
-    return (after: string | null): T => (after === ORT ? dahinter : ++ohneOrt <= 3 ? vorne : ende);
+    return (after: string | null): T => (after === ORT ? dahinter : ++ohneOrt <= 3 ? vorne : end);
   };
 
   /* A share's worth of failing pupils fills the front, so the call reaching them deletes nobody while a due pupil stands

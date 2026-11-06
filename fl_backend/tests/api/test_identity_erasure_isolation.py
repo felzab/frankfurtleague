@@ -63,11 +63,11 @@ REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
 
 OPEN_WINDOW = {"start": "2026-03-01", "end": "2026-04-30"}
-# The registration window's own shape: it stores its start as `von`.
-OPEN_REGISTRATION_WINDOW = {"offen": True, "end": "2026-04-30"}
+# The registration window's own shape: it stores its start as `by`.
+OPEN_REGISTRATION_WINDOW = {"open": True, "end": "2026-04-30"}
 
 REFEREE_NAME = "Bernd Kraus"
-TELEFON = "+49 69 5550202"
+PHONE = "+49 69 5550202"
 
 Rival = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -155,13 +155,13 @@ def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
 # The erased person in the club's trainer seat, and somebody a save seats beside them, each as the editor sends a seat.
 SEATED = {
-    "vorname": "Zorbanax",
-    "nachname": "Quillfeather",
+    "first_name": "Zorbanax",
+    "last_name": "Quillfeather",
     "email": TYPED,
-    "telefon": TELEFON,
+    "phone": PHONE,
     "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
 }
-BESIDE = {**SEATED, "vorname": "Ottilie", "nachname": "Andere", "email": "ottilie.andere@example.com", "telefon": "+49 69 5550404"}
+BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 5550404"}
 
 
 async def club_row(database: AsyncDatabase) -> dict[str, Any]:

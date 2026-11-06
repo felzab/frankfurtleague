@@ -91,7 +91,7 @@ A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "g
 
 def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:
     seat = documents.kontaktperson_document("Lenore", confirmed_at="2126-03-21" if confirmed else None)
-    return {**seat, "nachname": "Quastenbach", "email": email}
+    return {**seat, "last_name": "Quastenbach", "email": email}
 
 
 def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bool, token: str) -> dict[str, Any]:
@@ -100,13 +100,13 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
         EMAIL,
         saison_id=SAISON_ID,
         team_id=team_id,
-        vorname="Lenore",
-        nachname="Quastenbach",
+        first_name="Lenore",
+        last_name="Quastenbach",
         token=token,
         submitted_at="2126-03-30",
-        frist="2126-04-06",
+        deadline="2126-04-06",
         confirmed=documents.registrierung_confirmed(
-            geburtsdatum="2009-05-04",
+            birth_date="2009-05-04",
             today="2126-03-31",
             at="2126-03-31T08:00:00+00:00",
             scope="intern",
@@ -125,7 +125,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
     )
     pupils = [documents.spieler_document(OTHER_OID, "Jonte", "Wirbelauer", email=OTHER_EMAIL)]
     if pupil:
-        pupils.append(documents.spieler_document(SPIELER_OID, "Lenore", "Quastenbach", email=EMAIL, geburtsdatum="2009-05-04"))
+        pupils.append(documents.spieler_document(SPIELER_OID, "Lenore", "Quastenbach", email=EMAIL, birth_date="2009-05-04"))
     await database[Collection.SPIELER].insert_many(pupils)
     if not records:
         return
@@ -144,7 +144,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                     "token_hash": "c" * 64,
                     "sent_at": "2126-03-01",
                     "reminded_at": None,
-                    "frist": "2126-03-15",
+                    "deadline": "2126-03-15",
                     "delivery": dict(A_BOUNCE),
                 },
             ),
@@ -169,7 +169,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 "ansprechperson": {
                     "token_hash": "a" * 64,
                     "sent_at": "2126-03-20",
-                    "frist": "2126-04-03",
+                    "deadline": "2126-04-03",
                     "declined_at": None,
                     "delivery": dict(A_BOUNCE),
                 },
@@ -182,15 +182,15 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=None,
-        datum="2126-04-18",
-        uhrzeit="14:00:00",
+        date="2126-04-18",
+        time="14:00:00",
         team1={"team_id": TEAM_OID},
         team2={"team_id": SECOND_TEAM_OID},
     )
     await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
         documents.spielbestaetigung_document(
             spiel,
-            party={"art": "team", "team_id": TEAM_OID},
+            party={"kind": "team", "team_id": TEAM_OID},
             _id=CONFIRMATION_OID,
             asked_at="2126-03-30",
             kontakte={seat: {"token_hashes": ["b" * 64], "delivery": None} for seat in ("trainer", "ansprechperson", "stellvertretung")},
@@ -452,7 +452,7 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
         {
             "kind": row["kind"].removeprefix("address_change_"),
             "an": row["an"],
-            **({"vorname": row["data"]["vorname"]} if "vorname" in row["data"] else {}),
+            **({"first_name": row["data"]["first_name"]} if "first_name" in row["data"] else {}),
         }
         async for row in rows
     ]

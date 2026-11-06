@@ -88,7 +88,7 @@ function seatIdentity(seat: KontaktpersonDraft): readonly string[] {
   // sign-in folds it, and a name composed and lower-cased, „Weiß“ staying apart from „Weiss“.
   const name = (value: string): string => value.normalize("NFC").trim().split(/\s+/).join(" ").toLowerCase();
 
-  return [asSignInIdentifier(seat.email), name(seat.vorname), name(seat.nachname)];
+  return [asSignInIdentifier(seat.email), name(seat.first_name), name(seat.last_name)];
 }
 
 /** The seats whose person confirmed and whose draft names somebody else, in the panel's own order. */
@@ -196,11 +196,11 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
   person === null
     ? null
     : {
-        vorname: person.vorname,
-        nachname: person.nachname,
+        first_name: person.first_name,
+        last_name: person.last_name,
         email: person.email,
-        telefon: person.telefon,
-        // No `geburtsdatum`: the date is the person's own to enter at their confirmation, so the
+        phone: person.phone,
+        // No `birth_date`: the date is the person's own to enter at their confirmation, so the
         // server carries the stored seat's forward and this editor may not name one at all.
         einwilligung: {
           scope: EINWILLIGUNG_UMFANG,

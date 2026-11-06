@@ -25,8 +25,8 @@ const NARROWED_SAISON: readonly FLSpielerStufe[] = ["Q1", "Q2", "Q3", "Q4"];
 function squadRow(id: string, stufe: FLSpielerStufe, { istNachnominiert = false } = {}): AdminSpielerRow {
   return {
     id: id,
-    vorname: "X",
-    nachname: null,
+    first_name: "X",
+    last_name: null,
     fullName: "X",
     inactive_since: null,
     selected: {
