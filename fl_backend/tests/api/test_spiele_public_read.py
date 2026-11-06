@@ -9,7 +9,7 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielJoined,
     FLSpielJoinedAdmin,
-    FLSpielOrtFieldPublic,
+    FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPublic,
     FLSpielTeamFieldJoined,
     public_referee_name,
@@ -69,7 +69,7 @@ def stored_document() -> dict[str, Any]:
         team2={"team_id": AWAY, "tore": 1},
         date="2026-03-15",
         time="14:00:00",
-        ort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
+        spielort={"spielort_id": SPIELORT_ID, "mietpreis": MIETPREIS},
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
@@ -94,7 +94,7 @@ def joined_document() -> dict[str, Any]:
         **document,
         "team1": {**document["team1"], "name": "Alpha", "shorthand": "ALX", "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "name": "Beta", "shorthand": "BEX", "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
-        "ort": {**document["ort"], "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt"},
+        "spielort": {**document["spielort"], "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt"},
         "ansetzung_confirmed": None,
         "for_third_place": False,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
@@ -139,7 +139,7 @@ def keys_under(payload: Any, field: str) -> set[str]:
 # fails. The venue's money-bearing twin extends this shape, so a relation between the two cannot
 # stand in.
 PUBLIC_EMBEDDED_FIELDS = [
-    pytest.param(FLSpielOrtFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
+    pytest.param(FLSpielortFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
     pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"name", "name_is_public"}), id="the referee"),
 ]
 
@@ -155,7 +155,7 @@ BASE_TIER_SPIEL_FIELDS = frozenset(
         "team2_quelle",
         "date",
         "time",
-        "ort",
+        "spielort",
         "schiedsrichter",
         "ergebnis",
         "elfmeterschiessen",
@@ -303,7 +303,7 @@ class TestTheStoredShape:
 
     @pytest.mark.parametrize(
         ("embedded", "money", "amount"),
-        [("ort", MIETPREIS_KEY, MIETPREIS), ("schiedsrichter", PAYMENT_KEY, PAYMENT)],
+        [("spielort", MIETPREIS_KEY, MIETPREIS), ("schiedsrichter", PAYMENT_KEY, PAYMENT)],
         ids=["the venue", "the referee"],
     )
     def test_the_dump_a_save_writes_keeps_the_figure(self, embedded: str, money: str, amount: int):

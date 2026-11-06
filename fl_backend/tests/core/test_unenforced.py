@@ -160,7 +160,7 @@ def _resubmit(saison_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
             "elfmeterschiessen": stored["elfmeterschiessen"],
             "date": stored["date"],
             "time": stored["time"],
-            "ort": _submitted(stored["ort"], keeping=("spielort_id", "mietpreis")),
+            "spielort": _submitted(stored["spielort"], keeping=("spielort_id", "mietpreis")),
             "schiedsrichter": _submitted(stored["schiedsrichter"], keeping=("schiedsrichter_id", "payment")),
             "note": stored.get("note"),
             "version": stored.get("version", 0),
@@ -267,7 +267,7 @@ def a_semi_final_played_at_a_retired_ground(spiel: PayloadFactory) -> list[dict[
             team1=_side(ADLER, "Adler", tore=2),
             team2=_side(BIEBER, "Bieber", tore=1),
             ergebnis="2:1",
-            ort=RETIRED_GROUND_BOOKING,
+            spielort=RETIRED_GROUND_BOOKING,
             schiedsrichter=None,
         )
     ]
@@ -289,17 +289,17 @@ class TestARetiredBookingOnAReopenedSpiel:
         assert [
             (fault.spiel_nr, fault.booking, fault.inactive_since)
             for fault in find_retired_bookings([reopened], retired_venues=retired, retired_referees={})
-        ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
+        ] == [(SLOT_NR, "spielort", GROUND_RETIRED_ON)]
 
     def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
         """Both directions of `booking_unknown_resource`: the state stands because the reopened fixture's next save books nothing."""
 
         (document,) = a_semi_final_played_at_a_retired_ground
         reopened_document = {**document, "team1": document["team2"], "team2": None, "ergebnis": None}
-        unbooked_document = {**reopened_document, "ort": None}
+        unbooked_document = {**reopened_document, "spielort": None}
         resolved = ResolvedReferences(
             teams={},
-            ort=BookedVenue(
+            spielort=BookedVenue(
                 name=RETIRED_GROUND_BOOKING["name"], maps_link=RETIRED_GROUND_BOOKING["maps_link"], inactive_since=GROUND_RETIRED_ON
             ),
         )
@@ -379,8 +379,8 @@ class TestADoubleBookingALiftedNoShowLeaves:
         reported = find_double_bookings([lifted, later], _holders_of([lifted, later]))
 
         assert [(fault.spiel_nr, fault.booking, fault.other_spiel_nr) for fault in reported] == [
-            (LIFTED_NO_SHOW_NR, "ort", BOOKED_AN_HOUR_LATER_NR),
-            (BOOKED_AN_HOUR_LATER_NR, "ort", LIFTED_NO_SHOW_NR),
+            (LIFTED_NO_SHOW_NR, "spielort", BOOKED_AN_HOUR_LATER_NR),
+            (BOOKED_AN_HOUR_LATER_NR, "spielort", LIFTED_NO_SHOW_NR),
         ]
         # A no-show freed the slot, and the report's read filters it out as the refusal's does.
         assert find_double_bookings([later], _holders_of([later])) == []
@@ -413,7 +413,7 @@ class TestARefereeDoubleBookedAtTwoGrounds:
                 joined_spiel_document(spiel(_id=MATCH_ID.format(nr), spiel_nr=nr, ergebnis=None, **booking))
                 for nr, booking in (
                     (AT_THE_FIRST_GROUND_NR, {}),
-                    (AN_HOUR_LATER_AT_THE_SECOND_NR, {"time": "19:00:00", "ort": A_SECOND_GROUND}),
+                    (AN_HOUR_LATER_AT_THE_SECOND_NR, {"time": "19:00:00", "spielort": A_SECOND_GROUND}),
                 )
             ]
         )

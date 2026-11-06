@@ -29,8 +29,8 @@ from app.api.spiele.schemas import (
     FLSpielElfmeterschiessen,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
-    FLSpielOrtFieldPayload,
-    FLSpielOrtFieldRecord,
+    FLSpielortFieldPayload,
+    FLSpielortFieldRecord,
     FLSpielQuelle,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
@@ -146,7 +146,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
             "let": {
                 "spiel_saison_id": "$saison_id",
                 "spiel_id": "$_id",
-                # `$ifNull` for the side lookup's reason: an absent ground leaves `$ort.spielort_id`
+                # `$ifNull` for the side lookup's reason: an absent ground leaves `$spielort.spielort_id`
                 # MISSING, which equals no stored null, and `compose_ansetzung` stores a null there.
                 **{key: {"$ifNull": [f"${path}", None]} for key, path in ANSETZUNG_QUELLEN.items()},
             },
@@ -306,7 +306,7 @@ def _venue_lookup() -> Mapping[str, Any]:
         "$lookup": {
             "from": Collection.SPIELORTE,
             # A fixture with no venue looks up a missing path, which the manual reads as null: no venue's `_id` is.
-            "localField": "ort.spielort_id",
+            "localField": "spielort.spielort_id",
             "foreignField": "_id",
             "pipeline": [{"$project": {"_id": 0, "name": 1, "maps_link": 1}}],
             "as": SPIELORTE_AS_NAME,
@@ -319,9 +319,9 @@ def _joined_venue() -> Mapping[str, Any]:
 
     return {
         "$cond": [
-            {"$eq": ["$ort", None]},
+            {"$eq": ["$spielort", None]},
             None,
-            {"$mergeObjects": ["$ort", {"$ifNull": [{"$first": f"${SPIELORTE_AS_NAME}"}, {}]}]},
+            {"$mergeObjects": ["$spielort", {"$ifNull": [{"$first": f"${SPIELORTE_AS_NAME}"}, {}]}]},
         ]
     }
 
@@ -454,7 +454,7 @@ def build_named_spiele_pipeline(
             "$set": {
                 "team1": _joined_side("team1"),
                 "team2": _joined_side("team2"),
-                "ort": _joined_venue(),
+                "spielort": _joined_venue(),
             }
         },
         {"$project": dict(projection)},
@@ -492,7 +492,7 @@ def build_spiele_pipeline(
                 "team2": _joined_side("team2"),
                 ANSETZUNG_CONFIRMED: _ansetzung_confirmed(),
                 "schiedsrichter": _joined_referee(),
-                "ort": _joined_venue(),
+                "spielort": _joined_venue(),
             }
         }
     )
@@ -1005,7 +1005,7 @@ class ResolvedReferences:
 
     teams: Mapping[CustomObjectId, SaisonMembership]
     #: `None` where the payload names none, and where the id names no row at all.
-    ort: BookedVenue | None = None
+    spielort: BookedVenue | None = None
     schiedsrichter: BookedReferee | None = None
 
 
@@ -1015,8 +1015,8 @@ def _composed_side(submitted: FLSpielTeamFieldPayload | None, tore: int | None) 
     return None if submitted is None else FLSpielTeamField(team_id=submitted.team_id, tore=tore)
 
 
-def _composed_ort(submitted: FLSpielOrtFieldPayload | None) -> FLSpielOrtFieldRecord | None:
-    return None if submitted is None else FLSpielOrtFieldRecord(spielort_id=submitted.spielort_id, mietpreis=submitted.mietpreis)
+def _composed_spielort(submitted: FLSpielortFieldPayload | None) -> FLSpielortFieldRecord | None:
+    return None if submitted is None else FLSpielortFieldRecord(spielort_id=submitted.spielort_id, mietpreis=submitted.mietpreis)
 
 
 def _composed_schiedsrichter(submitted: FLSpielSchiedsrichterFieldPayload | None) -> FLSpielSchiedsrichterFieldRecord | None:
@@ -1083,7 +1083,7 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
         update={
             "date": payload.date,
             "time": payload.time,
-            "ort": _composed_ort(payload.ort),
+            "spielort": _composed_spielort(payload.spielort),
             "schiedsrichter": _composed_schiedsrichter(payload.schiedsrichter),
             "team1": _composed_side(payload.team1, result.team1_tore),
             "team2": _composed_side(payload.team2, result.team2_tore),
@@ -1254,7 +1254,7 @@ class BookedReferences:
 
 def _chosen_references(spiel: BookedSpiel | FLPatchSpielDataPayload | FLSpielSlotHolder) -> BookedReferences:
     return BookedReferences(
-        spielort_id=spiel.ort.spielort_id if spiel.ort is not None else None,
+        spielort_id=spiel.spielort.spielort_id if spiel.spielort is not None else None,
         schiedsrichter_id=spiel.schiedsrichter.schiedsrichter_id if spiel.schiedsrichter is not None else None,
     )
 
@@ -1277,7 +1277,7 @@ def find_new_bookings(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: 
 
 # Where the save's payload holds each resource: a refusal about one names it, so the editor marks that field.
 RESOURCE_PATHS: Final[Mapping[Literal["Spielort", "Schiedsrichter"], FieldPath]] = {
-    "Spielort": ("ort", "spielort_id"),
+    "Spielort": ("spielort", "spielort_id"),
     "Schiedsrichter": ("schiedsrichter", "schiedsrichter_id"),
 }
 
@@ -1295,7 +1295,7 @@ def find_booking_refusal(
     new = find_new_bookings(stored, payload, rules)
 
     references = (
-        (RESOURCE_PATHS["Spielort"], new.spielort_id, resolved.ort),
+        (RESOURCE_PATHS["Spielort"], new.spielort_id, resolved.spielort),
         (RESOURCE_PATHS["Schiedsrichter"], new.schiedsrichter_id, resolved.schiedsrichter),
     )
 
@@ -1347,7 +1347,7 @@ class SlotClaim:
 
     resource: Literal["Spielort", "Schiedsrichter"]
     #: The `spiele` path holding the reference, which the read of the other fixtures is keyed on.
-    field: Literal["ort.spielort_id", "schiedsrichter.schiedsrichter_id"]
+    field: Literal["spielort.spielort_id", "schiedsrichter.schiedsrichter_id"]
     reference: CustomObjectId
     date: str
     time: str
@@ -1366,7 +1366,7 @@ def find_slot_claims(spiel: BookedSpiel | FLPatchSpielDataPayload) -> list[SlotC
     claims: list[SlotClaim] = []
 
     if held.spielort_id is not None:
-        claims.append(SlotClaim("Spielort", "ort.spielort_id", held.spielort_id, spiel.date, spiel.time))
+        claims.append(SlotClaim("Spielort", "spielort.spielort_id", held.spielort_id, spiel.date, spiel.time))
 
     # The ghost claims nothing, where `find_new_bookings` beside this still names it: every erased
     # referee's fixtures share this one id, so two strangers' matches would read as one person
@@ -1584,15 +1584,15 @@ def find_retired_bookings(
         if not is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis):
             continue
 
-        if spiel.ort is not None and (retired_on := retired_venues.get(spiel.ort.spielort_id)) is not None:
+        if spiel.spielort is not None and (retired_on := retired_venues.get(spiel.spielort.spielort_id)) is not None:
             faults.append(
                 FLBracketFaultBooking(
                     reason="retired_booking",
                     spiel_id=spiel.id,
                     spiel_nr=spiel.spiel_nr,
-                    booking="ort",
-                    booking_id=spiel.ort.spielort_id,
-                    name=spiel.ort.name,
+                    booking="spielort",
+                    booking_id=spiel.spielort.spielort_id,
+                    name=spiel.spielort.name,
                     inactive_since=retired_on,
                 )
             )
@@ -1628,7 +1628,7 @@ def find_double_bookings(spiele: Sequence[FLSpielJoinedAdmin], holders: Sequence
                 continue
 
             slot, _ = clash
-            held = spiel.ort if claim.resource == "Spielort" else spiel.schiedsrichter
+            held = spiel.spielort if claim.resource == "Spielort" else spiel.schiedsrichter
 
             faults.append(
                 FLBracketFaultClash(
@@ -1636,7 +1636,7 @@ def find_double_bookings(spiele: Sequence[FLSpielJoinedAdmin], holders: Sequence
                     spiel_id=spiel.id,
                     spiel_nr=spiel.spiel_nr,
                     saison_id=spiel.saison_id,
-                    booking="ort" if claim.resource == "Spielort" else "schiedsrichter",
+                    booking="spielort" if claim.resource == "Spielort" else "schiedsrichter",
                     name=held.name if held is not None else None,
                     other_spiel_id=slot.spiel_id,
                     other_saison_id=slot.saison_id,

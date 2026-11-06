@@ -27,7 +27,7 @@ const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(form
 // A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
 // path it names, the adoption, which names none, by a code of its own per resource and side.
 const DOUBLE_BOOKED = {
-  ort: "Der Spielort ist zu dieser Zeit schon belegt.",
+  spielort: "Der Spielort ist zu dieser Zeit schon belegt.",
   schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
 };
 const DISQUALIFIED = {
@@ -103,11 +103,11 @@ export const SERVER_COPY = catalogue({
      * is a page read before the deletion, which the same sentence sends to the same box.
      */
     booking_unknown_resource: {
-      ort: "Der Spielort ist stillgelegt.",
+      spielort: "Der Spielort ist stillgelegt.",
       schiedsrichter: "Die eingeteilte Person ist stillgelegt.",
     },
     spiel_double_booked: DOUBLE_BOOKED,
-    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.ort,
+    spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.spielort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
     /** The league's last owner, whose erasure would leave the administration owned by nobody: the glossary's screen word. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber.",
@@ -221,7 +221,7 @@ export const SERVER_COPY = catalogue({
       fielded_twice: (team: Words) => `${textOf(team)} zweimal an diesem Spieltag`,
       /** By the booking's object, „Spielort“ or „Schiedsrichter“. */
       retired_booking: (booking: Copy) => `${booking} stillgelegt`,
-      double_booked: { ort: "Spielort doppelt belegt", schiedsrichter: "Schiedsrichter doppelt eingeteilt" } satisfies Record<
+      double_booked: { spielort: "Spielort doppelt belegt", schiedsrichter: "Schiedsrichter doppelt eingeteilt" } satisfies Record<
         FLBookingResource,
         string
       >,

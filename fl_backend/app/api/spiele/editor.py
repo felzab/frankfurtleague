@@ -242,7 +242,7 @@ async def read_spiel_editor(
         raise DocumentNotFoundError()
     spiel = FLSpielJoinedAdmin.model_validate(spiele_raw[0])
 
-    gebuchter_ort = None if spiel.ort is None else spiel.ort.spielort_id
+    booked_spielort = None if spiel.spielort is None else spiel.spielort.spielort_id
     gebuchter_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
 
     # The rest named by the fixture alone, so read beside one another.
@@ -251,7 +251,7 @@ async def read_spiel_editor(
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"]),
         pull_many_from_db(
             collection=spielorte_collection,
-            db_filter=_offered(gebuchter_ort),
+            db_filter=_offered(booked_spielort),
             limit=LIST_LIMIT_MAX,
             sort_by=[("name", 1)],
             projection=["name", "default_mietpreis", "inactive_since"],

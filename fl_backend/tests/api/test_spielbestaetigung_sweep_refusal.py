@@ -27,7 +27,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "_id": ObjectId("6890a1b2c3d4e5f6077600d1"),
         "date": days_after(day=TODAY, days=7),
         "time": "18:00:00",
-        "ort": {"spielort_id": ObjectId("6890a1b2c3d4e5f6077600b1"), "mietpreis": 80},
+        "spielort": {"spielort_id": ObjectId("6890a1b2c3d4e5f6077600b1"), "mietpreis": 80},
         "team1": {"team_id": ALPHA, "tore": None},
         "team2": {"team_id": BETA, "tore": None},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
@@ -69,7 +69,7 @@ class TestWhyARowCloses:
         [
             pytest.param(TEAM, {}, {}, None, id="nothing moved"),
             pytest.param(TEAM, {"time": "19:00:00"}, {}, "ansetzung_changed", id="a new hour"),
-            pytest.param(TEAM, {"ort": None}, {}, "ansetzung_changed", id="the ground gone"),
+            pytest.param(TEAM, {"spielort": None}, {}, "ansetzung_changed", id="the ground gone"),
             pytest.param(TEAM, {"ergebnis": "1:0", "time": "19:00:00"}, {}, "spiel_decided", id="decided and moved"),
             pytest.param(TEAM, {"sonderereignis": "ausgefallen"}, {}, "cancelled", id="called off"),
             pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "cancelled", id="a no-show entered before the day"),

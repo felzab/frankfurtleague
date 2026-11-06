@@ -182,11 +182,11 @@ class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
 # Private, so the stored, the sent and the served shapes state the booked id once and publish no
 # component of their own. Each extends THIS rather than one extending another: the stored one holds
 # no name, which only the read joins.
-class _SpielOrtBooking(BaseModel):
+class _SpielortBooking(BaseModel):
     spielort_id: CustomObjectId
 
 
-class FLSpielOrtFieldPayload(_SpielOrtBooking):
+class FLSpielortFieldPayload(_SpielortBooking):
     """The venue as the save sends it: which ground, and what this fixture pays for it."""
 
     model_config = ConfigDict(extra="forbid")
@@ -196,13 +196,13 @@ class FLSpielOrtFieldPayload(_SpielOrtBooking):
     mietpreis: int = Field(ge=0)
 
 
-class FLSpielOrtFieldRecord(_SpielOrtBooking):
+class FLSpielortFieldRecord(_SpielortBooking):
     """The venue as a fixture stores it: which ground, and what this fixture pays for it."""
 
     mietpreis: int = Field(ge=0)
 
 
-class FLSpielOrtFieldPublic(_SpielOrtBooking):
+class FLSpielortFieldPublic(_SpielortBooking):
     """The venue as the public reads serve it: which ground, its current name and where to find it, without the rent."""
 
     name: str = Field(min_length=1)
@@ -210,7 +210,7 @@ class FLSpielOrtFieldPublic(_SpielOrtBooking):
     maps_link: str = Field(min_length=1)
 
 
-class FLSpielOrtField(FLSpielOrtFieldPublic):
+class FLSpielortField(FLSpielortFieldPublic):
     """The venue as the admin reads serve it, the rent included."""
 
     mietpreis: int = Field(ge=0)
@@ -333,7 +333,7 @@ class FLSpielElfmeterschiessen(BaseModel):
 
 
 # A fixture's two bookings: its venue and its referee.
-type FLBookingResource = Literal["ort", "schiedsrichter"]
+type FLBookingResource = Literal["spielort", "schiedsrichter"]
 
 
 # Private, so the variants name the faulted fixture once: a base no endpoint names publishes no
@@ -487,7 +487,7 @@ class FLSpielSlotHolder(FLSpielBooking):
     # Unbounded, as a model echoing a stored id is: this read spans every
     # season, so one malformed id would answer 500 for a save in another.
     saison_id: str
-    ort: _SpielOrtBooking | None
+    spielort: _SpielortBooking | None
     schiedsrichter: _SpielSchiedsrichterBooking | None
 
 
@@ -533,7 +533,7 @@ class FLPatchSpielDataPayload(BaseModel):
 
     date: CustomOptionalDateString
     time: CustomOptionalTimeString
-    ort: FLSpielOrtFieldPayload | None
+    spielort: FLSpielortFieldPayload | None
     schiedsrichter: FLSpielSchiedsrichterFieldPayload | None
 
     # Here for the same `$set` reason; "" becomes None below, which is how a note is removed.
@@ -579,7 +579,7 @@ class FLSpielCommon(BaseReadModel):
     date: CustomDateString | None
     time: CustomTimeString | None
 
-    ort: FLSpielOrtFieldPublic | None
+    spielort: FLSpielortFieldPublic | None
     schiedsrichter: FLSpielSchiedsrichterFieldPublic | None
 
     ergebnis: CustomErgebnisString | None
@@ -607,7 +607,7 @@ class FLSpiel(FLSpielCommon, Anchored):
     shape without it would erase `mietpreis` and `payment` on the next edit of anything else.
     """
 
-    ort: FLSpielOrtFieldRecord | None
+    spielort: FLSpielortFieldRecord | None
     schiedsrichter: FLSpielSchiedsrichterFieldRecord | None
     # 0 until a write raises it, as the create stamps it: a fixture composed before its insert, such as a draw's, has none yet.
     version: int = 0
@@ -661,7 +661,7 @@ class FLSpielJoinedAdmin(FLSpielJoined):
     `version` counts the fixture's writes; a save sending it back is refused once another write has raised it.
     """
 
-    ort: FLSpielOrtField | None
+    spielort: FLSpielortField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
     version: int = 0
 

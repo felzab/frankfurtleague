@@ -63,8 +63,8 @@ export function valuesOf(spiel: FLSpielJoinedAdmin): SpielValues {
     // Both already parsed as a calendar day and a time of day by the read's schema.
     date: spiel.date as SpielValues["date"],
     time: spiel.time as SpielValues["time"],
-    spielort: spiel.ort?.spielort_id ?? null,
-    mietpreis: figure(spiel.ort?.mietpreis),
+    spielort: spiel.spielort?.spielort_id ?? null,
+    mietpreis: figure(spiel.spielort?.mietpreis),
     schiedsrichter: spiel.schiedsrichter?.schiedsrichter_id ?? null,
     payment: figure(spiel.schiedsrichter?.payment),
     hasResult,

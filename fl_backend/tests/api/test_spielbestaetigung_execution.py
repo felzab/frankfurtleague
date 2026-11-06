@@ -113,7 +113,7 @@ def spiel(spiel_id: ObjectId = SPIEL, *, spiel_nr: int = 1, saison_id: str = SAI
         "team2": side(TEAM2),
         "date": DATE,
         "time": TIME,
-        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "spielort": {"spielort_id": SPIELORT, "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
         "note": "Flutlicht",
     }
@@ -381,7 +381,7 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if neighbour is not None:
                 await database[Collection.SPIELE].insert_one(
-                    spiel(NEIGHBOUR, spiel_nr=2, date=neighbour[0], time=neighbour[1], ort=None, team1=None, team2=None)
+                    spiel(NEIGHBOUR, spiel_nr=2, date=neighbour[0], time=neighbour[1], spielort=None, team1=None, team2=None)
                 )
             if austritt is not None:
                 exit_record = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": austritt}
@@ -494,7 +494,7 @@ async def narrow_the_matchday(database: AsyncDatabase) -> None:
 
 async def book_the_referee_beside_it(database: AsyncDatabase) -> None:
     await database[Collection.SPIELE].insert_one(
-        spiel(NEIGHBOUR, spiel_nr=2, date=PROPOSAL[0], time="19:00:00", ort=None, team1=None, team2=None)
+        spiel(NEIGHBOUR, spiel_nr=2, date=PROPOSAL[0], time="19:00:00", spielort=None, team1=None, team2=None)
     )
 
 

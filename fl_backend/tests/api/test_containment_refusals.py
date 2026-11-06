@@ -202,7 +202,7 @@ class TestRetiringAVenueOrAReferee:
 
         spielort_id = ObjectId("6890a1b2c3d4e5f607182930")
 
-        assert build_unplayed_booking_filter(spielort_id) == {"ort.spielort_id": spielort_id, **unplayed_filter()}
+        assert build_unplayed_booking_filter(spielort_id) == {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
 
 class TestASquadEntry:

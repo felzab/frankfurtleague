@@ -81,8 +81,8 @@ OTHER_GROUND = {**GROUND, "spielort_id": ObjectId("6890a1b2c3d4e5f607250022")}
 MOVES: Mapping[str, Mapping[str, Any]] = {
     "the date": {"date": "2026-05-09"},
     "the time": {"time": "19:30:00"},
-    "the ground": {"ort": OTHER_GROUND},
-    "the ground removed": {"ort": None},
+    "the ground": {"spielort": OTHER_GROUND},
+    "the ground removed": {"spielort": None},
     "the sides swapped": {"team1": AWAY_SIDE, "team2": HOME_SIDE},
 }
 
@@ -99,7 +99,7 @@ def a_spiel(*, with_ground: bool = True) -> dict[str, Any]:
         team2=AWAY_SIDE,
         date="2026-05-02",
         time="18:00:00",
-        ort=GROUND if with_ground else None,
+        spielort=GROUND if with_ground else None,
     )
 
 
@@ -166,17 +166,22 @@ class TestASpielNamesItsVenueAsItIsCalledNow:
     def test_a_venue_renamed_after_a_past_spiel_shows_its_new_name_there(self, mongo_url: str):
         """A copy stored on the fixture would go on naming the ground as it was called before the rename."""
 
-        spiel = {**a_spiel(), "date": "2025-09-20", "ort": {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}}
+        spiel = {**a_spiel(), "date": "2025-09-20", "spielort": {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80}}
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             await database[Collection.SPIELORTE].update_one(
                 {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}}
             )
-            return (await joined(database))["ort"]
+            return (await joined(database))["spielort"]
 
-        ort = on_a_spiel(mongo_url, spiel, [], body)
+        spielort = on_a_spiel(mongo_url, spiel, [], body)
 
-        assert ort == {"spielort_id": VERDICT_SPIELORT_ID, "mietpreis": 80, "name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}
+        assert spielort == {
+            "spielort_id": VERDICT_SPIELORT_ID,
+            "mietpreis": 80,
+            "name": "Sporthalle Ost",
+            "maps_link": "Sporthalle Ost, Frankfurt",
+        }
 
 
 class TestTheVerdictReadsTheAnsetzungAsItStandsNow:

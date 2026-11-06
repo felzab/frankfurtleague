@@ -469,7 +469,7 @@ RECORDED_FACT_FIELDS: tuple[str, ...] = (
     "team2_quelle",
     "ergebnis",
     "sonderereignis",
-    "ort.spielort_id",
+    "spielort.spielort_id",
     "schiedsrichter.schiedsrichter_id",
     "note",
 )
@@ -525,7 +525,9 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if (spiel.get("note") or "").strip():
         return True
 
-    return (spiel.get("ort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get("schiedsrichter_id") is not None
+    return (spiel.get("spielort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get(
+        "schiedsrichter_id"
+    ) is not None
 
 
 def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:

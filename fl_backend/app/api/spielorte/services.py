@@ -14,7 +14,7 @@ def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
     (`app/api/schiedsrichter/services.py :: build_unplayed_assignment_filter`).
     """
 
-    return {"ort.spielort_id": spielort_id, **unplayed_filter()}
+    return {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
 
 def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:

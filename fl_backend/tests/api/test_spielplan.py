@@ -563,9 +563,9 @@ class TestTheEmittedDocumentsReadBack:
         """A drawn season states no date, no venue, no referee and no result: each is a later decision, and a placeholder would read as one."""
 
         for spiel in draw(*shape).spiele:
-            assert [spiel[field] for field in ("date", "time", "ort", "schiedsrichter", "ergebnis", "elfmeterschiessen", "sonderereignis")] == [
-                None
-            ] * 7
+            assert [
+                spiel[field] for field in ("date", "time", "spielort", "schiedsrichter", "ergebnis", "elfmeterschiessen", "sonderereignis")
+            ] == [None] * 7
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_an_identifier_stays_an_objectid_and_a_number_a_plain_int(self, shape: tuple[int, int, int]):
@@ -890,7 +890,7 @@ UNTOUCHED_SPIEL: Mapping[str, Any] = {
     "team2": {"team_id": BIEBER, "tore": None},
     "team1_quelle": None,
     "team2_quelle": None,
-    "ort": {"spielort_id": None},
+    "spielort": {"spielort_id": None},
     "schiedsrichter": {"schiedsrichter_id": None},
 }
 
@@ -969,7 +969,7 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
     # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
     # that narrower question instead of this window is the mistake this entry is here to fail.
     "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
-    "ort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"ort": {"spielort_id": SPIELORT}}),
+    "spielort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"spielort": {"spielort_id": SPIELORT}}),
     "schiedsrichter.schiedsrichter_id": RecordedEdit(why="a booked referee", gruppe={"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER}}),
     "note": RecordedEdit(why="an admin's note, which only `PATCH /spiele/{spiel_id}` writes", gruppe={"note": "Platz gesperrt"}),
 }

@@ -235,7 +235,7 @@ class Code(StrEnum):
     REPLACE_SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
-    # A played fixture never blocks: its `ort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
+    # A played fixture never blocks: its `spielort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
     # and `count`, on the path's `spielort_id`.
     SPIELORT_STILL_BOOKED = auto()
     # A played fixture never blocks: its `schiedsrichter` is a record of who officiated. Bounded as the venue's is, on

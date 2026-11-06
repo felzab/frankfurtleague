@@ -53,11 +53,11 @@ const SONDEREREIGNISSE: Readonly<Record<FLSonderereignis, Copy>> = {
   annulliert: WORDS.annulliert,
 };
 
-const { ort, schiedsrichter } = SpielePatchSpielBody.shape;
+const { spielort, schiedsrichter } = SpielePatchSpielBody.shape;
 
 /** Whether a booking's money is required beside it, read off the write's schema. */
 const REQUIRED = {
-  mietpreis: requires(ort.options[0].shape.mietpreis, null),
+  mietpreis: requires(spielort.options[0].shape.mietpreis, null),
   payment: requires(schiedsrichter.options[0].shape.payment, null),
 };
 

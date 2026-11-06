@@ -154,7 +154,7 @@ def spiel_document(
 ) -> dict[str, Any]:
     saison_phase, date, _ = SPIELTAGE[spieltag_id]
 
-    # `ort` and `schiedsrichter` stay null, so a payload built from this document claims neither, and
+    # `spielort` and `schiedsrichter` stay null, so a payload built from this document claims neither, and
     # the double-booking read is never the thing a failure here is about.
     return documents.spiel_document(
         spiel_id=spiel_id,
@@ -402,14 +402,14 @@ def assignment(schiedsrichter_id: ObjectId, payment: int = 20) -> dict[str, Any]
 def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
     """Two group fixtures at one ground on one matchday, the first carrying `sonderereignis`."""
 
-    ort = booking(SPIELORT)
+    spielort = booking(SPIELORT)
 
     held = spiel_document(spiel_id=GRUPPE_HELD, spiel_nr=GRUPPE_HELD_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(ALPHA), team2=side(BETA))
     filling = spiel_document(
         spiel_id=GRUPPE_FILLING, spiel_nr=GRUPPE_FILLING_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(GAMMA), team2=side(DELTA)
     )
 
-    return [{**held, "ort": ort, "sonderereignis": sonderereignis}, {**filling, "ort": ort}]
+    return [{**held, "spielort": spielort, "sonderereignis": sonderereignis}, {**filling, "spielort": spielort}]
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -550,7 +550,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     )
     def test_booking_a_venue_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str, chosen: ObjectId):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
+            spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": chosen, "mietpreis": 80})
 
             with pytest.raises(APIError) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
@@ -561,7 +561,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert code == Code.BOOKING_UNKNOWN_RESOURCE
         # The whole save is taken back, so the booking does not land without the rule that judges it.
-        assert spiele[GRUPPE_FILLING_NR]["ort"] is None
+        assert spiele[GRUPPE_FILLING_NR]["spielort"] is None
 
     def test_booking_a_referee_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str):
         """The other reference, because a rule reading one only would pass that one and miss this."""
@@ -595,7 +595,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         "kept",
         [
-            pytest.param({"ort": booking(SPIELORT_RETIRED)}, id="retired-venue"),
+            pytest.param({"spielort": booking(SPIELORT_RETIRED)}, id="retired-venue"),
             pytest.param({"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, id="the-ghost"),
         ],
     )
@@ -619,14 +619,14 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         """End to end: the ground and the rent are the payload's, and the document holds nothing the read joins."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": SPIELORT, "mietpreis": 95})
+            spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": SPIELORT, "mietpreis": 95})
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return await spiele_now(database)
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert spiele[GRUPPE_FILLING_NR]["ort"] == booking(SPIELORT, mietpreis=95)
+        assert spiele[GRUPPE_FILLING_NR]["spielort"] == booking(SPIELORT, mietpreis=95)
 
     def test_a_live_referee_is_stored_as_the_payload_books_them(self, mongo_replica_set_url: str):
         """The same on the other reference, whose fee is what the league pays out -- and the venue's case cannot speak for it."""
@@ -1262,7 +1262,7 @@ class TestASpielTheResolutionReopensKeepsARetiredBooking:
     @pytest.mark.parametrize(
         ("booked", "reported"),
         [
-            pytest.param({"ort": booking(SPIELORT_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "ort")], id="venue"),
+            pytest.param({"spielort": booking(SPIELORT_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "spielort")], id="venue"),
             pytest.param(
                 {"schiedsrichter": assignment(SCHIEDSRICHTER_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="referee"
             ),
@@ -1272,7 +1272,7 @@ class TestASpielTheResolutionReopensKeepsARetiredBooking:
                 {"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="the-ghost"
             ),
             # The control: the fault is the row's retirement, never the reopening.
-            pytest.param({"ort": booking(SPIELORT), "schiedsrichter": assignment(SCHIEDSRICHTER)}, [], id="both-live"),
+            pytest.param({"spielort": booking(SPIELORT), "schiedsrichter": assignment(SCHIEDSRICHTER)}, [], id="both-live"),
         ],
     )
     def test_the_booking_stays_and_the_queue_alone_names_it(self, mongo_replica_set_url: str, booked: dict[str, Any], reported: list[Any]):
@@ -1296,7 +1296,7 @@ def a_lifted_no_show_beside_a_later_booking() -> list[dict[str, Any]]:
     quarter, semi = a_semi_final_recorded_as("nichtantreten_team2")
     later = spiel_document(spiel_id=GRUPPE_BESIDE, spiel_nr=GRUPPE_BESIDE_NR, spieltag_id=SPIELTAG_HALBFINALE, team1=None, team2=None)
 
-    return [quarter, {**semi, "ort": booking(SPIELORT)}, {**later, "time": "19:00:00", "ort": booking(SPIELORT)}]
+    return [quarter, {**semi, "spielort": booking(SPIELORT)}, {**later, "time": "19:00:00", "spielort": booking(SPIELORT)}]
 
 
 class TestALiftedNoShowDoubleBooksAndTheQueueNamesBoth:
@@ -1315,7 +1315,7 @@ class TestALiftedNoShowDoubleBooksAndTheQueueNamesBoth:
         run, after_the_move = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_lifted_no_show_beside_a_later_booking())
 
         assert run.after_save[HALBFINALE_NR]["sonderereignis"] is None
-        assert booking_faults(run.faults) == [(HALBFINALE_NR, "double_booked", "ort"), (GRUPPE_BESIDE_NR, "double_booked", "ort")]
+        assert booking_faults(run.faults) == [(HALBFINALE_NR, "double_booked", "spielort"), (GRUPPE_BESIDE_NR, "double_booked", "spielort")]
         assert booking_faults(after_the_move) == []
 
 
@@ -1332,7 +1332,7 @@ ANOTHER_SAISON_ID = "2025"
 def claimed(spiel_id: ObjectId, spiel_nr: int, date: str, time: str, *, saison_id: str = SAISON_ID, **overrides: Any) -> dict[str, Any]:
     spiel = spiel_document(spiel_id=spiel_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_GRUPPE, team1=None, team2=None)
 
-    return {**spiel, "saison_id": saison_id, "date": date, "time": time, "ort": booking(SPIELORT), **overrides}
+    return {**spiel, "saison_id": saison_id, "date": date, "time": time, "spielort": booking(SPIELORT), **overrides}
 
 
 def holders_at_every_arm() -> list[dict[str, Any]]:

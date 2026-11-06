@@ -127,12 +127,12 @@ describe("one pass of the pupils' deletion", () => {
 
   /* A place not past the one sent holds the pass, and every tick behind it, for ever. Each double ends on its third
      answer, so a loop lacking the guard fails on its calls rather than hanging. */
-  for (const [wie, ort] of [
+  for (const [wie, spielort] of [
     ["the same place", ORT],
     ["a place before it", `${"e".repeat(23)}4`],
   ] as const) {
     it(`stops where a call answers ${wie}, the deletions counted and the pass failing`, async () => {
-      laufAnswer = inTurn([gelaufen(3, 5, ORT), gelaufen(1, 4, ort), gelaufen(0, 0)]);
+      laufAnswer = inTurn([gelaufen(3, 5, ORT), gelaufen(1, 4, spielort), gelaufen(0, 0)]);
 
       const lauf = await runErasureSweep();
 

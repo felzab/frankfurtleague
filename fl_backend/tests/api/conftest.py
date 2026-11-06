@@ -161,7 +161,7 @@ def _spiel(
         # and a `quelle` is its side's independent sibling rather than a value the side implies.
         "date": None,
         "time": None,
-        "ort": None,
+        "spielort": None,
         "schiedsrichter": None,
         "team1_quelle": None,
         "team2_quelle": None,

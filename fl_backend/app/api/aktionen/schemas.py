@@ -19,7 +19,7 @@ type FLActionLogEntryOperation = Literal["insert", "insert_many", "patch_one", "
 def _stringify_oids(value: Any) -> Any:
     """Every `ObjectId` in a stored document, at any depth, rendered as its hex.
 
-    Recursive because a fixture embeds ids inside `team1`, `ort` and `schiedsrichter`, so a top-level
+    Recursive because a fixture embeds ids inside `team1`, `spielort` and `schiedsrichter`, so a top-level
     pass would leave the ones that actually break serialization.
     """
 

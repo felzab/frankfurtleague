@@ -2865,12 +2865,12 @@ export const spielePatchSpielBodyElfmeterschiessenOneTeam2Min = 0;
 
 export const spielePatchSpielBodyNoteOneMax = 4096;
 
-export const spielePatchSpielBodyOrtOneMietpreisMin = 0;
-
-export const spielePatchSpielBodyOrtOneSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodySchiedsrichterOnePaymentMin = 0;
 
 export const spielePatchSpielBodySchiedsrichterOneSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielePatchSpielBodySpielortOneMietpreisMin = 0;
+
+export const spielePatchSpielBodySpielortOneSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodyTeam1OneTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodyTeam1OneToreOneMin = 0;
 
@@ -2910,15 +2910,6 @@ export const SpielePatchSpielBody = zod.object({
     zod.null(),
   ]),
   note: zod.union([zod.string().max(spielePatchSpielBodyNoteOneMax), zod.null()]),
-  ort: zod.union([
-    zod
-      .object({
-        mietpreis: zod.int().min(spielePatchSpielBodyOrtOneMietpreisMin),
-        spielort_id: zod.string().regex(spielePatchSpielBodyOrtOneSpielortIdRegExp),
-      })
-      .describe("The venue as the save sends it: which ground, and what this fixture pays for it."),
-    zod.null(),
-  ]),
   schiedsrichter: zod.union([
     zod
       .object({
@@ -2929,6 +2920,15 @@ export const SpielePatchSpielBody = zod.object({
     zod.null(),
   ]),
   sonderereignis: zod.union([zod.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]), zod.null()]),
+  spielort: zod.union([
+    zod
+      .object({
+        mietpreis: zod.int().min(spielePatchSpielBodySpielortOneMietpreisMin),
+        spielort_id: zod.string().regex(spielePatchSpielBodySpielortOneSpielortIdRegExp),
+      })
+      .describe("The venue as the save sends it: which ground, and what this fixture pays for it."),
+    zod.null(),
+  ]),
   team1: zod.union([
     zod
       .object({

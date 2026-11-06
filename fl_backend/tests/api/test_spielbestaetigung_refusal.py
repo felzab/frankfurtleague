@@ -51,7 +51,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "spieltag_id": SPIELTAG,
         "date": DATE,
         "time": "18:30:00",
-        "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
+        "spielort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
         "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
         "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": None},

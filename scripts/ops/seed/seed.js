@@ -268,15 +268,15 @@ function side(name, tore) {
 }
 
 function booked(venueIndex, refereeIndex) {
-  const ort = VENUES[venueIndex];
+  const spielort = VENUES[venueIndex];
   const schiedsrichter = REFEREES[refereeIndex];
   return {
-    ort: { spielort_id: ort._id, mietpreis: ort.default_mietpreis },
+    spielort: { spielort_id: spielort._id, mietpreis: spielort.default_mietpreis },
     schiedsrichter: { schiedsrichter_id: schiedsrichter._id, payment: schiedsrichter.default_payment },
   };
 }
 
-const UNBOOKED = { ort: null, schiedsrichter: null };
+const UNBOOKED = { spielort: null, schiedsrichter: null };
 
 /**
  * One season's documents, numbered as the draw numbers them. `groups` names each group's four clubs
@@ -517,7 +517,7 @@ function ansetzungOf(spiel) {
   const values = {
     date: spiel.date,
     time: spiel.time,
-    spielort_id: spiel.ort.spielort_id,
+    spielort_id: spiel.spielort.spielort_id,
     team1_id: spiel.team1.team_id,
     team2_id: spiel.team2.team_id,
   };

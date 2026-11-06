@@ -83,7 +83,7 @@ def spiel(*, spiel_id: ObjectId = SPIEL, saison_id: str = SAISON_ID, **fields: A
             "date": DATE,
             "time": "18:00:00",
             "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
-            "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+            "spielort": {"spielort_id": SPIELORT, "mietpreis": 40},
             **fields,
         },
     )

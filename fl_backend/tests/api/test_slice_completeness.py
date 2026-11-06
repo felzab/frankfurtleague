@@ -224,7 +224,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
                 "team2": team2,
                 # Booked by none unless `overrides` books one: the factory's shared ground and referee
                 # would otherwise double-book every fixture here against every other.
-                "ort": None,
+                "spielort": None,
                 "schiedsrichter": None,
                 "ansetzung_confirmed": None,
                 "for_third_place": False,
@@ -249,7 +249,12 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
             RETIRED_GROUND_SPIELTAG,
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
-            ort={"spielort_id": RETIRED_GROUND, "name": "Bezirkssportanlage West", "maps_link": "Bezirkssportanlage West", "mietpreis": 40},
+            spielort={
+                "spielort_id": RETIRED_GROUND,
+                "name": "Bezirkssportanlage West",
+                "maps_link": "Bezirkssportanlage West",
+                "mietpreis": 40,
+            },
         ),
         one_spiel(
             REFEREED_FIRST,
@@ -327,7 +332,7 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
         faults = sweep(spiel)
         retired = [fault for fault in faults if fault.reason == "retired_booking"]
 
-        assert [(fault.spiel_nr, fault.booking, fault.inactive_since) for fault in retired] == [(AT_A_RETIRED_GROUND, "ort", RETIRED_ON)]
+        assert [(fault.spiel_nr, fault.booking, fault.inactive_since) for fault in retired] == [(AT_A_RETIRED_GROUND, "spielort", RETIRED_ON)]
 
     def test_a_referee_booked_twice_within_the_buffer_is_reported_on_both_spiele(self, spiel):
         faults = sweep(spiel)

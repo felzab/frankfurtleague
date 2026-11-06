@@ -37,7 +37,7 @@ from app.api.spielbestaetigungen.services import (
     zustand_of,
 )
 from app.api.spiele.crud import pull_booked_slots, pull_booked_venue, pull_saison_membership, pull_spieltag_span
-from app.api.spiele.schemas import FLSpiel, FLSpielOrtFieldPublic
+from app.api.spiele.schemas import FLSpiel, FLSpielortFieldPublic
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
 from app.api.teams.crud import pull_team_names
 from app.core.config import API_VERSION
@@ -130,7 +130,7 @@ async def get_spielbestaetigung_view(
         spielort = (
             None
             if venue is None
-            else FLSpielOrtFieldPublic(spielort_id=row["ansetzung"]["spielort_id"], name=venue.name, maps_link=venue.maps_link)
+            else FLSpielortFieldPublic(spielort_id=row["ansetzung"]["spielort_id"], name=venue.name, maps_link=venue.maps_link)
         )
         vereinsnamen = await pull_team_names(
             teams_collection=teams_collection, team_ids=clubs_without_a_season_row(spielbestaetigung_raw=row, lage=lage)

@@ -196,12 +196,12 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
   return [
     { label: fact.date, glyph: "calendar", value: day === null ? noValue : { record: formatDateWithWeekdayAndYear(day) }, figures: true },
     { label: fact.time, glyph: "time", value: time === null ? noValue : { record: formatTime(time) }, figures: true },
-    spiel.ort === null
+    spiel.spielort === null
       ? { label: fact.spielort, glyph: "spielorte", value: noValue }
       : {
           label: fact.spielort,
           glyph: "spielorte",
-          elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), label: { record: spiel.ort.name } },
+          elsewhere: { href: buildMapsSearchUrl(spiel.spielort.maps_link), label: { record: spiel.spielort.name } },
         },
     {
       label: fact.schiedsrichter,

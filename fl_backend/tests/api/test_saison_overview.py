@@ -67,7 +67,7 @@ def spiel(nr: int, date: str | None, *, saison_id: str = SAISON, **fields: Any) 
         "team2": _side(AWAY),
         "date": date,
         "time": None if date is None else "15:00:00",
-        "ort": None if date is None else ORT,
+        "spielort": None if date is None else ORT,
         "schiedsrichter": None if date is None else REFEREE,
     }
 
@@ -287,7 +287,7 @@ def joined(**fields: Any) -> FLSpielJoinedInternal:
     closed = {
         "date": "2026-04-01",
         "time": "18:00:00",
-        "ort": {"spielort_id": SPIELORT, "mietpreis": 40},
+        "spielort": {"spielort_id": SPIELORT, "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20, "name_is_public": True},
         "team1": {"team_id": HOME, "tore": None},
         "team2": {"team_id": AWAY, "tore": None},

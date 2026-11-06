@@ -391,10 +391,10 @@ class TestComposingTheBookings:
 
     def test_a_moved_venue_stores_the_payloads_rent(self, saison):
         moved = {"spielort_id": ANOTHER_SPIELORT, "mietpreis": 95}
-        patched = patched_spiel(saison, 1, ort=moved)
+        patched = patched_spiel(saison, 1, spielort=moved)
 
-        assert patched.ort is not None
-        assert (str(patched.ort.spielort_id), patched.ort.mietpreis) == (ANOTHER_SPIELORT, 95)
+        assert patched.spielort is not None
+        assert (str(patched.spielort.spielort_id), patched.spielort.mietpreis) == (ANOTHER_SPIELORT, 95)
 
     def test_an_unchanged_referee_keeps_the_fee_the_payload_states(self, saison):
         """Without the carry-through an edited Honorar dies in a save reporting success."""
@@ -406,9 +406,9 @@ class TestComposingTheBookings:
         assert patched.schiedsrichter.payment == 45
 
     def test_clearing_a_booking_stores_nothing(self, saison):
-        patched = patched_spiel(saison, 1, ort=None, schiedsrichter=None)
+        patched = patched_spiel(saison, 1, spielort=None, schiedsrichter=None)
 
-        assert patched.ort is None and patched.schiedsrichter is None
+        assert patched.spielort is None and patched.schiedsrichter is None
 
 
 def booking_refusal(saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> WriteRefusal | None:
@@ -433,12 +433,15 @@ class TestTheBookingRefusal:
     """`booking_unknown_resource`: a fixture is booked into a venue and a referee the league still has, and only a MOVED reference is judged."""
 
     def test_a_newly_assigned_venue_that_resolves_to_no_row_is_refused(self, saison):
-        assert booking_refusal_for(saison, 1, references(), ort=A_DIFFERENT_SPIELORT) == Code.BOOKING_UNKNOWN_RESOURCE
+        assert booking_refusal_for(saison, 1, references(), spielort=A_DIFFERENT_SPIELORT) == Code.BOOKING_UNKNOWN_RESOURCE
 
     def test_a_newly_assigned_retired_venue_is_refused(self, saison):
         """Distinct from the case above, and it must not pass because the id resolved: retirement is the other half of the rule."""
 
-        assert booking_refusal_for(saison, 1, references(ort=RETIRED_SPIELORT), ort=A_DIFFERENT_SPIELORT) == Code.BOOKING_UNKNOWN_RESOURCE
+        assert (
+            booking_refusal_for(saison, 1, references(spielort=RETIRED_SPIELORT), spielort=A_DIFFERENT_SPIELORT)
+            == Code.BOOKING_UNKNOWN_RESOURCE
+        )
 
     @pytest.mark.parametrize(
         "resolved_schiedsrichter",
@@ -454,8 +457,8 @@ class TestTheBookingRefusal:
 
 # One row retired and the other live, so a refusal can only be the retired one's.
 ONE_RETIRED = {
-    "ort": {"ort": RETIRED_SPIELORT, "schiedsrichter": LIVE_SCHIEDSRICHTER},
-    "schiedsrichter": {"ort": LIVE_SPIELORT, "schiedsrichter": RETIRED_SCHIEDSRICHTER},
+    "spielort": {"spielort": RETIRED_SPIELORT, "schiedsrichter": LIVE_SCHIEDSRICHTER},
+    "schiedsrichter": {"spielort": LIVE_SPIELORT, "schiedsrichter": RETIRED_SCHIEDSRICHTER},
 }
 
 
@@ -483,7 +486,7 @@ class TestASpielReopenedBooksWhatItKeeps:
     """`booking_unknown_resource` on a kept reference: a save putting its fixture back among those still to be played books it again."""
 
     @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES)
-    @pytest.mark.parametrize("slot", ["ort", "schiedsrichter"])
+    @pytest.mark.parametrize("slot", ["spielort", "schiedsrichter"])
     def test_a_save_reopening_the_spiel_books_the_retired_row_it_kept(self, saison, seasoned, nr, overrides, slot):
         """The retirement's case: the fixture it passed by would stand to be played by a row the league has taken out of service."""
 
@@ -500,7 +503,7 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
 
     @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES)
     def test_a_save_reopening_the_spiel_books_the_unconfirmed_referee_it_kept(self, saison, seasoned, nr, overrides):
-        resolved = references(ort=LIVE_SPIELORT, schiedsrichter=UNCONFIRMED_SCHIEDSRICHTER)
+        resolved = references(spielort=LIVE_SPIELORT, schiedsrichter=UNCONFIRMED_SCHIEDSRICHTER)
 
         assert booking_refusal_for(seasoned(saison), nr, resolved, **overrides) == Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER
 
@@ -551,7 +554,7 @@ class TestTheGhostIsRefusedAsAnyRetiredRowIs:
 
     def test_a_save_reopening_the_spiel_is_refused_it(self, saison):
         assert (
-            booking_refusal_for(saison, 2, references(ort=LIVE_SPIELORT, schiedsrichter=GHOST_SCHIEDSRICHTER), **CLEARED)
+            booking_refusal_for(saison, 2, references(spielort=LIVE_SPIELORT, schiedsrichter=GHOST_SCHIEDSRICHTER), **CLEARED)
             == Code.BOOKING_UNKNOWN_RESOURCE
         )
 
@@ -564,7 +567,7 @@ def held_by(saison_docs: list[dict[str, Any]], nr: int) -> BookedReferences:
     stored = FLSpiel.model_validate(stored_spiel(saison_docs, nr))
 
     return BookedReferences(
-        spielort_id=stored.ort.spielort_id if stored.ort is not None else None,
+        spielort_id=stored.spielort.spielort_id if stored.spielort is not None else None,
         schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None,
     )
 
@@ -906,7 +909,7 @@ def joined(
         "team2_quelle": None,
         "date": date,
         "time": None,
-        "ort": None,
+        "spielort": None,
         "schiedsrichter": None,
         "ergebnis": None,
         "elfmeterschiessen": None,

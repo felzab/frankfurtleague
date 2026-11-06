@@ -4719,7 +4719,7 @@
       },
       "FLBookingResource": {
         "enum": [
-          "ort",
+          "spielort",
           "schiedsrichter"
         ],
         "type": "string"
@@ -9446,16 +9446,6 @@
             ],
             "title": "Note"
           },
-          "ort": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielOrtFieldPayload"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "schiedsrichter": {
             "anyOf": [
               {
@@ -9470,6 +9460,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielortFieldPayload"
               },
               {
                 "type": "null"
@@ -9554,7 +9554,7 @@
           "elfmeterschiessen",
           "date",
           "time",
-          "ort",
+          "spielort",
           "schiedsrichter",
           "note",
           "version"
@@ -13935,16 +13935,6 @@
             ],
             "title": "Note"
           },
-          "ort": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielOrtFieldPublic"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "saison_id": {
             "maxLength": 4,
             "minLength": 4,
@@ -13978,6 +13968,16 @@
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr",
             "type": "integer"
+          },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielortFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "spieltag_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -14045,7 +14045,7 @@
           "team2_quelle",
           "date",
           "time",
-          "ort",
+          "spielort",
           "schiedsrichter",
           "ergebnis",
           "elfmeterschiessen",
@@ -14129,16 +14129,6 @@
             ],
             "title": "Note"
           },
-          "ort": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielOrtField"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "saison_id": {
             "maxLength": 4,
             "minLength": 4,
@@ -14172,6 +14162,16 @@
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr",
             "type": "integer"
+          },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielortField"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "spieltag_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -14244,7 +14244,7 @@
           "team2_quelle",
           "date",
           "time",
-          "ort",
+          "spielort",
           "schiedsrichter",
           "ergebnis",
           "elfmeterschiessen",
@@ -14450,88 +14450,6 @@
           "appointment"
         ],
         "title": "FLSpielNoticeData",
-        "type": "object"
-      },
-      "FLSpielOrtField": {
-        "description": "The venue as the admin reads serve it, the rent included.",
-        "properties": {
-          "maps_link": {
-            "minLength": 1,
-            "title": "Maps Link",
-            "type": "string"
-          },
-          "mietpreis": {
-            "minimum": 0.0,
-            "title": "Mietpreis",
-            "type": "integer"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "spielort_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielort Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielort_id",
-          "name",
-          "maps_link",
-          "mietpreis"
-        ],
-        "title": "FLSpielOrtField",
-        "type": "object"
-      },
-      "FLSpielOrtFieldPayload": {
-        "additionalProperties": false,
-        "description": "The venue as the save sends it: which ground, and what this fixture pays for it.",
-        "properties": {
-          "mietpreis": {
-            "minimum": 0.0,
-            "title": "Mietpreis",
-            "type": "integer"
-          },
-          "spielort_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielort Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielort_id",
-          "mietpreis"
-        ],
-        "title": "FLSpielOrtFieldPayload",
-        "type": "object"
-      },
-      "FLSpielOrtFieldPublic": {
-        "description": "The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.",
-        "properties": {
-          "maps_link": {
-            "minLength": 1,
-            "title": "Maps Link",
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "spielort_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielort Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielort_id",
-          "name",
-          "maps_link"
-        ],
-        "title": "FLSpielOrtFieldPublic",
         "type": "object"
       },
       "FLSpielPageResponse": {
@@ -16868,7 +16786,7 @@
           "spielort": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielOrtFieldPublic"
+                "$ref": "#/components/schemas/FLSpielortFieldPublic"
               },
               {
                 "type": "null"
@@ -17721,6 +17639,88 @@
           "version"
         ],
         "title": "FLSpielort",
+        "type": "object"
+      },
+      "FLSpielortField": {
+        "description": "The venue as the admin reads serve it, the rent included.",
+        "properties": {
+          "maps_link": {
+            "minLength": 1,
+            "title": "Maps Link",
+            "type": "string"
+          },
+          "mietpreis": {
+            "minimum": 0.0,
+            "title": "Mietpreis",
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "spielort_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielort Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spielort_id",
+          "name",
+          "maps_link",
+          "mietpreis"
+        ],
+        "title": "FLSpielortField",
+        "type": "object"
+      },
+      "FLSpielortFieldPayload": {
+        "additionalProperties": false,
+        "description": "The venue as the save sends it: which ground, and what this fixture pays for it.",
+        "properties": {
+          "mietpreis": {
+            "minimum": 0.0,
+            "title": "Mietpreis",
+            "type": "integer"
+          },
+          "spielort_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielort Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spielort_id",
+          "mietpreis"
+        ],
+        "title": "FLSpielortFieldPayload",
+        "type": "object"
+      },
+      "FLSpielortFieldPublic": {
+        "description": "The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.",
+        "properties": {
+          "maps_link": {
+            "minLength": 1,
+            "title": "Maps Link",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "spielort_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielort Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spielort_id",
+          "name",
+          "maps_link"
+        ],
+        "title": "FLSpielortFieldPublic",
         "type": "object"
       },
       "FLSpielorteListResponse": {
@@ -18995,16 +18995,6 @@
             ],
             "title": "Note"
           },
-          "ort": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielOrtFieldPublic"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "saison_id": {
             "maxLength": 4,
             "minLength": 4,
@@ -19038,6 +19028,16 @@
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr",
             "type": "integer"
+          },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielortFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "spieltag_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -19110,7 +19110,7 @@
           "team2_quelle",
           "date",
           "time",
-          "ort",
+          "spielort",
           "schiedsrichter",
           "ergebnis",
           "elfmeterschiessen",

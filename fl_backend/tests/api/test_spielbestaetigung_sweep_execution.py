@@ -115,7 +115,7 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "tore": tore}
 
 
-def ort() -> dict[str, Any]:
+def spielort() -> dict[str, Any]:
     return {"spielort_id": SPIELORT, "mietpreis": 80}
 
 
@@ -136,7 +136,7 @@ def a_spiel(spiel_id: ObjectId, spiel_nr: int, date: str | None, *, saison_id: s
             "team2": side(BETA),
             "date": date,
             "time": "18:00:00",
-            "ort": ort(),
+            "spielort": spielort(),
             "schiedsrichter": booked(),
             **fields,
         },

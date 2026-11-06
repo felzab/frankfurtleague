@@ -1950,7 +1950,7 @@ export interface FLBewerbungenListResponse {
 export type FLBookingResource = (typeof FLBookingResource)[keyof typeof FLBookingResource];
 
 export const FLBookingResource = {
-  ort: "ort",
+  spielort: "spielort",
   schiedsrichter: "schiedsrichter",
 } as const;
 
@@ -2991,18 +2991,6 @@ export interface FLSpielElfmeterschiessen {
 }
 
 /**
- * The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.
- */
-export interface FLSpielOrtFieldPublic {
-  /** @minLength 1 */
-  maps_link: string;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielort_id: string;
-}
-
-/**
  * The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.
  *
  * Neither the payment nor the referee's id is served.
@@ -3021,6 +3009,18 @@ export const FLSonderereignis = {
   abgebrochen: "abgebrochen",
   annulliert: "annulliert",
 } as const;
+
+/**
+ * The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.
+ */
+export interface FLSpielortFieldPublic {
+  /** @minLength 1 */
+  maps_link: string;
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielort_id: string;
+}
 
 /**
  * One side as a read serves it: its club's name and shorthand in the season, and the way it left, null while it has not.
@@ -3050,7 +3050,6 @@ export interface FLSpielJoined {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   note: string | null;
-  ort: FLSpielOrtFieldPublic | null;
   /**
    * @minLength 4
    * @maxLength 4
@@ -3061,6 +3060,7 @@ export interface FLSpielJoined {
   sonderereignis: FLSonderereignis | null;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  spielort: FLSpielortFieldPublic | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
@@ -3632,20 +3632,6 @@ export const FLOverviewBracketFaultRowKind = {
 } as const;
 
 /**
- * The venue as the admin reads serve it, the rent included.
- */
-export interface FLSpielOrtField {
-  /** @minLength 1 */
-  maps_link: string;
-  /** @minimum 0 */
-  mietpreis: number;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielort_id: string;
-}
-
-/**
  * The referee as the admin reads serve them: the whole name and the payment.
  */
 export interface FLSpielSchiedsrichterField {
@@ -3654,6 +3640,20 @@ export interface FLSpielSchiedsrichterField {
   payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
+}
+
+/**
+ * The venue as the admin reads serve it, the rent included.
+ */
+export interface FLSpielortField {
+  /** @minLength 1 */
+  maps_link: string;
+  /** @minimum 0 */
+  mietpreis: number;
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielort_id: string;
 }
 
 /**
@@ -3670,7 +3670,6 @@ export interface FLSpielJoinedAdmin {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   note: string | null;
-  ort: FLSpielOrtField | null;
   /**
    * @minLength 4
    * @maxLength 4
@@ -3681,6 +3680,7 @@ export interface FLSpielJoinedAdmin {
   sonderereignis: FLSonderereignis | null;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  spielort: FLSpielortField | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
@@ -4059,16 +4059,6 @@ export interface FLPatchSchiedsrichterResponse {
 }
 
 /**
- * The venue as the save sends it: which ground, and what this fixture pays for it.
- */
-export interface FLSpielOrtFieldPayload {
-  /** @minimum 0 */
-  mietpreis: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielort_id: string;
-}
-
-/**
  * The referee as the save sends it: who, and what this fixture pays them.
  */
 export interface FLSpielSchiedsrichterFieldPayload {
@@ -4076,6 +4066,16 @@ export interface FLSpielSchiedsrichterFieldPayload {
   payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
+}
+
+/**
+ * The venue as the save sends it: which ground, and what this fixture pays for it.
+ */
+export interface FLSpielortFieldPayload {
+  /** @minimum 0 */
+  mietpreis: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielort_id: string;
 }
 
 /**
@@ -4106,9 +4106,9 @@ export interface FLPatchSpielDataPayload {
   date: string | null;
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
   note: string | null;
-  ort: FLSpielOrtFieldPayload | null;
   schiedsrichter: FLSpielSchiedsrichterFieldPayload | null;
   sonderereignis: FLSonderereignis | null;
+  spielort: FLSpielortFieldPayload | null;
   team1: FLSpielTeamFieldPayload | null;
   team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldPayload | null;
@@ -5790,7 +5790,7 @@ export const FLSpielbestaetigungSelfState = {
 export interface FLSpielbestaetigungViewAnsetzung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
-  spielort: FLSpielOrtFieldPublic | null;
+  spielort: FLSpielortFieldPublic | null;
   team1_name: string;
   team2_name: string;
   /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
@@ -6413,7 +6413,6 @@ export interface FLTeamPageSpiel {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   note: string | null;
-  ort: FLSpielOrtFieldPublic | null;
   /**
    * @minLength 4
    * @maxLength 4
@@ -6424,6 +6423,7 @@ export interface FLTeamPageSpiel {
   sonderereignis: FLSonderereignis | null;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  spielort: FLSpielortFieldPublic | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   /** @minimum 1 */

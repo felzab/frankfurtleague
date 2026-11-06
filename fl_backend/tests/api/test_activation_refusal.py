@@ -19,7 +19,7 @@ def season(*spiele: dict) -> list:
         "team2_quelle": None,
         "date": "2026-03-15",
         "time": None,
-        "ort": None,
+        "spielort": None,
         "schiedsrichter": None,
         "ergebnis": None,
         "elfmeterschiessen": None,

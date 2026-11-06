@@ -73,7 +73,7 @@ SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a 
 STORED_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607760001")
 STORED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607760002")
 
-UNDATED_SPIEL_FIELDS: tuple[str, ...] = ("date", "time", "ort", "schiedsrichter")
+UNDATED_SPIEL_FIELDS: tuple[str, ...] = ("date", "time", "spielort", "schiedsrichter")
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
@@ -724,7 +724,7 @@ A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
 RECORDS_CLOSING_THE_WINDOW = (
     pytest.param({"sonderereignis": A_RECORD}, id="an abandonment"),
     pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
-    pytest.param({"ort": A_BOOKED_ORT}, id="a booked venue"),
+    pytest.param({"spielort": A_BOOKED_ORT}, id="a booked venue"),
     pytest.param({"schiedsrichter": A_BOOKED_SCHIEDSRICHTER}, id="a booked referee"),
     pytest.param({"note": A_NOTE}, id="an admin's note"),
 )

@@ -83,7 +83,7 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
 /** A stored day and hour as the catalogue's sentences take a slot. */
 const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
-const BOOKED = { ort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
+const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
 /** A fault of the bracket or of the fixture's bookings, in one line. */
 function faultLine(fault: FLBracketFault): Copy {

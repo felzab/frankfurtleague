@@ -21,14 +21,14 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /** One venue's row, opening its editor: its name, „Stillgelegt“ and muted once retired, its street and its price. */
-const rowOf = (ort: FLSpielort): TableRow => ({
-  id: ort.id,
-  name: { record: ort.name },
-  href: ROUTES.adminSpielort.path(ort.id),
-  ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
+const rowOf = (spielort: FLSpielort): TableRow => ({
+  id: spielort.id,
+  name: { record: spielort.name },
+  href: ROUTES.adminSpielort.path(spielort.id),
+  ...(spielort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
   cells: {
-    adresse: WORDS.strasseWithHausnummer(ort.address.strasse, ort.address.hausnummer),
-    mietpreis: { record: formatEuro(ort.default_mietpreis) },
+    adresse: WORDS.strasseWithHausnummer(spielort.address.strasse, spielort.address.hausnummer),
+    mietpreis: { record: formatEuro(spielort.default_mietpreis) },
   },
 });
 

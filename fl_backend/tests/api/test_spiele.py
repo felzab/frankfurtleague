@@ -7,7 +7,7 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     FLPatchSpielDataPayload,
     FLSpiel,
-    FLSpielOrtFieldPayload,
+    FLSpielortFieldPayload,
     FLSpielQuelleSpiel,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
@@ -134,7 +134,7 @@ class TestPatchPayload:
         ("model", "composed"),
         [
             (FLSpielTeamFieldPayload, {"name", "shorthand"}),
-            (FLSpielOrtFieldPayload, {"name", "maps_link"}),
+            (FLSpielortFieldPayload, {"name", "maps_link"}),
             (FLSpielSchiedsrichterFieldPayload, {"name"}),
         ],
         ids=["a side", "a venue", "a referee"],
@@ -146,7 +146,7 @@ class TestPatchPayload:
 
     @pytest.mark.parametrize(
         ("model", "kept"),
-        [(FLSpielOrtFieldPayload, "mietpreis"), (FLSpielSchiedsrichterFieldPayload, "payment")],
+        [(FLSpielortFieldPayload, "mietpreis"), (FLSpielSchiedsrichterFieldPayload, "payment")],
         ids=["the rent", "the payment"],
     )
     def test_what_this_spiel_pays_stays_on_the_payload(self, model, kept):
