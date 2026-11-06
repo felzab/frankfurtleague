@@ -1177,6 +1177,27 @@ export interface FLAustritt {
 }
 
 /**
+ * A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them.
+ */
+export interface FLSpielMailFixture {
+  date: string | null;
+  team1: string;
+  team2: string;
+  time: string | null;
+}
+
+/**
+ * An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them.
+ */
+export interface FLAustrittNoticeData {
+  /** @minItems 1 */
+  fixtures: FLSpielMailFixture[];
+  kind: "austritt_notice";
+  saison_id: string;
+  team: string;
+}
+
+/**
  * The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
  *
  * On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
@@ -3417,6 +3438,7 @@ export interface FLOutboxHandout {
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
     | FLInvitationData
