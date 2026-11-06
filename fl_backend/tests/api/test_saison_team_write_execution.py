@@ -51,7 +51,7 @@ def junction_document(team_id: ObjectId, gruppe: str, kontakte: dict[str, Any] |
     return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe, kontakte=kontakte)
 
 
-def team_spiel_document(team_id: ObjectId) -> dict[str, Any]:
+def team_spiel_document(team_id: ObjectId, side: str) -> dict[str, Any]:
     """What the move gate counts is one drawn side; every other field is null, so no other rule can answer for the refusal."""
 
     return spiel_document(
@@ -59,7 +59,7 @@ def team_spiel_document(team_id: ObjectId) -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_OID,
-        team1={"team_id": team_id, "tore": None},
+        **{side: {"team_id": team_id, "tore": None}},
     )
 
 
@@ -194,7 +194,8 @@ class TestRecordingAnExitFromTheSeason:
 
 
 class TestMovingAClubBetweenGroups:
-    def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize("side", ["team1", "team2"])
+    def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str, side: str):
         """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -203,7 +204,7 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER)])
+        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER, side)])
 
         assert code == Code.ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"
