@@ -266,7 +266,7 @@ def _compose_schiedsrichter_person(row: Mapping[str, Any]) -> dict[str, Any]:
 def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
     """One referee row's stored data and its fee, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects them."""
 
-    return {**_compose_schiedsrichter_person(row), "payment": row["default_payment"]}
+    return {**_compose_schiedsrichter_person(row), "default_payment": row["default_payment"]}
 
 
 def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:

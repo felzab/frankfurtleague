@@ -293,14 +293,8 @@ class TestTheOwnRecords:
             "Ortrud Zwiebelmayer",
             REFEREE_STORED,
         )
-        # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is, nor the
-        # consent, which is the account page's.
-        assert (record["payment"], "default_payment" in record, "confirmation" in record, "einwilligung" in record) == (
-            20,
-            False,
-            False,
-            False,
-        )
+        # The fee is the referee's own; the link's bookkeeping never is, nor the consent, which is the account page's.
+        assert (record["default_payment"], "confirmation" in record, "einwilligung" in record) == (20, False, False)
         [entry] = account.json()["schiedsrichter"]
         assert (entry["schiedsrichter_id"], entry["givable"], entry["media_offered"]) == (str(REFEREE_OID), True, True)
 

@@ -5100,10 +5100,10 @@ export interface FLSchiedsrichterReactivateResponse {
  */
 export interface FLSchiedsrichterSelf {
   birth_date: string | null;
+  default_payment: number;
   kontakt: FLKontakt;
   /** @minLength 1 */
   name: string;
-  payment: number;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
   schule: string | null;

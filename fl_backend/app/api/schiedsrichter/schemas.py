@@ -251,8 +251,7 @@ class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
     The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
     """
 
-    # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
-    payment: int
+    default_payment: int
 
 
 class FLSchiedsrichterSelfResponse(BaseAPIResponse):

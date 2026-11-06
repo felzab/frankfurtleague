@@ -29,7 +29,7 @@ const SaveSchiedsrichter = z.object({
       schule: blankIsNull(shape.schule),
       email: blankIsNull(kontakt.email),
       phone: blankIsNull(kontakt.phone),
-      payment: numberBox(shape.default_payment),
+      default_payment: numberBox(shape.default_payment),
     })
     .partial(),
 });
@@ -53,14 +53,14 @@ export const saveSchiedsrichter = action({
     if (read === null) return { ok: false, reason: COPY.shared.failure.stale };
 
     const stored = read.schiedsrichter;
-    const { schule, phone, payment, ...text } = changes;
+    const { schule, phone, default_payment, ...text } = changes;
     const { name, email } = { ...valuesOf(stored), ...text };
     const written = await schiedsrichterPatchSchiedsrichter(id, {
       name,
       schule: schule === undefined ? stored.schule : schule,
       kontakt: { email, phone: phone === undefined ? stored.kontakt.phone : phone },
       // The stored figure where the fee was left alone, never the text the editor shows it as.
-      default_payment: payment ?? stored.default_payment,
+      default_payment: default_payment ?? stored.default_payment,
       version,
     });
     const value = written.version;

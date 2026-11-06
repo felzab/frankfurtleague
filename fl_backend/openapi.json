@@ -13199,6 +13199,10 @@
             ],
             "title": "Birth Date"
           },
+          "default_payment": {
+            "title": "Default Payment",
+            "type": "integer"
+          },
           "kontakt": {
             "$ref": "#/components/schemas/FLKontakt"
           },
@@ -13206,10 +13210,6 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
-          },
-          "payment": {
-            "title": "Payment",
-            "type": "integer"
           },
           "schiedsrichter_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13234,7 +13234,7 @@
           "schule",
           "kontakt",
           "birth_date",
-          "payment"
+          "default_payment"
         ],
         "title": "FLSchiedsrichterSelf",
         "type": "object"
