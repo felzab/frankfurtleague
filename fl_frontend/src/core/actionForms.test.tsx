@@ -149,7 +149,7 @@ describe("each form's posted names meet its lane's keys", () => {
       "„Sitz bearbeiten“",
       "@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs",
       "writeSeat",
-      ["app/admin/(editor)/saisons/[saison]/teams/[team]/SeatActs.tsx"],
+      ["features/teams/components/forms/SeatActs.tsx", "app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx"],
     ],
   ])("loses no key of %s", async (_, module, lane, files) => {
     const loaded = (await import(/* @vite-ignore */ module)) as Record<string, unknown>;

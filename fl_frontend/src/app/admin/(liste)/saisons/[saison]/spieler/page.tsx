@@ -115,6 +115,7 @@ export default function SpielerPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminSpieler" } }}
       filters={season.then(({ filters }) => filters)}
+      filterCount={2}
       list={{
         kind: "table",
         search: { label: WORDS.search },

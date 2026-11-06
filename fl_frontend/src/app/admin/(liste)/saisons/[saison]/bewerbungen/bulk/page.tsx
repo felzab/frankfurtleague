@@ -9,7 +9,7 @@ import { standingOf } from "@/features/bewerbungen/standing";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import { SammelZusage } from "./SammelZusage";
+import { BulkAccept } from "./BulkAccept";
 
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -28,7 +28,7 @@ async function readRun(params: Props["params"]) {
   const read = await getBewerbungenOfSaison(saison);
   if (read === null) notFound();
   return (
-    <SammelZusage
+    <BulkAccept
       saison={saison}
       rows={read.bewerbungen.filter((row) => standingOf(row) === "complete").toReversed()}
       gruppen={read.saison.gruppen}
@@ -38,7 +38,7 @@ async function readRun(params: Props["params"]) {
 }
 
 /** The Sammel-Zusage: every complete, undecided application of the season, taken one card at a time and confirmed once. */
-export default function SammelZusagePage({ params }: Props) {
+export default function BulkAcceptPage({ params }: Props) {
   return (
     <StepsPage
       title={{ route: "adminBewerbungenBulk" }}

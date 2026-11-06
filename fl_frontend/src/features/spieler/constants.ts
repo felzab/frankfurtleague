@@ -5,6 +5,7 @@ import type { FLSpielerRolle } from "@/core/generated/client/types";
 
 type RolleOption = { value: FLSpielerRolle; label: string };
 
+// Redesign: goes with its last readers, the old squad views and `rolleLabel`; `COPY.admin.spieler.rolleOption` replaces it.
 /** The German for each squad role. Every surface reads this rather than writing its own, so no two can name a role differently. */
 export const ROLLE_OPTIONS: readonly RolleOption[] = [
   { value: "kapitaen", label: "Kapitän" },
@@ -71,6 +72,7 @@ export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zu
 /** What a squad nobody has filled yet says on the team panel's squad page. */
 export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
 
+// Redesign: goes with its last importers, the old `KaderList` and `KaderZeileEditForm`; `COPY.admin.spieler.nummerDouble` replaces it.
 /**
  * The shared-shirt marker, in `fl_frontend/src/features/bewerbungen/duplicates.ts`' voice for a pair
  * that collides. A state rather than a refusal: two pupils may wear one number until somebody repairs it.

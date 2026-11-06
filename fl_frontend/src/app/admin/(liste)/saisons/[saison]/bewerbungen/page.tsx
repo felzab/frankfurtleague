@@ -40,7 +40,7 @@ const HEAD: TableHead = {
 
 const STANDINGS: readonly Standing[] = ["incomplete", "complete", "accepted", "declined"];
 
-const STAND_OPTIONS: ReadonlyArray<{ id: Standing; label: Copy }> = STANDINGS.map((id) => ({ id, label: STANDING_CHIP[id].label }));
+const STATE_OPTIONS: ReadonlyArray<{ id: Standing; label: Copy }> = STANDINGS.map((id) => ({ id, label: STANDING_CHIP[id].label }));
 
 const ORIGIN_OPTIONS = [
   { id: "new", label: WORDS.newSchool },
@@ -69,15 +69,15 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   const { saison } = await params;
   const read = await getBewerbungenOfSaison(saison);
   if (read === null) notFound();
-  const { stand: named, herkunft } = await searchParams;
-  const stand = filterValue(named, STAND_OPTIONS);
-  const origin = filterValue(herkunft, ORIGIN_OPTIONS);
+  const addressed = await searchParams;
+  const state = filterValue(addressed.state, STATE_OPTIONS);
+  const origin = filterValue(addressed.origin, ORIGIN_OPTIONS);
   const filters: Filter[] = [
-    { name: "stand", label: COPY.admin.schiedsrichter.state, all: ALL, options: STAND_OPTIONS, value: stand },
-    { name: "herkunft", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
+    { name: "state", label: COPY.admin.schiedsrichter.state, all: ALL, options: STATE_OPTIONS, value: state },
+    { name: "origin", label: WORDS.origin, all: ALL, options: ORIGIN_OPTIONS, value: origin },
   ];
   const rows = read.bewerbungen.filter(
-    (row) => (stand === null || standingOf(row) === stand) && (origin === null || row.new_school === (origin === "new")),
+    (row) => (state === null || standingOf(row) === state) && (origin === null || row.new_school === (origin === "new")),
   );
   const canBulk = read.saison.status === "future" && read.bewerbungen.some((row) => standingOf(row) === "complete");
   return {
@@ -88,7 +88,7 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
       label: ROUTES.adminBewerbungen.title,
       rows: rows.map((row) => rowOf(row, saison)),
       empty: {
-        kind: stand === null && origin === null ? "none" : "filter",
+        kind: state === null && origin === null ? "none" : "filter",
         plural: ROUTES.adminBewerbungen.title,
         glyph: "bewerbungen",
       } as const,

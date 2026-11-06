@@ -39,11 +39,15 @@ export const writeSeat = action({
   },
 });
 
-/** Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. */
+/**
+ * Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. An address
+ * on the ban list, which the page cannot know, is refused in the list's own sentence.
+ */
 export const sendSeatLink = action({
   lane: "admin",
   name: "sendSeatLink",
   input: BewerbungenResendEinwilligungParams,
+  ownWords: ["bewerbung_kontakt_barred"],
   run: async ({ bewerbung_id: id, seat }) => {
     await bewerbungenResendEinwilligung(id, seat);
     return { ok: true, value: undefined };

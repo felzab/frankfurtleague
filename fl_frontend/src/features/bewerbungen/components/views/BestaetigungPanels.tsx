@@ -17,6 +17,7 @@ import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
 
 import type { ReactNode, RefObject } from "react";
 
+// Redesign: this file goes with the old link pages in `features/address-change`, `features/registrierungen` and `features/spielbestaetigungen`.
 /** The heading of a page whose link could not be checked, on every page a token link opens. */
 export const LINK_UNLESBAR_TITEL = "Link nicht geprüft";
 

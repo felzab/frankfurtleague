@@ -3,6 +3,7 @@ import { COPY } from "@/core/copy";
 import type { FLOutboxDeliveryState, FLOutboxStatus, FLOutboxStatusState } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
+// Redesign: from here to `zustellungChip` goes with its last importer, `components/ui/LinkStandAngaben.tsx`.
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
 type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
 
@@ -38,7 +39,7 @@ const STAND_CHIP: Readonly<Record<FLOutboxStatusState, Chip | null>> = {
 };
 
 /**
- * The one reading of a link's delivery for every editor showing one: the provider's event where it reported one, else
+ * The old pages' reading of a link's delivery, `deliveryChip` below the kit's: the provider's event where it reported one, else
  * the outbox's own state, `null` where neither says anything to act on or no mail was ever owed.
  */
 export function zustellungChip(lage: FLOutboxStatus | null): Chip | null {
