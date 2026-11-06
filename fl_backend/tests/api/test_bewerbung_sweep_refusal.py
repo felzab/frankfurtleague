@@ -199,6 +199,12 @@ class TestTheReminderMark:
             "stellvertretung",
         ]
 
+    @pytest.mark.parametrize("stand", ["delivered", "delayed"])
+    def test_a_seat_a_later_message_may_still_reach_is_chased(self, stand: str):
+        """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
+
+        assert refusing("trainer", stand=stand) == set()
+
     def test_a_trainer_who_is_another_seats_person_is_judged_by_that_seats_mail(self):
         """One mail went to both seats, read by the seat the Trainer mirrors."""
 
@@ -337,6 +343,9 @@ class TestTheOneMonthClock:
     @pytest.mark.parametrize("status", ["submitted", "accepted"])
     def test_only_a_declined_application_is_on_this_clock(self, status: str):
         assert not decline_loeschung_is_due(bewerbung_raw=application(status=status, decision={"made_at": "2020-01-01"}), today=TODAY)
+
+    def test_a_decision_with_no_day_is_never_due(self):
+        assert not decline_loeschung_is_due(bewerbung_raw=application(status="declined", decision=None), today=TODAY)
 
 
 class TestWhatTheNoticesNeed:

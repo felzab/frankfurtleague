@@ -94,6 +94,13 @@ def projection(pipeline: Pipeline) -> Mapping[str, Any]:
     return next(stage["$project"] for stage in pipeline if "$project" in stage)
 
 
+def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
+    match_stage = statistik_stage(build())["pipeline"][0]["$match"]
+
+    assert match_stage["ergebnis"] == {"$ne": None}
+    assert match_stage["saison_id"] == "2026"
+
+
 def test_the_scope_narrows_the_matches_and_nothing_else():
     """A scope that changed the projection, the sort or the fallback would make the two tables two pipelines."""
     gruppenphase, gesamt = build(), build(scope="total")

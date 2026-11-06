@@ -9,6 +9,7 @@ from app.api.bewerbungen.services import (
     compose_kontakt_seat_update,
     find_acceptance_code_refusal,
     find_kontakt_email_refusal,
+    find_new_club_refusal,
 )
 from app.core.codes import Code
 from tests.documents import kontaktperson_document
@@ -36,6 +37,16 @@ class ExplodingSchule(Mapping[str, Any]):
 
     def __len__(self) -> int:
         raise ZorbanaxBoom("the block blew up")
+
+
+class TestOnlyTheSchoolsOwnFaultIsRefused:
+    """A widened `except` files every bug on this path under `bewerbung_schule_unusable`."""
+
+    def test_a_failure_that_is_no_validation_error_is_left_to_the_500(self):
+        """The repair that refusal offers -- decline it and type the club in by hand -- is then the wrong one."""
+
+        with pytest.raises(ZorbanaxBoom):
+            find_new_club_refusal(club_document=ExplodingSchule())
 
 
 class TestADeclinesReason:

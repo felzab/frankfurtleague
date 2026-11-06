@@ -13,15 +13,13 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchulePayload,
     FLPostBewerbungPayload,
 )
-from app.api.bewerbungen.services import (
-    assigned_trikot_farben,
-)
-from app.api.teams.schemas import FLKontaktpersonPayload, normalise_phone
+from app.api.bewerbungen.services import assigned_trikot_farben, compose_kontakte
+from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_phone
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
-from tests.documents import ADDRESS
+from tests.documents import ADDRESS, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -124,6 +122,13 @@ class TestNoBirthdateOnAnyPayload:
         composed = FLKontaktpersonPayload.model_validate({**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)})
 
         assert "birth_date" not in composed.model_dump(mode="json")
+
+    def test_a_stored_contact_with_no_date_still_reads(self):
+        """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""
+
+        record = {**person(), "birth_date": None, "einwilligung": kontaktperson_document("Quillhilde")["einwilligung"]}
+
+        assert FLKontaktperson.model_validate(record).birth_date is None
 
 
 class TestOneNumberHasOneSpelling:
@@ -245,6 +250,16 @@ class TestTheThreeSeatsAreThreePeople:
 
 class TestWhatTheServerComposes:
     """The fields a client is offered none of, so nothing submitted can claim them."""
+
+    def test_every_seat_and_the_flag_survive_the_composition(self):
+        """The control for the case above: a composer dropping a seat would satisfy it and store two people."""
+
+        block = kontakte(trainer_is_also="ansprechperson", ansprechperson=person())
+        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(block).model_dump(mode="json"), today=TODAY)
+
+        assert set(composed) == {"trainer", "ansprechperson", "stellvertretung", "trainer_is_also"}
+        assert composed["trainer_is_also"] == "ansprechperson"
+        assert composed["stellvertretung"]["first_name"] == "Stellan"
 
     def test_a_client_may_not_name_a_consent(self):
         """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""
