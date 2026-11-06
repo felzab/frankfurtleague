@@ -9,7 +9,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
 import { NOT_SENT } from "@/features/bewerbungen/seats";
-import { SEATS, STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
+import { SEATS, STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -52,7 +52,7 @@ const ORIGIN_OPTIONS = [
 /** The row's one chip in its standing's place: a seat never mailed first, the application going on its day unless a link is sent, then an open Dublette. */
 function chipOf(row: FLBewerbungListRow): ChipProps {
   if (row.unmailed) return NOT_SENT;
-  return row.duplicate ? { tone: "warn", label: WORDS.teamDouble } : STANDING_CHIP[standingOf(row)];
+  return row.duplicate ? TEAM_DOUBLE : STANDING_CHIP[standingOf(row)];
 }
 
 /** One application's row, opening its review page. */

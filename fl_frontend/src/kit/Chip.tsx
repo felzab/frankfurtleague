@@ -17,8 +17,8 @@ const chip = tv({
 });
 
 /**
- * What a block carrying a name takes in its typed `chip` prop, one per name. `spoken` is the word a screen reader
- * hears in place of a `label` written as letters, „Disqualifiziert“ for „DQ“.
+ * What a block carrying a name takes in its typed `chip` prop, one per name unless the block says otherwise. `spoken` is
+ * the word a screen reader hears in place of a `label` written as letters, „Disqualifiziert“ for „DQ“.
  */
 export type ChipProps = { tone: "success" | "info" | "warn" | "danger" | "neutral"; label: Copy; spoken?: Copy };
 

@@ -4364,6 +4364,10 @@
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
           },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
           "entry": {
             "anyOf": [
               {
@@ -4403,6 +4407,7 @@
           "name",
           "shorthand",
           "seats_confirmed",
+          "duplicate",
           "saison"
         ],
         "title": "FLBewerbungSingleResponse",
@@ -21106,7 +21111,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application, its decision's administrator withheld as the list withholds it.\n\nEach seat's `expired` says whether its own deadline has passed today.",
+        "description": "One application, its decision's administrator withheld as the list withholds it.\n\nEach seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open\napplication of the season, as the list takes it.",
         "operationId": "bewerbungen_get_bewerbung",
         "parameters": [
           {

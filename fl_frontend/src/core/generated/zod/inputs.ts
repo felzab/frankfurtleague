@@ -660,7 +660,8 @@ export const BewerbungenSweepSaisonParams = zod.object({
 /**
  * One application, its decision's administrator withheld as the list withholds it.
  *
- * Each seat's `expired` says whether its own deadline has passed today.
+ * Each seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open
+ * application of the season, as the list takes it.
  * @summary One Bewerbung for its review page
  */
 export const bewerbungenGetBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

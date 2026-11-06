@@ -11,9 +11,6 @@ import type { ReactNode } from "react";
 
 const OBJECT = COPY.bewerbung.object;
 
-/** Each decision mails every seat. */
-const MAILS = [{ label: COPY.admin.facts.mailTo, value: COPY.admin.bewerbung.allSeats }];
-
 /** The record a decision writes: which application, on the version the page read. */
 type Decided = { id: string; version: number };
 
@@ -35,7 +32,7 @@ export function AcceptDialog({ id, version, children }: Decided & { children: Re
         />
       }>
       {children}
-      <Facts facts={MAILS} />
+      <Facts facts={[{ label: COPY.admin.facts.mailTo, value: COPY.admin.bewerbung.allSeats }]} />
     </Dialog>
   );
 }
@@ -63,7 +60,7 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
         maxLength={max}
         description={COPY.admin.noNames}
       />
-      <Facts facts={MAILS} />
+      <Facts facts={[{ label: COPY.admin.facts.mailTo, value: COPY.admin.bewerbung.mailedSeats }]} />
     </Dialog>
   );
 }

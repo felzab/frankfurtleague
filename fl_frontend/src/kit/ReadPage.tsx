@@ -55,6 +55,8 @@ export type ReadRecord = {
   /** The record names the page, so its title waits with the rest. */
   title: PageTitle;
   chip?: ChipProps;
+  /** What the record's status leaves unsaid and its reader must not miss, after the chip. */
+  flag?: ChipProps;
   /**
    * A match's own head over the groups, the one its pop-up shows: the matchday over the pairing and its
    * score, and what befell the match where something did, which says how it counts.
@@ -111,13 +113,14 @@ function GroupBody({ group }: { group: GroupContent }) {
 
 /** The page once its record is read, in the boundary's place. */
 async function ReadBody({ scope, record }: { scope: "saison" | "area"; record: Promise<ReadRecord> }) {
-  const { title, chip, spiel, club, groups, acts, actsNote } = await record;
+  const { title, chip, flag, spiel, club, groups, acts, actsNote } = await record;
   const [first, ...rest] = groups;
   return (
     <RailPage
       scope={scope}
       title={title}
-      chip={chip}>
+      chip={chip}
+      flag={flag}>
       <div className={formColumn()}>
         {spiel !== undefined && (
           <div className="grid gap-3">

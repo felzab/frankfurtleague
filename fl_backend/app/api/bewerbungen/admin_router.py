@@ -53,6 +53,7 @@ from app.api.bewerbungen.services import (
     find_seat_write_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
+    is_duplicate,
     mailed_seats,
     mit_vorenthaltener_entscheidung,
     owed_link,
@@ -148,6 +149,14 @@ async def _entry_of(bewerbung_raw: Mapping[str, Any], *, saison_teams_collection
     return None if row is None else FLBewerbungEntry.model_validate(row)
 
 
+async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: BewerbungenCollection) -> set[Any]:
+    """The clubs the season's `Dublette`n collide on, which `is_duplicate` asks of a stored application."""
+
+    cells = await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_duplicates_pipeline(saison_id=saison_id))
+
+    return {cell["_id"] for cell in cells}
+
+
 async def _as_served(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -192,9 +201,9 @@ async def get_bewerbungen_admin(
             projection=BEWERBUNG_LIST_FIELDS,
         )
 
-    offer, doubled, read, confirmed = await asyncio.gather(
+    offer, clubs, read, confirmed = await asyncio.gather(
         _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
-        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_duplicates_pipeline(saison_id=saison_id)),
+        _doubled_clubs(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
         newest_of({"saison_id": saison_id}),
         newest_of(build_confirmed_seat_filter(saison_id=saison_id)),
     )
@@ -204,7 +213,6 @@ async def get_bewerbungen_admin(
     # Past the newest rows, so the two reads' one order holds without a sort here.
     served = [*newest, *(row for row in confirmed[:LIST_LIMIT_DEFAULT] if row["_id"] not in shown)]
     club_names, club_codes = await pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
-    clubs = {cell["_id"] for cell in doubled}
 
     return FLBewerbungenAdminListResponse(
         saison=offer,
@@ -229,17 +237,20 @@ async def get_bewerbung(
 ) -> FLBewerbungSingleResponse:
     """One application, its decision's administrator withheld as the list withholds it.
 
-    Each seat's `expired` says whether its own deadline has passed today.
+    Each seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open
+    application of the season, as the list takes it.
     """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
     [served] = await _as_served([bewerbung_raw], ban_list=ban_list, outbox_collection=outbox_collection, today=today)
 
     team_id = bewerbung_raw.get("team_id")
-    offer, (club_names, club_codes), entry = await asyncio.gather(
-        _entry_offer(saison_id=str(bewerbung_raw["saison_id"]), saisons_collection=saisons_collection),
+    saison_id = str(bewerbung_raw["saison_id"])
+    offer, (club_names, club_codes), entry, clubs = await asyncio.gather(
+        _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
         pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[team_id]),
         _entry_of(bewerbung_raw, saison_teams_collection=saison_teams_collection),
+        _doubled_clubs(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
     )
 
     return FLBewerbungSingleResponse(
@@ -248,6 +259,7 @@ async def get_bewerbung(
         name=schule_name(bewerbung_raw=bewerbung_raw, club_names=club_names),
         shorthand=club_codes.get(team_id),
         seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),
+        duplicate=is_duplicate(row=bewerbung_raw, doubled=clubs),
         saison=offer,
     )
 
