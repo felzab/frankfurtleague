@@ -9,7 +9,6 @@ from app.api.spieler.schemas import (
     FLEinwilligung,
     FLPatchKaderRowPayload,
     FLPatchSpielerPayload,
-    FLSpieler,
     FLSpielerMembership,
     FLSpielerPublic,
     FLSpielerSaisonsResponse,
@@ -53,7 +52,7 @@ class TestTheSaisonsPipeline:
         assert all("$match" not in inner for inner in lookup["pipeline"])
 
     def test_it_does_not_unwind(self):
-        """Unwinding turns one player with two squad rows into two rows nothing can tell apart, because `FLSpieler` carries no `saison_id`."""
+        """Unwinding would turn one player with two squad rows into two entries of the one list."""
         stages = [next(iter(stage)) for stage in build_spieler_saisons_pipeline()]
         assert "$unwind" not in stages
 
@@ -76,28 +75,6 @@ class TestTheSaisonsPipeline:
 
     def test_it_sorts_by_forename_then_surname(self):
         assert build_spieler_saisons_pipeline()[-1] == {"$sort": {"first_name": 1, "last_name": 1}}
-
-
-class TestWhyTheSeasonScopedReadCannotAnswerIt:
-    """A club page's squad reads one club's squad rows in one season, and its shape is one squad row's: two reasons it is not the admin list."""
-
-    def test_a_player_with_no_squad_row_does_not_validate_as_flspieler(self):
-        """`team_id` is required, so the shape holds no player before their first squad row, whom the admin list offers one."""
-        with pytest.raises(ValidationError) as failure:
-            FLSpieler.model_validate(
-                {
-                    "_id": SPIELER_OIDS["Ohne"],
-                    "first_name": "Ohne",
-                    "last_name": "Squad",
-                    "inactive_since": None,
-                }
-            )
-
-        assert "team_id" in str(failure.value)
-
-    def test_flspieler_carries_no_saison_id(self):
-        """Two seasons therefore flatten to two rows a caller cannot tell apart."""
-        assert "saison_id" not in FLSpieler.model_fields
 
 
 class TestTheResponseModel:

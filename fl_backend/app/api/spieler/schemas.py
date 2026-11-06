@@ -135,16 +135,6 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
         return self
 
 
-class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
-    """The person as STORED, flattened against one season. A declared shape: NO endpoint returns it.
-
-    A club page's squad serves `FLSpielerPublic` instead.
-    """
-
-    is_nachnominiert: bool
-    inactive_since: CustomOptionalDateString
-
-
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 
@@ -246,11 +236,7 @@ class FLSpielerMembership(_SaisonSpielerWritable, BaseReadModel):
 
 
 class FLSpielerWithMemberships(_SpielerPerson, BaseReadModel):
-    """The person as stored, plus every squad row they hold.
-
-    A DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one
-    season, so a player in two comes back as two indistinguishable rows.
-    """
+    """The person as stored, plus every squad row they hold, a player in two seasons staying one entry."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 

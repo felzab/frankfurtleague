@@ -15,7 +15,6 @@ from app.api.spieler.admin_router import _as_single
 from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
-    FLSpieler,
     FLSpielerAdminSingleResponse,
     FLSpielerMembership,
     FLSpielerPublic,
@@ -164,11 +163,6 @@ class TestTheBaseTierShape:
 
     def test_the_club_page_serves_the_public_shape(self):
         assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
-
-    @pytest.mark.parametrize("field", WITHHELD_FIELDS)
-    def test_the_stored_shape_still_declares_what_the_tier_withholds(self, field: str):
-        """Each rule is about one READ: the field stays stored and admin-visible, and `FLSpieler` still declares it."""
-        assert field in FLSpieler.model_fields
 
     @pytest.mark.parametrize("field", ["stufe", "team_id", "is_nachnominiert", "rolle", "inactive_since"])
     def test_the_admin_membership_read_keeps_every_field(self, field: str):

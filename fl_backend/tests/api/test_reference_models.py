@@ -9,9 +9,9 @@ from app.api.saisons.schemas import FLPatchSaisonPayload
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload
 from app.api.spieler.schemas import (
     FLEinwilligung,
+    FLPatchKaderRowPayload,
     FLPatchSpielerPayload,
     FLSaisonSpielerRow,
-    FLSpieler,
     FLSpielerRecord,
 )
 from app.api.spieler.services import build_ghost_spieler
@@ -42,22 +42,15 @@ class TestSpieler:
             ("stufe", "10"),
         ],
     )
-    def test_rejects_a_position_or_stufe_outside_its_closed_set(self, spieler, field, value):
+    def test_rejects_a_position_or_stufe_outside_its_closed_set(self, field, value):
         with pytest.raises(ValidationError):
-            FLSpieler.model_validate(spieler(**{field: value}))
+            FLPatchKaderRowPayload.model_validate({"nummer": None, "position": None, "stufe": None, "rolle": None, field: value})
 
-    def test_accepts_the_stufe_no_row_holds_yet(self, spieler):
+    def test_accepts_the_stufe_no_row_holds_yet(self):
         """`E2` is offered although the current season has nobody in it — the phases run in sequence."""
-        assert FLSpieler.model_validate(spieler(stufe="E2")).stufe == "E2"
+        row = FLPatchKaderRowPayload.model_validate({"nummer": None, "position": None, "stufe": "E2", "rolle": None})
 
-    def test_requires_a_consent_record(self, spieler):
-        """A pupil reaching a public squad list without one would be published on a claim nobody made."""
-
-        missing = spieler()
-        del missing["einwilligung"]
-
-        with pytest.raises(ValidationError):
-            FLSpieler.model_validate(missing)
+        assert row.stufe == "E2"
 
     @pytest.mark.parametrize("field", ["first_name", "birth_date", "einwilligung"])
     def test_the_record_refuses_a_person_stored_as_nobody(self, field):
