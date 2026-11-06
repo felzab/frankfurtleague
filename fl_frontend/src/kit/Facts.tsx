@@ -50,8 +50,9 @@ const facts = tv({
       // narrower than a dialog on any screen, stacks them.
       boxed: {
         list: `overflow-hidden ${cardSurface()} @lg:grid @lg:grid-cols-2`,
-        // In the wide box the second pair shares the first one's row, so it draws no hairline above it either.
-        row: `${stacked()} px-3 py-2 @lg:nth-2:border-t-0`,
+        // In the wide box the second pair shares the first one's row, so it draws no hairline above it either, and a
+        // first-column pair draws the one hairline between the columns; a lone pair has no column to part from.
+        row: `${stacked()} px-3 py-2 @lg:odd:not-only:border-e @lg:nth-2:border-t-0`,
       },
       // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams.
       free: {
@@ -62,15 +63,26 @@ const facts = tv({
     figures: {
       true: { detail: "font-numeric" },
     },
+    oddCount: {
+      true: {},
+    },
   },
+  compoundVariants: [
+    // The empty cell beside an odd last pair is the list's own pseudo-element, a grid item that a `dl`'s content model,
+    // which refuses an empty child, never sees: its top edge carries the row's rule across the box's whole width.
+    { look: "boxed", oddCount: true, class: { list: "@lg:after:border-t @lg:after:border-border" } },
+  ],
 });
+
+/** Whether the last pair stands beside an empty cell. A lone pair has no row above it to part from. */
+const endsOdd = (count: number): boolean => count > 1 && count % 2 === 1;
 
 /**
  * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
  * over a value's, two a row where `Facts` sets them so.
  */
 export function FactsPlaceholder({ pairs, look = "boxed" }: { pairs: number; look?: "boxed" | "free" }) {
-  const { list, row, term, detail } = facts({ look });
+  const { list, row, term, detail } = facts({ look, oddCount: endsOdd(pairs) });
   return (
     <div className="@container grid w-full gap-2 text-sm">
       <div className={list()}>
@@ -95,9 +107,10 @@ export function FactsPlaceholder({ pairs, look = "boxed" }: { pairs: number; loo
 
 /**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
- * hairline box with hairlines between the rows and two pairs a row where the box is wide, or free of the
- * box as the match pop-up sets them under the pairing. The one block that pairs a label with a value. A subject line
- * above it names the record, with its chip.
+ * hairline box with hairlines between the rows and two pairs a row where the box is wide, one hairline between the
+ * columns, the rows' rules running the whole width and an odd last pair in the first column; or free of the box as the
+ * match pop-up sets them under the pairing. The one block that pairs a label with a value. A subject line above it
+ * names the record, with its chip.
  */
 export function Facts({
   subject,
@@ -108,7 +121,7 @@ export function Facts({
   facts: ReadonlyArray<Fact>;
   look?: "boxed" | "free";
 }) {
-  const { list } = facts({ look });
+  const { list } = facts({ look, oddCount: endsOdd(rows.length) });
   // A row's key is its label and how many rows above it hold that label: keys are unique among siblings, and a caller
   // may list two records under one label, so the label alone would collide.
   const above = new Map<Copy, number>();
