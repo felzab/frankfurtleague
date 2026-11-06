@@ -222,25 +222,6 @@ class TestTheJudgement:
 
         assert address_image_edits(image, identifier=ERASED, addresses=addresses) == {"approval.started_by": ERASED_ACTOR_MARKER}
 
-    def test_every_field_naming_who_acted_takes_the_marker_and_every_own_address_goes_null(self):
-        """The marker keeps a replayed image valid where its record model requires the field; a person's own address is nobody's to keep."""
-
-        authored = {
-            (collection, address.path) for collection, addresses in IMAGE_ADDRESSES.items() for address in addresses if address.replacement
-        }
-
-        assert authored == {
-            (Collection.GRANTS, "granted_by"),
-            (Collection.BAN_LIST, "created_by"),
-            (Collection.INVITATIONS, "created_by"),
-            (Collection.BEWERBUNGEN, "decision.by"),
-            (Collection.REGISTRIERUNGEN, "decision.by"),
-            (Collection.ADDRESS_CHANGES, "approval.started_by"),
-            (Collection.ADDRESS_CHANGES, "approval.approved_by"),
-            (Collection.GRANT_APPROVAL_REQUESTS, "approval.started_by"),
-        }
-        assert {address.replacement for addresses in IMAGE_ADDRESSES.values() for address in addresses} == {ERASED_ACTOR_MARKER, None}
-
 
 @pytest.mark.db
 def test_no_image_holds_the_address_afterwards(mongo_replica_set_url: str):

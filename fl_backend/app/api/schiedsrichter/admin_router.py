@@ -44,7 +44,6 @@ from app.api.schiedsrichter.services import (
     find_referee_name_refusal,
     find_referee_retire_refusal,
     find_retired_refusal,
-    first_stamped,
     owes_reactivation_mint,
 )
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, hash_barred
@@ -385,10 +384,10 @@ async def delete_schiedsrichter(
 
         # The row FIRST: the ghost is not a referee this endpoint addresses, and judging its
         # fixtures before reading it would answer 409 for a row the API says is not there.
-        stored = await pull_one_from_db(
+        await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            projection={"inactive_since": 1},
+            projection={"_id": 1},
             session=session,
         )
 
@@ -403,9 +402,9 @@ async def delete_schiedsrichter(
         return await set_inactive_since(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            # `first_stamped` and never `today`: a second press would move the day they stopped
-            # officiating, which is the day a fee is reconciled against.
-            when=first_stamped(stored=stored, field="inactive_since", today=today),
+            # An earlier press's day stands (`app/core/crud.py :: set_inactive_since`): it is the day a fee is
+            # reconciled against.
+            when=today,
             session=session,
         )
 

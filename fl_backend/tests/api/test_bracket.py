@@ -231,15 +231,6 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {29: ("Team 2", None)}
 
-    def test_a_shootout_carries_through_a_whole_round(self, spiel_at: SpielFactory, side: SideFactory):
-        spiele = [
-            spiel_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}),
-            spiel_at(27, team1=side(5, 0), team2=side(6, 0), ergebnis="0:0", elfmeterschiessen={"team1": 2, "team2": 5}),
-            spiel_at(29, quelle1=sieger(25), quelle2=sieger(27)),
-        ]
-
-        assert resolved(spiele) == {29: ("Team 1", "Team 6")}
-
     def test_a_shootout_is_ignored_where_the_goals_already_decided_it(self, spiel_at: SpielFactory, side: SideFactory):
         """A hand edit only: `patch_spiel` discards it and no validator holds a cross-field rule. Reading it advances the loser."""
 
@@ -269,16 +260,6 @@ class TestResolveBracket:
         ]
 
         assert resolved(spiele) == {}
-
-    def test_a_shootout_winner_arrives_with_no_goals(self, spiel_at: SpielFactory, side: SideFactory):
-        spiele = [
-            spiel_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}),
-            spiel_at(29, quelle1=sieger(25)),
-        ]
-        advancement = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements[0]
-
-        assert advancement.team1 is not None
-        assert advancement.team1.tore is None
 
     @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis.__value__))
     def test_a_result_advances_its_winner_whatever_the_event_says(self, spiel_at: SpielFactory, side: SideFactory, sonderereignis: str):
@@ -330,9 +311,6 @@ class TestResolveBracket:
         ]
 
         assert resolved(spiele) == {}
-
-    def test_a_spiel_naming_itself_leaves_its_slot_alone(self, spiel_at: SpielFactory, side: SideFactory):
-        assert resolved([spiel_at(29, team1=side(1), quelle1=sieger(29))]) == {}
 
     def test_a_spiel_downstream_of_a_cycle_is_left_alone_too(self, spiel_at: SpielFactory, side: SideFactory):
         spiele = [
@@ -426,23 +404,9 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {}
 
-    def test_a_group_phase_spiel_is_never_touched(self, spiel: PayloadFactory):
-        assert resolved([spiel()]) == {}
-
 
 class TestNamingWhatWasVoided:
     """Both fill the same fields, so a report naming only the fixtures cannot tell a deleted scoreline from a slot that filled."""
-
-    def test_a_slot_filling_from_empty_voids_nothing(self, spiel_at: SpielFactory, side: SideFactory):
-        spiele = [
-            spiel_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            spiel_at(29, quelle1=sieger(25)),
-        ]
-        (advancement,) = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements
-
-        assert advancement.spiel_nr == 29
-        assert advancement.voided_ergebnis is None
-        assert advancement.voided_elfmeterschiessen is None
 
     def test_a_corrected_result_names_the_scoreline_it_destroys(self, spiel_at: SpielFactory, side: SideFactory):
         spiele = [

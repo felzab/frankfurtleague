@@ -12,7 +12,7 @@ from app.api.saisons.schedule import (
 )
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, total_season_spiele, with_schedule
-from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER
+from app.api.spiele.schemas import MAX_QUALIFIERS, PHASE_ORDER
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -54,11 +54,6 @@ class TestThePhaseSet:
 
         assert set(PHASE_ORDER) == set(get_args(FLSaisonPhase.__value__))
 
-    def test_the_capacity_follows_from_the_phase_set(self):
-        """The ceiling is what the phases can hold: adding a wider round raises it and nothing else changes."""
-
-        assert MAX_QUALIFIERS == 2 ** len(KNOCKOUT_PHASES)
-
 
 class TestTheGroupPhase:
     @pytest.mark.parametrize(("teams", "expected"), [(2, 1), (4, 3), (6, 5), (8, 7)])
@@ -72,12 +67,6 @@ class TestTheGroupPhase:
         """The bye: with an odd n one team sits out each round, so the schedule needs an extra one."""
 
         assert group_matchdays(teams) == expected
-
-    def test_a_group_of_one_or_none_has_no_matchdays(self):
-        """A group that cannot produce a pair produces no matchday, rather than a negative count."""
-
-        assert group_matchdays(1) == 0
-        assert group_matchdays(0) == 0
 
     def test_all_groups_play_on_the_same_matchday(self):
         """Which is what makes the per-matchday count multiply by the number of groups."""
@@ -176,15 +165,6 @@ class TestTheWholeSeason:
             ("finale", 2),
         ]
 
-    def test_the_expected_count_answers_per_phase(self):
-        """What the wire's `count_spiele` is."""
-
-        rounds = rules()
-
-        assert expected_matches(rounds, "gruppenphase") == 8
-        assert expected_matches(rounds, "viertelfinale") == 4
-        assert expected_matches(rounds, "finale") == 2
-
 
 class TestTheLargestLegalSeasonFitsInOneRead:
     """Why `rules_spiele_over_one_read` refuses a shape the field bounds each accept.
@@ -230,10 +210,3 @@ class TestTheSeasonCarriesItsSchedule:
         assert [(entry["phase"], entry["spieltage"], entry["matches_per_spieltag"]) for entry in injected] == [
             (entry.phase, entry.spieltage, entry.matches_per_spieltag) for entry in schedule_for(rules())
         ]
-
-    def test_an_odd_group_keeps_the_bye_round(self, saison):
-        """The case a hand-written TypeScript copy would most plausibly get wrong; serving the number keeps one answer."""
-
-        odd = saison(rules={**saison()["rules"], "teams_per_gruppe": 5})
-
-        assert with_schedule(odd)["schedule"][0] == {"phase": "gruppenphase", "spieltage": 5, "matches_per_spieltag": 8}

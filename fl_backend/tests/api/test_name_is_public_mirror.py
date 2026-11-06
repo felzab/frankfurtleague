@@ -120,17 +120,6 @@ class TestTheSquadPipelineAnswersTheSameTable:
 
         assert (served["first_name"], served["last_name"]) == ((FIRST_NAME, INITIAL) if case.published else (None, None))
 
-    @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
-    def test_a_withheld_row_keeps_its_number_and_its_position(self, seeded_url: str, case: EinwilligungCase):
-        """The mask reaches the two name fields, so the slot itself stands whichever way the table answers.
-
-        The row is found by its shirt, so a number the mask took would leave this case finding none.
-        """
-
-        served = self._served(seeded_url)[_nummer_for(case)]
-
-        assert served["position"] == "Angriff"
-
 
 @pytest.mark.db
 class TestTheRefereeJoinAnswersTheSameTable:

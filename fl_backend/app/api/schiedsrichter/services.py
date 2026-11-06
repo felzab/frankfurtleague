@@ -146,18 +146,6 @@ def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
     )
 
 
-def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
-    """The day already stamped, or today.
-
-    A second press of the retirement would otherwise move the day a referee stopped officiating,
-    which is the day a fee is reconciled against.
-    """
-
-    stamped = stored.get(field)
-
-    return today if stamped is None else str(stamped)
-
-
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
     """Why retiring this referee must be refused, or `None`.
 

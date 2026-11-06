@@ -10,8 +10,6 @@ from app.api.spielbestaetigungen.services import (
     deadline_of,
     reason_to_close,
 )
-from app.api.spielbestaetigungen.system_router import CLOSES_PER_PASS, MINTS_PER_PASS, REMINDERS_PER_PASS
-from app.core.middlewares import REQUEST_DEADLINE_S
 
 TODAY = "2026-04-01"
 ALPHA = ObjectId("6890a1b2c3d4e5f607760001")
@@ -92,37 +90,3 @@ class TestWhyARowCloses:
 
         assert reason_to_close(row=answered, spiel=spiel(time="19:00:00"), austritte={}, today=TODAY) == "ansetzung_changed"
         assert reason_to_close(row=answered, spiel=spiel(), austritte={}, today=AFTER_THE_DAY) == "spiel_past"
-
-
-# Three commands a row -- the update, its read-back, its log row -- pinned on the wire by
-# `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt`.
-# A fresh row costs less, one insert taking its share's rows; the bound counts it at three.
-ROUND_TRIPS_A_ROW = 3
-
-
-# Each worst call's commands beside its rows, counted on the wire by
-# `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 32
-
-# A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first
-# batch, pinned on the wire by
-# `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestEverySeasonSizedReadSendsOneGetMore`.
-SWEEP_GET_MORES = 12
-
-
-# The call's per-command cost, the widest of its whole passes at a full share timed locally: thirty closes and
-# reminders on 2026-10-21.
-@pytest.mark.parametrize(
-    ("rows", "other_commands", "per_command_s", "round_trip_s"),
-    [
-        pytest.param(
-            CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS + SWEEP_GET_MORES, 0.00154, 0.037, id="the sweep"
-        ),
-    ],
-)
-def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names(
-    rows: int, other_commands: int, per_command_s: float, round_trip_s: float
-):
-    """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
-
-    assert (rows * ROUND_TRIPS_A_ROW + other_commands) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S

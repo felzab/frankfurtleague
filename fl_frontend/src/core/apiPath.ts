@@ -1,8 +1,4 @@
-/**
- * Whether the URL parser left an endpoint's path as the call site spelled it. Its own module because
- * `fl_frontend/src/core/api.ts` is `server-only` and reads the environment at import, so nothing can
- * exercise a predicate living there.
- */
+/** Whether the URL parser left an endpoint's path as the call site spelled it. */
 export function isPathAsSpelled(endpoint: string, builtPathname: string, basePathname: string): boolean {
   // Dropped rather than compared: the query is the URL's own, and a call site may spell an inline `?a=b`.
   const spelled = endpoint.split(/[?#]/)[0] ?? "";

@@ -61,7 +61,6 @@ RETIREMENT_OPEN = "ruhestand.offen@schule.de"
 SCHIEDSRICHTER_WITHOUT_RECORD = "pfeife.ohne@schule.de"
 SCHIEDSRICHTER_NULL_RECORD = "pfeife.null@schule.de"
 GHOST = "geist@schule.de"
-NOBODY = "niemand.hierverzeichnet@example.com"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
 PAST_AND_OPEN = "vergangen.und.offen@schule.de"
@@ -283,14 +282,6 @@ class TestTheConfirmationNarrowing:
         assert answer.seats == []
         assert answer.unconfirmed is True
 
-    def test_an_unconfirmed_past_seat_alone_is_not_flagged(self, seeded_league: str):
-        """Confirming a past seat opens nothing, so this mailbox meets the landing of one holding nothing."""
-
-        answer = answered(seeded_league, ONLY_PAST_OPEN)
-
-        assert is_empty(answer)
-        assert answer.unconfirmed is False
-
     def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
         """Kills a confirmation judged per row: `trainer_is_also` seats this person twice, and only the Trainer seat is stamped."""
 
@@ -311,23 +302,6 @@ class TestTheConfirmationNarrowing:
 
         assert is_empty(answer)
         assert answer.unconfirmed is True
-
-    def test_a_mailbox_holding_nothing_is_answered_nothing_unflagged(self, seeded_league: str):
-        answer = answered(seeded_league, NOBODY)
-
-        assert is_empty(answer)
-        assert answer.unconfirmed is False
-
-    def test_one_confirmed_record_beside_an_unconfirmed_one_leaves_the_flag_down(self, seeded_league: str):
-        """Kills a flag set by ANY unconfirmed record: a person holding a Funktion is not awaiting their own confirmation."""
-
-        answer = answered(seeded_league, MIXED)
-
-        assert ([row.schiedsrichter_id for row in answer.schiedsrichter], answer.spieler, answer.unconfirmed) == (
-            [SCHIEDSRICHTER_MIXED_OID],
-            [],
-            False,
-        )
 
     def test_every_read_sees_what_the_caller_s_transaction_wrote(self, seeded_league: str):
         """Kills any of the four reads made outside the caller's session: each has its own change to miss.

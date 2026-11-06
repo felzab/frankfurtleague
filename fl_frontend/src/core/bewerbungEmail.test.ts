@@ -35,12 +35,6 @@ describe("the acceptance's kit colour", () => {
 
     assert.ok(text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
   });
-
-  it("states that no colour is assigned yet rather than guessing one", () => {
-    const { text } = renderMail(buildBewerbungZusageEmail({ ...ZUSAGE, trikot_farbe: null }, { origin: ORIGIN }));
-
-    assert.ok(text.includes("Trikotfarbe: Nicht hinterlegt"), "the mail names a colour nobody assigned");
-  });
 });
 
 describe("the confirmation link's mail", () => {

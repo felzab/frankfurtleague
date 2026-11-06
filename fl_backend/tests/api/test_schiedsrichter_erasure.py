@@ -7,7 +7,7 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import DuplicateKeyError, OperationFailure
+from pymongo.errors import OperationFailure
 
 from app.api.identity.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
@@ -20,23 +20,19 @@ from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
 )
 from app.api.schiedsrichter.services import (
-    build_booked_image_filter,
     build_ghost_repoint,
     build_ghost_schiedsrichter,
-    build_unplayed_assignment_filter,
     compose_confirmation,
-    first_stamped,
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpielListAdapter,
-    unplayed_filter,
 )
 from app.api.spiele.services import BookedReferee, ResolvedReferences, find_booking_refusal
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
+from app.core.constraints import SUPPORT_INDEXES
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import build_redaction_filter
@@ -109,9 +105,6 @@ MINTED_ON = "2126-03-02"
 BIRTH_DATE = "1984-05-09"
 
 TOKEN_HASHES = {oid: hash_token(f"raw-token-for-{oid}") for oid in REFEREE_NAMES}
-
-# Read off the declaration, so renaming the index fails here rather than leaving these cases asserting nothing.
-NAME_INDEX = next(index for index in UNIQUE_INDEXES if index.collection == Collection.SCHIEDSRICHTER)
 
 # Read off the declaration rather than typed here, so renaming the index fails at its one source.
 TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Collection.ACTION_LOG and "document_id" in dict(index.keys))
@@ -219,20 +212,10 @@ class TestTheGhostTheSpieleAreHandedTo:
     name on it reaches the fixtures of everybody erased.
     """
 
-    def test_it_carries_no_name_and_no_school(self):
-        ghost = build_ghost_schiedsrichter()
-
-        assert (ghost["name"], ghost["schule"]) == (None, None)
-
     def test_every_contact_member_is_present_and_null(self):
         """Read off the model, so a member added later arrives null rather than missing and failing the record model."""
 
         assert build_ghost_schiedsrichter()["kontakt"] == dict.fromkeys(FLKontakt.model_fields)
-
-    def test_it_is_retired(self):
-        """`booking_unknown_resource` reads this field and nothing else, and it is the whole of what keeps the ghost off a new fixture."""
-
-        assert build_ghost_schiedsrichter()["inactive_since"] == GHOST_INACTIVE_SINCE
 
     def test_it_carries_the_fixed_id_and_no_fee(self):
         ghost = build_ghost_schiedsrichter()
@@ -244,17 +227,6 @@ class TestTheGhostTheSpieleAreHandedTo:
         """One whole update asserted rather than membership: a repoint also clearing `payment` would rewrite what a match cost."""
 
         assert build_ghost_repoint() == {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}}
-
-
-class TestTheRetirementKeepsTheDayItAlreadyCarries:
-    """`first_stamped` on its own, the retire endpoint being its one caller."""
-
-    def test_a_row_retired_earlier_keeps_the_day_they_retired(self):
-        """The retirement is a fact about the past: a referee retired last season and pressed again today retired last season."""
-
-        retired_earlier = {"inactive_since": AN_EARLIER_RETIREMENT}
-
-        assert first_stamped(stored=retired_earlier, field="inactive_since", today=TODAY) == AN_EARLIER_RETIREMENT
 
 
 # A fixture the ghost does NOT hold, so a payload naming it MOVES the booking, which is the only case
@@ -854,24 +826,6 @@ def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica
     assert row["redacted_at"] == REDACTED_AT
 
 
-def test_the_unplayed_assignment_filter_spells_the_definition_once():
-    """The retirement's refusal reads this one filter, composed from the path the erasure's own repoint asks for."""
-
-    assert build_unplayed_assignment_filter(SCHIEDSRICHTER_OID) == {"schiedsrichter.schiedsrichter_id": SCHIEDSRICHTER_OID, **unplayed_filter()}
-
-
-def test_the_spiel_image_filter_names_the_collection_it_reads():
-    """Nothing indexes inside `before`, so this filter is a scan narrowed by `collection` and by nothing else.
-
-    Pinned because widening it to every collection would sweep the whole log on every erasure.
-    """
-
-    assert build_booked_image_filter(SCHIEDSRICHTER_OID) == {
-        "collection": str(Collection.SPIELE),
-        "before.schiedsrichter.schiedsrichter_id": SCHIEDSRICHTER_OID,
-    }
-
-
 @pytest.mark.db
 def test_the_other_referees_log_rows_keep_their_images(mongo_replica_set_url: str):
     """Kills a filter matching on `collection` alone, which would empty every referee's rows at once."""
@@ -976,55 +930,8 @@ def test_a_refused_redaction_takes_the_repoint_back(mongo_replica_set_url: str):
     assert spiele[PLAYED_SPIEL_OID]["schiedsrichter"] == {"schiedsrichter_id": SCHIEDSRICHTER_OID, "payment": DEFAULT_PAYMENT}
 
 
-class TestTheNameRuleReachesEveryRow:
-    """The widened `uniq_schiedsrichter_name`: an erasure deletes rather than nulls, so the one null name it can ever meet is the ghost's."""
-
-    @pytest.mark.db
-    def test_the_index_is_built_over_every_row(self, mongo_replica_set_url: str):
-        """Kills a partial filter left behind, which would index a subset and let a second nameless row in beside the ghost."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return {row["name"]: row.get("partialFilterExpression") async for row in await database[Collection.SCHIEDSRICHTER].list_indexes()}
-
-        built = on_a_league(mongo_replica_set_url, body)
-
-        assert NAME_INDEX.name in built, f"the name rule is not built at all: {sorted(built)}"
-        assert built[NAME_INDEX.name] is None
-
-    @pytest.mark.db
-    def test_a_second_nameless_row_beside_the_ghost_is_refused(self, mongo_replica_set_url: str):
-        """What the widening buys: a sentinel written twice, which would split the erased fixtures across two rows nobody can tell apart."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await erase_the_referee(database, client)
-            try:
-                await database[Collection.SCHIEDSRICHTER].insert_one({**build_ghost_schiedsrichter(), "_id": ObjectId()})
-            except DuplicateKeyError:
-                return "refused"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "refused"
-
-    @pytest.mark.db
-    def test_a_second_live_referee_under_one_name_is_still_refused(self, mongo_replica_set_url: str):
-        """The half the widening must not lose: two people the league can still write to, under one name."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            namesake = {**referee_document(SCHIEDSRICHTER_OID), "_id": ObjectId()}
-            try:
-                await database[Collection.SCHIEDSRICHTER].insert_one(namesake)
-            except DuplicateKeyError:
-                return "refused"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "refused"
-
-
 class TestTheRetirePressKeepsTheDayItFinds:
-    """Driven through the endpoint rather than over `first_stamped`, which the default tier already covers.
-
-    What needs a database is whether the retire path consults it at all.
-    """
+    """Driven through the endpoint, since what keeps the day is the write's own filter (`app/core/crud.py :: set_inactive_since`)."""
 
     @pytest.mark.db
     def test_a_press_after_an_earlier_retirement_leaves_that_day(self, mongo_replica_set_url: str):

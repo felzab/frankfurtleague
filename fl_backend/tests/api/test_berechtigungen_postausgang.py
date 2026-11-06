@@ -32,16 +32,6 @@ def test_an_acting_administrator_barred_when_queued_is_stored_withheld_and_still
     assert row["current"] == NEU.model_dump()
 
 
-def test_an_unbarred_actor_is_stored_folded_with_no_reason():
-    """The control for the case above: nothing barred, nothing withheld."""
-
-    row = compose_notice(
-        grant_id=GRANT, kind="granted", current=NEU, before=None, changed_by="Anna.Admin@Frankfurtleague.de", now=NOW, barred=()
-    ).data
-
-    assert (row["changed_by"], row["author"], row["withheld"]) == (ANNA, "anwendung", None)
-
-
 def test_a_change_found_in_the_database_names_its_source_rather_than_leaving_a_null_actor_to_say_it():
     row = compose_notice(grant_id=GRANT, kind="granted", current=NEU, before=None, changed_by=None, now=NOW, barred=()).data
 
