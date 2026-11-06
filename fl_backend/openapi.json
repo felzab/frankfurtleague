@@ -31090,7 +31090,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/austritt": {
       "put": {
-        "description": "Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.\n\nRefused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its\n`earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
+        "description": "Record how a team left the season, once: an exit is never lifted and never replaced.\n\nRefused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;\n`saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`\nthe start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
         "operationId": "teams_put_austritt",
         "parameters": [
           {

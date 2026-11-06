@@ -78,6 +78,7 @@ from app.api.teams.services import (
     compose_kontakte_herkunft,
     compose_seat_block,
     find_austritt_refusal,
+    find_austritt_standing_refusal,
     find_gruppe_move_refusal,
     find_kontakt_seat_barred_refusal,
     find_kontakt_sitz_refusal,
@@ -732,10 +733,11 @@ async def put_austritt(
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
     """
-    Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
+    Record how a team left the season, once: an exit is never lifted and never replaced.
 
-    Refused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its
-    `earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+    Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
+    `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
+    the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
     """
 
     row_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -743,6 +745,9 @@ async def put_austritt(
 
     async def record_the_exit(session: AsyncClientSession) -> None:
         stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=row_filter, projection=["austritt"], session=session)
+        # Two presses racing conflict on the row this writes, and the retry reads the exit the first left.
+        refuse(find_austritt_standing_refusal(stored=stored.get("austritt")))
+
         # Anchored, so the status and the start belong to the write set: `activate_saison` and `PATCH /saisons/{saison_id}`
         # write this document, so either landing under the exit conflicts and the retry judges the season it left.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
@@ -751,14 +756,7 @@ async def put_austritt(
         refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
         start_date = str(saison_raw["start_date"])
-        refuse(
-            find_austritt_refusal(
-                proposed=proposed,
-                stored=stored.get("austritt"),
-                start_date=start_date,
-                started=has_started(start_date=start_date, today=today),
-            )
-        )
+        refuse(find_austritt_refusal(start_date=start_date, started=has_started(start_date=start_date, today=today)))
 
         await patch_one_in_db(
             collection=saison_teams_collection,
@@ -774,9 +772,7 @@ async def put_austritt(
             outbox_collection=outbox_collection,
             saison_id=saison_id,
             team_id=team_id,
-            stored=stored.get("austritt"),
-            # The model, not the local `proposed`, which is its dump: the function takes `FLAustritt`.
-            proposed=austritt_data,
+            exit_day=austritt_data.date,
             now=germany_now,
             session=session,
         )

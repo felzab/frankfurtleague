@@ -10,7 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.outbox.schemas import FLAustrittNoticeData
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
 from app.api.teams.admin_router import put_austritt
-from app.api.teams.schemas import FLAustritt, FLAustrittPayload
+from app.api.teams.schemas import FLAustrittPayload
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from tests import documents
@@ -106,8 +106,8 @@ def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]]) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def save_the_exit(database: AsyncDatabase, client: AsyncMongoClient, *, stored: str | None, proposed: str) -> None:
-    """One save of the row, its exit's day going from `stored` to `proposed`."""
+async def save_the_exit(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    """The exit's one write, dated `EXIT_DAY`."""
 
     async def owe(session: AsyncClientSession) -> None:
         await owe_the_austritt_notices_in_session(
@@ -116,8 +116,7 @@ async def save_the_exit(database: AsyncDatabase, client: AsyncMongoClient, *, st
             outbox_collection=database[Collection.OUTBOX],
             saison_id=SAISON_ID,
             team_id=DEPARTED,
-            stored=None if stored is None else {"date": stored},
-            proposed=FLAustritt(type="disqualifikation", reason="Nicht angetreten", date=proposed),
+            exit_day=EXIT_DAY,
             now=MAIL_NOW,
             session=session,
         )
@@ -159,7 +158,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
         ]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await save_the_exit(database, client, stored=None, proposed=EXIT_DAY)
+            await save_the_exit(database, client)
 
             return await database[Collection.OUTBOX].find().to_list(), await told(database, client)
 
@@ -176,26 +175,6 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
             ]
         # Never the opponent's seat: the team editor reads a seat's last mail as the delivery of its link.
         assert {(row["reference"]["id"], row["reference"]["seat"]) for row in rows} == {(DEPARTED_ROW, None)}
-
-    def test_a_later_save_tells_only_the_opponents_a_moved_day_newly_reaches(self, mongo_replica_set_url: str):
-        spiele = [spiel(1, DEPARTED, OPPONENT, LATER), spiel(2, DEPARTED, EARLIER_OPPONENT, DAY_BEFORE)]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await save_the_exit(database, client, stored=None, proposed=EXIT_DAY)
-            first = await told(database, client)
-            await save_the_exit(database, client, stored=EXIT_DAY, proposed=DAY_BEFORE)
-            moved = await told(database, client)
-            # Past the retention no key answers for the notices owed, and a colour saved months later still tells nobody.
-            await database[Collection.OUTBOX].delete_many({})
-            await save_the_exit(database, client, stored=DAY_BEFORE, proposed=DAY_BEFORE)
-
-            return first, moved, await told(database, client)
-
-        first, moved, resaved = on_a_league(mongo_replica_set_url, body, spiele=spiele)
-
-        assert sorted(first) == addresses(OPPONENT)
-        assert sorted(moved) == addresses(EARLIER_OPPONENT)
-        assert resaved == {}
 
     def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str):
         """Nothing above reaches the route, so an exit recorded with its call gone would tell nobody, and nothing would say so."""

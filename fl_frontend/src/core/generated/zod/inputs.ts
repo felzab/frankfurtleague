@@ -3730,10 +3730,11 @@ export const TeamsPatchTeamSaisonBody = zod
   );
 
 /**
- * Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
+ * Record how a team left the season, once: an exit is never lifted and never replaced.
  *
- * Refused `saison_past` on a finished season, and `austritt_before_saison_start` until the season's start date, its
- * `earliest` the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+ * Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
+ * `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
+ * the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
  * @summary Record a team's exit from a season
  */
 export const teamsPutAustrittPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

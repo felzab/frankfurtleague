@@ -1541,20 +1541,30 @@ def find_gruppe_move_refusal(*, spiele_drawn: int) -> WriteRefusal | None:
     )
 
 
-def find_austritt_refusal(
-    *, proposed: Mapping[str, Any], stored: Mapping[str, Any] | None, start_date: str, started: bool
-) -> WriteRefusal | None:
+def find_austritt_standing_refusal(*, stored: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """`version_stale`: this row's exit stands, so the page offering another was read before it.
+
+    An exit is never lifted, and its notices and closed confirmations have gone out, so nothing replaces it, whatever
+    the write carries. The record's presence is the whole comparison: the write sends no version.
+    """
+
+    if stored is None:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
+def find_austritt_refusal(*, start_date: str, started: bool) -> WriteRefusal | None:
     """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
 
     Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
     exit standing then would leave the swap fielding a departed club. The season save refuses moving the start past a
     stored exit (`saison_start_austritt_stored`), so an exit never stands on a season that reads as unstarted again.
-    `started` is `app/api/saisons/services.py :: has_started`. The record as the payload dumps it beside the stored one,
-    so a save resubmitting a stored exit passes and only a new or changed one is judged. `earliest` is the first day an
-    exit may be recorded, on the exit record as a whole rather than its date: no date the exit could carry passes sooner.
+    `started` is `app/api/saisons/services.py :: has_started`. `earliest` is the first day an exit may be recorded, on the
+    exit record as a whole rather than its date: no date the exit could carry passes sooner.
     """
 
-    if started or proposed == stored:
+    if started:
         return None
 
     return WriteRefusal(

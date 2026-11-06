@@ -36,7 +36,6 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
 )
-from app.api.teams.schemas import FLAustritt
 from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -1194,12 +1193,6 @@ def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, dat
 
 
 # --- The NOTICE an Austritt owes each opponent, at the exit's own write: a fixture past the asking window holds no row to close.
-
-
-def exit_day_to_tell(*, stored: Mapping[str, Any] | None, proposed: FLAustritt) -> str | None:
-    """The day this write's exit tells its opponents of, or `None` where it records no new day: a corrected route or reason tells nobody."""
-
-    return None if stored is not None and stored.get("date") == proposed.date else proposed.date
 
 
 def build_austritt_spiele_filter(*, saison_id: str, team_id: Any, exit_day: str) -> dict[str, Any]:
