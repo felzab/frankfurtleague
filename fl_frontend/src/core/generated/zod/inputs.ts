@@ -3764,24 +3764,6 @@ export const TeamsDeleteInvitationParams = zod.object({
 });
 
 /**
- * What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
- *
- * **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
- * of the last mail owed about it — `delivery` null means nobody was ever owed it, which is a state rather than a delivery failure.
- * The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
- *
- * `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
- * the link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.
- * @summary This team's live registration link for a season, and whether it opens anything
- */
-export const teamsGetInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const TeamsGetInvitationParams = zod.object({
-  team_id: zod.string().regex(teamsGetInvitationPathTeamIdRegExp),
-  saison_id: zod.string(),
-});
-
-/**
  * Mint the link a team's players register through, revoking whatever link that team held for this season.
  *
  * **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of

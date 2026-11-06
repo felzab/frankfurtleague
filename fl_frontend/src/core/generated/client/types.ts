@@ -2825,18 +2825,6 @@ export interface FLInvitationRow {
   team_id: string;
 }
 
-/**
- * The team's live link for one season, or nothing, beside the window deciding what it opens.
- */
-export interface FLInvitationResponse {
-  invitation: FLInvitationRow | null;
-  running: boolean;
-  /** @minLength 1 */
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
 export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
 
 export const FLSpielerStufe = {
@@ -6338,31 +6326,6 @@ export interface FLTeamSeatsResponse {
 }
 
 /**
- * The stored club document plus every season membership it holds.
- *
- * A DIFFERENT question from `FLTeam`, not a projection: that one joins strictly against one season,
- * so a club outside it is absent by design.
- */
-export interface FLTeamWithMemberships {
-  address: FLAddress;
-  /** @maxLength 4096 */
-  description: string;
-  /** @minLength 1 */
-  full_name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  inactive_since: string | null;
-  memberships: FLTeamMembership[];
-  /** @minLength 1 */
-  name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  version: number;
-  website_url: string | null;
-}
-
-/**
  * One club as the Teams list shows it: the name it plays this season under, or today's for a club holding no row of it.
  */
 export interface FLTeamsAdminRow {
@@ -6387,13 +6350,6 @@ export interface FLTeamsAdminListResponse {
   entry: FLTeamEntryOffer;
   format: "list";
   teams: FLTeamsAdminRow[];
-}
-
-/**
- * Every club, retired ones included, each with its memberships. Sorted by name.
- */
-export interface FLTeamsSaisonsResponse {
-  teams: FLTeamWithMemberships[];
 }
 
 /**

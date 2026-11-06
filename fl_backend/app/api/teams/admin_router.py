@@ -20,7 +20,6 @@ from app.api.invitations.schemas import (
     FLInvitationMailPayload,
     FLInvitationMailResponse,
     FLInvitationMintResponse,
-    FLInvitationResponse,
     FLInvitationRow,
     FLInvitationWriteResponse,
     FLTeamLinkState,
@@ -62,14 +61,12 @@ from app.api.teams.schemas import (
     FLReplaceSaisonTeamResponse,
     FLTeamEntryClub,
     FLTeamEntryOffer,
+    FLTeamMembership,
     FLTeamRecord,
     FLTeamsAdminFilterParams,
     FLTeamsAdminListResponse,
     FLTeamSaisonAdminResponse,
     FLTeamSaisonFacts,
-    FLTeamsSaisonsResponse,
-    FLTeamWithMemberships,
-    FLTeamWithMembershipsListAdapter,
 )
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
@@ -340,45 +337,6 @@ async def _served_invitation(live: Mapping[str, Any], *, ban_list: BanList, outb
     return FLInvitationRow.model_validate({**live, "created_by": withheld, "created_by_barred": withheld is None, "delivery": lage})
 
 
-# A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
-# capture this one whatever the declaration order.
-@router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
-async def get_team_saisons(
-    teams_collection: TeamsCollection,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
-    grants_announced_collection: GrantsAnnouncedCollection,
-    outbox_collection: OutboxCollection,
-    today: str = Depends(get_german_date_str),
-    operator: str = Depends(get_actor_email),
-    auth_time: int = Depends(get_actor_auth_time),
-) -> FLTeamsSaisonsResponse:
-    """
-    Every team, retired ones included, each with every season membership it holds. Sorted by name.
-
-    Each membership names the live change of each seat's address, which the address tool shows, and per seat why the
-    tool refuses that change this administrator. Each seat's link names what became of the last mail carrying it,
-    `delivery` null where none was ever owed.
-    """
-
-    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(), collation=GERMAN_COLLATION)
-
-    return FLTeamsSaisonsResponse(
-        teams=FLTeamWithMembershipsListAdapter.validate_python(
-            await _with_seat_states(
-                teams_raw,
-                address_changes_collection=address_changes_collection,
-                grants_collection=grants_collection,
-                grants_announced_collection=grants_announced_collection,
-                outbox_collection=outbox_collection,
-                today=today,
-                operator=operator,
-                auth_time=auth_time,
-            )
-        )
-    )
-
-
 # Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
@@ -479,10 +437,7 @@ async def get_team_saison_admin(
     saison_raw = await pull_one_from_db(
         collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "start_date", "rules", "registrierung"]
     )
-    # The memberships read narrowed to this club, so a seat reads here as it does everywhere the read serves it.
-    teams_raw = await aggregate_many_from_db(
-        collection=teams_collection, pipeline=[{"$match": {"_id": team_id}}, *build_team_saisons_pipeline()], collation=GERMAN_COLLATION
-    )
+    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(team_id))
     if not teams_raw:
         raise DocumentNotFoundError()
 
@@ -490,9 +445,10 @@ async def get_team_saison_admin(
     held_saison_ids = [row["saison_id"] for row in team_raw["memberships"]]
     row_raw = next((row for row in team_raw["memberships"] if row["saison_id"] == saison_id), None)
 
+    # Every membership is read for the seasons `retire_blocked` judges; only this season's seats are served.
     served, season_rows, held_saisons, spiele_drawn, live = await asyncio.gather(
         _with_seat_states(
-            teams_raw,
+            [{**team_raw, "memberships": [] if row_raw is None else [row_raw]}],
             address_changes_collection=address_changes_collection,
             grants_collection=grants_collection,
             grants_announced_collection=grants_announced_collection,
@@ -506,7 +462,8 @@ async def get_team_saison_admin(
         ),
         pull_many_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
         spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
-        # A list read where the answer is one row, as `get_invitation` reads it.
+        # A list read where the answer is one row: a team legitimately holds no live invitation, and
+        # `pull_one_from_db` would make that absence a 404.
         pull_many_from_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
@@ -533,7 +490,7 @@ async def get_team_saison_admin(
             ).skipped,
         )
 
-    memberships = FLTeamWithMemberships.model_validate(served[0]).memberships
+    memberships = served[0]["memberships"]
 
     return FLTeamSaisonAdminResponse(
         version=composite_version(team_raw, row_raw or {}),
@@ -545,7 +502,7 @@ async def get_team_saison_admin(
             begun=has_started(start_date=str(saison_raw["start_date"]), today=today),
             registrierung_end=(saison_raw.get("registrierung") or {}).get("end"),
         ),
-        membership=next((membership for membership in memberships if membership.saison_id == saison_id), None),
+        membership=FLTeamMembership.model_validate(memberships[0]) if memberships else None,
         gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in season_rows]),
         gruppe_locked=find_gruppe_move_refusal(spiele_drawn=spiele_drawn) is not None,
         retire_blocked_by=saison_blocking_retirement(held_saisons),
@@ -1393,48 +1350,3 @@ async def post_invitation_dispatch(
 
     async with transaction_session(db) as session:
         return await session.with_transaction(owe_the_link)
-
-
-@router.get(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
-    response_model=FLInvitationResponse,
-    summary="This team's live registration link for a season, and whether it opens anything",
-)
-async def get_invitation(
-    team_id: CustomRouteObjectId,
-    saison_id: str,
-    invitations_collection: InvitationsCollection,
-    saisons_collection: SaisonsCollection,
-    outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
-) -> FLInvitationResponse:
-    """
-    What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
-
-    **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
-    of the last mail owed about it — `delivery` null means nobody was ever owed it, which is a state rather than a delivery failure.
-    The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
-
-    `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
-    the link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.
-    """
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["registrierung", "status"])
-
-    # A list read where the answer is one row: a team legitimately holds no live invitation, and
-    # `pull_one_from_db` would make that absence a 404.
-    live = await pull_many_from_db(
-        collection=invitations_collection,
-        db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
-        limit=1,
-        projection=WITHOUT_TOKEN_HASH,
-    )
-
-    invitation = await _served_invitation(live[0], ban_list=ban_list, outbox_collection=outbox_collection) if live else None
-
-    return FLInvitationResponse(
-        saison_id=saison_id,
-        team_id=team_id,
-        invitation=invitation,
-        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
-    )

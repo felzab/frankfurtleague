@@ -886,14 +886,15 @@ def build_decided_standings(
     }
 
 
-def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
-    """Every club with every junction row it holds.
+def build_team_saisons_pipeline(team_id: Any) -> list[Mapping[str, Any]]:
+    """One club with every junction row it holds.
 
     UNLIKE `build_team_pipeline`: no season resolution, no strict join, no statistics -- the
-    question is club-centric, so retired clubs stay in.
+    question is club-centric, so a retired club stays in.
     """
 
     return [
+        {"$match": {"_id": team_id}},
         {
             "$lookup": {
                 "from": Collection.SAISON_TEAMS,
@@ -923,7 +924,6 @@ def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
                 "as": "memberships",
             }
         },
-        {"$sort": {"name": 1}},
     ]
 
 

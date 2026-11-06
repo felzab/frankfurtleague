@@ -6869,43 +6869,6 @@
         "title": "FLInvitationRecipient",
         "type": "object"
       },
-      "FLInvitationResponse": {
-        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.",
-        "properties": {
-          "invitation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLInvitationRow"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_id",
-          "invitation",
-          "running"
-        ],
-        "title": "FLInvitationResponse",
-        "type": "object"
-      },
       "FLInvitationRow": {
         "description": "One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address.",
         "properties": {
@@ -18891,99 +18854,6 @@
         "title": "FLTeamStatistik",
         "type": "object"
       },
-      "FLTeamWithMemberships": {
-        "description": "The stored club document plus every season membership it holds.\n\nA DIFFERENT question from `FLTeam`, not a projection: that one joins strictly against one season,\nso a club outside it is absent by design.",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/FLAddress"
-          },
-          "description": {
-            "maxLength": 4096,
-            "title": "Description",
-            "type": "string"
-          },
-          "full_name": {
-            "minLength": 1,
-            "title": "Full Name",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "memberships": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamMembership"
-            },
-            "title": "Memberships",
-            "type": "array"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "schulform": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchulform"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          },
-          "website_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Website Url"
-          }
-        },
-        "required": [
-          "name",
-          "shorthand",
-          "description",
-          "full_name",
-          "schulform",
-          "website_url",
-          "address",
-          "id",
-          "inactive_since",
-          "version",
-          "memberships"
-        ],
-        "title": "FLTeamWithMemberships",
-        "type": "object"
-      },
       "FLTeamsAdminListResponse": {
         "description": "One season's Teams list, and what its create dialog offers.",
         "properties": {
@@ -19093,23 +18963,6 @@
           "inactive_since"
         ],
         "title": "FLTeamsAdminRow",
-        "type": "object"
-      },
-      "FLTeamsSaisonsResponse": {
-        "description": "Every club, retired ones included, each with its memberships. Sorted by name.",
-        "properties": {
-          "teams": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamWithMemberships"
-            },
-            "title": "Teams",
-            "type": "array"
-          }
-        },
-        "required": [
-          "teams"
-        ],
-        "title": "FLTeamsSaisonsResponse",
         "type": "object"
       },
       "FLTeamsSingleResponse": {
@@ -30604,73 +30457,6 @@
         ]
       }
     },
-    "/api/v0/teams/saisons": {
-      "get": {
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\nEach membership names the live change of each seat's address, which the address tool shows, and per seat why the\ntool refuses that change this administrator. Each seat's link names what became of the last mail carrying it,\n`delivery` null where none was ever owed.",
-        "operationId": "teams_get_team_saisons",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLTeamsSaisonsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Every team with its season memberships",
-        "tags": [
-          "teams"
-        ]
-      }
-    },
     "/api/v0/teams/saisons/{saison_id}/entry": {
       "post": {
         "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,\nnaming `shorthand`. A retired club is refused `team_retired`, and the season and the group as an entry is.",
@@ -31459,92 +31245,6 @@
           }
         ],
         "summary": "Revoke this team's live registration link for a season",
-        "tags": [
-          "teams"
-        ]
-      },
-      "get": {
-        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last mail owed about it — `delivery` null means nobody was ever owed it, which is a state rather than a delivery failure.\nThe minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.\n\n`running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `invitation: null` rather than a 404.",
-        "operationId": "teams_get_invitation",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLInvitationResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "This team's live registration link for a season, and whether it opens anything",
         "tags": [
           "teams"
         ]

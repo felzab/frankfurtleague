@@ -511,27 +511,8 @@ class FLTeamMembership(BaseReadModel):
     version: int = 0
 
 
-class FLTeamWithMemberships(FLTeamRecord):
-    """The stored club document plus every season membership it holds.
-
-    A DIFFERENT question from `FLTeam`, not a projection: that one joins strictly against one season,
-    so a club outside it is absent by design.
-    """
-
-    memberships: list[FLTeamMembership]
-
-
-FLTeamWithMembershipsListAdapter = TypeAdapter(list[FLTeamWithMemberships])
-
-
-class FLTeamsSaisonsResponse(BaseAPIResponse):
-    """Every club, retired ones included, each with its memberships. Sorted by name."""
-
-    teams: list[FLTeamWithMemberships]
-
-
 # Private for `_TeamWritable`'s reason. The bounded address sits here rather than on that base, which
-# `FLTeam`, `FLTeamRecord` and `FLTeamWithMemberships` share.
+# `FLTeam` and `FLTeamRecord` share.
 class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 

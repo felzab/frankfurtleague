@@ -97,7 +97,6 @@ NAMES_AN_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/grants": "/api/v0/grants",
     "/api/v0/bewerbungen/{bewerbung_id:objectid}": f"/api/v0/bewerbungen/{BEWERBUNG_OID}",
     "/api/v0/sperrliste": "/api/v0/sperrliste",
-    "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/invitation": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/invitation",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/admin": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/admin",
 }
 
@@ -134,7 +133,6 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spielorte": "venues",
     "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
     "/api/v0/teams/list/admin": "a season's clubs by name, their seats counted",
-    "/api/v0/teams/saisons": "clubs and their seasons",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/self/seats": "one team's seat holders by name, as the seat holders read them",
     "/api/v0/spielberichte": "a season's reports by state, naming nobody",
     "/api/v0/spielberichte/{spiel_id:objectid}/bericht": "one fixture's report as its referee reads it, its administrator named by kind",
