@@ -409,7 +409,7 @@ time (`fl_backend/app/api/bewerbungen/services.py :: build_confirmed_seat_filter
 applications alone, so a cut costs it nothing. The page offers no way to the other rows: its filters narrow the rows
 it holds. A marked Dublette keeps its mark, the collision being decided on the
 server over every open application of the season, never over the rows served
-(`fl_backend/app/api/bewerbungen/services.py :: build_dubletten_pipeline`), but its partner is not always among the
+(`fl_backend/app/api/bewerbungen/services.py :: build_duplicates_pipeline`), but its partner is not always among the
 rows. Unconfirmed rows clear by themselves: the sweep deletes an application a day after its earliest outstanding
 seat's deadline, which is what shortens a flood of addresses nobody answers.
 
@@ -470,7 +470,7 @@ One person can hold several — a referee is a pupil, and a contact person can b
 **Whatever the role, a pending change of their address and its owed notices are read apart.** Type
 the address on file into the address tool, `/area/admin/adresswechsel`
 (`POST /address_change/view`), the one read serving a live change's new address and reason; the
-editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`an`, and on some rows
+editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`, and on some rows
 `data.first_name`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
 `address_changes.move.new`); no page renders either, and a read-only Playground query on those fields
 finds them.
@@ -1230,7 +1230,7 @@ an empty one or one the rule refuses to the folded address the person is establi
 mailbox's.
 
 **Two promises rest on the retention sweep's pass**
-(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
+(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAddressChange`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
 both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
 administrator started with a reason takes effect its waiting time after its confirmation. While no
