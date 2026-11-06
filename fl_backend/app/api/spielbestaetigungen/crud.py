@@ -55,8 +55,8 @@ ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
     **dict.fromkeys(("ergebnis", "sonderereignis"), 1),
 }
 
-# What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee, whom
-# `reason_to_close` compares a referee's row against. The referee's id alone, never the name the join puts beside it.
+# What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee's id,
+# which `reason_to_close` compares a referee's row against.
 JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
 
 
