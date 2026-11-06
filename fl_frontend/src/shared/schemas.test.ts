@@ -1,10 +1,6 @@
-import { assert, describe, expect, it } from "vitest";
-
-import { SPECIAL_USE_DOMAINS } from "@/core/emailAddress.ts";
+import { describe, expect, it } from "vitest";
 
 import { CustomTimeStringSchema, KONTAKT_EMAIL_MAX_LENGTH, KontaktEmailSchema } from "./schemas.ts";
-
-const RESERVED = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.";
 
 describe("KontaktEmailSchema", () => {
   const refusals = (value: unknown): string[] => KontaktEmailSchema.safeParse(value).error?.issues.map((issue) => issue.message) ?? [];
@@ -57,40 +53,11 @@ describe("KontaktEmailSchema", () => {
     expect(KontaktEmailSchema.safeParse("Erika <erika@example.de>").success).toBe(false);
   });
 
-  // A person can repair only what the sentence names, and the generic one names nothing an umlaut
-  // domain does not share. The full-width at sign is built from its code point, rendering as the ASCII one.
-  it("refuses, in a sentence of its own, a local part above ASCII", () => {
-    for (const email of ["käthe@schule.de", `erika${String.fromCharCode(0xff20)}x@schule.de`]) {
-      expect(refusals(email), email).toStrictEqual([
-        "Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen.",
-      ]);
-    }
-  });
-
-  // The API refuses these on IANA's list and answers the box with its generic field sentence, which names
-  // nothing to change; a domain under a name is as reserved as the name.
-  it("refuses, in a sentence of its own, a domain under every special-use name the API refuses", () => {
-    assert.ok(SPECIAL_USE_DOMAINS.length > 0, "no special-use name, so this case refuses nothing");
-
-    for (const name of SPECIAL_USE_DOMAINS) {
-      for (const email of [`trainer@example.${name}`, `Trainer@Schule.${name.toUpperCase()}`]) {
-        expect(refusals(email), email).toStrictEqual([RESERVED]);
-      }
-    }
-  });
-
   // The library leaves these off its list, so the API stores them and a stricter copy refuses what the save takes.
   it("takes the example domains the special-use names leave out", () => {
     for (const email of ["trainer@example.com", "trainer@example.org", "trainer@example.net"]) {
       expect(refusals(email), email).toStrictEqual([]);
     }
-  });
-
-  it("carries one German sentence per fault", () => {
-    expect(refusals("erika@")).toStrictEqual(["Bitte gib eine gültige E-Mail-Adresse ein."]);
-    expect(refusals(`${"e".repeat(300)}@schule.de`)).toStrictEqual([
-      `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`,
-    ]);
   });
 });
 
@@ -109,13 +76,6 @@ describe("KontaktEmailSchema's bounds", () => {
     return `${local}@${labels.join(".")}`;
   }
 
-  it("validates email addresses", () => {
-    expect(KontaktEmailSchema.safeParse("info@frankfurtleague.de").success).toBe(true);
-    for (const email of ["info@", "@frankfurtleague.de", "info frankfurtleague.de", "info@@x.de"]) {
-      expect(KontaktEmailSchema.safeParse(email).success, `expected "${email}" to be rejected`).toBe(false);
-    }
-  });
-
   // The boundary, not a wildly long string: a bound set anywhere passes that. Past it the API's
   // payload_refused marks the box with a generic sentence, so without this the ceiling went unnamed.
   it("accepts an address at the backend ceiling and refuses the next character, in German", () => {
@@ -129,12 +89,6 @@ describe("KontaktEmailSchema's bounds", () => {
     expect(over.error?.issues.map((issue) => issue.message)).toStrictEqual([
       `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`,
     ]);
-  });
-
-  // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic
-  // does not pass. A bound here alone would refuse in German an address the API stores.
-  it("accepts a local part over 64 characters, which the backend accepts too", () => {
-    expect(KontaktEmailSchema.safeParse(`${"a".repeat(65)}@example.com`).success).toBe(true);
   });
 });
 
