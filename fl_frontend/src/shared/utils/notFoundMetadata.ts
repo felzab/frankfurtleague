@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { Metadata } from "next";
@@ -21,12 +23,19 @@ export const NOT_FOUND_METADATA: Metadata = {
  * `NOT_FOUND_METADATA` where it finds none, so every missing record's tab carries the not-found title. `found` answers
  * `null` for a miss and never throws `notFound()`: a throw from `generateMetadata` leaves the tab the layout's title,
  * since Next honours a not-found boundary's `metadata` on the root file alone. The page's body throws the
- * `notFound()` off the same read, which renders the boundary.
+ * `notFound()` off the same read, which renders the boundary. A failed read stays out of the index with nothing else
+ * said: it knows neither the record nor its absence, and the page's body meets the failure and reports it.
  */
 export async function metadataFor<Found>(
   found: Promise<Found | null>,
   metadataOf: (record: Found) => Promise<Metadata> | Metadata,
 ): Promise<Metadata> {
-  const record = await found;
+  let record: Found | null;
+  try {
+    record = await found;
+  } catch (error) {
+    unstable_rethrow(error);
+    return { robots: { index: false } };
+  }
   return record === null ? NOT_FOUND_METADATA : metadataOf(record);
 }

@@ -4,7 +4,7 @@ import { VERWALTUNG_TITEL } from "@/core/seitenNamen";
 import { ShellNotFound } from "@/shared/components/ui/ShellNotFound";
 
 // Scoped to `/area/admin` so a notFound() renders inside the admin shell: the next boundary up is the
-// public one, which answers an administrator with the visitor's navigation and footer.
+// root's, which draws no shell.
 export default function AdminNotFound() {
   return (
     <ShellNotFound

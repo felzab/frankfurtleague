@@ -54,8 +54,7 @@ export const ADMIN_SIDEMENU_ICONS = {
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 /**
- * What the bar reads on an address that belongs to no section, the catch-all's 404 among them. The area's name, never a
- * section's: a heading naming one describes a page the reader is not on (WCAG 2.4.6).
+ * What the bar reads on an address that belongs to no section. The area's name, never a section's: a heading naming one describes a page the reader is not on (WCAG 2.4.6).
  */
 export const ADMIN_SHELL_FALLBACK = {
   label: VERWALTUNG_TITEL,
