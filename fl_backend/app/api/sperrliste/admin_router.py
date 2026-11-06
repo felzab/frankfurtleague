@@ -192,7 +192,7 @@ async def post_sperrliste_entry(
                 mails=[
                     OwedMail(
                         key=f"ban/{created.inserted_id}",
-                        an=str(ban_list_data.email),
+                        to=str(ban_list_data.email),
                         data=FLBanData(kind="ban", grund=ban_list_data.grund, barred_until_saison_id=barred_until_saison_id),
                     )
                 ],

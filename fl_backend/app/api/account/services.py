@@ -325,7 +325,7 @@ def seat_choices_of_row(blocks: Sequence[Mapping[str, Any]]) -> dict[FLEinwillig
     """
 
     return {
-        "scope": "kontaktdaten_whatsapp" if any(is_given("scope", block.get("scope")) for block in blocks) else "kontaktdaten",
+        "scope": "kontakt_data_whatsapp" if any(is_given("scope", block.get("scope")) for block in blocks) else "kontakt_data",
         "media": any(is_given("media", block.get("media")) for block in blocks),
     }
 

@@ -291,15 +291,15 @@ class _KontaktpersonWritablePayload(BaseModel):
 class FLTeamStatistik(BaseReadModel):
     # `default=` by keyword, never `Field(0, ge=0)`: a positional one leaves the field looking
     # required to Pyright while ruff and the tests stay silent.
-    count_gespielte_spiele: int = Field(default=0, ge=0)
+    count_played_spiele: int = Field(default=0, ge=0)
     siege: int = Field(default=0, ge=0)
     niederlagen: int = Field(default=0, ge=0)
     unentschieden: int = Field(default=0, ge=0)
-    tore_geschossen: int = Field(default=0, ge=0)
-    tore_kassiert: int = Field(default=0, ge=0)
+    tore_scored: int = Field(default=0, ge=0)
+    tore_conceded: int = Field(default=0, ge=0)
     punkte: int = Field(default=0, ge=0)
     # Beside the scoring, never inside it: a forfeit is in this figure and in
-    # `count_gespielte_spiele` both.
+    # `count_played_spiele` both.
     count_cancelled_spiele: int = Field(default=0, ge=0)
 
 
@@ -708,7 +708,7 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     rewritten_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
-    ausgetragene_kader_rows: int
+    retired_kader_rows: int
 
 
 class FLTeamSeat(BaseModel):

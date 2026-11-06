@@ -234,7 +234,7 @@ def _anfrage(
     return [
         OwedMail(
             key=schluessel_of(seats[0]),
-            an=address,
+            to=address,
             data=data,
             reference=bezug_of(spielbestaetigung_id=row["_id"], seat=seats[0]),
             link=seats_link(seats),
@@ -474,7 +474,7 @@ async def sweep_spielbestaetigungen(
                     mails.append(
                         OwedMail(
                             key=f"spielbestaetigung/{row['_id']}/{reason}",
-                            an=address,
+                            to=address,
                             data=data,
                             reference=bezug_of(spielbestaetigung_id=row["_id"], seat=None),
                         )
@@ -618,7 +618,7 @@ async def sweep_spielbestaetigungen(
                         plan.mails.append(
                             OwedMail(
                                 key=f"spielbestaetigung/{row['_id']}/einteilung",
-                                an=address,
+                                to=address,
                                 data=FLSpielEinteilungData(
                                     kind="spiel_einteilung",
                                     ansetzung=spiel_mail_ansetzung_of(ansicht_ansetzung_of(spiel)),

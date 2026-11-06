@@ -1656,37 +1656,37 @@
       },
       "FLAddress": {
         "properties": {
-          "hausnummer": {
+          "city": {
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "district": {
+            "title": "District",
+            "type": "string"
+          },
+          "house_number": {
             "pattern": "^([0-9\\-abcABC]+)?$",
-            "title": "Hausnummer",
+            "title": "House Number",
             "type": "string"
           },
-          "plz": {
+          "postcode": {
             "pattern": "^[0-9]{5}$",
-            "title": "Plz",
+            "title": "Postcode",
             "type": "string"
           },
-          "stadt": {
+          "street": {
             "minLength": 1,
-            "title": "Stadt",
-            "type": "string"
-          },
-          "stadtteil": {
-            "title": "Stadtteil",
-            "type": "string"
-          },
-          "strasse": {
-            "minLength": 1,
-            "title": "Strasse",
+            "title": "Street",
             "type": "string"
           }
         },
         "required": [
-          "strasse",
-          "hausnummer",
-          "plz",
-          "stadtteil",
-          "stadt"
+          "street",
+          "house_number",
+          "postcode",
+          "district",
+          "city"
         ],
         "title": "FLAddress",
         "type": "object"
@@ -2744,43 +2744,43 @@
       "FLAddressPayload": {
         "additionalProperties": false,
         "properties": {
-          "hausnummer": {
-            "maxLength": 16,
-            "pattern": "^([0-9\\-abcABC]+)?$",
-            "title": "Hausnummer",
+          "city": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "City",
             "type": "string"
           },
-          "plz": {
+          "district": {
+            "maxLength": 80,
+            "title": "District",
+            "type": "string"
+          },
+          "house_number": {
+            "maxLength": 16,
+            "pattern": "^([0-9\\-abcABC]+)?$",
+            "title": "House Number",
+            "type": "string"
+          },
+          "postcode": {
             "maxLength": 5,
             "minLength": 5,
             "pattern": "^[0-9]{5}$",
-            "title": "Plz",
+            "title": "Postcode",
             "type": "string"
           },
-          "stadt": {
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Stadt",
-            "type": "string"
-          },
-          "stadtteil": {
-            "maxLength": 80,
-            "title": "Stadtteil",
-            "type": "string"
-          },
-          "strasse": {
+          "street": {
             "maxLength": 120,
             "minLength": 1,
-            "title": "Strasse",
+            "title": "Street",
             "type": "string"
           }
         },
         "required": [
-          "strasse",
-          "hausnummer",
-          "plz",
-          "stadtteil",
-          "stadt"
+          "street",
+          "house_number",
+          "postcode",
+          "district",
+          "city"
         ],
         "title": "FLAddressPayload",
         "type": "object"
@@ -3182,46 +3182,46 @@
       },
       "FLBewerbungAddressPayload": {
         "additionalProperties": false,
-        "description": "The school's address, with the Stadtteil required.",
+        "description": "The school's address, with the district required.",
         "properties": {
-          "hausnummer": {
-            "maxLength": 16,
-            "pattern": "^([0-9\\-abcABC]+)?$",
-            "title": "Hausnummer",
+          "city": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "City",
             "type": "string"
           },
-          "plz": {
+          "district": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "District",
+            "type": "string"
+          },
+          "house_number": {
+            "maxLength": 16,
+            "pattern": "^([0-9\\-abcABC]+)?$",
+            "title": "House Number",
+            "type": "string"
+          },
+          "postcode": {
             "maxLength": 5,
             "minLength": 5,
             "pattern": "^[0-9]{5}$",
-            "title": "Plz",
+            "title": "Postcode",
             "type": "string"
           },
-          "stadt": {
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Stadt",
-            "type": "string"
-          },
-          "stadtteil": {
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Stadtteil",
-            "type": "string"
-          },
-          "strasse": {
+          "street": {
             "maxLength": 120,
             "minLength": 1,
-            "title": "Strasse",
+            "title": "Street",
             "type": "string"
           }
         },
         "required": [
-          "strasse",
-          "hausnummer",
-          "plz",
-          "stadtteil",
-          "stadt"
+          "street",
+          "house_number",
+          "postcode",
+          "district",
+          "city"
         ],
         "title": "FLBewerbungAddressPayload",
         "type": "object"
@@ -4466,8 +4466,8 @@
       "FLBewerbungTrikot": {
         "description": "What kit the school already owns, and the colour it would like; never copied onto the team.",
         "properties": {
-          "existing_satz": {
-            "title": "Existing Satz",
+          "existing_set": {
+            "title": "Existing Set",
             "type": "string"
           },
           "wunschfarbe": {
@@ -4475,7 +4475,7 @@
           }
         },
         "required": [
-          "existing_satz",
+          "existing_set",
           "wunschfarbe"
         ],
         "title": "FLBewerbungTrikot",
@@ -4484,9 +4484,9 @@
       "FLBewerbungTrikotPayload": {
         "additionalProperties": false,
         "properties": {
-          "existing_satz": {
+          "existing_set": {
             "maxLength": 500,
-            "title": "Existing Satz",
+            "title": "Existing Set",
             "type": "string"
           },
           "wunschfarbe": {
@@ -4494,7 +4494,7 @@
           }
         },
         "required": [
-          "existing_satz",
+          "existing_set",
           "wunschfarbe"
         ],
         "title": "FLBewerbungTrikotPayload",
@@ -4844,13 +4844,13 @@
       "FLBracketFaultOccupant": {
         "description": "One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.\n\nNothing is emptied.",
         "properties": {
-          "ausgeschieden_seit": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Ausgeschieden Seit",
-            "type": "string"
-          },
           "austritt_type": {
             "$ref": "#/components/schemas/FLAustrittType"
+          },
+          "exited_since": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Exited Since",
+            "type": "string"
           },
           "reason": {
             "const": "departed_occupant",
@@ -4901,7 +4901,7 @@
           "team_id",
           "team_name",
           "austritt_type",
-          "ausgeschieden_seit",
+          "exited_since",
           "spiel_date"
         ],
         "title": "FLBracketFaultOccupant",
@@ -5285,8 +5285,8 @@
       },
       "FLEinwilligungScope": {
         "enum": [
-          "kader_oeffentlich",
-          "intern"
+          "kader_public",
+          "internal"
         ],
         "type": "string"
       },
@@ -6948,7 +6948,7 @@
       "FLInvitationSkipReason": {
         "enum": [
           "austritt_entered",
-          "no_kontaktblock",
+          "no_kontakt_block",
           "no_confirmed_kontaktperson",
           "kontakte_barred",
           "already_sent"
@@ -7311,8 +7311,8 @@
       },
       "FLKontaktKenntnisnahmeScope": {
         "enum": [
-          "kontaktdaten",
-          "kontaktdaten_whatsapp"
+          "kontakt_data",
+          "kontakt_data_whatsapp"
         ],
         "type": "string"
       },
@@ -7426,7 +7426,7 @@
         "enum": [
           "open",
           "saison_past",
-          "ausgetreten"
+          "exited"
         ],
         "type": "string"
       },
@@ -8127,10 +8127,6 @@
       "FLOutboxHandout": {
         "description": "One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret.",
         "properties": {
-          "an": {
-            "title": "An",
-            "type": "string"
-          },
           "attempt": {
             "minimum": 1.0,
             "title": "Attempt",
@@ -8274,6 +8270,10 @@
             ],
             "title": "Secret"
           },
+          "to": {
+            "title": "To",
+            "type": "string"
+          },
           "token": {
             "anyOf": [
               {
@@ -8288,7 +8288,7 @@
         },
         "required": [
           "id",
-          "an",
+          "to",
           "data",
           "token",
           "secret",
@@ -8435,11 +8435,6 @@
         "additionalProperties": false,
         "description": "One mail of the sign-in library, owed to the address it names.",
         "properties": {
-          "an": {
-            "maxLength": 254,
-            "title": "An",
-            "type": "string"
-          },
           "data": {
             "discriminator": {
               "mapping": {
@@ -8476,6 +8471,11 @@
             ],
             "title": "Secret"
           },
+          "to": {
+            "maxLength": 254,
+            "title": "To",
+            "type": "string"
+          },
           "valid_until": {
             "anyOf": [
               {
@@ -8490,7 +8490,7 @@
           }
         },
         "required": [
-          "an",
+          "to",
           "data",
           "secret",
           "valid_until"
@@ -8637,7 +8637,7 @@
       "FLOverviewGapKind": {
         "enum": [
           "ergebnis_missing",
-          "termin_missing",
+          "appointment_missing",
           "spielort_missing",
           "schiedsrichter_missing",
           "team_missing"
@@ -8693,6 +8693,7 @@
       "FLOverviewRow": {
         "discriminator": {
           "mapping": {
+            "appointment_missing": "#/components/schemas/FLOverviewSpielRow",
             "bewerbung": "#/components/schemas/FLOverviewBewerbungRow",
             "bracket_fault": "#/components/schemas/FLOverviewBracketFaultRow",
             "ergebnis_missing": "#/components/schemas/FLOverviewSpielRow",
@@ -8702,7 +8703,6 @@
             "spielbestaetigung_overdue": "#/components/schemas/FLOverviewSpielbestaetigungRow",
             "spielort_missing": "#/components/schemas/FLOverviewSpielRow",
             "team_missing": "#/components/schemas/FLOverviewSpielRow",
-            "termin_missing": "#/components/schemas/FLOverviewSpielRow",
             "vorschlag_open": "#/components/schemas/FLOverviewVorschlagRow"
           },
           "propertyName": "kind"
@@ -10565,8 +10565,8 @@
           },
           "page": {
             "enum": [
-              "bestaetigung_spieler",
-              "bestaetigung_spieler_wiederkehrend"
+              "confirmation_spieler",
+              "confirmation_spieler_returning"
             ],
             "title": "Page",
             "type": "string"
@@ -10813,10 +10813,6 @@
       "FLReplaceSaisonTeamResponse": {
         "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\n`austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it.",
         "properties": {
-          "ausgetragene_kader_rows": {
-            "title": "Ausgetragene Kader Rows",
-            "type": "integer"
-          },
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
           },
@@ -10844,6 +10840,10 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Outgoing Team Id",
             "type": "string"
+          },
+          "retired_kader_rows": {
+            "title": "Retired Kader Rows",
+            "type": "integer"
           },
           "rewritten_spiele": {
             "title": "Rewritten Spiele",
@@ -10879,7 +10879,7 @@
           "name",
           "shorthand",
           "rewritten_spiele",
-          "ausgetragene_kader_rows"
+          "retired_kader_rows"
         ],
         "title": "FLReplaceSaisonTeamResponse",
         "type": "object"
@@ -18707,10 +18707,10 @@
             "title": "Count Cancelled Spiele",
             "type": "integer"
           },
-          "count_gespielte_spiele": {
+          "count_played_spiele": {
             "default": 0,
             "minimum": 0.0,
-            "title": "Count Gespielte Spiele",
+            "title": "Count Played Spiele",
             "type": "integer"
           },
           "niederlagen": {
@@ -18731,16 +18731,16 @@
             "title": "Siege",
             "type": "integer"
           },
-          "tore_geschossen": {
+          "tore_conceded": {
             "default": 0,
             "minimum": 0.0,
-            "title": "Tore Geschossen",
+            "title": "Tore Conceded",
             "type": "integer"
           },
-          "tore_kassiert": {
+          "tore_scored": {
             "default": 0,
             "minimum": 0.0,
-            "title": "Tore Kassiert",
+            "title": "Tore Scored",
             "type": "integer"
           },
           "unentschieden": {
@@ -18751,12 +18751,12 @@
           }
         },
         "required": [
-          "count_gespielte_spiele",
+          "count_played_spiele",
           "siege",
           "niederlagen",
           "unentschieden",
-          "tore_geschossen",
-          "tore_kassiert",
+          "tore_scored",
+          "tore_conceded",
           "punkte",
           "count_cancelled_spiele"
         ],
@@ -23357,7 +23357,7 @@
     },
     "/api/v0/registrierungen/confirmation/view": {
       "post": {
-        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,\na link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning\npupil's page; only a token no registration holds is refused (`link_invalid`).",
+        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,\na link whose club has left the season reading expired, and `confirmation_spieler_returning` opens the returning\npupil's page; only a token no registration holds is refused (`link_invalid`).",
         "operationId": "registrierungen_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -25816,7 +25816,7 @@
     },
     "/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung": {
       "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to\n`kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`evidence_state` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to\n`true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to\n`kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`evidence_state` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to\n`true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
         "operationId": "schiedsrichter_patch_einwilligung",
         "parameters": [
           {
@@ -30677,7 +30677,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung": {
       "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`evidence_state` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is\nmissing (`media_age`). Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`evidence_state` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is\nmissing (`media_age`). Each refusal writes nothing.",
         "operationId": "teams_patch_einwilligung",
         "parameters": [
           {

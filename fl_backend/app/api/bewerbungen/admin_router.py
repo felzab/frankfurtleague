@@ -438,7 +438,7 @@ async def accept_bewerbung(
             mails=[
                 OwedMail(
                     key=_key(bewerbung_id, "zusage", seats[0]),
-                    an=email,
+                    to=email,
                     data=FLBewerbungZusageData(
                         kind="bewerbung_zusage",
                         team=name,
@@ -521,7 +521,7 @@ async def decline_bewerbung(
             mails=[
                 OwedMail(
                     key=_key(bewerbung_id, "absage", seats[0]),
-                    an=email,
+                    to=email,
                     data=FLBewerbungAbsageData(
                         kind="bewerbung_absage",
                         team=team,

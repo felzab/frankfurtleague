@@ -113,7 +113,7 @@ async def patch_einwilligung(
     One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
     differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
     other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
-    other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
+    other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`
     to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
     person confirmed a seat on, a past season's included.
 

@@ -301,7 +301,7 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
     # `media` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
     return {
-        "scope": "kontaktdaten",
+        "scope": "kontakt_data",
         "date": today,
         "confirmed_at": None,
         "media": False,
@@ -350,8 +350,8 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
 # --- The CONFIRMATION.
 
-KONTAKT_SCOPE = "kontaktdaten"
-KONTAKT_SCOPE_WHATSAPP = "kontaktdaten_whatsapp"
+KONTAKT_SCOPE = "kontakt_data"
+KONTAKT_SCOPE_WHATSAPP = "kontakt_data_whatsapp"
 
 
 def days_after(*, day: str, days: int) -> str:
@@ -1510,7 +1510,7 @@ def owed_link(
 
     return OwedMail(
         key=key,
-        an=str(kontakte[seats[0]]["email"]),
+        to=str(kontakte[seats[0]]["email"]),
         data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, rollen=list(seats), deadline=deadline),
         reference=bewerbung_bezug(bewerbung_id, seats),
         link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
@@ -1543,7 +1543,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
         mails.append(
             OwedMail(
                 key=f"{stamm}/received",
-                an=email,
+                to=email,
                 data=FLBewerbungReceivedData(
                     kind="bewerbung_received",
                     saison_id=saison_id,
@@ -1573,7 +1573,7 @@ def owed_loeschung(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedM
 
     return OwedMail(
         key=f"{Sammlung.BEWERBUNGEN}/{bewerbung_raw['_id']}/erasure",
-        an=email,
+        to=email,
         data=FLBewerbungErasureData(
             kind="bewerbung_erasure",
             saison_id=saison_id,

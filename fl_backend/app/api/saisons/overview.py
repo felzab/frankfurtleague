@@ -50,7 +50,7 @@ type FLOverviewCardName = Literal["due", "ergebnisse", "dates", "bewerbungen"]
 
 # What a fixture lacks, read off the fixture alone: its slot, set from the row, or what the match editor sets. A referee
 # missing is one kind whether nobody was booked or the booked one declined, since either asks the same act.
-type FLOverviewGapKind = Literal["ergebnis_missing", "termin_missing", "spielort_missing", "schiedsrichter_missing", "team_missing"]
+type FLOverviewGapKind = Literal["ergebnis_missing", "appointment_missing", "spielort_missing", "schiedsrichter_missing", "team_missing"]
 
 # A party's answer still owed, a club's or the booked referee's: past its deadline, or due today.
 type FLOverviewAnswerKind = Literal["spielbestaetigung_overdue", "spielbestaetigung_due"]
@@ -67,7 +67,7 @@ CARD_OF: Final[Mapping[FLOverviewKind, FLOverviewCardName]] = {
     "spielbericht_open": "ergebnisse",
     "ergebnis_missing": "ergebnisse",
     "vorschlag_open": "dates",
-    "termin_missing": "dates",
+    "appointment_missing": "dates",
     "spielort_missing": "dates",
     "schiedsrichter_missing": "dates",
     "team_missing": "dates",
@@ -270,7 +270,7 @@ def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind
     )
     checks: tuple[tuple[FLOverviewGapKind, bool], ...] = (
         ("ergebnis_missing", spiel.date is not None and spiel.date < today and spiel.ergebnis is None),
-        ("termin_missing", spiel.date is None or spiel.time is None),
+        ("appointment_missing", spiel.date is None or spiel.time is None),
         ("spielort_missing", spiel.spielort is None),
         ("schiedsrichter_missing", spiel.schiedsrichter is None),
         # A knockout side with neither a club nor a source; the group phase carries no source.

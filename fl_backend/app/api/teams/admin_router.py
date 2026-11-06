@@ -1070,7 +1070,7 @@ async def replace_saison_team(
             name=updated_raw["name"],
             shorthand=updated_raw["shorthand"],
             rewritten_spiele=rewritten,
-            ausgetragene_kader_rows=ausgetragene_squad.modified_count,
+            retired_kader_rows=ausgetragene_squad.modified_count,
         )
 
     # One transaction over every write: a row handed over while its fixtures are not leaves the

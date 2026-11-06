@@ -105,23 +105,23 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                 {
                     "$group": {
                         "_id": None,
-                        "count_gespielte_spiele": {"$sum": 1},
+                        "count_played_spiele": {"$sum": 1},
                         "siege": {"$sum": {"$cond": [{"$gt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
                         "unentschieden": {"$sum": {"$cond": [{"$eq": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
                         "niederlagen": {"$sum": {"$cond": [{"$lt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
-                        "tore_geschossen": {"$sum": "$tore_self"},
-                        "tore_kassiert": {"$sum": "$tore_opponent"},
+                        "tore_scored": {"$sum": "$tore_self"},
+                        "tore_conceded": {"$sum": "$tore_opponent"},
                     }
                 },
                 {
                     "$project": {
                         "_id": 0,
-                        "count_gespielte_spiele": 1,
+                        "count_played_spiele": 1,
                         "siege": 1,
                         "unentschieden": 1,
                         "niederlagen": 1,
-                        "tore_geschossen": 1,
-                        "tore_kassiert": 1,
+                        "tore_scored": 1,
+                        "tore_conceded": 1,
                         "punkte": {
                             "$add": [
                                 {"$multiply": ["$siege", rules.win_points]},
@@ -325,9 +325,9 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
             tore_self, tore_opponent = (tore1, tore2) if team_id == team1_id else (tore2, tore1)
 
             row = figures[team_id]
-            row["count_gespielte_spiele"] += 1
-            row["tore_geschossen"] += tore_self
-            row["tore_kassiert"] += tore_opponent
+            row["count_played_spiele"] += 1
+            row["tore_scored"] += tore_self
+            row["tore_conceded"] += tore_opponent
 
             if tore_self > tore_opponent:
                 row["siege"] += 1
@@ -343,7 +343,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
 
 
 def _goal_key(team: FLTeam) -> tuple[int, int]:
-    return (team.statistik.tore_geschossen - team.statistik.tore_kassiert, team.statistik.tore_geschossen)
+    return (team.statistik.tore_scored - team.statistik.tore_conceded, team.statistik.tore_scored)
 
 
 @dataclass(frozen=True)
@@ -537,7 +537,7 @@ def _may_hold_a_platz(team: FLTeam, still_to_play: int, decided_on: str | None) 
     In the season when its group was decided, with a match that counts or still could.
     """
 
-    return in_the_season_when_decided(team.austritt, decided_on) and team.statistik.count_gespielte_spiele + still_to_play > 0
+    return in_the_season_when_decided(team.austritt, decided_on) and team.statistik.count_played_spiele + still_to_play > 0
 
 
 def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLTabelle:
@@ -566,11 +566,11 @@ def build_tabelle(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
         placed: list[FLTabelleRow] = []
         platz = 1
         for band in ranked:
-            holders = {row.id for row in band if row.id in still_in and row.statistik.count_gespielte_spiele}
+            holders = {row.id for row in band if row.id in still_in and row.statistik.count_played_spiele}
             placed.extend(FLTabelleRow.model_validate({**row.model_dump(), "platz": platz if row.id in holders else None}) for row in band)
             platz += len(holders)
         # Stable, so the clubs that have played keep their standing order, and so do those that have not.
-        tabelle[name] = sorted(placed, key=lambda row: not row.statistik.count_gespielte_spiele)
+        tabelle[name] = sorted(placed, key=lambda row: not row.statistik.count_played_spiele)
 
     return FLTabelle(tabelle)
 
@@ -693,7 +693,7 @@ def _decide_one_gruppe(
     order = [team.id for team in teams]
     # Every other club is in `placeable` under every ending, so only these need asking again: a club
     # keeps its place in the set on the strength of one counted match, whatever a call-off takes.
-    fragile = [team_id for team_id in placeable if by_id[team_id].statistik.count_gespielte_spiele == 0]
+    fragile = [team_id for team_id in placeable if by_id[team_id].statistik.count_played_spiele == 0]
 
     # Ranked as the walk goes rather than after it, so a group deciding nothing costs one ranking:
     # this runs inside the write transaction.
@@ -701,7 +701,7 @@ def _decide_one_gruppe(
     seen: set[tuple[tuple[int, ...], frozenset[CustomObjectId]]] = set()
     for endings in product(_endings(rules), repeat=len(open_pairs)):
         punkte = dict(base)
-        # A result leaves this count alone rather than moving the fixture into `count_gespielte_spiele`:
+        # A result leaves this count alone rather than moving the fixture into `count_played_spiele`:
         # the walk hypothesises no `statistik`, and `_may_hold_a_platz` reads the two together.
         left_to_play = {team_id: still_to_play.get(team_id, 0) for team_id in fragile}
         for (left, right), (to_left, to_right, played) in zip(open_pairs, endings, strict=True):
@@ -772,7 +772,7 @@ def _separated_placings(
         for platz, holder in _placings(teams, lo, settled, spiele, rules, placeable).items()
         # `_placings` seeds only a club already in `placeable`, and the one way out of that set is a
         # call-off emptying what it has left to play, which takes nothing counted with it.
-        if holder.statistik.count_gespielte_spiele > 0
+        if holder.statistik.count_played_spiele > 0
         # Asked of EVERY club, a departed one included: `_tiers` leaves a band whole while any member
         # is unsettled, so a club that can hold no placing of its own can still cost the holder one.
         and all(other.id == holder.id or separated(holder, other) for other in teams)
@@ -1307,7 +1307,7 @@ def owed_kontakt_link(
     return (
         OwedMail(
             key=key,
-            an=email,
+            to=email,
             data=FLKontaktLinkData(
                 kind="kontakt_confirmation",
                 saison_id=saison_id,
@@ -1343,7 +1343,7 @@ def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktRow:
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
         return "open"
 
-    return "saison_past" if saison_status == "past" else "ausgetreten"
+    return "saison_past" if saison_status == "past" else "exited"
 
 
 def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:

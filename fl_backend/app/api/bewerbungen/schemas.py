@@ -8,7 +8,7 @@ from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
-    ADDRESS_STADTTEIL_MAX_LENGTH,
+    ADDRESS_DISTRICT_MAX_LENGTH,
     BEWERBUNG_DECISION_REASON_MAX_LENGTH,
     BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -110,7 +110,7 @@ class FLBewerbungSchule(BaseModel):
 class FLBewerbungTrikot(BaseModel):
     """What kit the school already owns, and the colour it would like; never copied onto the team."""
 
-    existing_satz: str
+    existing_set: str
     wunschfarbe: FLTrikotFarbe
 
 
@@ -364,11 +364,11 @@ class FLBewerbungKontaktePayload(BaseModel):
 
 
 class FLBewerbungAddressPayload(FLAddressPayload):
-    """The school's address, with the Stadtteil required."""
+    """The school's address, with the district required."""
 
     # The ceiling on what arrives, the floor after the strip, as `reason`'s.
-    stadtteil: Annotated[
-        str, StringConstraints(max_length=ADDRESS_STADTTEIL_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+    district: Annotated[
+        str, StringConstraints(max_length=ADDRESS_DISTRICT_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
     ]
 
 
@@ -421,7 +421,7 @@ class FLBewerbungTrikotPayload(FLBewerbungTrikot):
 
     # No floor: a school that owns no kit writes nothing here, so the empty string is the honest
     # answer. A ceiling all the same -- an anonymous caller writes it, and it is stored.
-    existing_satz: str = Field(max_length=BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)
+    existing_set: str = Field(max_length=BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)
 
 
 class FLBewerbungKaderPayload(FLBewerbungKader):
@@ -598,7 +598,7 @@ class FLBewerbungEinwilligungGiven(BaseModel):
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"scope": "kontaktdaten_whatsapp" if self.whatsapp else "kontaktdaten", "media": self.media})
+        refuse_a_stale_grant(self.text_versions, {"scope": "kontakt_data_whatsapp" if self.whatsapp else "kontakt_data", "media": self.media})
         return self
 
 

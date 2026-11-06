@@ -8,16 +8,16 @@ stays at that field, and a derived one is never re-spelled as a literal.
 from typing import Final, Literal
 
 # The address ceilings, stated by the payload address alone so a stored value over one still reads.
-ADDRESS_PLZ_LENGTH: Final = 5
-ADDRESS_STRASSE_MAX_LENGTH: Final = 120
-ADDRESS_STADT_MAX_LENGTH: Final = 80
-# Its own constant rather than `stadt`'s, though the numbers agree: a district and a city are bounded
+ADDRESS_POSTCODE_LENGTH: Final = 5
+ADDRESS_STREET_MAX_LENGTH: Final = 120
+ADDRESS_CITY_MAX_LENGTH: Final = 80
+# Its own constant rather than `city`'s, though the numbers agree: a district and a city are bounded
 # for the same reason and by separate judgements, so raising one must not silently raise the other.
-ADDRESS_STADTTEIL_MAX_LENGTH: Final = 80
+ADDRESS_DISTRICT_MAX_LENGTH: Final = 80
 
 # Wide enough for a hyphenated range carrying a letter suffix, the longest thing the field's
 # alphabet of digits, a hyphen and a/b/c can spell as a real address. Anything longer is not one.
-ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
+ADDRESS_HOUSE_NUMBER_MAX_LENGTH: Final = 16
 
 # RFC 5321's whole-address ceiling, the one email-validator already applies.
 # Named so the frontend mirror refuses at the same length: past it the API's payload_refused marks the

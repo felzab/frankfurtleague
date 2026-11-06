@@ -205,7 +205,7 @@ async def sweep_registrierungen(
                 OwedMail(
                     # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
                     key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
-                    an=str(row["email"]),
+                    to=str(row["email"]),
                     data=FLRegistrierungLinkData(
                         kind="registrierung_reminder",
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.

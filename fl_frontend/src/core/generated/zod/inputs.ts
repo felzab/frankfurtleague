@@ -393,18 +393,18 @@ export const bewerbungenPostBewerbungBodyKontakteTrainerPhoneRegExp = new RegExp
 export const bewerbungenPostBewerbungBodySaisonIdMin = 4;
 export const bewerbungenPostBewerbungBodySaisonIdMax = 4;
 
-export const bewerbungenPostBewerbungBodySchuleOneAddressHausnummerMax = 16;
+export const bewerbungenPostBewerbungBodySchuleOneAddressCityMax = 80;
 
-export const bewerbungenPostBewerbungBodySchuleOneAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
-export const bewerbungenPostBewerbungBodySchuleOneAddressPlzMin = 5;
-export const bewerbungenPostBewerbungBodySchuleOneAddressPlzMax = 5;
+export const bewerbungenPostBewerbungBodySchuleOneAddressDistrictMax = 80;
 
-export const bewerbungenPostBewerbungBodySchuleOneAddressPlzRegExp = new RegExp("^[0-9]{5}$");
-export const bewerbungenPostBewerbungBodySchuleOneAddressStadtMax = 80;
+export const bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberMax = 16;
 
-export const bewerbungenPostBewerbungBodySchuleOneAddressStadtteilMax = 80;
+export const bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const bewerbungenPostBewerbungBodySchuleOneAddressPostcodeMin = 5;
+export const bewerbungenPostBewerbungBodySchuleOneAddressPostcodeMax = 5;
 
-export const bewerbungenPostBewerbungBodySchuleOneAddressStrasseMax = 120;
+export const bewerbungenPostBewerbungBodySchuleOneAddressPostcodeRegExp = new RegExp("^[0-9]{5}$");
+export const bewerbungenPostBewerbungBodySchuleOneAddressStreetMax = 120;
 
 export const bewerbungenPostBewerbungBodySchuleOneFullNameMax = 120;
 
@@ -417,7 +417,7 @@ export const bewerbungenPostBewerbungBodySchuleOneWebsiteUrlOneMax = 300;
 export const bewerbungenPostBewerbungBodyStufengroesseMax = 999;
 
 export const bewerbungenPostBewerbungBodyTeamIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const bewerbungenPostBewerbungBodyTrikotExistingSatzMax = 500;
+export const bewerbungenPostBewerbungBodyTrikotExistingSetMax = 500;
 
 export const bewerbungenPostBewerbungBodyWunschgegnerOneMax = 120;
 
@@ -488,20 +488,20 @@ export const BewerbungenPostBewerbungBody = zod
         .object({
           address: zod
             .object({
-              hausnummer: zod
+              city: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressCityMax),
+              district: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressDistrictMax),
+              house_number: zod
                 .string()
-                .max(bewerbungenPostBewerbungBodySchuleOneAddressHausnummerMax)
-                .regex(bewerbungenPostBewerbungBodySchuleOneAddressHausnummerRegExp),
-              plz: zod
+                .max(bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberMax)
+                .regex(bewerbungenPostBewerbungBodySchuleOneAddressHouseNumberRegExp),
+              postcode: zod
                 .string()
-                .min(bewerbungenPostBewerbungBodySchuleOneAddressPlzMin)
-                .max(bewerbungenPostBewerbungBodySchuleOneAddressPlzMax)
-                .regex(bewerbungenPostBewerbungBodySchuleOneAddressPlzRegExp),
-              stadt: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressStadtMax),
-              stadtteil: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressStadtteilMax),
-              strasse: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressStrasseMax),
+                .min(bewerbungenPostBewerbungBodySchuleOneAddressPostcodeMin)
+                .max(bewerbungenPostBewerbungBodySchuleOneAddressPostcodeMax)
+                .regex(bewerbungenPostBewerbungBodySchuleOneAddressPostcodeRegExp),
+              street: zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneAddressStreetMax),
             })
-            .describe("The school's address, with the Stadtteil required."),
+            .describe("The school's address, with the district required."),
           full_name: zod
             .string()
             .min(1)
@@ -521,7 +521,7 @@ export const BewerbungenPostBewerbungBody = zod
     stufengroesse: zod.int().min(1).max(bewerbungenPostBewerbungBodyStufengroesseMax),
     team_id: zod.union([zod.string().regex(bewerbungenPostBewerbungBodyTeamIdOneRegExp), zod.null()]),
     trikot: zod.object({
-      existing_satz: zod.string().max(bewerbungenPostBewerbungBodyTrikotExistingSatzMax),
+      existing_set: zod.string().max(bewerbungenPostBewerbungBodyTrikotExistingSetMax),
       wunschfarbe: zod.enum([
         "schwarz",
         "weiss",
@@ -744,7 +744,7 @@ export const BewerbungenPatchEinwilligungBody = zod
       scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
-    scope: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
+    scope: zod.enum(["kontakt_data", "kontakt_data_whatsapp"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
@@ -1211,16 +1211,15 @@ export const OutboxPostResultBody = zod
  * or not.
  * @summary Owe one mail of the sign-in library
  */
-export const outboxPostSignInBodyAnMax = 254;
-
 export const outboxPostSignInBodyDataTwoAccountMax = 256;
 
 export const outboxPostSignInBodyDataTwoAccountRegExp = new RegExp("^/[a-z0-9/_-]*$");
 export const outboxPostSignInBodySecretOneMax = 4096;
 
+export const outboxPostSignInBodyToMax = 254;
+
 export const OutboxPostSignInBody = zod
   .object({
-    an: zod.string().max(outboxPostSignInBodyAnMax),
     data: zod.union([
       zod.object({
         kind: zod.literal("sign_in_code").meta({ title: "Kind" }),
@@ -1235,6 +1234,7 @@ export const OutboxPostSignInBody = zod
       }),
     ]),
     secret: zod.union([zod.string().min(1).max(outboxPostSignInBodySecretOneMax), zod.null()]),
+    to: zod.string().max(outboxPostSignInBodyToMax),
     valid_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   })
   .describe("One mail of the sign-in library, owed to the address it names.");
@@ -1307,7 +1307,7 @@ export const RegistrierungenPatchEinwilligungBody = zod
       scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
-    scope: zod.enum(["kader_oeffentlich", "intern"]),
+    scope: zod.enum(["kader_public", "internal"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
@@ -1338,7 +1338,7 @@ export const RegistrierungenPostConfirmationBody = zod
       zod.string().regex(registrierungenPostConfirmationBodyBirthDateThreeRegExp),
     ]),
     media: zod.union([zod.boolean(), zod.null()]),
-    scope: zod.union([zod.enum(["kader_oeffentlich", "intern"]), zod.null()]),
+    scope: zod.union([zod.enum(["kader_public", "internal"]), zod.null()]),
     text_versions: zod.union([
       zod
         .object({
@@ -1356,7 +1356,7 @@ export const RegistrierungenPostConfirmationBody = zod
  * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
- * a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+ * a link whose club has left the season reading expired, and `confirmation_spieler_returning` opens the returning
  * pupil's page; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
@@ -1993,7 +1993,7 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  * else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
  * public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
  * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
- * `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
+ * `kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `evidence_state` other than the record's own, either choice having moved since the page was served
@@ -2018,7 +2018,7 @@ export const SchiedsrichterPatchEinwilligungBody = zod
       scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
-    scope: zod.enum(["kader_oeffentlich", "intern"]),
+    scope: zod.enum(["kader_public", "internal"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
@@ -2054,7 +2054,7 @@ export const schiedsrichterPostConfirmationBodyTokenRegExp = new RegExp("^[^\\x0
 export const SchiedsrichterPostConfirmationBody = zod.object({
   birth_date: zod.string().regex(schiedsrichterPostConfirmationBodyBirthDateRegExp),
   media: zod.boolean(),
-  scope: zod.enum(["kader_oeffentlich", "intern"]),
+  scope: zod.enum(["kader_public", "internal"]),
   text_versions: zod
     .object({
       media: zod.literal("2026-11-medien-1"),
@@ -2987,7 +2987,7 @@ export const SpielerPatchEinwilligungBody = zod
       scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
-    scope: zod.enum(["kader_oeffentlich", "intern"]),
+    scope: zod.enum(["kader_public", "internal"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
@@ -3198,18 +3198,18 @@ export const SpielorteGetSpielorteQueryParams = zod.object({
  * Refused where another venue holds the name (`duplicate_key`, naming `name`).
  * @summary Create a Spielort
  */
-export const spielortePostSpielortBodyAddressHausnummerMax = 16;
+export const spielortePostSpielortBodyAddressCityMax = 80;
 
-export const spielortePostSpielortBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
-export const spielortePostSpielortBodyAddressPlzMin = 5;
-export const spielortePostSpielortBodyAddressPlzMax = 5;
+export const spielortePostSpielortBodyAddressDistrictMax = 80;
 
-export const spielortePostSpielortBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
-export const spielortePostSpielortBodyAddressStadtMax = 80;
+export const spielortePostSpielortBodyAddressHouseNumberMax = 16;
 
-export const spielortePostSpielortBodyAddressStadtteilMax = 80;
+export const spielortePostSpielortBodyAddressHouseNumberRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const spielortePostSpielortBodyAddressPostcodeMin = 5;
+export const spielortePostSpielortBodyAddressPostcodeMax = 5;
 
-export const spielortePostSpielortBodyAddressStrasseMax = 120;
+export const spielortePostSpielortBodyAddressPostcodeRegExp = new RegExp("^[0-9]{5}$");
+export const spielortePostSpielortBodyAddressStreetMax = 120;
 
 export const spielortePostSpielortBodyDefaultMietpreisMin = 0;
 
@@ -3217,15 +3217,15 @@ export const spielortePostSpielortBodyNameMax = 120;
 
 export const SpielortePostSpielortBody = zod.object({
   address: zod.object({
-    hausnummer: zod.string().max(spielortePostSpielortBodyAddressHausnummerMax).regex(spielortePostSpielortBodyAddressHausnummerRegExp),
-    plz: zod
+    city: zod.string().min(1).max(spielortePostSpielortBodyAddressCityMax),
+    district: zod.string().max(spielortePostSpielortBodyAddressDistrictMax),
+    house_number: zod.string().max(spielortePostSpielortBodyAddressHouseNumberMax).regex(spielortePostSpielortBodyAddressHouseNumberRegExp),
+    postcode: zod
       .string()
-      .min(spielortePostSpielortBodyAddressPlzMin)
-      .max(spielortePostSpielortBodyAddressPlzMax)
-      .regex(spielortePostSpielortBodyAddressPlzRegExp),
-    stadt: zod.string().min(1).max(spielortePostSpielortBodyAddressStadtMax),
-    stadtteil: zod.string().max(spielortePostSpielortBodyAddressStadtteilMax),
-    strasse: zod.string().min(1).max(spielortePostSpielortBodyAddressStrasseMax),
+      .min(spielortePostSpielortBodyAddressPostcodeMin)
+      .max(spielortePostSpielortBodyAddressPostcodeMax)
+      .regex(spielortePostSpielortBodyAddressPostcodeRegExp),
+    street: zod.string().min(1).max(spielortePostSpielortBodyAddressStreetMax),
   }),
   default_mietpreis: zod.int().min(spielortePostSpielortBodyDefaultMietpreisMin),
   name: zod.string().min(1).max(spielortePostSpielortBodyNameMax),
@@ -3271,18 +3271,18 @@ export const SpielortePatchSpielortParams = zod.object({
   spielort_id: zod.string().regex(spielortePatchSpielortPathSpielortIdRegExp),
 });
 
-export const spielortePatchSpielortBodyAddressHausnummerMax = 16;
+export const spielortePatchSpielortBodyAddressCityMax = 80;
 
-export const spielortePatchSpielortBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
-export const spielortePatchSpielortBodyAddressPlzMin = 5;
-export const spielortePatchSpielortBodyAddressPlzMax = 5;
+export const spielortePatchSpielortBodyAddressDistrictMax = 80;
 
-export const spielortePatchSpielortBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
-export const spielortePatchSpielortBodyAddressStadtMax = 80;
+export const spielortePatchSpielortBodyAddressHouseNumberMax = 16;
 
-export const spielortePatchSpielortBodyAddressStadtteilMax = 80;
+export const spielortePatchSpielortBodyAddressHouseNumberRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const spielortePatchSpielortBodyAddressPostcodeMin = 5;
+export const spielortePatchSpielortBodyAddressPostcodeMax = 5;
 
-export const spielortePatchSpielortBodyAddressStrasseMax = 120;
+export const spielortePatchSpielortBodyAddressPostcodeRegExp = new RegExp("^[0-9]{5}$");
+export const spielortePatchSpielortBodyAddressStreetMax = 120;
 
 export const spielortePatchSpielortBodyDefaultMietpreisMin = 0;
 
@@ -3292,15 +3292,15 @@ export const spielortePatchSpielortBodyVersionMin = 0;
 
 export const SpielortePatchSpielortBody = zod.object({
   address: zod.object({
-    hausnummer: zod.string().max(spielortePatchSpielortBodyAddressHausnummerMax).regex(spielortePatchSpielortBodyAddressHausnummerRegExp),
-    plz: zod
+    city: zod.string().min(1).max(spielortePatchSpielortBodyAddressCityMax),
+    district: zod.string().max(spielortePatchSpielortBodyAddressDistrictMax),
+    house_number: zod.string().max(spielortePatchSpielortBodyAddressHouseNumberMax).regex(spielortePatchSpielortBodyAddressHouseNumberRegExp),
+    postcode: zod
       .string()
-      .min(spielortePatchSpielortBodyAddressPlzMin)
-      .max(spielortePatchSpielortBodyAddressPlzMax)
-      .regex(spielortePatchSpielortBodyAddressPlzRegExp),
-    stadt: zod.string().min(1).max(spielortePatchSpielortBodyAddressStadtMax),
-    stadtteil: zod.string().max(spielortePatchSpielortBodyAddressStadtteilMax),
-    strasse: zod.string().min(1).max(spielortePatchSpielortBodyAddressStrasseMax),
+      .min(spielortePatchSpielortBodyAddressPostcodeMin)
+      .max(spielortePatchSpielortBodyAddressPostcodeMax)
+      .regex(spielortePatchSpielortBodyAddressPostcodeRegExp),
+    street: zod.string().min(1).max(spielortePatchSpielortBodyAddressStreetMax),
   }),
   default_mietpreis: zod.int().min(spielortePatchSpielortBodyDefaultMietpreisMin),
   name: zod.string().min(1).max(spielortePatchSpielortBodyNameMax),
@@ -3422,18 +3422,18 @@ export const TeamsPostTeamEntryParams = zod.object({
 });
 
 export const teamsPostTeamEntryBodyClubOneTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax = 16;
+export const teamsPostTeamEntryBodyClubTwoTeamAddressCityMax = 80;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
-export const teamsPostTeamEntryBodyClubTwoTeamAddressPlzMin = 5;
-export const teamsPostTeamEntryBodyClubTwoTeamAddressPlzMax = 5;
+export const teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax = 80;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressPlzRegExp = new RegExp("^[0-9]{5}$");
-export const teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax = 80;
+export const teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax = 16;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressStadtteilMax = 80;
+export const teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMin = 5;
+export const teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax = 5;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressStrasseMax = 120;
+export const teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeRegExp = new RegExp("^[0-9]{5}$");
+export const teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax = 120;
 
 export const teamsPostTeamEntryBodyClubTwoTeamDescriptionMax = 4096;
 
@@ -3460,18 +3460,18 @@ export const TeamsPostTeamEntryBody = zod
           kind: zod.literal("new").meta({ title: "Kind" }),
           team: zod.object({
             address: zod.object({
-              hausnummer: zod
+              city: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressCityMax),
+              district: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax),
+              house_number: zod
                 .string()
-                .max(teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax)
-                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerRegExp),
-              plz: zod
+                .max(teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax)
+                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberRegExp),
+              postcode: zod
                 .string()
-                .min(teamsPostTeamEntryBodyClubTwoTeamAddressPlzMin)
-                .max(teamsPostTeamEntryBodyClubTwoTeamAddressPlzMax)
-                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressPlzRegExp),
-              stadt: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax),
-              stadtteil: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamAddressStadtteilMax),
-              strasse: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStrasseMax),
+                .min(teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMin)
+                .max(teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax)
+                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeRegExp),
+              street: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax),
             }),
             description: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamDescriptionMax),
             full_name: zod
@@ -3571,7 +3571,7 @@ export const TeamsReactivateTeamParams = zod.object({
  * One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
  * differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
  * other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
- * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
+ * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`
  * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
  * person confirmed a seat on, a past season's included.
  *
@@ -3597,7 +3597,7 @@ export const TeamsPatchEinwilligungBody = zod
       scope: zod.union([zod.string(), zod.null()]),
     }),
     media: zod.boolean(),
-    scope: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
+    scope: zod.enum(["kontakt_data", "kontakt_data_whatsapp"]),
     text_versions: zod
       .object({
         media: zod.literal("2026-11-medien-1"),
@@ -3647,18 +3647,18 @@ export const TeamsPatchTeamSaisonParams = zod.object({
   saison_id: zod.string(),
 });
 
-export const teamsPatchTeamSaisonBodyAddressHausnummerMax = 16;
+export const teamsPatchTeamSaisonBodyAddressCityMax = 80;
 
-export const teamsPatchTeamSaisonBodyAddressHausnummerRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
-export const teamsPatchTeamSaisonBodyAddressPlzMin = 5;
-export const teamsPatchTeamSaisonBodyAddressPlzMax = 5;
+export const teamsPatchTeamSaisonBodyAddressDistrictMax = 80;
 
-export const teamsPatchTeamSaisonBodyAddressPlzRegExp = new RegExp("^[0-9]{5}$");
-export const teamsPatchTeamSaisonBodyAddressStadtMax = 80;
+export const teamsPatchTeamSaisonBodyAddressHouseNumberMax = 16;
 
-export const teamsPatchTeamSaisonBodyAddressStadtteilMax = 80;
+export const teamsPatchTeamSaisonBodyAddressHouseNumberRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPatchTeamSaisonBodyAddressPostcodeMin = 5;
+export const teamsPatchTeamSaisonBodyAddressPostcodeMax = 5;
 
-export const teamsPatchTeamSaisonBodyAddressStrasseMax = 120;
+export const teamsPatchTeamSaisonBodyAddressPostcodeRegExp = new RegExp("^[0-9]{5}$");
+export const teamsPatchTeamSaisonBodyAddressStreetMax = 120;
 
 export const teamsPatchTeamSaisonBodyDescriptionMax = 4096;
 
@@ -3676,15 +3676,15 @@ export const teamsPatchTeamSaisonBodyWebsiteUrlOneMax = 300;
 export const TeamsPatchTeamSaisonBody = zod
   .object({
     address: zod.object({
-      hausnummer: zod.string().max(teamsPatchTeamSaisonBodyAddressHausnummerMax).regex(teamsPatchTeamSaisonBodyAddressHausnummerRegExp),
-      plz: zod
+      city: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressCityMax),
+      district: zod.string().max(teamsPatchTeamSaisonBodyAddressDistrictMax),
+      house_number: zod.string().max(teamsPatchTeamSaisonBodyAddressHouseNumberMax).regex(teamsPatchTeamSaisonBodyAddressHouseNumberRegExp),
+      postcode: zod
         .string()
-        .min(teamsPatchTeamSaisonBodyAddressPlzMin)
-        .max(teamsPatchTeamSaisonBodyAddressPlzMax)
-        .regex(teamsPatchTeamSaisonBodyAddressPlzRegExp),
-      stadt: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressStadtMax),
-      stadtteil: zod.string().max(teamsPatchTeamSaisonBodyAddressStadtteilMax),
-      strasse: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressStrasseMax),
+        .min(teamsPatchTeamSaisonBodyAddressPostcodeMin)
+        .max(teamsPatchTeamSaisonBodyAddressPostcodeMax)
+        .regex(teamsPatchTeamSaisonBodyAddressPostcodeRegExp),
+      street: zod.string().min(1).max(teamsPatchTeamSaisonBodyAddressStreetMax),
     }),
     description: zod.string().max(teamsPatchTeamSaisonBodyDescriptionMax),
     full_name: zod.string().min(1).max(teamsPatchTeamSaisonBodyFullNameMax).regex(teamsPatchTeamSaisonBodyFullNameRegExp),

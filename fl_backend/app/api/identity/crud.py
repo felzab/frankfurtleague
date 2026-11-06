@@ -495,11 +495,11 @@ async def erase_the_mails_in_session(
         collection=outbox_collection,
         pipeline=[
             {"$match": {"kind": {"$ne": "account_erasure"}}},
-            {"$project": {"an": 1, "kind": 1, "state": 1, "data.current": 1, "data.before": 1, "data.changed_by": 1}},
+            {"$project": {"to": 1, "kind": 1, "state": 1, "data.current": 1, "data.before": 1, "data.changed_by": 1}},
         ],
         session=session,
     )
-    ids = [row["_id"] for row in rows if theirs(row["an"])]
+    ids = [row["_id"] for row in rows if theirs(row["to"])]
     if ids:
         await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 

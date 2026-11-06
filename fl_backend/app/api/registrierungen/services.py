@@ -266,8 +266,8 @@ def build_registrierungen_sort(*, order: str) -> list[tuple[str, int]]:
 
 
 # The two pages one link opens.
-PAGE_NEW: Final[FLRegistrierungPage] = "bestaetigung_spieler"
-PAGE_RETURNING: Final[FLRegistrierungPage] = "bestaetigung_spieler_wiederkehrend"
+PAGE_NEW: Final[FLRegistrierungPage] = "confirmation_spieler"
+PAGE_RETURNING: Final[FLRegistrierungPage] = "confirmation_spieler_returning"
 
 
 def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:

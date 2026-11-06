@@ -1184,7 +1184,7 @@ def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, dat
     return [
         OwedMail(
             key=f"spielbestaetigung/{row_id}/{occasion}/{rollen[0]}",
-            an=address,
+            to=address,
             data=data,
             reference=bezug_of(spielbestaetigung_id=row_id, seat=rollen[0]),
         )
@@ -1239,7 +1239,7 @@ def austritt_notices_of(
         opponent = vereine[opponent_id]
         data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, spiele=listed)
         mails = [
-            OwedMail(key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{rollen[0]}", an=address, data=data, reference=reference)
+            OwedMail(key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{rollen[0]}", to=address, data=data, reference=reference)
             for address, rollen in group_seats_by_mailbox(kontakte=opponent.get("kontakte"), seats=KONTAKT_ROLLEN)
         ]
         if mails:

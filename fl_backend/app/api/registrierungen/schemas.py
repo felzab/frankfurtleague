@@ -179,7 +179,7 @@ class FLRegistrierungenAdminListResponse(BaseAPIResponse):
 
 # The two pages one link may open: the returning pupil's asks no choice, so the press is judged against
 # whichever its own transaction resolves.
-FLRegistrierungPage = Literal["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]
+FLRegistrierungPage = Literal["confirmation_spieler", "confirmation_spieler_returning"]
 
 
 class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):

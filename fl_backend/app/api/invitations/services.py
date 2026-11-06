@@ -189,7 +189,7 @@ def plan_invitation_dispatch(
         return InvitationDispatchPlan([], "austritt_entered")
 
     if not isinstance(kontakte, Mapping):
-        return InvitationDispatchPlan([], "no_kontaktblock")
+        return InvitationDispatchPlan([], "no_kontakt_block")
 
     empfaenger = bestaetigte_empfaenger(kontakte=kontakte)
     if not empfaenger:

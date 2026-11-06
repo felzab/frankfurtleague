@@ -65,8 +65,8 @@ function linkHash(label) {
   return createHash("sha256").update(`made-up-${label}`, "utf8").digest("hex");
 }
 
-function address(strasse, hausnummer, plz, stadtteil) {
-  return { strasse, hausnummer, plz, stadtteil, stadt: "Frankfurt am Main" };
+function address(street, house_number, postcode, district) {
+  return { street, house_number, postcode, district, city: "Frankfurt am Main" };
 }
 
 // --- The clubs -----------------------------------------------------------------------------------
@@ -104,9 +104,9 @@ function joinPresent(parts, separator) {
  * `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` writes it.
  */
 function mapsLink(name, address) {
-  const strasse = joinPresent([address.strasse, address.hausnummer], " ");
-  const ort = joinPresent([address.plz, address.stadtteil, address.stadt], " ");
-  return `${name}, ${joinPresent([strasse, ort], ", ")}, Deutschland`;
+  const street = joinPresent([address.street, address.house_number], " ");
+  const locality = joinPresent([address.postcode, address.district, address.city], " ");
+  return `${name}, ${joinPresent([street, locality], ", ")}, Deutschland`;
 }
 
 function venue(name, rent, address, inactiveSince) {
@@ -177,7 +177,7 @@ function confirmed(row) {
     confirmation: confirmationBlock(-62),
     birth_date: day(-20 * 365),
     einwilligung: {
-      scope: "intern",
+      scope: "internal",
       date: CONSENTED,
       confirmed_at: CONSENTED,
       media: false,
@@ -510,7 +510,7 @@ function seated(firstName, lastName, enteredOn, enteredBy, email = `${firstName}
     email,
     phone: `+49 170 ${2000000 + seatedPeople}`,
     birth_date: null,
-    einwilligung: { scope: "kontaktdaten", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
+    einwilligung: { scope: "kontakt_data", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
   };
 }
 
@@ -680,7 +680,7 @@ function pupil(firstName, lastName, consentedOn = CONSENTED) {
     email: `${firstName}.${lastName}@schule.example`.toLowerCase(),
     birth_date: day(-16 * 365),
     einwilligung: {
-      scope: "kader_oeffentlich",
+      scope: "kader_public",
       date: consentedOn,
       confirmed_at: consentedOn,
       media: false,
@@ -877,7 +877,7 @@ function application({ picked, school, owner, submittedOn, wunschfarbe, states, 
             website_url: school.website_url,
           },
     ...seats(links, states, trainerIsAlso),
-    trikot: { existing_satz: "", wunschfarbe },
+    trikot: { existing_set: "", wunschfarbe },
     kader: { expected_size: 14, good_spieler: 3 },
     stufengroesse: 96,
     wunschgegner,
@@ -1026,7 +1026,7 @@ const SETTLED_MAILS = [
     _id: ObjectId(),
     key: "made-up/bounced",
     kind: "bewerbung_received",
-    an: BOUNCED.kontakte.ansprechperson.email,
+    to: BOUNCED.kontakte.ansprechperson.email,
     reference: { collection: "bewerbungen", id: BOUNCED._id, seat: "ansprechperson" },
     link: null,
     state: "sent",

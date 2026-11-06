@@ -732,7 +732,7 @@ async def post_einwilligung(
                 mails=[
                     OwedMail(
                         key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/objection/{seat}",
-                        an=abgelehnt_email,
+                        to=abgelehnt_email,
                         data=FLBewerbungObjectionData(
                             kind="bewerbung_objection",
                             saison_id=saison_id,

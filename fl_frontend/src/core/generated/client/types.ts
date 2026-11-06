@@ -361,8 +361,8 @@ export const FLKontaktRolle = {
 export type FLKontaktKenntnisnahmeScope = (typeof FLKontaktKenntnisnahmeScope)[keyof typeof FLKontaktKenntnisnahmeScope];
 
 export const FLKontaktKenntnisnahmeScope = {
-  kontaktdaten: "kontaktdaten",
-  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
+  kontakt_data: "kontakt_data",
+  kontakt_data_whatsapp: "kontakt_data_whatsapp",
 } as const;
 
 /**
@@ -385,8 +385,8 @@ export interface FLAccountBewerbungSeatEinwilligung {
 export type FLEinwilligungScope = (typeof FLEinwilligungScope)[keyof typeof FLEinwilligungScope];
 
 export const FLEinwilligungScope = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
+  kader_public: "kader_public",
+  internal: "internal",
 } as const;
 
 /**
@@ -707,15 +707,15 @@ export interface FLActivateSaisonResponse {
 }
 
 export interface FLAddress {
+  /** @minLength 1 */
+  city: string;
+  district: string;
   /** @pattern ^([0-9\-abcABC]+)?$ */
-  hausnummer: string;
+  house_number: string;
   /** @pattern ^[0-9]{5}$ */
-  plz: string;
+  postcode: string;
   /** @minLength 1 */
-  stadt: string;
-  stadtteil: string;
-  /** @minLength 1 */
-  strasse: string;
+  street: string;
 }
 
 /**
@@ -1089,28 +1089,28 @@ export type FLAddressChangeWaitingPeriodDays = 7;
 
 export interface FLAddressPayload {
   /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  city: string;
+  /** @maxLength 80 */
+  district: string;
+  /**
    * @maxLength 16
    * @pattern ^([0-9\-abcABC]+)?$
    */
-  hausnummer: string;
+  house_number: string;
   /**
    * @minLength 5
    * @maxLength 5
    * @pattern ^[0-9]{5}$
    */
-  plz: string;
-  /**
-   * @minLength 1
-   * @maxLength 80
-   */
-  stadt: string;
-  /** @maxLength 80 */
-  stadtteil: string;
+  postcode: string;
   /**
    * @minLength 1
    * @maxLength 120
    */
-  strasse: string;
+  street: string;
 }
 
 export type FLApprovalDenied = (typeof FLApprovalDenied)[keyof typeof FLApprovalDenied];
@@ -1409,7 +1409,7 @@ export const FLBewerbungStatus = {
  * What kit the school already owns, and the colour it would like; never copied onto the team.
  */
 export interface FLBewerbungTrikot {
-  existing_satz: string;
+  existing_set: string;
   wunschfarbe: FLTrikotFarbe;
 }
 
@@ -1448,35 +1448,35 @@ export interface FLBewerbungAbsageData {
 }
 
 /**
- * The school's address, with the Stadtteil required.
+ * The school's address, with the district required.
  */
 export interface FLBewerbungAddressPayload {
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  city: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  district: string;
   /**
    * @maxLength 16
    * @pattern ^([0-9\-abcABC]+)?$
    */
-  hausnummer: string;
+  house_number: string;
   /**
    * @minLength 5
    * @maxLength 5
    * @pattern ^[0-9]{5}$
    */
-  plz: string;
-  /**
-   * @minLength 1
-   * @maxLength 80
-   */
-  stadt: string;
-  /**
-   * @minLength 1
-   * @maxLength 80
-   */
-  stadtteil: string;
+  postcode: string;
   /**
    * @minLength 1
    * @maxLength 120
    */
-  strasse: string;
+  street: string;
 }
 
 export type FLBewerbungConfirmationDeadlineDays = 14;
@@ -1574,7 +1574,7 @@ export type FLKontaktRow = (typeof FLKontaktRow)[keyof typeof FLKontaktRow];
 export const FLKontaktRow = {
   open: "open",
   saison_past: "saison_past",
-  ausgetreten: "ausgetreten",
+  exited: "exited",
 } as const;
 
 /**
@@ -1885,7 +1885,7 @@ export interface FLBewerbungSweepResponse {
 
 export interface FLBewerbungTrikotPayload {
   /** @maxLength 500 */
-  existing_satz: string;
+  existing_set: string;
   wunschfarbe: FLTrikotFarbe;
 }
 
@@ -2076,9 +2076,9 @@ export const FLBracketFaultOccupantReason = {
  * Nothing is emptied.
  */
 export interface FLBracketFaultOccupant {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  ausgeschieden_seit: string;
   austritt_type: FLAustrittType;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  exited_since: string;
   reason: FLBracketFaultOccupantReason;
   side: FLSpielSide;
   spiel_date: string | null;
@@ -2761,7 +2761,7 @@ export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeo
 
 export const FLInvitationSkipReason = {
   austritt_entered: "austritt_entered",
-  no_kontaktblock: "no_kontaktblock",
+  no_kontakt_block: "no_kontakt_block",
   no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
   kontakte_barred: "kontakte_barred",
   already_sent: "already_sent",
@@ -3463,7 +3463,6 @@ export interface FLRegistrierungAbsageData {
  * One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret.
  */
 export interface FLOutboxHandout {
-  an: string;
   /** @minimum 1 */
   attempt: number;
   data:
@@ -3497,6 +3496,7 @@ export interface FLOutboxHandout {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   secret: string | null;
+  to: string;
   token: string | null;
 }
 
@@ -3549,10 +3549,10 @@ export interface FLOutboxResultResponse {
  * One mail of the sign-in library, owed to the address it names.
  */
 export interface FLOutboxSignInPayload {
-  /** @maxLength 254 */
-  an: string;
   data: FLSignInCodeData | FLPasskeyData | FLAccountErasureData;
   secret: string | null;
+  /** @maxLength 254 */
+  to: string;
   valid_until: string | null;
 }
 
@@ -3668,11 +3668,11 @@ export const FLOverviewCardName = {
 export type FLOverviewSpielRowKind = (typeof FLOverviewSpielRowKind)[keyof typeof FLOverviewSpielRowKind];
 
 export const FLOverviewSpielRowKind = {
+  appointment_missing: "appointment_missing",
   ergebnis_missing: "ergebnis_missing",
   schiedsrichter_missing: "schiedsrichter_missing",
   spielort_missing: "spielort_missing",
   team_missing: "team_missing",
-  termin_missing: "termin_missing",
 } as const;
 
 /**
@@ -3820,7 +3820,7 @@ export type FLOverviewGapKind = (typeof FLOverviewGapKind)[keyof typeof FLOvervi
 
 export const FLOverviewGapKind = {
   ergebnis_missing: "ergebnis_missing",
-  termin_missing: "termin_missing",
+  appointment_missing: "appointment_missing",
   spielort_missing: "spielort_missing",
   schiedsrichter_missing: "schiedsrichter_missing",
   team_missing: "team_missing",
@@ -4417,8 +4417,8 @@ export type FLRegistrierungConfirmationViewResponsePage =
   (typeof FLRegistrierungConfirmationViewResponsePage)[keyof typeof FLRegistrierungConfirmationViewResponsePage];
 
 export const FLRegistrierungConfirmationViewResponsePage = {
-  bestaetigung_spieler: "bestaetigung_spieler",
-  bestaetigung_spieler_wiederkehrend: "bestaetigung_spieler_wiederkehrend",
+  confirmation_spieler: "confirmation_spieler",
+  confirmation_spieler_returning: "confirmation_spieler_returning",
 } as const;
 
 /**
@@ -4491,7 +4491,6 @@ export interface FLReplaceSaisonTeamPayload {
  * `austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it.
  */
 export interface FLReplaceSaisonTeamResponse {
-  ausgetragene_kader_rows: number;
   gruppe: FLGruppenNames;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   incoming_team_id: string;
@@ -4500,6 +4499,7 @@ export interface FLReplaceSaisonTeamResponse {
   name: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   outgoing_team_id: string;
+  retired_kader_rows: number;
   rewritten_spiele: number;
   saison_id: string;
   /** @pattern ^[A-Z]{3}$ */
@@ -6050,7 +6050,7 @@ export interface FLTeamStatistik {
   /** @minimum 0 */
   count_cancelled_spiele: number;
   /** @minimum 0 */
-  count_gespielte_spiele: number;
+  count_played_spiele: number;
   /** @minimum 0 */
   niederlagen: number;
   /** @minimum 0 */
@@ -6058,9 +6058,9 @@ export interface FLTeamStatistik {
   /** @minimum 0 */
   siege: number;
   /** @minimum 0 */
-  tore_geschossen: number;
+  tore_conceded: number;
   /** @minimum 0 */
-  tore_kassiert: number;
+  tore_scored: number;
   /** @minimum 0 */
   unentschieden: number;
 }

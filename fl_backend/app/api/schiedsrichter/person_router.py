@@ -87,7 +87,7 @@ async def patch_einwilligung(
     else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
     public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
     list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
-    `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
+    `kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
     `evidence_state` other than the record's own, either choice having moved since the page was served

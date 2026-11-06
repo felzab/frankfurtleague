@@ -352,7 +352,7 @@ async def post_registrierung(
             mails=[
                 OwedMail(
                     key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/confirmation",
-                    an=str(registrierung_data.email),
+                    to=str(registrierung_data.email),
                     data=FLRegistrierungLinkData(
                         kind="registrierung_confirmation",
                         # Off the invite the token opened, never the body: anyone holding the link could otherwise word the
@@ -396,7 +396,7 @@ async def get_confirmation_view(
     """What the confirmation page renders for the registration this token opens, and nothing of the pupil.
 
     A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
-    a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+    a link whose club has left the season reading expired, and `confirmation_spieler_returning` opens the returning
     pupil's page; only a token no registration holds is refused (`link_invalid`).
     """
 
