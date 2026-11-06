@@ -885,17 +885,21 @@ class TestAMailboxPastTheBound:
         Tags of one mailbox, its documents gone as a mailbox's are after an hour, so the two meet on the insert and on one key.
         """
 
+        def tagged(tag: Any) -> dict[str, Any]:
+            # The other seats each its own, so the trainer's mailbox alone joins the two.
+            return naming(trainer=f"victim+{tag}@example.com", ansprechperson=f"a{tag}@example.com", stellvertretung=f"s{tag}@example.com")
+
         async def body(database: AsyncDatabase) -> tuple[dict[str, Any], dict[str, Any]]:
             for tag in range(OPEN_LINKS_PER_MAILBOX - 1):
-                await submit(database, kontakte=naming(trainer=f"victim+{tag}@example.com"))
+                await submit(database, kontakte=tagged(tag))
             await database[Collection.MAILBOX_ANCHORS].delete_many({})
             committed = asyncio.Event()
             held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
-            second = asyncio.create_task(submit(database, bewerbungen=held, kontakte=naming(trainer="victim+second@example.com")))
+            second = asyncio.create_task(submit(database, bewerbungen=held, kontakte=tagged("second")))
             await held.until_held(second)
 
             try:
-                first = await submit(database, kontakte=naming(trainer="victim+first@example.com"))
+                first = await submit(database, kontakte=tagged("first"))
             except BaseException:
                 await held.abandon(second)
                 raise
@@ -906,7 +910,7 @@ class TestAMailboxPastTheBound:
         first, second = on_a_league(mongo_replica_set_url, body)
 
         assert first == dict.fromkeys(KONTAKT_ROLLEN, TODAY)
-        assert second == dict.fromkeys(KONTAKT_ROLLEN)
+        assert second == {"trainer": None, "ansprechperson": TODAY, "stellvertretung": TODAY}
 
     def test_a_press_finding_the_mailbox_full_writes_no_document(self, mongo_replica_set_url: str):
         """A write would conflict with every rival, at one press a second a mailbox, and a flood's presses would fail a real school's."""
