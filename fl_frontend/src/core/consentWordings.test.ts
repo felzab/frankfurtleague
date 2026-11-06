@@ -13,7 +13,8 @@ const DIGESTS: Readonly<Record<string, string>> = {
 };
 
 // Keys sorted, so moving a key inside an entry leaves its digest alone, and a link's address left out, which a route
-// moves without changing a word the person read: only the words count.
+// moves without changing a word the person read. Every other key is hashed beside its words, so renaming one moves the
+// digest with no word changed.
 const canonical = (value: unknown): string =>
   JSON.stringify(value, (key, inner: unknown) =>
     key === "href"
