@@ -53,6 +53,7 @@ from app.api.bewerbungen.services import (
     find_seat_write_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
+    mailed_seats,
     mit_vorenthaltener_entscheidung,
     owed_link,
     paired_seat,
@@ -490,7 +491,7 @@ async def decline_bewerbung(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLDeclineBewerbungResponse:
     """
-    Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.
+    Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
 
     The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
     so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
@@ -500,7 +501,7 @@ async def decline_bewerbung(
         stored_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            projection=["status", "saison_id", "schule", "team_id", "kontakte"],
+            projection=["status", "saison_id", "schule", "team_id", "kontakte", "confirmations"],
             session=session,
         )
         refuse(find_triage_refusal(status=str(stored_raw["status"])))
@@ -531,7 +532,9 @@ async def decline_bewerbung(
                         reason=ablehnung_data.reason,
                     ),
                 )
-                for email, seats in people_with_address(kontakte=stored_raw.get("kontakte"))
+                for email, seats in people_with_address(
+                    kontakte=stored_raw.get("kontakte"), seats=mailed_seats(confirmations=stored_raw.get("confirmations"))
+                )
             ],
             now=germany_now,
         )

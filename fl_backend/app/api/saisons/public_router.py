@@ -328,9 +328,9 @@ async def get_landing(
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
 
     Beside it, the application window open today by the rule the submission refuses on, the day the next one opens by
-    the judgement the form's page serves, and the league's figures over every season the public reads, counted on every
-    read. The windows and the figures are read beside the season's two steps rather than after them, so they add no step
-    to the read.
+    the judgement the form's page serves, whether a season not yet ended holds a window at all, and the league's figures
+    over every season the public reads, counted on every read. The windows and the figures are read beside the season's
+    two steps rather than after them, so they add no step to the read.
     """
 
     saison, windows, counts = await asyncio.gather(
@@ -349,6 +349,7 @@ async def get_landing(
         if windows.open is None
         else FLBewerbungWindow(saison_id=str(windows.open["_id"]), end=windows.open["bewerbung"]["end"]),
         bewerbung_opens_on=windows.opens_on,
+        bewerbung_window_held=windows.held,
         counts=counts,
     )
 

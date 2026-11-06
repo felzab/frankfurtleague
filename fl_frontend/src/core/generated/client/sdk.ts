@@ -1123,7 +1123,7 @@ export const getBewerbungenDeclineBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.
+ * Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
  *
  * The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
  * so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
@@ -2409,9 +2409,9 @@ export const getSaisonsGetLandingUrl = () => {
  * The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
  *
  * Beside it, the application window open today by the rule the submission refuses on, the day the next one opens by
- * the judgement the form's page serves, and the league's figures over every season the public reads, counted on every
- * read. The windows and the figures are read beside the season's two steps rather than after them, so they add no step
- * to the read.
+ * the judgement the form's page serves, whether a season not yet ended holds a window at all, and the league's figures
+ * over every season the public reads, counted on every read. The windows and the figures are read beside the season's
+ * two steps rather than after them, so they add no step to the read.
  * @summary The landing
  */
 export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLLandingResponse> => {
@@ -5073,8 +5073,9 @@ export const getTeamsReplaceSaisonTeamUrl = (teamId: string, saisonId: string) =
 /**
  * Hand this season's junction row, and every fixture on it, to another club.
  *
- * Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
- * live squad rows are retired, in ONE transaction: the schedule survives.
+ * Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
+ * their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
+ * the schedule survives.
  * @summary Replace a club in a season, keeping its schedule
  */
 export const teamsReplaceSaisonTeam = async (

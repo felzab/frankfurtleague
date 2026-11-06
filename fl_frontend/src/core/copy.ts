@@ -387,6 +387,13 @@ export const COPY = catalogue({
     notice: { before: "Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter ", after: "." },
   },
 
+  // Redesign: goes with `RegistrierungFormPanel.tsx`.
+  /** The old registration panel's paragraph once a registration is in: `days` is how long the link stands. */
+  registrierung: {
+    received: (days: number) =>
+      `Bestätige deine Registrierung über den Link in der E-Mail. Erst dann kann dein Team dich in den Kader aufnehmen. Bestätigst du nicht innerhalb von ${formatNumber(days)} Tagen, löschen wir die Registrierung wieder. Keine Mail bekommen? Prüfe die Adresse und registriere dich einfach erneut.`,
+  },
+
   /**
    * A club's fields, one word each wherever a person meets them: the public form, the acceptance, the bulk accept, the
    * review page and the team editor.

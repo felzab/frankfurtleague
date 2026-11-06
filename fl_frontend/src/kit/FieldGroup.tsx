@@ -1,8 +1,21 @@
 import { SectionTitle } from "./Section";
 import { PlaceholderLine } from "./Skeleton";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
+
+const fieldGroup = tv({
+  slots: {
+    // `min-w-0`: a fieldset is at least as wide as its content by default, which would push a row of fields past the dialog.
+    root: "grid w-full min-w-0 justify-items-start gap-4",
+    // A legend is drawn outside its box's flow; floated, it is an ordinary child (Bootstrap's reboot), so the grid lays it
+    // out. Stretched out through the dialog's padding, which the box declares, its hairline meets both of the dialog's
+    // edges, the name kept at the fields' edge by the same padding inside it. Outside a dialog the padding is unset and
+    // the hairline runs the group's width.
+    head: "float-left -mx-(--dialog-padding) justify-self-stretch border-b border-border px-(--dialog-padding) pb-2",
+  },
+});
 
 /**
  * A few of a dialog's fields under one short name, the address's lines and then the record's terms, as
@@ -15,13 +28,10 @@ import type { ReactNode } from "react";
  * under its title.
  */
 export function FieldGroup({ name, children }: { name: Copy; children: ReactNode }) {
+  const { root, head } = fieldGroup();
   return (
-    // `min-w-0`: a fieldset is at least as wide as its content by default, which would push a row of fields past the dialog.
-    <fieldset className="grid w-full min-w-0 justify-items-start gap-4">
-      {/* A legend is drawn outside its box's flow; floated, it is an ordinary child (Bootstrap's reboot), so the grid
-          lays it out. Stretched out through the dialog's padding, which the box declares, its hairline meets both of
-          the dialog's edges, the name kept at the fields' edge by the same padding inside it. */}
-      <legend className="float-left -mx-(--dialog-padding) justify-self-stretch border-b border-border px-(--dialog-padding) pb-2">
+    <fieldset className={root()}>
+      <legend className={head()}>
         <SectionTitle
           level={3}
           text={name}
@@ -34,9 +44,10 @@ export function FieldGroup({ name, children }: { name: Copy; children: ReactNode
 
 /** The group while its fields are read: its name's line over its hairline, and the fields' placeholders. */
 export function FieldGroupPlaceholder({ children }: { children: ReactNode }) {
+  const { root, head } = fieldGroup();
   return (
-    <div className="grid w-full min-w-0 justify-items-start gap-4">
-      <span className="justify-self-stretch border-b border-border pb-2">
+    <div className={root()}>
+      <span className={head()}>
         <PlaceholderLine
           text="text-base font-semibold"
           width="w-1/3"
