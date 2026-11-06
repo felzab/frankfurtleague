@@ -1,10 +1,6 @@
 import { rollenText } from "@/core/teamVocabulary";
 
-import type {
-  FLBewerbungConfirmationDeadlineDays,
-  FLBewerbungKontaktMinAgeYears,
-  FLSignatoryMinAgeYears,
-} from "@/core/generated/client/types";
+import type { FLBewerbungConfirmationDeadlineDays, FLBewerbungKontaktMinAgeYears, FLSignatoryMinAgeYears } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 
 /**
