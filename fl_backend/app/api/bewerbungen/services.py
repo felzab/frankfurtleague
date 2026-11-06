@@ -834,7 +834,7 @@ def compose_confirmation_update(
 
     The date and the stamp land together, which is why
     this is one update and never two. `takes_the_notice_back` where the answer moves the day a deletion notice named
-    (`confirmation_moves_the_deletion_day`).
+    (`leaving_moves_the_deletion_day`).
     """
 
     written: dict[str, Any] = {}
@@ -930,8 +930,8 @@ def _moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequenc
     return deletion_day(kontakte=unanswered, confirmations=fresh) != deletion_day(kontakte=kontakte, confirmations=confirmations)
 
 
-def confirmation_moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str]) -> bool:
-    """Whether confirming these seats moves `deletion_day`: an answered seat stops counting, and the earliest may be its own."""
+def leaving_moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str]) -> bool:
+    """Whether these seats going moves `deletion_day`, whose earliest may be theirs: a confirmed seat stops counting, an erased one holds no day."""
 
     outstanding = ausstehende_seats(kontakte=kontakte)
     staying = [seat for seat in outstanding if seat not in seats]
