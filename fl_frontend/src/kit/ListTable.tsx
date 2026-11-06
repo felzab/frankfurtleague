@@ -70,7 +70,8 @@ export function ListMatches({
     );
   return (
     <SpielList
-      matches={shown.map((match) => match.row)}
+      // The search lists a whole season: more cards in view than a matchday's, none of them likelier than another.
+      matches={shown.map((match) => ({ ...match.row, prefetch: false }))}
       layout="cards"
     />
   );

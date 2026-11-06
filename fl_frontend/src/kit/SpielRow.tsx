@@ -34,6 +34,8 @@ export type SpielRowProps = {
   muted?: boolean;
   /** The side that did not turn up, its name struck, which is how a row says which; the chip does not repeat it. */
   absent?: "team1" | "team2";
+  /** `false` in a list of many, whose cards in view would each cost a request (`Link`). */
+  prefetch?: false;
 };
 
 /**
@@ -171,7 +173,7 @@ const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { c
  * narrow one a card of two lines under the date line, whose right end holds the chip and „n. E.“, each side with
  * its goals at the right, and no chevron; every row the same height with or without a shoot-out or a chip.
  */
-function SpielRow({ href, when, team1, team2, result, chip, muted, absent }: SpielRowProps) {
+function SpielRow({ href, when, team1, team2, result, chip, muted, absent, prefetch }: SpielRowProps) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
   const form = forms();
@@ -181,7 +183,8 @@ function SpielRow({ href, when, team1, team2, result, chip, muted, absent }: Spi
     <div className={stacked()}>
       <Link
         href={href}
-        placement="card">
+        placement="card"
+        prefetch={prefetch}>
         <span className={form.line()}>
           <span className="col-start-1 row-span-2 row-start-1 flex min-w-0 flex-col items-start gap-1">
             <span className={whenWords({ cut: chip !== undefined })}>{when}</span>
