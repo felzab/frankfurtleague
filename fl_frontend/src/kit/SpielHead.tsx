@@ -232,7 +232,7 @@ function PopupPlaceholder() {
     <RouteDialogBody
       title={COPY.shared.loading}
       act={
-        <Placeholder>
+        <Placeholder layout="grid">
           <span className={buttonPlaceholder("w-full")} />
         </Placeholder>
       }>
