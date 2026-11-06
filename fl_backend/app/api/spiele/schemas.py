@@ -9,8 +9,6 @@ from app.api.teams.schemas import FLAustritt
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import (
-    LIST_LIMIT_DEFAULT,
-    LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     SPIEL_NOTE_MAX_LENGTH,
 )
@@ -31,7 +29,6 @@ from app.shared.schemas.literals import (
     FLGruppenNames,
     FLSaisonPhase,
     FLSonderereignis,
-    FLSortOrder,
     FLSpielSide,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -681,26 +678,6 @@ FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 FLSpielJoinedListAdapter = TypeAdapter(list[FLSpielJoined])
 FLSpielJoinedAdminListAdapter = TypeAdapter(list[FLSpielJoinedAdmin])
 FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
-
-
-class FLSpieleFilterParams(BaseModel):
-    # None and never the current season: which season is current is a database read, which only the
-    # route can make (`get_spiele_admin`).
-    saison_id: str | None = None
-    saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
-    team_id: CustomObjectId | None = None
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: Literal["date", "time", "spiel_nr", "saison_phase"] = Field(default="date")
-    order: FLSortOrder = Field(default="asc")
-
-
-# The base tier reduces a referee's surname to an initial and the admin fixture search matches on
-# that name, so a surname typed there would find nothing.
-class FLSpieleAdminListResponse(BaseAPIResponse):
-    """The admin surfaces' fixture list, each referee's whole name and the money included."""
-
-    spiele: list[FLSpielJoinedAdmin]
 
 
 class FLSpieleSingleResponse(BaseAPIResponse):

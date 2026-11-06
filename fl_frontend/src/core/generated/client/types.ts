@@ -116,6 +116,8 @@ export const Code = {
   role_not_held: "role_not_held",
   kontakt_seat_without_confirmation: "kontakt_seat_without_confirmation",
   kontakt_seat_barred: "kontakt_seat_barred",
+  kontakt_email_taken: "kontakt_email_taken",
+  kontakt_phone_taken: "kontakt_phone_taken",
   kontakt_row_without_saison: "kontakt_row_without_saison",
   kontakt_saison_past: "kontakt_saison_past",
   own_address: "own_address",
@@ -1089,7 +1091,11 @@ export interface FLAddressPayload {
    * @pattern ^([0-9\-abcABC]+)?$
    */
   hausnummer: string;
-  /** @pattern ^[0-9]{5}$ */
+  /**
+   * @minLength 5
+   * @maxLength 5
+   * @pattern ^[0-9]{5}$
+   */
   plz: string;
   /**
    * @minLength 1
@@ -1439,7 +1445,11 @@ export interface FLBewerbungAddressPayload {
    * @pattern ^([0-9\-abcABC]+)?$
    */
   hausnummer: string;
-  /** @pattern ^[0-9]{5}$ */
+  /**
+   * @minLength 5
+   * @maxLength 5
+   * @pattern ^[0-9]{5}$
+   */
   plz: string;
   /**
    * @minLength 1
@@ -3072,12 +3082,6 @@ export interface FLKontaktInviteResponse {
   team_id: string;
 }
 
-export interface FLKontaktKenntnisnahmePayload {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  scope: "kontaktdaten";
-}
-
 /**
  * One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.
  */
@@ -3098,8 +3102,10 @@ export interface FLKontaktPayload {
   phone: string | null;
 }
 
-export interface FLKontaktpersonPayload {
-  einwilligung: FLKontaktKenntnisnahmePayload;
+/**
+ * The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet.
+ */
+export interface FLKontaktSeatPayload {
   /** @maxLength 254 */
   email: string;
   /**
@@ -3116,6 +3122,17 @@ export interface FLKontaktpersonPayload {
   last_name: string;
   /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
   phone: string;
+  trainer_is_also?: FLTrainerAlso | null;
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
+ * Where the seat write's link went, and the row's count of writes after it.
+ */
+export interface FLKontaktSeatResponse {
+  email: string | null;
+  version: number;
 }
 
 /**
@@ -3926,58 +3943,6 @@ export interface FLPatchSaisonResponse {
   version: number;
 }
 
-/**
- * The write side of the three, with the empty slot an erasure leaves.
- *
- * Three whole people is the editor's own guarantee
- * (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx`).
- */
-export interface FLSaisonTeamKontaktePayload {
-  ansprechperson: FLKontaktpersonPayload | null;
-  stellvertretung: FLKontaktpersonPayload | null;
-  trainer: FLKontaktpersonPayload | null;
-  trainer_is_also: FLTrainerAlso | null;
-}
-
-/**
- * The contact block alone, on the row's `version` it was composed against.
- *
- * `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this
- * endpoint was never asked to decide.
- */
-export interface FLPatchSaisonTeamKontaktePayload {
-  kontakte: FLSaisonTeamKontaktePayload | null;
-  /** @minimum 0 */
-  version: number;
-}
-
-/**
- * The block as STORED after the write, and each person it owed a link.
- *
- * No other field off that row: the caller sent none, and echoing one would invite a client to
- * believe this endpoint owns it.
- */
-export interface FLPatchSaisonTeamKontakteResponse {
-  confirmations: FLKontaktMint[];
-  kontakte: FLSaisonTeamKontakte | null;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
-/**
- * The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.
- *
- * A stored contact is shapeless on read and bounded on write, so round-tripping it here refuses
- * every save a club with one bad row can make.
- */
-export interface FLPatchSaisonTeamPayload {
-  austritt: FLAustrittPayload | null;
-  gruppe: FLGruppenNames;
-  trikot_farbe: FLTrikotFarbe | null;
-  version?: number | null;
-}
-
 export interface FLPatchSchiedsrichterPayload {
   /** @minimum 0 */
   default_payment: number;
@@ -4174,37 +4139,10 @@ export interface FLPatchSpieltagPayload {
   version: number;
 }
 
-export interface FLPatchTeamPayload {
-  address: FLAddressPayload;
-  /** @maxLength 4096 */
-  description: string;
-  /**
-   * @minLength 1
-   * @maxLength 120
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  full_name: string;
-  /**
-   * @minLength 1
-   * @maxLength 60
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
-  shorthand: string;
-  version?: number | null;
-  website_url: string | null;
-}
-
-export interface FLPatchTeamResponse {
-  fanned_out_to_saison_teams: number;
-}
-
 /**
  * The team editor's one save: the club, and its colour and group in the season the page stands under.
  *
- * Replaced wholesale, as `FLPatchTeamPayload` is. No seat and no `austritt`: a seat is its dialog's, and an exit is the
+ * Replaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the
  * danger box's own write, which owes mail.
  */
 export interface FLPatchTeamSaisonPayload {
@@ -4324,19 +4262,6 @@ export interface FLPostSaisonPayload {
 
 export interface FLPostSaisonResponse {
   created_id: string;
-}
-
-/**
- * One team's membership of one season. `team_id` comes from the path, `saison_id` from here.
- */
-export interface FLPostSaisonTeamPayload {
-  gruppe: FLGruppenNames;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  saison_id: string;
 }
 
 export interface FLPostSchiedsrichterPayload {
@@ -4844,23 +4769,6 @@ export interface FLSaisonTeamEinwilligungAnswerResponse {
   media: boolean;
   quelle: "saison";
   whatsapp: boolean;
-}
-
-/**
- * A junction row, which has no read model of its own -- so it is echoed as it was written.
- */
-export interface FLSaisonTeamResponse {
-  austritt: FLAustritt | null;
-  gruppe: FLGruppenNames;
-  kontakte: FLSaisonTeamKontakte | null;
-  /** @minLength 1 */
-  name: string;
-  saison_id: string;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  trikot_farbe: FLTrikotFarbe | null;
 }
 
 /**
@@ -5789,13 +5697,6 @@ export interface FLSpielbestaetigungenSelfResponse {
 }
 
 /**
- * The admin surfaces' fixture list, each referee's whole name and the money included.
- */
-export interface FLSpieleAdminListResponse {
-  spiele: FLSpielJoinedAdmin[];
-}
-
-/**
  * One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
  *
  * `saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's
@@ -6408,6 +6309,7 @@ export interface FLTeamRecord {
 export interface FLTeamSaisonFacts {
   begun: boolean;
   id: string;
+  registrierung_end: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
@@ -6489,6 +6391,7 @@ export interface FLTeamsAdminRow {
   /** @minimum 0 */
   seats_filled: number;
   shorthand: string;
+  trikot_farbe: FLTrikotFarbe | null;
 }
 
 /**
@@ -6752,35 +6655,6 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
    */
   limit?: number;
 };
-
-export type SpieleGetSpieleAdminParams = {
-  saison_id?: string | null;
-  saison_phase?: "playoffs" | FLSaisonPhase | null;
-  team_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpieleGetSpieleAdminSortBy;
-  order?: SpieleGetSpieleAdminOrder;
-};
-
-export type SpieleGetSpieleAdminSortBy = (typeof SpieleGetSpieleAdminSortBy)[keyof typeof SpieleGetSpieleAdminSortBy];
-
-export const SpieleGetSpieleAdminSortBy = {
-  date: "date",
-  time: "time",
-  spiel_nr: "spiel_nr",
-  saison_phase: "saison_phase",
-} as const;
-
-export type SpieleGetSpieleAdminOrder = (typeof SpieleGetSpieleAdminOrder)[keyof typeof SpieleGetSpieleAdminOrder];
-
-export const SpieleGetSpieleAdminOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SpieleGetSpieleSpielplanParams = {
   /**

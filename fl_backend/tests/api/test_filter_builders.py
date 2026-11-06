@@ -1,38 +1,7 @@
 from bson import ObjectId
 
-from app.api.spiele.schemas import FLSpieleFilterParams
-from app.api.spiele.services import build_spiele_filter
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage
-
-
-class TestSpieleFilter:
-    def test_passes_saison_id_through_under_its_own_name(self):
-        """`saison_id` is a real field on the document here, so it needs no alias — unlike on `saisons`."""
-        filters = FLSpieleFilterParams.model_validate({"saison_id": "2526"})
-
-        assert build_spiele_filter(filters=filters)["saison_id"] == "2526"
-
-    def test_omits_saison_id_when_unset(self):
-        """Reachable only in tests: the router resolves the current season before the builder ever runs."""
-        filters = FLSpieleFilterParams.model_validate({})
-
-        assert "saison_id" not in build_spiele_filter(filters=filters)
-
-    def test_playoffs_phase_becomes_a_negation(self):
-        """`playoffs` is a query-only alias and must compile to "not gruppenphase", never a stored value."""
-        filters = FLSpieleFilterParams.model_validate({"saison_phase": "playoffs"})
-
-        assert build_spiele_filter(filters=filters)["saison_phase"] == {"$ne": "gruppenphase"}
-
-    def test_team_id_matches_either_side_of_the_spiel_as_an_objectid(self):
-        """Both sides via `$or`, and as a real `ObjectId`: a string here would match nothing and return empty."""
-        filters = FLSpieleFilterParams.model_validate({"team_id": "6890a1b2c3d4e5f607182930"})
-
-        assert build_spiele_filter(filters=filters)["$or"] == [
-            {"team1.team_id": ObjectId("6890a1b2c3d4e5f607182930")},
-            {"team2.team_id": ObjectId("6890a1b2c3d4e5f607182930")},
-        ]
 
 
 class TestSpieltageFilter:

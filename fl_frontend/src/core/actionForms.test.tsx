@@ -21,10 +21,12 @@ vi.mock("@/core/action", async (importOriginal) => ({
  * passes an object to, so a name meeting no key loses its value at the parse with every check green. Each case holds
  * one lane's keys to what its form posts.
  */
-type Lane = { input: z.ZodObject | z.ZodDiscriminatedUnion<z.ZodObject[]> };
+type Parsed = z.ZodObject | z.ZodDiscriminatedUnion<z.ZodObject[]>;
+type Lane = { input: Parsed | z.ZodPipe<z.ZodTransform, Parsed> };
 
 const keysOf = (lane: unknown): string[] => {
-  const { input } = lane as Lane;
+  const { input: declared } = lane as Lane;
+  const input = "out" in declared ? declared.out : declared;
   const objects = "options" in input ? input.options : [input];
   return [...new Set(objects.flatMap((object) => Object.keys((object as z.ZodObject).shape)))].toSorted();
 };
@@ -38,7 +40,7 @@ const namesIn = (element: ReactElement): string[] => {
 /** The boxes, the `set`s and the carried fields a source file spells, for a form no test mounts: a page, a closure. */
 const spelledIn = (...files: readonly string[]): Set<string> => {
   const source = files.map((file) => readFileSync(path.join(process.cwd(), "src", file), "utf8")).join("\n");
-  const carried = [...source.matchAll(/carry: \{([^}]*)\}/g)].flatMap(([, keys = ""]) =>
+  const carried = [...source.matchAll(/carry(?:: |=\{)\{([^}]*)\}/g)].flatMap(([, keys = ""]) =>
     [...keys.matchAll(/(\w+):/g)].map(([, key = ""]) => key),
   );
   const spelled = [...source.matchAll(/\bname="(\w+)"|\.set\("(\w+)"/g)].map(([, box, set]) => box ?? set ?? "");
@@ -59,6 +61,24 @@ describe("each form's posted names meet its lane's keys", () => {
     const { SPIELORT_RULES } = await import("@/app/admin/spielortRules");
 
     expect(namesIn(<SpielortFields rules={SPIELORT_RULES} />).toSorted()).toStrictEqual(keysOf(createSpielort));
+  });
+
+  it("loses no box of a new school's entry", async () => {
+    const { enterTeam } = await import("@/app/admin/(liste)/saisons/[saison]/teams/enterTeam");
+    const { TeamEntryFields } = await import("@/app/admin/(liste)/saisons/[saison]/teams/TeamEntryFields");
+    const { TEAM_ENTRY_RULES } = await import("@/features/teams/fieldRules");
+    const names = namesIn(
+      <TeamEntryFields
+        saison="2027"
+        clubs={[]}
+        gruppen={[]}
+        rules={TEAM_ENTRY_RULES}
+        clubRequired
+      />,
+    );
+
+    // The season the dialog carries, and the form's kind, which the lane reads off the club's select.
+    expect([...names, "saison_id", "kind"].toSorted()).toStrictEqual(keysOf(enterTeam));
   });
 
   it("loses no box of the referee's confirmation", async () => {
@@ -88,6 +108,18 @@ describe("each form's posted names meet its lane's keys", () => {
     ["the address change's box", "@/features/account/personActions", "startAddressChange", ["app/account/(pages)/signin/SignInBoxes.tsx"]],
     ["a passkey's rename", "@/features/passkeys/actions", "renamePasskeyAction", ["app/account/(pages)/security/SecurityBoxes.tsx"]],
     ["the sign-in form", "@/features/auth/actions", "handleSignIn", ["features/auth/components/forms/SignInFlow.tsx"]],
+    [
+      "a team's exit",
+      "@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs",
+      "recordAustritt",
+      ["app/admin/(editor)/saisons/[saison]/teams/[team]/TeamEditor.tsx"],
+    ],
+    [
+      "„Sitz bearbeiten“",
+      "@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs",
+      "writeSeat",
+      ["app/admin/(editor)/saisons/[saison]/teams/[team]/SeatActs.tsx"],
+    ],
   ])("loses no key of %s", async (_, module, lane, files) => {
     const loaded = (await import(/* @vite-ignore */ module)) as Record<string, unknown>;
     const posted = spelledIn(...files);

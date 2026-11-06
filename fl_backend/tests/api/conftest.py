@@ -116,7 +116,7 @@ def _team(key: str, shorthand: str, name: str | None = None) -> dict[str, Any]:
 
 
 def _junction(key: str, gruppe: str, *, saison_id: str = SAISON, name: str | None = None, **overrides: Any) -> dict[str, Any]:
-    """The row `post_saison_team` writes: the club's identity COPIED in at entry, which every fixture read joins."""
+    """The row `enter_a_club` writes: the club's identity COPIED in at entry, which every fixture read joins."""
 
     return saison_team_document(saison_id, TEAM_OIDS[key], name or key, SAISON_SHORTHANDS[key], gruppe=gruppe, **overrides)
 

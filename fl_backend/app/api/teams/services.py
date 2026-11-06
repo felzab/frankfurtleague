@@ -5,7 +5,14 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.bewerbungen.services import confirmation_deadline_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
+from app.api.bewerbungen.services import (
+    claimed_pair_seat,
+    compose_einwilligung,
+    confirmation_deadline_from,
+    row_takes_confirmations,
+    saison_link_is_over,
+    seat_is_answered,
+)
 from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxStatus
 from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
@@ -28,6 +35,7 @@ from app.api.teams.schemas import (
     FLTeamsFilterParams,
     FLTeamStatistik,
     FLTeamStatistikScope,
+    normalise_phone,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -1129,6 +1137,49 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
     return composed
 
 
+def compose_seat_block(
+    *, stored: Any, seat: FLKontaktRolle, sent: Mapping[str, Any], today: str
+) -> tuple[dict[str, Any], tuple[FLKontaktRolle, ...]]:
+    """The whole block a seat write leaves, and the seats it writes, so one person is judged and stored as a block's save judges them.
+
+    Every state of a seat takes the write: a standing person is replaced or corrected, a confirmed one gives way, and an
+    emptied seat is filled, a row's seat having no other way back. A claimed pair is one person, so a write on either
+    seat reaches both. `sent` holds `trainer_is_also` only where the caller sent it.
+    """
+
+    block = dict(stored) if isinstance(stored, Mapping) else {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None}
+    claim = block.get("trainer_is_also")
+    if seat == "trainer":
+        claim = sent.get("trainer_is_also", claim)
+
+    other = claimed_pair_seat(kontakte={"trainer_is_also": claim}, seat=seat)
+    seats = (seat,) if other is None else (seat, other)
+    person = {field: value for field, value in sent.items() if field != "trainer_is_also"}
+    # The record of a person newly seated; `compose_kontakte_herkunft` keeps the stored one of a person this write leaves.
+    slot = {**person, "einwilligung": compose_einwilligung(today=today, entered_by="liga")}
+
+    return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats
+
+
+def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktRolle]) -> WriteRefusal | None:
+    """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
+
+    `FLSaisonTeamKontaktePayload`'s rule over a block, asked of the seats this write leaves. The seats it writes are one
+    person, so they are never compared with each other.
+    """
+
+    person = kontakte[seats[0]]
+    others = [held for slot in KONTAKT_ROLLEN if slot not in seats and isinstance(held := kontakte.get(slot), Mapping)]
+
+    if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
+        return WriteRefusal(error_code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT, fields=(("email",),))
+
+    if normalise_phone(person["phone"]) in {normalise_phone(str(held.get("phone") or "")) for held in others}:
+        return WriteRefusal(error_code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("phone",),))
+
+    return None
+
+
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at
 # `confirmations.<slot>` as an application keeps its own.
 
@@ -1414,6 +1465,7 @@ def teams_admin_rows(
             name=row["name"],
             shorthand=row["shorthand"],
             gruppe=row["gruppe"],
+            trikot_farbe=row.get("trikot_farbe"),
             seats_filled=len(seats),
             seats_confirmed=sum(1 for seat in seats if _seat_is_stamped(seat)),
             austritt_type=(row.get("austritt") or {}).get("type"),
@@ -1429,6 +1481,7 @@ def teams_admin_rows(
                 name=club["name"],
                 shorthand=club["shorthand"],
                 gruppe=None,
+                trikot_farbe=None,
                 seats_filled=0,
                 seats_confirmed=0,
                 austritt_type=None,
@@ -1497,7 +1550,7 @@ def find_gruppe_move_refusal(*, spiele_drawn: int) -> WriteRefusal | None:
 
 
 def find_austritt_refusal(
-    *, proposed: Mapping[str, Any] | None, stored: Mapping[str, Any] | None, start_date: str, started: bool
+    *, proposed: Mapping[str, Any], stored: Mapping[str, Any] | None, start_date: str, started: bool
 ) -> WriteRefusal | None:
     """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
 
@@ -1509,13 +1562,13 @@ def find_austritt_refusal(
     exit may be recorded, on the exit record as a whole rather than its date: no date the exit could carry passes sooner.
     """
 
-    if proposed is None or started or proposed == stored:
+    if started or proposed == stored:
         return None
 
     return WriteRefusal(
         error_code=Code.AUSTRITT_BEFORE_SAISON_START,
         status=HTTPStatus.CONFLICT,
-        fields=(("austritt",),),
+        fields=(("date",),),
         bounds={"earliest": start_date},
     )
 
@@ -1683,7 +1736,7 @@ def find_replacement_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    # The LEAGUE before the season, as `post_saison_team` judges it: a club that has left the league
+    # The LEAGUE before the season, as `enter_a_club` judges it: a club that has left the league
     # is a candidate for no season at all, and picking a different one would not repair it.
     retired = find_club_entry_refusal(inactive_since=incoming_inactive_since)
     if retired is not None:

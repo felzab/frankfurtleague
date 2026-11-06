@@ -24,7 +24,6 @@ from app.shared.schemas.bounds import (
     AUSTRITT_REASON_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
-    SAISON_ID_LENGTH,
     TEAM_DESCRIPTION_MAX_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
@@ -40,6 +39,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
     CustomShorthand,
+    CustomVersion,
     parse_empty_string_to_none,
     validate_external_url,
 )
@@ -313,11 +313,7 @@ class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
 
 
 class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
-    """The write side of the three, with the empty slot an erasure leaves.
-
-    Three whole people is the editor's own guarantee
-    (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx`).
-    """
+    """The write side of the three, with the empty slot an erasure leaves."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -580,15 +576,10 @@ class FLPostTeamPayload(_TeamPayload):
     pass
 
 
-class FLPatchTeamPayload(_TeamPayload):
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
-
-
 class FLPatchTeamSaisonPayload(_TeamPayload):
     """The team editor's one save: the club, and its colour and group in the season the page stands under.
 
-    Replaced wholesale, as `FLPatchTeamPayload` is. No seat and no `austritt`: a seat is its dialog's, and an exit is the
+    Replaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the
     danger box's own write, which owes mail.
     """
 
@@ -638,57 +629,6 @@ class FLPostTeamEntryResponse(BaseAPIResponse):
     team_id: CustomObjectId
 
 
-class FLPostSaisonTeamPayload(BaseModel):
-    """One team's membership of one season. `team_id` comes from the path, `saison_id` from here."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # The width counted on arrival, then the strip, then the width again: a padded id is refused rather
-    # than stored, and the published `maxLength` is what the backend accepts.
-    saison_id: Annotated[
-        str,
-        StringConstraints(max_length=SAISON_ID_LENGTH, pattern=SINGLE_LINE_PATTERN),
-        AfterValidator(str.strip),
-        StringConstraints(min_length=SAISON_ID_LENGTH),
-    ]
-    gruppe: FLGruppenNames
-
-
-class FLPatchSaisonTeamPayload(BaseModel):
-    """The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.
-
-    A stored contact is shapeless on read and bounded on write, so round-tripping it here refuses
-    every save a club with one bad row can make.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    gruppe: FLGruppenNames
-    # No `default=None` on either, so an omitted key is a refusal rather than a colour cleared with nobody having asked.
-    # A null `austritt` leaves a stored exit standing: no write clears one.
-    austritt: FLAustrittPayload | None
-    trikot_farbe: FLTrikotFarbe | None
-    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
-    version: int | None = None
-
-
-class FLPatchSaisonTeamKontaktePayload(BaseModel):
-    """The contact block alone, on the row's `version` it was composed against.
-
-    `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this
-    endpoint was never asked to decide.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    # Nullable, and required: null CLEARS the block, which is how a team with no recorded contacts is
-    # expressed at entry and must stay expressible here.
-    kontakte: FLSaisonTeamKontaktePayload | None
-    # Required with no default: an omitted precondition judges nothing, and every writer of the block raises the count,
-    # so a seat confirmed, objected to or erased under an open editor refuses the save rather than being overwritten.
-    version: int = Field(ge=0)
-
-
 class FLReplaceSaisonTeamPayload(BaseModel):
     """Which club takes this season's row over. The path names the club going OUT."""
 
@@ -697,6 +637,15 @@ class FLReplaceSaisonTeamPayload(BaseModel):
     # The only field: the row keeps the group it stands in, and its copy of the identity is reseeded
     # from the incoming club, so a client-supplied name could only disagree with it.
     incoming_team_id: CustomObjectId
+
+
+class FLKontaktSeatPayload(_KontaktpersonWritablePayload):
+    """The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet."""
+
+    # The Trainer's own claim, so read on their seat alone: sent there, it replaces the stored one, null ending it, and
+    # left out it stands, so a dialog offering no choice claims nothing.
+    trainer_is_also: FLTrainerAlso | None = None
+    version: CustomVersion
 
 
 class FLTeamsFilterParams(BaseModel):
@@ -747,6 +696,7 @@ class FLTeamsAdminRow(BaseReadModel):
     name: str
     shorthand: str
     gruppe: FLGruppenNames | None
+    trikot_farbe: FLTrikotFarbe | None
     # Counted per read off the row's seats, never stored.
     seats_filled: int = Field(ge=0)
     seats_confirmed: int = Field(ge=0)
@@ -795,6 +745,8 @@ class FLTeamSaisonFacts(BaseReadModel):
     start_date: CustomDateString
     # `app/api/saisons/services.py :: has_started`, which an exit is refused before.
     begun: bool
+    # The registration window's end, the whole of a link's expiry; null for a season storing no window.
+    registrierung_end: CustomOptionalDateString
 
 
 class FLTeamSaisonAdminResponse(BaseAPIResponse):
@@ -822,34 +774,6 @@ class FLTeamsSingleResponse(BaseAPIResponse):
     team: FLTeam
 
 
-class FLPatchTeamResponse(BaseAPIResponse):
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently. It is scoped to the
-    # seasons that are not `past`, so zero means the club holds no row in one of those -- every season closed, or none
-    # entered.
-    fanned_out_to_saison_teams: int
-
-
-class FLSaisonTeamResponse(BaseAPIResponse):
-    """A junction row, which has no read model of its own -- so it is echoed as it was written."""
-
-    # No field here carries a default, as none does on the other write echoes: each is built from
-    # keywords, so a default would echo what no caller wrote.
-    saison_id: str
-    team_id: CustomObjectId
-    gruppe: FLGruppenNames
-    austritt: FLAustritt | None
-    # Echoed as the row now stands: entry writes it null and the PATCH replaces it wholesale, so the
-    # echo is the only place a client learns what the row ended up holding.
-    trikot_farbe: FLTrikotFarbe | None
-    # Read off the row rather than off a payload: no endpoint answering with this model writes the
-    # block, so what it holds is whatever `PATCH .../kontakte` last put there.
-    kontakte: FLSaisonTeamKontakte | None
-    # The season's own copy of the club's identity, on no payload: it is seeded from the club at
-    # entry and rewritten by the rename fan-out, so a client supplying it could only be stale.
-    name: CustomNonEmptyString
-    shorthand: CustomShorthand
-
-
 class FLKontaktMint(BaseModel):
     """One person a write owed a fresh confirmation link, which the Postausgang mails: never the link itself."""
 
@@ -859,18 +783,13 @@ class FLKontaktMint(BaseModel):
     email: str
 
 
-class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
-    """The block as STORED after the write, and each person it owed a link.
+class FLKontaktSeatResponse(BaseAPIResponse):
+    """Where the seat write's link went, and the row's count of writes after it."""
 
-    No other field off that row: the caller sent none, and echoing one would invite a client to
-    believe this endpoint owns it.
-    """
-
-    saison_id: str
-    team_id: CustomObjectId
-    kontakte: FLSaisonTeamKontakte | None
-    # Empty where the save seated nobody new: a seat keeping its person keeps their link.
-    confirmations: list[FLKontaktMint]
+    # The address the fresh link is owed to, as stored. Null where the seat keeps its person, who keeps their link.
+    email: str | None
+    # What the next seat write on this row sends.
+    version: int
 
 
 class FLKontaktInviteResponse(BaseAPIResponse):

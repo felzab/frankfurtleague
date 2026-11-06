@@ -42,7 +42,7 @@ export const FLAblehnenBewerbungPayloadSchema = z.object({
 });
 
 /** The wire names a seat by this closed set; an input naming another is refused before it is sent. */
-export const FLKontaktRolleSchema = z.enum(FLKontaktRolle, {
+const FLKontaktRolleSchema = z.enum(FLKontaktRolle, {
   error: "Diese Rolle gibt es in einer Bewerbung nicht.",
 });
 

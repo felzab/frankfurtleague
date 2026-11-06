@@ -7,11 +7,10 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.teams.admin_router import patch_team
-from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, team_document
+from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_reference_fanout_test")
@@ -63,7 +62,7 @@ def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.TEAMS].insert_many([seeded_team_document(oid) for oid in TEAM_NAMES])
-            # `status` is the only field `patch_team` reads of a season.
+            # `status` is the only field a rename reads of a season.
             await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(PAST_SAISON_ID, "past")])
             # The renamed club is in both seasons; another club is in the open one, so the filter is proved to exclude a row.
             await database[Collection.SAISON_TEAMS].insert_many(
@@ -91,17 +90,10 @@ def renamed_team_body() -> dict[str, Any]:
     }
 
 
-async def rename_the_team(database: AsyncDatabase, client: AsyncMongoClient) -> FLPatchTeamResponse:
+async def rename_the_team(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The shorthand moves with the name, because a match card shows whichever of the two fits."""
 
-    return await patch_team(
-        team_id=TEAM_OID,
-        team_data=FLPatchTeamPayload.model_validate(renamed_team_body()),
-        teams_collection=database[Collection.TEAMS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        db=client,
-    )
+    return await save_the_team(database, team_id=TEAM_OID, saison_id=SAISON_ID, **renamed_team_body())
 
 
 async def stored_junctions(database: AsyncDatabase) -> dict[tuple[Any, str], Mapping[str, Any]]:

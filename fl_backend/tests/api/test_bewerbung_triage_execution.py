@@ -9,6 +9,7 @@ from bson import ObjectId, encode
 from fastapi import FastAPI
 from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, monitoring
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -31,13 +32,14 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import compose_new_club, confirmation_deadline_from
 from app.api.outbox.crud import states_of
 from app.api.sperrliste.services import compose_barred_until_saison_id
-from app.api.teams.admin_router import post_team
+from app.api.teams.crud import found_a_club
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import SYSTEM_ACTOR_EMAIL
+from app.core.transactions import transaction_session
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_DECISION_REASON_MAX_LENGTH
 from app.shared.tokens import hash_token
@@ -1213,15 +1215,17 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
         schule = {**schule_block(DIRTY_URL_NAME), "website_url": DIRTY_URL}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            posted = await post_team(
-                team_data=FLPostTeamPayload.model_validate(compose_new_club(schule=schule, shorthand=DIRTY_URL_SHORTHAND)),
-                teams_collection=database[Collection.TEAMS],
-                db=database.client,
-            )
-            through_post_teams = await database[Collection.TEAMS].find_one({"_id": posted.created_id})
+            club = FLPostTeamPayload.model_validate(compose_new_club(schule=schule, shorthand=DIRTY_URL_SHORTHAND))
+
+            async def found_it(session: AsyncClientSession) -> Any:
+                return await found_a_club(teams_collection=database[Collection.TEAMS], club=club.model_dump(mode="json"), session=session)
+
+            async with transaction_session(client) as session:
+                created_id = await session.with_transaction(found_it)
+            through_post_teams = await database[Collection.TEAMS].find_one({"_id": created_id})
             # Taken back out before the acceptance runs: `uniq_shorthand` spans every club, so one
             # school cannot hold two of them at once.
-            await database[Collection.TEAMS].delete_one({"_id": posted.created_id})
+            await database[Collection.TEAMS].delete_one({"_id": created_id})
 
             await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(DIRTY_URL_BEWERBUNG, schule=schule))
             await accept(database, client, DIRTY_URL_BEWERBUNG, shorthand=DIRTY_URL_SHORTHAND)

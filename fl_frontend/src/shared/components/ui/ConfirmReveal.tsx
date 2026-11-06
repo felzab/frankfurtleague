@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
  */
 // `wrap-break-word`, inherited by every sentence inside: one may name an address or a team, a word
 // wider than the box on a phone.
-export const CONFIRM_DANGER_PANEL_CLASSES = "rounded-xl border border-danger/20 bg-danger/5 p-4 wrap-break-word shadow-sm";
+const CONFIRM_DANGER_PANEL_CLASSES = "rounded-xl border border-danger/20 bg-danger/5 p-4 wrap-break-word shadow-sm";
 
 /**
  * A two-press control's armed state, escalated in place. **`role="alert"` is the mechanism**: without

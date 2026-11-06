@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import { hasAsciiLocalPart, isDeliverableAddress, isSpecialUseAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
-import type * as wire from "@/core/generated/client/types";
-
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`,
 // `fl_backend/app/shared/schemas/addresses.py` or, for an email address,
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomEmail`; on a WRITE, looser makes the message a lie.
@@ -15,14 +13,6 @@ import type * as wire from "@/core/generated/client/types";
  * because `FLKontaktpersonSchema` needs the same rule where the field is required rather than optional.
  */
 export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{2,19}[0-9])$/);
-
-// Shared, because the payload redeclares the field for its ceiling and a duplicated alphabet would drift. `*` not
-// `+`, so "optional" is the pattern rather than a union: a union whose branches both fail surfaces zod's raw English.
-const HAUSNUMMER_REGEX = /^[\d\-abcABC]*$/;
-const HAUSNUMMER_ERROR = "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.";
-
-// Named rather than written into `FLAddressPayloadSchema`: a literal inside a schema call is reachable by no comparison at all.
-const PLZ_REGEX = /^\d{5}$/;
 
 /**
  * `YYYY-MM-DD`, and a day that exists — `z.iso.date()` is a calendar regex rather than a shape one. The refinement
@@ -102,48 +92,6 @@ export const singleLineName = (schema: z.ZodString, field: string) =>
   schema.refine((value) => !NOT_SINGLE_LINE.test(value), {
     error: `${field} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
   });
-
-/**
- * The address ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend enforcement point reads
- * them from here, so the schema below and the inputs bound by them cannot disagree about the cap.
- */
-export const ADDRESS_STRASSE_MAX_LENGTH = 120;
-export const ADDRESS_STADT_MAX_LENGTH = 80;
-// Its own constant rather than `stadt`'s, though the numbers agree: the fields are bounded by separate judgements, so
-// raising either must not silently raise the other.
-export const ADDRESS_STADTTEIL_MAX_LENGTH = 80;
-export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
-
-/**
- * `FLAddressPayload`, what every write payload embeds, judged in the browser: the club and application forms
- * (`AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds this, and the generated
- * Zod is `server-only`.
- */
-export const FLAddressPayloadSchema = z.object({
-  strasse: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib eine Straße ein." })
-    .max(ADDRESS_STRASSE_MAX_LENGTH, { error: `Die Straße darf höchstens ${String(ADDRESS_STRASSE_MAX_LENGTH)} Zeichen lang sein.` }),
-  // The alphabet alone bounds nothing, so the ceiling stands beside it.
-  hausnummer: z
-    .string()
-    .regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR })
-    .max(ADDRESS_HAUSNUMMER_MAX_LENGTH, {
-      error: `Die Hausnummer darf höchstens ${String(ADDRESS_HAUSNUMMER_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
-  plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
-  // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload
-  // bounds its length alone.
-  stadtteil: z.string().max(ADDRESS_STADTTEIL_MAX_LENGTH, {
-    error: `Der Stadtteil darf höchstens ${String(ADDRESS_STADTTEIL_MAX_LENGTH)} Zeichen lang sein.`,
-  }),
-  stadt: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib eine Stadt ein." })
-    .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
-}) satisfies z.ZodType<wire.FLAddressPayload>;
 
 /**
  * Re-exported from `core`, where `isDeliverableAddress` holds the same ceiling: applied here so an

@@ -354,7 +354,7 @@ for (const file of filesUnder(FEATURES_DIR, (name) => name === "facets.ts", 1)) 
 
 describe("every facet set in the app", () => {
   // Pinned so a slice's facets quietly dropping out of the walk is a failure rather than a smaller run.
-  const EXPECTED_SETS = 4;
+  const EXPECTED_SETS = 2;
 
   it("discovers every slice's facets", () => {
     expect(

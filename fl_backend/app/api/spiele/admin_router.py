@@ -6,7 +6,6 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.saisons.crud import pull_active_saison_id
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     SpielSaveCollections,
@@ -17,14 +16,9 @@ from app.api.spiele.editor import FLSpieleAdminSingleResponse, read_spiel_editor
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
-    FLSpieleAdminListResponse,
-    FLSpieleFilterParams,
-    FLSpielJoinedAdminListAdapter,
 )
 from app.api.spiele.services import (
-    build_spiele_filter,
     build_spiele_pipeline,
-    build_spiele_sort,
 )
 from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
 from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
@@ -63,42 +57,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
-
-
-# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spiel_id}/admin`, whose
-# only separation from this path is the `objectid` convertor.
-@router.get(
-    "/list/admin",
-    response_model=FLSpieleAdminListResponse,
-    summary="Spiele for the admin surfaces",
-)
-async def get_spiele_admin(
-    spiele_collection: SpieleCollection,
-    saisons_collection: SaisonsCollection,
-    filters: FLSpieleFilterParams = Depends(),
-) -> FLSpieleAdminListResponse:
-    """
-    List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.
-
-    Each referee carries their whole name, and each booking its money.
-    """
-
-    # No base-tier season gate: emptying the planned season is the one thing this must not do.
-    if filters.saison_id is None:
-        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
-
-    # The joined pipeline, as the public reads use: a plain `find` drops `austritt`.
-    spiele_raw = await aggregate_many_from_db(
-        collection=spiele_collection,
-        pipeline=build_spiele_pipeline(
-            db_filter=build_spiele_filter(filters=filters),
-            sort_by=build_spiele_sort(sort_by=filters.sort_by, order=filters.order),
-            limit=filters.limit,
-        ),
-        limit=filters.limit,
-    )
-
-    return FLSpieleAdminListResponse(spiele=FLSpielJoinedAdminListAdapter.validate_python(spiele_raw))
 
 
 # A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.

@@ -183,6 +183,16 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
+  // A club's entry and group move, and its retiring, each of which the Teams pages close off their own read before it is
+  // pressed: the season, its groups or the club's seasons moved since the page was served.
+  "entry_saison_not_future",
+  "entry_gruppe_not_offered",
+  "entry_gruppe_full",
+  "entry_gruppe_locked",
+  "retire_blocked",
+  // A seat's fresh link, which the team editor offers only to a seat waiting on its answer.
+  "kontakt_seat_without_confirmation",
+  "kontakt_row_without_saison",
   "role_not_held",
   // A consent's choices moved since the page was served.
   "choices_stale",

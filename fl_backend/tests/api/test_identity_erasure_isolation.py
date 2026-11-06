@@ -16,12 +16,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_decline_update
-from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
-from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.tokens import hash_token
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
@@ -37,6 +34,7 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
+from tests.team_writes import save_the_team, write_the_block
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
 
@@ -170,36 +168,15 @@ async def club_row(database: AsyncDatabase) -> dict[str, Any]:
 
 
 async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, version: int) -> Any:
-    return await patch_saison_team_kontakte(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "version": version}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
-        db=client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    return await write_the_block(database, kontakte, team_id=TEAM_OID, saison_id=SAISON_ID, version=version, today=TODAY, germany_now=MAIL_NOW)
 
 
 async def junction_patched(database: AsyncDatabase, client: AsyncMongoClient, values: dict[str, Any]) -> Any:
-    return await patch_saison_team(
-        team_id=TEAM_OID,
-        saison_id=SAISON_ID,
-        saison_team_data=FLPatchSaisonTeamPayload.model_validate(values),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        db=client,
-        today=TODAY,
-    )
+    return await save_the_team(database, team_id=TEAM_OID, saison_id=SAISON_ID, **values)
 
 
 def junction_values(row: dict[str, Any], **changed: Any) -> dict[str, Any]:
-    return {"gruppe": row["gruppe"], "austritt": row.get("austritt"), "trikot_farbe": row.get("trikot_farbe"), **changed}
+    return {"gruppe": row["gruppe"], "trikot_farbe": row.get("trikot_farbe"), **changed}
 
 
 async def the_block_it_was_served(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
@@ -215,7 +192,7 @@ async def another_seat_filled(database: AsyncDatabase, client: AsyncMongoClient)
 
 
 async def the_row_as_it_stands(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    # Sent once ahead, so the row already holds what the same PATCH writes.
+    # Sent once ahead, so the row already holds what the same save writes.
     await junction_patched(database, client, junction_values(await club_row(database)))
     values = junction_values(await club_row(database))
 
@@ -232,8 +209,8 @@ async def another_kit_colour(database: AsyncDatabase, client: AsyncMongoClient) 
 KEEPING_WRITES: dict[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Rival]], int]] = {
     "a contacts save sending the block it was served": (the_block_it_was_served, 0),
     "a contacts save filling another seat": (another_seat_filled, 1),
-    "a junction PATCH sending the row as it stands": (the_row_as_it_stands, 0),
-    "a junction PATCH changing the kit colour": (another_kit_colour, 1),
+    "a team save sending the row as it stands": (the_row_as_it_stands, 0),
+    "a team save changing the kit colour": (another_kit_colour, 1),
 }
 
 

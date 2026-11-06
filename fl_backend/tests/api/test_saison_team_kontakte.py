@@ -10,11 +10,10 @@ from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.schemas import FLErasureResponse
-from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
     FLKontaktpersonPayload,
-    FLPatchSaisonTeamKontaktePayload,
+    FLSaisonTeamKontaktePayload,
 )
 from app.api.teams.services import (
     compose_kontakte_herkunft,
@@ -22,12 +21,12 @@ from app.api.teams.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW
+from tests.team_writes import BlockWritten, write_the_block
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
@@ -206,19 +205,16 @@ async def write_kontakte(
     # The version the caller last read off the row, the seed's unless a case names another.
     version: int = 0,
     saison_teams_collection: Any = None,
-) -> Any:
-    return await patch_saison_team_kontakte(
+) -> BlockWritten:
+    return await write_the_block(
+        database,
+        kontakte,
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
-        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "version": version}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
-        db=database.client,
+        version=version,
         today=TODAY,
         germany_now=MAIL_NOW,
+        saison_teams_collection=saison_teams_collection,
     )
 
 
@@ -474,17 +470,9 @@ class TestWhatThePayloadRefuses:
         block = {**NEW_KONTAKTE, "trainer": stored_person("Lea", confirmed_at=CONFIRMED_ON)}
 
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": block, "version": 0})
+            FLSaisonTeamKontaktePayload.model_validate(block)
 
         assert {entry["type"] for entry in failure.value.errors()} == {"extra_forbidden"}
-
-    def test_a_body_carrying_no_precondition_is_refused(self):
-        """Optional, this field would land the backend alone: the acceptance supplies what an unchanged editor never sends."""
-
-        with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": NEW_KONTAKTE})
-
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("missing", "version")]
 
 
 class TestTheTwoContactRules:
@@ -495,19 +483,19 @@ class TestTheTwoContactRules:
     """
 
     def block(self, **seats: Any) -> dict[str, Any]:
-        return {"kontakte": {**RESAVED_AS_RENDERED, **seats}, "version": 0}
+        return {**RESAVED_AS_RENDERED, **seats}
 
     def test_a_trainer_holding_a_seat_whose_block_differs_is_refused(self):
         """Two records of one person the erasure cannot pair up, each mailed a link of its own."""
 
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(trainer_is_also="ansprechperson"))
+            FLSaisonTeamKontaktePayload.model_validate(self.block(trainer_is_also="ansprechperson"))
 
         assert "the Trainer also holds" in str(failure.value)
 
     def test_two_different_people_sharing_a_mailbox_on_the_sign_in_fold_are_refused(self):
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
+            FLSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
 
         assert [error["type"] for error in failure.value.errors()] == ["kontakt_email_twice"]
 

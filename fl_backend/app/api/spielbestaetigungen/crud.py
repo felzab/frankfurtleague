@@ -444,14 +444,14 @@ async def owe_the_austritt_notices_in_session(
     team_id: Any,
     # The row's stored exit, which a save resubmitting it leaves as it was.
     stored: Mapping[str, Any] | None,
-    proposed: FLAustritt | None,
+    proposed: FLAustritt,
     now: datetime,
     # REQUIRED: the exit and its notices commit or fail together.
     session: AsyncClientSession,
 ) -> None:
     """Owe each opponent of a club leaving the season its notice, wherever the save records a new exit day.
 
-    Called by every save of the row, which `exit_day_to_tell` sorts. A lifted exit recalls no notice.
+    Called by every write of an exit, which `exit_day_to_tell` sorts.
     """
 
     exit_day = exit_day_to_tell(stored=stored, proposed=proposed)

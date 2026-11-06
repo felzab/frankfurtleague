@@ -8,7 +8,7 @@ stays at that field, and a derived one is never re-spelled as a literal.
 from typing import Final, Literal
 
 # The address ceilings, stated by the payload address alone so a stored value over one still reads.
-# `plz` carries none: its own pattern already fixes the width exactly.
+ADDRESS_PLZ_LENGTH: Final = 5
 ADDRESS_STRASSE_MAX_LENGTH: Final = 120
 ADDRESS_STADT_MAX_LENGTH: Final = 80
 # Its own constant rather than `stadt`'s, though the numbers agree: a district and a city are bounded

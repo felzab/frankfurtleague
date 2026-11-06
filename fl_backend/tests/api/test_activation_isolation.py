@@ -5,6 +5,7 @@ from typing import Any, Literal, cast
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, delete_spielplan, patch_saison, post_spielplan
@@ -17,16 +18,17 @@ from app.api.saisons.schemas import (
 )
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLPatchSpielDataPayload
-from app.api.teams.admin_router import patch_saison_team, patch_team
-from app.api.teams.schemas import FLPatchSaisonTeamPayload, FLPatchTeamPayload
+from app.api.teams.crud import write_the_club
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.core.transactions import transaction_session
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.payloads import spiel_patch_body
+from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -602,7 +604,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
         assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
 
     def test_a_club_row_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
-        """Drop the season's anchor from `patch_saison_team` and this fails."""
+        """Drop the season's anchor from `patch_team_saison` and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def roll_over_between() -> None:
@@ -610,20 +612,18 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
 
             row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": OUTGOING})
             assert row is not None, "the seed entered no club in the incumbent"
+            await database[Collection.TEAMS].insert_one(team_document(row["team_id"], row["name"], row["shorthand"]))
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 
             outcome = await outcome_of(
-                patch_saison_team(
+                save_the_team(
+                    database,
                     team_id=row["team_id"],
                     saison_id=OUTGOING,
                     # A colour alone: a group change would meet the drawn fixtures before `saison_past` is the reason.
-                    saison_team_data=FLPatchSaisonTeamPayload(gruppe=row["gruppe"], austritt=None, trikot_farbe="schwarz"),
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    trikot_farbe="schwarz",
                     # The stand-in delegates every call, which the endpoint's collection type cannot say.
                     saisons_collection=cast(Any, seasons),
-                    spiele_collection=database[Collection.SPIELE],
-                    db=client,
-                    today=TODAY,
                 )
             )
 
@@ -663,7 +663,7 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
     """A rename rewrites the club rows of every season it reads as open, and the rollover writes no club row."""
 
     def test_the_season_closed_under_it_keeps_the_name_it_was_played_under(self, mongo_replica_set_url: str):
-        """Drop the open seasons' anchor from `patch_team` and this fails: the incumbent's row is renamed after it closed."""
+        """Drop the open seasons' anchor from `write_the_club` and this fails: the incumbent's row is renamed after it closed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": OUTGOING})
@@ -674,10 +674,17 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                 await call_activate(database, client, TARGET)
 
             teams = TeamsRunningOneHook(database[Collection.TEAMS], roll_over_between)
-            await patch_team(
-                team_id=row["team_id"],
-                team_data=FLPatchTeamPayload.model_validate(
-                    {
+
+            # The writer rather than the save over it: the save anchors its own season first, so a rollover of that season
+            # would wait on it inside this hook.
+            async def rename(session: AsyncClientSession) -> Any:
+                return await write_the_club(
+                    # The stand-in delegates every call, which the helper's collection type cannot say.
+                    teams_collection=cast(Any, teams),
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    team_id=row["team_id"],
+                    club={
                         "name": RENAMED,
                         "shorthand": "UMX",
                         "description": "",
@@ -685,14 +692,13 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                         "website_url": "https://umbenannt.example.de",
                         "schulform": "gymnasium_g9",
                         "address": dict(ADDRESS),
-                    }
-                ),
-                # The stand-in delegates every call, which the endpoint's collection type cannot say.
-                teams_collection=cast(Any, teams),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                db=client,
-            )
+                    },
+                    expected_version=None,
+                    session=session,
+                )
+
+            async with transaction_session(client) as session:
+                await session.with_transaction(rename)
 
             rows = await database[Collection.SAISON_TEAMS].find({"team_id": row["team_id"]}).to_list(length=None)
             return row["name"], {entry["saison_id"]: entry["name"] for entry in rows}, teams.passes, await statuses_now(database)

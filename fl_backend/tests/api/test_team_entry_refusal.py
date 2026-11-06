@@ -6,8 +6,8 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.teams.admin_router import post_saison_team
-from app.api.teams.schemas import FLPostSaisonTeamPayload
+from app.api.teams.admin_router import post_team_entry
+from app.api.teams.schemas import FLPostTeamEntryPayload
 from app.api.teams.services import (
     find_club_entry_refusal,
     find_entry_refusal,
@@ -101,9 +101,9 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
 
 
 async def enter(database: AsyncDatabase, team_id: ObjectId) -> Any:
-    return await post_saison_team(
-        team_id=team_id,
-        saison_team_data=FLPostSaisonTeamPayload.model_validate({"saison_id": SAISON_ID, "gruppe": "A"}),
+    return await post_team_entry(
+        saison_id=SAISON_ID,
+        entry_data=FLPostTeamEntryPayload.model_validate({"club": {"kind": "known", "team_id": team_id}, "gruppe": "A", "trikot_farbe": None}),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
