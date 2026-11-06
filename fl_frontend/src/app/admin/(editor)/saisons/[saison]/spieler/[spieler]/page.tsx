@@ -19,9 +19,9 @@ import { ROUTES } from "@/core/routes";
 import { kaderName, orderStufen } from "@/features/spieler/constants";
 import { getSpielerSaison } from "@/features/spieler/queries";
 import { rowChip } from "@/features/spieler/rowChip";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { saveSpieler } from "./saveSpieler";
 import { deregisterSpieler, reactivateSpieler } from "./spielerActs";
@@ -52,7 +52,7 @@ const read = cache(getSpielerSaison);
 
 /** The squad row the address names: `null` for a malformed id, and for a person out of that season's squad. */
 async function findSpieler(params: Props["params"]) {
-  const id = await objectIdParamOf(params, "spieler");
+  const id = await adminIdParamOf(params, "spieler");
   if (id === null) return null;
   const { saison } = await params;
   const found = await read(id, saison);

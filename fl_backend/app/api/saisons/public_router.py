@@ -5,7 +5,7 @@ from typing import Any, Final
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_open_window_saison
+from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_landing_windows
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
     FLLandingBeforeStart,
@@ -241,18 +241,13 @@ async def _landing_saison(
     spiele_collection: AsyncCollection,
     teams_collection: AsyncCollection,
     today: str,
-) -> tuple[FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | None, FLBewerbungWindow | None]:
-    """The season the site is on in its state, null for a league that has none, and the window open today."""
+) -> FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | None:
+    """The season the site is on in its state, null for a league that has none."""
 
-    saison_raw, open_window = await asyncio.gather(
-        _active_or_none(saisons_collection),
-        pull_open_window_saison(saisons_collection=saisons_collection, today=today),
-    )
-
-    window = None if open_window is None else FLBewerbungWindow(saison_id=str(open_window["_id"]), end=open_window["bewerbung"]["end"])
+    saison_raw = await _active_or_none(saisons_collection)
 
     if saison_raw is None:
-        return None, window
+        return None
 
     saison_id = str(saison_raw["_id"])
     in_saison = {"saison_id": saison_id}
@@ -296,38 +291,29 @@ async def _landing_saison(
 
     match podium:
         case (first_place, second_place, third_place, fourth_place):
-            return (
-                FLLandingDecided(
-                    id=saison_id,
-                    state="decided",
-                    starts_at=start,
-                    podium=(landing_side(first_place), landing_side(second_place), landing_side(third_place), landing_side(fourth_place)),
-                    teams=teams,
-                ),
-                window,
+            return FLLandingDecided(
+                id=saison_id,
+                state="decided",
+                starts_at=start,
+                podium=(landing_side(first_place), landing_side(second_place), landing_side(third_place), landing_side(fourth_place)),
+                teams=teams,
             )
         case _ if started:
-            return (
-                FLLandingRunning(
-                    id=saison_id,
-                    state="running",
-                    starts_at=start,
-                    recent=FLSpielJoinedListAdapter.validate_python(recent_raw),
-                    upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw),
-                    teams=teams,
-                ),
-                window,
+            return FLLandingRunning(
+                id=saison_id,
+                state="running",
+                starts_at=start,
+                recent=FLSpielJoinedListAdapter.validate_python(recent_raw),
+                upcoming=FLSpielJoinedListAdapter.validate_python(upcoming_raw),
+                teams=teams,
             )
         case _:
-            return (
-                FLLandingBeforeStart(
-                    id=saison_id,
-                    state="before_start",
-                    starts_at=start,
-                    opening_spiel=FLLandingOpeningSpiel.model_validate(first_raw[0]) if first_raw else None,
-                    teams=teams,
-                ),
-                window,
+            return FLLandingBeforeStart(
+                id=saison_id,
+                state="before_start",
+                starts_at=start,
+                opening_spiel=FLLandingOpeningSpiel.model_validate(first_raw[0]) if first_raw else None,
+                teams=teams,
             )
 
 
@@ -341,21 +327,30 @@ async def get_landing(
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
 
-    Beside it, the application window open today by the rule the submission refuses on, and the league's figures over
-    every season the public reads, counted on every read. The figures are read beside the season's two steps rather
-    than after them, so they add no step to the read.
+    Beside it, the application window open today by the rule the submission refuses on, the day the next one opens by
+    the judgement the form's page serves, and the league's figures over every season the public reads, counted on every
+    read. The windows and the figures are read beside the season's two steps rather than after them, so they add no step
+    to the read.
     """
 
-    (saison, window), counts = await asyncio.gather(
+    saison, windows, counts = await asyncio.gather(
         _landing_saison(
             saisons_collection=saisons_collection, spiele_collection=spiele_collection, teams_collection=teams_collection, today=today
         ),
+        pull_landing_windows(saisons_collection=saisons_collection, today=today),
         _league_counts(
             saisons_collection=saisons_collection, spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection
         ),
     )
 
-    return FLLandingResponse(saison=saison, bewerbung_window=window, counts=counts)
+    return FLLandingResponse(
+        saison=saison,
+        bewerbung_window=None
+        if windows.open is None
+        else FLBewerbungWindow(saison_id=str(windows.open["_id"]), end=windows.open["bewerbung"]["end"]),
+        bewerbung_opens_on=windows.opens_on,
+        counts=counts,
+    )
 
 
 # Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in

@@ -14,9 +14,9 @@ import { adminTeamChip } from "@/features/teams/constants";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamSaisonAdmin } from "@/features/teams/queries";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { saveTeam } from "./saveTeam";
 import { seatsOf } from "./seats";
@@ -43,7 +43,7 @@ const SELECT = (
 
 /** The club the address names in its season, retired or not: `null` for a malformed id and for one no record holds. */
 async function find(params: Props["params"]) {
-  const [{ saison }, id] = await Promise.all([params, objectIdParamOf(params, "team")]);
+  const [{ saison }, id] = await Promise.all([params, adminIdParamOf(params, "team")]);
   return id === null ? null : getTeamSaisonAdmin(id, saison);
 }
 

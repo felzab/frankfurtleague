@@ -94,16 +94,17 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
   };
 }
 
-/** The band under the steps, with the application window's state. */
+/** The band under the steps, with the application window's state: an upcoming one in the words of the form's page. */
 async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof Steps>["band"] {
-  const { bewerbung_window: window } = await read;
-  return window === null
-    ? { open: false, sentence: words.join.closed, act: ABOUT }
-    : {
-        open: true,
-        sentence: words.saison.windowUntil(dayOf(window.end)),
-        act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
-      };
+  const { bewerbung_window: window, bewerbung_opens_on: opensOn } = await read;
+  if (window !== null) {
+    return {
+      open: true,
+      sentence: words.saison.windowUntil(dayOf(window.end)),
+      act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
+    };
+  }
+  return { open: false, sentence: opensOn === null ? words.join.closed : SERVER_COPY.bewerbung.end.opensOn(dayOf(opensOn)), act: ABOUT };
 }
 
 /** The league's figures, once a season is read by the public. */

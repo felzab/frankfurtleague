@@ -13,9 +13,9 @@ import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { AcceptFields } from "./AcceptFields";
 import { AcceptDialog, DeclineDialog } from "./DecisionDialogs";
@@ -42,7 +42,7 @@ const figure = (label: Copy, value: number): Fact => ({ label, value: { record: 
 /** The application the address names in the season it names, `null` for anything else. */
 async function findBewerbung(params: Props["params"]) {
   const { saison } = await params;
-  const id = await objectIdParamOf(params, "bewerbung");
+  const id = await adminIdParamOf(params, "bewerbung");
   const read = id === null ? null : await getBewerbungById(id);
   return read !== null && read.bewerbung.saison_id === saison ? read : null;
 }

@@ -566,7 +566,7 @@ export const SERVER_COPY = catalogue({
         title: "Spieler registrieren",
         text: "Dein Team bekommt einen Link, über den sich dein Jahrgang registriert. Die Kontaktpersonen nehmen die Spieler in den Kader auf.",
       },
-      /** The band while no window is open; an open window's deadline is the season card's `windowUntil`. */
+      /** The band while no window is open or due; an open window's deadline is the season card's `windowUntil`. */
       closed: "Das Bewerbungsfenster ist gerade geschlossen. Versuche es nächste Saison.",
       /** The school's door while a window is open, where the band and the season card carry its date. */
       opened: "Das Bewerbungsfenster ist offen.",
@@ -942,6 +942,7 @@ export const SERVER_COPY = catalogue({
   /** The application's public page where no form stands: a status card's title for each state, the day folded into it. */
   bewerbung: {
     end: {
+      /** The landing's band alike, so the two pages say one thing of an upcoming window. */
       opensOn: (day: CalendarDay) => `Die Bewerbung öffnet am ${formatDateLong(day)}`,
       /** A paused window alike: the visitor can do nothing about either. */
       closed: "Die Bewerbung ist gerade geschlossen",

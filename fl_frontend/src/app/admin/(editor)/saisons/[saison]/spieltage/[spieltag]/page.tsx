@@ -9,9 +9,9 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSpieltag } from "@/features/spieltage/queries";
 import { spieltagLabel } from "@/features/spieltage/utils";
+import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
-import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { saveSpieltag } from "./saveSpieltag";
 import { SpieltagEditor } from "./SpieltagEditor";
@@ -36,7 +36,7 @@ const read = cache(getAdminSpieltag);
  * and for one of another season.
  */
 async function findSpieltag(params: Props["params"]): Promise<FLSpieltagAdminResponse | null> {
-  const spieltag = await objectIdParamOf(params, "spieltag");
+  const spieltag = await adminIdParamOf(params, "spieltag");
   const { saison } = await params;
   const view = spieltag === null ? null : await read(spieltag);
   return view === null || view.spieltag.saison_id !== saison ? null : view;
