@@ -298,7 +298,7 @@ class TestTheWindowReads:
 
         response = answered(seeded_url, f"{PREFIX}/form/{WINDOWLESS_SAISON}")
 
-        assert response.json() == {"saison_id": WINDOWLESS_SAISON, "window": None, "schulen": [], "taken": []}
+        assert response.json() == {"window": None, "schulen": [], "taken": []}
         stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
         for withheld in (stored["status"], stored["start_date"], stored["rules"]["tiebreak_order"]):
             assert withheld not in response.text
@@ -308,7 +308,7 @@ class TestTheWindowReads:
 
         body = answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}").json()
 
-        assert set(body) == {"saison_id", "window", "schulen", "taken"}
+        assert set(body) == {"window", "schulen", "taken"}
         assert set(body["window"]) == {"start", "end", "running", "saison_ended"}
 
 
