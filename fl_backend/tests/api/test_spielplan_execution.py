@@ -73,6 +73,8 @@ SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a 
 STORED_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607760001")
 STORED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607760002")
 
+UNDATED_SPIEL_FIELDS: tuple[str, ...] = ("datum", "uhrzeit", "ort", "schiedsrichter")
+
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
     return documents.rules_document(qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams)
@@ -417,6 +419,36 @@ class TestACleanDrawWritesTheWholeSeason:
         assert (len(drawn.spieltage), len(drawn.spiele)) == expected
         assert (drawn.response.spieltage, drawn.response.spiele) == expected
         assert drawn.response.saison_id == SAISON_ID
+
+
+class TestTheDrawnDocumentsSurviveMongoDB:
+    def test_the_numbers_are_stored_as_ints_and_the_ids_as_objectids(self, mongo_replica_set_url: str):
+        """Read off the RAW documents, which the models would coerce.
+
+        An id stored as its string matches no fixture, and a text `spiel_nr` sorts 10 before 2.
+        `type`, not `isinstance`: `bson.Int64` passes an int check while `{"bsonType": "int"}` refuses it.
+        """
+
+        drawn = a_drawn_season(mongo_replica_set_url)
+
+        assert [row["position"] for row in drawn.spieltage if type(row["position"]) is not int] == []
+        assert [row["spiel_nr"] for row in drawn.spiele if type(row["spiel_nr"]) is not int] == []
+        assert [row["_id"] for row in (*drawn.spieltage, *drawn.spiele) if not isinstance(row["_id"], ObjectId)] == []
+        assert [row["spiel_nr"] for row in drawn.spiele if not isinstance(row["spieltag_id"], ObjectId)] == []
+
+
+class TestNothingTheDrawWritesIsDated:
+    """The draw settles who plays whom and in what order; a date, a ground and a referee are each set afterwards, one row at a time."""
+
+    def test_no_matchday_carries_a_span(self, mongo_replica_set_url: str):
+        drawn = a_drawn_season(mongo_replica_set_url)
+
+        assert [row["position"] for row in drawn.spieltage if row["beginn"] is not None or row["ende"] is not None] == []
+
+    def test_no_fixture_carries_a_date_a_ground_or_a_referee(self, mongo_replica_set_url: str):
+        drawn = a_drawn_season(mongo_replica_set_url)
+
+        assert [row["spiel_nr"] for row in drawn.spiele if any(row[key] is not None for key in UNDATED_SPIEL_FIELDS)] == []
 
 
 class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:

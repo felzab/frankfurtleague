@@ -89,10 +89,10 @@ def club_document(team_id: ObjectId, inactive_since: str | None) -> dict[str, An
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", rules=RULES.model_dump(mode="json")))
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=RULES.model_dump(mode="json")))
             await database[Collection.TEAMS].insert_many([club_document(LIVE_OID, None), club_document(RETIRED_OID, "2026-03-01")])
 
             return await body(database)
@@ -142,3 +142,14 @@ class TestEnteringAClubThroughTheEndpoint:
             return await junction_rows(database)
 
         assert on_a_league(mongo_replica_set_url, body) == []
+
+    def test_the_season_gate_still_reaches_a_live_club(self, mongo_replica_set_url: str):
+        """So the club gate above cannot be passing by refusing everything before the season is ever judged."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            with pytest.raises(APIError) as conflict:
+                await enter(database, LIVE_OID)
+
+            return conflict.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body, saison_status="active") == Code.ENTRY_SAISON_NOT_FUTURE
