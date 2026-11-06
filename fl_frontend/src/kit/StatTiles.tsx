@@ -68,9 +68,9 @@ const tiles = tv({
 
 /**
  * The tiles while the record is read: the layout's own grid with its count of tiles, each its label's line, its
- * value's and the line under it as bars, at a tile's size.
+ * value's and, unless `line` says these tiles carry none, the line under it as bars, at a tile's size.
  */
-export function StatTilesPlaceholder({ layout }: { layout: Layout["layout"] }) {
+export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["layout"]; line?: boolean }) {
   return (
     <div className={tiles({ layout }).root()}>
       {Array.from({ length: layout === "four" ? 4 : 5 }, (_, index) => {
@@ -87,10 +87,12 @@ export function StatTilesPlaceholder({ layout }: { layout: Layout["layout"] }) {
               text={slots.value()}
               width="w-1/2"
             />
-            <PlaceholderLine
-              text={slots.line()}
-              width="w-1/3"
-            />
+            {line && (
+              <PlaceholderLine
+                text={slots.line()}
+                width="w-1/3"
+              />
+            )}
           </div>
         );
       })}
