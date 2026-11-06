@@ -137,7 +137,6 @@ import type {
   FLSaisonFrameResponse,
   FLSaisonOverviewResponse,
   FLSaisonsAdminListResponse,
-  FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAnswerResponse,
   FLSaisonTeamsResponse,
@@ -4242,8 +4241,8 @@ export const spielerDeleteSaisonSpieler = async (
   spielerId: string,
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonSpielerResponse> => {
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerDeleteSaisonSpielerUrl(spielerId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielerDeleteSaisonSpielerUrl(spielerId, saisonId), {
     ...options,
     method: "DELETE",
   });
@@ -4328,8 +4327,8 @@ export const spielerReactivateSaisonSpieler = async (
   spielerId: string,
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonSpielerResponse> => {
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerReactivateSaisonSpielerUrl(spielerId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielerReactivateSaisonSpielerUrl(spielerId, saisonId), {
     ...options,
     method: "POST",
   });

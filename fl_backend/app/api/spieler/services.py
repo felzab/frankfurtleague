@@ -337,22 +337,14 @@ def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
 
 
 def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Each row with `nummer_double`, judged against the whole squad the rows are."""
-
-    shared = shared_nummern(rows)
-
-    # `shared` holds no null, so a row without a number is never marked.
-    return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
-
-
-def mark_shared_nummern_per_squad(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """`mark_shared_nummern` over a season's rows, in their order: each row judged against its own team's alone."""
+    """Each row with `nummer_double`, in their order, judged against its own team's rows alone."""
 
     squads: defaultdict[Any, list[Mapping[str, Any]]] = defaultdict(list)
     for row in rows:
         squads[row["team_id"]].append(row)
     shared = {team_id: shared_nummern(squad) for team_id, squad in squads.items()}
 
+    # `shared` holds no null, so a row without a number is never marked.
     return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared[row["team_id"]]} for row in rows]
 
 

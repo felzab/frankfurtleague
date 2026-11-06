@@ -4680,24 +4680,6 @@ export interface FLSaisonOverviewResponse {
   cards: FLOverviewCard[];
 }
 
-/**
- * A junction row, which has no read model of its own -- so it is echoed as it was written.
- */
-export interface FLSaisonSpielerResponse {
-  inactive_since: string | null;
-  is_nachnominiert: boolean;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  rolle: FLSpielerRolle | null;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-  stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  version: number;
-}
-
 export interface FLSaisonTeamAddressChangeDenied {
   ansprechperson: FLAddressChangeViewableDenied | null;
   stellvertretung: FLAddressChangeViewableDenied | null;

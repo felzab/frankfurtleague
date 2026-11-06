@@ -180,6 +180,9 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A season narrowed, or a club a replacement took out of it, since the page offering the Stufe or the row's return was read.
   "kader_stufe_not_allowed",
   "kader_team_not_in_saison",
+  // A role given away since the page offering the row's return was read, which the reloaded page locks. The save, whose
+  // box this code stands on, words it itself.
+  "kader_rolle_taken",
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",

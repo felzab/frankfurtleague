@@ -47,7 +47,7 @@ export const saveSpieler = action({
   name: "saveSpieler",
   input: SaveSpieler,
   ownWords: ["kader_rolle_taken"],
-  paths: { rolle: "changes.rolle", nummer: "changes.nummer" },
+  paths: { rolle: "changes.rolle" },
   examples: { "changes.nummer": COPY.shared.field.exampleDigits },
   run: async ({ id, saison, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getSpielerSaison(id, saison);

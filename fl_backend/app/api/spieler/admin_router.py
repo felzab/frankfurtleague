@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Mapping
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -15,7 +15,6 @@ from app.api.spieler.crud import (
 from app.api.spieler.schemas import (
     FLPatchSpielerSaisonPayload,
     FLPatchSpielerSaisonResponse,
-    FLSaisonSpielerResponse,
     FLSpielerAdminListResponse,
     FLSpielerAdminRow,
     FLSpielerSaisonAdminResponse,
@@ -28,7 +27,7 @@ from app.api.spieler.services import (
     build_spieler_filter,
     find_kader_stufe_refusal,
     find_squad_refusal,
-    mark_shared_nummern_per_squad,
+    mark_shared_nummern,
 )
 from app.api.teams.crud import pull_saison_team_names
 from app.core.config import API_VERSION
@@ -72,21 +71,6 @@ PERSON_SAVE_FIELDS: Final = ("first_name", "last_name", "birth_date")
 ROW_SAVE_FIELDS: Final = ("nummer", "position", "stufe", "rolle")
 
 
-def _as_junction(document: Mapping[str, Any]) -> FLSaisonSpielerResponse:
-    return FLSaisonSpielerResponse(
-        spieler_id=document["spieler_id"],
-        saison_id=document["saison_id"],
-        team_id=document["team_id"],
-        nummer=document.get("nummer"),
-        position=document.get("position"),
-        stufe=document.get("stufe"),
-        is_nachnominiert=document["is_nachnominiert"],
-        rolle=document["rolle"],
-        inactive_since=document.get("inactive_since"),
-        version=document.get(VERSION_FIELD, 0),
-    )
-
-
 # Two static segments, matching `GET /saisons/list/admin`.
 @router.get("/list/admin", response_model=FLSpielerAdminListResponse, summary="One Saison's squad rows for its list")
 async def get_spieler_admin(
@@ -111,10 +95,7 @@ async def get_spieler_admin(
     )
 
     return FLSpielerAdminListResponse(
-        spieler=[
-            FLSpielerAdminRow.model_validate({**row, "team_name": team_names.get(row["team_id"])})
-            for row in mark_shared_nummern_per_squad(rows)
-        ]
+        spieler=[FLSpielerAdminRow.model_validate({**row, "team_name": team_names.get(row["team_id"])}) for row in mark_shared_nummern(rows)]
     )
 
 
@@ -146,19 +127,20 @@ async def get_spieler_saison(
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"]),
     )
     team_id = row_raw["team_id"]
-    held, team_names = await asyncio.gather(
+    held, club = await asyncio.gather(
         pull_many_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
             projection=["rolle"],
         ),
-        pull_saison_team_names(saison_teams_collection=saison_teams_collection, saison_id=saison_id),
+        # `find_one`: a club a replacement took out of the season holds no row, and this page still opens.
+        saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, ["name"]),
     )
 
     return FLSpielerSaisonAdminResponse(
         version=composite_version(person_raw, row_raw),
         person=FLSpielerSaisonPerson.model_validate(person_raw),
-        kader=FLSpielerSaisonKader.model_validate({**row_raw, "team_name": team_names.get(team_id)}),
+        kader=FLSpielerSaisonKader.model_validate({**row_raw, "team_name": (club or {}).get("name")}),
         allowed_stufen=FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen,
         taken_rollen=[row["rolle"] for row in held],
     )
@@ -256,7 +238,7 @@ async def patch_spieler_saison(
 
 @router.delete(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
-    response_model=FLSaisonSpielerResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Remove a Spieler from a squad",
 )
 async def delete_saison_spieler(
@@ -265,7 +247,7 @@ async def delete_saison_spieler(
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSaisonSpielerResponse:
+) -> None:
     """
     Take a player out of a season's squad. SOFT: the row stays.
 
@@ -282,14 +264,12 @@ async def delete_saison_spieler(
         )
 
     async with transaction_session(db) as session:
-        updated_raw = await session.with_transaction(take_the_player_out)
-
-    return _as_junction(updated_raw)
+        await session.with_transaction(take_the_player_out)
 
 
 @router.post(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/reactivate",
-    response_model=FLSaisonSpielerResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Put a Spieler back in a squad they left",
 )
 async def reactivate_saison_spieler(
@@ -299,7 +279,7 @@ async def reactivate_saison_spieler(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-) -> FLSaisonSpielerResponse:
+) -> None:
     """
     Clear a squad row's `inactive_since`, with the number and position it had.
 
@@ -360,6 +340,4 @@ async def reactivate_saison_spieler(
         )
 
     async with transaction_session(db) as session:
-        revived = await session.with_transaction(bring_the_player_back)
-
-    return _as_junction(revived)
+        await session.with_transaction(bring_the_player_back)

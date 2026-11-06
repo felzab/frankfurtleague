@@ -13,7 +13,6 @@ from app.api.saisons.public_router import get_team
 from app.api.saisons.schemas import FLTeamPageResponse
 from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import (
-    FLSaisonSpielerResponse,
     FLSpielerPublic,
     FLSpielerSingleResponse,
 )
@@ -182,34 +181,6 @@ class TestTheSinglePlayerShape:
     def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
         assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "first_name", "last_name"}
-
-
-SQUAD_ROW_ECHO = {
-    "spieler_id": SPIELER_OIDS["Mueller"],
-    "saison_id": SAISON,
-    "team_id": TEAM_OID,
-    "nummer": "7",
-    "position": "Angriff",
-    "stufe": "Q2",
-    "is_nachnominiert": False,
-    "rolle": None,
-}
-
-
-class TestTheRetirementDateTheAdminEchoCarries:
-    """`fl_frontend/src/features/spieler/schemas.ts` refuses a day that does not exist, on seven mutations.
-
-    An echo declaring no rule reports a retirement that landed as failed;
-    `app/api/spieler/schemas.py` carries why stating the rule refuses nothing the API can serve.
-    """
-
-    @pytest.mark.parametrize("stamped", ["2026-03-01", None], ids=["retired", "live"])
-    def test_it_takes_what_retire_and_reactivate_stamp(self, stamped: str | None):
-        assert FLSaisonSpielerResponse.model_validate({**SQUAD_ROW_ECHO, "inactive_since": stamped}).inactive_since == stamped
-
-    @pytest.mark.parametrize("value", ["2026-02-31", "2026-3-1", "gestern"], ids=["no such day", "unpadded", "not a date"])
-    def test_it_refuses_a_value_no_stamp_composes(self, value: str, assert_rejects):
-        assert_rejects(FLSaisonSpielerResponse, {**SQUAD_ROW_ECHO, "inactive_since": value}, "inactive_since")
 
 
 class TestTheProjection:

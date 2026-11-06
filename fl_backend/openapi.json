@@ -11647,101 +11647,6 @@
         "title": "FLSaisonRules",
         "type": "object"
       },
-      "FLSaisonSpielerResponse": {
-        "description": "A junction row, which has no read model of its own -- so it is echoed as it was written.",
-        "properties": {
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "is_nachnominiert": {
-            "title": "Is Nachnominiert",
-            "type": "boolean"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "team_id",
-          "nummer",
-          "position",
-          "stufe",
-          "rolle",
-          "spieler_id",
-          "saison_id",
-          "is_nachnominiert",
-          "inactive_since",
-          "version"
-        ],
-        "title": "FLSaisonSpielerResponse",
-        "type": "object"
-      },
       "FLSaisonStatus": {
         "enum": [
           "past",
@@ -29078,14 +28983,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -29350,14 +29248,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
