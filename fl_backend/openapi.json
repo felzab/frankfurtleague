@@ -18724,6 +18724,10 @@
         "title": "FLTeamSeatsResponse",
         "type": "object"
       },
+      "FLTeamShorthandLength": {
+        "const": 3,
+        "type": "integer"
+      },
       "FLTeamStatistik": {
         "properties": {
           "count_cancelled_spiele": {
