@@ -1,3 +1,5 @@
+import { COPY } from "@/core/copy";
+
 import { buttonPlaceholder } from "./buttonStyles";
 import { PlaceholderLine } from "./Skeleton";
 
@@ -28,7 +30,7 @@ export function SpieltagHeadPlaceholder() {
         text="text-sm"
         width="w-32"
       />
-      <span className={buttonPlaceholder("w-24")} />
+      <span className={buttonPlaceholder()}>{COPY.shared.verb.edit}</span>
     </div>
   );
 }

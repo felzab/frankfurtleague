@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 
+import { COPY } from "@/core/copy";
+
 import { buttonPlaceholder } from "./buttonStyles";
 import { formColumn, RailPage } from "./RailFrame";
 import { editorBarLook } from "./railStyles";
 import { SectionPlaceholder } from "./Section";
 import { Placeholder, PlaceholderLine, Waiting } from "./Skeleton";
 
+import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { FieldRow } from "./Section";
 
@@ -15,11 +18,11 @@ async function EditorBody({ editor }: { editor: Promise<ReactNode> }) {
 }
 
 /**
- * What an editor is before its record is read: the Vorschau's line under the title where the editor has one, and its
- * sections in their order, each its rows of fields, one field or a pair, as the editor lays them out. The page states
- * it beside the editor it reads.
+ * What an editor is before its record is read: the Vorschau's line under the title where the editor has one, every
+ * section it renders in their order, each its rows as the editor lays them out, and `danger`, the labels of the acts its
+ * danger box holds, where it has one. The page states it beside the editor it reads.
  */
-export type EditorWait = { lead?: true; sections: ReadonlyArray<ReadonlyArray<FieldRow>> };
+export type EditorWait = { lead?: true; sections: ReadonlyArray<ReadonlyArray<FieldRow>>; danger?: ReadonlyArray<Copy> };
 
 /**
  * The editor template's server half, around the client one, `EditorPage`, which holds the form's state and so
@@ -39,7 +42,7 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
             <Placeholder layout={editorBarLook().bar()}>
               <span className={editorBarLook().row()}>
                 <span className="min-w-0 flex-1" />
-                <span className={buttonPlaceholder("w-24")} />
+                <span className={buttonPlaceholder()}>{COPY.shared.verb.save}</span>
               </span>
             </Placeholder>
           }>
@@ -56,6 +59,7 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
                 rows={rows}
               />
             ))}
+            {wait.danger !== undefined && <SectionPlaceholder danger={wait.danger} />}
           </Waiting>
         </RailPage>
       }>

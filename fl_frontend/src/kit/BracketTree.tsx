@@ -6,7 +6,7 @@ import { TargetMark } from "./TargetMark";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 /** One knockout match in the tree: its card, by its id. */
 export type BracketMatch = ComponentProps<typeof BracketCard> & { id: string };
@@ -112,11 +112,11 @@ function Feeds({ into, width }: { into: number; width: Width }) {
 }
 
 /**
- * The match for third place on its own row between the semi-finals and the Finale, its card centred. The
- * Finale's solid lines run down past it from the semi-finals' centres; its own dashed lines leave the
- * semi-finals' bottoms further in and meet on a bus just above its card.
+ * The row for third place between the semi-finals and the Finale, its card centred. The Finale's solid lines run down
+ * past it from the semi-finals' centres; its own dashed lines leave the semi-finals' bottoms further in and meet on a
+ * bus just above its card.
  */
-function ThirdPlace({ match, width }: { match: BracketMatch; width: Width }) {
+function ThirdPlace({ children }: { /** The row, its card or its card's placeholder. */ children: ReactNode }) {
   const style = tree();
   return (
     <div className="relative">
@@ -124,11 +124,7 @@ function ThirdPlace({ match, width }: { match: BracketMatch; width: Width }) {
         aria-hidden
         className={style.gap()}
       />
-      <Row
-        label={SERVER_COPY.season.thirdPlace}
-        matches={[match]}
-        width={width}
-      />
+      {children}
       <span
         aria-hidden
         className={style.gap()}
@@ -147,39 +143,47 @@ function ThirdPlace({ match, width }: { match: BracketMatch; width: Width }) {
   );
 }
 
+/** A round's row while its matches are read: `count` of the card's placeholders, each over the span its match will take. */
+function RowPlaceholder({ count, width }: { count: 1 | 2; width: Width }) {
+  const { row, cell, card } = tree({ columns: key(width), span: key((width / count) as Width) });
+  return (
+    <div className={row()}>
+      {Array.from({ length: count }, (_, at) => (
+        <div
+          key={at}
+          className={cell()}>
+          <div className={card()}>
+            <BracketCardPlaceholder />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * The K.-o.-Baum while its rounds are read: the tree of a Viertelfinale, its Halbfinale and its Finale, the shape a
- * season of eight qualifiers draws, each card the card's placeholder in the tree's own rows, joined by the tree's own
- * lines, so the tree stands where and as wide as it will.
+ * The K.-o.-Baum while its rounds are read: two Halbfinale, the match for third place and the Finale, the shape four
+ * qualifiers draw, which the league plays, each card the card's placeholder in the tree's own rows, joined by the
+ * tree's own lines, so the tree stands where and as wide as it will.
  */
 export function BracketTreePlaceholder() {
-  const width = 4;
+  const width = 2;
   return (
     <div className={tree().root()}>
-      {([4, 2, 1] as const).map((count, index) => {
-        const { row, cell, card } = tree({ columns: key(width), span: key((width / count) as Width) });
-        return (
-          <div key={count}>
-            {index > 0 && (
-              <Feeds
-                into={count}
-                width={width}
-              />
-            )}
-            <div className={row()}>
-              {Array.from({ length: count }, (_, at) => (
-                <div
-                  key={at}
-                  className={cell()}>
-                  <div className={card()}>
-                    <BracketCardPlaceholder />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+      <RowPlaceholder
+        count={2}
+        width={width}
+      />
+      <ThirdPlace>
+        <RowPlaceholder
+          count={1}
+          width={width}
+        />
+      </ThirdPlace>
+      <RowPlaceholder
+        count={1}
+        width={width}
+      />
     </div>
   );
 }
@@ -206,10 +210,13 @@ export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound,
         <div key={round.id}>
           {index > 0 &&
             (third !== undefined && index === finale ? (
-              <ThirdPlace
-                match={third}
-                width={width}
-              />
+              <ThirdPlace>
+                <Row
+                  label={SERVER_COPY.season.thirdPlace}
+                  matches={[third]}
+                  width={width}
+                />
+              </ThirdPlace>
             ) : (
               <Feeds
                 into={round.matches.length}

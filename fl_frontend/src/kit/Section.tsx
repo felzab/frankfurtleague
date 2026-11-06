@@ -1,14 +1,18 @@
+import { isValidElement } from "react";
+
 import { textOf } from "@/core/copy";
 
-import { cardSurface } from "./cardStyles";
+import { buttonPlaceholder } from "./buttonStyles";
+import { cardSurface, stacked } from "./cardStyles";
 import { FieldColumns, subgroup } from "./FieldColumns";
 import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
+import { statusLine } from "./fieldStyles";
 import { HelpPopover } from "./HelpPopover";
 import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 const sectionTitle = tv({
   base: "text-base font-semibold",
@@ -53,13 +57,21 @@ export const boxHead = tv({
 });
 
 /**
- * One row of a section's fields as its placeholder draws it: one field at a long field's width, two in one row as
- * `FieldPair` sets them, `FieldColumns`' short fields of one kind at their width class, or a subgroup's name over the
- * rows after it.
+ * One flat row of an editor's danger box: its name and its consequence at the left, its button at the right, parted
+ * from the row above by the hairline every stacked part takes.
  */
-export type FieldRow = "field" | "pair" | "subhead" | { columns: 2 | 3; width: "C2" | "C10" };
+const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
+
+/**
+ * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
+ * sets them, `FieldColumns`' short fields of one kind at their width class, a subgroup's name over the rows after it,
+ * an act of the section (`SectionAct`) by its label, its status line under it, or the placeholder of whatever else the
+ * section holds, such as its facts' or a table's.
+ */
+export type FieldRow = "field" | "pair" | "subhead" | { columns: 2 | 3; width: "C2" | "C10" } | { act: Copy } | ReactElement;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
+  if (isValidElement(row)) return row;
   if (row === "pair") return <FieldPairPlaceholder />;
   if (row === "field") return <FieldPlaceholder width="W3" />;
   if (row === "subhead")
@@ -69,6 +81,13 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
         text={subgroup().name({ class: "mb-0 not-first:mt-2" })}
         width="w-24"
       />
+    );
+  if ("act" in row)
+    return (
+      <>
+        <span className={buttonPlaceholder()}>{row.act}</span>
+        <span className={statusLine({ placement: "column" })} />
+      </>
     );
   const [first, second, ...rest] = Array.from({ length: row.columns }, (_, index) => (
     <FieldPlaceholder
@@ -81,26 +100,49 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
 
 /**
  * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
- * fields' placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will.
+ * fields' placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will. An
+ * editor's danger box takes `danger` in their place, its acts' labels, one flat row each.
  */
-export function SectionPlaceholder({ rows }: { rows: ReadonlyArray<FieldRow> }) {
+export function SectionPlaceholder(props: { rows: ReadonlyArray<FieldRow>; danger?: never } | { danger: ReadonlyArray<Copy>; rows?: never }) {
   const slots = boxHead({ ruled: true });
   return (
-    <div className={cardSurface({ class: "grid" })}>
+    <div className={cardSurface({ class: props.danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
       <div className={slots.head()}>
         <PlaceholderLine
           text="text-base font-semibold"
           width="w-1/3"
         />
       </div>
-      <div className={slots.content({ class: "gap-2" })}>
-        {rows.map((row, index) => (
-          <RowPlaceholder
-            key={index}
-            row={row}
-          />
-        ))}
-      </div>
+      {props.danger === undefined ? (
+        <div className={slots.content({ class: "gap-2" })}>
+          {props.rows.map((row, index) => (
+            <RowPlaceholder
+              key={index}
+              row={row}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid">
+          {props.danger.map((label) => (
+            <div
+              key={label}
+              className={dangerRow()}>
+              <div className="grid min-w-0 flex-1">
+                <PlaceholderLine
+                  text="text-sm font-semibold"
+                  width="w-1/3"
+                />
+                <PlaceholderLine
+                  text={statusLine({ placement: "column", tone: "locked" })}
+                  width="w-2/3"
+                />
+              </div>
+              <span className={buttonPlaceholder()}>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

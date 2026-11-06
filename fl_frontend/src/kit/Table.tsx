@@ -29,6 +29,11 @@ type TableColumn = {
   strong?: boolean;
   /** Text a person wrote, such as a Begründung, which keeps the line breaks it was written with. */
   written?: boolean;
+  /**
+   * What the column holds, which sets the least it takes, on a table that waits: its values are the read's, so without
+   * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
+   */
+  width?: "count" | "pair" | "date" | "phone" | "line";
 } & (
   | { /** Left out on a phone, where the row keeps its name and two facts. */ hideOnPhone?: boolean; phoneOnly?: never }
   /** Drawn on a phone alone, such as one column standing for several the phone leaves out. */
@@ -177,6 +182,19 @@ const table = tv({
       only: { head: "lg:hidden", cell: "lg:hidden" },
       shown: {},
     },
+    // A column's least width, on its head cell, which the table and its placeholder draw alike, so their edges agree
+    // whatever the rows hold. A minimum, since the name's `w-full` leaves every other column its min-content width
+    // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
+    // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
+    // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“ or a count with its mark's
+    // slots, a date ten characters, a phone number 20, a line of an address 35.
+    width: {
+      count: { head: "min-w-12" },
+      pair: { head: "min-w-16 max-lg:min-w-11" },
+      date: { head: "min-w-28" },
+      phone: { head: "min-w-44" },
+      line: { head: "min-w-72" },
+    },
     // On a phone the column heads are read but not drawn, and each cell draws its column's label before its words.
     prose: {
       true: {
@@ -255,6 +273,20 @@ export function RecordFigures({ counts }: { counts: Counts }) {
 
 /** Whether a column stands on a phone: left out, drawn there alone, or drawn at every width. */
 const phoneOf = (column: TableColumn) => (column.hideOnPhone === true ? "hidden" : column.phoneOnly === true ? "only" : "shown");
+
+/** How a column sets, for its head and its cells alike, in the table and in its placeholder. */
+const columnLook = (column: TableColumn) =>
+  ({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), width: column.width }) as const;
+
+/**
+ * A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
+ * keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add themselves. A grid
+ * placement, which a stacked phone row alone reads: a table cell ignores it.
+ */
+function phoneEndStyle(rankLabel: Copy | undefined, columns: ReadonlyArray<TableColumn>) {
+  const cells = (rankLabel === undefined ? 0 : 1) + 1 + columns.filter((column) => column.hideOnPhone !== true).length;
+  return { gridRow: `1 / span ${String(cells)}` };
+}
 
 /**
  * A cell's value. In a column where some row's figure is short of fixtures called off, every row keeps the
@@ -391,9 +423,7 @@ export function Table({
   const isLinked = rows.some((row) => row.href !== undefined);
   // Every row keeps the chevron's room on a phone where some row draws one there.
   const phoneEnd = { prose, stack, chevronOnPhone: isLinked && chevronOnPhone };
-  // A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
-  // keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add themselves.
-  const phoneCells = (rankLabel === undefined ? 0 : 1) + 1 + columns.filter((column) => column.hideOnPhone !== true).length;
+  const endStyle = prose || stack ? phoneEndStyle(rankLabel, columns) : undefined;
   // The columns where some row carries the mark of fixtures called off, whose every row keeps its slot.
   const marked = new Set(
     columns
@@ -439,13 +469,7 @@ export function Table({
                   key={column.key}
                   role="columnheader"
                   scope="col"
-                  className={table({
-                    align: column.figures === true ? "figure" : "start",
-                    phone: phoneOf(column),
-                    compact,
-                    prose,
-                    stack,
-                  }).head()}>
+                  className={table({ ...columnLook(column), compact, prose, stack }).head()}>
                   {column.label}
                 </th>
               ))}
@@ -483,11 +507,10 @@ export function Table({
                   />
                   {columns.map((column) => {
                     const s = table({
-                      align: column.figures === true ? "figure" : "start",
+                      ...columnLook(column),
                       figures: column.figures === true,
                       strong: column.strong === true,
                       written: column.written === true,
-                      phone: phoneOf(column),
                       compact,
                       prose,
                       stack,
@@ -515,8 +538,7 @@ export function Table({
                     <td
                       role="cell"
                       className={table(phoneEnd).end()}
-                      // A grid placement, which a stacked phone row alone reads: a table cell ignores it.
-                      style={prose || stack ? { gridRow: `1 / span ${String(phoneCells)}` } : undefined}>
+                      style={endStyle}>
                       {row.href !== undefined && <RowEnd />}
                     </td>
                   )}
@@ -534,50 +556,56 @@ export function Table({
  * A table while its rows are read: its own head, the columns' labels as the page states them, over `rows` rows at the
  * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
  * centred, a name from the start after a club's plaque where the rows hold clubs, the chevron where rows lead on.
- * Drawn with the table's own recipe, so it stands as the table will at every width, a phone's left-out columns
- * left out.
+ * Drawn with the table's own recipe and the columns' stated widths, so it stands as the table will at every width, a
+ * phone's left-out columns left out, and a `stack` table's rows stacked as `Table`'s.
  */
 export function TablePlaceholder({
   head,
   rows,
   plaques = false,
   bare = false,
+  linked = true,
+  stack = false,
 }: {
   head: TableHead;
   rows: number;
   /** Whether each row names a club, its plaque before its name, which alone stands for the club on a phone. */
   plaques?: boolean;
   bare?: boolean;
+  /** Whether the rows lead on, each ending in its chevron. */
+  linked?: boolean;
+  stack?: boolean;
 }) {
   const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true } = head;
+  const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
   return (
     <div className={bare ? "w-full overflow-hidden" : cardSurface({ class: "w-full overflow-hidden" })}>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className={columnHead().rule()}>
             {rankLabel !== undefined && <th className={table({ align: "centre", compact }).head()}>{rankLabel}</th>}
-            <th className={table({ align: "start", compact }).head()}>{nameLabel}</th>
+            <th className={table({ align: "start", compact, stack }).head()}>{nameLabel}</th>
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={table({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), compact }).head()}>
+                className={table({ ...columnLook(column), compact, stack }).head()}>
                 {column.label}
               </th>
             ))}
-            <td className={table({ phone: chevronOnPhone ? "shown" : "hidden" }).head()} />
+            {linked && <td className={table({ phone: chevronOnPhone ? "shown" : "hidden", stack }).head()} />}
           </tr>
         </thead>
         <tbody>
           {Array.from({ length: rows }, (_, index) => (
             <tr
               key={index}
-              className={table({ chevronOnPhone }).row()}>
+              className={table(phoneEnd).row()}>
               {rankLabel !== undefined && (
                 <td className={table({ align: "centre", compact }).cell()}>
                   <span className={placeholderBar("mx-auto h-3 w-3")} />
                 </td>
               )}
-              <td className={table({ compact }).name()}>
+              <td className={table({ compact, stack }).name()}>
                 <span className="flex min-w-0 items-center gap-2">
                   {plaques && <span className={placeholderBar("h-6 w-10")} />}
                   <PlaceholderLine
@@ -586,16 +614,24 @@ export function TablePlaceholder({
                   />
                 </span>
               </td>
-              {columns.map((column) => (
+              {columns.map((column) => {
+                const s = table({ ...columnLook(column), compact, stack });
+                return (
+                  <td
+                    key={column.key}
+                    className={s.cell()}>
+                    {stack && <span className={s.label()}>{column.label}</span>}
+                    <span className={placeholderBar(column.figures === true ? "mx-auto h-3 w-4" : "h-3 w-20")} />
+                  </td>
+                );
+              })}
+              {linked && (
                 <td
-                  key={column.key}
-                  className={table({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), compact }).cell()}>
-                  <span className={placeholderBar(column.figures === true ? "mx-auto h-3 w-4" : "h-3 w-20")} />
+                  className={table(phoneEnd).end()}
+                  style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
+                  <RowEnd />
                 </td>
-              ))}
-              <td className={table({ chevronOnPhone }).end()}>
-                <RowEnd />
-              </td>
+              )}
             </tr>
           ))}
         </tbody>

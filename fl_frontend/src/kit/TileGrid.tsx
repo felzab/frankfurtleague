@@ -95,11 +95,6 @@ export function SchoolTilesPlaceholder({ count }: { count: number }) {
                 text="text-sm"
                 width="w-3/4"
               />
-              {/* A school's name breaks at its hyphen on a phone's narrow tile, as most of the league's names do. */}
-              <PlaceholderLine
-                text="text-sm lg:hidden"
-                width="w-1/2"
-              />
               <PlaceholderLine
                 text="text-xs"
                 width="w-1/3"

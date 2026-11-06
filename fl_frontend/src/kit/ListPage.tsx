@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { COPY } from "@/core/copy";
+
 import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
@@ -12,11 +14,12 @@ import { EmptyState } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { Filters } from "./Filters";
+import { Icon } from "./Icon";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { lockedLine } from "./lockedLine";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { Placeholder, Waiting } from "./Skeleton";
+import { Placeholder, SAISON_WORDS, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
@@ -105,7 +108,12 @@ type ListContent =
       head: TableHead;
       content: Promise<GroupsContent>;
     }
-  | { kind: "cards"; content: Promise<CardsContent> }
+  | {
+      kind: "cards";
+      /** Each card while it waits, in their order: its title, and the acts its rows carry, which a phone sets on a line of their own. */
+      wait: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }>;
+      content: Promise<CardsContent>;
+    }
   | { kind: "tree"; content: Promise<TreeContent> }
   | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> }
   | { kind: "tiles"; /** The search field's name. */ search: ListSearch; content: Promise<TilesContent> };
@@ -140,11 +148,15 @@ function ListPlaceholder({ list }: { list: ListContent }) {
     case "cards":
       return (
         <CardGrid>
-          {[0, 1, 2, 3].map((index) => (
+          {list.wait.map(({ title, acts }) => (
             <CardPlaceholder
-              key={index}
+              key={title}
+              title={title}
               count>
-              <CardRowsPlaceholder rows={3} />
+              <CardRowsPlaceholder
+                rows={3}
+                {...(acts === undefined ? {} : { acts })}
+              />
             </CardPlaceholder>
           ))}
         </CardGrid>
@@ -201,7 +213,13 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
 function FiltersPlaceholder() {
   return (
     <Placeholder>
-      <span className={buttonPlaceholder("w-24 lg:hidden")} />
+      <span className={buttonPlaceholder("lg:hidden")}>
+        <Icon
+          glyph="filter"
+          size={16}
+        />
+        {COPY.shared.filter}
+      </span>
       <span className="max-lg:hidden">
         <FieldPlaceholder width="C10" />
       </span>
@@ -220,11 +238,20 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
-/** The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. */
+/**
+ * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
+ * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide.
+ */
 function CreatePlaceholder() {
   return (
     <Placeholder>
-      <span className={buttonPlaceholder("w-36")} />
+      <span className={buttonPlaceholder()}>
+        <Icon
+          glyph="create"
+          size={16}
+        />
+        {actLabel({ verb: "create", object: SAISON_WORDS })}
+      </span>
     </Placeholder>
   );
 }
