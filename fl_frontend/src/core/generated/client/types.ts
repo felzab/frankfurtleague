@@ -495,7 +495,6 @@ export interface FLAccountSpielerEinwilligung {
   evidence_state: FLEinwilligungState;
   /** @minLength 1 */
   first_name: string;
-  givable: boolean;
   last_name: string | null;
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;

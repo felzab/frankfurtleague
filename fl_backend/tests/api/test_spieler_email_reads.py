@@ -194,7 +194,6 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
         ),
         identifier=FOLDED_EMAIL,
         spieler_collection=database[Collection.SPIELER],
-        records=record_collections(database),
         db=client,
         config=build_test_config(),
         today=TODAY,

@@ -23,6 +23,12 @@ from app.shared.schemas.einwilligung import PressTextVersions
 MayGive = Callable[[], Awaitable[bool]]
 
 
+async def may_always_give() -> bool:
+    """`MayGive` of a record no state of which refuses a grant: a pupil's, whose every confirmed record stands live."""
+
+    return True
+
+
 async def _before_giving(
     *,
     blocks: Sequence[Mapping[str, Any]],

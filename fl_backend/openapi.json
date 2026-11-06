@@ -1150,10 +1150,6 @@
             "title": "First Name",
             "type": "string"
           },
-          "givable": {
-            "title": "Givable",
-            "type": "boolean"
-          },
           "last_name": {
             "anyOf": [
               {
@@ -1187,7 +1183,6 @@
           "birth_date",
           "einwilligung",
           "evidence_state",
-          "givable",
           "media_offered",
           "media_minimum_age"
         ],
@@ -29870,7 +29865,7 @@
     },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`scope` to `kader_oeffentlich` or `media` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a\ngrant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a choice\nmoving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
