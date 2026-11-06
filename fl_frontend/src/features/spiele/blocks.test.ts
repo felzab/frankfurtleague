@@ -98,6 +98,16 @@ describe("what befell a match", () => {
     });
   });
 
+  // The strike alone says which school stayed away on every public list, and the chip says it to a screen reader:
+  // either read backwards names the wrong school with nothing failing.
+  it("strikes the side that did not turn up in a list's row, and tells a screen reader which", () => {
+    const { nichtAngetreten } = COPY.spielplan.sonderereignis;
+    const first = matchRowOf(spiel([0, 3], "nichtantreten_team1"));
+    const second = matchRowOf(spiel([3, 0], "nichtantreten_team2"));
+    expect([first.absent, first.chip?.spoken]).toStrictEqual(["team1", nichtAngetreten({ record: "Goethe" })]);
+    expect([second.absent, second.chip?.spoken]).toStrictEqual(["team2", nichtAngetreten({ record: "Helmholtz" })]);
+  });
+
   it("says whether an abandoned match is scored by whether a result is entered", () => {
     const { consequence } = COPY.spielplan.sonderereignis;
     expect(ereignisOf(spiel(null, "abgebrochen"))?.text).toBe(consequence.abgebrochenOpen);
