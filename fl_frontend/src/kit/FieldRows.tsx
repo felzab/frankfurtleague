@@ -18,6 +18,20 @@ export const subgroup = tv({
   },
 });
 
+/**
+ * A few of a box's fields under their name, each field at its own width, as a school's address stands inside the
+ * application's first box, and `FieldRows`' rows under theirs: the fields 8 px apart.
+ */
+export function FieldSubgroup({ name, children }: { name: Copy; children: ReactNode }) {
+  const group = subgroup();
+  return (
+    <fieldset className={group.root()}>
+      <legend className={group.name()}>{name}</legend>
+      <div className="grid justify-items-start gap-2">{children}</div>
+    </fieldset>
+  );
+}
+
 const fieldRows = tv({
   slots: {
     // 8 px apart, as the fields of a box are.
@@ -50,14 +64,7 @@ export function FieldRows({ label, children }: { label?: Copy; children: readonl
       ))}
     </div>
   );
-  if (label === undefined) return rows;
-  const group = subgroup();
-  return (
-    <fieldset className={group.root()}>
-      <legend className={group.name()}>{label}</legend>
-      {rows}
-    </fieldset>
-  );
+  return label === undefined ? rows : <FieldSubgroup name={label}>{rows}</FieldSubgroup>;
 }
 
 /** Rows of fields while the record filling them is read, each field's placeholder in the block's own row. */

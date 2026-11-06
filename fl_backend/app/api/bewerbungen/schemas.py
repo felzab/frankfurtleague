@@ -498,40 +498,16 @@ class FLBewerbungSchuleOption(BaseModel):
 FLBewerbungSchuleOptionListAdapter = TypeAdapter(list[FLBewerbungSchuleOption])
 
 
-class FLBewerbungWindowResponse(BaseAPIResponse):
-    """One season's application window and whether that season has ended, and nothing else about it."""
-
-    saison_id: str
-    start: CustomDateString
-    end: CustomDateString
-    # The whole judgement, computed server-side: a season not yet ended, today inside the span. Served rather
-    # than left to the client, which would re-derive it against a clock this server does not share.
-    running: bool
-    # A boolean rather than the status: `future` and `active` answer alike, so this serves nothing
-    # the rule withholds, and a finished season still reads as over whatever dates it stores.
-    saison_ended: bool
-
-
-class FLBewerbungNoWindowResponse(BaseAPIResponse):
-    """A season that records no application window: its id, and `window` always null."""
-
-    saison_id: str
-    # Always null, and carried all the same: it is the key `FLBewerbungWindowResponse` has not got,
-    # so one endpoint's two bodies part on a field rather than on which one a parser tries first.
-    window: None
-
-
-class FLBewerbungSchulenResponse(BaseAPIResponse):
-    schulen: list[FLBewerbungSchuleOption]
-
-
 class FLBewerbungFormWindow(BaseModel):
     """A season's application window as the form's page judges it."""
 
     start: CustomDateString
     end: CustomDateString
-    # `FLBewerbungWindowResponse`'s two, and for their reasons.
+    # The whole judgement, computed server-side: a season not yet ended, today inside the span, the window not paused.
+    # Served rather than left to the client, which would re-derive it against a clock this server does not share.
     running: bool
+    # A boolean rather than the status: `future` and `active` answer alike, so this serves nothing
+    # the rule withholds, and a finished season still reads as over whatever dates it stores.
     saison_ended: bool
 
 
@@ -545,15 +521,6 @@ class FLBewerbungFormResponse(BaseAPIResponse):
     # tier nothing of its colours.
     schulen: list[FLBewerbungSchuleOption]
     # Taken, and by nobody this answer names.
-    taken: list[FLTrikotFarbe]
-
-
-class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
-    """Which kit colours one season has already assigned, naming no club."""
-
-    saison_id: str
-    # Taken, and by nobody this answer names. A LIST rather than a set, JSON having none;
-    # `assigned_trikot_farben` is what makes it distinct and ordered.
     taken: list[FLTrikotFarbe]
 
 

@@ -129,13 +129,14 @@
   }
 
   /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page in
-     the root's beneath them all. A frame's band, its phone bar and a rail page's title strip, which the page scrolls
-     under, would sit in the root's picture, and a fading part would show what scrolled under them over them: each
-     carries a `view-transition-name` of its own, `band`, `bar` or `strip`, so it is pictured apart. The groups paint in
+     the root's beneath them all. A frame's band, its phone bar, an editor's bar and a rail page's title strip, which the
+     page scrolls under, would sit in the root's picture, and a fading part would show what scrolled under them over them:
+     each carries a `view-transition-name` of its own, `band`, `bar` or `strip`, so it is pictured apart. The groups paint in
      the order their names were captured, and a name only in the new state is captured after every name of the old
      one, so a part React's streamed reveal brings in would paint over them; `z-index` is what lifts the three over any
      other group, the strip a step below the two, since on a phone it scrolls under the band. The classic band and the
-     rail's phone band share `band`, never standing on one page together. */
+     rail's phone band share `band`, and the phone bar and an editor's bar, which takes its place, share `bar`, neither
+     pair ever standing on one page together. */
   ::view-transition-group(strip) {
     z-index: 1;
   }

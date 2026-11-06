@@ -203,7 +203,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 
 - **A club's street address is public, and the application form and the acceptance screen say so**
   (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.address`;
-  `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`,
+  `fl_frontend/src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx`,
   `fl_frontend/src/app/admin/(liste)/saisons/[saison]/bewerbungen/[bewerbung]/AcceptFields.tsx`).
   **Datenschutzexperte consulted.**
 - **A pupil's name is published only on their own consent, given alone from 16.** Every public read

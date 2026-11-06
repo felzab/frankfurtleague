@@ -26,6 +26,9 @@ export const VEREINSREGISTER = "Vereinsregister des Amtsgerichts Frankfurt am Ma
 /** The repository the site is built from, which the Impressum's licence note links. */
 export const SOURCE_URL = "https://github.com/felzab/frankfurtleague";
 
+/** The `id` of the mark's drawing in the document's one sprite (`fl_frontend/src/kit/BrandSprite.tsx`), which every logo points at. */
+export const MARK_ID = "fl-mark";
+
 /** The PUBLISHED origin, spelled once: a message's links stand on the serving one instead. */
 export const SITE_URL = "https://frankfurtleague.de";
 

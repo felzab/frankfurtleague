@@ -112,6 +112,7 @@ export default function BewerbungenPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminBewerbungen" } }}
       filters={list.then(({ filters }) => filters)}
+      filterCount={2}
       link={{ label: COPY.page.adminBewerbungenBulk, href: list.then(({ bulk }) => bulk) }}
       notice={list.then(({ cut }) => cut)}
       list={{

@@ -10,7 +10,7 @@ import {
   formatPeriod,
   formatTime,
 } from "./format";
-import { rollenText } from "./teamVocabulary";
+import { KONTAKT_ROLLE_LONG_FORM, rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Pair, TimeOfDay } from "./format";
 import type { FLKontaktRolle, FLSchulform, FLSpielerRolle, FLSpielerStufe } from "./generated/client/types";
@@ -370,6 +370,8 @@ export const COPY = catalogue({
     ownAddress: "Die eigene Adresse der Person",
     /** A covered seat's box, in place of its fields. */
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
+    /** Under the address: the promise `docs/datenschutz.md` section 4 records the form makes. */
+    addressPublic: "Steht nach der Aufnahme öffentlich auf der Teamseite",
     trikotSatzDescription: "Zum Beispiel 15 rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: "Für den ersten Spieltag",
@@ -377,9 +379,6 @@ export const COPY = catalogue({
     suggestions: "Vorschläge anzeigen",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its link. */
     notice: { before: "Jede Kontaktperson bekommt eine E-Mail von der Liga, mehr unter ", after: "." },
-    // Redesign: goes with its last importer.
-    /** The old form's one switch acknowledging, for all three seats, that their people know of their entry. */
-    kenntnisnahme: "Ja, die Angaben stimmen, und die drei Personen wissen von ihrem Eintrag.",
   },
 
   /**
@@ -388,6 +387,8 @@ export const COPY = catalogue({
    */
   team: {
     kontakte: "Kontaktpersonen",
+    /** Each seat's long form, where it is a box's title or a choice of its own. */
+    seatName: KONTAKT_ROLLE_LONG_FORM,
     /** The object of „Sitz bearbeiten“. */
     seat: "Sitz",
     fullName: "Vollständiger Name",

@@ -72,6 +72,7 @@ function Block({ block }: { block: ProseBlock }) {
                 href={link.href}
                 placement="standalone"
                 label={link.label}
+                prefetch={false}
               />
             </li>
           ))}

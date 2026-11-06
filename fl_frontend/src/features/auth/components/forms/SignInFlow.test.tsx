@@ -10,8 +10,8 @@ import { SignInFlow } from "./SignInFlow";
 
 // The server action, the bot check and the sign-in's client each reach a service; the send alone is driven here.
 vi.mock("../../actions", () => ({ handleSignIn: vi.fn() }));
-vi.mock("@/shared/hooks/useTurnstile", () => ({
-  useTurnstile: () => ({ widget: null, takeToken: () => Promise.resolve({ token: "token" }) }),
+vi.mock("@/kit/useBotCheck", () => ({
+  useBotCheck: () => ({ widget: null, takeToken: () => Promise.resolve({ token: "token" }) }),
 }));
 vi.mock("@/core/authClient", () => ({ authClient: { signIn: { emailOtp: vi.fn() } } }));
 // A thrown send reads the page again through Next's router, which no test mounts.

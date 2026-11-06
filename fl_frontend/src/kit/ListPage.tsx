@@ -209,9 +209,10 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
 
 /**
  * The filter block while its choices are read, at the height it will stand at, so nothing under the toolbar moves when
- * it arrives: on a phone the „Filter“ button, on desktop a labelled select, its label, its field and the line under it.
+ * it arrives: on a phone the „Filter“ button, on desktop its labelled selects, each its label, its field and the line
+ * under it.
  */
-function FiltersPlaceholder() {
+function FiltersPlaceholder({ count }: { count: number }) {
   return (
     <Placeholder>
       <span className={buttonPlaceholder("lg:hidden")}>
@@ -221,8 +222,13 @@ function FiltersPlaceholder() {
         />
         {COPY.shared.filter}
       </span>
-      <span className="max-lg:hidden">
-        <FieldPlaceholder width="C10" />
+      <span className="flex items-start gap-3 max-lg:hidden">
+        {Array.from({ length: count }, (_, index) => (
+          <FieldPlaceholder
+            key={index}
+            width="fit"
+          />
+        ))}
       </span>
     </Placeholder>
   );
@@ -419,6 +425,7 @@ async function ListBody({ list }: { list: ListContent }) {
 export function ListPage({
   head,
   filters,
+  filterCount = 1,
   create,
   link,
   notice,
@@ -430,6 +437,8 @@ export function ListPage({
    * are, so it waits in a boundary of its own and stands in the toolbar once read.
    */
   filters?: Promise<ReadonlyArray<Filter>>;
+  /** How many selects the filter block holds, which the page knows before the read and its wait draws. */
+  filterCount?: number;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
    * where what it makes is the list's to say, as the Saisons list names the next season, so it waits in a boundary of
@@ -453,7 +462,7 @@ export function ListPage({
           <div className="flex flex-wrap items-center gap-3">
             {search !== undefined && <ListSearchField label={search.label} />}
             {filters !== undefined && (
-              <Suspense fallback={<FiltersPlaceholder />}>
+              <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}

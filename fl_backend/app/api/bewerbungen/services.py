@@ -1492,7 +1492,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     # holds the boundary rather than a case any test can reach.
     held = {value for value in stored if isinstance(value, str)}
 
-    # The form excludes what this returns, and a season may field at least as many teams as the palette
+    # The form closes what this returns, and a season may field at least as many teams as the palette
     # has colours. `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben` then hands the whole
     # palette back once every colour is assigned.
     return [colour for colour in get_args(FLTrikotFarbe.__value__) if colour in held]
@@ -1504,8 +1504,8 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
 def build_form_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
     """What the form's page needs from one aggregation over the season's row, the window's carve-out at this tier.
 
-    A club retired out of the league is no club to apply as, and a row a club left the season on keeps its colour, as
-    `app/api/bewerbungen/public_router.py :: get_trikotfarben` serves it.
+    A club retired out of the league is no club to apply as, and a row a club left the season on keeps its colour: the
+    assignment stands until an administrator clears it.
     """
 
     return [

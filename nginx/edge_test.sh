@@ -452,7 +452,7 @@ done
 # fails itself, and the table above sends none.
 STREAM_MARKER="fl-stream"
 STREAM=( -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/413"
-  -X POST --data-binary @- "${BASE}/api/bewerbung" )
+  -X POST --data-binary @- "${BASE}/api/client-error" )
 STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/502"
   "${BASE}/api/v0/system/is_live" )
 # The catch-all's 421: a block with no access_log of its own would fall back to the image's stdout.

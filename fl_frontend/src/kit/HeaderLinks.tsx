@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use } from "react";
+import { Fragment, Suspense, use } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,7 +11,7 @@ import { COPY } from "@/core/copy";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
-import { currentOf, FreshPerPage } from "./navPlace";
+import { currentOf } from "./navPlace";
 import { Sheet } from "./Sheet";
 import { Placeholder, PlaceholderLine, SAISON_WORDS } from "./Skeleton";
 
@@ -35,25 +35,25 @@ function SeasonEntry({ read, look }: { read: Promise<HeaderLink | null>; look: "
   );
 }
 
-/**
- * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
- * one button opening them as a sheet. The season's entry leads them once its read lands; while it waits its placeholder
- * holds its width and the band its fixed height, so nothing beside it moves.
- */
-export function HeaderLinks({
-  season,
-  links,
-  signIn,
-}: {
+type HeaderLinksProps = {
   /** The season the site is on, read on a request, or null where the league has none. */
   season?: Promise<HeaderLink | null>;
   links: ReadonlyArray<HeaderLink>;
   signIn: Route;
-}) {
-  const current = currentOf(
-    usePathname(),
-    links.map((link) => link.href),
-  );
+};
+
+/**
+ * The links at the address `path`: its page's link marked, and a sheet that goes with the page it led from, since the
+ * layout outlives the page. `null` while a page with a dynamic segment streams its address, where no link is marked.
+ */
+function PlacedLinks({ season, links, signIn, path }: HeaderLinksProps & { path: string | null }) {
+  const current =
+    path === null
+      ? null
+      : currentOf(
+          path,
+          links.map((link) => link.href),
+        );
   return (
     <>
       <nav
@@ -94,7 +94,7 @@ export function HeaderLinks({
         {COPY.template.account}
       </NextLink>
       <div className="ms-auto lg:hidden">
-        <FreshPerPage>
+        <Fragment key={path}>
           <Sheet
             label={COPY.template.menu}
             trigger={
@@ -137,8 +137,37 @@ export function HeaderLinks({
               ))}
             </div>
           </Sheet>
-        </FreshPerPage>
+        </Fragment>
       </div>
     </>
+  );
+}
+
+function LinksAtAddress(props: HeaderLinksProps) {
+  return (
+    <PlacedLinks
+      {...props}
+      path={usePathname()}
+    />
+  );
+}
+
+/**
+ * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
+ * one button opening them as a sheet. The season's entry leads them once its read lands; while it waits its placeholder
+ * holds its width and the band its fixed height, so nothing beside it moves. Past a dynamic segment the prerendered shell
+ * holds no address, so it holds the same links unmarked, which is why the boundary stands here and not in the page.
+ */
+export function HeaderLinks(props: HeaderLinksProps) {
+  return (
+    <Suspense
+      fallback={
+        <PlacedLinks
+          {...props}
+          path={null}
+        />
+      }>
+      <LinksAtAddress {...props} />
+    </Suspense>
   );
 }

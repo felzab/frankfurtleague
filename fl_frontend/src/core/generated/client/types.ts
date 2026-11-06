@@ -1786,15 +1786,6 @@ export interface FLBewerbungListRow {
 }
 
 /**
- * A season that records no application window: its id, and `window` always null.
- */
-export interface FLBewerbungNoWindowResponse {
-  saison_id: string;
-  /** @nullable */
-  window: null;
-}
-
-/**
  * A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
@@ -1841,10 +1832,6 @@ export interface FLBewerbungSchulePayload {
   website_url: string | null;
 }
 
-export interface FLBewerbungSchulenResponse {
-  schulen: FLBewerbungSchuleOption[];
-}
-
 /**
  * One application as its review page shows it.
  */
@@ -1872,14 +1859,6 @@ export interface FLBewerbungSweepResponse {
   saison_id: string;
 }
 
-/**
- * Which kit colours one season has already assigned, naming no club.
- */
-export interface FLBewerbungTrikotFarbenResponse {
-  saison_id: string;
-  taken: FLTrikotFarbe[];
-}
-
 export interface FLBewerbungTrikotPayload {
   /** @maxLength 500 */
   existing_satz: string;
@@ -1893,19 +1872,6 @@ export interface FLBewerbungWindow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
   saison_id: string;
-}
-
-/**
- * One season's application window and whether that season has ended, and nothing else about it.
- */
-export interface FLBewerbungWindowResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  end: string;
-  running: boolean;
-  saison_ended: boolean;
-  saison_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  start: string;
 }
 
 /**

@@ -1,17 +1,6 @@
-import { bewerbungenGetSweepSaisons, bewerbungenPostBewerbung, bewerbungenSweepSaison } from "@/core/generated/client/sdk";
-import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { bewerbungenGetSweepSaisons, bewerbungenSweepSaison } from "@/core/generated/client/sdk";
 
-import type {
-  FLBewerbungSweepResponse,
-  FLCreatedResponse,
-  FLPostBewerbungPayload,
-  FLSweepSaisonsResponse,
-} from "@/core/generated/client/types";
-
-/** Records one school's application. */
-export async function postBewerbung(payload: FLPostBewerbungPayload, idempotencyKey: string | null): Promise<FLCreatedResponse> {
-  return bewerbungenPostBewerbung(payload, { headers: idempotencyKey === null ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } });
-}
+import type { FLBewerbungSweepResponse, FLSweepSaisonsResponse } from "@/core/generated/client/types";
 
 /**
  * Every season the retention sweep walks. Here rather than in `queries.ts` beside the other reads
