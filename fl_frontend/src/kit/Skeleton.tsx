@@ -62,6 +62,31 @@ export function PlaceholderLine({
   );
 }
 
+/** The fewest characters a line of a sentence holds, on the narrowest phone, so a sentence never runs out of bars. */
+const CHARACTERS_PER_LINE = 30;
+
+/**
+ * A sentence whose words are known before the read, in a box that wraps it: `text` is the size it will be set at. The
+ * words wrap unseen, so the sentence stands as many lines as it will at every width, and cut the bars laid over them
+ * to the lines they hold.
+ */
+export function PlaceholderSentence({ text, words }: { text: string; words: string }) {
+  return (
+    <span className={`relative block overflow-hidden ${text}`}>
+      <span className="invisible">{words}</span>
+      <span className="absolute inset-0">
+        {Array.from({ length: Math.ceil(words.length / CHARACTERS_PER_LINE) }, (_, line) => (
+          <PlaceholderLine
+            key={line}
+            text=""
+            width="w-full"
+          />
+        ))}
+      </span>
+    </span>
+  );
+}
+
 /**
  * A part of the frame while it waits, such as the rail's entries or the season button: its placeholder, hidden from
  * assistive technology and shown only once the wait outlasts `--loading-delay`. It says nothing itself: the page's

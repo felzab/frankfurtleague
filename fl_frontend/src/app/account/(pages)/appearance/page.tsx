@@ -1,6 +1,6 @@
 import { AccountBox, AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
-import { ThemeChoice } from "@/kit/FrameNav";
+import { ThemeChoice, ThemeChoicePlaceholder } from "@/kit/FrameNav";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -30,7 +30,12 @@ export default function AccountAppearancePage() {
   return (
     <AccountPage
       route="accountAppearance"
-      wait={<AccountBoxPlaceholder inline />}>
+      wait={
+        <AccountBoxPlaceholder
+          description={COPY.account.appearance.description}
+          control={<ThemeChoicePlaceholder />}
+        />
+      }>
       <AppearanceContent />
     </AccountPage>
   );

@@ -61,10 +61,14 @@ export default function AccountSecurityPage() {
       wait={
         <>
           <AccountBoxPlaceholder
-            rows={2}
-            foot
+            description={COPY.account.passkeys.description}
+            rows={1}
+            foot={COPY.shared.withObject(COPY.signIn.passkeyTitle, "setUp")}
           />
-          <AccountBoxPlaceholder foot />
+          <AccountBoxPlaceholder
+            description={COPY.account.devices.description(1)}
+            foot={COPY.shared.withObject(COPY.account.devices.allOthers, "signOut")}
+          />
         </>
       }>
       <SecurityContent />
