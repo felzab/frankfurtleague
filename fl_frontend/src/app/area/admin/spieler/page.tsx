@@ -75,7 +75,6 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
       first_name: spieler.first_name,
       last_name: spieler.last_name,
       fullName: kaderName(spieler),
-      inactive_since: spieler.inactive_since,
       selected:
         selected === null
           ? null

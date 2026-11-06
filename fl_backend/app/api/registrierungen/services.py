@@ -786,7 +786,6 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], address: str) -> dic
     return {
         **{field: registrierung_raw[field] for field in (*PERSON_IDENTITY_FIELDS, "birth_date")},
         "email": address,
-        "inactive_since": None,
     }
 
 

@@ -1467,9 +1467,9 @@ export const RegistrierungenGetConfirmationViewBody = zod
 /**
  * Answer what this registration link is for: the team, its school, the season, and what the form may offer.
  *
- * A POST because the link value travels in the body and never in a path the edge would log. A shut
- * window is a STATE here rather than a refusal, so a link opened after the deadline reads as closed
- * rather than as invalid; only a link that opens no live invite is refused.
+ * A POST because the link value travels in the body and never in a path the edge would log. A paused
+ * or ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as
+ * invalid; only a link that opens no live invite, or whose team has left the season, is refused.
  * @summary What a registration link opens
  */
 export const registrierungenPostInvitationViewBodyTokenMax = 128;
@@ -1542,13 +1542,14 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  * asked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page
  * leaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's
  * name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
- * person, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs
- * stands, asked over the address this admission proves again.
+ * person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
+ * this admission proves again.
  *
- * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived
- * today; this person's retired row of this season is rewritten rather than a second one written, whichever team
- * it was on. The registration is deleted and its values redacted from the log in the same transaction, so a second
- * press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
+ * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
+ * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
+ * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
+ * deleted and its values redacted from the log in the same transaction, so a second press meets no row. Its
+ * submission key moves onto the squad row, so the submission replayed later stores nothing.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
@@ -3156,29 +3157,8 @@ export const SpielerPatchKaderRowBody = zod
     version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
-    "What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.\n\nNever `_SaisonSpielerPayload`'s child, which carries `team_id`: a representative moves no pupil\nto another team, and `extra=\"forbid\"` refuses that key.",
+    "What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.\n\nNo player moves between teams, so `extra=\"forbid\"` refuses `team_id`; it is also what refuses\n`is_nachnominiert`, which no edit sets or clears.",
   );
-
-/**
- * Whether a player entered into this season's squads today would be marked a Nachnominierung.
- *
- * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's
- * `start_date` on. 404 where no season has this id.
- * @summary Whether a squad entry into a season today is a Nachnominierung
- */
-export const SpielerGetSpielerNachnominierungParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
- * Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE.
- * @summary Retire a Spieler (soft delete)
- */
-export const spielerDeleteSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielerDeleteSpielerParams = zod.object({
-  spieler_id: zod.string().regex(spielerDeleteSpielerPathSpielerIdRegExp),
-});
 
 /**
  * One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.
@@ -3223,50 +3203,6 @@ export const SpielerPatchSpielerBody = zod
   );
 
 /**
- * Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate.
- * @summary Bring a retired Spieler back
- */
-export const spielerReactivateSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielerReactivateSpielerParams = zod.object({
-  spieler_id: zod.string().regex(spielerReactivateSpielerPathSpielerIdRegExp),
-});
-
-/**
- * Put a player in a team's squad for a season.
- *
- * 404 where no player has this id. One row per player per season: moving a player is a PATCH of
- * `team_id`, and a repeat is a 409 even where the row is retired. A
- * squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
- * taken from the body: it is true from the season's `start_date` on.
- * @summary Add a Spieler to a squad
- */
-export const spielerPostSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielerPostSaisonSpielerParams = zod.object({
-  spieler_id: zod.string().regex(spielerPostSaisonSpielerPathSpielerIdRegExp),
-});
-
-export const spielerPostSaisonSpielerBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
-export const spielerPostSaisonSpielerBodySaisonIdMin = 4;
-export const spielerPostSaisonSpielerBodySaisonIdMax = 4;
-
-export const spielerPostSaisonSpielerBodyTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SpielerPostSaisonSpielerBody = zod
-  .object({
-    nummer: zod.union([zod.string().regex(spielerPostSaisonSpielerBodyNummerOneRegExp), zod.null()]),
-    position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
-    rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
-    saison_id: zod.string().min(spielerPostSaisonSpielerBodySaisonIdMin).max(spielerPostSaisonSpielerBodySaisonIdMax),
-    stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
-    team_id: zod.string().regex(spielerPostSaisonSpielerBodyTeamIdRegExp),
-  })
-  .describe(
-    "One player's membership of one team's squad for one season.\n\nEvery field is required, including those a squad often does not know: a caller states `null`\nrather than omitting, so the answer is theirs and not a default nobody chose.",
-  );
-
-/**
  * Take a player out of a season's squad. SOFT: the row stays.
  *
  * The row records that this player wore this number in this squad, which stays true after they
@@ -3281,11 +3217,10 @@ export const SpielerDeleteSaisonSpielerParams = zod.object({
 });
 
 /**
- * Update a player's squad entry for that season.
+ * Update a player's squad entry for that season. The team stays the stored row's: no player moves between teams.
  *
- * Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
- * (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
- * (`kader_rolle_taken`).
+ * A DUPLICATE `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose); a `rolle`
+ * another live row holds is not (`kader_rolle_taken`).
  * @summary Update a squad entry
  */
 export const spielerPatchSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3296,7 +3231,6 @@ export const SpielerPatchSaisonSpielerParams = zod.object({
 });
 
 export const spielerPatchSaisonSpielerBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
-export const spielerPatchSaisonSpielerBodyTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
 export const SpielerPatchSaisonSpielerBody = zod
   .object({
@@ -3304,19 +3238,17 @@ export const SpielerPatchSaisonSpielerBody = zod
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
-    team_id: zod.string().regex(spielerPatchSaisonSpielerBodyTeamIdRegExp),
     version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
-    "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.\n\n`team_id` is editable here: a mid-season transfer is a change to the junction row.",
+    "What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.\n\nNo player moves between teams, so `extra=\"forbid\"` refuses `team_id`; it is also what refuses\n`is_nachnominiert`, which no edit sets or clears.",
   );
 
 /**
  * Clear a squad row's `inactive_since`, with the number and position it had.
  *
- * Where a repeat create is redirected: a create reviving the row
- * would overwrite both. Refused where the squad has filled up, where its club left, or where the
- * `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
+ * Refused where the squad has filled up, a nominee's row standing outside that cap, where its club
+ * left, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
  * @summary Put a Spieler back in a squad they left
  */
 export const spielerReactivateSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

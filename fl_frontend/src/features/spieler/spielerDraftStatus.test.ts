@@ -3,18 +3,12 @@ import { assert, describe, expect, it } from "vitest";
 import { deriveSpielerDraftStatus } from "./spielerDraftStatus";
 
 import type { FLSpielerDraftFields } from "./spielerDraftStatus";
-import type { SpielerTeamOption } from "./types";
-
-const HELMHOLTZ: SpielerTeamOption = { teamId: "6890a1b2c3d4e5f607190001", name: "Helmholtz", shorthand: "HE" };
-const LESSING: SpielerTeamOption = { teamId: "6890a1b2c3d4e5f607190002", name: "Lessing", shorthand: "LE" };
-const TEAMS: SpielerTeamOption[] = [HELMHOLTZ, LESSING];
 
 const stored: FLSpielerDraftFields = {
   first_name: "Max",
   last_name: "Mustermann",
   birth_date: "2008-05-14",
   membership: {
-    team_id: HELMHOLTZ.teamId,
     nummer: "10",
     position: "Mittelfeld",
     stufe: "Q1",
@@ -30,14 +24,14 @@ const squad = (overrides: Partial<NonNullable<FLSpielerDraftFields["membership"]
 
 describe("deriveSpielerDraftStatus", () => {
   it("carries a row for every person field and every squad row", () => {
-    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {}, teams: TEAMS });
+    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {} });
 
-    // Three person fields plus the five squad rows; `ist_nachnominiert` is a note, never a field.
-    expect(status.fields.length).toBe(8);
+    // Three person fields plus the four squad rows; `ist_nachnominiert` is a note, never a field.
+    expect(status.fields.length).toBe(7);
   });
 
   it("reports a renamed player as one change carrying both texts", () => {
-    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({ first_name: "Moritz" }), fieldErrors: {}, teams: TEAMS });
+    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({ first_name: "Moritz" }), fieldErrors: {} });
 
     expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([["first_name", "Max", "Moritz"]]);
   });
@@ -47,7 +41,6 @@ describe("deriveSpielerDraftStatus", () => {
       stored: draftFrom({ birth_date: null }),
       draft: draftFrom({ birth_date: "2008-05-14" }),
       fieldErrors: {},
-      teams: TEAMS,
     });
 
     // `isDirty` is what the save button reads, and a person field missing from the descriptor table
@@ -61,40 +54,13 @@ describe("deriveSpielerDraftStatus", () => {
       stored: draftFrom({ membership: null }),
       draft: draftFrom({ membership: null }),
       fieldErrors: {},
-      teams: TEAMS,
     });
 
     expect(status.fields.map((field) => field.path)).toStrictEqual(["first_name", "last_name", "birth_date"]);
   });
 
-  it("reads a transfer as the two teams' NAMES, never their ids", () => {
-    const status = deriveSpielerDraftStatus({
-      stored,
-      draft: draftFrom(squad({ team_id: LESSING.teamId })),
-      fieldErrors: {},
-      teams: TEAMS,
-    });
-
-    const row = status.byPath.get("team_id");
-    assert.ok(row?.isChanged);
-    expect(row.storedText).toBe("Helmholtz");
-    expect(row.draftText).toBe("Lessing");
-  });
-
-  it("falls back to the id for a team the selected season does not offer", () => {
-    // A real state, not a defect: the player is in a team this season does not offer.
-    const status = deriveSpielerDraftStatus({
-      stored: draftFrom(squad({ team_id: "6890a1b2c3d4e5f607190009" })),
-      draft: draftFrom(squad({ team_id: "6890a1b2c3d4e5f607190009" })),
-      fieldErrors: {},
-      teams: TEAMS,
-    });
-
-    expect(status.byPath.get("team_id")?.storedText).toBe("6890a1b2c3d4e5f607190009");
-  });
-
   it("treats a cleared number as removed rather than changed-to-empty-string", () => {
-    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ nummer: "" })), fieldErrors: {}, teams: TEAMS });
+    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ nummer: "" })), fieldErrors: {} });
 
     const row = status.byPath.get("nummer");
     // `draftText: null` is what makes the change list render this as a removal. It comes from this
@@ -105,7 +71,7 @@ describe("deriveSpielerDraftStatus", () => {
   });
 
   it("treats a cleared position as removed, because a squad entry is filled in over time", () => {
-    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ position: null })), fieldErrors: {}, teams: TEAMS });
+    const status = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ position: null })), fieldErrors: {} });
 
     const row = status.byPath.get("position");
     assert.ok(row?.isChanged);
@@ -114,7 +80,7 @@ describe("deriveSpielerDraftStatus", () => {
   });
 
   it("reads a role as a value gained and giving it up as a removal", () => {
-    const gained = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "kapitaen" })), fieldErrors: {}, teams: TEAMS });
+    const gained = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "kapitaen" })), fieldErrors: {} });
     expect(gained.byPath.get("rolle")?.storedText).toBe(null);
     expect(gained.byPath.get("rolle")?.draftText).toBe("Kapitän");
 
@@ -122,13 +88,12 @@ describe("deriveSpielerDraftStatus", () => {
       stored: draftFrom(squad({ rolle: "kapitaen" })),
       draft: draftFrom(squad({ rolle: null })),
       fieldErrors: {},
-      teams: TEAMS,
     });
     expect(lost.byPath.get("rolle")?.draftText).toBe(null);
   });
 
   it("reads the German for each role rather than its stored slug", () => {
-    const co = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "co_kapitaen" })), fieldErrors: {}, teams: TEAMS });
+    const co = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "co_kapitaen" })), fieldErrors: {} });
 
     expect(co.byPath.get("rolle")?.draftText).toBe("Co-Kapitän");
   });
@@ -138,7 +103,6 @@ describe("deriveSpielerDraftStatus", () => {
       stored,
       draft: draftFrom({ first_name: "" }),
       fieldErrors: { first_name: "Bitte gib einen Vornamen ein." },
-      teams: TEAMS,
     });
 
     // The descriptor's default `errorPaths`, which is this table's: widen it and the message
@@ -151,7 +115,6 @@ describe("deriveSpielerDraftStatus", () => {
       stored,
       draft: { ...draftFrom({ last_name: "Muster" }), ...squad({ stufe: "Q2" }) },
       fieldErrors: {},
-      teams: TEAMS,
     });
 
     expect(status.changed.map((field) => field.group)).toStrictEqual(["Person", "Kader"]);

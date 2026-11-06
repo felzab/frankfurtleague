@@ -30,8 +30,6 @@ from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.saisons.admin_router import activate_saison
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
-from app.api.spieler.admin_router import post_saison_spieler
-from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -40,7 +38,6 @@ from app.core.crud import patch_one_in_db
 from app.core.journal import JOURNAL_TOKEN
 from app.core.logging import JSONFormatter
 from app.main import create_app
-from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
@@ -498,9 +495,6 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 # only a rival that failed or hung waits it out, and the case then says so rather than passing.
 RIVAL_BOUND_S = 5.0
 
-EINLADUNG = numbered(950)
-EINLADUNG_TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
-
 
 class CommittedInsideThePupilsTransaction:
     """The seasons, running `rival` to its commit after a pupil's transaction reads the statuses, its first read.
@@ -525,70 +519,6 @@ class CommittedInsideThePupilsTransaction:
             self.committed = task.done() and task.exception() is None
 
         return cursor
-
-
-async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = "2026") -> Any:
-    """The administrator's entry into a kept season, the running one unless named, which keeps the pupil."""
-
-    return await post_saison_spieler(
-        spieler_id=numbered(1),
-        saison_spieler_data=FLPostSaisonSpielerPayload(
-            saison_id=saison_id, team_id=TEAM_OID, nummer=None, position=None, stufe=None, rolle=None
-        ),
-        spieler_collection=database[Collection.SPIELER],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        db=client,
-        today=TODAY,
-    )
-
-
-async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
-    """The team entered in 2026, its registration window open today and its link live, so nothing but the race decides."""
-
-    await database[Collection.SAISONS].update_one({"_id": "2026"}, {"$set": {"registrierung": {"open": True, "end": "2026-04-30"}}})
-    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LSX"))
-    await database[Collection.INVITATIONS].insert_one(
-        {
-            "_id": EINLADUNG,
-            "saison_id": "2026",
-            "team_id": TEAM_OID,
-            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
-            "created_at": "2026-03-15",
-            "created_by": "admin@frankfurtleague.de",
-            "revoked_at": None,
-        }
-    )
-
-
-class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
-    @pytest.mark.parametrize(
-        "rival",
-        [
-            # Held by the person alone: the entry anchors the pupil, whose deletion then conflicts with it, and
-            # the season the entry counts its squad in is no write of the deletion's.
-            pytest.param(a_squad_row_entered, id="a squad row"),
-            # The same anchor in the season just ended, which no registration reaches.
-            pytest.param(functools.partial(a_squad_row_entered, saison_id=JUST_ENDED), id="a squad row in the season just ended"),
-        ],
-    )
-    def test_the_pupil_stands(self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]):
-        """Remove the pupil's anchor in `pull_a_person_to_enter` and both arms fail."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1))
-            await a_running_season_open_to_its_team(database)
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(JUST_ENDED, TEAM_OID, "Lindenschule", "LSX"))
-            seasons = CommittedInsideThePupilsTransaction(database[Collection.SAISONS], lambda: rival(database, client))
-            answer = await run(database, client, saisons_collection=seasons)
-
-            return seasons.committed, counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        committed, answer, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert committed, "the rival never committed inside the pupil's transaction, so this case proves nothing"
-        assert (answer["spieler"], answer["skipped"], standing) == (0, 1, 1)
 
 
 # Planned below the season just ended, which activation does not refuse, beside a running season whose fixtures are all played.

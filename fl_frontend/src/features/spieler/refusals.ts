@@ -1,7 +1,7 @@
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
-import { ALREADY_IN_SAISON, KADER_ABSCHNITT, STUFE_NICHT_ZUGELASSEN } from "./constants";
+import { KADER_ABSCHNITT, STUFE_NICHT_ZUGELASSEN } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -56,14 +56,4 @@ export function mapKaderZeileRefusal(error: unknown): { error?: string; fieldErr
   if (error.serverErrorCode === "kader_stufe_not_allowed")
     return { error: STUFE_NICHT_ZUGELASSEN, fieldErrors: { stufe: STUFE_NICHT_ZUGELASSEN } };
   return null;
-}
-
-/**
- * `null` for any code but the unique index's, which on the junction's key spans retired rows: the
- * player already stands in the season.
- */
-export function mapAlreadyInSaisonRefusal(error: unknown): string | null {
-  if (!isRefusal(error) || error.serverErrorCode !== "duplicate_key") return null;
-
-  return ALREADY_IN_SAISON;
 }

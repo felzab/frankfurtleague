@@ -988,20 +988,7 @@ class TestAReturningRegistration:
         assert (einwilligung["media"], einwilligung["evidence"]["media"]["text_version"]) == (False, KONTO_LABEL)
 
 
-class TestARetiredPerson:
-    def test_the_person_comes_back_and_no_second_one_is_written(self, mongo_replica_set_url: str):
-        stored_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, inactive_since="2025-07-01"))
-            await admit(database, client, await seed(database, registrierung_document()))
-
-            return await persons(database)
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        assert [(person["_id"], person["inactive_since"]) for person in stored] == [(stored_id, None)]
-
+class TestARetiredRow:
     @pytest.mark.parametrize("team_id", [TEAM_OID, OTHER_TEAM_OID], ids=("on this team", "on another team"))
     def test_their_retired_row_of_the_season_is_rewritten_rather_than_a_second_written(self, mongo_replica_set_url: str, team_id: ObjectId):
         """`uniq_spieler_id_saison_id` keeps one row per player per season, a retired one included."""

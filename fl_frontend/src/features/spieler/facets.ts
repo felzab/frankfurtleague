@@ -52,17 +52,6 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
       return held;
     },
   },
-  {
-    param: "status",
-    label: "Person",
-    options: [
-      { value: "aktiv", label: "Aktiv" },
-      { value: "stillgelegt", label: "Stillgelegt" },
-    ],
-    // The PERSON's own retirement, independent of the row's above — hence the „Person“ label, so the
-    // two facets cannot be read as the same question.
-    read: (spieler) => [spieler.inactive_since === null ? "aktiv" : "stillgelegt"],
-  },
 ];
 
 /**

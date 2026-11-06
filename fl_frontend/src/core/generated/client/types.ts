@@ -3765,10 +3765,10 @@ export interface FLPatchGrantPayload {
 }
 
 /**
- * What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.
+ * What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.
  *
- * Never `_SaisonSpielerPayload`'s child, which carries `team_id`: a representative moves no pupil
- * to another team, and `extra="forbid"` refuses that key.
+ * No player moves between teams, so `extra="forbid"` refuses `team_id`; it is also what refuses
+ * `is_nachnominiert`, which no edit sets or clears.
  */
 export interface FLPatchKaderRowPayload {
   nummer: string | null;
@@ -3862,21 +3862,6 @@ export interface FLPatchSaisonPayload {
 
 export interface FLPatchSaisonResponse {
   version: number;
-}
-
-/**
- * Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.
- *
- * `team_id` is editable here: a mid-season transfer is a change to the junction row.
- */
-export interface FLPatchSaisonSpielerPayload {
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  rolle: FLSpielerRolle | null;
-  stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  version?: number | null;
 }
 
 /**
@@ -4228,26 +4213,6 @@ export interface FLPostSaisonPayload {
 
 export interface FLPostSaisonResponse {
   created_id: string;
-}
-
-/**
- * One player's membership of one team's squad for one season.
- *
- * Every field is required, including those a squad often does not know: a caller states `null`
- * rather than omitting, so the answer is theirs and not a default nobody chose.
- */
-export interface FLPostSaisonSpielerPayload {
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  rolle: FLSpielerRolle | null;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  saison_id: string;
-  stufe: FLSpielerStufe | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
 }
 
 /**
@@ -5828,14 +5793,10 @@ export interface FLSpieleSpielplanAdminResponse {
 
 /**
  * The same player echoed back to the admin who just wrote them, with their whole name.
- *
- * `inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public
- * surface renders a pupil's leaving date.
  */
 export interface FLSpielerAdminSingleResponse {
   /** @minLength 1 */
   first_name: string;
-  inactive_since: string | null;
   last_name: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
@@ -5859,14 +5820,6 @@ export interface FLSpielerMembership {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   version: number;
-}
-
-/**
- * Whether an entry into this season's squads today would be marked a Nachnominierung.
- */
-export interface FLSpielerNachnominierungResponse {
-  nachnominierung: boolean;
-  saison_id: string;
 }
 
 /**
@@ -5899,14 +5852,13 @@ export interface FLSpielerWithMemberships {
   first_name: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  inactive_since: string | null;
   last_name: string | null;
   memberships: FLSpielerMembership[];
   version: number;
 }
 
 /**
- * Every player, retired ones included, each with their squad rows. Sorted by name.
+ * Every player, each with their squad rows. Sorted by name.
  */
 export interface FLSpielerSaisonsResponse {
   spieler: FLSpielerWithMemberships[];

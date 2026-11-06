@@ -18,8 +18,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import accept_bewerbung
 from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload
-from app.api.spieler.admin_router import patch_saison_spieler, post_saison_spieler, reactivate_saison_spieler
-from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload
+from app.api.spieler.admin_router import reactivate_saison_spieler
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.teams.admin_router import patch_saison_team, post_saison_team
@@ -234,104 +233,47 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
         assert anchor == 1
 
 
-class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
-    """One free place in the squad when both writers judge, and none when the second one writes.
-
-    Three verbs reach one helper, so each is driven against a rival add.
-    """
+class TestASecondReturnLandingMidReturnIsJudgedAgain:
+    """One free place in the squad when both returns judge, and none when the second one writes."""
 
     def _squad_seed(self) -> dict[str, list[Any]]:
-        """A squad one short of the cap, plus a second club for the transfer and a retired row for the return."""
+        """A squad one short of the cap, and two retired rows each with a claim on the last place."""
 
         return {
             Collection.SAISONS: [saison_document()],
-            Collection.TEAMS: [team_document(1), team_document(2)],
-            Collection.SAISON_TEAMS: [junction_document(1, "A"), junction_document(2, "B")],
-            Collection.SPIELER: [spieler_document(index) for index in [*range(1, MAX_KADER_SIZE), 90, 91, 92]],
+            Collection.TEAMS: [team_document(1)],
+            Collection.SAISON_TEAMS: [junction_document(1, "A")],
+            Collection.SPIELER: [spieler_document(index) for index in [*range(1, MAX_KADER_SIZE), 91, 92]],
             Collection.SAISON_SPIELER: [
                 *(squad_document(index, 1) for index in range(1, MAX_KADER_SIZE)),
-                # Its club is the OTHER one, so the transfer below moves a live row into the full
-                # squad rather than a row already counted in it.
-                squad_document(91, 2),
-                # Retired, so its place is free and the return has to claim one.
+                squad_document(91, 1, inactive_since="2026-02-01"),
                 squad_document(92, 1, inactive_since="2026-02-01"),
             ],
         }
 
-    async def _add(self, database: AsyncDatabase, client: AsyncMongoClient, index: int, saisons: Any) -> Any:
-        return await post_saison_spieler(
+    async def _bring_back(self, database: AsyncDatabase, client: AsyncMongoClient, index: int, saisons: Any) -> Any:
+        return await reactivate_saison_spieler(
             spieler_id=oid(2000 + index),
-            saison_spieler_data=FLPostSaisonSpielerPayload(
-                saison_id=SAISON,
-                team_id=oid(1),
-                nummer=str(index),
-                position="Angriff",
-                stufe="Q2",
-                rolle=None,
-            ),
-            spieler_collection=database[Collection.SPIELER],
+            saison_id=SAISON,
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=saisons,
             db=client,
-            today=STANDING_FIRST,
         )
 
-    def _run(self, url: str, under_test: Callable[[AsyncDatabase, AsyncMongoClient, Any], Awaitable[Any]]) -> Any:
+    def test_a_return_is_refused_on_the_place_a_rival_return_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def the_rival_takes_the_place() -> None:
-                await self._add(database, client, 90, database[Collection.SAISONS])
+                await self._bring_back(database, client, 91, database[Collection.SAISONS])
 
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
-            outcome = await outcome_of(under_test(database, client, seasons))
+            outcome = await outcome_of(self._bring_back(database, client, 92, seasons))
 
             squad = await database[Collection.SAISON_SPIELER].count_documents({"saison_id": SAISON, "team_id": oid(1), "inactive_since": None})
 
             return outcome, seasons.season_reads, squad, await anchor_now(database)
 
-        return on_a_league(url, body, self._squad_seed())
-
-    def test_an_add_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
-        outcome, season_reads, squad, anchor = self._run(
-            mongo_replica_set_url, lambda database, client, saisons: self._add(database, client, 91, saisons)
-        )
-
-        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
-        assert (season_reads, anchor) == (2, 1), (
-            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
-        )
-
-    def test_a_transfer_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
-        async def transfer(database: AsyncDatabase, client: AsyncMongoClient, saisons: Any) -> Any:
-            return await patch_saison_spieler(
-                spieler_id=oid(2091),
-                saison_id=SAISON,
-                saison_spieler_data=FLPatchSaisonSpielerPayload(team_id=oid(1), nummer="91", position="Angriff", stufe="Q2", rolle=None),
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=saisons,
-                db=client,
-            )
-
-        outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, transfer)
-
-        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
-        assert (season_reads, anchor) == (2, 1), (
-            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
-        )
-
-    def test_a_return_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
-        async def bring_back(database: AsyncDatabase, client: AsyncMongoClient, saisons: Any) -> Any:
-            return await reactivate_saison_spieler(
-                spieler_id=oid(2092),
-                saison_id=SAISON,
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=saisons,
-                db=client,
-            )
-
-        outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, bring_back)
+        outcome, season_reads, squad, anchor = on_a_league(mongo_replica_set_url, body, self._squad_seed())
 
         assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
         assert (season_reads, anchor) == (2, 1), (

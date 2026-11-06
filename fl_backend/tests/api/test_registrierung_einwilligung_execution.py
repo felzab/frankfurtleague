@@ -211,15 +211,10 @@ class TestWhatALinkOpens:
 
         assert response.page == PAGE_NEW
 
-    @pytest.mark.parametrize(
-        "person",
-        [spieler_document(SPIELER_OID), spieler_document(SPIELER_OID, inactive_since="2025-07-01")],
-        ids=("a person in the league", "a person who left it"),
-    )
-    def test_a_returning_pupil_is_told_a_date_is_stored_and_shown_none_of_it(self, mongo_replica_set_url: str, person: dict[str, Any]):
+    def test_a_returning_pupil_is_told_a_date_is_stored_and_shown_none_of_it(self, mongo_replica_set_url: str):
         """A returning pupil's page asks neither a choice nor the stored birthdate, and the link serves none of the three."""
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), spieler=[person])
+        response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW), spieler=[spieler_document(SPIELER_OID)])
 
         assert response.page == PAGE_RETURNING
         assert A_RETURNING_PUPILS_BIRTHDATE not in response.model_dump_json()

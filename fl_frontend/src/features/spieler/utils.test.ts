@@ -27,7 +27,6 @@ const SPIELER: FLSpielerWithMemberships = {
   id: "6890a1b2c3d4e5f607180003",
   first_name: "X",
   last_name: null,
-  inactive_since: null,
   birth_date: "2009-05-04",
   // As the pupil's own confirmation stamps it, each choice evidenced under its wording.
   einwilligung: {
@@ -47,17 +46,10 @@ const SPIELER: FLSpielerWithMemberships = {
   version: 0,
 };
 
-function person(
-  id: string,
-  memberships: Partial<FLSpielerMembership>[],
-  // The PERSON's own retirement, which is a different fact from any row's: separate here because the
-  // squad count deliberately ignores it.
-  personInactiveSince: string | null = null,
-): FLSpielerWithMemberships {
+function person(id: string, memberships: Partial<FLSpielerMembership>[]): FLSpielerWithMemberships {
   return {
     ...SPIELER,
     id,
-    inactive_since: personInactiveSince,
     memberships: memberships.map((membership) => ({ ...MEMBERSHIP, ...membership })),
   };
 }
@@ -167,7 +159,7 @@ describe("countLiveSquadRows", () => {
       exceptSpielerId: null,
     });
 
-    expect(counts[TEAM_A]).toBe(1);
+    expect(counts[TEAM_A]).toBe(undefined);
   });
 
   /* Absent rather than zero, as `collectHeldRollen` reports no holder: one shape for "this club has

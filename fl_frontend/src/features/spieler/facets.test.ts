@@ -28,7 +28,6 @@ function squadRow(id: string, stufe: FLSpielerStufe, { istNachnominiert = false 
     first_name: "X",
     last_name: null,
     fullName: "X",
-    inactive_since: null,
     selected: {
       team_id: TEAMS[0]!.teamId,
       nummer: null,

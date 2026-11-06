@@ -288,7 +288,6 @@ def spieler_document(spieler_id: Any, first_name: str, last_name: str | None, **
         "email": f"{spieler_id}@schule.example".lower(),
         "birth_date": "2009-05-04",
         "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
-        "inactive_since": None,
         **fields,
     }
 

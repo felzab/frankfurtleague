@@ -8,7 +8,7 @@ from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
-from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SPIELER_ID
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -101,7 +101,6 @@ def build_ghost_spieler() -> dict[str, Any]:
         "last_name": None,
         "einwilligung": None,
         "birth_date": None,
-        "inactive_since": GHOST_INACTIVE_SINCE,
     }
 
 
@@ -154,9 +153,8 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
     squad_match: dict[str, Any] = {
         "team_id": team_id,
         "saison_id": saison_id,
-        # The SQUAD ROW's retirement, and only ever that (`READ-SQUAD-001`): the same term on the
-        # person would take a retired person's squad entries down with them. No switch: this tier
-        # marks no row it would un-hide (`READ-SQUAD-002`).
+        # The SQUAD ROW's retirement (`READ-SQUAD-001`). No switch: this tier marks no row it would
+        # un-hide (`READ-SQUAD-002`).
         "inactive_since": None,
         # The sentinel, so it never joins a squad row whatever the rows hold.
         "spieler_id": dict(_NOT_THE_GHOST),
@@ -415,7 +413,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
 
 
 def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
-    """The one pupil row this address holds, retired or not, a withdrawal reaching it either way.
+    """The one pupil row this address holds.
 
     The `$type` term is the unique index's partial filter, which an equality alone does not imply.
     """
@@ -435,7 +433,7 @@ def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "inactive_since": 1, "einwilligung": 1}},
+        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "einwilligung": 1}},
         {
             "$lookup": {
                 "from": Collection.SAISON_SPIELER,

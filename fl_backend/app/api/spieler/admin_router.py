@@ -7,20 +7,15 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import denied_addresses
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.saisons.crud import nachnominierung_laeuft_in
-from app.api.saisons.services import has_started
 from app.api.spieler.crud import (
-    pull_a_person_to_enter,
     refuse_a_full_squad,
     refuse_a_taken_rolle,
 )
 from app.api.spieler.schemas import (
-    FLPatchSaisonSpielerPayload,
+    FLPatchKaderRowPayload,
     FLPatchSpielerPayload,
-    FLPostSaisonSpielerPayload,
     FLSaisonSpielerResponse,
     FLSpielerAdminSingleResponse,
-    FLSpielerNachnominierungResponse,
     FLSpielerSaisonsResponse,
     FLSpielerWithMemberships,
 )
@@ -35,7 +30,6 @@ from app.core.crud import (
     VERSION_FIELD,
     aggregate_many_from_db,
     patch_one_in_db,
-    post_one_to_db,
     pull_one_from_db,
     refuse,
     set_inactive_since,
@@ -63,13 +57,12 @@ router = APIRouter(
 
 
 def _as_single(document: Mapping[str, Any]) -> FLSpielerAdminSingleResponse:
-    """The admin tier's echo: the surname whole, and the retirement date `DELETE` and `reactivate` exist to set."""
+    """The admin tier's echo: the surname whole."""
 
     return FLSpielerAdminSingleResponse(
         spieler_id=document["_id"],
         first_name=document["first_name"],
         last_name=document.get("last_name"),
-        inactive_since=document.get("inactive_since"),
         version=document.get(VERSION_FIELD, 0),
     )
 
@@ -100,7 +93,7 @@ async def get_spieler_saisons(
     auth_time: int = Depends(get_actor_auth_time),
 ) -> FLSpielerSaisonsResponse:
     """
-    Every player, retired ones included, each with every squad row they hold.
+    Every player, each with every squad row they hold.
 
     A club page's squad cannot answer it: it serves one team's squad in one season, and so never a
     player outside that squad or their other rows.
@@ -126,29 +119,6 @@ async def get_spieler_saisons(
             FLSpielerWithMemberships.model_validate({**spieler, "address_change_viewable_denied": denied.get(str(spieler.get("email")))})
             for spieler in spieler_raw
         ]
-    )
-
-
-@router.get(
-    "/nachnominierung/{saison_id}",
-    response_model=FLSpielerNachnominierungResponse,
-    summary="Whether a squad entry into a season today is a Nachnominierung",
-)
-async def get_spieler_nachnominierung(
-    saison_id: str,
-    saisons_collection: SaisonsCollection,
-    today: str = Depends(get_german_date_str),
-) -> FLSpielerNachnominierungResponse:
-    """
-    Whether a player entered into this season's squads today would be marked a Nachnominierung.
-
-    `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the season's
-    `start_date` on. 404 where no season has this id.
-    """
-
-    return FLSpielerNachnominierungResponse(
-        saison_id=saison_id,
-        nachnominierung=await nachnominierung_laeuft_in(saisons_collection=saisons_collection, saison_id=saison_id, today=today),
     )
 
 
@@ -181,139 +151,6 @@ async def patch_spieler(
     return _as_single(updated_raw)
 
 
-@router.delete(
-    by_id("spieler_id"),
-    response_model=FLSpielerAdminSingleResponse,
-    summary="Retire a Spieler (soft delete)",
-)
-async def delete_spieler(
-    spieler_id: CustomRouteObjectId,
-    spieler_collection: SpielerCollection,
-    db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLSpielerAdminSingleResponse:
-    """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
-
-    async def retire_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=today, session=session)
-
-    async with transaction_session(db) as session:
-        updated_raw = await session.with_transaction(retire_the_player)
-
-    return _as_single(updated_raw)
-
-
-@router.post(
-    f"{by_id('spieler_id')}/reactivate",
-    response_model=FLSpielerAdminSingleResponse,
-    summary="Bring a retired Spieler back",
-)
-async def reactivate_spieler(
-    spieler_id: CustomRouteObjectId,
-    spieler_collection: SpielerCollection,
-    db: DBClient,
-) -> FLSpielerAdminSingleResponse:
-    """Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate."""
-
-    async def bring_the_person_back(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=None, session=session)
-
-    async with transaction_session(db) as session:
-        updated_raw = await session.with_transaction(bring_the_person_back)
-
-    return _as_single(updated_raw)
-
-
-@router.post(
-    f"{by_id('spieler_id')}/saisons",
-    response_model=FLSaisonSpielerResponse,
-    status_code=201,
-    summary="Add a Spieler to a squad",
-)
-async def post_saison_spieler(
-    spieler_id: CustomRouteObjectId,
-    saison_spieler_data: Annotated[FLPostSaisonSpielerPayload, Body()],
-    spieler_collection: SpielerCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLSaisonSpielerResponse:
-    """
-    Put a player in a team's squad for a season.
-
-    404 where no player has this id. One row per player per season: moving a player is a PATCH of
-    `team_id`, and a repeat is a 409 even where the row is retired. A
-    squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
-    taken from the body: it is true from the season's `start_date` on.
-    """
-
-    async def add_the_player(session: AsyncClientSession) -> dict[str, Any]:
-        """Judge, then write the row. Everything judged is read in-session, the squad's own count inside `refuse_a_full_squad`."""
-
-        await pull_a_person_to_enter(spieler_collection=spieler_collection, spieler_id=spieler_id, session=session)
-
-        # The club has to be in the season, and that fact lives in another collection.
-        team_in_saison = (
-            await saison_teams_collection.count_documents(
-                {"saison_id": saison_spieler_data.saison_id, "team_id": saison_spieler_data.team_id}, limit=1, session=session
-            )
-        ) > 0
-        # Asked first: a cap on a squad the club does not have is not a fact worth reporting.
-        refuse(find_squad_refusal(team_in_saison=team_in_saison))
-
-        saison_raw = await pull_one_from_db(
-            collection=saisons_collection,
-            db_filter={"_id": saison_spieler_data.saison_id},
-            projection=["rules", "start_date"],
-            session=session,
-        )
-        await refuse_a_full_squad(
-            saison_spieler_collection=saison_spieler_collection,
-            saisons_collection=saisons_collection,
-            saison_id=saison_spieler_data.saison_id,
-            rules=saison_raw["rules"],
-            team_id=saison_spieler_data.team_id,
-            spieler_id=spieler_id,
-            session=session,
-        )
-
-        # Last of the three: a role is the least of a caller's problems where the club is not in the
-        # season or the squad has no room.
-        await refuse_a_taken_rolle(
-            saison_spieler_collection=saison_spieler_collection,
-            saisons_collection=saisons_collection,
-            saison_id=saison_spieler_data.saison_id,
-            team_id=saison_spieler_data.team_id,
-            spieler_id=spieler_id,
-            rolle=saison_spieler_data.rolle,
-            session=session,
-        )
-
-        # Stated here rather than through `insert_live`: the echo below reads THIS dict and not the
-        # driver's result, so a field the helper added would be missing from the answer.
-        document = {
-            "spieler_id": spieler_id,
-            **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
-            "team_id": saison_spieler_data.team_id,
-            # The start every start lock reads, off the one read of the season the cap is judged on.
-            "is_nachnominiert": has_started(start_date=saison_raw["start_date"], today=today),
-            "inactive_since": None,
-        }
-        await post_one_to_db(collection=saison_spieler_collection, document=document, session=session)
-
-        return document
-
-    # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
-    # makes two writers into one squad contend, and a moved start contend with the marker: the squad
-    # write anchors the season document `PATCH /saisons/{saison_id}` writes the start to.
-    async with transaction_session(db) as session:
-        entered = await session.with_transaction(add_the_player)
-
-    return _as_junction(entered)
-
-
 @router.patch(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
@@ -322,51 +159,34 @@ async def post_saison_spieler(
 async def patch_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
-    saison_spieler_data: Annotated[FLPatchSaisonSpielerPayload, Body()],
+    saison_spieler_data: Annotated[FLPatchKaderRowPayload, Body()],
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLSaisonSpielerResponse:
     """
-    Update a player's squad entry for that season.
+    Update a player's squad entry for that season. The team stays the stored row's: no player moves between teams.
 
-    Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
-    (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
-    (`kader_rolle_taken`).
+    A DUPLICATE `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose); a `rolle`
+    another live row holds is not (`kader_rolle_taken`).
     """
 
-    async def move_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def edit_the_row(session: AsyncClientSession) -> Mapping[str, Any]:
         """Judge, then rewrite the row. Everything judged is read in-session."""
 
-        # The one fact `find_squad_refusal` decides on, and it lives in another collection.
-        team_in_saison = (
-            await saison_teams_collection.count_documents(
-                {"saison_id": saison_id, "team_id": saison_spieler_data.team_id}, limit=1, session=session
-            )
-        ) > 0
-        refuse(find_squad_refusal(team_in_saison=team_in_saison))
-
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
-        # The team the payload NAMES, never the one the row currently holds: a transfer is judged
-        # against where the player is going.
-        await refuse_a_full_squad(
-            saison_spieler_collection=saison_spieler_collection,
-            saisons_collection=saisons_collection,
-            saison_id=saison_id,
-            rules=saison_raw["rules"],
-            team_id=saison_spieler_data.team_id,
-            spieler_id=spieler_id,
+        # Read for its `team_id`, the squad the role is judged in; the 404 where the player holds no row in this season.
+        stored_raw = await pull_one_from_db(
+            collection=saison_spieler_collection,
+            db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
+            projection=["team_id"],
             session=session,
         )
 
-        # Judged against the team the PAYLOAD names, as the cap is: a transfer takes the armband to
-        # the squad it is joining.
         await refuse_a_taken_rolle(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
-            team_id=saison_spieler_data.team_id,
+            team_id=stored_raw["team_id"],
             spieler_id=spieler_id,
             rolle=saison_spieler_data.rolle,
             session=session,
@@ -375,21 +195,16 @@ async def patch_saison_spieler(
         return await patch_one_in_db(
             collection=saison_spieler_collection,
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
-            update={
-                "$set": {
-                    **saison_spieler_data.model_dump(mode="json", exclude={"team_id", "version"}),
-                    "team_id": saison_spieler_data.team_id,
-                }
-            },
+            update={"$set": saison_spieler_data.model_dump(mode="json", exclude={"version"})},
             expected_version=saison_spieler_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
 
     async with transaction_session(db) as session:
-        moved = await session.with_transaction(move_the_player)
+        edited = await session.with_transaction(edit_the_row)
 
-    return _as_junction(moved)
+    return _as_junction(edited)
 
 
 @router.delete(

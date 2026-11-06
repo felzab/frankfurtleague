@@ -203,8 +203,8 @@ async def admit(
     asked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page
     leaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's
     name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
-    person, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs
-    stands, asked over the address this admission proves again.
+    person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
+    this admission proves again.
 
     The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived
     today; this person's retired row of this season is rewritten rather than a second one written, whichever team

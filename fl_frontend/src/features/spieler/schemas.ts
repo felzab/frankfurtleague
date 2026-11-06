@@ -42,18 +42,6 @@ export const FLPatchSpielerPayloadSchema = z.object({
 });
 export type FLPatchSpielerPayload = z.infer<typeof FLPatchSpielerPayloadSchema>;
 
-// Redesign: goes with its last importer.
-export const FLDeleteSpielerPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLDeleteSpielerPayload = z.infer<typeof FLDeleteSpielerPayloadSchema>;
-
-// Redesign: goes with its last importer.
-export const FLReactivateSpielerPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLReactivateSpielerPayload = z.infer<typeof FLReactivateSpielerPayloadSchema>;
-
 // Named rather than written into the field below.
 const SQUAD_NUMMER_REGEX = /^\d{1,4}$/;
 
@@ -62,7 +50,6 @@ const SQUAD_NUMMER_REGEX = /^\d{1,4}$/;
  * input would make `z.infer` disagree with what the form holds, which the squad editor's draft is typed by.
  */
 const saisonSpielerPayloadFields = {
-  team_id: CustomObjectIdStringSchema,
   // A string on the wire — worn rather than counted — but free text was never meant to admit a name.
   nummer: z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS }).nullable(),
   position: FLSpielerPositionSchema.nullable(),
@@ -71,15 +58,6 @@ const saisonSpielerPayloadFields = {
   // not a flag per role, so holding both at once cannot be expressed.
   rolle: FLSpielerRolleSchema.nullable(),
 };
-
-// Redesign: goes with its last importer.
-export const FLPostSaisonSpielerPayloadSchema = z.object({
-  // In the PATH on the wire; carried here because the form has to know which player it is entering.
-  spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
-  ...saisonSpielerPayloadFields,
-});
-export type FLPostSaisonSpielerPayload = z.infer<typeof FLPostSaisonSpielerPayloadSchema>;
 
 // Redesign: goes with its last importer.
 export const FLPatchSaisonSpielerPayloadSchema = z.object({

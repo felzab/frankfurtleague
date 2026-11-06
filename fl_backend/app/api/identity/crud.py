@@ -110,11 +110,10 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
     holder.
     """
 
-    # Live rows alone, here and in the flag: a retired person and a withdrawn team grant nothing, and
+    # Live rows alone, here and in the flag: a retired referee and a withdrawn team grant nothing, and
     # confirming one would open nothing.
     live_seat_rows = [row for row in seat_rows if not_exited(row)]
     live_schiedsrichter = [row for row in referee_rows if is_live(row) and folds_to((row.get("kontakt") or {}).get("email"), identifier)]
-    live_spieler = [row for row in pupil_rows if is_live(row)]
 
     # Every live seat naming the address and not only its confirmed ones: the flag below reads an
     # unconfirmed seat's season too, so a seat whose season has no row stays loud whichever list counts it.
@@ -138,7 +137,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
             for row in live_seat_rows
             for slot in own_seats(row, identifier)
         ],
-        spieler=[FLSubjectSpieler(spieler_id=row["_id"]) for row in live_spieler if is_own_spieler(row)],
+        spieler=[FLSubjectSpieler(spieler_id=row["_id"]) for row in pupil_rows if is_own_spieler(row)],
         schiedsrichter=[
             FLSubjectSchiedsrichter(schiedsrichter_id=row["_id"]) for row in live_schiedsrichter if is_own_schiedsrichter(row, identifier)
         ],
@@ -150,7 +149,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
                 for row, slot in seats_naming(live_seat_rows, identifier)
                 if grants_a_panel(statuses[row["saison_id"]])
             ]
-            + [is_confirmed(row.get("einwilligung")) for row in [*live_spieler, *live_schiedsrichter]]
+            + [is_confirmed(row.get("einwilligung")) for row in [*pupil_rows, *live_schiedsrichter]]
         ),
     )
 

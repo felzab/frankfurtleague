@@ -6,7 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
 from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
-from app.api.saisons.services import has_started, next_saison_id
+from app.api.saisons.services import next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
@@ -163,18 +163,6 @@ async def count_spiele_by_saison(*, spiele_collection: ReadCollection, saison_id
     )
 
     return {str(row["_id"]): int(row["spiele"]) for row in rows}
-
-
-async def nachnominierung_laeuft_in(*, saisons_collection: ReadCollection, saison_id: str, today: str) -> bool:
-    """Whether an entry into this season's squads on `today` is a Nachnominierung: one made once the season has started.
-
-    The start every start lock reads (`app/api/saisons/services.py :: has_started`), so the marker and the locks
-    cannot disagree about when the season began. 404 where no season has this id.
-    """
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["start_date"])
-
-    return has_started(start_date=saison_raw["start_date"], today=today)
 
 
 async def pull_saison_id_and_rules(

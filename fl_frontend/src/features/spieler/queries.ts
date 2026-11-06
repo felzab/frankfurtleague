@@ -1,27 +1,16 @@
 import { cache } from "react";
 
-import { spielerGetKader, spielerGetSelf, spielerGetSpielerNachnominierung, spielerGetSpielerSaisons } from "@/core/generated/client/sdk";
+import { spielerGetKader, spielerGetSelf, spielerGetSpielerSaisons } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 
-import type {
-  FLKaderResponse,
-  FLSpielerNachnominierungResponse,
-  FLSpielerSaisonsResponse,
-  FLSpielerSelfResponse,
-} from "@/core/generated/client/types";
+import type { FLKaderResponse, FLSpielerSaisonsResponse, FLSpielerSelfResponse } from "@/core/generated/client/types";
 
 /**
  * The public squad read, a club page's squad, cannot serve the admin surfaces: it is one club's in one season.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
 export const getSpielerSaisons = cache(async (): Promise<FLSpielerSaisonsResponse> => runAdminRead(() => spielerGetSpielerSaisons()));
-
-/** Whether the squad create would mark an entry into this season a Nachnominierung today. */
-// Never `"use cache"`, for `getSpielerSaisons`' reason, and because the answer turns over at midnight.
-export const getSpielerNachnominierung = cache(async (saisonId: string): Promise<FLSpielerNachnominierungResponse> =>
-  runAdminRead(() => spielerGetSpielerNachnominierung(saisonId)),
-);
 
 /**
  * One team's squad as its seat holder reads it, refused `role_not_held` where the backend does not

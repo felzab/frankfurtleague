@@ -332,7 +332,7 @@ def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"einwilligung.confirmed_at": 1, "inactive_since": 1}},
+        {"$project": {"einwilligung.confirmed_at": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -447,7 +447,7 @@ def own_entries(
 
 
 def is_live(row: Mapping[str, Any]) -> bool:
-    """A pupil or referee row not retired: only such a row grants its Funktion."""
+    """A referee row not retired: only such a row grants its Funktion."""
 
     return row.get("inactive_since") is None
 

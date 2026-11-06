@@ -1,6 +1,5 @@
 import { FLSpielerPosition, FLSpielerStufe } from "@/core/generated/client/types";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
-import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FLEinwilligungScope, FLSpielerRolle } from "@/core/generated/client/types";
 
@@ -80,21 +79,8 @@ export const NUMMER_MAX_LENGTH = 4;
  */
 export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern.`;
 
-/**
- * Neutral throughout, as every sentence naming a pupil is: half the league's squads are girls, and a
- * masculine demonstrative or pronoun here names the wrong person for them.
- */
-export const RETIREMENT_CONSEQUENCE =
-  "Die Kadereinträge dieser Person bleiben in jeder Saison erhalten. Für neue Kader steht sie nicht mehr zur Auswahl.";
-
 /** The pupil editor's squad panel, named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
 export const KADER_ABSCHNITT = "Kader";
-
-/**
- * The state after a retirement, which the editor's banner shows for as long as it lasts and the
- * action toasts once. Two readers meeting different words would read them as two different states.
- */
-export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person bleiben erhalten.";
 
 /**
  * `kader_team_not_in_saison` in German for a reader standing where it is repaired — the REPAIR rather than the
@@ -121,12 +107,6 @@ export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
 export const REACTIVATION_NEEDS_ROOM_IN_SQUAD =
   "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln oder trage " +
   "zuerst einen anderen Spieler aus.";
-
-// The index spans retired rows and creating never revives, so the message names the one path that does.
-export const ALREADY_IN_SAISON = buildRefusal({
-  reason: "Diese Person hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
-  repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
-});
 
 // Its own constant: the referee slice's names a row an erasure emptied, and this one a row still
 // stored with its name withheld at read time.

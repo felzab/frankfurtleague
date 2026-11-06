@@ -128,7 +128,6 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/account/einwilligungen": "the signed-in person's own consent records, served to that person alone",
     "/api/v0/account/address_change": "the signed-in person's own pending address change, served to that person alone",
     "/api/v0/identity/account/erasure/view": "the signed-in person's own records an erasure would remove, by name and with no address",
-    "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
     "/api/v0/spieltage/list/admin": "spieltage",
     "/api/v0/spieltage/{spieltag_id:objectid}/admin": "one matchday",
     "/api/v0/spielorte": "venues",
