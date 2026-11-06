@@ -1498,14 +1498,23 @@ class TestTheSeasonRowSeatClock:
                 }
             },
         )
-        await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
-            {**open_confirmation(CLUB_OID), "answer": documents.kontakt_answer_document("stellvertretung", reason="Wir sind auf Klassenfahrt")}
-        )
-        # A recorded write, so the log holds an image of the seats as they stand now.
+        confirmation = {
+            **open_confirmation(CLUB_OID),
+            "answer": documents.kontakt_answer_document("stellvertretung", reason="Wir sind auf Klassenfahrt"),
+        }
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_one(confirmation)
+        # Recorded writes, so the log holds an image of the seats, and of the links, as they stand now.
         await patch_one_in_db(
             collection=database[Collection.SAISON_TEAMS],
             db_filter={"_id": JUNCTION_OID},
             update={"$set": {"gruppe": "A"}},
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
+        )
+        await patch_one_in_db(
+            collection=database[Collection.SPIELBESTAETIGUNGEN],
+            db_filter={"_id": confirmation["_id"]},
+            update={"$set": {"reminded_at": None}},
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
@@ -1516,16 +1525,19 @@ class TestTheSeasonRowSeatClock:
             response = await sweep(database, client)
             with pytest.raises(APIError) as refused:
                 await view(database, "row-stellvertretung")
+            confirmation = await database[Collection.SPIELBESTAETIGUNGEN].find_one({})
+            assert confirmation is not None
 
             return (
                 response,
                 await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
                 await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
-                await database[Collection.SPIELBESTAETIGUNGEN].find_one({}),
+                confirmation,
+                await log_rows_naming(database, Collection.SPIELBESTAETIGUNGEN, confirmation["_id"]),
                 refused.value.error_code,
             )
 
-        response, row, images, confirmation, refusal = on_a_league(mongo_replica_set_url, body)
+        response, row, images, confirmation, link_images, refusal = on_a_league(mongo_replica_set_url, body)
 
         assert (row["kontakte"]["ansprechperson"], row["kontakte"]["stellvertretung"]) == (None, None)
         assert (row["confirmations"]["ansprechperson"], row["confirmations"]["stellvertretung"]) == (None, None)
@@ -1542,6 +1554,12 @@ class TestTheSeasonRowSeatClock:
         assert confirmation["answer"]["reason"] is None
         assert confirmation["kontakte"]["stellvertretung"] is None
         assert confirmation["kontakte"]["trainer"] is not None
+
+        # The lapsed person's link leaves the log with them, and the confirmed seat's stands.
+        assert link_images
+        for image in link_images:
+            assert image["before"]["kontakte"]["stellvertretung"] is None
+            assert image["before"]["kontakte"]["trainer"] is not None
 
     def test_a_past_seasons_seat_goes_on_its_day_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
         """The mail's promise holds for a link minted shortly before a rollover: only a confirmed seat is the season's record."""
@@ -1949,17 +1967,24 @@ class TestTheSeasonsEndStripsItsConfirmations:
         """A replaced club's row the installed validator refuses, which no block clearing writes: the strip alone meets it."""
 
         refused = {key: value for key, value in a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID).items() if key != "deadline"}
+        opened = open_confirmation(CLUB_OID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([refused, opened])
             await refuse_writes_breaking(database, Collection.SPIELBESTAETIGUNGEN, {"required": ["deadline"]})
             with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
-            return response, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+            return (
+                response,
+                await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
+                await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": opened["_id"]}),
+            )
 
-        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
+        response, junction, confirmation = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
 
         assert (response.kontakt_blocks_emptied, response.failed, junction["kontakte"]) == (1, 1, None)
+        # The strip rolled back, so the block's own void alone took the cleared people's links: a strip that stands nulls them either way.
+        assert confirmation["kontakte"] == dict.fromkeys(KONTAKT_ROLLEN)
         assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
             ("ERROR", "Season", SAISON_ID, "confirmation strip")
         ]
