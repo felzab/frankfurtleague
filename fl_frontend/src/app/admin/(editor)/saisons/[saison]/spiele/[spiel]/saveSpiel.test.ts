@@ -56,9 +56,7 @@ const SENT_AS_STORED = {
 const NOTHING_MOVED: FLPatchSpielDataResponse = {
   advanced_to: [],
   released_sides: [],
-  bracket_faults: [],
   version: 4,
-  bericht_adopted: null,
   recipients: null,
   voided_results: [],
 };

@@ -314,13 +314,13 @@ async def stamp_the_adoption(
     now: datetime,
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
-) -> bool:
-    """Stamp the report adopted at `version`, matching it only while it still stands there, and say whether it did.
+) -> None:
+    """Stamp the report adopted at `version`, matching it only while it still stands there.
 
     A fan-out rather than `patch_one_in_db`, whose miss would raise and take the fixture's save with it.
     """
 
-    stamped = await patch_many_in_db(
+    await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.sides.{side}": sides[side] for side in SIDES}},
         update={
@@ -332,8 +332,6 @@ async def stamp_the_adoption(
         },
         session=session,
     )
-
-    return stamped.matched_count > 0
 
 
 async def repoint_pupil_entries_in_session(

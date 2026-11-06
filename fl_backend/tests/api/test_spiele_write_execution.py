@@ -415,9 +415,9 @@ def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-# What only one of the two answers carries: the save's count of writes and whether it stamped an adoption, and the
-# preview's parties the confirmation pass would mail.
-SAVE_ONLY = frozenset({"version", "bericht_adopted", "recipients"})
+# What only one of the two answers carries: the save's count of writes, and the preview's parties the confirmation
+# pass would mail.
+SAVE_ONLY = frozenset({"version", "recipients"})
 
 
 def but_its_bookkeeping(stored: Any) -> Any:
@@ -1287,7 +1287,7 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
         assert len(run.saved.advanced_to) == 1
         assert but_its_bookkeeping(run.preview) == but_its_bookkeeping(run.saved), "the preview answered differently from the save it previews"
 
-        assert (booking_faults(run.faults), booking_faults(run.saved.bracket_faults)) == (reported, [])
+        assert booking_faults(run.faults) == reported
 
 
 def a_lifted_no_show_beside_a_later_booking() -> list[dict[str, Any]]:
@@ -1316,8 +1316,6 @@ class TestALiftedNoShowDoubleBooksAndTheQueueNamesBoth:
 
         assert run.after_save[HALBFINALE_NR]["sonderereignis"] is None
         assert booking_faults(run.faults) == [(HALBFINALE_NR, "double_booked", "ort"), (GRUPPE_BESIDE_NR, "double_booked", "ort")]
-        # The queue's alone: the save's own report comes from the walk, which reads no booking.
-        assert booking_faults(run.saved.bracket_faults) == []
         assert booking_faults(after_the_move) == []
 
 
