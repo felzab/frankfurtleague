@@ -208,7 +208,9 @@ export function ScoreRowsPlaceholder() {
               width="w-24"
             />
           </span>
-          <span className={placeholderBar(`col-start-2 row-start-1 rounded-lg ${fieldFrame.variants.width.C2}`)} />
+          <span
+            className={placeholderBar(`col-start-2 row-start-1 rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width.C2}`)}
+          />
           <span className={messageLine({ class: "col-span-2 col-start-1 row-start-2" })} />
         </div>
       ))}
