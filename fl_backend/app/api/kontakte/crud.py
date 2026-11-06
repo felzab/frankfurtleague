@@ -88,7 +88,7 @@ async def remove_the_seats_reasons(
     await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_seat_reasons_filter(held),
-        update={"$set": {"antwort.begruendung": None}},
+        update={"$set": {"answer.reason": None}},
         session=session,
     )
 

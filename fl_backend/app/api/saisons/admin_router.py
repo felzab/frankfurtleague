@@ -22,13 +22,13 @@ from app.api.einladungen.schemas import (
 from app.api.einladungen.services import (
     LIVE_EINLADUNG,
     WITHOUT_TOKEN_HASH,
-    EinladungVersandPlan,
+    EinladungDispatchPlan,
     bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
     compose_revocation_update,
     find_saison_vorbei_refusal,
-    plan_einladung_versand,
+    plan_einladung_dispatch,
 )
 from app.api.identity.crud import due_count, saison_statuses
 from app.api.identity.schemas import FLErasurePreviewResponse
@@ -51,7 +51,7 @@ from app.api.saisons.schemas import (
     FLPostSaisonResponse,
     FLSaisonActRefusals,
     FLSaisonAdmin,
-    FLSaisonAdminClub,
+    FLSaisonAdminIncomingTeam,
     FLSaisonAdminListAdapter,
     FLSaisonAdminResponse,
     FLSaisonAdminTeam,
@@ -87,7 +87,7 @@ from app.api.saisons.services import (
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
-from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
+from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
@@ -265,7 +265,7 @@ async def get_saison_admin(
 
     Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
     `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
-    both before either is pressed. `incoming_clubs` is every club still in the league holding no row of the season,
+    both before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,
     which is what the replacement admits.
 
     `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
@@ -320,7 +320,7 @@ async def get_saison_admin(
                 session=None,
             ),
             _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=None),
-            count_eingereichte_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None),
+            count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None),
             _plan_the_dispatch(
                 saison_id=saison_id,
                 saison_teams_collection=saison_teams_collection,
@@ -387,13 +387,13 @@ async def get_saison_admin(
             FLSaisonAdminTeam.model_validate(
                 {
                     **row,
-                    "group_fixture_taken_place": has_played(row["team_id"], group_only=True),
-                    "fixture_taken_place": has_played(row["team_id"], group_only=False),
+                    "group_spiel_taken_place": has_played(row["team_id"], group_only=True),
+                    "spiel_taken_place": has_played(row["team_id"], group_only=False),
                 }
             )
             for row in rows
         ],
-        incoming_clubs=[FLSaisonAdminClub.model_validate(club) for club in clubs if club["_id"] not in entered],
+        incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(club) for club in clubs if club["_id"] not in entered],
         shapes=workable_shapes(saison.rules),
         spielplan=spielplan,
         refusals=FLSaisonActRefusals(
@@ -572,9 +572,9 @@ async def patch_saison(
         # no span until somebody sets one, and a null stringified to "None" sorts above every date and
         # would be reported as falling outside the season.
         spieltag_spans = [
-            (str(row["beginn"]), str(row["ende"]))
+            (str(row["start"]), str(row["end"]))
             async for row in spieltage_collection.find(
-                {"saison_id": saison_id, "beginn": {"$ne": None}, "ende": {"$ne": None}}, {"beginn": 1, "ende": 1}, session=session
+                {"saison_id": saison_id, "start": {"$ne": None}, "end": {"$ne": None}}, {"start": 1, "end": 1}, session=session
             )
         ]
 
@@ -695,9 +695,9 @@ async def _judge_the_activation(
     # has no repair, activation writing `status` one way only.
     target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
 
-    # In-session for `target_status`'s reason, and `beginn` alone: `ende` is dated with it, and a
+    # In-session for `target_status`'s reason, and `start` alone: `end` is dated with it, and a
     # matchday half-dated is a shape no write here produces.
-    undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "beginn": None}, session=session)
+    undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "start": None}, session=session)
 
     return outgoing_ids, find_activation_refusal(
         target_status=target_status,
@@ -1012,7 +1012,7 @@ async def post_spielplan(
         if spielplan_data.replace:
             refuse(
                 find_berichte_refusal(
-                    berichte=await count_eingereichte_berichte(
+                    berichte=await count_submitted_berichte(
                         spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
                     )
                 )
@@ -1101,7 +1101,7 @@ async def post_spielplan(
             # with this one on the season, and a correction on the report, but a document no write made does not.
             refuse(
                 find_berichte_refusal(
-                    berichte=await count_eingereichte_berichte(
+                    berichte=await count_submitted_berichte(
                         spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None
                     )
                 )
@@ -1179,7 +1179,7 @@ async def delete_spielplan(
             _find_undraw_refusal_of(
                 saison_status=str(saison_raw["status"]),
                 recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
-                berichte=await count_eingereichte_berichte(
+                berichte=await count_submitted_berichte(
                     spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
                 ),
             )
@@ -1211,7 +1211,7 @@ async def delete_spielplan(
         # The replace's reason.
         refuse(
             find_berichte_refusal(
-                berichte=await count_eingereichte_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
+                berichte=await count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
             )
         )
 
@@ -1262,7 +1262,7 @@ class _PlannedTeam(NamedTuple):
 
     team: Mapping[str, Any]
     live: Mapping[str, Any] | None
-    plan: EinladungVersandPlan
+    plan: EinladungDispatchPlan
 
 
 async def _plan_the_dispatch(
@@ -1272,7 +1272,7 @@ async def _plan_the_dispatch(
     invitations_collection: AsyncCollection,
     ban_list: BanList,
 ) -> list[_PlannedTeam]:
-    """Every team of the season planned by `plan_einladung_versand`, the function the press decides each team by.
+    """Every team of the season planned by `plan_einladung_dispatch`, the function the press decides each team by.
 
     `resend` left false, as the editor's press sends it. Read outside any transaction, for the editor's read: the press
     plans each team again in its own.
@@ -1295,7 +1295,7 @@ async def _plan_the_dispatch(
     planned: list[_PlannedTeam] = []
     for team in entered:
         einladung_raw = by_team.get(team["team_id"])
-        plan = plan_einladung_versand(
+        plan = plan_einladung_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=einladung_raw,
@@ -1350,7 +1350,7 @@ async def _mail_one_team(
             projection=dict(WITHOUT_TOKEN_HASH),
             session=session,
         )
-        plan = plan_einladung_versand(
+        plan = plan_einladung_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             einladung_raw=live[0] if live else None,
@@ -1393,7 +1393,7 @@ async def _mail_one_team(
                 team_name=team["name"],
                 saison_id=saison_id,
                 recipient=plan.recipient,
-                occasion="versand",
+                occasion="dispatch",
             ),
             now=now,
         )
@@ -1474,7 +1474,7 @@ async def get_erasure_preview(
 )
 async def post_invitations_dispatch(
     saison_id: str,
-    versand_data: Annotated[FLInvitationDispatchPayload, Body()],
+    dispatch_data: Annotated[FLInvitationDispatchPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
@@ -1525,7 +1525,7 @@ async def post_invitations_dispatch(
             db=db,
             saison_id=saison_id,
             team=team,
-            resend=versand_data.resend,
+            resend=dispatch_data.resend,
             barred=barred,
             created_by=created_by,
             today=today,

@@ -149,8 +149,8 @@ async def get_open_registrierungen(
                 {
                     "registrierung_id": row["_id"],
                     "submitted_at": row["submitted_at"],
-                    "vorname": row["vorname"],
-                    "nachname": row["nachname"],
+                    "first_name": row["first_name"],
+                    "last_name": row["last_name"],
                     "nummer": row.get("nummer"),
                     "position": row.get("position"),
                     "stufe": row.get("stufe"),
@@ -160,8 +160,8 @@ async def get_open_registrierungen(
                     if person is None
                     else {
                         "spieler_id": person["_id"],
-                        "vorname": person["vorname"],
-                        "nachname": person.get("nachname"),
+                        "first_name": person["first_name"],
+                        "last_name": person.get("last_name"),
                         "deviates_from": person_weicht_ab(registrierung_raw=row, spieler_raw=person),
                     },
                 }
@@ -334,8 +334,8 @@ async def admit(
             spieler_id=spieler_id,
             team_id=team_id,
             saison_id=saison_id,
-            vorname=registrierung_raw["vorname"],
-            nachname=registrierung_raw["nachname"],
+            first_name=registrierung_raw["first_name"],
+            last_name=registrierung_raw["last_name"],
             nummer=kader_fields["nummer"],
             position=kader_fields["position"],
             stufe=kader_fields["stufe"],
@@ -390,7 +390,7 @@ async def decline(
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
             # read finds nothing pending (`TestTheDecline`), so no status term is reached.
             db_filter={"_id": registrierung_id},
-            update=compose_ablehnung_update(by=identifier, grund=ablehnung_data.grund, today=today),
+            update=compose_ablehnung_update(by=identifier, decision_reason=ablehnung_data.decision_reason, today=today),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -412,10 +412,10 @@ async def decline(
                         an=str(registrierung_raw["email"]),
                         data=FLRegistrierungAbsageData(
                             kind="registrierung_absage",
-                            vorname=str(registrierung_raw["vorname"]),
+                            first_name=str(registrierung_raw["first_name"]),
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,
-                            grund=ablehnung_data.grund,
+                            decision_reason=ablehnung_data.decision_reason,
                         ),
                         reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     )
@@ -423,7 +423,7 @@ async def decline(
                 now=germany_now,
             )
 
-        return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
+        return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, first_name=registrierung_raw["first_name"])
 
     async with transaction_session(db) as session:
         return await session.with_transaction(decline_for_the_team)

@@ -338,7 +338,7 @@ async def patch_einwilligung(
 
     @journal.attempted
     async def write(session: AsyncClientSession) -> None:
-        row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "geburtsdatum": 1}, session=session)
+        row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "birth_date": 1}, session=session)
         refuse(find_own_entry_refusal(held=row is not None and is_own_spieler(row)))
         assert row is not None
         saved = row["einwilligung"]
@@ -348,7 +348,7 @@ async def patch_einwilligung(
 
         await press_einwilligung(
             blocks=[saved],
-            birth_dates=[row.get("geburtsdatum")],
+            birth_dates=[row.get("birth_date")],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
             text_versions=einwilligung_data.text_versions,

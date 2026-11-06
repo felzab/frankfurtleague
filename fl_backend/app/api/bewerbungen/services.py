@@ -332,7 +332,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
             **{field: value for field, value in kontakte[seat].items() if field != "einwilligung"},
             # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
             # entered, and the confirmation fills it.
-            "geburtsdatum": None,
+            "birth_date": None,
             "einwilligung": compose_einwilligung(today=today, entered_by="bewerbung"),
         }
         for seat in KONTAKT_ROLLEN
@@ -352,7 +352,7 @@ def days_after(*, day: str, days: int) -> str:
     return (date.fromisoformat(day) + timedelta(days=days)).isoformat()
 
 
-def bestaetigungsfrist_from(*, today: str) -> str:
+def confirmation_deadline_from(*, today: str) -> str:
     """The day the links stop working and the application is deleted, counted from the mint -- a re-send restarts it."""
 
     return days_after(day=today, days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)
@@ -411,10 +411,10 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 
 # Narrower than the view's: the answer takes its wording from the payload and names no school. The
 # address is what a consent asks the ban list of, and no answer carries it.
-EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
+EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.confirmed_at", *KONTAKT_WAHL_FIELDS),
+    **_per_seat("kontakte", "first_name", "email", "einwilligung.confirmed_at", *KONTAKT_WAHL_FIELDS),
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
     "status": 1,
@@ -482,7 +482,7 @@ def _deadline_passed(*, confirmation_deadline: Any, today: str) -> bool:
     return isinstance(confirmation_deadline, str) and confirmation_deadline < today
 
 
-def bestaetigungsfrist_passed(*, confirmation_deadline: Any, today: str) -> bool:
+def confirmation_deadline_passed(*, confirmation_deadline: Any, today: str) -> bool:
     """Whether an application's confirmation deadline has passed today, by the rule its seats' links refuse on."""
 
     return _deadline_passed(confirmation_deadline=confirmation_deadline, today=today)
@@ -550,18 +550,18 @@ def find_already_answered_refusal(*, kontakte: Any, confirmations: Any, seat: st
     return None
 
 
-def find_alter_refusal(*, geburtsdatum: str, today: str, minimum_age: int) -> WriteRefusal | None:
+def find_alter_refusal(*, birth_date: str, today: str, minimum_age: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
     Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged BEFORE any write, so
     a mistyped year spends nothing.
     """
 
-    if age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, minimum_age=minimum_age):
+    if age_outside_the_bounds(birth_date=birth_date, today=today, minimum_age=minimum_age):
         return WriteRefusal(
             error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("geburtsdatum",),),
+            fields=(("birth_date",),),
             bounds={"min": minimum_age, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
         )
 
@@ -608,7 +608,7 @@ def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 # must not hold. The address is the ban list's alone, and the club's season name is the page's
 # `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
-    **_per_seat("confirmations", "token_hashes", "declined_at", "frist"),
+    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline"),
     **_per_seat("kontakte", "email", "einwilligung.confirmed_at"),
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
@@ -621,26 +621,26 @@ SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
 }
 
 # The answer's read writes on the row, so it keys the patch on `_id`, and reads each seat's choices
-# and their evidence as `EINWILLIGUNG_ANTWORT_FIELDS` does.
-SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
+# and their evidence as `EINWILLIGUNG_ANSWER_FIELDS` does.
+SAISON_EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
     **SAISON_EINWILLIGUNG_FIELDS,
     **_per_seat("kontakte", *KONTAKT_WAHL_FIELDS),
     "_id": 1,
 }
 
 
-def saison_frist_of(*, confirmations: Any, seat: str) -> Any:
+def saison_deadline_of(*, confirmations: Any, seat: str) -> Any:
     """The deadline the seat's own link carries: each seat is minted on its own day, so the row holds none."""
 
     entry = confirmations.get(seat) if isinstance(confirmations, Mapping) else None
 
-    return entry.get("frist") if isinstance(entry, Mapping) else None
+    return entry.get("deadline") if isinstance(entry, Mapping) else None
 
 
-def saison_link_is_over(*, frist: Any, today: str) -> bool:
+def saison_link_is_over(*, deadline: Any, today: str) -> bool:
     """Whether a season row's seat link is past its own deadline: what its press refuses (`link_expired`) and the editor shows."""
 
-    return _deadline_passed(confirmation_deadline=frist, today=today)
+    return _deadline_passed(confirmation_deadline=deadline, today=today)
 
 
 def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
@@ -656,7 +656,7 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, barred: 
     """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
     confirmations = row.get("confirmations")
-    over = saison_link_is_over(frist=saison_frist_of(confirmations=confirmations, seat=seat), today=today)
+    over = saison_link_is_over(deadline=saison_deadline_of(confirmations=confirmations, seat=seat), today=today)
     state = _zustand(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat, over=over, barred=barred)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
@@ -667,13 +667,13 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, barred: 
     return state
 
 
-def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
+def find_saison_deadline_refusal(*, deadline: Any, today: str) -> WriteRefusal | None:
     """Why a season row's link takes no answer past its own deadline, or `None`.
 
     410, never the application's 409: no write moves this deadline, a re-send minting another token.
     """
 
-    if not saison_link_is_over(frist=frist, today=today):
+    if not saison_link_is_over(deadline=deadline, today=today):
         return None
 
     return WriteRefusal(
@@ -781,12 +781,12 @@ def seat_addresses(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
     return {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
 
 
-def seat_vorname(*, kontakte: Any, seat: str) -> str:
+def seat_first_name(*, kontakte: Any, seat: str) -> str:
     """The first name in a seat's slot, or `""` where the slot is empty."""
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
 
-    return str(slot.get("vorname") or "") if isinstance(slot, Mapping) else ""
+    return str(slot.get("first_name") or "") if isinstance(slot, Mapping) else ""
 
 
 def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontaktRolle]]:
@@ -819,7 +819,7 @@ def compose_confirmation_update(
     *,
     kontakte: Mapping[str, Any],
     seats: Sequence[str],
-    geburtsdatum: str,
+    birth_date: str,
     today: str,
     text_versions: TextVersions,
     whatsapp: bool,
@@ -835,7 +835,7 @@ def compose_confirmation_update(
     written: dict[str, Any] = {}
     for seat in seats:
         pfad = f"kontakte.{seat}.einwilligung"
-        written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
+        written[f"kontakte.{seat}.birth_date"] = birth_date
         # Field by field, never the block whole: `entered_by` and `date` are the seating's, and
         # what it tells stands after the answer.
         written[f"{pfad}.confirmed_at"] = today
@@ -1095,7 +1095,7 @@ def compose_kontakt_seat_update(
     einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it.
-    slot = {**person, "geburtsdatum": None, "einwilligung": einwilligung}
+    slot = {**person, "birth_date": None, "einwilligung": einwilligung}
 
     # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
     # `$set` under a null is `PathNotViable`, which aborts the transaction.
@@ -1235,8 +1235,8 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, undeliverab
     if bewerbung_raw.get("status") != "submitted":
         return False
 
-    frist = bewerbung_raw.get("confirmation_deadline")
-    if not isinstance(frist, str) or frist >= today:
+    deadline = bewerbung_raw.get("confirmation_deadline")
+    if not isinstance(deadline, str) or deadline >= today:
         return False
 
     # HELD rather than erased: an administrator corrects the address, and the correction's mail makes it due again.
@@ -1352,10 +1352,10 @@ def schule_name(*, bewerbung_raw: Mapping[str, Any], club_names: Mapping[Any, st
     return club_names.get(bewerbung_raw.get("team_id"), "")
 
 
-def vorname_of(*, kontakte: Any, seat: str) -> str | None:
+def first_name_of(*, kontakte: Any, seat: str) -> str | None:
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
 
-    return str(slot.get("vorname") or "") or None if isinstance(slot, Mapping) else None
+    return str(slot.get("first_name") or "") or None if isinstance(slot, Mapping) else None
 
 
 # --- The MAILS an application owes, each to one person: an address is one person (one seat, or two the Trainer holds).
@@ -1401,7 +1401,7 @@ def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewer
         if seat not in seats or (seat == "trainer" and zugleich in seats):
             continue
         rollen = [seat, "trainer"] if seat == zugleich and "trainer" in seats else [seat]
-        personen.append(FLBewerbungPerson(vorname=vorname_of(kontakte=kontakte, seat=seat), rollen=cast(list[FLKontaktRolle], rollen)))
+        personen.append(FLBewerbungPerson(first_name=first_name_of(kontakte=kontakte, seat=seat), rollen=cast(list[FLKontaktRolle], rollen)))
 
     return personen
 
@@ -1426,7 +1426,7 @@ def owed_link(
     seats: Sequence[FLKontaktRolle],
     saison_id: str,
     schule: str,
-    frist: str,
+    deadline: str,
     key: str,
     kind: Literal["bewerbung_confirmation", "bewerbung_reminder"] = "bewerbung_confirmation",
 ) -> OwedMail:
@@ -1435,13 +1435,13 @@ def owed_link(
     return OwedMail(
         key=key,
         an=str(kontakte[seats[0]]["email"]),
-        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
+        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, rollen=list(seats), deadline=deadline),
         reference=bewerbung_bezug(bewerbung_id, seats),
         link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
     )
 
 
-def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schule: str, frist: str) -> list[OwedMail]:
+def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schule: str, deadline: str) -> list[OwedMail]:
     """Every person's first mail: the Ansprechperson the receipt naming who is still to answer, each other person their link.
 
     Keyed by the application and the person's first seat, so a retried transaction owes nothing twice.
@@ -1458,7 +1458,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
                     seats=seats,
                     saison_id=saison_id,
                     schule=schule,
-                    frist=frist,
+                    deadline=deadline,
                     key=f"{stamm}/confirmation/{seats[0]}",
                 )
             )
@@ -1473,7 +1473,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
                     saison_id=saison_id,
                     rollen=seats,
                     pending=ausstehende_personen(kontakte=kontakte, seats=andere),
-                    frist=frist,
+                    deadline=deadline,
                 ),
                 reference=bewerbung_bezug(bewerbung_id, seats),
                 link=bewerbung_link(seats, replaced=True),
@@ -1522,7 +1522,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     # The form excludes what this returns, and a season may field at least as many teams as the palette
     # has colours. `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben` then hands the whole
     # palette back once every colour is assigned.
-    return [farbe for farbe in get_args(FLTrikotFarbe.__value__) if farbe in held]
+    return [colour for colour in get_args(FLTrikotFarbe.__value__) if colour in held]
 
 
 def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewerbungSaisonReference, dict[str, Any]]:

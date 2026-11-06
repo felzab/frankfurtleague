@@ -72,7 +72,7 @@ class FLSaisonRules(BaseModel):
     tiebreak_order: Literal["tordifferenz", "direkter_vergleich"]
 
     # A ceiling on one team's squad for one season, enforced at the squad write rather than here.
-    max_kadergroesse: int = Field(gt=0)
+    max_kader_size: int = Field(gt=0)
 
     forfeit_ergebnis: FLSaisonForfeitErgebnis
 
@@ -119,11 +119,11 @@ class FLSaisonRegistrierung(BaseModel):
     """When a pupil may register for this season: from its activation to `end`, which falls before the season's start.
 
     No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
-    saison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of
+    saison_nimmt_registrierungen_an`); `open` pauses the link alone. Its own model rather than an alias of
     `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
     """
 
-    offen: bool
+    open: bool
     end: CustomDateString
 
 
@@ -300,7 +300,7 @@ FIRST_SAISON_RULES: Final = FLSaisonRules(
     number_of_gruppen=2,
     teams_per_gruppe=5,
     tiebreak_order="tordifferenz",
-    max_kadergroesse=50,
+    max_kader_size=50,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=list(get_args(FLSpielerStufe.__value__)),
 )
@@ -366,11 +366,11 @@ class FLSaisonAdminTeam(BaseReadModel):
     shorthand: str
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
-    group_fixture_taken_place: bool
-    fixture_taken_place: bool
+    group_spiel_taken_place: bool
+    spiel_taken_place: bool
 
 
-class FLSaisonAdminClub(BaseReadModel):
+class FLSaisonAdminIncomingTeam(BaseReadModel):
     """A club a replacement may bring into the season: one still in the league that holds no row of it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -533,7 +533,7 @@ class FLSaisonAdminResponse(BaseAPIResponse):
 
     saison: FLSaisonAdmin
     teams: list[FLSaisonAdminTeam]
-    incoming_clubs: list[FLSaisonAdminClub]
+    incoming_teams: list[FLSaisonAdminIncomingTeam]
     shapes: list[FLSpielplanShape]
     spielplan: FLSaisonDrawn | None
     refusals: FLSaisonActRefusals
@@ -608,8 +608,8 @@ class FLLandingOpeningSpiel(BaseReadModel):
     A side is null while its slot is empty, as a match's own sides are.
     """
 
-    datum: CustomDateString
-    uhrzeit: CustomTimeString | None
+    date: CustomDateString
+    time: CustomTimeString | None
     spieltag_position: int = Field(ge=1)
     team1: FLLandingSide | None
     team2: FLLandingSide | None

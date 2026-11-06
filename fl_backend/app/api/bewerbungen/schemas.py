@@ -9,7 +9,7 @@ from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
-    BEWERBUNG_GRUND_MAX_LENGTH,
+    BEWERBUNG_DECISION_REASON_MAX_LENGTH,
     BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_STUFENGROESSE_MAX,
@@ -131,7 +131,7 @@ class FLBewerbungEntscheidung(BaseModel):
     by: str
     # Null on an acceptance: what an acceptance did is the club and the junction row it wrote, and a
     # reason field filled in with "angenommen" would be a second, weaker record of that.
-    grund: str | None
+    decision_reason: str | None
 
 
 class FLBewerbungDecisionRow(FLBewerbungEntscheidung):
@@ -236,7 +236,9 @@ class FLDeclineBewerbungPayload(BaseModel):
 
     # The ceiling counts what arrives and the floor what is left after the strip, so the published `maxLength` is what the
     # write accepts and spaces alone are no reason.
-    grund: Annotated[str, StringConstraints(max_length=BEWERBUNG_GRUND_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
+    decision_reason: Annotated[
+        str, StringConstraints(max_length=BEWERBUNG_DECISION_REASON_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+    ]
 
 
 class FLBewerbungenListResponse(BaseAPIResponse):
@@ -294,13 +296,13 @@ class FLDeclineBewerbungResponse(BaseAPIResponse):
 # an undeclared key; the read models above stay lax.
 
 
-def age_outside_the_bounds(*, geburtsdatum: str, today: str, minimum_age: int) -> bool:
+def age_outside_the_bounds(*, birth_date: str, today: str, minimum_age: int) -> bool:
     """Whether the league would hold no details for this contact person, in whole years against `today`.
 
     `today` a parameter, so both boundaries are pinnable without a clock; above the ceiling the date is a typo.
     """
 
-    age = whole_years_between(born=geburtsdatum, today=today)
+    age = whole_years_between(born=birth_date, today=today)
 
     # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
     # hold (`app/api/bewerbungen/services.py :: mindestalter_for`).
@@ -334,7 +336,7 @@ class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
 class FLBewerbungAddressPayload(FLAddressPayload):
     """The school's address, with the Stadtteil required."""
 
-    # The ceiling on what arrives, the floor after the strip, as `grund`'s.
+    # The ceiling on what arrives, the floor after the strip, as `decision_reason`'s.
     stadtteil: Annotated[
         str, StringConstraints(max_length=ADDRESS_STADTTEIL_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
     ]
@@ -566,10 +568,10 @@ class FLBewerbungEinwilligungGiven(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    antwort: Literal["given"]
+    answer: Literal["given"]
     token: CustomToken
     # Unbounded here: the age is its own code (`confirmation_age`), never a `payload_refused`.
-    geburtsdatum: CustomDateString
+    birth_date: CustomDateString
     whatsapp: bool
     # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
     media: bool
@@ -587,42 +589,40 @@ class FLBewerbungEinwilligungDeclined(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    antwort: Literal["declined"]
+    answer: Literal["declined"]
     token: CustomToken
 
 
-# Tagged by `antwort`, Pydantic's discriminated union, so each answer carries exactly its own fields. A route takes it
+# Tagged by `answer`, Pydantic's discriminated union, so each answer carries exactly its own fields. A route takes it
 # as its body's plain annotation: beside FastAPI's `Body()` the tag is dropped, and the union is tried member by member.
-FLBewerbungEinwilligungAntwortPayload = Annotated[
-    FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined, Field(discriminator="antwort")
-]
+FLBewerbungEinwilligungAnswerPayload = Annotated[FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined, Field(discriminator="answer")]
 
 
-class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
+class FLBewerbungEinwilligungAnswerResponse(BaseAPIResponse):
     """What the answer did; a Widerspruch's notice to the submitter is owed in the same write."""
 
     quelle: Literal["bewerbung"] = "bewerbung"
     ergebnis: FLEinwilligungErgebnis
-    geburtsdatum: CustomOptionalDateString
+    birth_date: CustomOptionalDateString
     whatsapp: bool
     # As stored on every seat the answer wrote, as the referee's answer carries it: `false` after a
     # Widerspruch, which stores no answer.
     media: bool
 
 
-class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
+class FLSaisonTeamEinwilligungAnswerResponse(BaseAPIResponse):
     """What an answer on a season row's link did; nobody is told, so nothing composes a message."""
 
     quelle: Literal["saison"] = "saison"
     ergebnis: FLEinwilligungErgebnis
-    geburtsdatum: CustomOptionalDateString
+    birth_date: CustomOptionalDateString
     whatsapp: bool
-    # `FLBewerbungEinwilligungAntwortResponse.media`'s.
+    # `FLBewerbungEinwilligungAnswerResponse.media`'s.
     media: bool
 
 
-FLEinwilligungAntwortResponse = Annotated[
-    FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse,
+FLEinwilligungAnswerResponse = Annotated[
+    FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse,
     Field(discriminator="quelle"),
 ]
 

@@ -166,7 +166,7 @@
           "address_change_approval_younger",
           "address_change_occupied",
           "ansetzung_answered",
-          "ansetzung_frist_past",
+          "ansetzung_deadline_past",
           "ansetzung_changed",
           "ansetzung_decided",
           "ansetzung_vorschlag_past",
@@ -197,9 +197,9 @@
           "bericht_not_played",
           "bericht_not_officiated",
           "bericht_not_in_kader",
-          "bericht_abgesagt",
+          "bericht_cancelled",
           "bericht_meanwhile_changed",
-          "bericht_grund_missing",
+          "card_reason_missing",
           "bericht_elfmeter_in_the_gruppe",
           "bewerbung_already_decided",
           "bewerbung_subject_unresolved",
@@ -228,7 +228,7 @@
           "spieltag_span_below_spiele",
           "saison_span_below_spieltage",
           "saison_span_below_spielplan",
-          "spieltag_beginn_out_of_order",
+          "spieltag_start_out_of_order",
           "saison_span_below_spielplan_as_stored",
           "saison_start_taken_place",
           "saison_start_austritt_stored",
@@ -672,8 +672,12 @@
       "FLAccountErasureBewerbung": {
         "description": "One seat on an application, of any status.",
         "properties": {
-          "nachname": {
-            "title": "Nachname",
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
             "type": "string"
           },
           "rolle": {
@@ -682,17 +686,13 @@
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "saison_id",
           "rolle",
-          "vorname",
-          "nachname"
+          "first_name",
+          "last_name"
         ],
         "title": "FLAccountErasureBewerbung",
         "type": "object"
@@ -714,8 +714,12 @@
       "FLAccountErasureRegistrierung": {
         "description": "One registration, pending or declined.",
         "properties": {
-          "nachname": {
-            "title": "Nachname",
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
             "type": "string"
           },
           "saison_id": {
@@ -732,17 +736,13 @@
               }
             ],
             "title": "Team Name"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "saison_id",
           "team_name",
-          "vorname",
-          "nachname"
+          "first_name",
+          "last_name"
         ],
         "title": "FLAccountErasureRegistrierung",
         "type": "object"
@@ -770,8 +770,12 @@
       "FLAccountErasureSeat": {
         "description": "One seat on a team's season row, named as the row names it.",
         "properties": {
-          "nachname": {
-            "title": "Nachname",
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
             "type": "string"
           },
           "rolle": {
@@ -784,25 +788,25 @@
           "team_name": {
             "title": "Team Name",
             "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "saison_id",
           "team_name",
           "rolle",
-          "vorname",
-          "nachname"
+          "first_name",
+          "last_name"
         ],
         "title": "FLAccountErasureSeat",
         "type": "object"
       },
       "FLAccountErasureSpieler": {
         "properties": {
-          "nachname": {
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -811,16 +815,12 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
+            "title": "Last Name"
           }
         },
         "required": [
-          "vorname",
-          "nachname"
+          "first_name",
+          "last_name"
         ],
         "title": "FLAccountErasureSpieler",
         "type": "object"
@@ -898,10 +898,7 @@
       "FLAccountRegistrierungEinwilligung": {
         "description": "One pending registration its pupil confirmed: its choices to withdraw, and what it stores.",
         "properties": {
-          "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungState"
-          },
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -911,7 +908,18 @@
                 "type": "null"
               }
             ],
-            "title": "Geburtsdatum"
+            "title": "Birth Date"
+          },
+          "evidence_state": {
+            "$ref": "#/components/schemas/FLEinwilligungState"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
           },
           "media": {
             "anyOf": [
@@ -923,10 +931,6 @@
               }
             ],
             "title": "Media"
-          },
-          "nachname": {
-            "title": "Nachname",
-            "type": "string"
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -957,10 +961,6 @@
               }
             ],
             "title": "Team Name"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
@@ -970,9 +970,9 @@
           "scope",
           "media",
           "evidence_state",
-          "vorname",
-          "nachname",
-          "geburtsdatum"
+          "first_name",
+          "last_name",
+          "birth_date"
         ],
         "title": "FLAccountRegistrierungEinwilligung",
         "type": "object"
@@ -980,13 +980,7 @@
       "FLAccountSchiedsrichterEinwilligung": {
         "description": "One referee record on the account page: the stored data its box shows and the consent the page moves.",
         "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLAccountEinwilligung"
-          },
-          "evidence_state": {
-            "$ref": "#/components/schemas/FLEinwilligungState"
-          },
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -996,7 +990,13 @@
                 "type": "null"
               }
             ],
-            "title": "Geburtsdatum"
+            "title": "Birth Date"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLAccountEinwilligung"
+          },
+          "evidence_state": {
+            "$ref": "#/components/schemas/FLEinwilligungState"
           },
           "givable": {
             "title": "Givable",
@@ -1041,7 +1041,7 @@
           "name",
           "schule",
           "kontakt",
-          "geburtsdatum",
+          "birth_date",
           "einwilligung",
           "evidence_state",
           "givable",
@@ -1117,20 +1117,36 @@
       "FLAccountSpielerEinwilligung": {
         "description": "The pupil's record on the account page: its stored data and the consent the page moves.",
         "properties": {
+          "birth_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Birth Date",
+            "type": "string"
+          },
           "einwilligung": {
             "$ref": "#/components/schemas/FLAccountEinwilligung"
           },
           "evidence_state": {
             "$ref": "#/components/schemas/FLEinwilligungState"
           },
-          "geburtsdatum": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum",
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
             "type": "string"
           },
           "givable": {
             "title": "Givable",
             "type": "boolean"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
@@ -1141,33 +1157,17 @@
             "title": "Media Offered",
             "type": "boolean"
           },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id",
             "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "spieler_id",
-          "geburtsdatum",
+          "birth_date",
           "einwilligung",
           "evidence_state",
           "givable",
@@ -2189,6 +2189,17 @@
       "FLAddressChangeEffectiveData": {
         "description": "The replaced address's notice that the change took effect.",
         "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
@@ -2198,23 +2209,12 @@
             "const": "address_change_effective",
             "title": "Kind",
             "type": "string"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
           }
         },
         "required": [
           "kind",
           "instant",
-          "vorname"
+          "first_name"
         ],
         "title": "FLAddressChangeEffectiveData",
         "type": "object"
@@ -2323,6 +2323,17 @@
       "FLAddressChangeNoticeData": {
         "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once\nit confirmed, stops the change; on the lost-mailbox way it stops the change.",
         "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
           "kind": {
             "const": "address_change_notice",
             "title": "Kind",
@@ -2333,17 +2344,6 @@
             "title": "Valid Until",
             "type": "string"
           },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          },
           "way": {
             "$ref": "#/components/schemas/FLAddressChangeWay"
           }
@@ -2352,7 +2352,7 @@
           "kind",
           "way",
           "valid_until",
-          "vorname"
+          "first_name"
         ],
         "title": "FLAddressChangeNoticeData",
         "type": "object"
@@ -2786,7 +2786,7 @@
       },
       "FLAufstellungEntryPublic": {
         "properties": {
-          "nachname": {
+          "first_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -2795,7 +2795,18 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "nummer": {
             "anyOf": [
@@ -2824,23 +2835,12 @@
           },
           "type": {
             "$ref": "#/components/schemas/FLSpielberichtSpielerType"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
           }
         },
         "required": [
           "type",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "nummer",
           "position",
           "starts"
@@ -2902,16 +2902,16 @@
         "type": "object"
       },
       "FLAustritt": {
-        "description": "How a team came to be out of one season, why, and from when.\n\n`grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
+        "description": "How a team came to be out of one season, why, and from when.\n\n`exit_reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
-          "grund": {
+          "exit_reason": {
             "minLength": 1,
-            "title": "Grund",
+            "title": "Exit Reason",
             "type": "string"
           },
           "type": {
@@ -2920,8 +2920,8 @@
         },
         "required": [
           "type",
-          "grund",
-          "datum"
+          "exit_reason",
+          "date"
         ],
         "title": "FLAustritt",
         "type": "object"
@@ -2929,15 +2929,15 @@
       "FLAustrittPayload": {
         "description": "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
-          "grund": {
+          "exit_reason": {
             "maxLength": 500,
             "minLength": 1,
-            "title": "Grund",
+            "title": "Exit Reason",
             "type": "string"
           },
           "type": {
@@ -2946,8 +2946,8 @@
         },
         "required": [
           "type",
-          "grund",
-          "datum"
+          "exit_reason",
+          "date"
         ],
         "title": "FLAustrittPayload",
         "type": "object"
@@ -3091,8 +3091,8 @@
       "FLBewerbungAbsageData": {
         "description": "A decline, to one person of the application, with the administrator's reason verbatim.",
         "properties": {
-          "grund": {
-            "title": "Grund",
+          "decision_reason": {
+            "title": "Decision Reason",
             "type": "string"
           },
           "kind": {
@@ -3122,7 +3122,7 @@
           "team",
           "saison_id",
           "rollen",
-          "grund"
+          "decision_reason"
         ],
         "title": "FLBewerbungAbsageData",
         "type": "object"
@@ -3287,7 +3287,7 @@
             "title": "By Barred",
             "type": "boolean"
           },
-          "grund": {
+          "decision_reason": {
             "anyOf": [
               {
                 "type": "string"
@@ -3296,7 +3296,7 @@
                 "type": "null"
               }
             ],
-            "title": "Grund"
+            "title": "Decision Reason"
           },
           "made_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3307,19 +3307,16 @@
         "required": [
           "made_at",
           "by",
-          "grund",
+          "decision_reason",
           "by_barred"
         ],
         "title": "FLBewerbungDecisionRow",
         "type": "object"
       },
-      "FLBewerbungEinwilligungAntwortResponse": {
+      "FLBewerbungEinwilligungAnswerResponse": {
         "description": "What the answer did; a Widerspruch's notice to the submitter is owed in the same write.",
         "properties": {
-          "ergebnis": {
-            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
-          },
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3329,7 +3326,10 @@
                 "type": "null"
               }
             ],
-            "title": "Geburtsdatum"
+            "title": "Birth Date"
+          },
+          "ergebnis": {
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "media": {
             "title": "Media",
@@ -3349,20 +3349,20 @@
         "required": [
           "quelle",
           "ergebnis",
-          "geburtsdatum",
+          "birth_date",
           "whatsapp",
           "media"
         ],
-        "title": "FLBewerbungEinwilligungAntwortResponse",
+        "title": "FLBewerbungEinwilligungAnswerResponse",
         "type": "object"
       },
       "FLBewerbungEinwilligungDeclined": {
         "additionalProperties": false,
         "description": "One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.",
         "properties": {
-          "antwort": {
+          "answer": {
             "const": "declined",
-            "title": "Antwort",
+            "title": "Answer",
             "type": "string"
           },
           "token": {
@@ -3374,7 +3374,7 @@
           }
         },
         "required": [
-          "antwort",
+          "answer",
           "token"
         ],
         "title": "FLBewerbungEinwilligungDeclined",
@@ -3384,14 +3384,14 @@
         "additionalProperties": false,
         "description": "One person's consent for one seat: their own birthdate, their two choices and the wording they saw.",
         "properties": {
-          "antwort": {
+          "answer": {
             "const": "given",
-            "title": "Antwort",
+            "title": "Answer",
             "type": "string"
           },
-          "geburtsdatum": {
+          "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum",
+            "title": "Birth Date",
             "type": "string"
           },
           "media": {
@@ -3414,9 +3414,9 @@
           }
         },
         "required": [
-          "antwort",
+          "answer",
           "token",
-          "geburtsdatum",
+          "birth_date",
           "whatsapp",
           "media",
           "text_versions"
@@ -3692,31 +3692,31 @@
             "title": "Email",
             "type": "string"
           },
-          "nachname": {
+          "first_name": {
             "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Nachname",
+            "title": "First Name",
             "type": "string"
           },
-          "telefon": {
+          "last_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone": {
             "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
-            "title": "Telefon",
-            "type": "string"
-          },
-          "vorname": {
-            "maxLength": 80,
-            "minLength": 1,
-            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Vorname",
+            "title": "Phone",
             "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "email",
-          "telefon"
+          "phone"
         ],
         "title": "FLBewerbungKontaktSeatPayload",
         "type": "object"
@@ -3766,31 +3766,31 @@
             "title": "Email",
             "type": "string"
           },
-          "nachname": {
+          "first_name": {
             "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Nachname",
+            "title": "First Name",
             "type": "string"
           },
-          "telefon": {
+          "last_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone": {
             "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
-            "title": "Telefon",
-            "type": "string"
-          },
-          "vorname": {
-            "maxLength": 80,
-            "minLength": 1,
-            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Vorname",
+            "title": "Phone",
             "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "email",
-          "telefon",
+          "phone",
           "einwilligung"
         ],
         "title": "FLBewerbungKontaktpersonPayload",
@@ -3818,9 +3818,9 @@
       "FLBewerbungLinkData": {
         "description": "One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.\n\n`rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.",
         "properties": {
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "kind": {
@@ -3853,7 +3853,7 @@
           "saison_id",
           "schule",
           "rollen",
-          "frist"
+          "deadline"
         ],
         "title": "FLBewerbungLinkData",
         "type": "object"
@@ -3880,13 +3880,13 @@
       "FLBewerbungObjectionData": {
         "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
         "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "declined": {
             "$ref": "#/components/schemas/FLBewerbungPerson"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
           },
           "kind": {
             "const": "bewerbung_objection",
@@ -3911,7 +3911,7 @@
           "saison_id",
           "rollen",
           "declined",
-          "frist"
+          "deadline"
         ],
         "title": "FLBewerbungObjectionData",
         "type": "object"
@@ -3919,15 +3919,7 @@
       "FLBewerbungPerson": {
         "description": "Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.",
         "properties": {
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
-          "vorname": {
+          "first_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -3936,11 +3928,19 @@
                 "type": "null"
               }
             ],
-            "title": "Vorname"
+            "title": "First Name"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
           }
         },
         "required": [
-          "vorname",
+          "first_name",
           "rollen"
         ],
         "title": "FLBewerbungPerson",
@@ -3949,9 +3949,9 @@
       "FLBewerbungReceivedData": {
         "description": "The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.",
         "properties": {
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "kind": {
@@ -3984,7 +3984,7 @@
           "saison_id",
           "rollen",
           "pending",
-          "frist"
+          "deadline"
         ],
         "title": "FLBewerbungReceivedData",
         "type": "object"
@@ -4574,9 +4574,9 @@
             ],
             "title": "Name"
           },
-          "other_datum": {
+          "other_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Other Datum",
+            "title": "Other Date",
             "type": "string"
           },
           "other_saison_id": {
@@ -4593,9 +4593,9 @@
             "title": "Other Spiel Nr",
             "type": "integer"
           },
-          "other_uhrzeit": {
+          "other_time": {
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Other Uhrzeit",
+            "title": "Other Time",
             "type": "string"
           },
           "reason": {
@@ -4628,8 +4628,8 @@
           "other_spiel_id",
           "other_saison_id",
           "other_spiel_nr",
-          "other_datum",
-          "other_uhrzeit"
+          "other_date",
+          "other_time"
         ],
         "title": "FLBracketFaultClash",
         "type": "object"
@@ -4693,9 +4693,9 @@
             "type": "string"
           },
           "side": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+            "$ref": "#/components/schemas/FLSpielSide"
           },
-          "spiel_datum": {
+          "spiel_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4705,7 +4705,7 @@
                 "type": "null"
               }
             ],
-            "title": "Spiel Datum"
+            "title": "Spiel Date"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -4737,7 +4737,7 @@
           "team_name",
           "austritt_type",
           "ausgeschieden_seit",
-          "spiel_datum"
+          "spiel_date"
         ],
         "title": "FLBracketFaultOccupant",
         "type": "object"
@@ -4795,7 +4795,7 @@
             "type": "string"
           },
           "side": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -4854,7 +4854,7 @@
             "type": "string"
           },
           "side": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -4897,17 +4897,40 @@
       "FLByAdmin": {
         "description": "An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.",
         "properties": {
-          "art": {
+          "kind": {
             "const": "admin",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           }
         },
         "required": [
-          "art"
+          "kind"
         ],
         "title": "FLByAdmin",
         "type": "object"
+      },
+      "FLCardColour": {
+        "enum": [
+          "gelb",
+          "gelb_rot",
+          "rot"
+        ],
+        "type": "string"
+      },
+      "FLCardReason": {
+        "enum": [
+          "foulspiel",
+          "unsportlichkeit",
+          "handspiel",
+          "meckern",
+          "spielverzoegerung",
+          "wiederholtes_foulspiel",
+          "grobes_foulspiel",
+          "taetlichkeit",
+          "beleidigung",
+          "notbremse"
+        ],
+        "type": "string"
       },
       "FLCitedMediaTextVersion": {
         "const": "2026-11-medien-1",
@@ -4916,9 +4939,9 @@
       "FLConfirmation": {
         "description": "One person's confirmation bookkeeping as an administrator reads it, and no token hash.\n\nThe hash is a raw document key the confirmation query alone reads, so no read serves one.",
         "properties": {
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "reminded_at": {
@@ -4942,7 +4965,7 @@
         "required": [
           "sent_at",
           "reminded_at",
-          "frist"
+          "deadline"
         ],
         "title": "FLConfirmation",
         "type": "object"
@@ -4975,15 +4998,15 @@
         "additionalProperties": false,
         "description": "Why the application was declined.",
         "properties": {
-          "grund": {
+          "decision_reason": {
             "maxLength": 1000,
             "minLength": 1,
-            "title": "Grund",
+            "title": "Decision Reason",
             "type": "string"
           }
         },
         "required": [
-          "grund"
+          "decision_reason"
         ],
         "title": "FLDeclineBewerbungPayload",
         "type": "object"
@@ -5468,8 +5491,12 @@
             "title": "Bewerbung Id",
             "type": "string"
           },
-          "nachname": {
-            "title": "Nachname",
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
             "type": "string"
           },
           "rolle": {
@@ -5478,17 +5505,13 @@
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "saison_id",
           "rolle",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "bewerbung_id"
         ],
         "title": "FLErasureViewBewerbung",
@@ -5556,8 +5579,12 @@
       },
       "FLErasureViewRegistrierung": {
         "properties": {
-          "nachname": {
-            "title": "Nachname",
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
             "type": "string"
           },
           "registrierung_id": {
@@ -5587,17 +5614,13 @@
               }
             ],
             "title": "Team Name"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "saison_id",
           "team_name",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "registrierung_id",
           "team_id",
           "status"
@@ -5745,8 +5768,12 @@
       },
       "FLErasureViewSeat": {
         "properties": {
-          "nachname": {
-            "title": "Nachname",
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
             "type": "string"
           },
           "rolle": {
@@ -5764,18 +5791,14 @@
           "team_name": {
             "title": "Team Name",
             "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "saison_id",
           "team_name",
           "rolle",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "team_id"
         ],
         "title": "FLErasureViewSeat",
@@ -5783,6 +5806,10 @@
       },
       "FLErasureViewSpieler": {
         "properties": {
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
           "kader": {
             "items": {
               "$ref": "#/components/schemas/FLErasureViewKader"
@@ -5790,7 +5817,7 @@
             "title": "Kader",
             "type": "array"
           },
-          "nachname": {
+          "last_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -5799,21 +5826,17 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "Last Name"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id",
             "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "spieler_id",
           "kader"
         ],
@@ -6679,18 +6702,18 @@
             "title": "Email",
             "type": "string"
           },
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
           "rolle": {
             "$ref": "#/components/schemas/FLKontaktRolle"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "rolle",
-          "vorname",
+          "first_name",
           "email"
         ],
         "title": "FLInvitationRecipient",
@@ -6958,6 +6981,11 @@
       "FLKaderRow": {
         "description": "One squad row as its team's seat holder reads it (`READ-KADER-001`).\n\nDeclared from nothing rather than a public model unmasked, so the whole surname reaches no\nbase-tier model, and no address or telephone number reaches this one.",
         "properties": {
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -6974,7 +7002,7 @@
             "title": "Is Nachnominiert",
             "type": "boolean"
           },
-          "nachname": {
+          "last_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -6983,7 +7011,7 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "Last Name"
           },
           "nummer": {
             "anyOf": [
@@ -7039,17 +7067,12 @@
             "default": 0,
             "title": "Version",
             "type": "integer"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "spieler_id",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "nummer",
           "position",
           "stufe",
@@ -7061,29 +7084,6 @@
         ],
         "title": "FLKaderRow",
         "type": "object"
-      },
-      "FLKartenFarbe": {
-        "enum": [
-          "gelb",
-          "gelb_rot",
-          "rot"
-        ],
-        "type": "string"
-      },
-      "FLKartenGrund": {
-        "enum": [
-          "foulspiel",
-          "unsportlichkeit",
-          "handspiel",
-          "meckern",
-          "spielverzoegerung",
-          "wiederholtes_foulspiel",
-          "grobes_foulspiel",
-          "taetlichkeit",
-          "beleidigung",
-          "notbremse"
-        ],
-        "type": "string"
       },
       "FLKoRundeResponse": {
         "description": "A season's knockout matchdays in the order they are played, each holding its matches.\n\nA side whose club is not yet known is null, and its `quelle` says where it comes from.",
@@ -7115,7 +7115,7 @@
             ],
             "title": "Email"
           },
-          "telefon": {
+          "phone": {
             "anyOf": [
               {
                 "type": "string"
@@ -7124,11 +7124,11 @@
                 "type": "null"
               }
             ],
-            "title": "Telefon"
+            "title": "Phone"
           }
         },
         "required": [
-          "telefon",
+          "phone",
           "email"
         ],
         "title": "FLKontakt",
@@ -7241,9 +7241,9 @@
       "FLKontaktLinkData": {
         "description": "One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.",
         "properties": {
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "kind": {
@@ -7276,7 +7276,7 @@
           "saison_id",
           "schule",
           "rollen",
-          "frist",
+          "deadline",
           "row"
         ],
         "title": "FLKontaktLinkData",
@@ -7312,7 +7312,7 @@
             "title": "Email",
             "type": "string"
           },
-          "telefon": {
+          "phone": {
             "anyOf": [
               {
                 "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
@@ -7326,11 +7326,11 @@
                 "type": "string"
               }
             ],
-            "title": "Telefon"
+            "title": "Phone"
           }
         },
         "required": [
-          "telefon",
+          "phone",
           "email"
         ],
         "title": "FLKontaktPayload",
@@ -7355,14 +7355,7 @@
       "FLKontaktperson": {
         "description": "One person the league reaches this team through, for one season.",
         "properties": {
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahme"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -7372,29 +7365,36 @@
                 "type": "null"
               }
             ],
-            "title": "Geburtsdatum"
+            "title": "Birth Date"
           },
-          "nachname": {
-            "minLength": 1,
-            "title": "Nachname",
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahme"
+          },
+          "email": {
+            "title": "Email",
             "type": "string"
           },
-          "telefon": {
-            "title": "Telefon",
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
             "type": "string"
           },
-          "vorname": {
+          "last_name": {
             "minLength": 1,
-            "title": "Vorname",
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
             "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "email",
-          "telefon",
-          "geburtsdatum",
+          "phone",
+          "birth_date",
           "einwilligung"
         ],
         "title": "FLKontaktperson",
@@ -7411,31 +7411,31 @@
             "title": "Email",
             "type": "string"
           },
-          "nachname": {
+          "first_name": {
             "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Nachname",
+            "title": "First Name",
             "type": "string"
           },
-          "telefon": {
+          "last_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Last Name",
+            "type": "string"
+          },
+          "phone": {
             "pattern": "^([+]?[ 0-9\\-().]{2,19}[0-9])$",
-            "title": "Telefon",
-            "type": "string"
-          },
-          "vorname": {
-            "maxLength": 80,
-            "minLength": 1,
-            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Vorname",
+            "title": "Phone",
             "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "email",
-          "telefon",
+          "phone",
           "einwilligung"
         ],
         "title": "FLKontaktpersonPayload",
@@ -7605,9 +7605,9 @@
       "FLLandingOpeningSpiel": {
         "description": "The season's opening match: when it is set to start, in Berlin wall time, its two sides and its Spieltag's `position`.\n\nA side is null while its slot is empty, as a match's own sides are.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "spieltag_position": {
@@ -7635,7 +7635,7 @@
               }
             ]
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -7645,12 +7645,12 @@
                 "type": "null"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           }
         },
         "required": [
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "spieltag_position",
           "team1",
           "team2"
@@ -7804,9 +7804,14 @@
             "title": "Admissible",
             "type": "boolean"
           },
-          "nachname": {
+          "first_name": {
             "minLength": 1,
-            "title": "Nachname",
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "minLength": 1,
+            "title": "Last Name",
             "type": "string"
           },
           "nummer": {
@@ -7863,18 +7868,13 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Submitted At",
             "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "registrierung_id",
           "submitted_at",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "nummer",
           "position",
           "stufe",
@@ -7925,7 +7925,7 @@
             "title": "At",
             "type": "string"
           },
-          "grund": {
+          "delivery_reason": {
             "anyOf": [
               {
                 "type": "string"
@@ -7934,7 +7934,7 @@
                 "type": "null"
               }
             ],
-            "title": "Grund"
+            "title": "Delivery Reason"
           },
           "state": {
             "$ref": "#/components/schemas/FLOutboxDeliveryState"
@@ -7942,7 +7942,7 @@
         },
         "required": [
           "state",
-          "grund",
+          "delivery_reason",
           "at"
         ],
         "title": "FLOutboxDelivery",
@@ -7967,7 +7967,7 @@
             "title": "At",
             "type": "string"
           },
-          "grund": {
+          "delivery_reason": {
             "anyOf": [
               {
                 "maxLength": 128,
@@ -7978,7 +7978,7 @@
                 "type": "null"
               }
             ],
-            "title": "Grund"
+            "title": "Delivery Reason"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -7992,7 +7992,7 @@
         "required": [
           "id",
           "state",
-          "grund",
+          "delivery_reason",
           "at"
         ],
         "title": "FLOutboxEventPayload",
@@ -8050,10 +8050,10 @@
                 "registrierung_reminder": "#/components/schemas/FLRegistrierungLinkData",
                 "schiedsrichter_confirmation": "#/components/schemas/FLSchiedsrichterConfirmationData",
                 "sign_in_code": "#/components/schemas/FLSignInCodeData",
-                "spiel_abgesagt": "#/components/schemas/FLSpielNoticeData",
+                "spiel_cancelled": "#/components/schemas/FLSpielNoticeData",
                 "spiel_einteilung": "#/components/schemas/FLSpielEinteilungData",
                 "spiel_einteilung_lifted": "#/components/schemas/FLSpielEinteilungLiftedData",
-                "spiel_new_scheduled": "#/components/schemas/FLSpielMovedData",
+                "spiel_moved": "#/components/schemas/FLSpielMovedData",
                 "spiel_reminder": "#/components/schemas/FLSpielRequestData",
                 "spiel_request": "#/components/schemas/FLSpielRequestData",
                 "spiel_vorschlag_discarded": "#/components/schemas/FLSpielVorschlagDiscardedData"
@@ -8220,7 +8220,7 @@
         "additionalProperties": false,
         "description": "The outcome of one handed-out mail's send, reported as the send returns.",
         "properties": {
-          "grund": {
+          "delivery_reason": {
             "anyOf": [
               {
                 "maxLength": 128,
@@ -8231,7 +8231,7 @@
                 "type": "null"
               }
             ],
-            "title": "Grund"
+            "title": "Delivery Reason"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8272,7 +8272,7 @@
           "id",
           "result",
           "message_id",
-          "grund"
+          "delivery_reason"
         ],
         "title": "FLOutboxResultPayload",
         "type": "object"
@@ -8547,7 +8547,7 @@
                 "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
                 "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
               },
-              "propertyName": "art"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
@@ -8687,7 +8687,7 @@
                   "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
                   "team": "#/components/schemas/FLSpielRecipientTeam"
                 },
-                "propertyName": "art"
+                "propertyName": "kind"
               },
               "oneOf": [
                 {
@@ -8708,7 +8708,7 @@
                   "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
                   "team": "#/components/schemas/FLSpielRecipientTeam"
                 },
-                "propertyName": "art"
+                "propertyName": "kind"
               },
               "oneOf": [
                 {
@@ -9212,7 +9212,7 @@
       "FLPatchSpielDataPayload": {
         "additionalProperties": false,
         "properties": {
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -9226,7 +9226,7 @@
                 "type": "string"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "elfmeterschiessen": {
             "anyOf": [
@@ -9238,7 +9238,7 @@
               }
             ]
           },
-          "notiz": {
+          "note": {
             "anyOf": [
               {
                 "maxLength": 4096,
@@ -9248,7 +9248,7 @@
                 "type": "null"
               }
             ],
-            "title": "Notiz"
+            "title": "Note"
           },
           "ort": {
             "anyOf": [
@@ -9320,7 +9320,7 @@
               }
             ]
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -9334,7 +9334,7 @@
                 "type": "string"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           },
           "version": {
             "minimum": 0.0,
@@ -9356,11 +9356,11 @@
           "team1_quelle",
           "team2_quelle",
           "elfmeterschiessen",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "ort",
           "schiedsrichter",
-          "notiz",
+          "note",
           "version"
         ],
         "title": "FLPatchSpielDataPayload",
@@ -9403,7 +9403,7 @@
                       "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
                       "team": "#/components/schemas/FLSpielRecipientTeam"
                     },
-                    "propertyName": "art"
+                    "propertyName": "kind"
                   },
                   "oneOf": [
                     {
@@ -9457,12 +9457,19 @@
         "additionalProperties": false,
         "description": "Replaces the person's names WHOLESALE.\n\nThe handler `$set`s this model's dump, so a field with a default would let a form that forgot it\nwrite that default over a stored value.",
         "properties": {
-          "geburtsdatum": {
+          "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum",
+            "title": "Birth Date",
             "type": "string"
           },
-          "nachname": {
+          "first_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
             "anyOf": [
               {
                 "maxLength": 80,
@@ -9474,7 +9481,7 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "Last Name"
           },
           "version": {
             "anyOf": [
@@ -9486,19 +9493,12 @@
               }
             ],
             "title": "Version"
-          },
-          "vorname": {
-            "maxLength": 80,
-            "minLength": 1,
-            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
-          "geburtsdatum"
+          "first_name",
+          "last_name",
+          "birth_date"
         ],
         "title": "FLPatchSpielerPayload",
         "type": "object"
@@ -9551,14 +9551,14 @@
       "FLPatchSpieltagPayload": {
         "additionalProperties": false,
         "properties": {
-          "beginn": {
+          "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Beginn",
+            "title": "End",
             "type": "string"
           },
-          "ende": {
+          "start": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Ende",
+            "title": "Start",
             "type": "string"
           },
           "version": {
@@ -9568,8 +9568,8 @@
           }
         },
         "required": [
-          "beginn",
-          "ende",
+          "start",
+          "end",
           "version"
         ],
         "title": "FLPatchSpieltagPayload",
@@ -9780,11 +9780,18 @@
             "title": "Email",
             "type": "string"
           },
-          "nachname": {
+          "first_name": {
             "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Nachname",
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Last Name",
             "type": "string"
           },
           "nummer": {
@@ -9825,19 +9832,12 @@
             "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
-          },
-          "vorname": {
-            "maxLength": 80,
-            "minLength": 1,
-            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "token",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "email",
           "position",
           "nummer",
@@ -10290,8 +10290,20 @@
         "type": "object"
       },
       "FLRegistrierung": {
-        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nIts pupil fills and withdraws `einwilligung` and fills `geburtsdatum`; a decline writes `status` and `decision`.",
+        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nIts pupil fills and withdraws `einwilligung` and fills `birth_date`; a decline writes `status` and `decision`.",
         "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
           "confirmation": {
             "anyOf": [
               {
@@ -10331,17 +10343,10 @@
             "title": "Email",
             "type": "string"
           },
-          "geburtsdatum": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geburtsdatum"
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10353,9 +10358,9 @@
             "title": "Invitation Id",
             "type": "string"
           },
-          "nachname": {
+          "last_name": {
             "minLength": 1,
-            "title": "Nachname",
+            "title": "Last Name",
             "type": "string"
           },
           "nummer": {
@@ -10405,11 +10410,6 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
@@ -10419,13 +10419,13 @@
           "invitation_id",
           "submitted_at",
           "status",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "email",
           "position",
           "nummer",
           "stufe",
-          "geburtsdatum",
+          "birth_date",
           "einwilligung",
           "confirmation",
           "decision",
@@ -10437,7 +10437,7 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
-          "grund": {
+          "decision_reason": {
             "anyOf": [
               {
                 "const": "other_person",
@@ -10447,7 +10447,11 @@
                 "type": "null"
               }
             ],
-            "title": "Grund"
+            "title": "Decision Reason"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
           },
           "kind": {
             "const": "registrierung_absage",
@@ -10461,18 +10465,14 @@
           "team": {
             "title": "Team",
             "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "kind",
-          "vorname",
+          "first_name",
           "team",
           "saison_id",
-          "grund"
+          "decision_reason"
         ],
         "title": "FLRegistrierungAbsageData",
         "type": "object"
@@ -10480,13 +10480,18 @@
       "FLRegistrierungAdmissionResponse": {
         "description": "The squad entry the admission wrote, and the person it belongs to.",
         "properties": {
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
           "is_nachnominiert": {
             "title": "Is Nachnominiert",
             "type": "boolean"
           },
-          "nachname": {
+          "last_name": {
             "minLength": 1,
-            "title": "Nachname",
+            "title": "Last Name",
             "type": "string"
           },
           "nummer": {
@@ -10538,11 +10543,6 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
@@ -10550,8 +10550,8 @@
           "spieler_id",
           "team_id",
           "saison_id",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "nummer",
           "position",
           "stufe",
@@ -10587,7 +10587,7 @@
         "additionalProperties": false,
         "description": "One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents.",
         "properties": {
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10601,7 +10601,7 @@
                 "type": "string"
               }
             ],
-            "title": "Geburtsdatum"
+            "title": "Birth Date"
           },
           "media": {
             "anyOf": [
@@ -10644,7 +10644,7 @@
         },
         "required": [
           "token",
-          "geburtsdatum",
+          "birth_date",
           "scope",
           "media",
           "text_versions"
@@ -10655,12 +10655,7 @@
       "FLRegistrierungConfirmationResponse": {
         "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time.",
         "properties": {
-          "ergebnis": {
-            "const": "confirmed",
-            "title": "Ergebnis",
-            "type": "string"
-          },
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10670,7 +10665,12 @@
                 "type": "null"
               }
             ],
-            "title": "Geburtsdatum"
+            "title": "Birth Date"
+          },
+          "ergebnis": {
+            "const": "confirmed",
+            "title": "Ergebnis",
+            "type": "string"
           },
           "media": {
             "anyOf": [
@@ -10696,7 +10696,7 @@
         },
         "required": [
           "ergebnis",
-          "geburtsdatum",
+          "birth_date",
           "scope",
           "media"
         ],
@@ -10715,6 +10715,14 @@
             "title": "Minimum Age",
             "type": "integer"
           },
+          "page": {
+            "enum": [
+              "bestaetigung_spieler",
+              "bestaetigung_spieler_wiederkehrend"
+            ],
+            "title": "Page",
+            "type": "string"
+          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -10722,14 +10730,6 @@
           "schule": {
             "minLength": 1,
             "title": "Schule",
-            "type": "string"
-          },
-          "seite": {
-            "enum": [
-              "bestaetigung_spieler",
-              "bestaetigung_spieler_wiederkehrend"
-            ],
-            "title": "Seite",
             "type": "string"
           },
           "state": {
@@ -10746,7 +10746,7 @@
           "team",
           "schule",
           "saison_id",
-          "seite",
+          "page",
           "minimum_age",
           "media_minimum_age"
         ],
@@ -10772,7 +10772,7 @@
             "title": "By Barred",
             "type": "boolean"
           },
-          "grund": {
+          "decision_reason": {
             "anyOf": [
               {
                 "type": "string"
@@ -10781,7 +10781,7 @@
                 "type": "null"
               }
             ],
-            "title": "Grund"
+            "title": "Decision Reason"
           },
           "made_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10792,7 +10792,7 @@
         "required": [
           "made_at",
           "by",
-          "grund",
+          "decision_reason",
           "by_barred"
         ],
         "title": "FLRegistrierungDecisionRow",
@@ -10802,7 +10802,7 @@
         "additionalProperties": false,
         "description": "Why the team declines, from a closed set or not at all.",
         "properties": {
-          "grund": {
+          "decision_reason": {
             "anyOf": [
               {
                 "const": "other_person",
@@ -10812,11 +10812,11 @@
                 "type": "null"
               }
             ],
-            "title": "Grund"
+            "title": "Decision Reason"
           }
         },
         "required": [
-          "grund"
+          "decision_reason"
         ],
         "title": "FLRegistrierungDeclinePayload",
         "type": "object"
@@ -10824,20 +10824,20 @@
       "FLRegistrierungDeclineResponse": {
         "description": "The declined registration, and the first name the seat holder is told the decision by.",
         "properties": {
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id",
-            "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
             "type": "string"
           }
         },
         "required": [
           "registrierung_id",
-          "vorname"
+          "first_name"
         ],
         "title": "FLRegistrierungDeclineResponse",
         "type": "object"
@@ -10900,9 +10900,9 @@
       "FLRegistrierungLinkData": {
         "description": "A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.",
         "properties": {
-          "frist_days": {
+          "deadline_days": {
             "minimum": 1.0,
-            "title": "Frist Days",
+            "title": "Deadline Days",
             "type": "integer"
           },
           "kind": {
@@ -10926,7 +10926,7 @@
           "kind",
           "team",
           "saison_id",
-          "frist_days"
+          "deadline_days"
         ],
         "title": "FLRegistrierungLinkData",
         "type": "object"
@@ -10942,7 +10942,12 @@
             "title": "Deviates From",
             "type": "boolean"
           },
-          "nachname": {
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -10951,23 +10956,18 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "Last Name"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id",
             "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "spieler_id",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "deviates_from"
         ],
         "title": "FLRegistrierungPerson",
@@ -11343,7 +11343,7 @@
         "title": "FLSaisonAdmin",
         "type": "object"
       },
-      "FLSaisonAdminClub": {
+      "FLSaisonAdminIncomingTeam": {
         "description": "A club a replacement may bring into the season: one still in the league that holds no row of it.",
         "properties": {
           "id": {
@@ -11365,7 +11365,7 @@
           "name",
           "shorthand"
         ],
-        "title": "FLSaisonAdminClub",
+        "title": "FLSaisonAdminIncomingTeam",
         "type": "object"
       },
       "FLSaisonAdminListed": {
@@ -11468,11 +11468,11 @@
       "FLSaisonAdminResponse": {
         "description": "What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.\n\n`shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;\n`spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`\nholds one row per club, in `teams`' order.",
         "properties": {
-          "incoming_clubs": {
+          "incoming_teams": {
             "items": {
-              "$ref": "#/components/schemas/FLSaisonAdminClub"
+              "$ref": "#/components/schemas/FLSaisonAdminIncomingTeam"
             },
-            "title": "Incoming Clubs",
+            "title": "Incoming Teams",
             "type": "array"
           },
           "invitations": {
@@ -11516,7 +11516,7 @@
         "required": [
           "saison",
           "teams",
-          "incoming_clubs",
+          "incoming_teams",
           "shapes",
           "spielplan",
           "refusals",
@@ -11538,12 +11538,8 @@
               }
             ]
           },
-          "fixture_taken_place": {
-            "title": "Fixture Taken Place",
-            "type": "boolean"
-          },
-          "group_fixture_taken_place": {
-            "title": "Group Fixture Taken Place",
+          "group_spiel_taken_place": {
+            "title": "Group Spiel Taken Place",
             "type": "boolean"
           },
           "gruppe": {
@@ -11557,6 +11553,10 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "spiel_taken_place": {
+            "title": "Spiel Taken Place",
+            "type": "boolean"
+          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -11569,8 +11569,8 @@
           "shorthand",
           "gruppe",
           "austritt",
-          "group_fixture_taken_place",
-          "fixture_taken_place"
+          "group_spiel_taken_place",
+          "spiel_taken_place"
         ],
         "title": "FLSaisonAdminTeam",
         "type": "object"
@@ -11779,20 +11779,20 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `offen` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "description": "When a pupil may register for this season: from its activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "End",
             "type": "string"
           },
-          "offen": {
-            "title": "Offen",
+          "open": {
+            "title": "Open",
             "type": "boolean"
           }
         },
         "required": [
-          "offen",
+          "open",
           "end"
         ],
         "title": "FLSaisonRegistrierung",
@@ -11821,9 +11821,9 @@
             "title": "Loss Points",
             "type": "integer"
           },
-          "max_kadergroesse": {
+          "max_kader_size": {
             "exclusiveMinimum": 0.0,
-            "title": "Max Kadergroesse",
+            "title": "Max Kader Size",
             "type": "integer"
           },
           "number_of_gruppen": {
@@ -11865,7 +11865,7 @@
           "number_of_gruppen",
           "teams_per_gruppe",
           "tiebreak_order",
-          "max_kadergroesse",
+          "max_kader_size",
           "forfeit_ergebnis",
           "allowed_stufen"
         ],
@@ -12071,6 +12071,11 @@
       "FLSaisonTeamConfirmationView": {
         "description": "One seat's link as the contacts editor reads it: the stored link and whether it has lapsed.",
         "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "declined_at": {
             "anyOf": [
               {
@@ -12097,11 +12102,6 @@
             "title": "Expired",
             "type": "boolean"
           },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
           "sent_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Sent At",
@@ -12110,7 +12110,7 @@
         },
         "required": [
           "sent_at",
-          "frist",
+          "deadline",
           "declined_at",
           "expired",
           "delivery"
@@ -12159,13 +12159,10 @@
         "title": "FLSaisonTeamConfirmationsView",
         "type": "object"
       },
-      "FLSaisonTeamEinwilligungAntwortResponse": {
+      "FLSaisonTeamEinwilligungAnswerResponse": {
         "description": "What an answer on a season row's link did; nobody is told, so nothing composes a message.",
         "properties": {
-          "ergebnis": {
-            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
-          },
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -12175,7 +12172,10 @@
                 "type": "null"
               }
             ],
-            "title": "Geburtsdatum"
+            "title": "Birth Date"
+          },
+          "ergebnis": {
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "media": {
             "title": "Media",
@@ -12195,11 +12195,11 @@
         "required": [
           "quelle",
           "ergebnis",
-          "geburtsdatum",
+          "birth_date",
           "whatsapp",
           "media"
         ],
-        "title": "FLSaisonTeamEinwilligungAntwortResponse",
+        "title": "FLSaisonTeamEinwilligungAnswerResponse",
         "type": "object"
       },
       "FLSaisonTeamEntry": {
@@ -12513,6 +12513,18 @@
       },
       "FLSchiedsrichter": {
         "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
           "confirmation": {
             "anyOf": [
               {
@@ -12537,18 +12549,6 @@
                 "type": "null"
               }
             ]
-          },
-          "geburtsdatum": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geburtsdatum"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -12608,7 +12608,7 @@
           "inactive_since",
           "confirmation",
           "einwilligung",
-          "geburtsdatum",
+          "birth_date",
           "version"
         ],
         "title": "FLSchiedsrichter",
@@ -12644,6 +12644,11 @@
       "FLSchiedsrichterConfirmation": {
         "description": "A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it.",
         "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "declined_at": {
             "anyOf": [
               {
@@ -12655,11 +12660,6 @@
               }
             ],
             "title": "Declined At"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
           },
           "reminded_at": {
             "anyOf": [
@@ -12682,7 +12682,7 @@
         "required": [
           "sent_at",
           "reminded_at",
-          "frist",
+          "deadline",
           "declined_at"
         ],
         "title": "FLSchiedsrichterConfirmation",
@@ -12691,9 +12691,9 @@
       "FLSchiedsrichterConfirmationData": {
         "description": "A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.",
         "properties": {
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "kind": {
@@ -12704,21 +12704,21 @@
         },
         "required": [
           "kind",
-          "frist"
+          "deadline"
         ],
         "title": "FLSchiedsrichterConfirmationData",
         "type": "object"
       },
-      "FLSchiedsrichterConfirmationFristDays": {
+      "FLSchiedsrichterConfirmationDeadlineDays": {
         "const": 14,
         "type": "integer"
       },
       "FLSchiedsrichterConfirmationPayload": {
         "additionalProperties": false,
         "properties": {
-          "geburtsdatum": {
+          "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum",
+            "title": "Birth Date",
             "type": "string"
           },
           "media": {
@@ -12741,7 +12741,7 @@
         },
         "required": [
           "token",
-          "geburtsdatum",
+          "birth_date",
           "scope",
           "media",
           "text_versions"
@@ -12786,7 +12786,7 @@
       "FLSchiedsrichterConfirmationViewResponse": {
         "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id.",
         "properties": {
-          "answered_on": {
+          "answered_at": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -12796,11 +12796,11 @@
                 "type": "null"
               }
             ],
-            "title": "Answered On"
+            "title": "Answered At"
           },
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "maximum_age": {
@@ -12826,8 +12826,8 @@
           "minimum_age",
           "maximum_age",
           "media_minimum_age",
-          "frist",
-          "answered_on"
+          "deadline",
+          "answered_at"
         ],
         "title": "FLSchiedsrichterConfirmationViewResponse",
         "type": "object"
@@ -12851,19 +12851,19 @@
       "FLSchiedsrichterMint": {
         "description": "The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.",
         "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "email": {
             "minLength": 1,
             "title": "Email",
             "type": "string"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
           }
         },
         "required": [
-          "frist",
+          "deadline",
           "email"
         ],
         "title": "FLSchiedsrichterMint",
@@ -12909,7 +12909,7 @@
       "FLSchiedsrichterSelf": {
         "description": "The referee's own page's read: the record and its fee.\n\nThe fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.",
         "properties": {
-          "geburtsdatum": {
+          "birth_date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -12919,11 +12919,7 @@
                 "type": "null"
               }
             ],
-            "title": "Geburtsdatum"
-          },
-          "honorar": {
-            "title": "Honorar",
-            "type": "integer"
+            "title": "Birth Date"
           },
           "kontakt": {
             "$ref": "#/components/schemas/FLKontakt"
@@ -12932,6 +12928,10 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "payment": {
+            "title": "Payment",
+            "type": "integer"
           },
           "schiedsrichter_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -12955,8 +12955,8 @@
           "name",
           "schule",
           "kontakt",
-          "geburtsdatum",
-          "honorar"
+          "birth_date",
+          "payment"
         ],
         "title": "FLSchiedsrichterSelf",
         "type": "object"
@@ -13351,7 +13351,7 @@
         "type": "object"
       },
       "FLSpielEditorBericht": {
-        "description": "The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.\n\n`version` is the one an adoption names (`adopts_bericht`), `seiten` the clubs the report is about, and `named`\neach pupil a goal names, by the names their record holds.",
+        "description": "The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.\n\n`version` is the one an adoption names (`adopts_bericht`), `sides` the clubs the report is about, and `named`\neach pupil a goal names, by the names their record holds.",
         "properties": {
           "ergebnis_vorschlag": {
             "$ref": "#/components/schemas/FLSpielberichtVorschlag"
@@ -13363,8 +13363,8 @@
             "title": "Named",
             "type": "array"
           },
-          "seiten": {
-            "$ref": "#/components/schemas/FLSpielberichtSeiten"
+          "sides": {
+            "$ref": "#/components/schemas/FLSpielberichtSides"
           },
           "state": {
             "$ref": "#/components/schemas/FLSpielberichtState"
@@ -13385,7 +13385,7 @@
           "state",
           "version",
           "ergebnis_vorschlag",
-          "seiten",
+          "sides",
           "torschuetzen",
           "named"
         ],
@@ -13603,7 +13603,7 @@
             ],
             "title": "Ansetzung Confirmed"
           },
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -13613,7 +13613,7 @@
                 "type": "null"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "elfmeterschiessen": {
             "anyOf": [
@@ -13646,7 +13646,7 @@
             "title": "Id",
             "type": "string"
           },
-          "notiz": {
+          "note": {
             "anyOf": [
               {
                 "type": "string"
@@ -13655,7 +13655,7 @@
                 "type": "null"
               }
             ],
-            "title": "Notiz"
+            "title": "Note"
           },
           "ort": {
             "anyOf": [
@@ -13746,7 +13746,7 @@
               }
             ]
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -13756,7 +13756,7 @@
                 "type": "null"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           }
         },
         "required": [
@@ -13765,8 +13765,8 @@
           "team2",
           "team1_quelle",
           "team2_quelle",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "ort",
           "schiedsrichter",
           "ergebnis",
@@ -13776,7 +13776,7 @@
           "sonderereignis",
           "saison_phase",
           "saison_id",
-          "notiz",
+          "note",
           "ansetzung_confirmed",
           "for_third_place"
         ],
@@ -13797,7 +13797,7 @@
             ],
             "title": "Ansetzung Confirmed"
           },
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -13807,7 +13807,7 @@
                 "type": "null"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "elfmeterschiessen": {
             "anyOf": [
@@ -13840,7 +13840,7 @@
             "title": "Id",
             "type": "string"
           },
-          "notiz": {
+          "note": {
             "anyOf": [
               {
                 "type": "string"
@@ -13849,7 +13849,7 @@
                 "type": "null"
               }
             ],
-            "title": "Notiz"
+            "title": "Note"
           },
           "ort": {
             "anyOf": [
@@ -13940,7 +13940,7 @@
               }
             ]
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -13950,7 +13950,7 @@
                 "type": "null"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           },
           "version": {
             "default": 0,
@@ -13964,8 +13964,8 @@
           "team2",
           "team1_quelle",
           "team2_quelle",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "ort",
           "schiedsrichter",
           "ergebnis",
@@ -13975,7 +13975,7 @@
           "sonderereignis",
           "saison_phase",
           "saison_id",
-          "notiz",
+          "note",
           "ansetzung_confirmed",
           "for_third_place",
           "version"
@@ -13986,12 +13986,12 @@
       "FLSpielMailAnsetzung": {
         "description": "A fixture as a mail asking about it states it, its ground among the rest.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
-          "ort": {
+          "spielort": {
             "anyOf": [
               {
                 "type": "string"
@@ -14000,7 +14000,7 @@
                 "type": "null"
               }
             ],
-            "title": "Ort"
+            "title": "Spielort"
           },
           "team1": {
             "title": "Team1",
@@ -14010,18 +14010,18 @@
             "title": "Team2",
             "type": "string"
           },
-          "uhrzeit": {
+          "time": {
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Uhrzeit",
+            "title": "Time",
             "type": "string"
           }
         },
         "required": [
           "team1",
           "team2",
-          "datum",
-          "uhrzeit",
-          "ort"
+          "date",
+          "time",
+          "spielort"
         ],
         "title": "FLSpielMailAnsetzung",
         "type": "object"
@@ -14029,9 +14029,9 @@
       "FLSpielMailAppointment": {
         "description": "A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "team1": {
@@ -14042,17 +14042,17 @@
             "title": "Team2",
             "type": "string"
           },
-          "uhrzeit": {
+          "time": {
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Uhrzeit",
+            "title": "Time",
             "type": "string"
           }
         },
         "required": [
           "team1",
           "team2",
-          "datum",
-          "uhrzeit"
+          "date",
+          "time"
         ],
         "title": "FLSpielMailAppointment",
         "type": "object"
@@ -14068,7 +14068,7 @@
             "type": "boolean"
           },
           "kind": {
-            "const": "spiel_new_scheduled",
+            "const": "spiel_moved",
             "title": "Kind",
             "type": "string"
           },
@@ -14108,7 +14108,7 @@
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
           "kind": {
-            "const": "spiel_abgesagt",
+            "const": "spiel_cancelled",
             "title": "Kind",
             "type": "string"
           },
@@ -14325,9 +14325,9 @@
       },
       "FLSpielRecipientSchiedsrichter": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "schiedsrichter",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "name": {
@@ -14342,7 +14342,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "schiedsrichter_id",
           "name"
         ],
@@ -14351,9 +14351,9 @@
       },
       "FLSpielRecipientTeam": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "team",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "name": {
@@ -14368,7 +14368,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team_id",
           "name"
         ],
@@ -14380,7 +14380,7 @@
         "description": "One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.",
         "properties": {
           "side": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -14448,9 +14448,9 @@
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "kind": {
@@ -14480,7 +14480,7 @@
           "kind",
           "team",
           "ansetzung",
-          "frist",
+          "deadline",
           "moved_from"
         ],
         "title": "FLSpielRequestData",
@@ -14570,7 +14570,7 @@
         "title": "FLSpielSchiedsrichterFieldPublic",
         "type": "object"
       },
-      "FLSpielSeite": {
+      "FLSpielSide": {
         "enum": [
           "team1",
           "team2"
@@ -14639,7 +14639,7 @@
           "from_today",
           "past",
           "today",
-          "abgesagt",
+          "cancelled",
           "unknown"
         ],
         "type": "string"
@@ -14835,18 +14835,6 @@
             ],
             "title": "Adopted Version"
           },
-          "bemerkungen": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bemerkungen"
-          },
           "changed_at": {
             "format": "date-time",
             "title": "Changed At",
@@ -14862,8 +14850,20 @@
             "title": "Karten",
             "type": "array"
           },
-          "seiten": {
-            "$ref": "#/components/schemas/FLSpielberichtSeiten"
+          "remarks": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "sides": {
+            "$ref": "#/components/schemas/FLSpielberichtSides"
           },
           "submitted_at": {
             "format": "date-time",
@@ -14874,13 +14874,13 @@
             "discriminator": {
               "mapping": {
                 "admin": "#/components/schemas/FLByAdmin",
-                "schiedsrichter": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
+                "schiedsrichter": "#/components/schemas/FLSpielberichtBySchiedsrichter"
               },
-              "propertyName": "art"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
-                "$ref": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
+                "$ref": "#/components/schemas/FLSpielberichtBySchiedsrichter"
               },
               {
                 "$ref": "#/components/schemas/FLByAdmin"
@@ -14904,8 +14904,8 @@
           "ergebnis_vorschlag",
           "torschuetzen",
           "karten",
-          "bemerkungen",
-          "seiten",
+          "remarks",
+          "sides",
           "submitted_at",
           "submitted_by",
           "changed_at",
@@ -14920,19 +14920,6 @@
       "FLSpielberichtBerichtPayload": {
         "additionalProperties": false,
         "properties": {
-          "bemerkungen": {
-            "anyOf": [
-              {
-                "maxLength": 2000,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bemerkungen"
-          },
           "ergebnis_vorschlag": {
             "$ref": "#/components/schemas/FLSpielberichtVorschlag"
           },
@@ -14943,6 +14930,19 @@
             "maxItems": 60,
             "title": "Karten",
             "type": "array"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
           },
           "torschuetzen": {
             "items": {
@@ -14957,9 +14957,29 @@
           "ergebnis_vorschlag",
           "torschuetzen",
           "karten",
-          "bemerkungen"
+          "remarks"
         ],
         "title": "FLSpielberichtBerichtPayload",
+        "type": "object"
+      },
+      "FLSpielberichtBySchiedsrichter": {
+        "properties": {
+          "kind": {
+            "const": "schiedsrichter",
+            "title": "Kind",
+            "type": "string"
+          },
+          "schiedsrichter_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "schiedsrichter_id"
+        ],
+        "title": "FLSpielberichtBySchiedsrichter",
         "type": "object"
       },
       "FLSpielberichtKader": {
@@ -14990,26 +15010,26 @@
       "FLSpielberichtKarte": {
         "description": "One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.",
         "properties": {
-          "farbe": {
-            "$ref": "#/components/schemas/FLKartenFarbe"
-          },
-          "grund": {
+          "card_reason": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLKartenGrund"
+                "$ref": "#/components/schemas/FLCardReason"
               },
               {
                 "type": "null"
               }
             ]
           },
+          "colour": {
+            "$ref": "#/components/schemas/FLCardColour"
+          },
           "minute": {
             "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
             "title": "Minute",
             "type": "string"
           },
-          "seite": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -15018,11 +15038,11 @@
           }
         },
         "required": [
-          "seite",
+          "side",
           "spieler_id",
           "minute",
-          "farbe",
-          "grund"
+          "colour",
+          "card_reason"
         ],
         "title": "FLSpielberichtKarte",
         "type": "object"
@@ -15031,26 +15051,26 @@
         "additionalProperties": false,
         "description": "One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).",
         "properties": {
-          "farbe": {
-            "$ref": "#/components/schemas/FLKartenFarbe"
-          },
-          "grund": {
+          "card_reason": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLKartenGrund"
+                "$ref": "#/components/schemas/FLCardReason"
               },
               {
                 "type": "null"
               }
             ]
           },
+          "colour": {
+            "$ref": "#/components/schemas/FLCardColour"
+          },
           "minute": {
             "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
             "title": "Minute",
             "type": "string"
           },
-          "seite": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -15059,37 +15079,37 @@
           }
         },
         "required": [
-          "seite",
+          "side",
           "spieler_id",
           "minute",
-          "farbe",
-          "grund"
+          "colour",
+          "card_reason"
         ],
         "title": "FLSpielberichtKartePayload",
         "type": "object"
       },
       "FLSpielberichtKartePublic": {
-        "description": "One card, `seite` its player's club, its `grund` never served: a characterisation of a named pupil's conduct.",
+        "description": "One card, `side` its player's club, its `card_reason` never served: a characterisation of a named pupil's conduct.",
         "properties": {
-          "farbe": {
-            "$ref": "#/components/schemas/FLKartenFarbe"
+          "colour": {
+            "$ref": "#/components/schemas/FLCardColour"
           },
           "minute": {
             "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
             "title": "Minute",
             "type": "string"
           },
-          "seite": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spieler": {
             "$ref": "#/components/schemas/FLSpielberichtSpielerPublic"
           }
         },
         "required": [
-          "seite",
+          "side",
           "minute",
-          "farbe",
+          "colour",
           "spieler"
         ],
         "title": "FLSpielberichtKartePublic",
@@ -15143,7 +15163,7 @@
       "FLSpielberichtPersonEarlierEntry": {
         "description": "One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands.",
         "properties": {
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -15153,7 +15173,7 @@
                 "type": "null"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -15194,7 +15214,7 @@
             ],
             "title": "Team2 Name"
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -15204,13 +15224,13 @@
                 "type": "null"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           }
         },
         "required": [
           "spiel_id",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "team1_name",
           "team2_name",
           "submitted_at"
@@ -15221,9 +15241,9 @@
       "FLSpielberichtPersonEntry": {
         "description": "One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "spiel_id": {
@@ -15265,7 +15285,7 @@
             ],
             "title": "Team2 Name"
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -15275,13 +15295,13 @@
                 "type": "null"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           }
         },
         "required": [
           "spiel_id",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "team1_name",
           "team2_name",
           "submitted_at"
@@ -15359,11 +15379,11 @@
             "title": "Named",
             "type": "array"
           },
-          "seiten_changed": {
+          "sides_changed": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielSeite"
+              "$ref": "#/components/schemas/FLSpielSide"
             },
-            "title": "Seiten Changed",
+            "title": "Sides Changed",
             "type": "array"
           },
           "spiel": {
@@ -15386,14 +15406,14 @@
           "kader",
           "named",
           "bericht",
-          "seiten_changed",
+          "sides_changed",
           "version",
           "completed"
         ],
         "title": "FLSpielberichtSchiedsrichterResponse",
         "type": "object"
       },
-      "FLSpielberichtSeiten": {
+      "FLSpielberichtSides": {
         "description": "The clubs the fixture fielded at the block's last write, null on a slot then open.\n\nStamped by every write and on no payload: entries go by side, and a knockout correction can re-field one.",
         "properties": {
           "team1": {
@@ -15425,13 +15445,13 @@
           "team1",
           "team2"
         ],
-        "title": "FLSpielberichtSeiten",
+        "title": "FLSpielberichtSides",
         "type": "object"
       },
       "FLSpielberichtSpiel": {
         "description": "The fixture a report is about, as its form states it: no money, no booking, no result.",
         "properties": {
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -15441,7 +15461,7 @@
                 "type": "null"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -15485,7 +15505,7 @@
               }
             ]
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -15495,15 +15515,15 @@
                 "type": "null"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           }
         },
         "required": [
           "spiel_id",
           "saison_id",
           "saison_phase",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "team1",
           "team2",
           "sonderereignis"
@@ -15514,7 +15534,7 @@
       "FLSpielberichtSpieler": {
         "description": "A pupil a report may name or names, with the names their record holds, both null where an erasure took the record.",
         "properties": {
-          "nachname": {
+          "first_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -15523,7 +15543,18 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "nummer": {
             "anyOf": [
@@ -15540,23 +15571,12 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id",
             "type": "string"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
           }
         },
         "required": [
           "spieler_id",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "nummer"
         ],
         "title": "FLSpielberichtSpieler",
@@ -15565,7 +15585,7 @@
       "FLSpielberichtSpielerPublic": {
         "description": "One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).\n\nThe names only where `type` is `named`, the surname as an initial (`READ-PUPIL-001`); the number and position off\nthe pupil's squad row for that side's club in the match's season, kept where the name is withheld.",
         "properties": {
-          "nachname": {
+          "first_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -15574,7 +15594,18 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "nummer": {
             "anyOf": [
@@ -15599,23 +15630,12 @@
           },
           "type": {
             "$ref": "#/components/schemas/FLSpielberichtSpielerType"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
           }
         },
         "required": [
           "type",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "nummer",
           "position"
         ],
@@ -15635,7 +15655,7 @@
           "vorgeschlagen",
           "adopted",
           "differing",
-          "abgesagt",
+          "cancelled",
           "teams_changed"
         ],
         "type": "string"
@@ -15683,7 +15703,7 @@
         "type": "object"
       },
       "FLSpielberichtTorPublic": {
-        "description": "One goal: `seite` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.",
+        "description": "One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.",
         "properties": {
           "eigentor": {
             "title": "Eigentor",
@@ -15694,15 +15714,15 @@
             "title": "Minute",
             "type": "string"
           },
-          "seite": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spieler": {
             "$ref": "#/components/schemas/FLSpielberichtSpielerPublic"
           }
         },
         "required": [
-          "seite",
+          "side",
           "minute",
           "eigentor",
           "spieler"
@@ -15722,8 +15742,8 @@
             "title": "Minute",
             "type": "string"
           },
-          "seite": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "spieler_id": {
             "anyOf": [
@@ -15739,32 +15759,12 @@
           }
         },
         "required": [
-          "seite",
+          "side",
           "spieler_id",
           "minute",
           "eigentor"
         ],
         "title": "FLSpielberichtTorschuetze",
-        "type": "object"
-      },
-      "FLSpielberichtVonSchiedsrichter": {
-        "properties": {
-          "art": {
-            "const": "schiedsrichter",
-            "title": "Art",
-            "type": "string"
-          },
-          "schiedsrichter_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art",
-          "schiedsrichter_id"
-        ],
-        "title": "FLSpielberichtVonSchiedsrichter",
         "type": "object"
       },
       "FLSpielberichtVorschlag": {
@@ -15878,10 +15878,10 @@
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
           },
-          "antwort": {
+          "answer": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAntwort"
+                "$ref": "#/components/schemas/FLSpielbestaetigungAnswer"
               },
               {
                 "type": "null"
@@ -15910,9 +15910,9 @@
               }
             ]
           },
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
           "id": {
@@ -15936,7 +15936,7 @@
                 "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
                 "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
               },
-              "propertyName": "art"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
@@ -15976,10 +15976,10 @@
           "spiel_id",
           "party",
           "ansetzung",
-          "frist",
+          "deadline",
           "asked_at",
           "reminded_at",
-          "antwort",
+          "answer",
           "closed",
           "kontakte"
         ],
@@ -15989,9 +15989,9 @@
       "FLSpielbestaetigungAnsetzung": {
         "description": "The Ansetzung a row answers about: every input of `stand`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `stand` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "spielort_id": {
@@ -16020,15 +16020,15 @@
             "title": "Team2 Id",
             "type": "string"
           },
-          "uhrzeit": {
+          "time": {
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Uhrzeit",
+            "title": "Time",
             "type": "string"
           }
         },
         "required": [
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "spielort_id",
           "team1_id",
           "team2_id",
@@ -16037,18 +16037,21 @@
         "title": "FLSpielbestaetigungAnsetzung",
         "type": "object"
       },
-      "FLSpielbestaetigungAntwort": {
+      "FLSpielbestaetigungAnswer": {
         "description": "Written once, while the row is open: a second press finds the row answered and changes nothing.",
         "properties": {
-          "am": {
+          "at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Am",
+            "title": "At",
             "type": "string"
           },
-          "art": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
+          "by": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungBy"
           },
-          "begruendung": {
+          "kind": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
+          },
+          "reason": {
             "anyOf": [
               {
                 "minLength": 1,
@@ -16058,10 +16061,7 @@
                 "type": "null"
               }
             ],
-            "title": "Begruendung"
-          },
-          "von": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
+            "title": "Reason"
           },
           "vorschlag": {
             "anyOf": [
@@ -16075,30 +16075,30 @@
           }
         },
         "required": [
-          "art",
-          "am",
-          "von",
+          "kind",
+          "at",
+          "by",
           "vorschlag",
-          "begruendung"
+          "reason"
         ],
-        "title": "FLSpielbestaetigungAntwort",
+        "title": "FLSpielbestaetigungAnswer",
         "type": "object"
       },
-      "FLSpielbestaetigungAntwortArt": {
+      "FLSpielbestaetigungAnswerKind": {
         "enum": [
           "zugesagt",
           "declined"
         ],
         "type": "string"
       },
-      "FLSpielbestaetigungAntwortPayload": {
+      "FLSpielbestaetigungAnswerPayload": {
         "additionalProperties": false,
         "description": "One club's answer about one Ansetzung, from whichever of its seats pressed first.",
         "properties": {
-          "antwort": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
+          "answer": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
           },
-          "begruendung": {
+          "reason": {
             "anyOf": [
               {
                 "maxLength": 500,
@@ -16110,7 +16110,7 @@
                 "type": "null"
               }
             ],
-            "title": "Begruendung"
+            "title": "Reason"
           },
           "token": {
             "maxLength": 128,
@@ -16132,21 +16132,21 @@
         },
         "required": [
           "token",
-          "antwort",
+          "answer",
           "vorschlag",
-          "begruendung"
+          "reason"
         ],
-        "title": "FLSpielbestaetigungAntwortPayload",
+        "title": "FLSpielbestaetigungAnswerPayload",
         "type": "object"
       },
-      "FLSpielbestaetigungAntwortResponse": {
+      "FLSpielbestaetigungAnswerResponse": {
         "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.",
         "properties": {
           "answered_by": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
+            "$ref": "#/components/schemas/FLSpielbestaetigungBy"
           },
           "state": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
           },
           "vorschlag": {
             "anyOf": [
@@ -16164,28 +16164,82 @@
           "answered_by",
           "vorschlag"
         ],
-        "title": "FLSpielbestaetigungAntwortResponse",
+        "title": "FLSpielbestaetigungAnswerResponse",
         "type": "object"
       },
       "FLSpielbestaetigungAppointment": {
         "description": "A date and time without a ground: a team's proposal, and the slot a moved fixture left.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
-          "uhrzeit": {
+          "time": {
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Uhrzeit",
+            "title": "Time",
             "type": "string"
           }
         },
         "required": [
-          "datum",
-          "uhrzeit"
+          "date",
+          "time"
         ],
         "title": "FLSpielbestaetigungAppointment",
+        "type": "object"
+      },
+      "FLSpielbestaetigungBy": {
+        "discriminator": {
+          "mapping": {
+            "admin": "#/components/schemas/FLByAdmin",
+            "kontakt": "#/components/schemas/FLSpielbestaetigungByKontakt",
+            "schiedsrichter": "#/components/schemas/FLSpielbestaetigungBySchiedsrichter"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungByKontakt"
+          },
+          {
+            "$ref": "#/components/schemas/FLByAdmin"
+          },
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungBySchiedsrichter"
+          }
+        ]
+      },
+      "FLSpielbestaetigungByKontakt": {
+        "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",
+        "properties": {
+          "kind": {
+            "const": "kontakt",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rolle": {
+            "$ref": "#/components/schemas/FLKontaktRolle"
+          }
+        },
+        "required": [
+          "kind",
+          "rolle"
+        ],
+        "title": "FLSpielbestaetigungByKontakt",
+        "type": "object"
+      },
+      "FLSpielbestaetigungBySchiedsrichter": {
+        "properties": {
+          "kind": {
+            "const": "schiedsrichter",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "FLSpielbestaetigungBySchiedsrichter",
         "type": "object"
       },
       "FLSpielbestaetigungClosed": {
@@ -16195,24 +16249,24 @@
             "title": "At",
             "type": "string"
           },
-          "grund": {
+          "reason": {
             "enum": [
               "ansetzung_changed",
               "austritt",
               "spiel_decided",
-              "abgesagt",
+              "cancelled",
               "schiedsrichter_switched",
               "schiedsrichter_declined",
               "discarded",
               "spiel_past"
             ],
-            "title": "Grund",
+            "title": "Reason",
             "type": "string"
           }
         },
         "required": [
           "at",
-          "grund"
+          "reason"
         ],
         "title": "FLSpielbestaetigungClosed",
         "type": "object"
@@ -16221,16 +16275,16 @@
         "additionalProperties": false,
         "description": "The administrator's Zusage for a party that answered elsewhere, and how it was given.\n\nNo way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue.",
         "properties": {
-          "begruendung": {
+          "reason": {
             "maxLength": 500,
             "minLength": 1,
             "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
-            "title": "Begruendung",
+            "title": "Reason",
             "type": "string"
           }
         },
         "required": [
-          "begruendung"
+          "reason"
         ],
         "title": "FLSpielbestaetigungEnterPayload",
         "type": "object"
@@ -16279,9 +16333,9 @@
       },
       "FLSpielbestaetigungPartySchiedsrichter": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "schiedsrichter",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "schiedsrichter_id": {
@@ -16291,7 +16345,7 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "schiedsrichter_id"
         ],
         "title": "FLSpielbestaetigungPartySchiedsrichter",
@@ -16299,9 +16353,9 @@
       },
       "FLSpielbestaetigungPartyTeam": {
         "properties": {
-          "art": {
+          "kind": {
             "const": "team",
-            "title": "Art",
+            "title": "Kind",
             "type": "string"
           },
           "team_id": {
@@ -16311,20 +16365,20 @@
           }
         },
         "required": [
-          "art",
+          "kind",
           "team_id"
         ],
         "title": "FLSpielbestaetigungPartyTeam",
         "type": "object"
       },
-      "FLSpielbestaetigungSchiedsrichterAntwortPayload": {
+      "FLSpielbestaetigungSchiedsrichterAnswerPayload": {
         "additionalProperties": false,
         "description": "A referee's answer about one row naming them: a decline gives a reason, which the administrator reads.",
         "properties": {
-          "antwort": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
+          "answer": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
           },
-          "begruendung": {
+          "reason": {
             "anyOf": [
               {
                 "maxLength": 500,
@@ -16336,17 +16390,17 @@
                 "type": "null"
               }
             ],
-            "title": "Begruendung"
+            "title": "Reason"
           }
         },
         "required": [
-          "antwort",
-          "begruendung"
+          "answer",
+          "reason"
         ],
-        "title": "FLSpielbestaetigungSchiedsrichterAntwortPayload",
+        "title": "FLSpielbestaetigungSchiedsrichterAnswerPayload",
         "type": "object"
       },
-      "FLSpielbestaetigungSchiedsrichterAntwortResponse": {
+      "FLSpielbestaetigungSchiedsrichterAnswerResponse": {
         "properties": {
           "spielbestaetigung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16354,14 +16408,14 @@
             "type": "string"
           },
           "state": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
           }
         },
         "required": [
           "spielbestaetigung_id",
           "state"
         ],
-        "title": "FLSpielbestaetigungSchiedsrichterAntwortResponse",
+        "title": "FLSpielbestaetigungSchiedsrichterAnswerResponse",
         "type": "object"
       },
       "FLSpielbestaetigungSeat": {
@@ -16390,18 +16444,6 @@
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungViewAnsetzung"
           },
-          "begruendung": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Begruendung"
-          },
           "entered": {
             "title": "Entered",
             "type": "boolean"
@@ -16414,6 +16456,18 @@
           "past": {
             "title": "Past",
             "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           },
           "schiedsrichter_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16432,7 +16486,7 @@
               "declined",
               "expired",
               "invalid",
-              "abgesagt"
+              "cancelled"
             ],
             "title": "State",
             "type": "string"
@@ -16444,7 +16498,7 @@
           "schiedsrichter_id",
           "ansetzung",
           "state",
-          "begruendung",
+          "reason",
           "entered",
           "past"
         ],
@@ -16493,9 +16547,9 @@
       "FLSpielbestaetigungViewAnsetzung": {
         "description": "The clubs, the day, the hour and the ground a page or a message states.\n\nThe fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about.",
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
           "spielort": {
@@ -16516,17 +16570,17 @@
             "title": "Team2 Name",
             "type": "string"
           },
-          "uhrzeit": {
+          "time": {
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Uhrzeit",
+            "title": "Time",
             "type": "string"
           }
         },
         "required": [
           "team1_name",
           "team2_name",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "spielort"
         ],
         "title": "FLSpielbestaetigungViewAnsetzung",
@@ -16541,20 +16595,20 @@
           "answered_by": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVon"
+                "$ref": "#/components/schemas/FLSpielbestaetigungBy"
               },
               {
                 "type": "null"
               }
             ]
           },
-          "frist": {
+          "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
+            "title": "Deadline",
             "type": "string"
           },
-          "seite": {
-            "$ref": "#/components/schemas/FLSpielSeite"
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
           },
           "state": {
             "enum": [
@@ -16565,7 +16619,7 @@
               "discarded",
               "expired",
               "invalid",
-              "abgesagt",
+              "cancelled",
               "barred"
             ],
             "title": "State",
@@ -16584,86 +16638,32 @@
         },
         "required": [
           "state",
-          "seite",
+          "side",
           "ansetzung",
-          "frist",
+          "deadline",
           "vorschlag",
           "answered_by"
         ],
         "title": "FLSpielbestaetigungViewResponse",
         "type": "object"
       },
-      "FLSpielbestaetigungVon": {
-        "discriminator": {
-          "mapping": {
-            "admin": "#/components/schemas/FLByAdmin",
-            "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-            "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-          },
-          "propertyName": "art"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-          },
-          {
-            "$ref": "#/components/schemas/FLByAdmin"
-          },
-          {
-            "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-          }
-        ]
-      },
-      "FLSpielbestaetigungVonKontakt": {
-        "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",
-        "properties": {
-          "art": {
-            "const": "kontakt",
-            "title": "Art",
-            "type": "string"
-          },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          }
-        },
-        "required": [
-          "art",
-          "rolle"
-        ],
-        "title": "FLSpielbestaetigungVonKontakt",
-        "type": "object"
-      },
-      "FLSpielbestaetigungVonSchiedsrichter": {
-        "properties": {
-          "art": {
-            "const": "schiedsrichter",
-            "title": "Art",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art"
-        ],
-        "title": "FLSpielbestaetigungVonSchiedsrichter",
-        "type": "object"
-      },
       "FLSpielbestaetigungVorschlagPayload": {
         "additionalProperties": false,
         "properties": {
-          "datum": {
+          "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Datum",
+            "title": "Date",
             "type": "string"
           },
-          "uhrzeit": {
+          "time": {
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Uhrzeit",
+            "title": "Time",
             "type": "string"
           }
         },
         "required": [
-          "datum",
-          "uhrzeit"
+          "date",
+          "time"
         ],
         "title": "FLSpielbestaetigungVorschlagPayload",
         "type": "object"
@@ -16835,6 +16835,11 @@
       "FLSpielerAdminSingleResponse": {
         "description": "The same player echoed back to the admin who just wrote them, with their whole name.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date.",
         "properties": {
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -16847,7 +16852,7 @@
             ],
             "title": "Inactive Since"
           },
-          "nachname": {
+          "last_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -16856,7 +16861,7 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "Last Name"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16867,17 +16872,12 @@
             "default": 0,
             "title": "Version",
             "type": "integer"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "spieler_id",
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "inactive_since",
           "version"
         ],
@@ -17004,7 +17004,7 @@
       "FLSpielerPublic": {
         "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it.",
         "properties": {
-          "nachname": {
+          "first_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -17013,7 +17013,18 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "nummer": {
             "anyOf": [
@@ -17035,22 +17046,11 @@
                 "type": "null"
               }
             ]
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "nummer",
           "position"
         ],
@@ -17088,9 +17088,14 @@
       "FLSpielerSelf": {
         "description": "The pupil's own page's read: the record and every squad row it holds.\n\nThe squad rows are this read's alone: the account page lists none, so its entry extends the record without them.",
         "properties": {
-          "geburtsdatum": {
+          "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum",
+            "title": "Birth Date",
+            "type": "string"
+          },
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
             "type": "string"
           },
           "kader": {
@@ -17100,7 +17105,7 @@
             "title": "Kader",
             "type": "array"
           },
-          "nachname": {
+          "last_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -17109,24 +17114,19 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "Last Name"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id",
             "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "spieler_id",
-          "geburtsdatum",
+          "birth_date",
           "kader"
         ],
         "title": "FLSpielerSelf",
@@ -17234,9 +17234,9 @@
         "type": "object"
       },
       "FLSpielerSingleResponse": {
-        "description": "One player as the BASE TIER serves them -- an allow-list of what this surface needs.\n\nSquad fields are season-scoped, and inventing a season would make the answer depend on a default\nnobody stated. `nachname` is an INITIAL here (`READ-PUPIL-001`).",
+        "description": "One player as the BASE TIER serves them -- an allow-list of what this surface needs.\n\nSquad fields are season-scoped, and inventing a season would make the answer depend on a default\nnobody stated. `last_name` is an INITIAL here (`READ-PUPIL-001`).",
         "properties": {
-          "nachname": {
+          "first_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -17245,29 +17245,29 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id",
             "type": "string"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
           }
         },
         "required": [
           "spieler_id",
-          "vorname",
-          "nachname"
+          "first_name",
+          "last_name"
         ],
         "title": "FLSpielerSingleResponse",
         "type": "object"
@@ -17326,6 +17326,11 @@
               }
             ]
           },
+          "birth_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Birth Date",
+            "type": "string"
+          },
           "einwilligung": {
             "$ref": "#/components/schemas/FLEinwilligung"
           },
@@ -17333,9 +17338,9 @@
             "title": "Email",
             "type": "string"
           },
-          "geburtsdatum": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum",
+          "first_name": {
+            "minLength": 1,
+            "title": "First Name",
             "type": "string"
           },
           "id": {
@@ -17355,14 +17360,7 @@
             ],
             "title": "Inactive Since"
           },
-          "memberships": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerMembership"
-            },
-            "title": "Memberships",
-            "type": "array"
-          },
-          "nachname": {
+          "last_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -17371,25 +17369,27 @@
                 "type": "null"
               }
             ],
-            "title": "Nachname"
+            "title": "Last Name"
+          },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerMembership"
+            },
+            "title": "Memberships",
+            "type": "array"
           },
           "version": {
             "default": 0,
             "title": "Version",
             "type": "integer"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
-          "vorname",
-          "nachname",
+          "first_name",
+          "last_name",
           "id",
           "inactive_since",
-          "geburtsdatum",
+          "birth_date",
           "einwilligung",
           "email",
           "address_change_id",
@@ -17546,24 +17546,12 @@
       "FLSpielplanSpieltag": {
         "description": "One matchday as the Spielplan shows it, holding its matches in the order the draw numbered them.",
         "properties": {
-          "beginn": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beginn"
-          },
           "count_spiele": {
             "minimum": 0.0,
             "title": "Count Spiele",
             "type": "integer"
           },
-          "ende": {
+          "end": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -17573,7 +17561,7 @@
                 "type": "null"
               }
             ],
-            "title": "Ende"
+            "title": "End"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17601,6 +17589,18 @@
             "title": "Spiele",
             "type": "array"
           },
+          "start": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
           "version": {
             "default": 0,
             "title": "Version",
@@ -17609,8 +17609,8 @@
         },
         "required": [
           "id",
-          "beginn",
-          "ende",
+          "start",
+          "end",
           "position",
           "saison_phase",
           "saison_id",
@@ -17624,24 +17624,12 @@
       "FLSpielplanSpieltagAdmin": {
         "description": "One matchday as the administrator's Spiele list shows it, its matches in the admin shape.",
         "properties": {
-          "beginn": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beginn"
-          },
           "count_spiele": {
             "minimum": 0.0,
             "title": "Count Spiele",
             "type": "integer"
           },
-          "ende": {
+          "end": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -17651,7 +17639,7 @@
                 "type": "null"
               }
             ],
-            "title": "Ende"
+            "title": "End"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17679,6 +17667,18 @@
             "title": "Spiele",
             "type": "array"
           },
+          "start": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
           "version": {
             "default": 0,
             "title": "Version",
@@ -17687,8 +17687,8 @@
         },
         "required": [
           "id",
-          "beginn",
-          "ende",
+          "start",
+          "end",
           "position",
           "saison_phase",
           "saison_id",
@@ -17701,24 +17701,12 @@
       },
       "FLSpieltag": {
         "properties": {
-          "beginn": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beginn"
-          },
           "count_spiele": {
             "minimum": 0.0,
             "title": "Count Spiele",
             "type": "integer"
           },
-          "ende": {
+          "end": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -17728,7 +17716,7 @@
                 "type": "null"
               }
             ],
-            "title": "Ende"
+            "title": "End"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17749,6 +17737,18 @@
           "saison_phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
           },
+          "start": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
           "version": {
             "default": 0,
             "title": "Version",
@@ -17757,8 +17757,8 @@
         },
         "required": [
           "id",
-          "beginn",
-          "ende",
+          "start",
+          "end",
           "position",
           "saison_phase",
           "saison_id",
@@ -17771,18 +17771,6 @@
       "FLSpieltagAdmin": {
         "description": "A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.",
         "properties": {
-          "beginn": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beginn"
-          },
           "count_spiele": {
             "minimum": 0.0,
             "title": "Count Spiele",
@@ -17793,7 +17781,7 @@
             "title": "Count Spieltage In Phase",
             "type": "integer"
           },
-          "ende": {
+          "end": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -17803,7 +17791,7 @@
                 "type": "null"
               }
             ],
-            "title": "Ende"
+            "title": "End"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17824,6 +17812,18 @@
           "saison_phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
           },
+          "start": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
           "version": {
             "default": 0,
             "title": "Version",
@@ -17832,8 +17832,8 @@
         },
         "required": [
           "id",
-          "beginn",
-          "ende",
+          "start",
+          "end",
           "position",
           "saison_phase",
           "saison_id",
@@ -18558,7 +18558,7 @@
             "title": "Count Spieltage In Phase",
             "type": "integer"
           },
-          "datum": {
+          "date": {
             "anyOf": [
               {
                 "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -18568,7 +18568,7 @@
                 "type": "null"
               }
             ],
-            "title": "Datum"
+            "title": "Date"
           },
           "elfmeterschiessen": {
             "anyOf": [
@@ -18601,7 +18601,7 @@
             "title": "Id",
             "type": "string"
           },
-          "notiz": {
+          "note": {
             "anyOf": [
               {
                 "type": "string"
@@ -18610,7 +18610,7 @@
                 "type": "null"
               }
             ],
-            "title": "Notiz"
+            "title": "Note"
           },
           "ort": {
             "anyOf": [
@@ -18706,7 +18706,7 @@
               }
             ]
           },
-          "uhrzeit": {
+          "time": {
             "anyOf": [
               {
                 "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
@@ -18716,7 +18716,7 @@
                 "type": "null"
               }
             ],
-            "title": "Uhrzeit"
+            "title": "Time"
           }
         },
         "required": [
@@ -18725,8 +18725,8 @@
           "team2",
           "team1_quelle",
           "team2_quelle",
-          "datum",
-          "uhrzeit",
+          "date",
+          "time",
           "ort",
           "schiedsrichter",
           "ergebnis",
@@ -18736,7 +18736,7 @@
           "sonderereignis",
           "saison_phase",
           "saison_id",
-          "notiz",
+          "note",
           "ansetzung_confirmed",
           "for_third_place",
           "spieltag_position",
@@ -18805,10 +18805,10 @@
       },
       "FLTeamStatistik": {
         "properties": {
-          "count_abgesagte_spiele": {
+          "count_cancelled_spiele": {
             "default": 0,
             "minimum": 0.0,
-            "title": "Count Abgesagte Spiele",
+            "title": "Count Cancelled Spiele",
             "type": "integer"
           },
           "count_gespielte_spiele": {
@@ -18862,7 +18862,7 @@
           "tore_geschossen",
           "tore_kassiert",
           "punkte",
-          "count_abgesagte_spiele"
+          "count_cancelled_spiele"
         ],
         "title": "FLTeamStatistik",
         "type": "object"
@@ -19127,7 +19127,7 @@
           "good_spieler_exceed_kader",
           "grant_wording_stale",
           "kontakt_email_twice",
-          "kontakt_telefon_twice",
+          "kontakt_phone_twice",
           "nichtantreten_with_tore",
           "nichtantreten_with_torschuetzen",
           "registrierung_window_reaches_saison_start",
@@ -20887,7 +20887,7 @@
                     "declined": "#/components/schemas/FLBewerbungEinwilligungDeclined",
                     "given": "#/components/schemas/FLBewerbungEinwilligungGiven"
                   },
-                  "propertyName": "antwort"
+                  "propertyName": "answer"
                 },
                 "oneOf": [
                   {
@@ -20897,7 +20897,7 @@
                     "$ref": "#/components/schemas/FLBewerbungEinwilligungDeclined"
                   }
                 ],
-                "title": "Antwort Data"
+                "title": "Answer Data"
               }
             }
           },
@@ -20910,17 +20910,17 @@
                 "schema": {
                   "discriminator": {
                     "mapping": {
-                      "bewerbung": "#/components/schemas/FLBewerbungEinwilligungAntwortResponse",
-                      "saison": "#/components/schemas/FLSaisonTeamEinwilligungAntwortResponse"
+                      "bewerbung": "#/components/schemas/FLBewerbungEinwilligungAnswerResponse",
+                      "saison": "#/components/schemas/FLSaisonTeamEinwilligungAnswerResponse"
                     },
                     "propertyName": "quelle"
                   },
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/FLBewerbungEinwilligungAntwortResponse"
+                      "$ref": "#/components/schemas/FLBewerbungEinwilligungAnswerResponse"
                     },
                     {
-                      "$ref": "#/components/schemas/FLSaisonTeamEinwilligungAntwortResponse"
+                      "$ref": "#/components/schemas/FLSaisonTeamEinwilligungAnswerResponse"
                     }
                   ],
                   "title": "Response Bewerbungen Post Einwilligung"
@@ -23501,7 +23501,7 @@
     },
     "/api/v0/outbox/result": {
       "post": {
-        "description": "Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.\n\n`sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a\nrefusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,\nis recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the\nprovider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a\nmail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not\nhold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and\ncounted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are\none atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.",
+        "description": "Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.\n\n`sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a\nrefusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,\nis recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the\nprovider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a\nmail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not\nhold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and\ncounted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are\none atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.",
         "operationId": "outbox_post_result",
         "requestBody": {
           "content": {
@@ -25153,7 +25153,7 @@
     },
     "/api/v0/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's\n`replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes\nboth before either is pressed. `incoming_clubs` is every club still in the league holding no row of the season,\nwhich is what the replacement admits.\n\n`refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
+        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's\n`replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes\nboth before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,\nwhich is what the replacement admits.\n\n`refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
         "operationId": "saisons_get_saison_admin",
         "parameters": [
           {
@@ -26651,7 +26651,7 @@
     },
     "/api/v0/schiedsrichter/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the link's state and deadline, the age bounds, and the day of the person's own answer.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`link_invalid`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),\nso the page offers a barred referee nothing to press. `answered_on` is the day the state's answer was given, the\nconsent's or the objection's, and null on every state showing none.",
+        "description": "Answer what this token opens: the link's state and deadline, the age bounds, and the day of the person's own answer.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`link_invalid`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),\nso the page offers a barred referee nothing to press. `answered_at` is the day the state's answer was given, the\nconsent's or the objection's, and null on every state showing none.",
         "operationId": "schiedsrichter_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -26729,7 +26729,7 @@
     },
     "/api/v0/schiedsrichter/self": {
       "get": {
-        "description": "Answer every confirmed referee record the signed-in address holds, with its stored contact details.\n\nPERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired\nrecord is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed referee record (`role_not_held`).",
+        "description": "Answer every confirmed referee record the signed-in address holds, with its stored contact details.\n\nPERSON TIER: the fee set for them per fixture as `payment`, never the confirmation link's bookkeeping. A retired\nrecord is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed referee record (`role_not_held`).",
         "operationId": "schiedsrichter_get_self",
         "responses": {
           "200": {
@@ -27563,7 +27563,7 @@
     },
     "/api/v0/spielberichte/self": {
       "get": {
-        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`earlier` holds every fixture of an ended season booked to those records now on which a report stands, newest\nfirst, one whose date was cleared after its report last with a null `datum`: its page shows the report read-only.\nRefused `role_not_held` where the address holds no confirmed, live referee record.",
+        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`earlier` holds every fixture of an ended season booked to those records now on which a report stands, newest\nfirst, one whose date was cleared after its report last with a null `date`: its page shows the report read-only.\nRefused `role_not_held` where the address holds no confirmed, live referee record.",
         "operationId": "spielberichte_get_self",
         "responses": {
           "200": {
@@ -27707,7 +27707,7 @@
         ]
       },
       "put": {
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `differing` again until it\nis adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,\nso a report a knockout correction re-fielded a side under reads `teams_changed` until it is written again. Writes\nno fixture: the result is the administrator's to save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records\n(`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a\n`bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated\nor whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out\nproposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's\nlive squad of the season, a pupil the report already named on that side staying while the side fields the club it\ndid (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`bericht_grund_missing`). Every refusal but\n`bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a\nwrite landing on what was judged before that second asking refuses the report rather than letting it stand, and one\nlanding after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,\nwhose retry meets `bericht_meanwhile_changed`. Two first writes at once are two forms opened on no report: the later is\nrefused.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `differing` again until it\nis adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,\nso a report a knockout correction re-fielded a side under reads `teams_changed` until it is written again. Writes\nno fixture: the result is the administrator's to save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records\n(`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a\n`bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated\nor whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out\nproposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's\nlive squad of the season, a pupil the report already named on that side staying while the side fields the club it\ndid (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`card_reason_missing`). Every refusal but\n`bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a\nwrite landing on what was judged before that second asking refuses the report rather than letting it stand, and one\nlanding after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,\nwhose retry meets `bericht_meanwhile_changed`. Two first writes at once are two forms opened on no report: the later is\nrefused.",
         "operationId": "spielberichte_put_spielbericht_bericht",
         "parameters": [
           {
@@ -27911,13 +27911,13 @@
         ]
       },
       "post": {
-        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered\n(`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`link_invalid`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`link_barred`); a row already answered, closed since or not\n(`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club\n(`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_frist_past`); a\nproposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds\n(`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's\nother fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
+        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered\n(`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`link_invalid`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`link_barred`); a row already answered, closed since or not\n(`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club\n(`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_deadline_past`); a\nproposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds\n(`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's\nother fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
         "operationId": "spielbestaetigungen_post_spielbestaetigung",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAntwortPayload"
+                "$ref": "#/components/schemas/FLSpielbestaetigungAnswerPayload"
               }
             }
           },
@@ -27928,7 +27928,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungAntwortResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungAnswerResponse"
                 }
               }
             },
@@ -27988,7 +27988,7 @@
     },
     "/api/v0/spielbestaetigungen/self": {
       "get": {
-        "description": "Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.\n\nOne row per fixture in an `active` season: a fixture moved, reinstated or booked to them again answers its fresh\nrequest alone.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, `abgesagt` once the fixture is called off, the referee's own decline\nreason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is\nserved: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open\nahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an\nadministrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
+        "description": "Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.\n\nOne row per fixture in an `active` season: a fixture moved, reinstated or booked to them again answers its fresh\nrequest alone.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, `cancelled` once the fixture is called off, the referee's own decline\nreason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is\nserved: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open\nahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an\nadministrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
         "operationId": "spielbestaetigungen_get_self",
         "responses": {
           "200": {
@@ -28122,7 +28122,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now\nwhere the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a\nreferee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's\nseats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A\nparty still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the\ntransaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and\nthe request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,\nits answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture\nholding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's\ndays away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every\none of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nA seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks\nit once the ban is lifted.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now\nwhere the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a\nreferee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's\nseats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A\nparty still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the\ntransaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and\nthe request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,\nits answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture\nholding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's\ndays away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every\none of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nA seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks\nit once the ban is lifted.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -28348,10 +28348,10 @@
         ]
       }
     },
-    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
+    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer": {
       "post": {
-        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no\nrow of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row\nalready answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered\n(`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,\ntime, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a\nfixture whose day has gone by (`ansetzung_frist_past`). An acceptance is judged again outside the transaction just\nbefore answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
-        "operationId": "spielbestaetigungen_post_schiedsrichter_antwort",
+        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no\nrow of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row\nalready answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered\n(`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,\ntime, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a\nfixture whose day has gone by (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just\nbefore answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
+        "operationId": "spielbestaetigungen_post_schiedsrichter_answer",
         "parameters": [
           {
             "in": "path",
@@ -28368,7 +28368,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungSchiedsrichterAntwortPayload"
+                "$ref": "#/components/schemas/FLSpielbestaetigungSchiedsrichterAnswerPayload"
               }
             }
           },
@@ -28379,7 +28379,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungSchiedsrichterAntwortResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSchiedsrichterAnswerResponse"
                 }
               }
             },
@@ -28591,10 +28591,10 @@
         ]
       }
     },
-    "/api/v0/spiele/list/verwaltung": {
+    "/api/v0/spiele/list/admin": {
       "get": {
         "description": "List one season's Spiele, the active one's unless `saison_id` names another, a planned season's included, in the admin shape.\n\nEach referee carries their whole name, and each booking its money.",
-        "operationId": "spiele_get_spiele_verwaltung",
+        "operationId": "spiele_get_spiele_admin",
         "parameters": [
           {
             "in": "query",
@@ -28682,10 +28682,10 @@
             "name": "sort_by",
             "required": false,
             "schema": {
-              "default": "datum",
+              "default": "date",
               "enum": [
-                "datum",
-                "uhrzeit",
+                "date",
+                "time",
                 "spiel_nr",
                 "saison_phase"
               ],
@@ -29049,10 +29049,10 @@
         "x-safe-when": "dry_run"
       }
     },
-    "/api/v0/spiele/{spiel_id}/verwaltung": {
+    "/api/v0/spiele/{spiel_id}/admin": {
       "get": {
         "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on\nanother fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a\ngroup fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it\nreads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.\n`document_not_found` for an id no fixture holds.",
-        "operationId": "spiele_get_spiel_verwaltung",
+        "operationId": "spiele_get_spiel_admin",
         "parameters": [
           {
             "in": "path",
@@ -30884,10 +30884,10 @@
         ]
       }
     },
-    "/api/v0/spieltage/list/verwaltung": {
+    "/api/v0/spieltage/list/admin": {
       "get": {
         "description": "List a season's matchdays for the admin surfaces, a `future` season's included.\n\nNo season gate: a season's matchdays are drawn while it is planned, and dating them is what this\nlist is for.",
-        "operationId": "spieltage_get_spieltage_verwaltung",
+        "operationId": "spieltage_get_spieltage_admin",
         "parameters": [
           {
             "in": "query",
@@ -30945,8 +30945,8 @@
               "default": "natural",
               "enum": [
                 "natural",
-                "beginn",
-                "ende"
+                "start",
+                "end"
               ],
               "title": "Sort By",
               "type": "string"
@@ -31109,7 +31109,7 @@
         ]
       },
       "patch": {
-        "description": "Move a matchday's span, answering the matchday's `version` after the save.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in. A\n`past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is\nclosed.",
+        "description": "Move a matchday's span, answering the matchday's `version` after the save.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A\n`past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is\nclosed.",
         "operationId": "spieltage_patch_spieltag",
         "parameters": [
           {
@@ -31196,10 +31196,10 @@
         ]
       }
     },
-    "/api/v0/spieltage/{spieltag_id}/verwaltung": {
+    "/api/v0/spieltage/{spieltag_id}/admin": {
       "get": {
         "description": "Return one matchday by its id for the admin editor, a `future` season's included.\n\nThe shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many\nmatchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever\nactivated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on\nexactly the season the write refuses (`saison_past`).",
-        "operationId": "spieltage_get_spieltag_verwaltung",
+        "operationId": "spieltage_get_spieltag_admin",
         "parameters": [
           {
             "in": "path",

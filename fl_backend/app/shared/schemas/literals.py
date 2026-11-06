@@ -22,7 +22,7 @@ type FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "h
 type FLGruppenNames = Literal["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
 
 # The two sides of one fixture, as its document's fields name them.
-type FLSpielSeite = Literal["team1", "team2"]
+type FLSpielSide = Literal["team1", "team2"]
 
 # What happened to a fixture beyond being played. Nullable rather than total where a fixture carries it:
 # `null` is "nothing to say", so no read site spells an ordinary fixture out.

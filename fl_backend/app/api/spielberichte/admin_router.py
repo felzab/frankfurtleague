@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_active_saison_id
-from app.api.spielberichte.crud import pull_zustaende
+from app.api.spielberichte.crud import pull_states
 from app.api.spielberichte.schemas import FLSpielberichteSaisonResponse
 from app.core.config import API_VERSION
 from app.core.dependencies import SaisonsCollection, SpielberichteCollection
@@ -37,5 +37,5 @@ async def get_spielberichte(
         saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     return FLSpielberichteSaisonResponse(
-        spielberichte=await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
+        spielberichte=await pull_states(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
     )

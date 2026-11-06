@@ -54,8 +54,8 @@ class _SpielerPerson(BaseModel):
     (`READ-PUPIL-003`) -- a projection's business, and not a declaration's.
     """
 
-    vorname: CustomNonEmptyString
-    nachname: str | None
+    first_name: CustomNonEmptyString
+    last_name: str | None
 
 
 class _SaisonSpielerWritable(BaseModel):
@@ -87,7 +87,7 @@ class FLSpielerPublic(_SpielerPerson, BaseReadModel):
     # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
     # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad
     # list over a withheld row rather than withholding it.
-    vorname: str | None
+    first_name: str | None
 
     # Defaulted because an unnarrowed read joins LOOSELY: a person whose every squad row is retired
     # survives the unwind, and `$project` omits a joined key rather than nulling it. Required fields
@@ -105,15 +105,15 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
     # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), and refused on every other row below. Every served
     # model keeps the forename required: no read serves the sentinel, so a null reaching one is that
     # exclusion failing.
-    vorname: CustomNonEmptyString | None
+    first_name: CustomNonEmptyString | None
 
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
-    # Nullable for `vorname`'s reason: every person carries the date of their own registration.
-    geburtsdatum: CustomOptionalDateString
+    # Nullable for `first_name`'s reason: every person carries the date of their own registration.
+    birth_date: CustomOptionalDateString
     # No default: a default would let a row with no consent read back as though it had been asked.
-    # Nullable for `vorname`'s reason, the sentinel being nobody who could have agreed to anything.
+    # Nullable for `first_name`'s reason, the sentinel being nobody who could have agreed to anything.
     einwilligung: FLEinwilligung | None
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
@@ -130,7 +130,7 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
         if self.id == GHOST_SPIELER_ID:
             if self.email is not None:
                 raise ValueError("the erased pupils' sentinel holds no address")
-        elif any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
+        elif any(value is None for value in (self.first_name, self.birth_date, self.einwilligung)):
             raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
         return self
 
@@ -188,11 +188,11 @@ class FLPatchSpielerPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    vorname: CustomKontaktName
-    nachname: CustomKontaktName | None
+    first_name: CustomKontaktName
+    last_name: CustomKontaktName | None
     # Never null: every person carries the date of their own registration, and a save clearing it
     # would leave one whose age no page can read.
-    geburtsdatum: CustomDateString
+    birth_date: CustomDateString
     # The `version` the editor was served; absent, the save is checked against nothing.
     version: int | None = None
 
@@ -235,14 +235,14 @@ class FLSpielerSingleResponse(BaseAPIResponse):
     """One player as the BASE TIER serves them -- an allow-list of what this surface needs.
 
     Squad fields are season-scoped, and inventing a season would make the answer depend on a default
-    nobody stated. `nachname` is an INITIAL here (`READ-PUPIL-001`).
+    nobody stated. `last_name` is an INITIAL here (`READ-PUPIL-001`).
     """
 
     spieler_id: CustomObjectId
-    # Nullable for `FLSpielerPublic.vorname`'s reason: this path is masked by the same predicate
+    # Nullable for `FLSpielerPublic.first_name`'s reason: this path is masked by the same predicate
     # (`READ-PUPIL-003`), and the admin echo below re-declares the forename it is served whole.
-    vorname: str | None
-    nachname: str | None
+    first_name: str | None
+    last_name: str | None
 
 
 class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
@@ -254,7 +254,7 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
 
     # Required again where the public read narrowed it: this tier is served no mask, so an echo
     # answering `null` here is the mask having reached the admin editor, and this line fails first.
-    vorname: CustomNonEmptyString
+    first_name: CustomNonEmptyString
 
     # `app/core/crud.py :: set_inactive_since` is the field's one writer and stamps a German date, so
     # the calendar rule `FLSpieler` states refuses nothing this echo can serve.
@@ -310,7 +310,7 @@ class FLSpielerWithMemberships(_SpielerPerson, BaseReadModel):
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
     # Every person carries the date of their own registration, and this read serves no sentinel.
-    geburtsdatum: CustomDateString
+    birth_date: CustomDateString
     # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Never null:
     # this read serves no sentinel, and every person is born of their own confirmed registration.
     einwilligung: FLEinwilligung
@@ -341,9 +341,9 @@ class FLKaderRow(BaseAPIResponse):
     """
 
     spieler_id: CustomObjectId
-    vorname: CustomNonEmptyString
+    first_name: CustomNonEmptyString
     # Whole: the initial protects a pupil from strangers, never from their own team's representative.
-    nachname: str | None
+    last_name: str | None
     # As stored, for `FLSaisonSpielerRow.nummer`'s reason: a read refusing a hand-edited number would
     # answer 500 for the whole squad.
     nummer: str | None
@@ -412,7 +412,7 @@ class FLSpielerSelfPerson(_SpielerPerson):
     """
 
     spieler_id: CustomObjectId
-    geburtsdatum: CustomDateString
+    birth_date: CustomDateString
 
 
 class FLSpielerSelf(FLSpielerSelfPerson):

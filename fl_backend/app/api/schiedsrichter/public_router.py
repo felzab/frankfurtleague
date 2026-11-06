@@ -15,7 +15,7 @@ from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
     CONFIRMATION_VIEW_FIELDS,
     EINWILLIGUNG_FELD,
-    answered_on_of,
+    answered_at_of,
     build_token_filter,
     compose_confirmation_update,
     compose_decline_update,
@@ -81,7 +81,7 @@ async def get_confirmation_view(
     Refuses only a token no referee holds (`link_invalid`): a confirmed or an expired link
     is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,
     ahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),
-    so the page offers a barred referee nothing to press. `answered_on` is the day the state's answer was given, the
+    so the page offers a barred referee nothing to press. `answered_at` is the day the state's answer was given, the
     consent's or the objection's, and null on every state showing none.
     """
 
@@ -106,8 +106,8 @@ async def get_confirmation_view(
         minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS,
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
-        frist=block["frist"],
-        answered_on=answered_on_of(state=state, einwilligung=einwilligung, confirmation=block),
+        deadline=block["deadline"],
+        answered_at=answered_at_of(state=state, einwilligung=einwilligung, confirmation=block),
     )
 
 
@@ -117,7 +117,7 @@ async def get_confirmation_view(
     summary="Confirm one Schiedsrichter's entry and consent",
 )
 async def post_confirmation(
-    antwort_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
+    answer_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     ban_list: BanListLookup,
     db: DBClient,
@@ -142,7 +142,7 @@ async def post_confirmation(
     a withheld name would go on being served for as long as that entry lives.
     """
 
-    token_hash = hash_token(antwort_data.token)
+    token_hash = hash_token(answer_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
@@ -163,24 +163,24 @@ async def post_confirmation(
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[CONFIRMATION_FIELD]))
-        refuse(find_expired_token_refusal(frist=raw[CONFIRMATION_FIELD]["frist"], today=today))
+        refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         barred = await barred_addresses(
             ban_list, [str((raw.get("kontakt") or {}).get("email") or "")], governing_saison_id=governing_saison_id, session=session
         )
         refuse(find_confirmation_barred_refusal(barred=bool(barred)))
-        refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
-        refuse(find_media_refusal(geburtsdatum=antwort_data.geburtsdatum, media=antwort_data.media, today=today))
+        refuse(find_alter_refusal(birth_date=answer_data.birth_date, today=today))
+        refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
 
         await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": raw["_id"]},
             update=compose_confirmation_update(
-                geburtsdatum=antwort_data.geburtsdatum,
-                scope=antwort_data.scope,
-                media=antwort_data.media,
-                text_versions=by_choice(antwort_data.text_versions),
+                birth_date=answer_data.birth_date,
+                scope=answer_data.scope,
+                media=answer_data.media,
+                text_versions=by_choice(answer_data.text_versions),
                 today=today,
                 at=log_stamp(germany_now),
             ),
@@ -192,8 +192,8 @@ async def post_confirmation(
         # Read off the document the filter found rather than the update's echo: the echo carries the
         # whole row, and this answer is bounded to what the page renders.
         return FLSchiedsrichterConfirmationResponse(
-            scope=antwort_data.scope,
-            media=antwort_data.media,
+            scope=answer_data.scope,
+            media=answer_data.media,
             confirmed_at=today,
         )
 
@@ -244,7 +244,7 @@ async def post_decline(
         assert raw is not None
 
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD), confirmation=raw[CONFIRMATION_FIELD]))
-        refuse(find_expired_token_refusal(frist=raw[CONFIRMATION_FIELD]["frist"], today=today))
+        refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
 
         await patch_one_in_db(
             collection=schiedsrichter_collection,

@@ -63,14 +63,14 @@ router = APIRouter(
 )
 
 
-# Two static segments, matching `GET /saisons/list/verwaltung`. Declared before `{spiel_id}/verwaltung`, whose
+# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spiel_id}/admin`, whose
 # only separation from this path is the `objectid` convertor.
 @router.get(
-    "/list/verwaltung",
+    "/list/admin",
     response_model=FLSpieleAdminListResponse,
     summary="Spiele for the admin surfaces",
 )
-async def get_spiele_verwaltung(
+async def get_spiele_admin(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieleFilterParams = Depends(),
@@ -136,11 +136,11 @@ async def get_spiele_spielplan(
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
 # same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spiel_id')}/verwaltung",
+    f"{by_id('spiel_id')}/admin",
     response_model=FLSpieleAdminSingleResponse,
     summary="One Spiel and all the match editor offers and shows beside it",
 )
-async def get_spiel_verwaltung(
+async def get_spiel_admin(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,

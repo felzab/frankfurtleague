@@ -6,7 +6,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin
-from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_ENTRIES_MAX
+from app.shared.schemas.bounds import SPIELBERICHT_ENTRIES_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielerPosition, FLSpielSeite
+from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielerPosition, FLSpielSide
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.
@@ -25,15 +25,15 @@ CustomSpielberichtMinute = Annotated[str, StringConstraints(pattern=MINUTE_PATTE
 # Multi-line, unlike a confirmation's reason: the referee's prose about the match, read on the editor's panel alone.
 # The ceiling counts what arrives, so the published one is what is accepted; the floor counts after the strip, so
 # spaces alone are no remark.
-CustomSpielberichtBemerkungen = Annotated[
-    str, StringConstraints(max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+CustomSpielberichtRemarks = Annotated[
+    str, StringConstraints(max_length=SPIELBERICHT_REMARKS_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
 ]
 
-type FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
+type FLCardColour = Literal["gelb", "gelb_rot", "rot"]
 
 # Why a card was shown, from a closed list: a characterisation of a named pupil's conduct, so served on the
 # administrator's and the referee's reads alone.
-type FLKartenGrund = Literal[
+type FLCardReason = Literal[
     "foulspiel",
     "unsportlichkeit",
     "handspiel",
@@ -50,9 +50,9 @@ type FLKartenGrund = Literal[
 # out has no report.
 FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]
 
-# Derived on every read from the report and the fixture, and stored nowhere. `abgesagt` is a report on a fixture called
+# Derived on every read from the report and the fixture, and stored nowhere. `cancelled` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-type FLSpielberichtState = Literal["vorgeschlagen", "adopted", "differing", "abgesagt", "teams_changed"]
+type FLSpielberichtState = Literal["vorgeschlagen", "adopted", "differing", "cancelled", "teams_changed"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -71,7 +71,7 @@ class FLSpielberichtVorschlag(BaseModel):
 class FLSpielberichtTorschuetze(BaseModel):
     """One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."""
 
-    seite: FLSpielSeite
+    side: FLSpielSide
     spieler_id: CustomObjectId | None
     minute: CustomSpielberichtMinute
     # An own goal keeps the scorer's side and counts for the other one.
@@ -81,11 +81,11 @@ class FLSpielberichtTorschuetze(BaseModel):
 class FLSpielberichtKarte(BaseModel):
     """One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons."""
 
-    seite: FLSpielSeite
+    side: FLSpielSide
     spieler_id: CustomObjectId
     minute: CustomSpielberichtMinute
-    farbe: FLKartenFarbe
-    grund: FLKartenGrund | None
+    colour: FLCardColour
+    card_reason: FLCardReason | None
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
@@ -94,15 +94,15 @@ class FLSpielberichtKartePayload(FLSpielberichtKarte):
     model_config = ConfigDict(extra="forbid")
 
 
-class FLSpielberichtVonSchiedsrichter(BaseModel):
-    art: Literal["schiedsrichter"]
+class FLSpielberichtBySchiedsrichter(BaseModel):
+    kind: Literal["schiedsrichter"]
     schiedsrichter_id: CustomObjectId
 
 
-FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLByAdmin, Field(discriminator="art")]
+FLSpielberichtBy = Annotated[FLSpielberichtBySchiedsrichter | FLByAdmin, Field(discriminator="kind")]
 
 
-class FLSpielberichtSeiten(BaseModel):
+class FLSpielberichtSides(BaseModel):
     """The clubs the fixture fielded at the block's last write, null on a slot then open.
 
     Stamped by every write and on no payload: entries go by side, and a knockout correction can re-field one.
@@ -123,10 +123,10 @@ class FLSpielberichtBericht(BaseModel):
     torschuetzen: list[FLSpielberichtTorschuetze]
     karten: list[FLSpielberichtKarte]
     # Its length is the payload's: the read keeps a ban reason's floor alone.
-    bemerkungen: CustomNonEmptyString | None
-    seiten: FLSpielberichtSeiten
+    remarks: CustomNonEmptyString | None
+    sides: FLSpielberichtSides
     submitted_at: FLUtcInstant
-    submitted_by: FLSpielberichtVon
+    submitted_by: FLSpielberichtBy
     changed_at: FLUtcInstant
     version: int
     adopted_at: FLUtcInstant | None
@@ -154,7 +154,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
     ergebnis_vorschlag: FLSpielberichtVorschlag
     torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
-    bemerkungen: Annotated[CustomSpielberichtBemerkungen | None, BeforeValidator(parse_empty_string_to_none)]
+    remarks: Annotated[CustomSpielberichtRemarks | None, BeforeValidator(parse_empty_string_to_none)]
 
     @model_validator(mode="after")
     def every_goal_has_one_entry(self) -> Self:
@@ -181,9 +181,9 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         gutgeschrieben = {"team1": 0, "team2": 0}
         for tor in self.torschuetzen:
-            # An own goal is scored by `seite` and counts for the other side.
-            seite = ("team2" if tor.seite == "team1" else "team1") if tor.eigentor else tor.seite
-            gutgeschrieben[seite] += 1
+            # An own goal is scored by `side` and counts for the other side.
+            side = ("team2" if tor.side == "team1" else "team1") if tor.eigentor else tor.side
+            gutgeschrieben[side] += 1
 
         if (gutgeschrieben["team1"], gutgeschrieben["team2"]) != (vorschlag.team1_tore, vorschlag.team2_tore):
             raise rule_refusal("torschuetzen_not_matching_tore", "the scorers credit other goals than the result reads")
@@ -220,8 +220,8 @@ class FLSpielberichtSpiel(BaseModel):
     spiel_id: CustomObjectId
     saison_id: str
     saison_phase: FLSaisonPhase
-    datum: CustomDateString | None
-    uhrzeit: CustomTimeString | None
+    date: CustomDateString | None
+    time: CustomTimeString | None
     team1: FLSpielberichtTeam | None
     team2: FLSpielberichtTeam | None
     sonderereignis: FLSonderereignis | None
@@ -231,8 +231,8 @@ class FLSpielberichtSpieler(BaseModel):
     """A pupil a report may name or names, with the names their record holds, both null where an erasure took the record."""
 
     spieler_id: CustomObjectId
-    vorname: str | None
-    nachname: str | None
+    first_name: str | None
+    last_name: str | None
     nummer: str | None
 
 
@@ -244,7 +244,7 @@ class FLSpielberichtKader(BaseModel):
 
 
 # Private, so the two reads below publish their own components and none for the base.
-class _SpielberichtAnsicht(BaseAPIResponse):
+class _SpielberichtView(BaseAPIResponse):
     spiel: FLSpielberichtSpiel
     kader: FLSpielberichtKader
     # Every pupil the stored block names outside the squads served -- one ausgetragen since the match, or of a club a
@@ -252,13 +252,13 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     named: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
     # The sides fielding another club than the report's last write found there, which reads `teams_changed`.
-    seiten_changed: list[FLSpielSeite]
+    sides_changed: list[FLSpielSide]
     # The document's count of writes, null where none is stored: a save sending it back is refused once another write
     # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
     version: int | None
 
 
-class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
+class FLSpielberichtSchiedsrichterResponse(_SpielberichtView):
     """The booked referee's form: the remarks and the card reasons included, and no `state`."""
 
     # The fixture's season has ended: the page shows the report and offers no write (`saison_past`).
@@ -269,8 +269,8 @@ class FLSpielberichtPersonEntry(BaseModel):
     """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
 
     spiel_id: CustomObjectId
-    datum: CustomDateString
-    uhrzeit: CustomTimeString | None
+    date: CustomDateString
+    time: CustomTimeString | None
     team1_name: str | None
     team2_name: str | None
     submitted_at: FLUtcInstant | None
@@ -279,7 +279,7 @@ class FLSpielberichtPersonEntry(BaseModel):
 class FLSpielberichtPersonEarlierEntry(FLSpielberichtPersonEntry):
     """One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."""
 
-    datum: CustomDateString | None
+    date: CustomDateString | None
 
 
 class FLSpielberichteSelfResponse(BaseAPIResponse):
@@ -319,27 +319,27 @@ class FLSpielberichtSpielerPublic(BaseReadModel):
     """
 
     type: FLSpielberichtSpielerType
-    vorname: str | None
-    nachname: str | None
+    first_name: str | None
+    last_name: str | None
     nummer: str | None
     position: FLSpielerPosition | None
 
 
 class FLSpielberichtTorPublic(BaseReadModel):
-    """One goal: `seite` is the scorer's own club, and an own goal (`eigentor`) counts for the other one."""
+    """One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one."""
 
-    seite: FLSpielSeite
+    side: FLSpielSide
     minute: CustomSpielberichtMinute
     eigentor: bool
     spieler: FLSpielberichtSpielerPublic
 
 
 class FLSpielberichtKartePublic(BaseReadModel):
-    """One card, `seite` its player's club, its `grund` never served: a characterisation of a named pupil's conduct."""
+    """One card, `side` its player's club, its `card_reason` never served: a characterisation of a named pupil's conduct."""
 
-    seite: FLSpielSeite
+    side: FLSpielSide
     minute: CustomSpielberichtMinute
-    farbe: FLKartenFarbe
+    colour: FLCardColour
     spieler: FLSpielberichtSpielerPublic
 
 

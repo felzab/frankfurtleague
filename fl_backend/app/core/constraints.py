@@ -110,9 +110,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "uniq_spielbestaetigung_open",
-        ("spiel_id", "party.art", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
+        ("spiel_id", "party.kind", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
         "one open confirmation per party per Ansetzung",
-        partial_filter={"antwort": {"$type": "null"}, "closed": {"$type": "null"}},
+        partial_filter={"answer": {"$type": "null"}, "closed": {"$type": "null"}},
     ),
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),

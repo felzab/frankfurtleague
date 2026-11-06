@@ -330,11 +330,11 @@ def find_rules_refusal(
 
     # Only where the patch LOWERS it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
     # this edit's doing, and refusing it would bar the very edit that repairs the season.
-    if proposed.max_kadergroesse < stored.max_kadergroesse and largest_squad > proposed.max_kadergroesse:
+    if proposed.max_kader_size < stored.max_kader_size and largest_squad > proposed.max_kader_size:
         return WriteRefusal(
             error_code=Code.RULES_KADER_BELOW_USE,
             status=HTTPStatus.CONFLICT,
-            fields=(("rules", "max_kadergroesse"),),
+            fields=(("rules", "max_kader_size"),),
             bounds={"min": largest_squad},
         )
 
@@ -395,7 +395,7 @@ def find_saison_span_refusal(
 ) -> WriteRefusal | None:
     """Why this season's span must be refused, or `None`.
 
-    `spieltag_spans` is every DATED matchday of the season, as `(beginn, ende)`: a span the season no
+    `spieltag_spans` is every DATED matchday of the season, as `(start, end)`: a span the season no
     longer covers strands the matchday, and one still undated constrains nothing, so the caller filters.
     """
 
@@ -461,7 +461,7 @@ RECORDED_FACT_FIELDS: tuple[str, ...] = (
     "sonderereignis",
     "ort.spielort_id",
     "schiedsrichter.schiedsrichter_id",
-    "notiz",
+    "note",
 )
 
 # The one phase `app/api/saisons/spielplan.py :: draw_spielplan` fills the sides of. Every other it
@@ -512,7 +512,7 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     # STRIPPED, never compared to None: the draw writes no key, clearing a note stores null, and
     # `FLPatchSpielDataPayload.empty_strings_to_none` keeps "" off that route -- a hand edit can
     # still leave one, and an empty note is not a record.
-    if (spiel.get("notiz") or "").strip():
+    if (spiel.get("note") or "").strip():
         return True
 
     return (spiel.get("ort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get("schiedsrichter_id") is not None
@@ -533,7 +533,7 @@ def find_activation_refusal(
 ) -> WriteRefusal | None:
     """Why this rollover must be refused, or `None`.
 
-    `undated_spieltage` counts the TARGET season's matchdays holding no `beginn`; `outgoing_unplayed`
+    `undated_spieltage` counts the TARGET season's matchdays holding no `start`; `outgoing_unplayed`
     is the incumbent's alone, empty where there is none, and never the target's own fixtures.
     """
 

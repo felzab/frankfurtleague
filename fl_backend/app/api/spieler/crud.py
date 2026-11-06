@@ -89,7 +89,7 @@ async def refuse_a_full_squad(
             squad_size=squad_size,
             # Validated, not read raw: a season missing the key fails here rather than admitting a
             # player against a bound nobody chose.
-            max_kadergroesse=FLSaisonRules.model_validate(rules).max_kadergroesse,
+            max_kader_size=FLSaisonRules.model_validate(rules).max_kader_size,
         )
     )
 

@@ -18,9 +18,9 @@ from app.api.outbox.schemas import (
 )
 from app.api.outbox.services import OwedMail
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAntwortArt,
+    FLSpielbestaetigungAnswerKind,
     FLSpielbestaetigungAppointment,
-    FLSpielbestaetigungGrund,
+    FLSpielbestaetigungClosedReason,
     FLSpielbestaetigungSchiedsrichterZustand,
     FLSpielbestaetigungViewAnsetzung,
     FLSpielbestaetigungZustand,
@@ -40,17 +40,17 @@ from app.core.collections import Collection
 from app.core.exceptions import Twins, WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import (
-    SPIEL_CONFIRMATION_FRIST_DAYS,
+    SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
     SPIEL_REQUEST_LEAD_TIME_DAYS,
 )
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSeite
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
 # verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
 ANSETZUNG_QUELLEN: Final[Mapping[str, str]] = {
-    "datum": "datum",
-    "uhrzeit": "uhrzeit",
+    "date": "date",
+    "time": "time",
     "spielort_id": "ort.spielort_id",
     "team1_id": "team1.team_id",
     "team2_id": "team2.team_id",
@@ -77,7 +77,7 @@ def _digest(values: Mapping[str, Any]) -> str:
 
 
 def ansetzung_stand_of(spiel: Mapping[str, Any]) -> str:
-    """The digest of a raw fixture's Ansetzung: `datum`, `uhrzeit`, `ort.spielort_id`, `team1.team_id`, `team2.team_id`.
+    """The digest of a raw fixture's Ansetzung: `date`, `time`, `ort.spielort_id`, `team1.team_id`, `team2.team_id`.
 
     The ground on purpose: a confirmation binds it too. A sixth input changes every stored row's meaning.
     """
@@ -100,7 +100,7 @@ def build_answerable_filter() -> dict[str, Any]:
     judges.
     """
 
-    return {"antwort": None, "closed": None}
+    return {"answer": None, "closed": None}
 
 
 def build_closable_filter() -> dict[str, Any]:
@@ -140,7 +140,7 @@ def seat_holding(*, spielbestaetigung_raw: Mapping[str, Any], token_hash: str) -
 
 # A row closed, or due to close, for one of these is about an Ansetzung the fixture has left, which the
 # page tells apart from a deadline that ran out.
-GRUENDE_UNGUELTIG: Final = frozenset({"ansetzung_changed", "schiedsrichter_switched"})
+REASONS_INVALID: Final = frozenset({"ansetzung_changed", "schiedsrichter_switched"})
 
 # An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler; of its answer
 # which way it went and the role, never the reason or the proposal.
@@ -149,16 +149,16 @@ LINK_FIELDS: Mapping[str, int] = {
     "spiel_id": 1,
     "party": 1,
     "ansetzung": 1,
-    "frist": 1,
-    "antwort.art": 1,
-    "antwort.von.art": 1,
-    "antwort.von.rolle": 1,
+    "deadline": 1,
+    "answer.kind": 1,
+    "answer.by.kind": 1,
+    "answer.by.rolle": 1,
     "closed": 1,
     **{f"kontakte.{seat}.token_hashes": 1 for seat in KONTAKT_ROLLEN},
 }
 
 
-def entscheidung_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any) -> FLSpielbestaetigungGrund | None:
+def entscheidung_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any) -> FLSpielbestaetigungClosedReason | None:
     """Why a fixture takes no confirmation whatever its Ansetzung: decided, called off, or a club out by `tag`.
 
     One rule for the link's refusal and the pass's close, so no link answers what the next pass shuts.
@@ -169,7 +169,7 @@ def entscheidung_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: 
 
     # Every other event leaves no record: a called-off fixture is asked afresh once reinstated.
     if spiel.get("sonderereignis") is not None:
-        return "abgesagt"
+        return "cancelled"
 
     if tag is not None and any(austritt <= tag for austritt in austritte):
         return "austritt"
@@ -197,22 +197,22 @@ def seat_address(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any
     return kontakt_address(kontakte=(verein or {}).get("kontakte"), seat=seat)
 
 
-def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> FLSpielbestaetigungGrund | None:
+def _reason_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> FLSpielbestaetigungClosedReason | None:
     """Why the pass's next close would shut this row, read off its own judge: a link never shows or refuses otherwise than it records."""
 
-    austritte = {row.get("team_id"): str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None}
+    austritte = {row.get("team_id"): str(date) for row in lage.vereine if (date := (row.get("austritt") or {}).get("date")) is not None}
 
-    return grund_to_end(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte, today=today)
+    return reason_to_end(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte, today=today)
 
 
-def _past_frist(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
+def _past_deadline(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
     # Never a referee's row: the Einteilung names no deadline, so a referee answers until the day goes by, which
-    # `grund_to_close` judges.
-    if spielbestaetigung_raw["party"]["art"] == "schiedsrichter":
+    # `reason_to_close` judges.
+    if spielbestaetigung_raw["party"]["kind"] == "schiedsrichter":
         return False
 
     # A link answers on its deadline's own day.
-    return today > str(spielbestaetigung_raw["frist"])
+    return today > str(spielbestaetigung_raw["deadline"])
 
 
 def zustand_of(
@@ -225,41 +225,41 @@ def zustand_of(
 ) -> FLSpielbestaetigungZustand:
     """What a reopened link shows, the first state matching winning: a spent link is answered, never refused."""
 
-    antwort, geschlossen = spielbestaetigung_raw.get("antwort"), spielbestaetigung_raw.get("closed")
+    answer, geschlossen = spielbestaetigung_raw.get("answer"), spielbestaetigung_raw.get("closed")
 
     if barred:
         return "barred"
 
     # Closed, by the reason stored; open or a discard still holding its question, by the one the close would store.
-    grund = (
-        geschlossen["grund"]
-        if isinstance(geschlossen, Mapping) and geschlossen["grund"] not in GRUENDE_ANSWERED_FOR_THE_STAND
-        else _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
+    reason = (
+        geschlossen["reason"]
+        if isinstance(geschlossen, Mapping) and geschlossen["reason"] not in REASONS_ANSWERED_FOR_THE_STAND
+        else _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
     )
 
     # Ahead of the answer: an answer about an Ansetzung the fixture has left settles nothing, and the move's notice
     # told every seat its link is void, so no seat reopening it may be told nothing is owed.
-    if grund in GRUENDE_UNGUELTIG:
+    if reason in REASONS_INVALID:
         return "invalid"
 
     # Ahead of the answer too: an agreement to a fixture called off since would send its party to the ground.
-    if grund == "abgesagt":
-        return "abgesagt"
+    if reason == "cancelled":
+        return "cancelled"
 
     # Ahead of the answer as well, which would read as a decision still to come: the league kept the date. Never once the
     # fixture moved, the date it kept gone with the move.
     if (
-        grund is None
+        reason is None
         and isinstance(geschlossen, Mapping)
-        and geschlossen["grund"] in GRUENDE_ANSWERED_FOR_THE_STAND
+        and geschlossen["reason"] in REASONS_ANSWERED_FOR_THE_STAND
         and not stand_moved(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
     ):
         return "discarded"
 
-    if isinstance(antwort, Mapping):
-        return "zugesagt" if antwort["art"] == "zugesagt" else "declined"
+    if isinstance(answer, Mapping):
+        return "zugesagt" if answer["kind"] == "zugesagt" else "declined"
 
-    if grund is not None or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+    if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return "expired"
 
     return "valid" if vorschlag_offen is None else "vorschlag"
@@ -314,7 +314,7 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
     `ansetzung_answered`.
     """
 
-    if spielbestaetigung_raw.get("antwort") is not None:
+    if spielbestaetigung_raw.get("answer") is not None:
         return first_press_refusal()
 
     if spielbestaetigung_raw.get("closed") is not None:
@@ -323,27 +323,27 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
             status=HTTPStatus.GONE,
         )
 
-    grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
+    reason = _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
 
-    if grund in GRUENDE_UNGUELTIG:
+    if reason in REASONS_INVALID:
         return ansetzung_verlassen_refusal()
 
     # A day gone by unplayed is a deadline gone by too, the deadline lying before the day: late rather than decided.
-    if grund is not None and grund != "spiel_past":
+    if reason is not None and reason != "spiel_past":
         return WriteRefusal(
             error_code=Code.ANSETZUNG_DECIDED,
             status=HTTPStatus.GONE,
         )
 
-    if grund is not None:
+    if reason is not None:
         return WriteRefusal(
-            error_code=Code.ANSETZUNG_FRIST_PAST,
+            error_code=Code.ANSETZUNG_DEADLINE_PAST,
             status=HTTPStatus.GONE,
         )
 
-    if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+    if _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return WriteRefusal(
-            error_code=Code.ANSETZUNG_FRIST_PAST,
+            error_code=Code.ANSETZUNG_DEADLINE_PAST,
             status=HTTPStatus.GONE,
         )
 
@@ -353,14 +353,14 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
 def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungAppointment, today: str) -> WriteRefusal | None:
     """`ansetzung_vorschlag_past`: a proposal names a day still to come or today."""
 
-    if vorschlag.datum >= today:
+    if vorschlag.date >= today:
         return None
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_VORSCHLAG_PAST,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         # The date box the form holds the proposal in, so it is marked where the reader typed the day.
-        fields=(("vorschlag", "datum"),),
+        fields=(("vorschlag", "date"),),
     )
 
 
@@ -370,13 +370,13 @@ def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
     Adopted, it would save the slot unchanged, leaving the row about it open and the proposal pressable for ever.
     """
 
-    if (vorschlag.datum, vorschlag.uhrzeit) != (spiel.datum, spiel.uhrzeit):
+    if (vorschlag.date, vorschlag.time) != (spiel.date, spiel.time):
         return None
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_VORSCHLAG_UNCHANGED,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("vorschlag", "datum"), ("vorschlag", "uhrzeit")),
+        fields=(("vorschlag", "date"), ("vorschlag", "time")),
     )
 
 
@@ -415,8 +415,8 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment)
         team1_quelle=stored.team1_quelle,
         team2_quelle=stored.team2_quelle,
         elfmeterschiessen=stored.elfmeterschiessen,
-        datum=vorschlag.datum,
-        uhrzeit=vorschlag.uhrzeit,
+        date=vorschlag.date,
+        time=vorschlag.time,
         ort=None if stored.ort is None else FLSpielOrtFieldPayload(spielort_id=stored.ort.spielort_id, mietpreis=stored.ort.mietpreis),
         schiedsrichter=(
             None
@@ -425,12 +425,12 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment)
                 schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id, payment=stored.schiedsrichter.payment
             )
         ),
-        notiz=stored.notiz,
+        note=stored.note,
         version=stored.version,
     )
 
 
-def seite_of(spielbestaetigung_raw: Mapping[str, Any]) -> FLSpielSeite:
+def side_of(spielbestaetigung_raw: Mapping[str, Any]) -> FLSpielSide:
     """Off the stored snapshot, so a side the fixture has since lost still names the reader's club."""
 
     team_id = (spielbestaetigung_raw.get("party") or {}).get("team_id")
@@ -454,8 +454,8 @@ def ansicht_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAns
     return FLSpielbestaetigungViewAnsetzung(
         team1_name=spiel["team1"]["name"],
         team2_name=spiel["team2"]["name"],
-        datum=spiel["datum"],
-        uhrzeit=spiel["uhrzeit"],
+        date=spiel["date"],
+        time=spiel["time"],
         spielort=None
         if not isinstance(ort, Mapping)
         else FLSpielOrtFieldPublic(spielort_id=ort["spielort_id"], name=ort["name"], maps_link=ort["maps_link"]),
@@ -501,29 +501,29 @@ def ansicht_snapshot_of(
     return FLSpielbestaetigungViewAnsetzung(
         team1_name=names.get(snapshot["team1_id"], ""),
         team2_name=names.get(snapshot["team2_id"], ""),
-        datum=snapshot["datum"],
-        uhrzeit=snapshot["uhrzeit"],
+        date=snapshot["date"],
+        time=snapshot["time"],
         spielort=spielort,
     )
 
 
-def compose_antwort_update(
+def compose_answer_update(
     *,
-    antwort: FLSpielbestaetigungAntwortArt,
+    answer: FLSpielbestaetigungAnswerKind,
     seat: FLKontaktRolle,
     vorschlag: FLSpielbestaetigungAppointment | None,
-    begruendung: str | None,
+    reason: str | None,
     today: str,
 ) -> dict[str, Any]:
     return {
         "$set": {
-            "antwort": {
-                "art": antwort,
-                "am": today,
+            "answer": {
+                "kind": answer,
+                "at": today,
                 # The seat and never its holder: the erasure of whoever holds the seat clears the reason typed from it.
-                "von": {"art": "kontakt", "rolle": seat},
-                "vorschlag": None if vorschlag is None else {"datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit},
-                "begruendung": begruendung,
+                "by": {"kind": "kontakt", "rolle": seat},
+                "vorschlag": None if vorschlag is None else {"date": vorschlag.date, "time": vorschlag.time},
+                "reason": reason,
             }
         }
     }
@@ -550,16 +550,16 @@ def eintragen_refusal() -> WriteRefusal:
 def find_eintragen_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> WriteRefusal | None:
     """The administrator answers only a row neither answered nor closed, as a seat's press does."""
 
-    if spielbestaetigung_raw.get("antwort") is None and spielbestaetigung_raw.get("closed") is None:
+    if spielbestaetigung_raw.get("answer") is None and spielbestaetigung_raw.get("closed") is None:
         return None
 
     return eintragen_refusal()
 
 
-def compose_eintragen_update(*, begruendung: str, today: str) -> dict[str, Any]:
+def compose_eintragen_update(*, reason: str, today: str) -> dict[str, Any]:
     """A Zusage recorded for the party, naming nobody: no seat, so no seat holder's erasure ever reaches its reason."""
 
-    return {"$set": {"antwort": {"art": "zugesagt", "am": today, "von": {"art": "admin"}, "vorschlag": None, "begruendung": begruendung}}}
+    return {"$set": {"answer": {"kind": "zugesagt", "at": today, "by": {"kind": "admin"}, "vorschlag": None, "reason": reason}}}
 
 
 def build_verwerfbar_filter() -> dict[str, Any]:
@@ -568,7 +568,7 @@ def build_verwerfbar_filter() -> dict[str, Any]:
     Any other row closed `discarded` would silence its party for the Ansetzung.
     """
 
-    return {"party.art": "team", "antwort.art": "declined", "antwort.vorschlag": {"$ne": None}, **build_closable_filter()}
+    return {"party.kind": "team", "answer.kind": "declined", "answer.vorschlag": {"$ne": None}, **build_closable_filter()}
 
 
 def verwerfen_refusal() -> WriteRefusal:
@@ -593,8 +593,8 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
         "saison_id": saison_id,
         "$or": [
             build_verwerfbar_filter(),
-            {**open, "frist": {"$lt": today}},
-            {**open, "frist": today, "asked_at": {"$in": [None, today]}},
+            {**open, "deadline": {"$lt": today}},
+            {**open, "deadline": today, "asked_at": {"$in": [None, today]}},
         ],
     }
 
@@ -602,12 +602,12 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
     """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands: what a discard and an adoption act on."""
 
-    partei, antwort = spielbestaetigung_raw.get("party") or {}, spielbestaetigung_raw.get("antwort") or {}
+    party, answer = spielbestaetigung_raw.get("party") or {}, spielbestaetigung_raw.get("answer") or {}
 
     return (
-        partei.get("art") == "team"
-        and antwort.get("art") == "declined"
-        and antwort.get("vorschlag") is not None
+        party.get("kind") == "team"
+        and answer.get("kind") == "declined"
+        and answer.get("vorschlag") is not None
         and spielbestaetigung_raw.get("closed") is None
         and ansetzung_stand_of(spiel) == spielbestaetigung_raw["ansetzung"]["stand"]
     )
@@ -631,16 +631,16 @@ def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Ma
 # --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.
 
 
-# The close a referee's own decline writes in its transaction: outside `GRUENDE_UNGUELTIG`, so the row reads as
-# their decline, and outside `GRUENDE_ANSWERED_FOR_THE_STAND`, so a re-booking is asked afresh.
-GRUND_EIGENE_ABSAGE: Final = "schiedsrichter_declined"
+# The close a referee's own decline writes in its transaction: outside `REASONS_INVALID`, so the row reads as
+# their decline, and outside `REASONS_ANSWERED_FOR_THE_STAND`, so a re-booking is asked afresh.
+REASON_OWN_DECLINE: Final = "schiedsrichter_declined"
 
 
 def find_fremde_zeile_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> WriteRefusal | None:
     """`ansetzung_foreign_row`: ONE answer for an id naming no row and a row naming somebody else, so no id is confirmed to exist."""
 
-    partei = (spielbestaetigung_raw or {}).get("party") or {}
-    if partei.get("art") == "schiedsrichter" and partei.get("schiedsrichter_id") in set(schiedsrichter_ids):
+    party = (spielbestaetigung_raw or {}).get("party") or {}
+    if party.get("kind") == "schiedsrichter" and party.get("schiedsrichter_id") in set(schiedsrichter_ids):
         return None
 
     return WriteRefusal(
@@ -649,15 +649,15 @@ def find_fremde_zeile_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None
     )
 
 
-def compose_schiedsrichter_antwort_update(*, antwort: FLSpielbestaetigungAntwortArt, begruendung: str | None, today: str) -> dict[str, Any]:
+def compose_schiedsrichter_answer_update(*, answer: FLSpielbestaetigungAnswerKind, reason: str | None, today: str) -> dict[str, Any]:
     """A decline closes its own row in the write emptying the referee's slot: left open, it would hold a re-booking of them unasked."""
 
     set_fields: dict[str, Any] = {
         # No seat: a referee answers as the person their record names, and their erasure finds the row by its party.
-        "antwort": {"art": antwort, "am": today, "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
+        "answer": {"kind": answer, "at": today, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": reason}
     }
-    if antwort == "declined":
-        set_fields.update(compose_closing_update(grund=GRUND_EIGENE_ABSAGE, today=today)["$set"])
+    if answer == "declined":
+        set_fields.update(compose_closing_update(reason=REASON_OWN_DECLINE, today=today)["$set"])
 
     return {"$set": set_fields}
 
@@ -700,17 +700,17 @@ def schiedsrichter_zustand_of(
 
 
 def eingetragen_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
-    """Whether an administrator recorded this row's answer, which `compose_eintragen_update` stores as `von: {art: "admin"}`."""
+    """Whether an administrator recorded this row's answer, which `compose_eintragen_update` stores as `by: {kind: "admin"}`."""
 
-    return bool(((spielbestaetigung_raw.get("antwort") or {}).get("von") or {}).get("art") == "admin")
+    return bool(((spielbestaetigung_raw.get("answer") or {}).get("by") or {}).get("kind") == "admin")
 
 
-def eigene_begruendung_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
+def own_reason_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
     """The reason on the referee's own decline alone: an administrator's entry on their row is the league's record, not theirs to read."""
 
-    antwort = spielbestaetigung_raw.get("antwort") or {}
+    answer = spielbestaetigung_raw.get("answer") or {}
 
-    return antwort.get("begruendung") if (antwort.get("von") or {}).get("art") == "schiedsrichter" else None
+    return answer.get("reason") if (answer.get("by") or {}).get("kind") == "schiedsrichter" else None
 
 
 # --- The pass: what its mint and its reminder write.
@@ -726,16 +726,16 @@ def compose_seat_entry(*, email: str) -> dict[str, Any]:
     return {"token_hashes": [], "email": email}
 
 
-def frist_of(*, datum: str, today: str) -> str:
+def deadline_of(*, date: str, today: str) -> str:
     """The deadline a row minted today is given: a fixture already inside the notice period is due today."""
 
-    return max(today, days_after(day=datum, days=-SPIEL_CONFIRMATION_FRIST_DAYS))
+    return max(today, days_after(day=date, days=-SPIEL_CONFIRMATION_DEADLINE_DAYS))
 
 
 def letzter_anfrage_tag(*, today: str) -> str:
     """The latest fixture day a pass run today asks about: the request goes out once its deadline is the answer window away."""
 
-    return days_after(day=today, days=SPIEL_CONFIRMATION_FRIST_DAYS + SPIEL_REQUEST_LEAD_TIME_DAYS)
+    return days_after(day=today, days=SPIEL_CONFIRMATION_DEADLINE_DAYS + SPIEL_REQUEST_LEAD_TIME_DAYS)
 
 
 def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
@@ -743,8 +743,8 @@ def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
     return {
         "saison_id": saison_id,
-        "datum": {"$gt": today, "$lte": letzter_anfrage_tag(today=today)},
-        "uhrzeit": {"$ne": None},
+        "date": {"$gt": today, "$lte": letzter_anfrage_tag(today=today)},
+        "time": {"$ne": None},
         "ort": {"$ne": None},
         "team1": {"$ne": None},
         "team2": {"$ne": None},
@@ -755,11 +755,11 @@ def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
 # A closing that settles the party's one answer about its Ansetzung rather than ending the question: a second answer
 # needs a new stand, which only a move mints.
-GRUENDE_ANSWERED_FOR_THE_STAND: Final = frozenset({"discarded"})
+REASONS_ANSWERED_FOR_THE_STAND: Final = frozenset({"discarded"})
 
-# What ends a discard as it ends an agreement beside it: every reason of `grund_to_close` but a move, which leaves the
+# What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
 # discard its club's answer to the Ansetzung left, and a referee change, never a club's.
-GRUENDE_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_decided", "abgesagt", "spiel_past"})
+REASONS_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_decided", "cancelled", "spiel_past"})
 
 
 def build_holding_filter() -> dict[str, Any]:
@@ -768,7 +768,7 @@ def build_holding_filter() -> dict[str, Any]:
     Every other closing ends the question, so a fixture reinstated or moved back to its old slot is asked afresh.
     """
 
-    return {"$or": [build_closable_filter(), {"closed.grund": {"$in": sorted(GRUENDE_ANSWERED_FOR_THE_STAND)}}]}
+    return {"$or": [build_closable_filter(), {"closed.reason": {"$in": sorted(REASONS_ANSWERED_FOR_THE_STAND)}}]}
 
 
 def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
@@ -789,9 +789,9 @@ def _referee_id(spiel: Mapping[str, Any]) -> Any:
     return block.get("schiedsrichter_id") if isinstance(block, Mapping) else None
 
 
-def grund_to_close(
+def reason_to_close(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
-) -> FLSpielbestaetigungGrund | None:
+) -> FLSpielbestaetigungClosedReason | None:
     """Why this unclosed row stops applying to its fixture as it stands, or `None`; `austritte` maps clubs to exit days.
 
     The mint asks it of every row it would write, so the close shuts nothing the mint asked.
@@ -801,19 +801,19 @@ def grund_to_close(
     clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
     # First, ahead of a move, neither leaving a new Ansetzung to announce; on the fixture's day as it
     # stands, or the row's where the fixture lost its date.
-    tag = spiel.get("datum") or ansetzung["datum"]
+    tag = spiel.get("date") or ansetzung["date"]
     # Ahead of the decision a no-show records: entered before the day, nobody is due at the ground, so its
     # parties are told and shown a call-off.
     if today < tag and spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY:
-        return "abgesagt"
+        return "cancelled"
 
     entschieden = entscheidung_of(spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=tag)
     if entschieden is not None:
         return entschieden
 
-    partei = row["party"]
+    party = row["party"]
     # Ahead of the move: a referee taken off the fixture is owed no notice that it moved.
-    if partei["art"] == "schiedsrichter" and _referee_id(spiel) != partei.get("schiedsrichter_id"):
+    if party["kind"] == "schiedsrichter" and _referee_id(spiel) != party.get("schiedsrichter_id"):
         return "schiedsrichter_switched"
 
     if ansetzung_stand_of(spiel) != ansetzung["stand"]:
@@ -828,21 +828,21 @@ def grund_to_close(
 
 
 def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
-    return bool(ansetzung["datum"] < today)
+    return bool(ansetzung["date"] < today)
 
 
-# What `grund_to_end` and `notice_owed` read of a row: the projection every reader of the close's judgement takes.
+# What `reason_to_end` and `notice_owed` read of a row: the projection every reader of the close's judgement takes.
 CLOSE_FIELDS: Final = ["spiel_id", "party", "ansetzung", "asked_at", "closed"]
 
 
-def grund_to_end(
+def reason_to_end(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
-) -> FLSpielbestaetigungGrund | None:
+) -> FLSpielbestaetigungClosedReason | None:
     """Why the pass's close shuts a row holding its party's question, or `None`."""
 
-    grund = grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today)
-    if row.get("closed") is None or grund in GRUENDE_ENDING_AN_ANSWER:
-        return grund
+    reason = reason_to_close(row=row, spiel=spiel, austritte=austritte, today=today)
+    if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER:
+        return reason
 
     # Its own day, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.
     return "spiel_past" if _day_passed(ansetzung=row["ansetzung"], today=today) else None
@@ -854,11 +854,11 @@ def anfrage_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], to
     The floor is a date because `has_taken_place` reads a record, so an unplayed fixture of the past reads as open.
     """
 
-    datum = spiel.get("datum")
+    date = spiel.get("date")
     asked = (
-        isinstance(datum, str)
-        and today < datum <= letzter_anfrage_tag(today=today)
-        and spiel.get("uhrzeit") is not None
+        isinstance(date, str)
+        and today < date <= letzter_anfrage_tag(today=today)
+        and spiel.get("time") is not None
         and isinstance(spiel.get("ort"), Mapping)
         and _side_id(spiel, "team1") is not None
         and _side_id(spiel, "team2") is not None
@@ -870,29 +870,31 @@ def anfrage_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], to
     # shoot-out, would otherwise be minted, closed and minted again, a fresh request every pass.
     return (
         asked
-        and grund_to_close(row={"party": {"art": "team"}, "ansetzung": compose_ansetzung(spiel)}, spiel=spiel, austritte=austritte, today=today)
+        and reason_to_close(
+            row={"party": {"kind": "team"}, "ansetzung": compose_ansetzung(spiel)}, spiel=spiel, austritte=austritte, today=today
+        )
         is None
     )
 
 
-def parteien_of(spiel: Mapping[str, Any]) -> list[dict[str, Any]]:
+def parties_of(spiel: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Every party a fixture's Ansetzung asks: both sides, and its referee unless that is the ghost.
 
     The ghost holds no address, so a row for it would be minted and never mailed nor answered.
     """
 
-    parteien: list[dict[str, Any]] = [{"art": "team", "team_id": _side_id(spiel, side)} for side in ("team1", "team2")]
+    parties: list[dict[str, Any]] = [{"kind": "team", "team_id": _side_id(spiel, side)} for side in ("team1", "team2")]
     schiedsrichter_id = _referee_id(spiel)
     if schiedsrichter_id is not None and schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
-        parteien.append({"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id})
+        parties.append({"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id})
 
-    return parteien
+    return parties
 
 
-def partei_key(party: Mapping[str, Any]) -> tuple[str, Any]:
+def party_key(party: Mapping[str, Any]) -> tuple[str, Any]:
     """One party as the unique index tells parties apart."""
 
-    return party["art"], party.get("team_id") if party["art"] == "team" else party.get("schiedsrichter_id")
+    return party["kind"], party.get("team_id") if party["kind"] == "team" else party.get("schiedsrichter_id")
 
 
 def compose_spielbestaetigung(
@@ -916,16 +918,16 @@ def compose_spielbestaetigung(
         "spiel_id": spiel["_id"],
         "party": dict(party),
         "ansetzung": compose_ansetzung(spiel),
-        "frist": frist_of(datum=spiel["datum"], today=today),
+        "deadline": deadline_of(date=spiel["date"], today=today),
         "asked_at": today if asked else None,
         "reminded_at": None,
         # A referee answers signed in rather than by a link.
         "kontakte": (
             None
-            if party["art"] == "schiedsrichter"
+            if party["kind"] == "schiedsrichter"
             else {seat: compose_seat_entry(email=emails[seat]) if seat in emails else None for seat in KONTAKT_ROLLEN}
         ),
-        "antwort": None,
+        "answer": None,
         "closed": None,
     }
 
@@ -968,8 +970,8 @@ def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[An
         "saison_id": saison_id,
         **build_answerable_filter(),
         "_id": {"$nin": list(inserted)},
-        "party.art": "team",
-        "frist": days_after(day=today, days=SPIEL_REMINDER_DAYS),
+        "party.kind": "team",
+        "deadline": days_after(day=today, days=SPIEL_REMINDER_DAYS),
         "reminded_at": None,
         "asked_at": {"$nin": [None, today]},
     }
@@ -1003,37 +1005,39 @@ def compose_seats_update(*, emails: Mapping[str, str], today: str, asked: bool) 
     return {"$set": written}
 
 
-def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> dict[str, Any]:
-    return {"$set": {"closed": {"at": today, "grund": grund}}}
+def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason, today: str) -> dict[str, Any]:
+    return {"$set": {"closed": {"at": today, "reason": reason}}}
 
 
 # --- The NOTICES a closing owes, owed through the Postausgang in the closing's own transaction.
 
 
-GRUENDE_OWING_A_NOTICE: Final = frozenset({"ansetzung_changed", "schiedsrichter_switched", "abgesagt"})
+REASONS_OWING_A_NOTICE: Final = frozenset({"ansetzung_changed", "schiedsrichter_switched", "cancelled"})
 
 
-def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, Any], today: str) -> bool:
+def _notice_to_come(*, row: Mapping[str, Any], reason: Any, spiel: Mapping[str, Any], today: str) -> bool:
     """Whether a notice is about a day still to come.
 
     A move's is about the slot left, now void, and the fixture's slot, which a fresh request asks: either day keeps it.
     """
 
-    tage = [row["ansetzung"]["datum"]]
-    if grund == "ansetzung_changed" and isinstance(spiel.get("datum"), str):
-        tage.append(spiel["datum"])
+    tage = [row["ansetzung"]["date"]]
+    if reason == "ansetzung_changed" and isinstance(spiel.get("date"), str):
+        tage.append(spiel["date"])
 
     return any(tag >= today for tag in tage)
 
 
-def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spiel: Mapping[str, Any], today: str) -> bool:
-    """Whether closing this row for `grund` owes its party a notice.
+def notice_owed(*, row: Mapping[str, Any], reason: FLSpielbestaetigungClosedReason, spiel: Mapping[str, Any], today: str) -> bool:
+    """Whether closing this row for `reason` owes its party a notice.
 
     Only once its request was owed, and about a day to come.
     """
 
     return (
-        row.get("asked_at") is not None and grund in GRUENDE_OWING_A_NOTICE and _notice_to_come(row=row, grund=grund, spiel=spiel, today=today)
+        row.get("asked_at") is not None
+        and reason in REASONS_OWING_A_NOTICE
+        and _notice_to_come(row=row, reason=reason, spiel=spiel, today=today)
     )
 
 
@@ -1047,17 +1051,17 @@ def parties_told_of_the_change(
 ) -> list[Mapping[str, Any]]:
     """The party of each of a fixture's `rows` holding its question that the pass closes owing a notice once `stored` is `changed`.
 
-    Judged by the close's own rules (`grund_to_end`, `notice_owed`), so the page naming whom an act mails and the pass
+    Judged by the close's own rules (`reason_to_end`, `notice_owed`), so the page naming whom an act mails and the pass
     mailing them cannot disagree; a row the close ends as the fixture stands is no mail of the change. Whether a party
     is reached is the pass's: a club with no seat holding an address, or a referee with none, is told nothing.
     """
 
     told: list[Mapping[str, Any]] = []
     for row in rows:
-        grund = grund_to_end(row=row, spiel=changed, austritte=austritte, today=today)
-        if grund is None or grund == grund_to_end(row=row, spiel=stored, austritte=austritte, today=today):
+        reason = reason_to_end(row=row, spiel=changed, austritte=austritte, today=today)
+        if reason is None or reason == reason_to_end(row=row, spiel=stored, austritte=austritte, today=today):
             continue
-        if notice_owed(row=row, grund=grund, spiel=changed, today=today):
+        if notice_owed(row=row, reason=reason, spiel=changed, today=today):
             told.append(row["party"])
 
     return told
@@ -1069,7 +1073,7 @@ def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
     No stamp asked, as `notice_owed` asks one: the decline it discards came through one of the club's own links.
     """
 
-    return _notice_to_come(row=row, grund="discarded", spiel={}, today=today)
+    return _notice_to_come(row=row, reason="discarded", spiel={}, today=today)
 
 
 def spiel_mail_termin_of(*, spielbestaetigung_raw: Mapping[str, Any], names: tuple[str, str]) -> FLSpielMailAppointment:
@@ -1077,7 +1081,7 @@ def spiel_mail_termin_of(*, spielbestaetigung_raw: Mapping[str, Any], names: tup
 
     ansetzung = spielbestaetigung_raw["ansetzung"]
 
-    return FLSpielMailAppointment(team1=names[0], team2=names[1], datum=ansetzung["datum"], uhrzeit=ansetzung["uhrzeit"])
+    return FLSpielMailAppointment(team1=names[0], team2=names[1], date=ansetzung["date"], time=ansetzung["time"])
 
 
 def spiel_mail_ansetzung_of(view: FLSpielbestaetigungViewAnsetzung) -> FLSpielMailAnsetzung:
@@ -1086,35 +1090,35 @@ def spiel_mail_ansetzung_of(view: FLSpielbestaetigungViewAnsetzung) -> FLSpielMa
     return FLSpielMailAnsetzung(
         team1=view.team1_name,
         team2=view.team2_name,
-        datum=view.datum,
-        uhrzeit=view.uhrzeit,
-        ort=None if view.spielort is None else view.spielort.name,
+        date=view.date,
+        time=view.time,
+        spielort=None if view.spielort is None else view.spielort.name,
     )
 
 
-def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appointment: FLSpielMailAppointment) -> FLOutboxData:
-    """The notice a closing for `grund`, or a discard, owes a party of `partei_art`."""
+def notice_daten_of(*, reason: FLSpielbestaetigungClosedReason, party_kind: str, appointment: FLSpielMailAppointment) -> FLOutboxData:
+    """The notice a closing for `reason`, or a discard, owes a party of `party_kind`."""
 
-    empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
+    empfaenger = "schiedsrichter" if party_kind == "schiedsrichter" else "team"
     # A move's notice is `moved_notice_of`'s, which names the slot moved to as well.
-    if grund == "abgesagt":
-        return FLSpielNoticeData(kind="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
-    if grund == "schiedsrichter_switched":
+    if reason == "cancelled":
+        return FLSpielNoticeData(kind="spiel_cancelled", recipient=empfaenger, appointment=appointment)
+    if reason == "schiedsrichter_switched":
         return FLSpielEinteilungLiftedData(kind="spiel_einteilung_lifted", appointment=appointment)
-    if grund == "discarded":
+    if reason == "discarded":
         return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)
 
-    raise ValueError(f"a closing for {grund} owes no notice")
+    raise ValueError(f"a closing for {reason} owes no notice")
 
 
 def moved_notice_of(
-    *, partei_art: str, appointment: FLSpielMailAppointment, moved_to: FLSpielMailAppointment | None, asked_again: bool
+    *, party_kind: str, appointment: FLSpielMailAppointment, moved_to: FLSpielMailAppointment | None, asked_again: bool
 ) -> FLSpielMovedData:
-    """The „Spiel verlegt“ notice a party of `partei_art` is owed where no request about the fixture's new slot goes now."""
+    """The „Spiel verlegt“ notice a party of `party_kind` is owed where no request about the fixture's new slot goes now."""
 
     return FLSpielMovedData(
-        kind="spiel_new_scheduled",
-        recipient="schiedsrichter" if partei_art == "schiedsrichter" else "team",
+        kind="spiel_moved",
+        recipient="schiedsrichter" if party_kind == "schiedsrichter" else "team",
         appointment=appointment,
         moved_to=moved_to,
         asked_again=asked_again,
@@ -1124,17 +1128,17 @@ def moved_notice_of(
 def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAppointment | None:
     """The slot a fixture holds now, as a notice of its move names it, or `None` where it lacks a day, an hour or a side."""
 
-    datum, uhrzeit, team1, team2 = spiel.get("datum"), spiel.get("uhrzeit"), spiel.get("team1"), spiel.get("team2")
-    if not (isinstance(datum, str) and isinstance(uhrzeit, str) and isinstance(team1, Mapping) and isinstance(team2, Mapping)):
+    date, time, team1, team2 = spiel.get("date"), spiel.get("time"), spiel.get("team1"), spiel.get("team2")
+    if not (isinstance(date, str) and isinstance(time, str) and isinstance(team1, Mapping) and isinstance(team2, Mapping)):
         return None
 
-    return FLSpielMailAppointment(team1=str(team1["name"]), team2=str(team2["name"]), datum=datum, uhrzeit=uhrzeit)
+    return FLSpielMailAppointment(team1=str(team1["name"]), team2=str(team2["name"]), date=date, time=time)
 
 
 def still_a_party(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
     """Whether the row's party is one the fixture asks as it stands: a side, or its referee."""
 
-    return partei_key(row["party"]) in {partei_key(partei) for partei in parteien_of(spiel)}
+    return party_key(row["party"]) in {party_key(party) for party in parties_of(spiel)}
 
 
 def asked_with_its_move(*, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str) -> bool:
@@ -1145,7 +1149,7 @@ def asked_with_its_move(*, row: Mapping[str, Any], spiel: Mapping[str, Any], aus
     """
 
     return (
-        grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today) == "ansetzung_changed"
+        reason_to_close(row=row, spiel=spiel, austritte=austritte, today=today) == "ansetzung_changed"
         and still_a_party(row=row, spiel=spiel)
         and anfrage_is_due(spiel=spiel, austritte=austritte, today=today)
     )
@@ -1228,7 +1232,7 @@ def build_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
     Left on an answered row, it would show whoever holds the old mail the successor's ban.
     """
 
-    return {"party.art": "team", "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
+    return {"party.kind": "team", "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
 
 
 def group_seat_voids(voids: Sequence[SeatVoid]) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
@@ -1263,8 +1267,8 @@ def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid]) 
     An earlier holder's go too, an image naming no holder; the season's end strips them anyway.
     """
 
-    partei = image.get("party")
-    team_id = partei.get("team_id") if isinstance(partei, Mapping) and partei.get("art") == "team" else None
+    party = image.get("party")
+    team_id = party.get("team_id") if isinstance(party, Mapping) and party.get("kind") == "team" else None
     seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), team_id) for seat in void.seats}
 
     return _seat_entries(image, seats) if team_id is not None and seats else {}
@@ -1286,7 +1290,7 @@ def build_season_images_filter(saison_id: str) -> dict[str, Any]:
     return {
         "collection": str(Collection.SPIELBESTAETIGUNGEN),
         "before.saison_id": saison_id,
-        "$or": [{"before.party.art": "team"}, {"before.antwort.begruendung": {"$ne": None}}],
+        "$or": [{"before.party.kind": "team"}, {"before.answer.reason": {"$ne": None}}],
     }
 
 
@@ -1300,9 +1304,9 @@ def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str
         return {}
 
     edits = _seat_entries(image, set(KONTAKT_ROLLEN))
-    antwort = image.get("antwort")
-    if isinstance(antwort, Mapping) and antwort.get("begruendung") is not None:
-        edits["antwort.begruendung"] = None
+    answer = image.get("answer")
+    if isinstance(answer, Mapping) and answer.get("reason") is not None:
+        edits["answer.reason"] = None
 
     return edits
 
@@ -1310,13 +1314,13 @@ def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str
 def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
     """This season's rows holding a reason, whoever gave it and whatever the party: the season's end takes every one, the answer's way kept."""
 
-    return {"saison_id": saison_id, "antwort.begruendung": {"$ne": None}}
+    return {"saison_id": saison_id, "answer.reason": {"$ne": None}}
 
 
 def build_season_entries_filter(saison_id: str) -> dict[str, Any]:
     """This season's team rows still holding a seat's link entry, so a season stripped already is written, and logged, nothing."""
 
-    return {"saison_id": saison_id, "party.art": "team", "$or": [{f"kontakte.{seat}": {"$ne": None}} for seat in KONTAKT_ROLLEN]}
+    return {"saison_id": saison_id, "party.kind": "team", "$or": [{f"kontakte.{seat}": {"$ne": None}} for seat in KONTAKT_ROLLEN]}
 
 
 # --- A SEAT HOLDER'S ERASURE OR WIDERSPRUCH: the reasons typed from the seats they hold, matched by team, season and role.
@@ -1338,11 +1342,11 @@ def build_seat_reasons_filter(held: Sequence[HeldSeats]) -> dict[str, Any]:
     """
 
     return {
-        "party.art": "team",
-        "antwort.von.art": "kontakt",
-        "antwort.begruendung": {"$ne": None},
+        "party.kind": "team",
+        "answer.by.kind": "kontakt",
+        "answer.reason": {"$ne": None},
         "$or": [
-            {"saison_id": seats.saison_id, "party.team_id": seats.team_id, "antwort.von.rolle": {"$in": list(seats.seats)}} for seats in held
+            {"saison_id": seats.saison_id, "party.team_id": seats.team_id, "answer.by.rolle": {"$in": list(seats.seats)}} for seats in held
         ],
     }
 
@@ -1352,9 +1356,9 @@ def build_seat_reason_images_filter(held: Sequence[HeldSeats]) -> dict[str, Any]
 
     return {
         "collection": str(Collection.SPIELBESTAETIGUNGEN),
-        "before.antwort.begruendung": {"$ne": None},
+        "before.answer.reason": {"$ne": None},
         "$or": [
-            {"before.saison_id": seats.saison_id, "before.party.team_id": seats.team_id, "before.antwort.von.rolle": {"$in": list(seats.seats)}}
+            {"before.saison_id": seats.saison_id, "before.party.team_id": seats.team_id, "before.answer.by.rolle": {"$in": list(seats.seats)}}
             for seats in held
         ],
     }
@@ -1366,19 +1370,17 @@ def seat_reason_image_edits(image: Mapping[str, Any], held: Sequence[HeldSeats])
     The answer's day, its way and its role stay: they are the club's.
     """
 
-    partei, antwort = image.get("party"), image.get("antwort")
-    if not (
-        isinstance(partei, Mapping) and partei.get("art") == "team" and isinstance(antwort, Mapping) and antwort.get("begruendung") is not None
-    ):
+    party, answer = image.get("party"), image.get("answer")
+    if not (isinstance(party, Mapping) and party.get("kind") == "team" and isinstance(answer, Mapping) and answer.get("reason") is not None):
         return {}
 
-    von = antwort.get("von")
-    if not (isinstance(von, Mapping) and von.get("art") == "kontakt"):
+    by = answer.get("by")
+    if not (isinstance(by, Mapping) and by.get("kind") == "kontakt"):
         return {}
 
-    seats = {seat for row in held if (row.saison_id, row.team_id) == (image.get("saison_id"), partei.get("team_id")) for seat in row.seats}
+    seats = {seat for row in held if (row.saison_id, row.team_id) == (image.get("saison_id"), party.get("team_id")) for seat in row.seats}
 
-    return {"antwort.begruendung": None} if von.get("rolle") in seats else {}
+    return {"answer.reason": None} if by.get("rolle") in seats else {}
 
 
 # --- The REFEREE'S ERASURE: which rows and log images name the person, and what each image becomes.
@@ -1387,7 +1389,7 @@ def seat_reason_image_edits(image: Mapping[str, Any], held: Sequence[HeldSeats])
 def build_referee_rows_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
     """Every row whose party is one of these referees, open, answered or closed."""
 
-    return {"party.art": "schiedsrichter", "party.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+    return {"party.kind": "schiedsrichter", "party.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
 
 
 def build_referee_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
@@ -1406,12 +1408,12 @@ def referee_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[A
     The Ansetzung, the deadline and which way the answer went stay: they name nobody once the party is the ghost.
     """
 
-    partei = image.get("party")
-    if not isinstance(partei, Mapping) or partei.get("art") != "schiedsrichter" or partei.get("schiedsrichter_id") not in schiedsrichter_ids:
+    party = image.get("party")
+    if not isinstance(party, Mapping) or party.get("kind") != "schiedsrichter" or party.get("schiedsrichter_id") not in schiedsrichter_ids:
         return {}
 
     edits: dict[str, Any] = {"party.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}
-    if isinstance(image.get("antwort"), Mapping):
-        edits["antwort.begruendung"] = None
+    if isinstance(image.get("answer"), Mapping):
+        edits["answer.reason"] = None
 
     return edits
