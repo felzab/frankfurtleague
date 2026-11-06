@@ -445,12 +445,12 @@ window's span is the season editor's „Bewerbungsfenster“ box (`fl_frontend/s
 reaching `PATCH /saisons/{saison_id}`; closing early is moving its end to today or pausing it (`bewerbung.open`), and the
 window guard reads both on every submission, so a closed window refuses the next one without touching a row already written.
 
-**The rate limit buys time rather than prevention.** `= /api/bewerbung` carries a paired ceiling of 2r/m on
-one /64 and 6r/m on one /48 ([`spec.md`](spec.md) §1.3 for why the pair and why the wide half sits below the
-others), which puts filling the list from a single /48 at roughly three hours of sustained work rather than
-minutes. It does nothing about a flood spread across many allocations, and no concurrency ceiling reaches
-this path: `limit_conn 50` sits on the catch-all and the link pages' blocks alone — a backstop rather than a
-per-visitor control, and the one figure in that section never exercised against a real page load.
+**The bot check is the gate, and the rate limit buys minutes.** The submission is a server action, so the edge
+meters it by the action pair alone, 30 at once and 60 a minute per network ([`spec.md`](spec.md) §1.3), and
+what stops a script is the bot check before the input is read (`fl_frontend/src/core/action.ts`). Past that
+check, the pair does nothing about a flood spread across many allocations, and `limit_conn 50` on the catch-all
+is a backstop rather than a per-visitor control, the one figure in that section never exercised against a real
+page load.
 
 ## 5. When somebody asks for their data, or asks us to change it
 
