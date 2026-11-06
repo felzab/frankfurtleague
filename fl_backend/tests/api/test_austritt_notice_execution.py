@@ -182,14 +182,16 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await save_the_exit(database, client, stored=None, proposed=EXIT_DAY)
             first = await told(database, client)
-            await save_the_exit(database, client, stored=EXIT_DAY, proposed=EXIT_DAY)
-            resaved = await told(database, client)
             await save_the_exit(database, client, stored=EXIT_DAY, proposed=DAY_BEFORE)
+            moved = await told(database, client)
+            # Past the retention no key answers for the notices owed, and a colour saved months later still tells nobody.
+            await database[Collection.OUTBOX].delete_many({})
+            await save_the_exit(database, client, stored=DAY_BEFORE, proposed=DAY_BEFORE)
 
-            return first, resaved, await told(database, client)
+            return first, moved, await told(database, client)
 
-        first, resaved, moved = on_a_league(mongo_replica_set_url, body, spiele=spiele)
+        first, moved, resaved = on_a_league(mongo_replica_set_url, body, spiele=spiele)
 
         assert sorted(first) == addresses(OPPONENT)
-        assert resaved == {}
         assert sorted(moved) == addresses(EARLIER_OPPONENT)
+        assert resaved == {}
