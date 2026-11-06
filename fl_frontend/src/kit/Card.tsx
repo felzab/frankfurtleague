@@ -1,5 +1,6 @@
 import { textOf } from "@/core/copy";
 
+import { buttonPlaceholder } from "./buttonStyles";
 import { card, cardHover, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -110,10 +111,11 @@ export function CardPlaceholder({
 
 /**
  * A card's rows while they are read: `rows` of `CardActRow`'s rows at its height, each its name over its one line as
- * bars, the chevron at its end where a row leads on.
+ * bars, its `acts` as buttons' placeholders by their labels where the card's rows carry acts, which on a phone stand
+ * under the words and make the row taller, and the chevron at its end where a row leads on.
  */
-export function CardRowsPlaceholder({ rows }: { rows: number }) {
-  const s = actRow({ acts: false });
+export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: ReadonlyArray<Copy> }) {
+  const s = actRow({ acts: acts !== undefined });
   return Array.from({ length: rows }, (_, index) => (
     <div
       key={index}
@@ -128,6 +130,17 @@ export function CardRowsPlaceholder({ rows }: { rows: number }) {
           width="w-1/3"
         />
       </span>
+      {acts !== undefined && (
+        <span className={s.acts()}>
+          {acts.map((label) => (
+            <span
+              key={label}
+              className={buttonPlaceholder()}>
+              {label}
+            </span>
+          ))}
+        </span>
+      )}
       <span className={s.end()}>
         <RowEnd />
       </span>

@@ -108,7 +108,12 @@ type ListContent =
       head: TableHead;
       content: Promise<GroupsContent>;
     }
-  | { kind: "cards"; content: Promise<CardsContent> }
+  | {
+      kind: "cards";
+      /** Each card while it waits, in their order: its title, and the acts its rows carry, which a phone sets on a line of their own. */
+      wait: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }>;
+      content: Promise<CardsContent>;
+    }
   | { kind: "tree"; content: Promise<TreeContent> }
   | { kind: "spiele"; /** The search field's name. */ search: ListSearch; content: Promise<SpieleContent> }
   | { kind: "tiles"; /** The search field's name. */ search: ListSearch; content: Promise<TilesContent> };
@@ -143,11 +148,15 @@ function ListPlaceholder({ list }: { list: ListContent }) {
     case "cards":
       return (
         <CardGrid>
-          {[0, 1, 2, 3].map((index) => (
+          {list.wait.map(({ title, acts }) => (
             <CardPlaceholder
-              key={index}
+              key={title}
+              title={title}
               count>
-              <CardRowsPlaceholder rows={3} />
+              <CardRowsPlaceholder
+                rows={3}
+                {...(acts === undefined ? {} : { acts })}
+              />
             </CardPlaceholder>
           ))}
         </CardGrid>

@@ -257,7 +257,16 @@ export default function UebersichtPage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminOverview" } }}
-      list={{ kind: "cards", content: readOverview(params) }}
+      list={{
+        kind: "cards",
+        wait: [
+          { title: WORDS.card.due, acts: [COPY.shared.withObject(COPY.admin.overview.zusage, "enter")] },
+          { title: WORDS.card.ergebnisse },
+          { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.termin, "set")] },
+          { title: WORDS.card.bewerbungen },
+        ],
+        content: readOverview(params),
+      }}
     />
   );
 }
