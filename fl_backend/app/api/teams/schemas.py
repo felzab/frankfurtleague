@@ -611,6 +611,8 @@ class FLTeamEntryOffer(BaseReadModel):
     gruppen: list[FLTeamGruppeOffer]
     # Only a `future` season takes an entry; every other refusal is about the group or the club the dialog picks.
     closed: bool
+    # The colours a row of the season holds, which `trikot_farbe_taken` refuses.
+    taken: list[FLTrikotFarbe]
 
 
 class FLTeamsAdminListResponse(BaseAPIResponse):
@@ -644,6 +646,8 @@ class FLTeamSaisonAdminResponse(BaseAPIResponse):
     gruppen: list[FLTeamGruppeOffer]
     # Whether the group's write would refuse `entry_gruppe_locked`, the club's fixtures being drawn.
     gruppe_locked: bool
+    # The colours another row of the season holds, which `trikot_farbe_taken` refuses; this club's own stays open to it.
+    taken_trikot_farben: list[FLTrikotFarbe]
     # The newest running or planned season the club stands in, which `retire_blocked` refuses over.
     retire_blocked_by: str | None
     # Null with `membership`.

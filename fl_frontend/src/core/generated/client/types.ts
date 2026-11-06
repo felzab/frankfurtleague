@@ -6123,6 +6123,7 @@ export interface FLTeamEntryOffer {
   closed: boolean;
   clubs: FLTeamEntryClub[];
   gruppen: FLTeamGruppeOffer[];
+  taken: FLTrikotFarbe[];
 }
 
 /**
@@ -6276,6 +6277,7 @@ export interface FLTeamSaisonAdminResponse {
   membership: FLTeamMembership | null;
   retire_blocked_by: string | null;
   saison: FLTeamSaisonFacts;
+  taken_trikot_farben: FLTrikotFarbe[];
   team: FLTeamRecord;
   /** @minimum 0 */
   version: number;

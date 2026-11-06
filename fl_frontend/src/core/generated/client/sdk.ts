@@ -4615,8 +4615,8 @@ export const getTeamsGetTeamsAdminUrl = (params: TeamsGetTeamsAdminParams) => {
  * No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
  * the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
  * retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
- * each group with whether it is full, and `closed` where the season is not `future`, which the entry refuses. 404
- * where no season holds that id.
+ * each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
+ * the colours the season's rows hold. 404 where no season holds that id.
  * @summary One season's Teams list and what its create dialog offers
  */
 export const teamsGetTeamsAdmin = async (
@@ -4782,7 +4782,8 @@ export const getTeamsGetTeamSaisonAdminUrl = (teamId: string, saisonId: string) 
  * `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
  * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
  * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
- * `entry_gruppe_locked`, and `retire_blocked_by` the season `retire_blocked` refuses over, by each write's own judgement.
+ * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
+ * `retire_blocked` refuses over, by each write's own judgement.
  * `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
  * over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
  * season holds that id.

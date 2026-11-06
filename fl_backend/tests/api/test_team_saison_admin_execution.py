@@ -402,6 +402,21 @@ class TestTheEditorRead:
         assert view.link is None
         assert view.team.inactive_since == "2025-07-01"
 
+    def test_a_club_s_own_colour_stays_open_to_it_where_the_entry_counts_it_taken(self, mongo_replica_set_url: str):
+        """An editor closing its own colour would read as refusing the save that keeps it; a row with no colour holds none."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            rows = database[Collection.SAISON_TEAMS]
+            await rows.update_one({"team_id": ADLER}, {"$set": {"trikot_farbe": "rot"}})
+            await rows.update_one({"team_id": BIEBER}, {"$set": {"trikot_farbe": "bordeaux"}})
+
+            return (await listing(database)).entry.taken, (await editor(database)).taken_trikot_farben
+
+        offered, edited = on_a_league(mongo_replica_set_url, body)
+
+        assert sorted(offered) == ["bordeaux", "rot"]
+        assert edited == ["bordeaux"]
+
     def test_each_lock_reads_as_its_write_judges(self, mongo_replica_set_url: str):
         """A control opening where the write refuses is a press answered by a stale page."""
 

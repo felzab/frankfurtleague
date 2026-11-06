@@ -13,7 +13,7 @@ from app.api.address_change.crud import denied_addresses
 from app.api.address_change.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.bewerbungen.services import seat_addresses, seat_named
+from app.api.bewerbungen.services import assigned_trikot_farben, seat_addresses, seat_named
 from app.api.invitations.crud import invitation_reference, owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
@@ -356,8 +356,8 @@ async def get_teams_admin(
     No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
     the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
     retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
-    each group with whether it is full, and `closed` where the season is not `future`, which the entry refuses. 404
-    where no season holds that id.
+    each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
+    the colours the season's rows hold. 404 where no season holds that id.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["status", "rules"])
@@ -396,6 +396,7 @@ async def get_teams_admin(
             clubs=[FLTeamEntryClub.model_validate(club) for club in clubs if club["_id"] not in entered and club.get("inactive_since") is None],
             gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in rows]),
             closed=saison_raw["status"] != "future",
+            taken=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in rows]),
         ),
     )
 
@@ -428,7 +429,8 @@ async def get_team_saison_admin(
     `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
     a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
     `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
-    `entry_gruppe_locked`, and `retire_blocked_by` the season `retire_blocked` refuses over, by each write's own judgement.
+    `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
+    `retire_blocked` refuses over, by each write's own judgement.
     `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
     over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
     season holds that id.
@@ -458,7 +460,10 @@ async def get_team_saison_admin(
             auth_time=auth_time,
         ),
         pull_whole_from_db(
-            collection=saison_teams_collection, db_filter={"saison_id": saison_id}, what=f"season {saison_id}'s clubs", projection=["gruppe"]
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id},
+            what=f"season {saison_id}'s clubs",
+            projection=["team_id", "gruppe", "trikot_farbe"],
         ),
         pull_many_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
         spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
@@ -505,6 +510,7 @@ async def get_team_saison_admin(
         membership=FLTeamMembership.model_validate(memberships[0]) if memberships else None,
         gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in season_rows]),
         gruppe_locked=find_gruppe_move_refusal(spiele_drawn=spiele_drawn) is not None,
+        taken_trikot_farben=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in season_rows if row["team_id"] != team_id]),
         retire_blocked_by=saison_blocking_retirement(held_saisons),
         link=link,
     )
