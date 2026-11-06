@@ -100,6 +100,21 @@ class TestWhatASeatWriteMoves:
 
         assert "erasure_announced_at" not in self.re_sent(trainer=self.SEAT, stellvertretung={**self.SEAT, "deadline": "2026-03-10"})
 
+    def test_a_confirmed_seats_old_deadline_counts_for_neither_day(self):
+        """Counted, the day reads moved and the stamp goes, so a person is told of one deletion twice."""
+
+        kontakte = {
+            "trainer": kontaktperson_document("Quillhilde", confirmed_at="2026-03-02"),
+            "ansprechperson": kontaktperson_document("Ansgar"),
+            "stellvertretung": kontaktperson_document("Stellan"),
+            "trainer_is_also": None,
+        }
+        confirmations = {"trainer": {**self.SEAT, "deadline": "2026-03-10"}, "ansprechperson": self.SEAT, "stellvertretung": self.SEAT}
+
+        update = compose_erneut_update(seats=("ansprechperson",), today="2026-04-01", kontakte=kontakte, confirmations=confirmations)
+
+        assert "erasure_announced_at" not in update["$set"]
+
 
 class TestTheCodeAnAcceptanceTakes:
     """A new school accepted with no code fails at the club's own parse as the school's fault, and a code on a picked club is dropped unsaid."""
