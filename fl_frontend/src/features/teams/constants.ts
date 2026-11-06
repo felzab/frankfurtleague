@@ -22,11 +22,20 @@ function austrittKuerzel(type: FLAustrittType): Copy {
 const AUSTRITT_TONE = { disqualifikation: "danger", rueckzug: "neutral" } as const satisfies Record<FLAustrittType, ChipProps["tone"]>;
 
 /**
- * A club's exit chip, after its name wherever a list or its page names it: the route's two letters, which a screen
- * reader hears as the club's state, so every surface draws one chip for one record.
+ * A club's exit chip, after its name wherever a public list or its page names it: the route's two letters, which a
+ * screen reader hears as the club's state, so every public surface draws one chip for one record.
  */
 export function austrittChip(type: FLAustrittType): ChipProps {
   return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittZustand(type) };
+}
+
+/**
+ * The chip after a club's name in the administration: „Stillgelegt“ once it left the league, else how it left the
+ * season, whichever route, in the danger hue and in the full word, which the list and the editor have room for.
+ */
+export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps | undefined {
+  if (retiredSince !== null) return { tone: "neutral", label: COPY.shared.retired };
+  return exit === null ? undefined : { tone: "danger", label: austrittZustand(exit) };
 }
 
 // A person's name, or one part of one, at every field the backend types with

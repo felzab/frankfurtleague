@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
+import { adminTeamChip, trikotFarbeLabel } from "@/features/teams/constants";
 import { TEAM_CLUB_REQUIRED, TEAM_ENTRY_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions } from "@/features/teams/options";
 import { getTeamsAdmin } from "@/features/teams/queries";
@@ -17,7 +17,6 @@ import { enterTeam } from "./enterTeam";
 import { TeamEntryFields } from "./TeamEntryFields";
 
 import type { FLTeamsAdminListResponse, FLTeamsAdminRow } from "@/core/generated/client/types";
-import type { ChipProps } from "@/kit/Chip";
 import type { Filter } from "@/kit/Filters";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableRow } from "@/kit/Table";
@@ -55,15 +54,9 @@ export async function generateMetadata({ params, searchParams }: Props, parent: 
   return metadataFor(read({ params, searchParams }), () => pageMetadata(parent, ROUTES.adminTeams, ROUTES.adminTeams.path(saison)));
 }
 
-/** The chip after a club's name: „Stillgelegt“ once it left the league, else how it left the season. */
-function chipOf({ inactive_since: retired, austritt_type: type }: FLTeamsAdminRow): ChipProps | undefined {
-  if (retired !== null) return { tone: "neutral", label: COPY.shared.retired };
-  return type === null ? undefined : { tone: "danger", label: COPY.shared.austritt[type].state };
-}
-
 /** One club's row, opening its editor in this season: its Kürzel, its name with its chip, its group and its colour. */
 function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
-  const chip = chipOf(team);
+  const chip = adminTeamChip(team.inactive_since, team.austritt_type);
   return {
     id: team.id,
     name: { record: team.name },
@@ -72,10 +65,7 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
     ...(chip === undefined ? {} : { chip, muted: true }),
     cells: {
       gruppe: team.gruppe === null ? COPY.shared.noValue : COPY.shared.season.gruppe(team.gruppe),
-      trikotFarbe:
-        team.trikot_farbe === null
-          ? COPY.shared.noValue
-          : { record: TRIKOT_FARBEN.find(({ value }) => value === team.trikot_farbe)?.label ?? team.trikot_farbe },
+      trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : { record: trikotFarbeLabel(team.trikot_farbe) },
     },
   };
 }
