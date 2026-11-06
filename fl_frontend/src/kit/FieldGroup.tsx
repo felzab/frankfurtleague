@@ -1,4 +1,5 @@
 import { SectionTitle } from "./Section";
+import { PlaceholderLine } from "./Skeleton";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -28,5 +29,20 @@ export function FieldGroup({ name, children }: { name: Copy; children: ReactNode
       </legend>
       {children}
     </fieldset>
+  );
+}
+
+/** The group while its fields are read: its name's line over its hairline, and the fields' placeholders. */
+export function FieldGroupPlaceholder({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid w-full min-w-0 justify-items-start gap-4">
+      <span className="justify-self-stretch border-b border-border pb-2">
+        <PlaceholderLine
+          text="text-base font-semibold"
+          width="w-1/3"
+        />
+      </span>
+      {children}
+    </div>
   );
 }

@@ -1,9 +1,10 @@
-import { textOf } from "@/core/copy";
+import { COPY, textOf } from "@/core/copy";
 
 import { answerRows, PartyHead } from "./AnswerRows";
 import { buttonLook } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { EMAIL_WORDS } from "./Facts";
+import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -65,7 +66,10 @@ export function SeatRows({ label, rows }: { label: Copy; rows: ReadonlyArray<Sea
   );
 }
 
-/** The seats while they are read: three rows, each a name and a chip over the muted line, and the one act every seat has. */
+/**
+ * The seats while they are read: three rows, each a name and a chip over the muted line, and the one act every seat has.
+ * The line's words are set unseen, an address wrapping in a phone's column as it will.
+ */
 export function SeatRowsPlaceholder() {
   const s = seatRows();
   const words = answerRows();
@@ -83,9 +87,9 @@ export function SeatRowsPlaceholder() {
               />
               <span className={placeholderBar("h-5 w-16")} />
             </span>
-            <PlaceholderLine
+            <PlaceholderSentence
               text={words.line()}
-              width="w-2/3"
+              words={COPY.admin.seatLine(["trainer"], EMAIL_WORDS, null)}
             />
           </span>
           <span className={s.acts()}>

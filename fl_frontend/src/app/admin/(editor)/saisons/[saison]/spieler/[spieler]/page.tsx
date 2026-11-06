@@ -84,9 +84,10 @@ export default function SpielerEditorPage({ params }: Props) {
             />,
           ],
           [
+            // A row that left the squad: the day it left beside the team.
             <FactsPlaceholder
               key="team"
-              pairs={1}
+              pairs={2}
             />,
             <FieldPlaceholder
               key="nummer"
@@ -103,7 +104,13 @@ export default function SpielerEditorPage({ params }: Props) {
             />,
           ],
         ],
-        danger: [COPY.shared.verb.deregister],
+        danger: [
+          {
+            name: COPY.shared.withObject(WORDS.fromKader, "deregister"),
+            consequence: WORDS.deregisterConsequence,
+            act: COPY.shared.verb.deregister,
+          },
+        ],
       }}
       editor={readEditor(params)}
     />

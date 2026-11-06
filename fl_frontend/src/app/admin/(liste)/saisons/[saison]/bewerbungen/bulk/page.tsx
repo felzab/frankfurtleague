@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { StepsPage } from "@/kit/StepsPage";
+import { CalloutPlaceholder } from "@/kit/Callout";
+import { FieldGroupPlaceholder } from "@/kit/FieldGroup";
+import { FieldPlaceholder } from "@/kit/FieldPair";
+import { StepCardPlaceholder, StepsPage } from "@/kit/StepsPage";
 
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { ACCEPT_RULES } from "@/features/bewerbungen/fieldRules";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
@@ -43,6 +47,20 @@ export default function BulkAcceptPage({ params }: Props) {
   return (
     <StepsPage
       title={{ route: "adminBewerbungenBulk" }}
+      wait={
+        // A new school's card, the taller of the two: its code stands in a group of its own, with the word on its address.
+        <StepCardPlaceholder facts={5}>
+          <FieldPlaceholder width="fit" />
+          <FieldPlaceholder width="fit" />
+          <FieldGroupPlaceholder>
+            <FieldPlaceholder
+              width="C5"
+              description={COPY.team.shorthandDescription}
+            />
+            <CalloutPlaceholder text={COPY.admin.bewerbung.addressPublic} />
+          </FieldGroupPlaceholder>
+        </StepCardPlaceholder>
+      }
       steps={readRun(params)}
     />
   );
