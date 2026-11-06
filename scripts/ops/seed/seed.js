@@ -495,7 +495,7 @@ running.saison.registrierung = { open: true, end: day(-36) };
 
 // --- A seat's person and link ---------------------------------------------------------------------
 
-// Every phone its own: the form refuses two people one number (`the_distinct_people_share_no_email_or_telephone`).
+// Every phone its own: the form refuses two people one number.
 let seatedPeople = 0;
 
 /** A person as the form or the league seats them, nobody having answered (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`). */
