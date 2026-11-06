@@ -94,7 +94,7 @@ export type AdminSpielerRow = {
   id: string;
   first_name: string;
   last_name: string | null;
-  /** `vorname nachname`, or the forename alone — what the list searches and sorts on. */
+  /** `first_name last_name`, or the forename alone — what the list searches and sorts on. */
   fullName: string;
   selected: (SpielerSquadFields & { teamName: string | null; teamShorthand: string | null }) | null;
 };

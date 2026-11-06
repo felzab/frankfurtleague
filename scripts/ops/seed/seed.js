@@ -127,7 +127,7 @@ function germanMidnight(isoDay) {
 }
 
 // The link's deadline, fourteen days after the mail that owed it
-// (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS`).
+// (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`).
 const LINK_DAYS = 14;
 
 /**

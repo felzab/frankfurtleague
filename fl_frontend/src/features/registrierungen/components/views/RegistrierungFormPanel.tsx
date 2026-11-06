@@ -40,7 +40,7 @@ import type { FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { RegistrierungFormDraft } from "../../types";
 
-type RegistrierungAnswer = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });
+type RegistrierungAnswer = { success: true } | (PublicEnvelope & { success: false; zustand?: "invalid" });
 
 const NICHT_ABGESCHICKT = `Deine Registrierung wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 

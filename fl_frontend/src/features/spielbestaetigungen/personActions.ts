@@ -17,7 +17,7 @@ import type { SchiedsrichterAbsage } from "./schemas";
  * referee records the signed-in address holds. `sende` is the request, written at each action so the action
  * names the call it makes.
  */
-async function antworten<Z extends "zugesagt" | "abgelehnt">(
+async function answer<Z extends "zugesagt" | "abgelehnt">(
   sende: () => Promise<unknown>,
   state: Z,
   message: string,
@@ -39,7 +39,7 @@ export async function zusagenSpielbestaetigungAction(spielbestaetigungId: string
     const id = CustomObjectIdStringSchema.safeParse(spielbestaetigungId);
     if (!id.success) return { success: false, error: VALIDATION_FAILED };
 
-    return antworten(() => postSpielbestaetigungAnswer(id.data, { answer: "zugesagt", reason: null }), "zugesagt", ZUSAGE_GESPEICHERT);
+    return answer(() => postSpielbestaetigungAnswer(id.data, { answer: "zugesagt", reason: null }), "zugesagt", ZUSAGE_GESPEICHERT);
   });
 }
 
@@ -57,6 +57,6 @@ export async function absagenSpielbestaetigungAction(
     }
 
     const reason = validated.data.reason;
-    return antworten(() => postSpielbestaetigungAnswer(id.data, { answer: "declined", reason }), "abgelehnt", ABSAGE_GESPEICHERT);
+    return answer(() => postSpielbestaetigungAnswer(id.data, { answer: "declined", reason }), "abgelehnt", ABSAGE_GESPEICHERT);
   });
 }

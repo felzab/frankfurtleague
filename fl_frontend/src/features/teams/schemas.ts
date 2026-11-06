@@ -80,7 +80,7 @@ const FLKontaktpersonPayloadSchema = z.object({
   last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   phone: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
-  // No `geburtsdatum`: the payload carries none, and a mirror requiring one refuses every seat whose
+  // No `birth_date`: the payload carries none, and a mirror requiring one refuses every seat whose
   // person has not confirmed yet.
   einwilligung: FLKontaktKenntnisnahmePayloadSchema,
 });

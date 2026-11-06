@@ -88,7 +88,7 @@ const kartenListe = <TKarte extends z.ZodType>(eintrag: TKarte) =>
 const isNoShow = (sonderereignis: FLSpielberichtSonderereignis | null): boolean =>
   sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
-/** Whether an entry credits `seite`: its own side without an own goal, the other side with one. */
+/** Whether an entry credits `side`: its own side without an own goal, the other side with one. */
 const credits = (eintrag: { side: FLSpielSide; eigentor: boolean }, side: FLSpielSide): boolean => (eintrag.side === side) !== eintrag.eigentor;
 
 // Each rule the backend's `every_goal_has_one_entry` raises, in its words, placed on the field that repairs it.
@@ -135,7 +135,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
         issue("Ein Elfmeterschießen folgt nur auf ein Unentschieden.", ["ergebnis_vorschlag", "elfmeterschiessen"]);
       }
 
-      // By the side each entry CREDITS, never by its `seite`: an own goal counts for the other team.
+      // By the side each entry CREDITS, never by its `side`: an own goal counts for the other team.
       const gezaehlt1 = bericht.scorers.filter((eintrag) => credits(eintrag, "team1")).length;
       const gezaehlt2 = bericht.scorers.filter((eintrag) => credits(eintrag, "team2")).length;
       if (gezaehlt1 !== team1_tore || gezaehlt2 !== team2_tore) {
