@@ -1,10 +1,16 @@
 import { notFound } from "next/navigation";
 
+import { CheckboxPlaceholder } from "@/kit/Checkbox";
+import { ToggleBoxesPlaceholder } from "@/kit/ChoiceButtons";
 import { EditorShell } from "@/kit/EditorShell";
+import { FactsPlaceholder } from "@/kit/Facts";
+import { FieldPlaceholder } from "@/kit/FieldPair";
+import { TablePlaceholder } from "@/kit/Table";
 
 import { judgeAdminRequest } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
+import { FLSpielerStufe } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
@@ -28,11 +34,24 @@ import { saveSaison } from "./saveSaison";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Code, FLInvitationLinkRow, FLSaisonAdminTeam, FLSaisonStatus } from "@/core/generated/client/types";
+import type { TableHead } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
 
 const WORDS = COPY.admin.saison;
+const TEAM = COPY.account.entries.facts.team;
+
+/** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
+const LINKS_HEAD: TableHead = { nameLabel: TEAM, columns: [{ key: "link", label: COPY.account.address.link }] };
+
+/** One of the editor's selects of a few short choices while it is read. */
+const SELECT = (
+  <FieldPlaceholder
+    key="select"
+    width="fit"
+  />
+);
 
 /** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
@@ -89,19 +108,53 @@ function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): 
 export default function SaisonSettingsPage({ params }: Props) {
   return (
     <EditorShell
+      // A season drawn and not yet the site's, the fullest the page stands: only the read says which one it is.
       wait={{
         sections: [
           [{ rows: 2, width: "C10" }],
-          ["subhead", { rows: 3, width: "C2" }, "field", "subhead", { rows: 2, width: "C2" }],
-          [{ rows: 2, width: "C2" }, "field"],
-          ["field", "field"],
+          ["subhead", { rows: 3, width: "C2" }, SELECT, "subhead", { rows: 2, width: "C2" }],
+          [{ rows: 2, width: "C2" }, SELECT],
+          [
+            <FieldPlaceholder
+              key="maxKader"
+              width="C2"
+            />,
+            <ToggleBoxesPlaceholder
+              key="stufen"
+              count={Object.values(FLSpielerStufe).length}
+            />,
+          ],
           [{ rows: 2, width: "C10" }],
-          ["field", "field"],
-          ["field"],
-          ["pair"],
-          ["pair"],
-          ["field"],
+          [
+            <FieldPlaceholder
+              key="end"
+              width="C10"
+            />,
+            <CheckboxPlaceholder
+              key="paused"
+              label={WORDS.registrierungPaused}
+            />,
+          ],
+          [
+            <FactsPlaceholder
+              key="spielplan"
+              pairs={3}
+            />,
+          ],
+          ["field", "field", { act: COPY.shared.withObject(WORDS.gruppen, "swap") }],
+          ["field", "field", { act: COPY.shared.withObject(TEAM, "replace") }],
+          [
+            <TablePlaceholder
+              key="links"
+              head={LINKS_HEAD}
+              rows={8}
+              bare
+              linked={false}
+            />,
+            { act: COPY.shared.withObject(WORDS.registrierungslinks, "send") },
+          ],
         ],
+        danger: [COPY.shared.verb.recreate, COPY.shared.verb.delete, COPY.shared.verb.activate],
       }}
       editor={readEditor(params)}
     />
@@ -153,6 +206,7 @@ async function readEditor(params: Props["params"]) {
       }))}
       incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
       links={{
+        head: LINKS_HEAD,
         rows: invitations.map((row) => ({
           id: row.team_id,
           name: { record: row.team_name },
