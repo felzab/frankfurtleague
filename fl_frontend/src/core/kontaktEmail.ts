@@ -1,78 +1,56 @@
 import "server-only";
 
-import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { dayOf, formatDate } from "./format";
+import { COPY } from "./copy";
+import { mailOrigin } from "./emailShell";
+import { dayOf, formatDateLong } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
-import { DEIN_BEREICH_TITEL } from "./seitenNamen";
+import { SERVER_COPY } from "./serverCopy";
 import { rollenText } from "./teamVocabulary";
 
-import type { Mail, Paragraph, Sentence } from "./emailShell";
-import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types";
+import type { Mail } from "./emailShell";
+import type { FLKontaktLinkData } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
-/** Why a closed row's page offers no confirmation, in the page's own terms. */
-const GESCHLOSSEN_SATZ: Record<Exclude<FLKontaktRow, "open">, string> = {
-  saison_past: "Die Saison ist vorbei, deshalb kannst Du den Eintrag nicht bestätigen.",
-  ausgetreten: "Das Team spielt in dieser Saison nicht mehr mit, deshalb kannst Du den Eintrag nicht bestätigen.",
-};
-
-/**
- * What the page takes and how long the link holds. No re-send on a closed row: the backend refuses
- * one there (`kontakt_row_without_saison`), so the message promises none.
- */
-function linkAbsatz(zeile: FLKontaktRow, deadline: string): Paragraph {
-  const gueltig: Sentence = ["Der Link ist bis zum ", { strong: deadline }, " gültig und funktioniert nur einmal."];
-
-  return zeile === "open"
-    ? [
-        // Both answers are named before the press: a reader who came to object and meets a birthdate box was
-        // asked something the message did not say.
-        "Auf der Seite bestätigst Du den Eintrag mit Deinem Geburtsdatum, oder Du widersprichst ihm, dann entfernen wir Deine Angaben daraus.",
-        gueltig,
-        "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
-      ]
-    : [
-        // The one answer such a page takes, worded as the page words it.
-        "Möchtest Du nicht eingetragen bleiben, kannst Du über den Link widersprechen.",
-        "Dann entfernen wir Deine Angaben aus dem Eintrag.",
-        gueltig,
-      ];
-}
+const PAGE = SERVER_COPY.kontaktConfirmation;
+const DEADLINE = SERVER_COPY.schiedsrichterConfirmation.deadline;
 
 // No name: the administrator typed this address and nobody has confirmed it, so behind a typo its reader is a
 // stranger, owed none. One person a mail: an address is one person, so `rollen` are the seats that one holds.
 /**
- * What one person an administrator seated on a team's season row is asked to confirm, from the facts the Postausgang
- * row holds and the link its hand-out minted. `token` is a bearer credential and is never taken apart here.
+ * What one person an administrator seated on a team's season row is asked, from the facts the Postausgang row holds and
+ * the link its hand-out minted: on an open row to answer by the seat's own day, on a closed row, whose link takes the
+ * Widerspruch alone, why and what an objection does. `token` is a bearer credential and is never taken apart here.
  */
 export function buildKontaktBestaetigungEmail(
-  { rollen, schule, saison_id: saisonId, deadline, row: zeile }: FLKontaktLinkData,
+  { rollen, schule, saison_id: saison, deadline, row }: FLKontaktLinkData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
-  const seats = rollenText(rollen);
+  const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: rollenText(rollen) });
+  const href = kontaktBestaetigungsLink(site, token);
+  const shell = { kind: "firstContact", subjectLine: SERVER_COPY.mail.kontakt.subject(schule), origin: site, firstName: "" } as const;
+
+  if (row === "open") {
+    return {
+      ...shell,
+      paragraphs: [
+        [opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
+        [[`${DEADLINE.before} `, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
+      ],
+      button: { label: COPY.page.entryConfirmation, href: href },
+    };
+  }
 
   return {
-    kind: "firstContact",
-    subjectLine: `Du bist als ${seats} für ${schule} eingetragen`,
-    origin: site,
-    firstName: "",
+    ...shell,
     paragraphs: [
       [
-        // „für {Team} in der Saison …“, as the registration messages name a team and its season.
-        ["Die Verwaltung der ", BRAND_NAME, ` hat Dich in der Saison ${saisonId} als ${seats} für `, { strong: schule }, " eingetragen."],
-        zeile === "open"
-          ? [
-              { strong: "Bitte bestätige, dass das stimmt" },
-              // The signed-in area by its name on screen, and never „Zugang“: on screen that word names an
-              // administrator's grant alone (`docs/glossary.md`), which a confirmed seat is not.
-              `: Erst danach findest Du Dein Team nach der Anmeldung auf der Website unter „${DEIN_BEREICH_TITEL}“.`,
-            ]
-          : GESCHLOSSEN_SATZ[zeile],
+        opening,
+        row === "ausgetreten" ? PAGE.teamDeparted({ record: schule }) : SERVER_COPY.refusalLine.saison_past,
+        PAGE.objectionEffect.seasonRow,
       ],
-      linkAbsatz(zeile, formatDate(dayOf(deadline))),
     ],
     // Named for what the page offers: a closed row's page has nothing to confirm.
-    button: { label: zeile === "open" ? "Eintrag bestätigen" : "Zum Eintrag", href: kontaktBestaetigungsLink(site, token) },
+    button: { label: SERVER_COPY.mail.kontakt.toEntry, href: href },
   };
 }
