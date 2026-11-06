@@ -33,7 +33,7 @@ const STAND_CHIP: Readonly<Record<FLOutboxStatusState, Chip | null>> = {
   // The ban list kept it, the one case here the league's own list explains.
   barred: { label: "Auf der Sperrliste", tone: "warning" },
   // A stack that mails nothing filed it: no address is at fault.
-  held: { label: "Nur abgelegt", tone: "warning" },
+  held: { label: COPY.admin.delivery.held, tone: "warning" },
   // Every attempt failed until the deadline: the link never left.
   abandoned: { label: "Nicht gesendet", tone: "danger" },
 };
@@ -59,13 +59,14 @@ const REPORTED: Readonly<Record<FLOutboxDeliveryState, ChipProps | null>> = {
   complaint: { tone: "danger", label: DELIVERY.complaint },
 };
 
-/** What the outbox did with the mail where the provider said nothing. A stack that mails nothing has not sent it either. */
+/** What the outbox did with the mail where the provider said nothing. */
 const OWED: Readonly<Record<FLOutboxStatusState, ChipProps | null>> = {
   open: null,
   sent: null,
   dropped: null,
   barred: { tone: "warn", label: COPY.admin.saison.addressBarred },
-  held: { tone: "danger", label: COPY.admin.saison.linkNotSent },
+  // A stack that mails nothing filed it: no address is at fault, and nothing failed.
+  held: { tone: "warn", label: DELIVERY.held },
   abandoned: { tone: "danger", label: COPY.admin.saison.linkNotSent },
 };
 

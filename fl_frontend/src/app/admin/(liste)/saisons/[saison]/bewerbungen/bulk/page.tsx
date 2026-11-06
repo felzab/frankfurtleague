@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** The season's complete, undecided applications, oldest first, as they came in, with the groups an acceptance may name. */
+/** The season's complete, undecided applications, oldest first, as they came in, with the groups and colours an acceptance may name. */
 async function readRun(params: Props["params"]) {
   const { saison } = await params;
   const read = await getBewerbungenOfSaison(saison);
@@ -32,6 +32,7 @@ async function readRun(params: Props["params"]) {
       saison={saison}
       rows={read.bewerbungen.filter((row) => standingOf(row) === "complete").toReversed()}
       gruppen={read.saison.gruppen}
+      taken={read.saison.taken}
       rules={ACCEPT_RULES}
     />
   );

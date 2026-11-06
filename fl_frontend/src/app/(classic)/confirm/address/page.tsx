@@ -1,5 +1,7 @@
+import { cache } from "react";
+
 import { ClassicPage } from "@/kit/ClassicPage";
-import { MAILED_PAGE_METADATA, MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
+import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
@@ -22,17 +24,32 @@ import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Side } from "./ends";
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token. The title fits both links. */
-export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+type Props = PageProps<"/confirm/address">;
+
+/** A row no crawler fetches, and no referrer: the URL carries the link's token. The old view keeps the row's title. */
+export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.addressChangeConfirmation;
-  return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
+  const title = mailedTitle(await readState(searchParams), row.title);
+  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 
 const WORDS = SERVER_COPY.addressChange;
 
 const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 
-type Props = PageProps<"/confirm/address">;
+/** The link's read, `null` for a dead link. A failed read is no state of the link's: it reaches the frame's error boundary. */
+// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+const readChange = cache(async (token: string) =>
+  runWithIncomingTrace(() =>
+    postAddressChangeView({ token }).catch((error: unknown) => {
+      if (mapAddressChangeViewRefusal(error) === null) throw error;
+      return null;
+    }),
+  ),
+);
+
+/** Whether an account stands at the new address, asked of the sign-in store once per render pass, as `readChange`. */
+const accountAtTheNewAddress = cache(async (token: string) => accountAtNewAddress({ token }));
 
 /**
  * `/confirm/address`, both links of an address change, the token saying which: the person's own change on the
@@ -53,13 +70,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
   // A missing or repeated parameter is no link at all.
   if (typeof token !== "string" || token === "") return INVALID;
 
-  // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
-  const read = await runWithIncomingTrace(() =>
-    postAddressChangeView({ token }).catch((error: unknown) => {
-      if (mapAddressChangeViewRefusal(error) === null) throw error;
-      return null;
-    }),
-  );
+  const read = await readChange(token);
   if (read === null) return INVALID;
 
   return read.view.way === "account" ? ownWay(read.view, token) : administratorsWay(read, token);
@@ -100,7 +111,7 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
   // Waiting on an approval after the new mailbox confirmed: the old view's, with the approval.
   if (view.state === "confirmed" || view.state === "approval_expired") return oldView(viewOf({ view }), token);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (view.state !== "valid" || view.email === null || (await accountAtNewAddress({ token }))) return INVALID;
+  if (view.state !== "valid" || view.email === null || (await accountAtTheNewAddress(token))) return INVALID;
   return question("new", token, COPY.shared.withObject(COPY.signIn.address, "confirm"), COPY.signIn.address, view.email, WORDS.new.question);
 }
 
@@ -121,7 +132,7 @@ function question(side: Side, token: string, title: Copy, label: Copy, email: st
 async function administratorsWay(read: FLAddressChangeViewResponse, token: string): Promise<MailedState> {
   const view = viewOf(read);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (view.state === "valid" && (await accountAtNewAddress({ token }))) {
+  if (view.state === "valid" && (await accountAtTheNewAddress(token))) {
     return oldView({ state: "not_confirmable", way: view.way }, token);
   }
   return oldView(view, token);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -56,7 +56,7 @@ describe("the list's create act", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name }));
-    expect(within(await screen.findByRole("dialog")).getByText(reason)).toBeTruthy();
+    expect((await screen.findByRole("tooltip")).textContent).toBe(reason);
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("heading", { name })).toBeNull();
   });

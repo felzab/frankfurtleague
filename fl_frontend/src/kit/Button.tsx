@@ -1,20 +1,20 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useRef } from "react";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 import { ProgressBar } from "react-aria-components/ProgressBar";
+import { useInteractOutside } from "react-aria/useInteractOutside";
 
 import { COPY } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
-import { HelpPopover } from "./HelpPopover";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
+import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy } from "@/core/copy";
-import type { ReactElement } from "react";
-import type { PopoverEdge } from "./HelpPopover";
+import type { ReactElement, RefObject } from "react";
 import type { IconName } from "./Icon";
 
 type Act = {
@@ -31,7 +31,7 @@ type Act = {
    */
   locked?: Copy;
   /** The edge the reason opens from: an act's at a row's end unless it stands at a column's start. */
-  lockedEdge?: PopoverEdge;
+  lockedEdge?: "start" | "end";
 };
 
 type ButtonProps =
@@ -76,23 +76,48 @@ function Spinner() {
   );
 }
 
+/** What a locked button's reason hands it: the press answering with the reason, and the button a press outside it leaves. */
+type ReasonPress = { ref: RefObject<HTMLButtonElement | null>; onPress: () => void };
+
 /**
- * A locked act's reason, one sentence in two forms around its button: the tooltip while the pointer or the keys' focus
- * rests on it, which a touch never raises, and the pop-up any press opens. `TooltipTrigger` around `DialogTrigger`
- * around the button is the nesting React Aria's Tooltip page documents. A tooltip's description lasts only while it is
- * open, so the sentence also stands unseen for the button's `aria-describedby`, read on every visit.
+ * A locked act's reason, the one tooltip every way it opens: the pointer resting on the button or the keys' focus, as
+ * any tooltip opens, and a press or a tap, which React Aria's tooltip leaves to its holder since a touch raises none. A
+ * press opens it at once, or keeps the one the pointer raised, and a second press, Escape or leaving closes it; a tap
+ * has no leaving of its own, so a press outside stands for it. A tooltip's description lasts only while it is open, so
+ * the sentence also stands unseen for the button's `aria-describedby`, read on every visit.
  */
-function LockedReason({ reason, reasonId, edge, children }: { reason: Copy; reasonId: string; edge: PopoverEdge; children: ReactElement }) {
+function LockedReason({
+  reason,
+  reasonId,
+  edge,
+  children,
+}: {
+  reason: Copy;
+  reasonId: string;
+  edge: "start" | "end";
+  children: (press: ReasonPress) => ReactElement;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [isOpen, setOpen] = useOpenUntilHidden();
+  const isHeld = useRef(false);
+  const onOpenChange = (open: boolean) => {
+    if (!open) isHeld.current = false;
+    setOpen(open);
+  };
+  const onPress = () => {
+    isHeld.current = !isHeld.current;
+    setOpen(isHeld.current);
+  };
+  const close = () => onOpenChange(false);
+  // At the press's start too: the hook's own end waits on a click, which a phone's tap on nothing need not send.
+  useInteractOutside({ ref, isDisabled: !isOpen, onInteractOutside: close, onInteractOutsideStart: close });
   return (
     <>
       <Tooltip
         label={reason}
-        placement={`top ${edge}`}>
-        <HelpPopover
-          edge={edge}
-          lines={[reason]}>
-          {children}
-        </HelpPopover>
+        placement={`top ${edge}`}
+        held={{ isOpen, onOpenChange }}>
+        {children({ ref, onPress })}
       </Tooltip>
       <span
         id={reasonId}
@@ -123,11 +148,12 @@ export function Button(props: ButtonProps) {
   } as const;
   const described = (own?: string) => (isLocked ? [own, reasonId].filter((id) => id !== undefined).join(" ") : own);
 
-  const button =
+  const draw = (press?: ReasonPress) =>
     props.icon !== undefined ? (
       <AriaButton
         data-kit-focus="ring"
         {...act}
+        {...press}
         aria-label={label}
         aria-expanded={props["aria-expanded"]}
         aria-controls={props["aria-controls"]}
@@ -146,6 +172,7 @@ export function Button(props: ButtonProps) {
       <AriaButton
         data-kit-focus="ring"
         {...act}
+        {...press}
         aria-describedby={described()}
         className={buttonLook({ look: props.variant, host: "aria", locked: isLocked })}>
         {isBusy ? (
@@ -168,8 +195,8 @@ export function Button(props: ButtonProps) {
         reason={locked}
         reasonId={reasonId}
         edge={lockedEdge}>
-        {button}
+        {draw}
       </LockedReason>
     );
-  return props.icon !== undefined ? <Tooltip label={label}>{button}</Tooltip> : button;
+  return props.icon !== undefined ? <Tooltip label={label}>{draw()}</Tooltip> : draw();
 }

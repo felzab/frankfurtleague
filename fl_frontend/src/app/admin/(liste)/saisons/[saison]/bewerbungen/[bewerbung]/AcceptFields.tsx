@@ -6,7 +6,7 @@ import { TextField } from "@/kit/TextField";
 import { COPY } from "@/core/copy";
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { trikotFarbeLabel } from "@/features/teams/constants";
-import { TRIKOT_OPTIONS } from "@/features/teams/options";
+import { trikotOptions } from "@/features/teams/options";
 
 import type { FLBewerbungGruppeOffer, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { AcceptRules } from "@/features/bewerbungen/fieldRules";
@@ -28,18 +28,21 @@ export type AcceptSubject = {
 };
 
 /**
- * The acceptance's boxes, each posting under the name `acceptBewerbung` reads: the group, the colour opening on the wish,
- * and the code, open under „Neue Schule“ for a school the league does not hold, with the word that its address goes
- * public, and closed for a club it does.
+ * The acceptance's boxes, each posting under the name `acceptBewerbung` reads: the group, the colour, a taken one closed,
+ * opening on the wish unless another team holds it, and the code, open under „Neue Schule“ for a school the league does
+ * not hold, with the word that its address goes public, and closed for a club it does.
  */
 export function AcceptFields({
   subject: { wish, shorthand },
   gruppen,
+  taken,
   rules,
   picked,
 }: {
   subject: AcceptSubject;
   gruppen: readonly FLBewerbungGruppeOffer[];
+  /** The colours another team holds. */
+  taken: readonly string[];
   rules: AcceptRules;
   /** What an earlier pass over the card chose, which it opens on. */
   picked?: { gruppe: string; trikot_farbe: string; shorthand: string };
@@ -58,6 +61,7 @@ export function AcceptFields({
       defaultValue={shorthand ?? picked?.shorthand ?? ""}
     />
   );
+  const colour = picked?.trikot_farbe ?? wish;
   return (
     <>
       <Select
@@ -73,8 +77,8 @@ export function AcceptFields({
         name="trikot_farbe"
         width="fit"
         isRequired={rules.required.trikot_farbe}
-        options={TRIKOT_OPTIONS}
-        defaultValue={picked?.trikot_farbe ?? wish}
+        options={trikotOptions(taken)}
+        defaultValue={taken.includes(colour) ? "" : colour}
         description={COPY.admin.bewerbung.wish(trikotFarbeLabel(wish))}
       />
       {shorthand === null ? (

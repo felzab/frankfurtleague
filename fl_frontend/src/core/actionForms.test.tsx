@@ -73,6 +73,7 @@ describe("each form's posted names meet its lane's keys", () => {
         saison="2027"
         clubs={[]}
         gruppen={[]}
+        colours={[]}
         rules={TEAM_ENTRY_RULES}
         clubRequired
       />,

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -52,10 +52,10 @@ describe("a locked act", () => {
     { kind: "icon-only", act: { icon: "erasures", label: COPY.shared.verb.delete } },
   ] as const;
 
-  // The harm: a native `disabled` takes the focus, the hover and the press, so the keys and a finger reach no reason, and
-  // an icon's nested tooltip would show its name over the reason.
-  it.each(acts)("shows its reason on the keys' focus and on any press, and never runs: $kind", async ({ act }) => {
-    const onPress = vi.fn();
+  const reason = () => screen.queryByRole("tooltip")?.textContent;
+  const closed = () => waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+
+  const lockedAct = (act: (typeof acts)[number]["act"], onPress?: () => void) => {
     render(
       <Button
         {...act}
@@ -63,18 +63,66 @@ describe("a locked act", () => {
         onPress={onPress}
       />,
     );
+    return screen.getByRole("button", { name: act.label });
+  };
+
+  // The harm: a native `disabled` takes the focus and the hover, and an icon's nested tooltip would show its name over
+  // the reason, so the keys reach no reason.
+  it.each(acts)("shows its reason on the keys' focus, a second Enter and Escape closing it on the button: $kind", async ({ act }) => {
+    const onPress = vi.fn();
+    const button = lockedAct(act, onPress);
 
     await userEvent.tab();
-    expect(screen.getByRole("tooltip").textContent).toBe(REASON);
+    expect(reason()).toBe(REASON);
 
     await userEvent.keyboard("{Enter}");
-    expect(within(await screen.findByRole("dialog")).getByText(REASON)).toBeTruthy();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(reason()).toBe(REASON);
+    await userEvent.keyboard("{Enter}");
+    await closed();
 
-    await userEvent.click(screen.getByRole("button", { name: act.label }));
-    expect(within(await screen.findByRole("dialog")).getByText(REASON)).toBeTruthy();
+    await userEvent.keyboard("{Enter}");
+    expect(reason()).toBe(REASON);
+    await userEvent.keyboard("{Escape}");
+    await closed();
+    expect(document.activeElement).toBe(button);
     expect(onPress).not.toHaveBeenCalled();
+  });
+
+  // The harm: a mouse raised the tooltip and the press took it away, so the click read as closing the reason.
+  it("keeps the reason the pointer raised through a press, the next press closing it", async () => {
+    const button = lockedAct(acts[0].act);
+
+    // React Aria opens on a hover under the pointer's modality alone, which an earlier case's keys left.
+    await userEvent.click(document.body);
+    await userEvent.hover(button);
+    expect((await screen.findByRole("tooltip")).textContent).toBe(REASON);
+
+    await userEvent.click(button);
+    expect(reason()).toBe(REASON);
+    await userEvent.click(button);
+    await closed();
+  });
+
+  it("opens the reason at once on a press the pointer's wait has not reached, and closes it on leaving", async () => {
+    const button = lockedAct(acts[0].act);
+
+    await userEvent.click(button);
+    expect(reason()).toBe(REASON);
+
+    await userEvent.unhover(button);
+    await closed();
+  });
+
+  // The harm: a touch raises no tooltip of its own, so a phone reads no reason at all, and a tap has no leaving.
+  it("opens the reason on a tap, a tap elsewhere closing it", async () => {
+    const button = lockedAct(acts[0].act);
+
+    await userEvent.pointer({ keys: "[TouchA]", target: button });
+    expect(reason()).toBe(REASON);
+
+    // The bare event: a tap on nothing need not move a phone's focus, where `userEvent` would blur the button.
+    fireEvent.pointerDown(document.body, { pointerType: "touch", button: 0 });
+    await closed();
   });
 
   // The harm: pressed, or by Enter from a field, a locked submit button would send the form it stands in.
@@ -92,7 +140,7 @@ describe("a locked act", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.filter }));
-    await screen.findByRole("dialog");
+    await screen.findByRole("tooltip");
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

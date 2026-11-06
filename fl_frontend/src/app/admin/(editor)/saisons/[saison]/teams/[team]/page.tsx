@@ -12,7 +12,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { adminTeamChip } from "@/features/teams/constants";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
-import { gruppeOptions } from "@/features/teams/options";
+import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamSaisonAdmin } from "@/features/teams/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -89,7 +89,7 @@ function linkStateOf({ skipped, invitation, paused }: FLTeamLinkState): Copy {
 
 /** The boxes of the club's row of the season, each lock read off what its write would refuse. */
 function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, link: FLTeamLinkState): TeamRow {
-  const { saison, gruppen, gruppe_locked: drawn } = read;
+  const { saison, gruppen, gruppe_locked: drawn, taken_trikot_farben: taken } = read;
   const austritt = membership.austritt;
   const departed = austritt === null ? undefined : COPY.admin.spiel.departed;
   const end = saison.registrierung_end;
@@ -106,6 +106,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
     gruppen: gruppeOptions(gruppen, membership.gruppe),
     gruppeLocked: drawn || austritt !== null,
     ...(drawn && !saison.begun ? { gruppeNote: LINK_WORDS.lockedByDraw } : {}),
+    colours: trikotOptions(taken),
     colourLocked: austritt !== null,
     austritt:
       austritt === null || stands === null

@@ -21,12 +21,16 @@ export const openRows = (rows: readonly FLBewerbungListRow[], { skipped, outcome
   rows.filter((row) => !skipped.has(row.id) && outcomes[row.id]?.kind !== "accepted");
 
 /**
- * Which card a run stands at: the one the address names while the run still holds it, else the first still to be
- * chosen, else none, and the run stands at its check page. A row sent back from there opens its card by name.
+ * Which card a run stands at: the one the address names unless it is entered, else the first still to be chosen, else
+ * none, and the run stands at its check page. A row sent back from there opens its card by name, and Back a card by
+ * its address, a skipped one included.
  */
 export function cardOf(rows: readonly FLBewerbungListRow[], run: Run, named: string | null): FLBewerbungListRow | null {
-  const open = openRows(rows, run);
-  return open.find((row) => row.id === named) ?? open.find((row) => run.drafts[row.id] === undefined) ?? null;
+  return (
+    rows.find((row) => row.id === named && run.outcomes[row.id]?.kind !== "accepted") ??
+    openRows(rows, run).find((row) => run.drafts[row.id] === undefined) ??
+    null
+  );
 }
 
 /**
@@ -44,6 +48,14 @@ export function gruppenFor(
     gruppe,
     free: free - others.filter((row) => run.drafts[row.id]?.gruppe === gruppe).length,
   }));
+}
+
+/** The colours a card may not take: the season's, and each the run's other open applications chose, as `gruppenFor` counts a group. */
+export function takenFor(taken: readonly string[], rows: readonly FLBewerbungListRow[], run: Run, own: string): readonly string[] {
+  const picks = openRows(rows, run)
+    .filter((row) => row.id !== own)
+    .flatMap((row) => run.drafts[row.id]?.trikot_farbe || []);
+  return [...taken, ...picks];
 }
 
 /** One write's answer as its row keeps it. A code another club took is the one refusal its row names by a chip. */

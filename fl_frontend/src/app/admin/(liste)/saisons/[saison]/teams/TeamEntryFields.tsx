@@ -10,7 +10,7 @@ import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
-import { schulformOptions, TRIKOT_OPTIONS } from "@/features/teams/options";
+import { schulformOptions } from "@/features/teams/options";
 
 import { NEW_CLUB } from "./newClub";
 
@@ -21,13 +21,14 @@ const WORDS = COPY.admin.team;
 
 /**
  * „Team eintragen“'s inputs: a club the league knows, or, as the select's last entry, a new school, whose own fields
- * open under its name; then what the club takes in this season, its group, a full one closed, and its colour. Each posts
- * under the name `enterTeam` reads, the new school's only while it stands open.
+ * open under its name; then what the club takes in this season, its group, a full one closed, and its colour, a taken
+ * one closed. Each posts under the name `enterTeam` reads, the new school's only while it stands open.
  */
 export function TeamEntryFields({
   saison,
   clubs,
   gruppen,
+  colours,
   rules,
   clubRequired,
 }: {
@@ -35,6 +36,7 @@ export function TeamEntryFields({
   /** Every club still in the league holding no row of the season. */
   clubs: readonly Option[];
   gruppen: readonly Option[];
+  colours: readonly Option[];
   rules: TeamRules;
   clubRequired: boolean;
 }) {
@@ -116,7 +118,7 @@ export function TeamEntryFields({
           label={COPY.team.trikotFarbe}
           name="trikot_farbe"
           width="fit"
-          options={TRIKOT_OPTIONS}
+          options={colours}
           defaultValue=""
         />
       </FieldGroup>

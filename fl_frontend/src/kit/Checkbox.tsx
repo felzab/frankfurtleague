@@ -8,7 +8,7 @@ import { MessageLine, RequiredMark } from "./FieldParts";
 import { messageLine, toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
-import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
+import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 
 import type { Copy, Words } from "@/core/copy";
 
@@ -28,7 +28,7 @@ export function CheckboxPlaceholder({ label, description }: { label: string; des
       </span>
       {description !== undefined && (
         <div className={toggleLine()}>
-          <PlaceholderLine
+          <PlaceholderSentence
             text={messageLine()}
             words={description}
           />

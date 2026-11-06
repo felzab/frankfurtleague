@@ -9,7 +9,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { adminTeamChip, trikotFarbeLabel } from "@/features/teams/constants";
 import { TEAM_CLUB_REQUIRED, TEAM_ENTRY_RULES } from "@/features/teams/fieldRules";
-import { gruppeOptions } from "@/features/teams/options";
+import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamsAdmin } from "@/features/teams/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -134,6 +134,7 @@ async function readCreate(list: Promise<FLTeamsAdminListResponse>, params: Props
         saison={saison}
         clubs={entry.clubs.map((club) => ({ id: club.id, label: { record: club.name } }))}
         gruppen={gruppeOptions(entry.gruppen, null)}
+        colours={trikotOptions(entry.taken)}
         rules={TEAM_ENTRY_RULES}
         clubRequired={TEAM_CLUB_REQUIRED}
       />
