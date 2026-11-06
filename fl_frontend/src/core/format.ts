@@ -29,9 +29,13 @@ export const TIME_ZONE = "Europe/Berlin";
 
 const DATE = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
 const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
-const DAY_MONTH = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit" });
-const WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "long" });
-const YEAR = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, year: "numeric" });
+const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat("de-DE", {
+  timeZone: TIME_ZONE,
+  weekday: "short",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 const DATE_LONG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
 const INSTANT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
 const TIME = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
@@ -82,14 +86,8 @@ export const formatDate = (day: CalendarDay | Date): string => DATE.format(asIns
 /** „So., 14.03.“: a match's day in its row, whose season already names the year. */
 export const formatDateWithWeekday = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY.format(asInstant(day));
 
-/**
- * „06.03.“ over „Samstag 2027“: a match's date in its tile, the day and the month as the figure, the weekday and
- * the year on the line under it. One formatter asked for both would write „2027 Samstag“.
- */
-export function formatDatePair(day: CalendarDay | Date): { figure: string; line: string } {
-  const instant = asInstant(day);
-  return { figure: DAY_MONTH.format(instant), line: `${WEEKDAY.format(instant)} ${YEAR.format(instant)}` };
-}
+/** „Fr., 06.11.2026“: one match's day on its own, in its pop-up and on its page, where no season names the year. */
+export const formatDateWithWeekdayAndYear = (day: CalendarDay | Date): string => DATE_WITH_WEEKDAY_AND_YEAR.format(asInstant(day));
 
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
 export const formatDateLong = (day: CalendarDay | Date): string => DATE_LONG.format(asInstant(day));
