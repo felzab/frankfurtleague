@@ -24,7 +24,7 @@ const { requestWriteMayStand, runInBackground, runWithRequestScope } = await imp
 beforeEach(() => {
   drains = 0;
   status = 200;
-  vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ error_code: "duplicate_key" }, { status: status }));
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ error_code: "duplicate_key" }, { status }));
 });
 
 /* `new URL` resolves `..` before any check runs, so an id spelling it would aim an authenticated call at another

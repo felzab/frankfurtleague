@@ -260,7 +260,7 @@ async function drain(): Promise<void> {
     if (lease === null) return;
 
     for (const mail of mails) {
-      const report = { lease: lease, ...(await sendHandedOut(mail)) };
+      const report = { lease, ...(await sendHandedOut(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
       // without one, as `fl_frontend/src/app/api/mail/delivery/route.ts` keeps a delivery event's.
       const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, delivery_reason: null });
@@ -286,7 +286,7 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
     logger.error("outbox.secret_unreadable", undefined, { kind: mail.data.kind, name: error instanceof Error ? error.name : undefined });
     return { id: mail.id, result: "abandon", message_id: null, delivery_reason: null };
   }
-  const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret: secret, origin: frontend_config.AUTH_URL });
+  const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret, origin: frontend_config.AUTH_URL });
   if (message === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("outbox.kind_without_template", undefined, { kind: mail.data.kind });
@@ -356,7 +356,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
       url: MAIL_ENDPOINT,
       method: "POST",
       readOnly: false,
-      traceId: traceId,
+      traceId,
       originalError: error,
     });
 
@@ -371,17 +371,17 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
   const body = JSON.stringify({
     from: senderRow(sender),
     reply_to: REPLY_TO,
-    to: to,
+    to,
     subject,
     html,
     text,
-    tags: Object.entries(tags).map(([name, value]) => ({ name: name, value: value })),
+    tags: Object.entries(tags).map(([name, value]) => ({ name, value })),
   });
 
   const attempt = async (): Promise<MailAccepted> => {
     let res: Response;
     try {
-      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: signal });
+      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers, body, signal });
     } catch (error) {
       throw failNetwork(error);
     }
@@ -397,7 +397,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
         if (error instanceof Error && error.name === "TimeoutError") throw failNetwork(error);
       }
 
-      return { id: id };
+      return { id };
     }
 
     let providerErrorName: string | undefined;
@@ -414,8 +414,8 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
       message: "The mail provider refused the message.",
       url: MAIL_ENDPOINT,
       statusCode: res.status,
-      providerErrorName: providerErrorName,
-      traceId: traceId,
+      providerErrorName,
+      traceId,
     });
   };
 

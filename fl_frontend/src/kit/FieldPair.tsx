@@ -49,7 +49,7 @@ export function FieldPlaceholder({
       {/* The frame's own text size and face, which a short width's `ch` is counted in. */}
       <span
         className={placeholderBar(
-          `rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width[width]} ${numeric ? fieldFrame.variants.figures.true : ""}`,
+          `rounded-lg text-sm max-lg:in-data-pair:min-w-full pointer-coarse:text-base ${fieldFrame.variants.width[width]} ${numeric ? fieldFrame.variants.figures.true : ""}`,
         )}
       />
       {line && <span className={messageLine()} />}

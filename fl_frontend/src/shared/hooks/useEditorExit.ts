@@ -40,7 +40,7 @@ export function useEditorExit({
   isDirty: boolean;
   resetDraftToStored: () => void;
 }) {
-  const { isLeaving, leavePage } = usePageExit({ fallbackHref: fallbackHref });
+  const { isLeaving, leavePage } = usePageExit({ fallbackHref });
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 

@@ -10,9 +10,8 @@ import type { Copy } from "@/core/copy";
 export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSaisonPhase);
 
 /**
- * Each phase's German name, spelled once in the catalogue, for every surface. Not an export from
- * `fl_frontend/src/features/spiele/components/ui/SaisonPhaseChip.tsx`: the filter facets and a
- * Spieltag's composed name need the label and render nothing.
+ * Each phase's German name, spelled once in the catalogue, for every surface. Not an export from a
+ * chip: the filter facets and a Spieltag's composed name need the label and render nothing.
  */
 export const PHASE_LABELS: Readonly<Record<FLSaisonPhase, Copy>> = COPY.shared.phase;
 

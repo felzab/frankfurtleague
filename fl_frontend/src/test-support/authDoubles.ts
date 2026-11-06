@@ -299,7 +299,7 @@ export function madeByPasskey(store: { passkey: unknown[] }, row: { userId: stri
   store.passkey.push({
     id: `a-passkey-of-${row.userId}`,
     userId: row.userId,
-    credentialID: credentialID,
+    credentialID,
     publicKey: "fabricated-public-key",
     counter: 0,
     deviceType: "singleDevice",

@@ -18,7 +18,7 @@ describe("renderMail", () => {
   // A link to pass on stands in its box as text a reader can copy, in both versions, and the mail draws no button.
   it("prints a passed-on link in its box in both versions", () => {
     const link = `${ORIGIN}/registrierung?token=eins`;
-    const { html, text } = renderMail({ ...MAIL, block: { link: link } });
+    const { html, text } = renderMail({ ...MAIL, block: { link } });
 
     assert.include(html, `href="${link}"`);
     assert.include(text.split("\n"), link);

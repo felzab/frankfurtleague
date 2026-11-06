@@ -340,9 +340,9 @@ the pairs are held apart per unit of WORK rather than pooled — two paths reach
 share one pair. **That holds for a route handler and never for a server action**, which Next 16.4.2
 runs at whatever page path it is posted to, handing it inside its own process to the page holding it
 (`next/dist/server/app-render/action-handler.js :: createForwardedActionResponse`), so nginx meters
-the one request on the path the client chose. The answers three link pages take through a server
-action — the referee's on `/confirm/schiedsrichter`, an address link's on `/confirm/address` and the
-deletion link's on `/erasure` — are bounded by the action pair, 30 at once and 60 a minute per
+the one request on the path the client chose. The answers four link pages take through a server
+action — the referee's on `/confirm/schiedsrichter`, a contact seat's on `/confirm/kontakt`, an address
+link's on `/confirm/address` and the deletion link's on `/erasure` — are bounded by the action pair, 30 at once and 60 a minute per
 network, wherever a script posts them, and by the link pages' pair besides only where the post lands
 on a link page. The public application's submission is such an action too, on `/bewerbung/<saison>`:
 the action pair is its only meter, the bot check its gate. A pair for one action would key on its id, which Next recalculates between builds
@@ -387,10 +387,8 @@ standing. A server action is posted at any page path, so the bound holds at ever
 nginx refuses at the edge a body the application would refuse rather than buffering it first; a cap
 at the page an action answers on bounds nothing a script cannot step around. **A route handler
 bounding its body tighter takes its own cap at its location**, its reason at the line: `8k` for the
-confirmation links, the code check, the registration and the delivery webhook, `32k` for the crash
-report and `64k` for the application form, while `/api/auth` keeps `1m`, the sign-in library
-bounding no ceremony's body. The application form's `64k` cap alone is measured, 2026-08-30: a
-100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
+confirmation links, the code check, the registration and the delivery webhook and `32k` for the
+crash report, while `/api/auth` keeps `1m`, the sign-in library bounding no ceremony's body.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at a GET route handler was refused past the burst as `429` (not nginx's `503` default), the

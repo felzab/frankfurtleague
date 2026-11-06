@@ -78,9 +78,7 @@ const PSEUDONYM = "3f9a07c2";
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
 function actorOf(kind: FLActionLogEntry["actor"]["kind"]): FLActionLogEntry["actor"] {
-  return kind === "person_session"
-    ? { kind: kind, pseudonym: PSEUDONYM, funktion: "spieler" }
-    : { kind: kind, email: "SENTINEL", email_barred: false };
+  return kind === "person_session" ? { kind, pseudonym: PSEUDONYM, funktion: "spieler" } : { kind, email: "SENTINEL", email_barred: false };
 }
 
 describe("herkunftOfAktor", () => {
@@ -130,7 +128,7 @@ describe("personAkteurLabel", () => {
   /* Every Funktion the contract lists, so two sharing one word fail here rather than reading alike on a row. */
   it("names every Funktion in its own word", () => {
     const labels = Object.values(FLActorPersonFunktion).map((funktion) =>
-      personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: funktion }),
+      personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion }),
     );
 
     expect(labels).toStrictEqual(["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);

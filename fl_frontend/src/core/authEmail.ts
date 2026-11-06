@@ -24,7 +24,7 @@ export function buildCodeEmail(code: string, origin: string): Mail {
     origin: site,
     firstName: "",
     paragraphs: [[WORDS.lead]],
-    block: { code: code },
+    block: { code },
     // The host a relay page cannot wear, read off the serving origin the code signs in on: a code typed into anything
     // but this site's own form is the one way it leaks.
     afterBlock: [

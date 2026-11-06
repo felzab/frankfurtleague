@@ -20,7 +20,7 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  */
 export const getOffeneRegistrierungen = cache(
   async (teamId: string, saisonId: string, order: ReadingDirection): Promise<FLOpenRegistrierungenResponse> =>
-    runPersonRead(() => registrierungenGetOpenRegistrierungen(teamId, saisonId, { order: order })),
+    runPersonRead(() => registrierungenGetOpenRegistrierungen(teamId, saisonId, { order })),
 );
 
 /** One season's pending registrations for the Registrierungen list, every team's; `null` where no season holds the id. */
@@ -39,8 +39,8 @@ export async function getRegistrierungenAdmin(saisonId: string): Promise<FLRegis
  */
 export async function getEinladungAnsicht(token: string): Promise<RegistrierungStart> {
   return runWithIncomingTrace(() =>
-    postEinladungAnsicht({ token: token }).then(
-      (view) => (einladungZustand(view) === "valid" ? { zustand: "valid", ansicht: view, token: token } : { zustand: "closed", ansicht: view }),
+    postEinladungAnsicht({ token }).then(
+      (view) => (einladungZustand(view) === "valid" ? { zustand: "valid", ansicht: view, token } : { zustand: "closed", ansicht: view }),
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live invite void.
@@ -60,8 +60,8 @@ export async function getEinladungAnsicht(token: string): Promise<RegistrierungS
  */
 export async function getSpielerBestaetigungAnsicht(token: string): Promise<SpielerBestaetigungAnsicht> {
   return runWithIncomingTrace(() =>
-    postBestaetigungAnsicht({ token: token }).then(
-      (ansicht) => (ansicht.state === "valid" ? { zustand: "valid" as const, ansicht: ansicht } : { zustand: ansicht.state }),
+    postBestaetigungAnsicht({ token }).then(
+      (ansicht) => (ansicht.state === "valid" ? { zustand: "valid" as const, ansicht } : { zustand: ansicht.state }),
       (error: unknown) => {
         const state = mapRegistrierungAnsichtRefusal(error);
         if (state !== null) return { zustand: state };

@@ -8,5 +8,5 @@ import type { FLErasureSweepResponse } from "@/core/generated/client/types";
  */
 export async function postLoeschungSweep(after: string | null): Promise<FLErasureSweepResponse> {
   // Left out on a pass's first call: the server takes `after` as an id wherever it is present.
-  return identitySweepErasure(after === null ? {} : { after: after });
+  return identitySweepErasure(after === null ? {} : { after });
 }

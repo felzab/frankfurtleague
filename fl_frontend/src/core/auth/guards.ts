@@ -106,7 +106,7 @@ export function requestActorOf(
   if (email === "" || !Number.isFinite(authTime)) return null;
   if (factor !== PASSKEY_FACTOR && factor !== CODE_FACTOR) return null;
 
-  return { email: email, lane: lane, authTime: authTime, factor: factor };
+  return { email, lane, authTime, factor };
 }
 
 // React's `cache` within a render and `oncePerRequest` within an action, never `"use cache"`, which
@@ -127,7 +127,7 @@ const readAdminRequest = cache(
     const actor = requestActorOf(served, "admin");
     if (actor === null) return { refused: "signIn" };
 
-    return { session: { ...served, isAdmin: true }, actor: actor };
+    return { session: { ...served, isAdmin: true }, actor };
   }),
 );
 

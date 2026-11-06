@@ -12,13 +12,13 @@ let laufAnswer: (after: string | null) => unknown = () => gelaufen(0, 0);
 /** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
 const gelaufen = (spieler: number, verbleibend: number, after: string | null = null) => ({
   completed_saison_id: "2526",
-  spieler: spieler,
+  spieler,
   saison_spieler: spieler,
   registrierungen: 0,
   skipped: 0,
   failed: 0,
   remaining: verbleibend,
-  after: after,
+  after,
 });
 
 /** The grants' claim with nothing to announce. */

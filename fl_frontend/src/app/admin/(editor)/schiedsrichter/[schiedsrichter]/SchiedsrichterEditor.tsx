@@ -19,7 +19,7 @@ import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { SchiedsrichterValues } from "./schiedsrichterValues";
 
 const WORDS = COPY.admin.schiedsrichter;
-const FACTS = COPY.account.entries.facts;
+const FACTS = COPY.shared.facts;
 const OBJECT = COPY.shared.schiedsrichter;
 
 /** An act on the referee: a server action taking the referee's id, which a server page passes on as it is. */

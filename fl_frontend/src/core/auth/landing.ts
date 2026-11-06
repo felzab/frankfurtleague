@@ -57,7 +57,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
   const records = await subjectOrNull(served.user.email);
-  if (records === null) return { destination: "/area", served: served, subject: null };
+  if (records === null) return { destination: "/area", served, subject: null };
 
   // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
   // and one left standing serves again on the ban's lift with no sign-in.
@@ -65,7 +65,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // As the person guard builds it (`fl_frontend/src/core/subject.ts`), off this one lookup.
   const subject = { email: asSignInIdentifier(served.user.email), isAdmin: isAdminSession(served, records), records };
-  return { destination: await destinationOf(served, records), served: served, subject: subject };
+  return { destination: await destinationOf(served, records), served, subject };
 }
 
 /**
@@ -136,5 +136,5 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 
   // Folded as `getAdminSession` folds the actor it records: the stored row is the library's own
   // spelling, and this is the one address of this slice a person reads.
-  return { step: step, email: asSignInIdentifier(served.user.email) };
+  return { step, email: asSignInIdentifier(served.user.email) };
 }

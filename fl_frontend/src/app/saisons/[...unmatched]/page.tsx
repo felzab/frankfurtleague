@@ -30,7 +30,7 @@ export default function SaisonsUnmatchedPage() {
     <StatusPage
       frame="rail"
       scope="saison"
-      title={SERVER_COPY.landing.notFound}
+      title={SERVER_COPY.notFound}
       card={miss()}
     />
   );

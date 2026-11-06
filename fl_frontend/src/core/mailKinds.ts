@@ -80,7 +80,7 @@ export interface MailLink extends MailOrigin {
 function minted({ token, origin }: Handout): MailLink {
   if (token === null) throw new ContractBreakError("A mail carrying a link was handed out without one.");
 
-  return { token: token, origin: origin };
+  return { token, origin };
 }
 
 /**
@@ -90,10 +90,9 @@ function minted({ token, origin }: Handout): MailLink {
  */
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
-  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin: origin, account: account }),
-  passkey_erased: ({ instant, account }, { origin }) =>
-    buildPasskeyErasedEmail({ instant: new Date(instant), origin: origin, account: account }),
-  account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin: origin, token: secretOf(secret) }),
+  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin, account }),
+  passkey_erased: ({ instant, account }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin, account }),
+  account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin, token: secretOf(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterBestaetigungEmail(data, minted(handout)),
   spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_reminder: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),

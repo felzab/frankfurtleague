@@ -68,10 +68,10 @@ type SaisonState =
  * the others by its hue.
  */
 const STATE_CHIP: Record<SaisonState["kind"], ChipProps> = {
-  countdown: { tone: "info", label: SERVER_COPY.landing.saison.state.planned },
-  window: { tone: "info", label: SERVER_COPY.landing.saison.state.planned },
-  running: { tone: "success", label: SERVER_COPY.landing.saison.state.running },
-  decided: { tone: "warn", label: SERVER_COPY.landing.saison.state.decided },
+  countdown: { tone: "info", label: SERVER_COPY.saisonState.planned },
+  window: { tone: "info", label: SERVER_COPY.saisonState.planned },
+  running: { tone: "success", label: SERVER_COPY.saisonState.running },
+  decided: { tone: "warn", label: SERVER_COPY.saisonState.decided },
 };
 
 const block = tv({

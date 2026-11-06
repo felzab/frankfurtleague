@@ -15,7 +15,7 @@ import type { PageExitOptions } from "@/shared/hooks/useEditorExit";
  * spelling the pill out by hand gets one that is dead on a cold entry.
  */
 export function BackButton({ fallbackHref, spacing = "mb-6" }: PageExitOptions & { spacing?: "mb-6" | "mb-0" }) {
-  const { isLeaving, leavePage } = usePageExit({ fallbackHref: fallbackHref });
+  const { isLeaving, leavePage } = usePageExit({ fallbackHref });
 
   return (
     <Button

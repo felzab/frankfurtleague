@@ -62,7 +62,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         onChange={(value) => schulform.onChange(value ?? "")}
         width="fit"
         isRequired={required.schulform}
-        options={SCHULFORMEN.map((id) => ({ id: id, label: team.schulformOption[id] }))}
+        options={SCHULFORMEN.map((id) => ({ id, label: team.schulformOption[id] }))}
       />
       <FieldSubgroup name={ADDRESS.address}>
         <FieldPair
@@ -163,7 +163,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       />
       <TextField
         {...path("phone")}
-        label={COPY.account.entries.facts.phone}
+        label={COPY.shared.facts.phone}
         width="W3"
         kind="tel"
         isRequired={required.phone}
@@ -199,7 +199,7 @@ export function BewerbungFields({
   useUnsavedChangesWarning(hasTyped);
 
   const box: Box = (name) => ({
-    name: name,
+    name,
     defaultValue: typed.get(name),
     onChange: (value) => {
       typed.set(name, value);
@@ -210,16 +210,16 @@ export function BewerbungFields({
   // With no club to pick, the new school is the one answer.
   const isListed = schulen.length > 0;
   const isNewSchool = switchedOn || !isListed;
-  const schools: Option[] = schulen.map(({ id, name }) => ({ id: id, label: { record: name } }));
+  const schools: Option[] = schulen.map(({ id, name }) => ({ id, label: { record: name } }));
   const { maxLength, required } = rules;
 
   return (
     <>
-      <Section title={COPY.account.entries.facts.school}>
+      <Section title={COPY.shared.facts.school}>
         {isListed && (
           <>
             <ComboBox
-              label={COPY.account.entries.facts.school}
+              label={COPY.shared.facts.school}
               description={bewerbung.schoolDescription}
               name="team_id"
               isRequired={!isNewSchool}
@@ -283,7 +283,7 @@ export function BewerbungFields({
         </Section>
       ))}
 
-      <Section title={COPY.account.entries.facts.team}>
+      <Section title={COPY.shared.facts.team}>
         <TextField
           {...box("trikot.existing_satz")}
           label={team.trikotSatz}

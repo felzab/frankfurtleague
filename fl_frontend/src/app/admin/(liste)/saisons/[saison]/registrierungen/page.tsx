@@ -65,7 +65,7 @@ function filtersOf(rows: readonly FLRegistrierungAdminRow[], team: string | null
   return [
     {
       name: "team",
-      label: COPY.account.entries.facts.team,
+      label: COPY.shared.facts.team,
       all: SERVER_COPY.season.filter.all,
       options,
       value: team !== null && teams.has(team) ? team : null,
@@ -97,7 +97,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "team", label: COPY.account.entries.facts.team, narrow: true, width: "phone" },
+    { key: "team", label: COPY.shared.facts.team, narrow: true, width: "phone" },
     { key: "received", label: COPY.admin.bewerbung.received, figures: true, hideOnPhone: true, width: "date" },
   ],
 };

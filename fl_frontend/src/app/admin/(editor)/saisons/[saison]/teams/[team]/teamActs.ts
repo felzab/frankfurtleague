@@ -15,7 +15,11 @@ import {
   TeamsReactivateTeamParams,
 } from "@/core/generated/zod/inputs";
 
-const SEAT_EXAMPLES = { phone: COPY.admin.schiedsrichter.phoneExample };
+const SEAT_EXAMPLES = {
+  first_name: COPY.shared.field.exampleFirstName,
+  last_name: COPY.shared.field.exampleLastName,
+  phone: COPY.admin.schiedsrichter.phoneExample,
+};
 
 /**
  * Takes the club out of the league from its editor's danger box: it stays on the seasons it played and no new season

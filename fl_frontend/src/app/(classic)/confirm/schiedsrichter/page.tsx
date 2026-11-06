@@ -55,7 +55,7 @@ export default function SchiedsrichterConfirmationPage({ searchParams }: Props) 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */
 async function readView(token: string): Promise<FLSchiedsrichterConfirmationViewResponse | null> {
   return runWithIncomingTrace(() =>
-    schiedsrichterGetConfirmationView({ token: token }).catch((error: unknown) => {
+    schiedsrichterGetConfirmationView({ token }).catch((error: unknown) => {
       // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
       if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
         return null;
@@ -102,7 +102,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
         sentence: WORDS.question(dayOf(view.deadline)),
         action: answerSchiedsrichter,
         acts: { primary: COPY.page.entryConfirmation, secondary: COPY.shared.verb.oppose },
-        carry: { token: token },
+        carry: { token },
         children: (
           <ConfirmationFields
             // The range the write judges, as the link's view serves it.

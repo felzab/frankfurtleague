@@ -126,14 +126,12 @@ export function refusedFailure(error: APIBadStatusError, sentence: string): Acti
 }
 
 /**
- * The Spiel refusals `fl_frontend/src/features/spiele/refusals.ts :: mapSpielRefusal` does not map.
- * Three name an OCCUPANT, which the form places at fault; the two `state_*` codes name the event, a
+ * The Spiel refusals no field maps. Three name an OCCUPANT, which the form places at fault; the two `state_*` codes name the event, a
  * field this form does not mark, so their code rides back unused and the message lands as a toast.
  */
 const OCCUPANT_REFUSALS: Readonly<Partial<Record<Code, string>>> = {
   // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. Its
-  // remedies ride the match editor's rail, from
-  // `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts`.
+  // remedies ride the match editor's rail.
   eligibility_disqualified: "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
 
   eligibility_team_not_in_saison: "Dieses Team nimmt nicht an dieser Saison teil.",

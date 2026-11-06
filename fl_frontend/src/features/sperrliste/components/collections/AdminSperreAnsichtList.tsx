@@ -51,10 +51,10 @@ const EINTRAEGE: Eintraege = {
         const href = withSaisonId(`/area/admin/spieler/${spieler_id}`, saison_id);
 
         return inactive_since === null
-          ? { text: zeile, verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kader, href: href }] }
+          ? { text: zeile, verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kader, href }] }
           : {
               text: `${zeile}, ausgetragen seit ${formatSpielDatum(inactive_since)}`,
-              verweise: [{ label: SPERRE_ANSICHT_VERWEISE.eintrag, href: href }],
+              verweise: [{ label: SPERRE_ANSICHT_VERWEISE.eintrag, href }],
             };
       });
     }),
@@ -73,7 +73,7 @@ const EINTRAEGE: Eintraege = {
             label: spieleNeuBesetzen(saisonId),
             href: withSaisonId(`/area/admin/spielsuche?schiedsrichter=${schiedsrichter_id}`, saisonId),
           })),
-          { label: inactive_since === null ? SPERRE_ANSICHT_VERWEISE.stilllegen : SPERRE_ANSICHT_VERWEISE.eintrag, href: href },
+          { label: inactive_since === null ? SPERRE_ANSICHT_VERWEISE.stilllegen : SPERRE_ANSICHT_VERWEISE.eintrag, href },
         ],
       };
     }),

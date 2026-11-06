@@ -74,8 +74,8 @@ export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
 
 // Redesign: goes with its last importers, the old `KaderList` and `KaderZeileEditForm`; `COPY.admin.spieler.nummerDouble` replaces it.
 /**
- * The shared-shirt marker, in `fl_frontend/src/features/bewerbungen/duplicates.ts`' voice for a pair
- * that collides. A state rather than a refusal: two pupils may wear one number until somebody repairs it.
+ * The shared-shirt marker, for a pair that collides. A state rather than a refusal: two pupils may
+ * wear one number until somebody repairs it.
  */
 export const NUMMER_DOPPELT = "Nummer doppelt";
 

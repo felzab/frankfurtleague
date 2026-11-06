@@ -24,7 +24,7 @@ const SVIX_HEADERS = ["svix-id", "svix-timestamp", "svix-signature"] as const;
  */
 // Built per call and never held at module scope: a `Response` carries a body stream that is consumed
 // once, so a shared instance answers the second request of its kind with an unusable body.
-const APPLIED = (applied: boolean) => NextResponse.json({ applied: applied }, { status: 200 });
+const APPLIED = (applied: boolean) => NextResponse.json({ applied }, { status: 200 });
 const NO_SIGNATURE = () => NextResponse.json({ error: "signature" }, { status: 400 });
 const NO_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
 
@@ -82,7 +82,7 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   const state = outboxStateFrom(read.data);
   if (state === null) return null;
 
-  const event = { id: id, at: read.data.created_at, ...state };
+  const event = { id, at: read.data.created_at, ...state };
   // The provider's reason is its own token, kept only where the endpoint takes it: the state stands without one.
   const payload = OutboxPostEventBody.safeParse(event).data ?? OutboxPostEventBody.safeParse({ ...event, reason: null }).data;
   if (payload !== undefined) return payload;

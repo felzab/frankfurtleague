@@ -199,7 +199,7 @@ function Answer({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; 
   });
 
   const absage = { reason };
-  useForgiveFixed({ absage: absage });
+  useForgiveFixed({ absage });
 
   const sendeZusage = () => {
     const landing = focusAfterWrite();
@@ -221,7 +221,7 @@ function Answer({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; 
 
   // The form's own submit is the decline's, so an Enter in the reason box never sends a Zusage.
   const sendeAbsage = () => {
-    guardSubmit({ absage: absage }, () => {
+    guardSubmit({ absage }, () => {
       const landing = focusAfterWrite();
       startSendingAbsage(async () => {
         const res = await absagenSpielbestaetigungAction(spielbestaetigungId, absage).catch(unansweredAction);
@@ -229,7 +229,7 @@ function Answer({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; 
         startTransition(() => {
           if (!res.success) {
             // The hook owns the press's one toast: none where the box shows the refusal.
-            reportSubmitFailure(res, { absage: absage }, { raise: (shown) => appToast.failure(ABSAGE_NICHT_GESPEICHERT, shown) });
+            reportSubmitFailure(res, { absage }, { raise: (shown) => appToast.failure(ABSAGE_NICHT_GESPEICHERT, shown) });
             return;
           }
           landing.landed();

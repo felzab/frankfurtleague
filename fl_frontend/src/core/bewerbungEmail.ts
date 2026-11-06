@@ -66,7 +66,7 @@ export function buildBewerbungZusageEmail(
     block: {
       title: COPY.shared.saisonName(saison_id),
       facts: [
-        { label: COPY.account.entries.facts.team, value: team },
+        { label: COPY.shared.facts.team, value: team },
         { label: COPY.team.shorthand, value: shorthand },
         { label: COPY.team.gruppe, value: gruppe },
         // A row either way: an absent colour is a fact the reader has to be able to find where a named one stands. The

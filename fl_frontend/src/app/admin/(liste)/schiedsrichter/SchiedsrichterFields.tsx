@@ -4,7 +4,7 @@ import { TextField } from "@/kit/TextField";
 import { COPY } from "@/core/copy";
 import { CREATE_RULES } from "@/features/schiedsrichter/fieldRules";
 
-const FACTS = COPY.account.entries.facts;
+const FACTS = COPY.shared.facts;
 
 /**
  * A new referee's inputs in the create dialog over the list, in the order of the editor's boxes, as a new venue's

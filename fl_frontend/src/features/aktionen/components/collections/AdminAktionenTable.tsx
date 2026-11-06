@@ -75,7 +75,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   emptiness: CrudEmptiness;
 }) {
   // The shell's season rides along on the history link, so narrowing the log keeps the selector's
-  // season -- `AdminTeamsTable.tsx`'s row links carry it the same way.
+  // season.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const router = useRouter();
