@@ -15,8 +15,8 @@ from typing import Annotated, Any, Final, Literal, get_args
 from pydantic import BaseModel, Field
 
 from app.api.bewerbungen.services import (
-    ausstehende_seats,
     build_bewerbungen_sort,
+    pending_seats,
 )
 from app.api.spielberichte.schemas import FLSpielberichtBericht
 from app.api.spielberichte.services import FLSpielberichtOpenState, bericht_state_of, build_state_pipeline, is_open
@@ -25,10 +25,10 @@ from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     build_holding_filter,
     build_triage_rows_filter,
+    discard_owes_a_notice,
     parties_told_of_the_change,
     party_key,
     reason_to_end,
-    verwerfen_owes_a_notice,
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_CANCELLED,
@@ -348,7 +348,7 @@ def overview_of(
                         ),
                         names=names,
                     ),
-                    discard_recipients=recipients_named([row[ROW_PARTY]] if verwerfen_owes_a_notice(row=row, today=today) else [], names=names),
+                    discard_recipients=recipients_named([row[ROW_PARTY]] if discard_owes_a_notice(row=row, today=today) else [], names=names),
                 )
             )
             continue
@@ -378,7 +378,7 @@ def overview_of(
                 kind="bewerbung",
                 bewerbung_id=bewerbung["_id"],
                 name=picked[0]["name"] if picked else bewerbung["schule"]["team_name"],
-                seats_confirmed=len(KONTAKT_ROLLEN) - len(ausstehende_seats(kontakte=bewerbung.get("kontakte"))),
+                seats_confirmed=len(KONTAKT_ROLLEN) - len(pending_seats(kontakte=bewerbung.get("kontakte"))),
                 seats=len(KONTAKT_ROLLEN),
             )
         )

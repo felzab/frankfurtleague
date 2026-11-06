@@ -207,7 +207,7 @@ def registrierung_document(
         if not confirmed
         else {
             "birth_date": birth_date,
-            "scope": "intern",
+            "scope": "internal",
             "media": False,
             "text_versions": SPIELER_TEXT_VERSIONS,
             "today": "2026-03-31",
@@ -373,7 +373,7 @@ class TestWhatAnAdmissionWrites:
             "Okonkwo-Brandt",
             BIRTH_DATE,
         )
-        assert person["einwilligung"]["confirmed_at"] == "2026-03-31" and person["einwilligung"]["scope"] == "intern"
+        assert person["einwilligung"]["confirmed_at"] == "2026-03-31" and person["einwilligung"]["scope"] == "internal"
         assert len(rows) == 1
         assert {key: rows[0][key] for key in ("team_id", "saison_id", "nummer", "position", "stufe", "rolle", "inactive_since")} == {
             "team_id": TEAM_OID,
@@ -397,7 +397,7 @@ class TestWhatAnAdmissionWrites:
                 answer_data=FLRegistrierungConfirmationPayload(
                     token=TOKEN,
                     birth_date=BIRTH_DATE,
-                    scope="intern",
+                    scope="internal",
                     media=False,
                     text_versions=FLSpielerTextVersions.model_validate(SPIELER_TEXT_VERSIONS),
                 ),
@@ -690,7 +690,7 @@ class TestThePersonAnAdmissionNames:
 
         assert fresh["evidence"], "the registration carries no evidence, so nothing proves it was carried"
         # The narrowed scope names the grant the stored record held, which its own confirmation evidenced.
-        assert fresh["scope"] == "intern", "the registration narrows nothing, so no grant ends here"
+        assert fresh["scope"] == "internal", "the registration narrows nothing, so no grant ends here"
         assert einwilligung == {
             **fresh,
             "evidence": {
@@ -708,7 +708,7 @@ class TestThePersonAnAdmissionNames:
         stored_id = ObjectId()
         confirmed = compose_confirmation_update(
             birth_date=BIRTH_DATE,
-            scope="intern",
+            scope="internal",
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
@@ -743,7 +743,7 @@ class TestThePersonAnAdmissionNames:
         # The scope set at the registration is newer than the person's stored grant, so it is renewed,
         # naming that grant.
         assert (einwilligung["scope"], einwilligung["evidence"]["scope"]) == (
-            "intern",
+            "internal",
             {
                 "at": "2026-03-31T08:00:00+00:00",
                 "text_version": SPIELER_TEXT_VERSIONS["scope"],
@@ -758,7 +758,7 @@ class TestThePersonAnAdmissionNames:
         stored_id = ObjectId()
         confirmed = compose_confirmation_update(
             birth_date=BIRTH_DATE,
-            scope="intern",
+            scope="internal",
             media=True,
             text_versions=SPIELER_TEXT_VERSIONS,
             today="2026-03-31",
@@ -772,7 +772,7 @@ class TestThePersonAnAdmissionNames:
                 registrierung_id=registrierung_id,
                 einwilligung_data=FLAccountEinwilligungPayload.model_validate(
                     {
-                        "scope": "intern",
+                        "scope": "internal",
                         "media": False,
                         "text_versions": dict(SPIELER_TEXT_VERSIONS),
                         "evidence_state": evidence_state_of(blocks=[confirmed]),
@@ -995,7 +995,7 @@ class TestAReturningRegistration:
 
         view, einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        assert view.page == "bestaetigung_spieler_wiederkehrend"
+        assert view.page == "confirmation_spieler_returning"
         assert (einwilligung["media"], einwilligung["evidence"]["media"]["text_version"]) == (False, KONTO_LABEL)
 
 
@@ -1170,7 +1170,7 @@ class TestTheDecline:
 
         assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "reason": reason}}
         # The confirmed pupil's note, owed in the decline's own transaction.
-        assert [(row["an"], row["data"]["team"], row["data"]["reason"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", reason)]
+        assert [(row["to"], row["data"]["team"], row["data"]["reason"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", reason)]
 
     def test_a_decided_registration_answers_404_to_either_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

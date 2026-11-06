@@ -132,7 +132,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active") -> Any:
     return on_the_seed_loop(_run())
 
 
-async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str) -> None:
+async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, to: str) -> None:
     """One mail about this invite, owed and reported sent, as the drain leaves it."""
 
     async with database.client.start_session() as session:
@@ -143,7 +143,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str)
                 invitation_id=invitation_id,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
-                recipient=[FLInvitationRecipient(rolle="trainer", first_name="Fendrick", email=an)],
+                recipient=[FLInvitationRecipient(rolle="trainer", first_name="Fendrick", email=to)],
                 occasion="dispatch",
             ),
             now=MAIL_NOW,
@@ -151,11 +151,11 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, an: str)
     await database[Collection.OUTBOX].update_many({"reference.id": invitation_id}, dict(final_update("sent", now=MAIL_NOW)))
 
 
-async def mint(database: AsyncDatabase, team_id: ObjectId, *, einladungen: Any = None) -> Any:
+async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any = None) -> Any:
     return await post_invitation(
         team_id=team_id,
         saison_id=SAISON_ID,
-        invitations_collection=einladungen if einladungen is not None else database[Collection.INVITATIONS],
+        invitations_collection=invitations if invitations is not None else database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
@@ -231,7 +231,7 @@ async def owed_for(database: AsyncDatabase, team_id: ObjectId) -> list[str]:
     ids = [row["_id"] for row in await database[Collection.INVITATIONS].find({"team_id": team_id}, {"_id": 1}).to_list(length=None)]
     rows = await database[Collection.OUTBOX].find({"reference.id": {"$in": ids}}).sort("_id", 1).to_list(length=None)
 
-    return [row["an"] for row in rows]
+    return [row["to"] for row in rows]
 
 
 async def live_count(database: AsyncDatabase, team_id: ObjectId) -> int:
@@ -267,7 +267,7 @@ def as_collection(stub: _InsertFailsForOneTeam) -> AsyncCollection:
 def decided(rows: Any) -> list[tuple[str, tuple[str, ...], Any]]:
     """One row per team as both readers describe it: the team, the mailboxes and the skip."""
 
-    return [(str(zeile.team_id), tuple(entry.email for entry in zeile.recipient), zeile.skipped) for zeile in rows]
+    return [(str(row.team_id), tuple(entry.email for entry in row.recipient), row.skipped) for row in rows]
 
 
 class TestWhatAMintStores:
@@ -358,7 +358,7 @@ class TestTwoMintsAtOnce:
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
             held = _HoldsAfterItsRevoke(database[Collection.INVITATIONS], committed)
-            second = asyncio.create_task(mint(database, TWO_SEATS, einladungen=held))
+            second = asyncio.create_task(mint(database, TWO_SEATS, invitations=held))
             await held.until_held(second)
 
             try:
@@ -543,7 +543,7 @@ class TestTheDayALinkWasSent:
 class TestTheSeasonWidePress:
     """One press over a season whose four teams sit in the four states it can meet."""
 
-    def test_a_mailed_link_whose_postausgang_row_is_gone_is_not_mailed_again(self, mongo_replica_set_url: str):
+    def test_a_mailed_link_whose_outbox_row_is_gone_is_not_mailed_again(self, mongo_replica_set_url: str):
         """The row is erased a retention after it settles: judged by it, the press would mail the club again and kill the link it holds."""
 
         async def body(database: AsyncDatabase) -> Any:

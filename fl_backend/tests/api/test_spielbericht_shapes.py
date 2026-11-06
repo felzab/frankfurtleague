@@ -169,7 +169,7 @@ def saved(**fields: Any) -> FLSpielberichtBericht:
     return FLSpielberichtBericht.model_validate(bericht_document(**{"sides": SIDES, **fields}))
 
 
-def gespielt(team1: int, team2: int, **fields: Any) -> dict[str, Any]:
+def played(team1: int, team2: int, **fields: Any) -> dict[str, Any]:
     return spiel(
         team1={"team_id": TEAM1, "tore": team1},
         team2={"team_id": TEAM2, "tore": team2},
@@ -185,18 +185,18 @@ class TestTheAdoptedStateIsDerivedFromThree:
     """The adoption, the block's version and the stored result; the 1:0 proposal of `bericht_document` throughout."""
 
     def test_adopted_unchanged_and_matching_reads_uebernommen(self):
-        assert bericht_state_of(saved(**ADOPTED), gespielt(1, 0)) == "adopted"
+        assert bericht_state_of(saved(**ADOPTED), played(1, 0)) == "adopted"
 
     def test_a_scorer_corrected_after_the_adoption_reads_abweichend_though_the_goals_still_match(self):
         """The case the version exists for: a result-only comparison reads it adopted."""
 
-        assert bericht_state_of(saved(**ADOPTED, version=2), gespielt(1, 0)) == "differing"
+        assert bericht_state_of(saved(**ADOPTED, version=2), played(1, 0)) == "differing"
 
     def test_the_sides_swapped_read_abweichend(self):
-        assert bericht_state_of(saved(**ADOPTED), gespielt(0, 1)) == "differing"
+        assert bericht_state_of(saved(**ADOPTED), played(0, 1)) == "differing"
 
     def test_a_result_the_administrator_typed_without_adopting_reads_abweichend(self):
-        assert bericht_state_of(saved(), gespielt(1, 0)) == "differing"
+        assert bericht_state_of(saved(), played(1, 0)) == "differing"
 
     def test_a_spiel_holding_no_result_reads_proposed_however_it_was_stamped(self):
         assert bericht_state_of(saved(), spiel()) == "proposed"
@@ -206,8 +206,8 @@ class TestTheAdoptedStateIsDerivedFromThree:
         no_show = {"team1_tore": None, "team2_tore": None, "elfmeterschiessen": None, "sonderereignis": "nichtantreten_team2"}
         bericht = saved(**ADOPTED, ergebnis_vorschlag=no_show, scorers=[])
 
-        assert bericht_state_of(bericht, gespielt(3, 0, sonderereignis="nichtantreten_team2")) == "adopted"
-        assert bericht_state_of(bericht, gespielt(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
+        assert bericht_state_of(bericht, played(3, 0, sonderereignis="nichtantreten_team2")) == "adopted"
+        assert bericht_state_of(bericht, played(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
 
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
     def test_a_spiel_called_off_since_the_report_reads_cancelled(self, sonderereignis: str):
@@ -231,7 +231,7 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
 
         bericht = saved(**ADOPTED, sides={**SIDES, side: ObjectId()})
 
-        assert bericht_state_of(bericht, gespielt(1, 0)) == "sides_changed"
+        assert bericht_state_of(bericht, played(1, 0)) == "sides_changed"
         assert bericht_state_of(bericht, spiel()) == "sides_changed"
 
     def test_a_slot_filled_since_an_open_one_was_reported_reads_teams_geaendert(self):
@@ -260,12 +260,12 @@ class TestAShootOutIsComparedWhereTheSpielKeepsOne:
         ],
     )
     def test_a_level_knockout_matches_on_its_shoot_out(self, stored: dict[str, int] | None, state: str):
-        spiel = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen=stored)
+        spiel = played(1, 1, saison_phase="achtelfinale", elfmeterschiessen=stored)
 
         assert bericht_state_of(level(1, 1, {"team1": 4, "team2": 3}), spiel) == state
 
     def test_a_level_knockout_proposing_none_differs_from_one_saved_with_one(self):
-        spiel = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen={"team1": 4, "team2": 3})
+        spiel = played(1, 1, saison_phase="achtelfinale", elfmeterschiessen={"team1": 4, "team2": 3})
 
         assert bericht_state_of(level(1, 1, None), spiel) == "differing"
 

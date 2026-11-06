@@ -146,13 +146,13 @@ class TestTheSeatsStateDecidesTheWrite:
         assert answer.email == "lea@example.com"
         seat = row["kontakte"]["trainer"]
         assert (seat["first_name"], seat["birth_date"]) == ("Lea", None)
-        assert (seat["einwilligung"]["scope"], seat["einwilligung"]["date"]) == ("kontaktdaten", TODAY)
+        assert (seat["einwilligung"]["scope"], seat["einwilligung"]["date"]) == ("kontakt_data", TODAY)
         assert (seat["einwilligung"]["confirmed_at"], seat["einwilligung"]["entered_by"], seat["einwilligung"]["media"]) == (
             None,
             "liga",
             False,
         )
-        assert [(mail.an, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
+        assert [(mail.to, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
         # The seat beside it keeps its person, and with them the link they already hold.
         assert row["confirmations"]["ansprechperson"] == link_entry()
 
@@ -188,7 +188,7 @@ class TestTheSeatsStateDecidesTheWrite:
 
         assert answer.email == "lea@example.com"
         assert row["kontakte"]["stellvertretung"]["first_name"] == "Lea"
-        assert [mail.an for mail in mails] == ["lea@example.com"]
+        assert [mail.to for mail in mails] == ["lea@example.com"]
 
 
 class TestTheTrainersSecondSeat:
@@ -209,7 +209,7 @@ class TestTheTrainersSecondSeat:
 
         assert (row["kontakte"]["trainer"]["first_name"], row["kontakte"]["ansprechperson"]["first_name"]) == ("Lea", "Lea")
         assert row["kontakte"]["trainer_is_also"] == "ansprechperson"
-        assert [(mail.an, sorted(mail.data.rollen)) for mail in mails] == [("lea@example.com", ["ansprechperson", "trainer"])]
+        assert [(mail.to, sorted(mail.data.rollen)) for mail in mails] == [("lea@example.com", ["ansprechperson", "trainer"])]
 
     @pytest.mark.parametrize(
         ("sent", "claim", "ansprechperson"),
@@ -250,7 +250,7 @@ class TestTheTrainersSecondSeat:
         row, mails = on_a_row(mongo_replica_set_url, body, kontakte=block())
 
         assert row["kontakte"]["ansprechperson"]["first_name"] == "Ida"
-        assert [mail.an for mail in mails] == ["ida@example.com"]
+        assert [mail.to for mail in mails] == ["ida@example.com"]
 
 
 class TestTheRefusals:

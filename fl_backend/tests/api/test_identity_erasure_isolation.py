@@ -156,7 +156,7 @@ SEATED = {
     "last_name": "Quillfeather",
     "email": TYPED,
     "phone": PHONE,
-    "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
+    "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
 }
 BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 5550404"}
 

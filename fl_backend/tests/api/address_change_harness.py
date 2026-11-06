@@ -109,7 +109,7 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
             birth_date="2009-05-04",
             today="2126-03-31",
             at="2126-03-31T08:00:00+00:00",
-            scope="intern",
+            scope="internal",
             media=False,
         )
         if confirmed
@@ -296,7 +296,7 @@ def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EM
 
 
 # The kinds whose hand-out mints a change's link, and which link each mints.
-_LINKS = {"address_change_link": "token", "address_change_notice": "stopp_token"}
+_LINKS = {"address_change_link": "token", "address_change_notice": "stop_token"}
 
 
 @dataclass(frozen=True)
@@ -308,7 +308,7 @@ class Minted:
 
     answer: Any
     token: str | None
-    stopp_token: str | None
+    stop_token: str | None
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.answer, name)
@@ -335,7 +335,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
             {"_id": {"$in": others}}, {"$set": {"lease": None, "leased_until": None}, "$inc": {"attempts": -1}}
         )
 
-    return Minted(answer=answer, token=links.get("token"), stopp_token=links.get("stopp_token"))
+    return Minted(answer=answer, token=links.get("token"), stop_token=links.get("stop_token"))
 
 
 async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, released: bool = True, **given: Any) -> Minted:
@@ -354,10 +354,10 @@ async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str
     if not released:
         return started
 
-    await answer(database, client, started.stopp_token, germany_now=now)
+    await answer(database, client, started.stop_token, germany_now=now)
     confirmed = await handed_out(database, client, started.answer, now=now)
 
-    return Minted(answer=started.answer, token=confirmed.token, stopp_token=started.stopp_token)
+    return Minted(answer=started.answer, token=confirmed.token, stop_token=started.stop_token)
 
 
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
@@ -451,7 +451,7 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     return [
         {
             "kind": row["kind"].removeprefix("address_change_"),
-            "an": row["an"],
+            "to": row["to"],
             **({"first_name": row["data"]["first_name"]} if "first_name" in row["data"] else {}),
         }
         async for row in rows

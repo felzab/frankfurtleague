@@ -20,23 +20,23 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     ADOPTION_TWINS,
     ANSETZUNG_QUELLEN,
-    AnsetzungLage,
+    AnsetzungState,
     build_answerable_filter,
-    build_verwerfbar_filter,
+    build_discardable_filter,
     compose_closing_update,
-    compose_eintragen_update,
-    eintragen_refusal,
+    compose_enter_update,
+    discard_owes_a_notice,
+    discard_refusal,
+    enter_refusal,
     find_adoption_refusal,
-    find_eintragen_refusal,
-    find_verwerfen_refusal,
-    find_vorschlag_vergangen_refusal,
-    notice_daten_of,
+    find_discard_refusal,
+    find_enter_refusal,
+    find_vorschlag_past_refusal,
+    notice_data_of,
     proposal_payload,
-    spiel_mail_termin_of,
+    spiel_mail_appointment_of,
     team_notices,
     vereinsnamen_of,
-    verwerfen_owes_a_notice,
-    verwerfen_refusal,
 )
 from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
 from app.api.spiele.schemas import FLSpiel
@@ -73,10 +73,10 @@ router = APIRouter(
 FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Query()]
 
 
-async def _mit_zustellung(*, outbox_collection: ReadCollection, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
+async def _with_delivery(*, outbox_collection: ReadCollection, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
     """The rows as served, each seat holding a link carrying what became of the last mail owed to it."""
 
-    lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.SPIELBESTAETIGUNGEN, ids=[row["_id"] for row in rows])
+    states = await states_of(outbox_collection=outbox_collection, collection=Collection.SPIELBESTAETIGUNGEN, ids=[row["_id"] for row in rows])
 
     def served(row: Mapping[str, Any]) -> FLSpielbestaetigung:
         kontakte = row.get("kontakte")
@@ -84,7 +84,7 @@ async def _mit_zustellung(*, outbox_collection: ReadCollection, rows: Sequence[M
             return FLSpielbestaetigung.model_validate(row)
 
         seats = {
-            seat: None if not isinstance(entry, Mapping) else {**entry, "delivery": lagen.get((row["_id"], seat))}
+            seat: None if not isinstance(entry, Mapping) else {**entry, "delivery": states.get((row["_id"], seat))}
             for seat, entry in kontakte.items()
         }
         return FLSpielbestaetigung.model_validate({**row, "kontakte": seats})
@@ -120,7 +120,7 @@ async def get_spielbestaetigungen(
     )
 
     return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=await _mit_zustellung(outbox_collection=outbox_collection, rows=rows),
+        spielbestaetigungen=await _with_delivery(outbox_collection=outbox_collection, rows=rows),
         complete=vollstaendig,
     )
 
@@ -132,7 +132,7 @@ async def get_spielbestaetigungen(
 )
 async def enter_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
-    eintragen_data: Annotated[FLSpielbestaetigungEnterPayload, Body()],
+    enter_data: Annotated[FLSpielbestaetigungEnterPayload, Body()],
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -155,7 +155,7 @@ async def enter_spielbestaetigung(
             projection=["answer", "closed"],
             session=session,
         )
-        refuse(find_eintragen_refusal(spielbestaetigung_raw=row))
+        refuse(find_enter_refusal(spielbestaetigung_raw=row))
 
         try:
             # The state term as a seat's press writes it. A seat's answer committing under
@@ -163,13 +163,13 @@ async def enter_spielbestaetigung(
             return await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
-                update=compose_eintragen_update(reason=eintragen_data.reason, today=today),
+                update=compose_enter_update(reason=enter_data.reason, today=today),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:
-            raise eintragen_refusal().error() from miss
+            raise enter_refusal().error() from miss
 
     async with transaction_session(db) as session:
         await session.with_transaction(settle_for_the_party)
@@ -214,7 +214,7 @@ async def discard_spielbestaetigung(
         if not found:
             raise DocumentNotFoundError()
         spiel = found[0]
-        refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
+        refuse(find_discard_refusal(spielbestaetigung_raw=row, spiel=spiel))
 
         return spiel
 
@@ -230,16 +230,16 @@ async def discard_spielbestaetigung(
         try:
             discarded = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
-                db_filter={"_id": spielbestaetigung_id, **build_verwerfbar_filter()},
+                db_filter={"_id": spielbestaetigung_id, **build_discardable_filter()},
                 update=compose_closing_update(reason="discarded", today=today),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:
-            raise verwerfen_refusal().error() from miss
+            raise discard_refusal().error() from miss
 
-        if verwerfen_owes_a_notice(row=row, today=today):
+        if discard_owes_a_notice(row=row, today=today):
             # The club's season row as it stands, its seats the mailboxes told and its name the one the notice states.
             vereine = await pull_many_from_db(
                 collection=saison_teams_collection,
@@ -248,9 +248,9 @@ async def discard_spielbestaetigung(
                 session=session,
             )
             verein = next((verein for verein in vereine if verein["team_id"] == row["party"]["team_id"]), None)
-            names = vereinsnamen_of(spielbestaetigung_raw=row, lage=AnsetzungLage(spiel=spiel, vereine=vereine))
-            data = notice_daten_of(
-                reason="discarded", party_kind="team", appointment=spiel_mail_termin_of(spielbestaetigung_raw=row, names=names)
+            names = vereinsnamen_of(spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=vereine))
+            data = notice_data_of(
+                reason="discarded", party_kind="team", appointment=spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             )
             mails = (
                 []
@@ -334,7 +334,7 @@ async def adopt_spielbestaetigung(
         spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, session=session)
         refuse(find_adoption_refusal(spielbestaetigung_raw=row, spiel=spiel))
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
-        refuse(as_judged_on_stored_state(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
+        refuse(as_judged_on_stored_state(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 
         # A discard of the same proposal writes this row, so the two conflict and the retry refuses the later one: a club
         # is never told both that its date was taken and that the date stands.

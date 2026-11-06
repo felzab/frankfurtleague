@@ -373,7 +373,7 @@ class TestTheLinks:
                 await answer(database, client, minted.token)
             open = (await read(database, client)).open
             assert open is not None
-            seen = (await view(database, client, minted.stopp_token)).view
+            seen = (await view(database, client, minted.stop_token)).view
             return open.waits_on, seen.state, seen.email
 
         assert on_a_person(mongo_replica_set_url, body) == (waits_on, bisherig, email)
@@ -383,8 +383,8 @@ class TestTheLinks:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client, released=False)
-            seen = (await view(database, client, minted.stopp_token, germany_now=AFTER_THE_DEADLINE)).view
-            pressed = await refused_code(answer(database, client, minted.stopp_token, germany_now=AFTER_THE_DEADLINE))
+            seen = (await view(database, client, minted.stop_token, germany_now=AFTER_THE_DEADLINE)).view
+            pressed = await refused_code(answer(database, client, minted.stop_token, germany_now=AFTER_THE_DEADLINE))
             return seen.state, seen.email, pressed
 
         assert on_a_person(mongo_replica_set_url, body) == ("release_expired", None, Code.LINK_EXPIRED)
@@ -394,13 +394,13 @@ class TestTheLinks:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            await stop_by_link(database, client, minted.stopp_token)
+            await stop_by_link(database, client, minted.stop_token)
 
             return (
                 await view(database, client, minted.token),
-                await view(database, client, minted.stopp_token),
+                await view(database, client, minted.stop_token),
                 await refused_code(answer(database, client, minted.token)),
-                await refused_code(stop_by_link(database, client, minted.stopp_token)),
+                await refused_code(stop_by_link(database, client, minted.stop_token)),
             )
 
         new, bisherig, pressed, stopped = on_a_person(mongo_replica_set_url, body)
@@ -436,12 +436,12 @@ class TestTheAddressOnFileConfirmsFirst:
     def test_the_start_owes_the_address_on_file_its_link_and_the_new_mailbox_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client, released=False)
-            return minted, await change(database, minted.id), await view(database, client, minted.stopp_token)
+            return minted, await change(database, minted.id), await view(database, client, minted.stop_token)
 
         minted, record, bisherig = on_a_person(mongo_replica_set_url, body)
 
-        assert (minted.token, minted.stopp_token is not None) == (None, True)
-        assert (record["token_hashes"], record["stop"]["token_hashes"], record["released_at"]) == ([], [hash_token(minted.stopp_token)], None)
+        assert (minted.token, minted.stop_token is not None) == (None, True)
+        assert (record["token_hashes"], record["stop"]["token_hashes"], record["released_at"]) == ([], [hash_token(minted.stop_token)], None)
         assert (bisherig.view.side, bisherig.view.state, bisherig.view.way) == ("previous", "release_open", "account")
         # Its question names the address the change goes to, and no day it was answered on.
         assert (bisherig.view.email, bisherig.view.released_on) == (NEW_EMAIL, None)
@@ -450,8 +450,8 @@ class TestTheAddressOnFileConfirmsFirst:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client, released=False)
             with journal_of(caplog) as journal:
-                declined = await answer(database, client, minted.stopp_token, "declined")
-            return declined, await change(database, minted.id), await view(database, client, minted.stopp_token), journal
+                declined = await answer(database, client, minted.stop_token, "declined")
+            return declined, await change(database, minted.id), await view(database, client, minted.stop_token), journal
 
         declined, record, bisherig, journal = on_a_person(mongo_replica_set_url, body)
 
@@ -464,8 +464,8 @@ class TestTheAddressOnFileConfirmsFirst:
     def test_past_its_deadline_it_confirms_nothing_and_still_declines(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client, released=False)
-            late = await refused_code(answer(database, client, minted.stopp_token, germany_now=AFTER_THE_DEADLINE))
-            declined = await answer(database, client, minted.stopp_token, "declined", germany_now=AFTER_THE_DEADLINE)
+            late = await refused_code(answer(database, client, minted.stop_token, germany_now=AFTER_THE_DEADLINE))
+            declined = await answer(database, client, minted.stop_token, "declined", germany_now=AFTER_THE_DEADLINE)
             return late, declined.answer, (await change(database, minted.id))["token_hashes"]
 
         assert on_a_person(mongo_replica_set_url, body) == (Code.LINK_EXPIRED, "declined", [])
@@ -474,8 +474,8 @@ class TestTheAddressOnFileConfirmsFirst:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
             return [
-                await refused_code(answer(database, client, minted.stopp_token)),
-                await refused_code(answer(database, client, minted.stopp_token, "declined")),
+                await refused_code(answer(database, client, minted.stop_token)),
+                await refused_code(answer(database, client, minted.stop_token, "declined")),
             ]
 
         assert on_a_person(mongo_replica_set_url, body) == [Code.ADDRESS_CHANGE_ENDED] * 2
@@ -485,7 +485,7 @@ class TestTheAddressOnFileConfirmsFirst:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, grund=GRUND)
-            return await refused_code(answer(database, client, started.stopp_token)), (await change(database, started.id))["ended"]
+            return await refused_code(answer(database, client, started.stop_token)), (await change(database, started.id))["ended"]
 
         assert on_a_person(mongo_replica_set_url, body) == (Code.LINK_INVALID, None)
 
@@ -535,10 +535,10 @@ class TestTheSystemsReadOfTheNewAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             stopped = await start(database, client)
-            await stop_by_link(database, client, stopped.stopp_token)
+            await stop_by_link(database, client, stopped.stop_token)
             live = await start(database, client, identifier=OTHER_EMAIL, email="jonte.neu@anderswo.example")
             asked = [
-                {"token": live.stopp_token},
+                {"token": live.stop_token},
                 {"token": "nobody-minted-this"},
                 {"address_change_id": ObjectId()},
                 {"token": stopped.token},
@@ -691,7 +691,7 @@ class TestTheConfirmation:
         assert (early.removed, early.discarded, early.effective) == (0, 0, 0)
         assert late.effective == 1
         # The lost-mailbox way greets nobody, and carries no account: that mailbox may have passed to a stranger.
-        assert (notices, owed_carries) == ([{"kind": "effective", "an": EMAIL, "first_name": None}], [])
+        assert (notices, owed_carries) == ([{"kind": "effective", "to": EMAIL, "first_name": None}], [])
         assert (after["pupil"]["email"], after["referee"]["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
 
     def test_a_change_finding_nothing_left_to_move_ends_discarded(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -856,7 +856,7 @@ class TestTheNewAddressesOwnRecords:
         swept, record, rows, notices = on_a_person(mongo_replica_set_url, body)
 
         assert (swept.discarded, swept.effective, record["ended"]["kind"], rows["pupil"]["email"]) == (1, 0, "discarded", EMAIL)
-        assert [(notice["kind"], notice["an"]) for notice in notices] == [("discarded", NEW_EMAIL)]
+        assert [(notice["kind"], notice["to"]) for notice in notices] == [("discarded", NEW_EMAIL)]
 
     def test_entries_arriving_before_the_approval_refuse_it_and_write_nothing(self, mongo_replica_set_url: str):
         """The approval is the press that takes effect here, judged as the confirmation is."""
@@ -946,7 +946,7 @@ class TestTheStop:
             minted = await start(database, client)
             with journal_of(caplog) as journal:
                 if by == "link":
-                    await stop_by_link(database, client, minted.stopp_token)
+                    await stop_by_link(database, client, minted.stop_token)
                 else:
                     await stop_here(database, client)
 
@@ -1037,7 +1037,7 @@ class TestTheTool:
 
         started, before, sent, after, old = on_a_person(mongo_replica_set_url, body)
 
-        assert (sent.stopp_token, after["token_hashes"], after["stop"]) == (None, [hash_token(sent.token)], before["stop"])
+        assert (sent.stop_token, after["token_hashes"], after["stop"]) == (None, [hash_token(sent.token)], before["stop"])
         assert after["valid_until"] > before["valid_until"]
         # The replaced link opens nothing: its hash is gone from the record.
         assert old == Code.LINK_INVALID
@@ -1114,7 +1114,7 @@ class TestTheApproval:
         code, kind, notices = on_a_person(mongo_replica_set_url, body)
 
         assert (code, kind) == (Code.ADDRESS_CHANGE_NOTHING, "discarded")
-        assert [(notice["kind"], notice["an"]) for notice in notices] == [("discarded", NEW_EMAIL)]
+        assert [(notice["kind"], notice["to"]) for notice in notices] == [("discarded", NEW_EMAIL)]
 
     def test_a_confirmation_before_the_approval_waits_and_the_approval_takes_effect(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1134,7 +1134,7 @@ class TestTheApproval:
         assert after["pupil"]["email"] == NEW_EMAIL
         # Taking effect days after both mailboxes confirmed, the change tells the replaced one then, as a grant holder's
         # change always did; one taking effect at the new mailbox's press owes it nothing.
-        assert (told, [(notice["kind"], notice["an"]) for notice in notices]) == ([], [("effective", EMAIL)])
+        assert (told, [(notice["kind"], notice["to"]) for notice in notices]) == ([], [("effective", EMAIL)])
 
     @staticmethod
     def refused_approval(url: str, *, approver: str, admin_tier: str) -> tuple[str, Any]:
@@ -1248,7 +1248,7 @@ class TestTheApproval:
 
         assert (refused, removed, record["ended"]["kind"]) == (Code.LINK_EXPIRED, 1, "expired")
         # The new mailbox was told the change waits on the administration, so it is told it did not take effect.
-        assert notices == [{"kind": "discarded", "an": NEW_EMAIL}]
+        assert notices == [{"kind": "discarded", "to": NEW_EMAIL}]
 
     def test_a_link_lapsing_unconfirmed_queues_nothing(self, mongo_replica_set_url: str):
         """Nobody confirmed it, so nobody waits to hear of it."""
@@ -1361,7 +1361,7 @@ class TestAGrantEndedBeforeTheApproval:
         assert (swept.effective, swept.remaining) == (1, 0)
         assert record["ended"]["kind"] == "effective"
         # Taking effect at the pass, after both mailboxes confirmed, it tells the replaced one then.
-        assert [(notice["kind"], notice["an"]) for notice in notices] == [("effective", EMAIL)]
+        assert [(notice["kind"], notice["to"]) for notice in notices] == [("effective", EMAIL)]
         assert after["pupil"]["email"] == NEW_EMAIL
 
     def test_a_change_whose_grant_stands_waits_and_is_no_remainder(self, mongo_replica_set_url: str):
@@ -1390,7 +1390,7 @@ class TestTheMovedGrant:
             await approve(database, client, minted.id, operator=SECOND_ADMIN)
             await answer(database, client, minted.token)
             grants = {row["address"]: row async for row in database[Collection.GRANTS].find({"address": {"$in": [EMAIL, NEW_EMAIL]}})}
-            outbox = [row["data"] async for row in database[Collection.OUTBOX].find({"kind": "grant", "an": SECOND_ADMIN}, sort=[("_id", 1)])]
+            outbox = [row["data"] async for row in database[Collection.OUTBOX].find({"kind": "grant", "to": SECOND_ADMIN}, sort=[("_id", 1)])]
             async with client.start_session(snapshot=True) as session:
                 since = await live_unbarred_grant_since(
                     NEW_EMAIL, grants_collection=database[Collection.GRANTS], ban_list=ban_list(database), session=session
@@ -1872,7 +1872,7 @@ class TestTheReplayTellsTheNewMailboxAgain:
                 if plan.rewrite is not None:
                     async with transaction_session(client) as session:
                         await session.with_transaction(plan.rewrite)
-            return stands, [(notice["kind"], notice["an"]) for notice in await owed(database)]
+            return stands, [(notice["kind"], notice["to"]) for notice in await owed(database)]
 
         stands, notices = on_a_person(mongo_replica_set_url, body)
 
@@ -1914,8 +1914,8 @@ class TestTheWaitingTime:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, grund=GRUND)
             await answer(database, client, started.token)
-            seen = await view(database, client, started.stopp_token, germany_now=NOW + timedelta(days=3))
-            await stop_by_link(database, client, started.stopp_token)
+            seen = await view(database, client, started.stop_token, germany_now=NOW + timedelta(days=3))
+            await stop_by_link(database, client, started.stop_token)
             return seen, await sweep(database, client, germany_now=AFTER_THE_WAIT), await everything(database)
 
         seen, swept, after = on_a_person(mongo_replica_set_url, body)
@@ -1938,7 +1938,7 @@ class TestTheWaitingTime:
         started, swept, journal, notices = on_a_person(mongo_replica_set_url, body)
 
         assert swept.discarded == 1
-        assert notices == [{"kind": "discarded", "an": NEW_EMAIL}]
+        assert notices == [{"kind": "discarded", "to": NEW_EMAIL}]
         assert [(line.kind, line.record_id, line.person_hash) for line in journal] == [
             ("address_change_discarded_notified", started, erasure_journal_hash(NEW_EMAIL, key=KEY))
         ]

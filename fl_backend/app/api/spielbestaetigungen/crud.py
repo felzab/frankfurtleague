@@ -11,7 +11,7 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
     ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
-    AnsetzungLage,
+    AnsetzungState,
     SeatVoid,
     austritt_notices_of,
     build_austritt_spiele_filter,
@@ -46,7 +46,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # What the VIEW reads off the fixture through the name join: the Ansetzung's inputs, what the page states of it, and
 # what `reason_to_close` decides on. Never the referee, the rent or the note.
-ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
+VIEW_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
     **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_link"), 1),
@@ -55,7 +55,7 @@ ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
 
 # What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee's id,
 # which `reason_to_close` compares a referee's row against.
-JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
+JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**VIEW_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
 
 
 async def pull_named_spiele(
@@ -92,7 +92,7 @@ def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
     }
 
 
-async def pull_ansetzung_lage(
+async def pull_ansetzung_state(
     *,
     spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
@@ -102,7 +102,7 @@ async def pull_ansetzung_lage(
     spiel_projection: Mapping[str, Any] | None,
     verein_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
-) -> AnsetzungLage | None:
+) -> AnsetzungState | None:
     """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
 
     by_id = {"_id": spielbestaetigung_raw["spiel_id"]}
@@ -121,10 +121,10 @@ async def pull_ansetzung_lage(
         session=session,
     ).to_list(length=None)
 
-    return AnsetzungLage(spiel=spiel, vereine=vereine)
+    return AnsetzungState(spiel=spiel, vereine=vereine)
 
 
-async def pull_vorschlag_offen(
+async def pull_vorschlag_open(
     *, spielbestaetigungen_collection: ReadCollection, spielbestaetigung_raw: Mapping[str, Any]
 ) -> FLSpielbestaetigungAppointment | None:
     """The other club's proposal about this same Ansetzung while its decline stands open, its date and hour alone.
@@ -180,7 +180,7 @@ async def pull_admin_rows(
 # --- A REFEREE'S OWN ROWS.
 
 # No seat's hashes and no deadline: a referee answers signed in, until the fixture's day.
-EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
+OWN_ROW_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
     "party": 1,
@@ -191,16 +191,16 @@ EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
     "closed": 1,
 }
 
-EIGENE_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.date": 1}
+OWN_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.date": 1}
 
 
-async def pull_eigene_lagen(
+async def pull_own_states(
     *,
     spiele_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     spielbestaetigungen_raw: Sequence[Mapping[str, Any]],
     session: AsyncClientSession,
-) -> dict[Any, AnsetzungLage]:
+) -> dict[Any, AnsetzungState]:
     """Each row's fixture and clubs' season rows, two reads for the whole list, keyed by the row's id."""
 
     if not spielbestaetigungen_raw:
@@ -217,13 +217,13 @@ async def pull_eigene_lagen(
             "saison_id": {"$in": list({row["saison_id"] for row in spielbestaetigungen_raw})},
             "team_id": {"$in": list({row["ansetzung"][key] for row in spielbestaetigungen_raw for key in ("team1_id", "team2_id")})},
         },
-        EIGENE_VEREIN_FIELDS,
+        OWN_VEREIN_FIELDS,
         session=session,
     ).to_list(length=None)
     by_id = {spiel["_id"]: spiel for spiel in spiele}
 
     return {
-        row["_id"]: AnsetzungLage(
+        row["_id"]: AnsetzungState(
             # An undraw removes a fixture with its rows in one transaction, and this read shares their snapshot.
             spiel=by_id[row["spiel_id"]],
             vereine=[

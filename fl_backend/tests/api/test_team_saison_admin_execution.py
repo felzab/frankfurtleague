@@ -476,5 +476,5 @@ class TestTheEditorRead:
         link = on_a_league(mongo_replica_set_url, body)
 
         assert link.invitation is None
-        assert link.skipped == "no_kontaktblock"
+        assert link.skipped == "no_kontakt_block"
         assert link.paused is False

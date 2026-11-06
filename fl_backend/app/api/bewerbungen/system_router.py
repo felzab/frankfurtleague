@@ -11,7 +11,7 @@ from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, re
 from app.api.bewerbungen.schemas import FLBewerbungSweepResponse
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,
-    acceptance_loeschung_is_due,
+    acceptance_erasure_is_due,
     addresses_leaving,
     build_deletion_filter,
     build_erinnerung_filter,
@@ -23,15 +23,15 @@ from app.api.bewerbungen.services import (
     lapsed_seats,
     latest_decision_due,
     next_saison_id,
+    owed_erasure,
     owed_link,
-    owed_loeschung,
     people_with_address,
     reminder_seats,
     schule_name,
     season_after_has_ended,
     season_has_ended,
     undecided_loeschung_is_due,
-    unerreichbare_seats,
+    unreachable_seats,
 )
 from app.api.kontakte.crud import remove_the_seats_reasons
 from app.api.kontakte.services import contact_block_image_edits, departing_names, seat_image_edits
@@ -39,7 +39,7 @@ from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images, strip_the_seasons_confirmations
-from app.api.spielbestaetigungen.services import HeldSeats, kontakte_ohne, seat_void_of
+from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -189,11 +189,11 @@ async def sweep_saison(
     saison_status = saison_raw.get("status")
 
     # Ahead of the guard below, so an id that is no year fails the running season's pass too.
-    beendet_danach = _ended_after(saison_id)
+    ended_after = _ended_after(saison_id)
     # Ended once any later season has while this one is not `active`, as a squad row's pupil goes:
     # the next year's season alone may be skipped, or planned and never run.
-    beendete_raw = None if saison_status == "active" else await saisons_collection.find_one(beendet_danach, {"status": 1})
-    later_saison_status = beendete_raw.get("status") if beendete_raw is not None else None
+    ended_raw = None if saison_status == "active" else await saisons_collection.find_one(ended_after, {"status": 1})
+    later_saison_status = ended_raw.get("status") if ended_raw is not None else None
 
     stamp = log_stamp(germany_now)
 
@@ -246,22 +246,22 @@ async def sweep_saison(
             )
         )
         # Each seat's last mail, read in the same transaction: a seat whose mail did not arrive is not chased.
-        lagen = await states_of(
+        states = await states_of(
             outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
         # One mail a person: an address is one person, whose one link answers every seat they hold.
-        personen_of = {
-            row["_id"]: personen
-            for row, personen in batch.judged(
+        people_of = {
+            row["_id"]: people
+            for row, people in batch.judged(
                 rows,
                 lambda row: people_with_address(
                     kontakte=row.get("kontakte"),
-                    seats=reminder_seats(bewerbung_raw=row, today=today, unerreichbar=unerreichbare_seats(row=row, lagen=lagen)),
+                    seats=reminder_seats(bewerbung_raw=row, today=today, unreachable=unreachable_seats(row=row, states=states)),
                 ),
             )
-            if personen
+            if people
         }
-        chased = [row for row in rows if row["_id"] in personen_of]
+        chased = [row for row in rows if row["_id"] in people_of]
         # One read for the page: a mail names the school, and the row holds only its id.
         club_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in chased], session=session)
 
@@ -280,7 +280,7 @@ async def sweep_saison(
                     # The day too: a re-send clears the stamp, and the seat's next reminder is a mail of its own.
                     key=f"{Collection.BEWERBUNGEN}/{row['_id']}/reminder/{seats[0]}/{today}",
                 )
-                for _, seats in personen_of[row["_id"]]
+                for _, seats in people_of[row["_id"]]
             ]
 
         # Owed mails built before any stamp, the share cut from the rows they carry: a refused row writes nothing and
@@ -293,7 +293,7 @@ async def sweep_saison(
             await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": row["_id"]},
-                update=compose_erinnerung_update(seats=[seat for _, seats in personen_of[row["_id"]] for seat in seats], today=today),
+                update=compose_erinnerung_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
@@ -328,7 +328,7 @@ async def sweep_saison(
 
         # Each notice built before anything is written, so a row whose stored data refuses one is passed over whole.
         owed = batch.judged(
-            [row for row, is_due in batch.judged(rows, due) if is_due], lambda row: owed_loeschung(bewerbung_raw=row, saison_id=saison_id)
+            [row for row, is_due in batch.judged(rows, due) if is_due], lambda row: owed_erasure(bewerbung_raw=row, saison_id=saison_id)
         )
         taken = batch.took([row for row, _ in owed])
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="deletion", saison_id=saison_id)
@@ -386,7 +386,7 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def loeschen_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season-and-one clock's first half. Read in-session, the season with it, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -402,7 +402,7 @@ async def sweep_saison(
         taken = batch.took(
             [
                 row
-                for row, due in batch.judged(rows, lambda row: acceptance_loeschung_is_due(bewerbung_raw=row, later_saison_status=later_status))
+                for row, due in batch.judged(rows, lambda row: acceptance_erasure_is_due(bewerbung_raw=row, later_saison_status=later_status))
                 if due
             ]
         )
@@ -509,7 +509,10 @@ async def sweep_saison(
             held.append(HeldSeats(saison_id=saison_id, team_id=row["team_id"], seats=tuple(seats)))
             voids.append(
                 seat_void_of(
-                    saison_id=saison_id, team_id=row["team_id"], stored_kontakte=stored_kontakte, kontakte=kontakte_ohne(stored_kontakte, seats)
+                    saison_id=saison_id,
+                    team_id=row["team_id"],
+                    stored_kontakte=stored_kontakte,
+                    kontakte=kontakte_without(stored_kontakte, seats),
                 )
             )
             if addresses := addresses_leaving(kontakte=stored_kontakte, seats=seats):
@@ -589,12 +592,12 @@ async def sweep_saison(
     )
     failed += len(passed)
 
-    angenommene, geleert, seats_emptied, redacted_accepted = 0, 0, 0, 0
+    accepted, emptied, seats_emptied, redacted_accepted = 0, 0, 0, 0
     # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
     if season_after_has_ended(later_saison_status=later_saison_status):
-        angenommene, redacted_accepted, passed = await drain(
+        accepted, redacted_accepted, passed = await drain(
             db=db,
-            page_of=loeschen_accepted,
+            page_of=erase_accepted,
             page=SWEEP_PAGE,
             what="Application",
             clock="acceptance",
@@ -634,7 +637,7 @@ async def sweep_saison(
             clock="report strip",
         )
         failed += len(passed)
-        geleert = sum(blocks for blocks, _ in cleared)
+        emptied = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared) + sum(stripped_confirmations) + sum(stripped_reports)
     # Never beside the blocks, which take the seats with them: the two shares are one budget.
     else:
@@ -666,7 +669,7 @@ async def sweep_saison(
         db=db,
         batch=Batch(share=REMINDERS_PER_PASS),
         attempt=remind,
-        moved=lambda erinnert: erinnert,
+        moved=lambda reminded: reminded,
         owes=True,
         what="Application",
         clock="reminder",
@@ -678,9 +681,9 @@ async def sweep_saison(
         reminded=sum(reminded),
         erased=erased_count,
         erased_declined=abgelehnte,
-        erased_accepted=angenommene,
+        erased_accepted=accepted,
         erased_without_decision=ohne_entscheidung,
-        kontakt_blocks_emptied=geleert,
+        kontakt_blocks_emptied=emptied,
         kontakt_seats_emptied=seats_emptied,
         redacted_action_log=redacted_declined + redacted_accepted + redacted_undecided + redacted_unconfirmed,
         failed=failed,

@@ -25,11 +25,11 @@ from app.api.invitations.services import (
     LIVE_INVITATION,
     WITHOUT_TOKEN_HASH,
     InvitationDispatchPlan,
-    bestaetigte_empfaenger,
     build_live_team_filter,
     compose_invitation,
     compose_revocation_update,
-    find_saison_vorbei_refusal,
+    confirmed_recipients,
+    find_invitation_saison_past_refusal,
     plan_invitation_dispatch,
 )
 from app.api.outbox.services import enqueue_mails
@@ -1255,7 +1255,7 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
 async def _barred_recipients(ban_list: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
     """Every stored address of the season's confirmed seats a standing ban holds, one read for all its teams."""
 
-    addresses = [person.email for team in entered for person in bestaetigte_empfaenger(kontakte=team.get("kontakte"))]
+    addresses = [person.email for team in entered for person in confirmed_recipients(kontakte=team.get("kontakte"))]
 
     return await barred_addresses(ban_list, addresses) if addresses else set()
 
@@ -1489,7 +1489,7 @@ async def post_invitations_dispatch(
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
-    refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
+    refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
     # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.

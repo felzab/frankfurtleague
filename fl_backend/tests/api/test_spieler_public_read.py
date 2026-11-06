@@ -74,7 +74,7 @@ def _spieler(key: str, first_name: str, last_name: str | None) -> dict[str, Any]
     A confirmed, published record passed rather than defaulted: the initials this corpus serves are the mask's published arm.
     """
 
-    return spieler_document(SPIELER_OIDS[key], first_name, last_name, einwilligung=_consent("kader_oeffentlich"))
+    return spieler_document(SPIELER_OIDS[key], first_name, last_name, einwilligung=_consent("kader_public"))
 
 
 def _squad_row(
@@ -342,8 +342,8 @@ class MaskedRow(NamedTuple):
 # Each served pair is written out rather than composed from `public_initial`, which would compare the
 # redaction with itself. No forename holds a surname as a substring: one case greps the whole payload.
 MASKED_SQUAD = {
-    "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_oeffentlich"), "Alina", "F."),
-    "Intern": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("intern"), None, None),
+    "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_public"), "Alina", "F."),
+    "Internal": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("internal"), None, None),
 }
 
 # A shirt per row, which is how a case below finds its row: the read serves no record id to find one by.
@@ -483,7 +483,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
 @pytest.fixture(scope="module")
 def sort_oracle_url(mongo_url: str) -> Iterator[str]:
-    """Two corpora, each one squad of three: two published rows and one the `intern` scope withholds."""
+    """Two corpora, each one squad of three: two published rows and one the `internal` scope withholds."""
 
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
@@ -497,21 +497,21 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
                             "first_name": withheld_forename,
                             "last_name": "Kessler",
                             "inactive_since": None,
-                            "einwilligung": _consent("intern"),
+                            "einwilligung": _consent("internal"),
                         },
                         {
                             "_id": SORT_ORACLE_OIDS["Berger"],
                             "first_name": "Bea",
                             "last_name": "Berger",
                             "inactive_since": None,
-                            "einwilligung": _consent("kader_oeffentlich"),
+                            "einwilligung": _consent("kader_public"),
                         },
                         {
                             "_id": SORT_ORACLE_OIDS["Yilmaz"],
                             "first_name": "Yara",
                             "last_name": "Yilmaz",
                             "inactive_since": None,
-                            "einwilligung": _consent("kader_oeffentlich"),
+                            "einwilligung": _consent("kader_public"),
                         },
                     ]
                 )

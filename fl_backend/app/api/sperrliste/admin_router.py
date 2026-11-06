@@ -102,8 +102,8 @@ async def get_sperrliste(ban_list_collection: BanListCollection, ban_list: BanLi
 
     served = []
     for row, ban in bans:
-        erstellt_von = withheld_actor(ban.created_by, barred)
-        served.append(FLSperrlisteRow.model_validate({**row, "created_by": erstellt_von, "created_by_barred": erstellt_von is None}))
+        created_by = withheld_actor(ban.created_by, barred)
+        served.append(FLSperrlisteRow.model_validate({**row, "created_by": created_by, "created_by_barred": created_by is None}))
 
     return FLSperrlisteListResponse(sperrliste=served, count_total=anzahl_gesamt)
 

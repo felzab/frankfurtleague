@@ -1,7 +1,7 @@
 from typing import Any
 
 from app.api.invitations.services import (
-    bestaetigte_empfaenger,
+    confirmed_recipients,
     plan_invitation_dispatch,
 )
 from tests.documents import kontaktperson_document
@@ -36,18 +36,18 @@ class TestWhoALinkIsMailedTo:
             ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=None),
         )
 
-        assert [entry.email for entry in bestaetigte_empfaenger(kontakte=block)] == ["bramblewick@example.com"]
+        assert [entry.email for entry in confirmed_recipients(kontakte=block)] == ["bramblewick@example.com"]
 
     def test_one_person_holding_two_seats_is_one_message(self):
         block = kontakte(
             trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON),
             stellvertretung=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON),
         )
-        empfaenger = bestaetigte_empfaenger(kontakte=block)
+        recipient = confirmed_recipients(kontakte=block)
 
-        assert len(empfaenger) == 1
+        assert len(recipient) == 1
         # The FIRST seat in seat order, so the message addresses the person as the role they lead with.
-        assert empfaenger[0].rolle == "trainer"
+        assert recipient[0].rolle == "trainer"
 
 
 class TestATeamTheBanListKeepsTheLinkFrom:

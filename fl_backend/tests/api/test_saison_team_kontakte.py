@@ -104,7 +104,7 @@ def born(sent: dict[str, Any]) -> dict[str, Any]:
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {"scope": "kontaktdaten", "date": TODAY, "confirmed_at": None, "media": False, "entered_by": "liga"}
+    return {"scope": "kontakt_data", "date": TODAY, "confirmed_at": None, "media": False, "entered_by": "liga"}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -116,7 +116,7 @@ def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def unbestaetigt(einwilligung: dict[str, Any]) -> dict[str, Any]:
+def unconfirmed(einwilligung: dict[str, Any]) -> dict[str, Any]:
     """A stored record held unconfirmed: the stamp nulled."""
 
     return {**einwilligung, "confirmed_at": None}
@@ -125,7 +125,7 @@ def unbestaetigt(einwilligung: dict[str, Any]) -> dict[str, Any]:
 def as_kept(stored: dict[str, Any]) -> dict[str, Any]:
     """A stored seat its unconfirmed person keeps through a save: the whole record, held unconfirmed."""
 
-    return {**stored, "einwilligung": unbestaetigt(stored["einwilligung"])}
+    return {**stored, "einwilligung": unconfirmed(stored["einwilligung"])}
 
 
 # Three seats as the league seated them, nobody having answered.
@@ -216,7 +216,7 @@ async def write_kontakte(
     )
 
 
-async def loeschen_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
+async def erase_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
     """The erasure of the person holding `ERASED_SEAT`, in a transaction of its own."""
 
     return await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
@@ -291,7 +291,7 @@ class TestTheProvenanceIsTheServers:
             **PARTLY_CONFIRMED,
             "trainer": {
                 **PARTLY_CONFIRMED["trainer"],
-                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "scope": "kontaktdaten_whatsapp"},
+                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "scope": "kontakt_data_whatsapp"},
             },
         }
         successor = {**person("Bert", email=str(PARTLY_CONFIRMED["trainer"]["email"])), "last_name": "Neu"}
@@ -380,21 +380,21 @@ class TestTheWriteIsRecorded:
 
 
 @pytest.mark.db
-class TestAnLoeschungLandingMidSaveIsNotUndone:
+class TestAnErasureLandingMidSaveIsNotUndone:
     """Two administrators on one row: an erasure empties a seat while the editor holds the block it rendered.
 
     The editor replaces the block whole, so its payload puts the seat back unless the write
     judges the row first.
     """
 
-    def test_a_seat_geloescht_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
+    def test_a_seat_erased_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             erasures: list[Any] = []
 
-            async def loeschen_between() -> None:
-                erasures.append(await loeschen_the_seats_person(database))
+            async def erase_between() -> None:
+                erasures.append(await erase_the_seats_person(database))
 
-            junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], loeschen_between)
+            junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
             with pytest.raises(APIError) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
             # An erasure committing first refuses the save at its read, before it reaches the write.
@@ -527,7 +527,7 @@ class TestAKeptRecordKeepsItsEvidence:
         """The data-loss path the record exists against: a block recomposed from the payload erases its evidence."""
 
         confirmed = {
-            "scope": "kontaktdaten_whatsapp",
+            "scope": "kontakt_data_whatsapp",
             "date": "2026-03-01",
             "confirmed_at": CONFIRMED_ON,
             "media": True,

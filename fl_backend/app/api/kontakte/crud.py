@@ -19,7 +19,7 @@ from app.api.spielbestaetigungen.services import (
     HeldSeats,
     build_seat_reason_images_filter,
     build_seat_reasons_filter,
-    kontakte_ohne,
+    kontakte_without,
     seat_reason_image_edits,
     seat_void_of,
 )
@@ -104,7 +104,7 @@ async def remove_the_seats_reasons(
 
 class SeatsCleared(NamedTuple):
     kontakt_slots: int
-    redacted_aktionen: int
+    redacted_action_log: int
 
 
 async def erase_kontaktperson_in_session(
@@ -141,7 +141,7 @@ async def erase_kontaktperson_in_session(
                 saison_id=row["saison_id"],
                 team_id=row["team_id"],
                 stored_kontakte=row.get("kontakte"),
-                kontakte=kontakte_ohne(row.get("kontakte"), slots),
+                kontakte=kontakte_without(row.get("kontakte"), slots),
             )
             for row, slots in held
         ]
@@ -174,7 +174,7 @@ async def erase_kontaktperson_in_session(
         session=session,
     )
 
-    return SeatsCleared(kontakt_slots=cleared_slots, redacted_aktionen=redacted)
+    return SeatsCleared(kontakt_slots=cleared_slots, redacted_action_log=redacted)
 
 
 async def redact_the_decliner(

@@ -246,7 +246,7 @@ async def read_spiel_editor(
     gebuchter_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
 
     # The rest named by the fixture alone, so read beside one another.
-    saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, bestaetigungen = await asyncio.gather(
+    saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, confirmations = await asyncio.gather(
         # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"]),
         pull_many_from_db(
@@ -297,5 +297,5 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=bestaetigungen.spielbestaetigungen,
+        spielbestaetigungen=confirmations.spielbestaetigungen,
     )

@@ -4,7 +4,7 @@ from typing import Any, NamedTuple
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_nimmt_bewerbungen_an
+from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, saison_takes_bewerbungen
 from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
 from app.api.saisons.services import next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
@@ -75,7 +75,7 @@ async def pull_governing_saison_id(saisons_collection: ReadCollection, session: 
 async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today: str) -> Mapping[str, Any] | None:
     """The season taking applications today, its window and status alone; `None` where none is.
 
-    Judged by `saison_nimmt_bewerbungen_an`, the rule the submission refuses on, over every season not yet ended, and
+    Judged by `saison_takes_bewerbungen`, the rule the submission refuses on, over every season not yet ended, and
     never by a filter restating it, so the landing cannot offer a window the submission refuses. Newest season id
     first, ids being years: two open windows is a state an administrator can create, and an arbitrary pick would move
     between reads.
@@ -86,7 +86,7 @@ async def pull_open_window_saison(*, saisons_collection: AsyncCollection, today:
     )
 
     return next(
-        (raw for raw in candidates if saison_nimmt_bewerbungen_an(saison_status=raw["status"], bewerbung=raw.get("bewerbung"), today=today)),
+        (raw for raw in candidates if saison_takes_bewerbungen(saison_status=raw["status"], bewerbung=raw.get("bewerbung"), today=today)),
         None,
     )
 

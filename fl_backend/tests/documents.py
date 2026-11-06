@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 from bson import ObjectId
 
 from app.api.address_change.services import compose_record
-from app.api.bewerbungen.services import compose_bestaetigungen, compose_einwilligung, confirmation_deadline_from
+from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung
@@ -32,11 +32,11 @@ from app.shared.tokens import hash_token
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
+    "street": "Hanauer Landstraße",
+    "house_number": "12a",
+    "postcode": "60314",
+    "district": "Ostend",
+    "city": "Frankfurt am Main",
 }
 
 _GERMANY: Final = ZoneInfo("Europe/Berlin")
@@ -67,7 +67,7 @@ def confirmed_instant(tag: str) -> str:
 # publishing the name and no media.
 EINWILLIGUNG: Final[Mapping[str, Any]] = compose_initial(
     block={
-        "scope": "kader_oeffentlich",
+        "scope": "kader_public",
         "date": "2026-01-20",
         "confirmed_at": "2026-01-20",
         "media": False,
@@ -309,7 +309,7 @@ def new_schule_document(team_name: str, **fields: Any) -> dict[str, Any]:
 def minted_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
     """An application's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
 
-    return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_bestaetigungen(today=today).items()}
+    return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_confirmations(today=today).items()}
 
 
 def bewerbung_document(
@@ -349,7 +349,7 @@ def bewerbung_document(
         "team_id": team_id,
         "schule": None if schule is None else dict(schule),
         "kontakte": dict(kontakte),
-        "trikot": {"existing_satz": "keiner", "wunschfarbe": "rot"},
+        "trikot": {"existing_set": "keiner", "wunschfarbe": "rot"},
         "kader": {"expected_size": 14, "good_spieler": 3},
         "stufengroesse": 96,
         "wunschgegner": None,
@@ -510,7 +510,7 @@ def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str,
 
     born = compose_initial(
         block={
-            "scope": "kader_oeffentlich",
+            "scope": "kader_public",
             "date": confirmed_at,
             "confirmed_at": confirmed_at,
             "media": False,
