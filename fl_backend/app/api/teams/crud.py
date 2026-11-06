@@ -31,10 +31,12 @@ from app.core.crud import (
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
 )
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLTrikotFarbe
 
 
@@ -292,3 +294,16 @@ async def void_moved_seats(
             update={"$set": {f"kontakte.{seat}": None for seat in seats}},
             session=session,
         )
+
+
+async def pull_saison_team_names(*, saison_teams_collection: ReadCollection, saison_id: str) -> Mapping[CustomObjectId, str]:
+    """Each club of the season by the name it plays that season under, never today's: a list of the season shows that name."""
+
+    rows = await pull_whole_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s clubs",
+        projection=["team_id", "name"],
+    )
+
+    return {row["team_id"]: str(row["name"]) for row in rows}

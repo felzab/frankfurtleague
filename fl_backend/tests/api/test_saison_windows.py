@@ -15,7 +15,7 @@ INSIDE = "2026-04-01"
 class TestTheApplicationWindow:
     """A closed application window taking a submission puts a school in the triage queue the league said it would not take.
 
-    One predicate answers the landing's window, `/window/{saison_id}`, the colour read and the submission: today between
+    One predicate answers the landing's window, `/form/{saison_id}` and the submission: today between
     its two dates, both included, on a season not yet ended, the window not paused.
     """
 

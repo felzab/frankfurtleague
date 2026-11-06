@@ -11,17 +11,14 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
 from app.api.saisons.schemas import FLTeamPageResponse
-from app.api.spieler.admin_router import _as_single
 from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
     FLSpieler,
-    FLSpielerAdminSingleResponse,
-    FLSpielerMembership,
     FLSpielerPublic,
     FLSpielerSingleResponse,
 )
-from app.api.spieler.services import build_spieler_pipeline, build_spieler_saisons_pipeline, public_initial
+from app.api.spieler.services import build_kader_pipeline, build_spieler_pipeline, public_initial
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
@@ -170,11 +167,6 @@ class TestTheBaseTierShape:
         """Each rule is about one READ: the field stays stored and admin-visible, and `FLSpieler` still declares it."""
         assert field in FLSpieler.model_fields
 
-    @pytest.mark.parametrize("field", ["stufe", "team_id", "is_nachnominiert", "rolle", "inactive_since"])
-    def test_the_admin_membership_read_keeps_every_field(self, field: str):
-        """`GET /spieler/saisons` is admin-tier: narrowing it would leave the squad editor unable to read back what it writes."""
-        assert field in FLSpielerMembership.model_fields
-
     def test_the_squad_fields_default_where_the_join_supplies_neither(self):
         """An unnarrowed read joins loosely, and `$project` omits both keys rather than nulling them: required fields would 500 the list."""
         served = FLSpielerPublic.model_validate({"_id": SPIELER_OIDS["Kraus"], "first_name": "Nils", "last_name": "K."})
@@ -196,12 +188,6 @@ class TestTheSinglePlayerShape:
     def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
         assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "first_name", "last_name"}
-
-    def test_the_admin_echo_is_the_public_shape_plus_the_editors_version(self):
-        """Extension rather than a second declaration: the two would otherwise drift on the three fields they share."""
-        extra = set(FLSpielerAdminSingleResponse.model_fields) - set(FLSpielerSingleResponse.model_fields)
-
-        assert extra == {"version"}
 
 
 SQUAD_ROW_ECHO = {
@@ -266,7 +252,7 @@ class TestTheProjection:
 
     def test_only_the_admin_read_tiebreaks_on_the_surname(self):
         """The contrast is the assertion: the admin list orders people by full name and is entitled to."""
-        assert build_spieler_saisons_pipeline()[-1]["$sort"] == {"first_name": 1, "last_name": 1}
+        assert build_kader_pipeline(saison_id=SAISON, team_id=None)[-1]["$sort"] == {"first_name": 1, "last_name": 1, "spieler_id": 1}
 
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
         """With no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
@@ -632,33 +618,6 @@ class TestThePublicationGate:
             "first_name": row.served_first_name,
             "last_name": row.served_last_name,
         }
-
-
-class TestTheAdminEchoIsServedNoMask:
-    """`FLSpielerAdminSingleResponse` extends the narrowed read, so the split holds the echo's forename required."""
-
-    def test_the_echo_carries_a_withheld_person_s_whole_name(self):
-        """Composed by the handler from the stored document, over the row whose public reads serve neither name."""
-        row = MASKED_SQUAD["Intern"]
-        echoed = _as_single({"_id": row.oid, "first_name": row.first_name, "last_name": row.last_name})
-
-        assert (echoed.first_name, echoed.last_name) == (row.first_name, row.last_name)
-
-    def test_the_echo_refuses_a_withheld_forename(self, assert_rejects):
-        """A `null` forename here is the mask having reached the admin editor, and this declaration is what fails first."""
-        body = {"spieler_id": MASKED_SQUAD["Intern"].oid, "last_name": "Gerber"}
-
-        assert_rejects(FLSpielerAdminSingleResponse, {**body, "first_name": None}, "first_name")
-
-    def test_the_public_single_read_takes_the_forename_the_echo_refuses(self):
-        """The contrast is the assertion: the two shapes differ on exactly this field, and the echo extends the public one."""
-        assert FLSpielerSingleResponse(spieler_id=MASKED_SQUAD["Intern"].oid, first_name=None, last_name=None).first_name is None
-
-    def test_the_squad_row_takes_it_too(self):
-        """A required forename on the squad's shape would 500 the whole club page over one withheld row."""
-        served = FLSpielerPublic.model_validate({"_id": MASKED_SQUAD["Intern"].oid, "first_name": None, "last_name": None})
-
-        assert (served.first_name, served.last_name) == (None, None)
 
 
 @pytest.fixture(scope="module")

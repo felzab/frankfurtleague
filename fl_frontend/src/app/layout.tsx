@@ -2,6 +2,7 @@ import "./globals.css";
 
 import { Anton, Inter, Raleway } from "next/font/google";
 
+import { BrandSprite } from "@/kit/BrandSprite";
 import { ThemeColor } from "@/kit/ThemeColor";
 
 import { SITE_URL } from "@/core/brand";
@@ -77,6 +78,7 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
           the page the containing block for every portalled overlay. */}
       {/* Session 8: `fluid-base`, which makes every unsized inherited text fluid, goes with the old pages. */}
       <body className="flex min-h-dvh w-full flex-col bg-background font-primary fluid-base text-foreground antialiased">
+        <BrandSprite />
         <RootProviders>
           <ThemeColor />
           {children}

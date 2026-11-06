@@ -350,16 +350,6 @@ for (const file of filesUnder(FEATURES_DIR, (name) => name === "facets.ts", 1)) 
   for (const [name, value] of Object.entries(loaded)) {
     if (isFacetArray(value)) discovered.push([`${slice}/${name}`, value]);
   }
-
-  // The spieler slice's team facet is assembled per call, so the discovered constant does not contain it.
-  // Calling the builder with a sample club puts it under the same checks as every other facet.
-  const builder = loaded["buildSpielerFacets"];
-  if (typeof builder === "function") {
-    const built: unknown = (builder as (teams: readonly { teamId: string; name: string; shorthand: string }[]) => unknown)([
-      { teamId: "6890a1b2c3d4e5f607190001", name: "Helmholtz", shorthand: "HE" },
-    ]);
-    if (isFacetArray(built)) discovered.push([`${slice}/buildSpielerFacets(...)`, built]);
-  }
 }
 
 describe("every facet set in the app", () => {

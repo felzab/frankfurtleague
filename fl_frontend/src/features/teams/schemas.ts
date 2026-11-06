@@ -13,7 +13,7 @@ export const FLGruppenNamesSchema = z.enum(FLGruppenNames, { error: "Bitte wähl
  * No German error: the club editor offers `Keine Angabe` beside the six, so an unanswered picker is a null the field
  * accepts rather than a refusal.
  */
-export const FLSchulformSchema = z.enum(FLSchulform, {
+const FLSchulformSchema = z.enum(FLSchulform, {
   // Named rather than enumerated: the picker is already showing the six, and Zod's own default
   // answers a person by listing the slugs the wire uses.
   error: "Bitte wähle eine Schulform.",
@@ -32,6 +32,6 @@ export const FLTrikotFarbeSchema = z.enum(FLTrikotFarbe, {
  * Which OTHER seat the Trainer also holds. One nullable field rather than two flags, which would let a row claim both
  * seats at once.
  */
-export const FLTrainerZugleichSchema = z.enum(FLTrainerAlso, {
+const FLTrainerZugleichSchema = z.enum(FLTrainerAlso, {
   error: "Bitte wähle, wer zugleich Trainerin oder Trainer ist.",
 });

@@ -6,7 +6,6 @@ from fastapi import APIRouter, Body, Depends, Header
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
@@ -14,11 +13,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungViewResponse,
     FLBewerbungFormResponse,
     FLBewerbungFormWindow,
-    FLBewerbungNoWindowResponse,
-    FLBewerbungSchulenResponse,
     FLBewerbungSchuleOptionListAdapter,
-    FLBewerbungTrikotFarbenResponse,
-    FLBewerbungWindowResponse,
     FLEinwilligungAnswerResponse,
     FLPostBewerbungPayload,
     FLSaisonTeamEinwilligungAnswerResponse,
@@ -85,7 +80,7 @@ from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     BewerbungenCollection,
@@ -140,17 +135,6 @@ WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
-async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> tuple[Mapping[str, Any] | None, Any]:
-    """One season's application window, `None` where it records none, beside its status."""
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=WINDOW_PROJECTION)
-    window = saison_raw.get("bewerbung")
-
-    # The status travels beside the window and is served only as whether it is `past`: that season
-    # takes no application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
-    return window, saison_raw["status"]
-
-
 @router.get("/form/{saison_id}", response_model=FLBewerbungFormResponse, summary="What one Saison's application form shows")
 async def get_form(
     saison_id: str, saisons_collection: SaisonsReadCollection, today: str = Depends(get_german_date_str)
@@ -181,94 +165,6 @@ async def get_form(
         schulen=FLBewerbungSchuleOptionListAdapter.validate_python(saison_raw["schulen"]) if running else [],
         taken=assigned_trikot_farben(stored=[row["_id"] for row in saison_raw["colours"]]) if running else [],
     )
-
-
-@router.get(
-    "/window/{saison_id}",
-    response_model=FLBewerbungWindowResponse | FLBewerbungNoWindowResponse,
-    summary="One Saison's application window",
-)
-async def get_window(
-    saison_id: str, saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)
-) -> FLBewerbungWindowResponse | FLBewerbungNoWindowResponse:
-    """
-    Return one season's application window, or that it records none; 404 only where no season carries the id.
-
-    A CLOSED window is served rather than hidden: the page says the deadline has passed, which a
-    404 could not tell from a mistyped id. A season with no window recorded is served for the same
-    reason, and its existence is the whole of what this tier learns about it.
-    """
-
-    bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
-    if bewerbung is None:
-        return FLBewerbungNoWindowResponse(saison_id=saison_id, window=None)
-
-    return FLBewerbungWindowResponse(
-        saison_id=saison_id,
-        start=str(bewerbung["start"]),
-        end=str(bewerbung["end"]),
-        running=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
-        saison_ended=season_has_ended(saison_status=saison_status),
-    )
-
-
-@router.get("/schulen", response_model=FLBewerbungSchulenResponse, summary="The clubs a public application may name")
-async def get_schulen(teams_collection: TeamsCollection) -> FLBewerbungSchulenResponse:
-    """
-    Every club still in the league, as `{id, name}` and nothing else, sorted by name.
-
-    `FLBewerbungSchuleOption` decides the wire (`READ-BEWERBUNG-001`) and the projection below
-    decides what leaves the database. Both are pinned.
-    """
-
-    # Retired clubs are out: the picker offers what a school may apply AS, and a club that left the
-    # league is not one. `find_picked_club_refusal` refuses the same set at the write.
-
-    # Both layers narrow: this one keeps a club's address from crossing the wire at all, where the
-    # model would drop it only after it had.
-    teams_raw = await pull_many_from_db(
-        collection=teams_collection, db_filter={"inactive_since": None}, sort_by=[("name", 1)], projection=["name"]
-    )
-
-    return FLBewerbungSchulenResponse(schulen=FLBewerbungSchuleOptionListAdapter.validate_python(teams_raw))
-
-
-@router.get(
-    "/trikotfarben/{saison_id}",
-    response_model=FLBewerbungTrikotFarbenResponse,
-    summary="The kit colours a Saison has already assigned",
-)
-async def get_trikotfarben(
-    saison_id: str,
-    saisons_collection: SaisonsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    today: str = Depends(get_german_date_str),
-) -> FLBewerbungTrikotFarbenResponse:
-    """
-    Answer which kit colours this season has assigned, so the form can offer the rest.
-
-    404 unless that season takes applications today, which is the one state the form reads this in.
-    The SET alone, naming no club (`READ-BEWERBUNG-001`).
-    """
-
-    # Not `resolve_public_saison`, which would 404 every season this read exists for: one taking
-    # applications is `future`. Whether it takes applications gates it instead, so
-    # the carve-out stays the window reads' own.
-    bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
-
-    # `saison_nimmt_bewerbungen_an`, the judgement the landing's window, `/window/{saison_id}` and the submission
-    # already take: one spelling of "this season is taking applications", so a second cannot drift from it.
-    if not saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
-        raise DocumentNotFoundError()
-
-    # `distinct`, never a document read: what leaves the database is the field's values, so no
-    # projection or response model stands between a club's row and this body.
-
-    # A row a club LEFT the season on still holds its colour, and this makes no exception for one:
-    # the assignment stands until an administrator clears it, which is the set the admin sees too.
-    stored = await saison_teams_collection.distinct("trikot_farbe", {"saison_id": saison_id})
-
-    return FLBewerbungTrikotFarbenResponse(saison_id=saison_id, taken=assigned_trikot_farben(stored=stored))
 
 
 async def _any_barred(*, ban_list: BanList, hashed: Sequence[str], governing_saison_id: str | None, session: AsyncClientSession) -> bool:

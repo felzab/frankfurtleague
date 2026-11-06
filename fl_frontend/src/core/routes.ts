@@ -295,19 +295,23 @@ export const ROUTES = {
     title: COPY.page.teams,
     crawl: "disallow",
   },
-  /** One club in one season, named by the club. */
+  /** A club's editor in one season, named by the club. */
   adminTeam: {
     path: (saison: string, team: string) => `/admin/saisons/${saison}/teams/${team}` as const,
     title: null,
     crawl: "disallow",
   },
-  // Session 6: its page is built.
   adminSpieler: {
     path: (saison: string) => `/admin/saisons/${saison}/spieler` as const,
     title: COPY.page.adminSpieler,
     crawl: "disallow",
   },
-  // Session 6: its page is built.
+  /** A player's editor in one season, named by the player: the list's word is the person's too, so the key names the record. */
+  adminSpielerRecord: {
+    path: (saison: string, spieler: string) => `/admin/saisons/${saison}/spieler/${spieler}` as const,
+    title: null,
+    crawl: "disallow",
+  },
   adminRegistrierungen: {
     path: (saison: string) => `/admin/saisons/${saison}/registrierungen` as const,
     title: COPY.page.registrierungen,

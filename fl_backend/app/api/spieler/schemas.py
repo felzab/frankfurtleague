@@ -8,7 +8,6 @@ from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, Cu
 from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpielerTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
-    FLAddressChangeViewableDenied,
     FLEinwilligungScope,
     FLSpielerPosition,
     FLSpielerStufe,
@@ -174,24 +173,6 @@ class FLSaisonSpielerRecord(FLSaisonSpielerRow):
     idempotency_fingerprint: str | None = None
 
 
-class FLPatchSpielerPayload(BaseModel):
-    """Replaces the person's names WHOLESALE.
-
-    The handler `$set`s this model's dump, so a field with a default would let a form that forgot it
-    write that default over a stored value.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    first_name: CustomKontaktName
-    last_name: CustomKontaktName | None
-    # Never null: every person carries the date of their own registration, and a save clearing it
-    # would leave one whose age no page can read.
-    birth_date: CustomDateString
-    # The `version` the editor was served; absent, the save is checked against nothing.
-    version: int | None = None
-
-
 class FLSpielerSingleResponse(BaseAPIResponse):
     """One player as the BASE TIER serves them -- an allow-list of what this surface needs.
 
@@ -204,17 +185,6 @@ class FLSpielerSingleResponse(BaseAPIResponse):
     # (`READ-PUPIL-003`), and the admin echo below re-declares the forename it is served whole.
     first_name: str | None
     last_name: str | None
-
-
-class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
-    """The same player echoed back to the admin who just wrote them, with their whole name."""
-
-    # Required again where the public read narrowed it: this tier is served no mask, so an echo
-    # answering `null` here is the mask having reached the admin editor, and this line fails first.
-    first_name: CustomNonEmptyString
-
-    # The writes counted so far, which the editor's save sends back.
-    version: int = 0
 
 
 class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
@@ -230,52 +200,65 @@ class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
     version: int = 0
 
 
-class FLSpielerMembership(_SaisonSpielerWritable, BaseReadModel):
-    """One squad row as seen from its player.
+class FLSpielerAdminRow(BaseReadModel):
+    """One squad row as the Spieler list shows it: the person's name and nothing else of them."""
 
-    Carries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,
-    where a team never leaves a season at all.
-    """
-
+    spieler_id: CustomObjectId
+    first_name: CustomNonEmptyString
+    last_name: str | None
+    team_id: CustomObjectId
+    # The name the club plays the season under; null for a row whose club no longer stands in the season, a replacement
+    # having taken it out.
+    team_name: str | None
+    # As stored, for `FLSaisonSpielerRow.nummer`'s reason.
+    nummer: str | None
+    stufe: FLSpielerStufe | None
     is_nachnominiert: bool
-
-    saison_id: str
     inactive_since: CustomOptionalDateString
-    # The writes counted so far, which the editor's save sends back.
-    version: int = 0
+    # Judged within the row's own squad: two clubs' number 7 are two shirts.
+    nummer_double: bool
 
 
-class FLSpielerWithMemberships(_SpielerPerson, BaseReadModel):
-    """The person as stored, plus every squad row they hold.
+class FLSpielerAdminListResponse(BaseAPIResponse):
+    """One season's squad rows, every team's, live and ausgetragen alike, sorted by name."""
 
-    A DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one
-    season, so a player in two comes back as two indistinguishable rows.
-    """
+    spieler: list[FLSpielerAdminRow]
 
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
-    # Every person carries the date of their own registration, and this read serves no sentinel.
+class FLSpielerSaisonPerson(_SpielerPerson, BaseReadModel):
+    """The person as the editor shows them: their own record, which outlives the season."""
+
     birth_date: CustomDateString
-    # On the PERSON: consent is given by somebody, not per season. Never null: this read serves no
-    # sentinel, and every person is born of their own confirmed registration.
+    # Read-only here: only the person's own writes grant it.
     einwilligung: FLEinwilligung
-    # Served here and withheld from the base tier, as the record above is: this read is the admin
-    # editor's, and an address is the person's own. Never null: the admission writes one.
     email: str
-    # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look fails
-    # rather than hiding a change as none.
-    address_change_id: CustomObjectId | None
-    # The writes counted so far, which the editor's save sends back.
-    version: int = 0
-    # Why the address tool refuses that change this administrator; null where it opens it or none stands.
-    address_change_viewable_denied: FLAddressChangeViewableDenied | None
-    memberships: list[FLSpielerMembership]
 
 
-class FLSpielerSaisonsResponse(BaseAPIResponse):
-    """Every player, each with their squad rows. Sorted by name."""
+class FLSpielerSaisonKader(_SaisonSpielerWritable, BaseReadModel):
+    """The squad row the editor stands on, with the name its club plays the season under."""
 
-    spieler: list[FLSpielerWithMemberships]
+    team_name: str | None
+    is_nachnominiert: bool
+    inactive_since: CustomOptionalDateString
+
+
+class FLSpielerSaisonAdminResponse(BaseAPIResponse):
+    """What the Spieler editor shows in one read: the person, their row of the season, and what its boxes may offer."""
+
+    # The one count this page saves on (`app/core/crud.py :: composite_version`).
+    version: int = Field(ge=0)
+    person: FLSpielerSaisonPerson
+    kader: FLSpielerSaisonKader
+    # What the Stufe box may offer, beside a value the row already holds (`kader_stufe_not_allowed`).
+    allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
+    # The roles another live row of the squad holds (`kader_rolle_taken`).
+    taken_rollen: list[FLSpielerRolle]
+
+
+class FLPatchSpielerSaisonResponse(BaseAPIResponse):
+    """The count the editor's next save sends."""
+
+    version: int = Field(ge=0)
 
 
 class FLKaderRow(BaseAPIResponse):
@@ -316,10 +299,11 @@ class FLKaderResponse(BaseAPIResponse):
     kader: list[FLKaderRow]
 
 
-class FLPatchKaderRowPayload(BaseModel):
-    """What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.
+class _KaderRowFields(BaseModel):
+    """What an edit may change on a squad row, WHOLESALE.
 
-    No player moves between teams, so `extra="forbid"` refuses `team_id`; it is also what refuses
+    The handler `$set`s these, so a field with a default would let a form that forgot it write that default over a
+    stored value. No player moves between teams, so `extra="forbid"` refuses `team_id`; it is also what refuses
     `is_nachnominiert`, which no edit sets or clears.
     """
 
@@ -331,8 +315,28 @@ class FLPatchKaderRowPayload(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None
+
+
+class FLPatchKaderRowPayload(_KaderRowFields):
+    """A seat holder's edit of a squad row."""
+
     # The `version` the editor was served; absent, the save is checked against nothing.
     version: int | None = None
+
+
+class FLPatchSpielerSaisonPayload(_KaderRowFields):
+    """The Spieler editor's one save: the person, and their squad row in the season the page stands under.
+
+    Replaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.
+    """
+
+    first_name: CustomKontaktName
+    last_name: CustomKontaktName | None
+    # Never null: every person carries the date of their own registration, and a save clearing it
+    # would leave one whose age no page can read.
+    birth_date: CustomDateString
+    # `FLSpielerSaisonAdminResponse.version` as the editor read it.
+    version: int = Field(ge=0)
 
 
 class FLSpielerSelfKaderRow(BaseModel):

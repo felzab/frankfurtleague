@@ -54,12 +54,8 @@ import type {
   FLBewerbungFormResponse,
   FLBewerbungKontaktSeatPayload,
   FLBewerbungKontaktSeatResponse,
-  FLBewerbungNoWindowResponse,
-  FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungSweepResponse,
-  FLBewerbungTrikotFarbenResponse,
-  FLBewerbungWindowResponse,
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
   FLDeclineBewerbungResponse,
@@ -106,7 +102,8 @@ import type {
   FLPatchSchiedsrichterResponse,
   FLPatchSpielDataPayload,
   FLPatchSpielDataResponse,
-  FLPatchSpielerPayload,
+  FLPatchSpielerSaisonPayload,
+  FLPatchSpielerSaisonResponse,
   FLPatchSpielortPayload,
   FLPatchSpielortResponse,
   FLPatchSpieltagPayload,
@@ -135,7 +132,7 @@ import type {
   FLRegistrierungConfirmationViewResponse,
   FLRegistrierungDeclinePayload,
   FLRegistrierungDeclineResponse,
-  FLRegistrierungenListResponse,
+  FLRegistrierungenAdminListResponse,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
@@ -176,8 +173,8 @@ import type {
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungViewResponse,
   FLSpieleAdminSingleResponse,
-  FLSpielerAdminSingleResponse,
-  FLSpielerSaisonsResponse,
+  FLSpielerAdminListResponse,
+  FLSpielerSaisonAdminResponse,
   FLSpielerSelfResponse,
   FLSpielerSingleResponse,
   FLSpieleSingleResponse,
@@ -206,13 +203,14 @@ import type {
   FLUndrawSpielplanResponse,
   IdentitySweepErasureParams,
   RegistrierungenGetOpenRegistrierungenParams,
-  RegistrierungenGetRegistrierungenParams,
+  RegistrierungenGetRegistrierungenAdminParams,
   SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpielberichteGetSpielberichteParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
+  SpielerGetSpielerAdminParams,
   SpielorteGetSpielorteParams,
   SpieltageGetSpieltageAdminParams,
   TeamsGetTeamParams,
@@ -1005,24 +1003,6 @@ export const bewerbungenGetBewerbungenAdmin = async (
   });
 };
 
-export const getBewerbungenGetSchulenUrl = () => {
-  return `/api/v0/bewerbungen/schulen`;
-};
-
-/**
- * Every club still in the league, as `{id, name}` and nothing else, sorted by name.
- *
- * `FLBewerbungSchuleOption` decides the wire (`READ-BEWERBUNG-001`) and the projection below
- * decides what leaves the database. Both are pinned.
- * @summary The clubs a public application may name
- */
-export const bewerbungenGetSchulen = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungSchulenResponse> => {
-  return baseKeyTransport<FLBewerbungSchulenResponse>(getBewerbungenGetSchulenUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getBewerbungenGetSweepSaisonsUrl = () => {
   return `/api/v0/bewerbungen/sweep`;
 };
@@ -1056,49 +1036,6 @@ export const bewerbungenSweepSaison = async (
   return systemKeyTransport<FLBewerbungSweepResponse>(getBewerbungenSweepSaisonUrl(saisonId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getBewerbungenGetTrikotfarbenUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/trikotfarben/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Answer which kit colours this season has assigned, so the form can offer the rest.
- *
- * 404 unless that season takes applications today, which is the one state the form reads this in.
- * The SET alone, naming no club (`READ-BEWERBUNG-001`).
- * @summary The kit colours a Saison has already assigned
- */
-export const bewerbungenGetTrikotfarben = async (
-  saisonId: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungTrikotFarbenResponse> => {
-  return baseKeyTransport<FLBewerbungTrikotFarbenResponse>(getBewerbungenGetTrikotfarbenUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getBewerbungenGetWindowUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/window/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Return one season's application window, or that it records none; 404 only where no season carries the id.
- *
- * A CLOSED window is served rather than hidden: the page says the deadline has passed, which a
- * 404 could not tell from a mistyped id. A season with no window recorded is served for the same
- * reason, and its existence is the whole of what this tier learns about it.
- * @summary One Saison's application window
- */
-export const bewerbungenGetWindow = async (
-  saisonId: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungWindowResponse | FLBewerbungNoWindowResponse> => {
-  return baseKeyTransport<FLBewerbungWindowResponse | FLBewerbungNoWindowResponse>(getBewerbungenGetWindowUrl(saisonId), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -2055,29 +1992,6 @@ export const outboxPostSignIn = async (
   });
 };
 
-export const getRegistrierungenGetRegistrierungenUrl = (params?: RegistrierungenGetRegistrierungenParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/registrierungen?${stringifiedParams}` : `/api/v0/registrierungen`;
-};
-
-/**
- * Every pending registration, newest first, narrowed by season, team and status.
- *
- * `complete` is false where more rows exist than one read serves, `confirmed` says whether the pupil answered their own
- * link, and a barred decision's author is served as `null` beside `decision.by_barred`.
- * @summary List Registrierungen
- */
-export const registrierungenGetRegistrierungen = async (
-  params?: RegistrierungenGetRegistrierungenParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungenListResponse> => {
-  return adminKeyTransport<FLRegistrierungenListResponse>(getRegistrierungenGetRegistrierungenUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getRegistrierungenPostRegistrierungUrl = () => {
   return `/api/v0/registrierungen`;
 };
@@ -2290,6 +2204,30 @@ export const registrierungenGetOpenRegistrierungen = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLOpenRegistrierungenResponse> => {
   return adminKeyTransport<FLOpenRegistrierungenResponse>(getRegistrierungenGetOpenRegistrierungenUrl(teamId, saisonId, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getRegistrierungenGetRegistrierungenAdminUrl = (params: RegistrierungenGetRegistrierungenAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/v0/registrierungen/list/admin?${stringifiedParams}` : `/api/v0/registrierungen/list/admin`;
+};
+
+/**
+ * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
+ *
+ * Read whole, as every list but the Protokoll is, the page narrowing what it holds; a declined row waits out its month
+ * and asks nothing of an administrator. `confirmed` says whether the pupil answered their own link. 404 where no season
+ * holds that id.
+ * @summary One Saison's pending Registrierungen for its list
+ */
+export const registrierungenGetRegistrierungenAdmin = async (
+  params: RegistrierungenGetRegistrierungenAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLRegistrierungenAdminListResponse> => {
+  return adminKeyTransport<FLRegistrierungenAdminListResponse>(getRegistrierungenGetRegistrierungenAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4255,22 +4193,24 @@ export const spielerPatchKaderRow = async (
   });
 };
 
-export const getSpielerGetSpielerSaisonsUrl = () => {
-  return `/api/v0/spieler/saisons`;
+export const getSpielerGetSpielerAdminUrl = (params: SpielerGetSpielerAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/v0/spieler/list/admin?${stringifiedParams}` : `/api/v0/spieler/list/admin`;
 };
 
 /**
- * Every player, each with every squad row they hold.
+ * The Spieler page in one read: every squad row of the season, live and ausgetragen alike, each named and with its club.
  *
- * A club page's squad cannot answer it: it serves one team's squad in one season, and so never a
- * player outside that squad or their other rows.
- *
- * `address_change_id` names the live change of the pupil's address, which the address tool shows, and
- * `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.
- * @summary Every Spieler with their squad rows
+ * Read whole, as every list but the Protokoll is, the page narrowing what it holds. `nummer_double` marks a live row
+ * whose number another live row of its own squad wears, compared as stored. 404 where no season holds that id.
+ * @summary One Saison's squad rows for its list
  */
-export const spielerGetSpielerSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSaisonsResponse> => {
-  return adminKeyTransport<FLSpielerSaisonsResponse>(getSpielerGetSpielerSaisonsUrl(), {
+export const spielerGetSpielerAdmin = async (
+  params: SpielerGetSpielerAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerAdminListResponse> => {
+  return adminKeyTransport<FLSpielerAdminListResponse>(getSpielerGetSpielerAdminUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4314,39 +4254,6 @@ export const spielerGetSpielerById = async (
   });
 };
 
-export const getSpielerPatchSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}`;
-};
-
-/**
- * Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document.
- * @summary Update a Spieler's name
- */
-export const spielerPatchSpieler = async (
-  spielerId: string,
-  fLPatchSpielerPayload: FLPatchSpielerPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerAdminSingleResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerPatchSpielerUrl(spielerId), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSpielerPayload),
-  });
-};
-
 export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
   return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
@@ -4355,7 +4262,7 @@ export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: st
  * Take a player out of a season's squad. SOFT: the row stays.
  *
  * The row records that this player wore this number in this squad, which stays true after they
- * leave. `GET /spieler/saisons` is where an admin reads it back, marked by `inactive_since`.
+ * leave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.
  * @summary Remove a Spieler from a squad
  */
 export const spielerDeleteSaisonSpieler = async (
@@ -4369,23 +4276,50 @@ export const spielerDeleteSaisonSpieler = async (
   });
 };
 
-export const getSpielerPatchSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
+export const getSpielerGetSpielerSaisonUrl = (spielerId: string, saisonId: string) => {
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
 };
 
 /**
- * Update a player's squad entry for that season. The team stays the stored row's: no player moves between teams.
+ * Return what the Spieler editor shows in one read: the person, their squad row of the season, and what its boxes offer.
  *
- * A DUPLICATE `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose); a `rolle`
- * another live row holds is not (`kader_rolle_taken`).
- * @summary Update a squad entry
+ * `version` is what the one save sends. `allowed_stufen` is what the season's rules offer, `taken_rollen` each role
+ * another live row of the squad holds. Read outside a transaction: a write landing under this read is judged by its own
+ * write. 404 where no person, no season or no squad row of the person in that season holds those ids: the page stands
+ * under a season, and a person out of its squad is no row of that season's list.
+ * @summary What the Spieler editor shows, in one read
  */
-export const spielerPatchSaisonSpieler = async (
+export const spielerGetSpielerSaison = async (
   spielerId: string,
   saisonId: string,
-  fLPatchKaderRowPayload: FLPatchKaderRowPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonSpielerResponse> => {
+): Promise<FLSpielerSaisonAdminResponse> => {
+  return adminKeyTransport<FLSpielerSaisonAdminResponse>(getSpielerGetSpielerSaisonUrl(spielerId, saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSpielerPatchSpielerSaisonUrl = (spielerId: string, saisonId: string) => {
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+};
+
+/**
+ * Save the Spieler editor's one version: the person's own facts and their squad row of the season.
+ *
+ * The team stays the stored row's: no player moves between teams. Refused `version_stale` once the person or the row has
+ * moved since the editor read them, whichever it was; `kader_stufe_not_allowed` for a `stufe` the season's rules do not
+ * offer unless the row already holds it; `kader_rolle_taken` for a `rolle` another live row of the squad holds. A shared
+ * `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose). 404 where the person holds no row of the
+ * season. No fan-out: unlike a team or a venue, a person is embedded in no other document.
+ * @summary Save the Spieler editor: the person and their squad row of the season, in one transaction
+ */
+export const spielerPatchSpielerSaison = async (
+  spielerId: string,
+  saisonId: string,
+  fLPatchSpielerSaisonPayload: FLPatchSpielerSaisonPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchSpielerSaisonResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4398,11 +4332,11 @@ export const spielerPatchSaisonSpieler = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerPatchSaisonSpielerUrl(spielerId, saisonId), {
+  return adminKeyTransport<FLPatchSpielerSaisonResponse>(getSpielerPatchSpielerSaisonUrl(spielerId, saisonId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchKaderRowPayload),
+    body: JSON.stringify(fLPatchSpielerSaisonPayload),
   });
 };
 

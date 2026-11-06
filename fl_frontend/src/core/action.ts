@@ -177,6 +177,9 @@ type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLa
 const STALE: ReadonlySet<Code> = new Set<Code>([
   "document_not_found",
   "version_stale",
+  // A season narrowed, or a club a replacement took out of it, since the page offering the Stufe or the row's return was read.
+  "kader_stufe_not_allowed",
+  "kader_team_not_in_saison",
   "wiring_unsupported",
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
@@ -235,6 +238,9 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // The replacement's incoming club retired since the page listed it, which lists none retired.
   "team_retired",
   "invitation_team_not_entered",
+  // The application's window shut, or its picked club went, since the form was read.
+  "bewerbung_window_closed",
+  "bewerbung_picked_team_unusable",
   // A referee's fresh link, which the editor offers only to a live entry with an address and no answer yet: the
   // referee moved since the page was served.
   "schiedsrichter_retired",

@@ -199,7 +199,7 @@ async def get_bewerbungen(
     # without a count, and counting the filtered set is the unbounded work this read must not do.
 
     # The projection keeps the token hashes from crossing the wire at all, where the read model
-    # would drop them only after they had (`app/api/bewerbungen/public_router.py :: get_schulen`).
+    # would drop them only after they had (`app/api/bewerbungen/services.py :: build_form_pipeline`).
     read = await pull_many_from_db(
         collection=bewerbungen_collection,
         db_filter={**beyond_status, **beyond_saison},

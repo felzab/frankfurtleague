@@ -1,27 +1,31 @@
 // SCRIPTS · the made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
 //
-// Two seasons, eight clubs, five venues, four referees the fixtures book and the journeys' own people, an
+// Three seasons, ten clubs, five venues, four referees the fixtures book and the journeys' own people, an
 // owner and four administrators, every one of them invented, so no machine needs production's personal
 // data to show a page in each of its states. The states are the ones the Spielplan, the sign-in, the
-// match editor and the Spielorte table draw:
+// match editor, the Spielorte table and the applications, teams and players pages draw:
 //
 // - a finished season: every fixture played, the match for third place among them, the final decided on
 //   penalties;
 // - the running season: a played matchday holding a forfeit, today's matchday holding a played, an
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
-//   round drawn but not yet decided;
+//   round drawn but not yet decided; its registration link open past the window's end, one squad at its
+//   cap beside a nominee and a retired nominee, and a departed club with an open fixture and a live link;
+// - a planned season: its application window open today, one group full and one with room, and
+//   applications whose seats stand in every state;
 // - venues with and without rent, one retired and one with a name long enough to test a row's width;
 //   referees, every one with the address both referee payloads require, one retired and one unanswered;
 // - one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the
 //   Übersicht for „Übernehmen“ and „Verwerfen“;
-// - an owner and four administrators.
+// - an owner and four administrators;
+// - a retired club, and clubs still in the league the planned season has not entered.
 //
 // Every journey that writes signs in as a person no other journey signs in as, since one journey's
 // writes would change what another reads (https://playwright.dev/docs/auth). One administrator per
 // end-to-end project (`fl_frontend/playwright.config.ts`), the third the desktop journey's whose save
 // meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
-// administration's journey's (`fl_frontend/e2e/desktop/admin.spec.ts`): each sets up its own
-// passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
+// administration's journeys' one session, set up once (`fl_frontend/e2e/support/administrator.setup.ts`): each sets up
+// its own passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
 // journey's, are the account acts' three per project and the desktop passkey journeys' two. The owner's
 // code is asked for and never typed (`fl_frontend/e2e/signin.spec.ts`).
 //
@@ -38,11 +42,14 @@
 //   null rather than left out, and the copies a fixture embeds taken from the row they copy.
 // - It empties every collection of the application database first and never touches `auth`, the
 //   sign-in store the frontend keeps beside it.
+// - Every link a seat, a registration or an invitation holds opens at `?token=made-up-<label>`, `linkHash`'s label,
+//   so a drive reads each state of a link page. The token is no secret: its hash stands in this made-up stack alone.
 
 /* global db, ObjectId, print, require */
 
 const GERMANY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" });
 const DAY_MS = 24 * 60 * 60 * 1000;
+const { createHash } = require("crypto");
 
 // `en-CA` spells a date as the stored `YYYY-MM-DD`; the arithmetic runs on that day's UTC midnight,
 // so a daylight-saving change between today and the offset moves no date.
@@ -53,25 +60,37 @@ function day(offset) {
   return new Date(Date.parse(`${TODAY}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10);
 }
 
+/** The hash of the link `?token=made-up-<label>` opens, as `fl_backend/app/shared/tokens.py :: hash_token` stores one. */
+function linkHash(label) {
+  return createHash("sha256").update(`made-up-${label}`, "utf8").digest("hex");
+}
+
 function address(strasse, hausnummer, plz, stadtteil) {
   return { strasse, hausnummer, plz, stadtteil, stadt: "Frankfurt am Main" };
 }
 
 // --- The clubs -----------------------------------------------------------------------------------
 
-const CLUBS = ["Ahorn", "Birke", "Eiche", "Linde", "Ulme", "Esche", "Kastanie", "Weide"].map((name, index) => ({
-  _id: ObjectId(),
-  name,
-  shorthand: name.slice(0, 3).toUpperCase(),
-  description: "",
-  full_name: `${name}-Gymnasium`,
-  website_url: null,
-  address: address("Schulweg", String(index + 1), `6031${index}`, "Nordend"),
-  schulform: index % 2 === 0 ? "gymnasium_g9" : "gesamtschule",
-  inactive_since: null,
-}));
+function clubRow(name, index) {
+  return {
+    _id: ObjectId(),
+    name,
+    shorthand: name.slice(0, 3).toUpperCase(),
+    description: "",
+    full_name: `${name}-Gymnasium`,
+    website_url: null,
+    address: address("Schulweg", String(index + 1), `6031${index}`, "Nordend"),
+    schulform: index % 2 === 0 ? "gymnasium_g9" : "gesamtschule",
+    inactive_since: null,
+  };
+}
+
+// Pappel joined through its application for the planned season. Buche left the league and stands in no season, the
+// retired filter being the one way back to it.
+const CLUBS = ["Ahorn", "Birke", "Eiche", "Linde", "Ulme", "Esche", "Kastanie", "Weide", "Pappel", "Buche"].map(clubRow);
 
 const club = Object.fromEntries(CLUBS.map((row) => [row.name, row]));
+club.Buche.inactive_since = day(-400);
 
 // --- Venues and referees -------------------------------------------------------------------------
 
@@ -470,39 +489,110 @@ const running = season({
   },
 });
 
+// The registration window ended the day before the season began, and its link stays open: an entry now is a nominee
+// (`fl_backend/app/api/saisons/services.py :: entry_is_a_nominee`).
+running.saison.registrierung = { open: true, end: day(-36) };
+
+// --- A seat's person and link ---------------------------------------------------------------------
+
+// Every phone its own: the form refuses two people one number (`the_distinct_people_share_no_email_or_telephone`).
+let seatedPeople = 0;
+
+/** A person as the form or the league seats them, nobody having answered (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`). */
+function seated(firstName, lastName, enteredOn, enteredBy, email = `${firstName}.${lastName}@example.com`.toLowerCase()) {
+  seatedPeople += 1;
+  return {
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    phone: `+49 170 ${2000000 + seatedPeople}`,
+    birth_date: null,
+    einwilligung: { scope: "kontaktdaten", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
+  };
+}
+
+/**
+ * The same person after their own link (`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation_update`): no
+ * WhatsApp and no media, each choice evidenced under a seat's wordings
+ * (`fl_backend/app/shared/schemas/einwilligung.py :: FLSeatTextVersions`).
+ */
+function confirmedPerson(person, answeredOn) {
+  const receipt = (textVersion) => ({ at: `${day(answeredOn)}T10:00:00+00:00`, text_version: textVersion });
+  return {
+    ...person,
+    birth_date: day(-40 * 365),
+    einwilligung: {
+      ...person.einwilligung,
+      confirmed_at: day(answeredOn),
+      evidence: { scope: receipt("2026-11-whatsapp-1"), media: receipt(LABELS.media) },
+    },
+  };
+}
+
+/**
+ * A seat's bookkeeping beside its slot. An application's link takes one reminder
+ * (`fl_backend/app/api/bewerbungen/services.py :: compose_bestaetigung`); a season row's is chased by nothing, and its
+ * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_bestaetigung`).
+ */
+function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn = null } = {}) {
+  return {
+    token_hashes: [linkHash(label)],
+    sent_at: day(sentOn),
+    deadline: day(sentOn + LINK_DAYS),
+    ...(reminded ? { reminded_at: remindedOn === null ? null : day(remindedOn) } : {}),
+    declined_at: declinedOn === null ? null : day(declinedOn),
+  };
+}
+
+// Each state a seat stands in, as the pair of its slot and its entry, built from the `mail` `seats` hands it.
+const openSeat =
+  (firstName, lastName, { sentOn, remindedOn, email } = {}) =>
+  (mail) => {
+    const link = { ...mail, sentOn: sentOn ?? mail.sentOn };
+    return [seated(firstName, lastName, link.sentOn, mail.enteredBy, email), seatLink(link, { remindedOn })];
+  };
+const confirmedSeat = (firstName, lastName) => (mail) => [
+  confirmedPerson(seated(firstName, lastName, mail.sentOn, mail.enteredBy), mail.sentOn + 1),
+  seatLink(mail),
+];
+// A Widerspruch empties the slot and keeps its day beside it.
+const objectedSeat = (declinedOn) => (mail) => [null, seatLink(mail, { declinedOn })];
+// An erasure takes the slot and the entry with it.
+const erasedSeat = () => () => [null, null];
+
+/** The two blocks a record's seats fill. A Trainer's second seat is that person's, one link answering both. */
+function seats(mail, states, trainerIsAlso = null) {
+  const filled = Object.fromEntries(Object.entries(states).map(([seat, state]) => [seat, state({ ...mail, label: `${mail.owner}-${seat}` })]));
+  const every = trainerIsAlso === null ? filled : { ...filled, [trainerIsAlso]: filled.trainer };
+  const part = (index) => Object.fromEntries(Object.entries(every).map(([seat, pair]) => [seat, pair[index]]));
+  return { kontakte: { ...part(0), trainer_is_also: trainerIsAlso }, confirmations: part(1) };
+}
+
+function rowSeats(owner, sentOn, states) {
+  return seats({ owner, sentOn, enteredBy: "liga", reminded: false }, states);
+}
+
 // --- A club out of the running season, and a report on its first match ---------------------------
 
-// Weide stayed away from match 3 and is disqualified since: it keeps its group place and its drawn fixtures, as a
-// departed club does (`docs/domain.md`, "A departed club holding drawn fixtures").
-running.saisonTeams.find((row) => row.name === "Weide").austritt = {
-  type: "disqualifikation",
-  reason: "Nicht zum Spiel angetreten",
-  date: day(-12),
-};
+// Weide stayed away from match 3 and is disqualified since: it keeps its group place and its drawn fixtures, match 12
+// still to play, as a departed club does (`docs/domain.md`, "A departed club holding drawn fixtures"). Its open seat's
+// link takes a Widerspruch alone (`fl_backend/app/api/bewerbungen/services.py :: saison_zustand_of`).
+Object.assign(
+  running.saisonTeams.find((row) => row.name === "Weide"),
+  {
+    austritt: { type: "disqualifikation", reason: "Nicht zum Spiel angetreten", date: day(-12) },
+    ...rowSeats("weide", -5, {
+      trainer: confirmedSeat("Wiebke", "Wagner"),
+      ansprechperson: openSeat("Willi", "Wendt"),
+      stellvertretung: objectedSeat(-2),
+    }),
+  },
+);
 
 // --- A club's Kontakt, and the date it proposes ---------------------------------------------------
 
-// Birke's Trainer, seated by the league (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`) and
-// confirmed through her own link (`:: compose_confirmation_update`): no WhatsApp and no media, each choice evidenced
-// under a seat's wordings (`fl_backend/app/shared/schemas/einwilligung.py :: FLSeatTextVersions`).
-const TRAINERIN = {
-  first_name: "Berta",
-  last_name: "Birkner",
-  email: "berta.birkner@example.com",
-  phone: "+49 170 1234567",
-  birth_date: day(-40 * 365),
-  einwilligung: {
-    scope: "kontaktdaten",
-    date: day(-62),
-    confirmed_at: CONSENTED,
-    media: false,
-    entered_by: "liga",
-    evidence: {
-      scope: { at: `${CONSENTED}T10:00:00+00:00`, text_version: "2026-11-whatsapp-1" },
-      media: { at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS.media },
-    },
-  },
-};
+// Birke's Trainer, seated by the league and confirmed through her own link.
+const TRAINERIN = confirmedPerson(seated("Berta", "Birkner", -62, "liga"), -60);
 running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
   trainer: TRAINERIN,
   ansprechperson: null,
@@ -512,7 +602,6 @@ running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
 
 // The digest of a fixture's Ansetzung, as `fl_backend/app/api/spielbestaetigungen/services.py :: _digest` writes it: a
 // row whose `stand` is not its fixture's is about a slot the fixture left, which neither act takes.
-const { createHash } = require("crypto");
 function ansetzungOf(spiel) {
   const values = {
     date: spiel.date,
@@ -554,6 +643,24 @@ const PROPOSALS = [
   },
 ];
 
+// Match 12, Esche against Weide next week, asked of its referee like match 11 and unanswered: the first pass closes the
+// row for Weide's exit and owes him the Einteilung's lifting
+// (`fl_backend/app/api/spielbestaetigungen/services.py :: notice_owed`), the one mail of the kind a journey can read.
+const LIFTED = running.spiele.find((row) => row.spiel_nr === 12);
+const ASKED_REFEREE = {
+  _id: ObjectId(),
+  saison_id: "2027",
+  spiel_id: LIFTED._id,
+  party: { kind: "schiedsrichter", schiedsrichter_id: LIFTED.schiedsrichter.schiedsrichter_id },
+  ansetzung: ansetzungOf(LIFTED),
+  deadline: day(0),
+  asked_at: day(-14),
+  reminded_at: null,
+  kontakte: null,
+  answer: null,
+  closed: null,
+};
+
 // The erased pupils' sentinel, as `fl_backend/app/api/spieler/services.py :: build_ghost_spieler` writes it.
 const GHOST_SPIELER = {
   _id: ObjectId("000000000000000000000001"),
@@ -563,9 +670,9 @@ const GHOST_SPIELER = {
   birth_date: null,
 };
 
-// Each pupil's consent, publishing the name and no media, on the day and under the labels above `REFEREES`.
-function pupil(firstName, lastName) {
-  const evidence = (choice) => ({ at: `${CONSENTED}T10:00:00+00:00`, text_version: LABELS[choice] });
+// Each pupil's consent, publishing the name and no media, under the labels above `REFEREES`.
+function pupil(firstName, lastName, consentedOn = CONSENTED) {
+  const evidence = (choice) => ({ at: `${consentedOn}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
     _id: ObjectId(),
     first_name: firstName,
@@ -574,8 +681,8 @@ function pupil(firstName, lastName) {
     birth_date: day(-16 * 365),
     einwilligung: {
       scope: "kader_oeffentlich",
-      date: CONSENTED,
-      confirmed_at: CONSENTED,
+      date: consentedOn,
+      confirmed_at: consentedOn,
       media: false,
       evidence: { scope: evidence("scope"), media: evidence("media") },
     },
@@ -584,22 +691,113 @@ function pupil(firstName, lastName) {
 
 const PUPILS = { mia: pupil("Mia", "Ahornberg"), jonas: pupil("Jonas", "Ahornberg"), lena: pupil("Lena", "Kastner") };
 
-function squadRow(person, clubName, nummer) {
+function squadRow(person, clubName, nummer, { position = "Angriff", nominee = false, retiredOn = null } = {}) {
   return {
     _id: ObjectId(),
     spieler_id: person._id,
     saison_id: "2027",
     team_id: club[clubName]._id,
-    is_nachnominiert: false,
+    is_nachnominiert: nominee,
     rolle: null,
     stufe: "Q2",
-    position: "Angriff",
+    position,
     nummer,
-    inactive_since: null,
+    inactive_since: retiredOn === null ? null : day(retiredOn),
   };
 }
 
-const SQUADS = [squadRow(PUPILS.mia, "Ahorn", "9"), squadRow(PUPILS.jonas, "Ahorn", "4"), squadRow(PUPILS.lena, "Kastanie", "7")];
+// With Mia and Jonas, Ahorn's squad fills `RULES.max_kader_size`, so a full squad and a nominee outside its count stand
+// together (`fl_backend/app/api/spieler/services.py :: CAPPED_SQUAD_ROW`), and the retired nominee's reactivation
+// passes the cap.
+const POSITIONS = ["Tor", "Abwehr", "Mittelfeld", "Angriff"];
+const AHORN_SQUAD = [
+  ["Noah", "Adler"],
+  ["Lea", "Bauer"],
+  ["Finn", "Claus"],
+  ["Emma", "Dietz"],
+  ["Paul", "Ebert"],
+  ["Lina", "Fuchs"],
+  ["Luca", "Graf"],
+  ["Nora", "Hein"],
+  ["Tom", "Igel"],
+  ["Ida", "Jung"],
+  ["Max", "Kern"],
+  ["Ella", "Lang"],
+  ["Leo", "Merz"],
+  ["Zoe", "Nagel"],
+  ["Jan", "Ott"],
+  ["Amy", "Peters"],
+].map(([firstName, lastName]) => pupil(firstName, lastName));
+const NOMINEE = pupil("Karl", "Quast");
+const RETIRED_NOMINEE = pupil("Rosa", "Reiter");
+
+const SQUADS = [
+  squadRow(PUPILS.mia, "Ahorn", "9"),
+  squadRow(PUPILS.jonas, "Ahorn", "4"),
+  ...AHORN_SQUAD.map((person, index) => squadRow(person, "Ahorn", String(10 + index), { position: POSITIONS[index % POSITIONS.length] })),
+  squadRow(NOMINEE, "Ahorn", "30", { nominee: true }),
+  squadRow(RETIRED_NOMINEE, "Ahorn", "31", { nominee: true, retiredOn: -5 }),
+  squadRow(PUPILS.lena, "Kastanie", "7"),
+];
+
+// --- The registration links and what came through them --------------------------------------------
+
+// `fl_backend/app/api/invitations/services.py :: compose_invitation`, each minted for copying. Ahorn's and Kastanie's
+// stay open past the window's end, and Weide's opens as the link no longer valid
+// (`fl_backend/app/api/registrierungen/services.py :: find_team_departed_refusal`).
+function invitation(clubName) {
+  return {
+    _id: ObjectId(),
+    saison_id: "2027",
+    team_id: club[clubName]._id,
+    token_hashes: [linkHash(`${clubName.toLowerCase()}-invitation`)],
+    created_at: day(-30),
+    created_by: "admin@example.com",
+    revoked_at: null,
+    sent_at: null,
+  };
+}
+
+const INVITATIONS = { Ahorn: invitation("Ahorn"), Kastanie: invitation("Kastanie"), Weide: invitation("Weide") };
+
+// `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`.
+const REGISTRATION_LINK_DAYS = 7;
+
+/**
+ * One pupil's row through Kastanie's link (`fl_backend/app/api/registrierungen/services.py :: compose_registrierung`),
+ * past the window's end, so its admission makes a nominee.
+ */
+function registration(person, submittedOn, { confirmed = false, decision = null } = {}) {
+  return {
+    _id: ObjectId(),
+    saison_id: "2027",
+    team_id: club.Kastanie._id,
+    invitation_id: INVITATIONS.Kastanie._id,
+    submitted_at: day(submittedOn),
+    status: decision === null ? "submitted" : "declined",
+    first_name: person.first_name,
+    last_name: person.last_name,
+    email: person.email,
+    position: "Abwehr",
+    nummer: null,
+    stufe: "Q2",
+    birth_date: confirmed ? person.birth_date : null,
+    einwilligung: confirmed ? person.einwilligung : null,
+    confirmation: {
+      token_hashes: [linkHash(`${person.first_name.toLowerCase()}-registration`)],
+      sent_at: day(submittedOn),
+      reminded_at: null,
+      deadline: day(submittedOn + REGISTRATION_LINK_DAYS),
+    },
+    decision,
+  };
+}
+
+const REGISTRATIONS = [
+  registration(pupil("Ole", "Sommer"), -1),
+  registration(pupil("Pia", "Sander", day(-2)), -3, { confirmed: true }),
+  registration(pupil("Ben", "Stark"), -4, { decision: { made_at: day(-2), by: "admin@example.com", reason: "Nicht an dieser Schule" } }),
+];
 
 // Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted the next morning: a named scorer, a
 // scorer nobody named, an erased pupil's goal under the sentinel, a caution with its reason and a red card without.
@@ -634,6 +832,246 @@ const REPORTS = [
   },
 ];
 
+// --- The planned season ---------------------------------------------------------------------------
+
+const PLANNED = "2028";
+
+// The window opened a month ago and runs a month on, and the registration window ends before the season's first day,
+// as its write holds it (`registrierung_window_reaches_saison_start`). Undrawn: the create writes no `spielplan` key.
+const PLANNED_SAISON = {
+  _id: PLANNED,
+  start_date: day(150),
+  end_date: day(300),
+  status: "future",
+  rules: RULES,
+  bewerbung: { open: true, start: day(-30), end: day(30) },
+  registrierung: { open: true, end: day(140) },
+};
+
+function decided(madeOn, reason = null) {
+  return { made_at: day(madeOn), by: "admin@example.com", reason };
+}
+
+/**
+ * One application as the form stored it (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungRecord`): for the club
+ * `picked`, or for the new school `school`, each seat in the state `states` names, its link mailed on the day of the
+ * submission. `outcome` is what the triage moved, `owner` the link labels' head where a club applied twice.
+ */
+function application({ picked, school, owner, submittedOn, wunschfarbe, states, trainerIsAlso, wunschgegner = null, outcome = {} }) {
+  const links = { owner: owner ?? (picked ?? school.name).toLowerCase(), sentOn: submittedOn, enteredBy: "bewerbung", reminded: true };
+  return {
+    _id: ObjectId(),
+    saison_id: PLANNED,
+    submitted_at: day(submittedOn),
+    status: "submitted",
+    team_id: picked === undefined ? null : club[picked]._id,
+    schule:
+      school === undefined
+        ? null
+        : {
+            team_name: school.name,
+            full_name: school.full_name,
+            schulform: school.schulform,
+            address: school.address,
+            website_url: school.website_url,
+          },
+    ...seats(links, states, trainerIsAlso),
+    trikot: { existing_satz: "", wunschfarbe },
+    kader: { expected_size: 14, good_spieler: 3 },
+    stufengroesse: 96,
+    wunschgegner,
+    decision: null,
+    ...outcome,
+  };
+}
+
+const ACCEPTED_NEW_SCHOOL = application({
+  school: club.Pappel,
+  submittedOn: -20,
+  wunschfarbe: "gelb",
+  states: {
+    trainer: confirmedSeat("Paula", "Pohl"),
+    ansprechperson: confirmedSeat("Peter", "Pohl"),
+    stellvertretung: confirmedSeat("Petra", "Pohl"),
+  },
+  outcome: { status: "accepted", team_id: club.Pappel._id, decision: decided(-4) },
+});
+
+const ACCEPTED_CLUB = application({
+  picked: "Ulme",
+  submittedOn: -18,
+  wunschfarbe: "blau",
+  states: {
+    trainer: confirmedSeat("Ute", "Ullrich"),
+    ansprechperson: confirmedSeat("Udo", "Ullrich"),
+    stellvertretung: confirmedSeat("Uwe", "Ullrich"),
+  },
+  outcome: { status: "accepted", decision: decided(-4) },
+});
+
+// Past its deadline, and it stands: its Ansprechperson's mail bounced, which holds it for an administrator to correct
+// the address (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`).
+const EXPIRED = application({
+  school: clubRow("Espe", 4),
+  submittedOn: -16,
+  wunschfarbe: "orange",
+  states: {
+    trainer: confirmedSeat("Egon", "Ehlers"),
+    ansprechperson: openSeat("Edda", "Ehlers", { remindedOn: -13 }),
+    stellvertretung: openSeat("Emil", "Ehlers", { remindedOn: -13 }),
+  },
+});
+
+const APPLICATIONS = [
+  // Nobody has answered.
+  application({
+    school: clubRow("Akazie", 0),
+    submittedOn: -1,
+    wunschfarbe: "rot",
+    wunschgegner: "Ahorn-Gymnasium",
+    states: {
+      trainer: openSeat("Anton", "Albers"),
+      ansprechperson: openSeat("Anke", "Albers"),
+      stellvertretung: openSeat("Ali", "Albers"),
+    },
+  }),
+  // Every seat confirmed: a new school ready for the acceptance, wishing for a colour the season has taken.
+  application({
+    school: clubRow("Erle", 1),
+    submittedOn: -10,
+    wunschfarbe: "blau",
+    states: {
+      trainer: confirmedSeat("Erik", "Engel"),
+      ansprechperson: confirmedSeat("Erna", "Engel"),
+      stellvertretung: confirmedSeat("Enno", "Engel"),
+    },
+  }),
+  // A picked club ready for the acceptance, its Trainer holding the Ansprechperson's seat too, and the same club's
+  // second application beside it, the Dublette.
+  application({
+    picked: "Kastanie",
+    submittedOn: -9,
+    wunschfarbe: "gruen",
+    trainerIsAlso: "ansprechperson",
+    states: { trainer: confirmedSeat("Kira", "Kolb"), stellvertretung: confirmedSeat("Kurt", "Kolb") },
+  }),
+  application({
+    picked: "Kastanie",
+    owner: "kastanie-second",
+    submittedOn: -2,
+    wunschfarbe: "hellgruen",
+    states: {
+      trainer: openSeat("Kai", "Kunze"),
+      ansprechperson: openSeat("Karla", "Kunze"),
+      stellvertretung: openSeat("Kim", "Kunze"),
+    },
+  }),
+  // A confirmed seat, a reminded one and a Widerspruch, whose notice to the Ansprechperson named the deletion day.
+  application({
+    school: clubRow("Holunder", 2),
+    submittedOn: -6,
+    wunschfarbe: "violett",
+    states: {
+      trainer: confirmedSeat("Hilke", "Hoff"),
+      ansprechperson: openSeat("Hauke", "Hoff", { remindedOn: -3 }),
+      stellvertretung: objectedSeat(-2),
+    },
+    outcome: { erasure_announced_at: day(-2) },
+  }),
+  // A seat emptied by an erasure, the others' links still running.
+  application({
+    school: clubRow("Hasel", 3),
+    submittedOn: -2,
+    wunschfarbe: "tuerkis",
+    states: {
+      trainer: erasedSeat(),
+      ansprechperson: confirmedSeat("Heike", "Hahnemann"),
+      stellvertretung: openSeat("Horst", "Hahnemann"),
+    },
+  }),
+  EXPIRED,
+  // Past its deadline and unheld: the first pass, a minute after the frontend starts, erases it and mails the
+  // Ansprechperson, the one deletion a journey can read.
+  application({
+    school: clubRow("Lärche", 6),
+    owner: "laerche",
+    submittedOn: -16,
+    wunschfarbe: "braun",
+    states: {
+      trainer: confirmedSeat("Lea", "Lehmann"),
+      ansprechperson: openSeat("Lutz", "Lehmann", { remindedOn: -13, email: "ansprechperson.laerche@example.com" }),
+      stellvertretung: openSeat("Lisa", "Lehmann", { remindedOn: -13 }),
+    },
+  }),
+  // Declined with a seat still open, whose link the decision ended.
+  application({
+    school: clubRow("Flieder", 5),
+    submittedOn: -12,
+    wunschfarbe: "flieder",
+    states: {
+      trainer: confirmedSeat("Frank", "Fink"),
+      ansprechperson: confirmedSeat("Fenja", "Fink"),
+      stellvertretung: openSeat("Fritz", "Fink"),
+    },
+    outcome: { status: "declined", decision: decided(-3, "Die Gruppen sind voll") },
+  }),
+  ACCEPTED_NEW_SCHOOL,
+  ACCEPTED_CLUB,
+];
+
+// The last mail owed `EXPIRED`'s Ansprechperson, as its final state leaves the row
+// (`fl_backend/app/api/outbox/services.py :: final_update`): it owes nothing and only says what became of the mail.
+const SETTLED_MAILS = [
+  {
+    _id: ObjectId(),
+    key: "made-up/bounced",
+    kind: "bewerbung_received",
+    an: EXPIRED.kontakte.ansprechperson.email,
+    reference: { collection: "bewerbungen", id: EXPIRED._id, seat: "ansprechperson" },
+    link: null,
+    state: "sent",
+    recorded_at: new Date(`${day(-16)}T09:00:00Z`),
+    deadline: new Date(`${day(-15)}T09:00:00Z`),
+    erase_at: new Date(`${day(30)}T09:00:00Z`),
+    lease: null,
+    leased_until: null,
+    attempts: 1,
+    message_id: "made-up-message",
+    delivery: { state: "undeliverable", reason: "bounced", at: new Date(`${day(-16)}T09:05:00Z`) },
+  },
+];
+
+function plannedRow(clubName, gruppe, trikotFarbe, people = { kontakte: null }) {
+  const { name, shorthand, _id } = club[clubName];
+  return { _id: ObjectId(), saison_id: PLANNED, team_id: _id, gruppe, austritt: null, trikot_farbe: trikotFarbe, ...people, name, shorthand };
+}
+
+// Group B is full and group A has room for the acceptance's journeys. The two accepted applications' clubs carry their
+// people as the acceptance copies them, and Esche stands entered with nobody yet; Ahorn, Birke, Kastanie and Weide are
+// the clubs left to enter, the journeys' rejected applications picking the first two, so neither holds a row.
+const PLANNED_ROWS = [
+  plannedRow("Ulme", "B", "blau", { kontakte: ACCEPTED_CLUB.kontakte }),
+  plannedRow("Pappel", "B", "gelb", { kontakte: ACCEPTED_NEW_SCHOOL.kontakte }),
+  plannedRow("Esche", "B", "gold"),
+  plannedRow(
+    "Eiche",
+    "B",
+    "rosa",
+    rowSeats("eiche", -8, { trainer: confirmedSeat("Eva", "Ebner"), ansprechperson: objectedSeat(-6), stellvertretung: erasedSeat() }),
+  ),
+  plannedRow(
+    "Linde",
+    "A",
+    "schwarz",
+    rowSeats("linde", -2, {
+      trainer: openSeat("Lars", "Lorenz"),
+      // Past its fourteen days: a season row's link lapses and the row stands, no clock taking it.
+      ansprechperson: openSeat("Lotte", "Lorenz", { sentOn: -20 }),
+      stellvertretung: confirmedSeat("Lukas", "Lorenz"),
+    }),
+  ),
+];
+
 // --- Writing it ----------------------------------------------------------------------------------
 
 const DOCUMENTS = {
@@ -641,13 +1079,14 @@ const DOCUMENTS = {
   spielorte: VENUES,
   schiedsrichter: REFEREES,
   berechtigungen: GRANTS,
-  saisons: [finished.saison, running.saison],
-  saison_teams: [...finished.saisonTeams, ...running.saisonTeams],
+  saisons: [finished.saison, running.saison, PLANNED_SAISON],
+  saison_teams: [...finished.saisonTeams, ...running.saisonTeams, ...PLANNED_ROWS],
   spieltage: [...finished.spieltage, ...running.spieltage],
   spiele: [...finished.spiele, ...running.spiele],
-  spieler: [GHOST_SPIELER, ...Object.values(PUPILS)],
+  spieler: [GHOST_SPIELER, ...Object.values(PUPILS), ...AHORN_SQUAD, NOMINEE, RETIRED_NOMINEE],
   saison_spieler: SQUADS,
   spielberichte: REPORTS,
+  bewerbungen: APPLICATIONS,
 };
 
 // Emptied rather than dropped: the backend's boot made each collection with its indexes, and a
@@ -676,14 +1115,22 @@ for (const [name, documents] of Object.entries(DOCUMENTS)) {
   print(`seeded ${name}: ${Object.keys(inserted).length} document(s)`);
 }
 
-// The grants' announced record is bookkeeping no form edits: outside `EDITED_COLLECTIONS`, its documents carry no
-// `version`, and its record model refuses one.
-const announced = db.getCollection("berechtigungen_angekuendigt").insertMany(ANNOUNCED, { ordered: true }).insertedIds;
-print(`seeded berechtigungen_angekuendigt: ${Object.keys(announced).length} document(s)`);
+// These are bookkeeping no form edits: outside `EDITED_COLLECTIONS`, their documents carry no `version`, and each
+// record model refuses one.
+const UNEDITED = {
+  berechtigungen_angekuendigt: ANNOUNCED,
+  einladungen: Object.values(INVITATIONS),
+  registrierungen: REGISTRATIONS,
+  outbox: SETTLED_MAILS,
+};
+for (const [name, documents] of Object.entries(UNEDITED)) {
+  const inserted = db.getCollection(name).insertMany(documents, { ordered: true }).insertedIds;
+  print(`seeded ${name}: ${Object.keys(inserted).length} document(s)`);
+}
 
 // The confirmations are no form's edit either, and their first carries the count the adoption's anchor advances.
 const proposals = db.getCollection("spielbestaetigungen").insertMany(
-  PROPOSALS.map((document, index) => (index === 0 ? { ...document, bounded_writes: 1 } : document)),
+  [...PROPOSALS, ASKED_REFEREE].map((document, index) => (index === 0 ? { ...document, bounded_writes: 1 } : document)),
   { ordered: true },
 ).insertedIds;
 print(`seeded spielbestaetigungen: ${Object.keys(proposals).length} document(s)`);

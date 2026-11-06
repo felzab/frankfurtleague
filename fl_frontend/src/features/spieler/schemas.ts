@@ -2,8 +2,7 @@ import z from "zod";
 
 import { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import { NUMMER_MUST_BE_DIGITS } from "./constants";
 
@@ -24,57 +23,8 @@ export const FLSpielerStufeSchema = z.enum(FLSpielerStufe, { error: "Bitte wähl
  */
 const FLSpielerRolleSchema = z.enum(FLSpielerRolle, { error: "Bitte wähle eine Rolle." });
 
-// Redesign: goes with its last importer.
-/**
- * Replaces the person's own fields wholesale, so none is optional: an omitted surname would erase a
- * stored one.
- *
- * No uniqueness rule on a name — two people genuinely can share one.
- */
-export const FLPatchSpielerPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  // The form submits null for an empty box, never an empty string — a surname often arrives later.
-  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }).nullable(),
-  // Never null: a save clearing the date the person's registration carried would leave one whose age
-  // no page can read.
-  birth_date: CustomDateStringSchema,
-});
-export type FLPatchSpielerPayload = z.infer<typeof FLPatchSpielerPayloadSchema>;
-
 // Named rather than written into the field below.
 const SQUAD_NUMMER_REGEX = /^\d{1,4}$/;
-
-/**
- * No transforms — empty-to-null normalisation is the FORM boundary's. A schema that rewrote its
- * input would make `z.infer` disagree with what the form holds, which the squad editor's draft is typed by.
- */
-const saisonSpielerPayloadFields = {
-  // A string on the wire — worn rather than counted — but free text was never meant to admit a name.
-  nummer: z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS }).nullable(),
-  position: FLSpielerPositionSchema.nullable(),
-  stufe: FLSpielerStufeSchema.nullable(),
-  // On the junction: a role is held within one team for one season, not by the person. One field and
-  // not a flag per role, so holding both at once cannot be expressed.
-  rolle: FLSpielerRolleSchema.nullable(),
-};
-
-// Redesign: goes with its last importer.
-export const FLPatchSaisonSpielerPayloadSchema = z.object({
-  // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
-  spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
-  ...saisonSpielerPayloadFields,
-});
-export type FLPatchSaisonSpielerPayload = z.infer<typeof FLPatchSaisonSpielerPayloadSchema>;
-
-// Redesign: goes with its last importer.
-/** The junction row's natural key, for the two endpoints that carry no body. */
-export const FLSaisonSpielerKeyPayloadSchema = z.object({
-  spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
-});
-export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayloadSchema>;
 
 /** The three ids a squad row is addressed by on a seat holder's write, all of them in the PATH. */
 const kaderZeileKeyFields = {

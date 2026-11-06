@@ -69,6 +69,7 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
             <FieldPlaceholder
               key="default_payment"
               width="C5"
+              figures
             />,
           ],
           ["field", "field"],

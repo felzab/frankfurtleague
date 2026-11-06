@@ -5,10 +5,11 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spieler.admin_router import patch_saison_spieler, patch_spieler, reactivate_saison_spieler
-from app.api.spieler.schemas import FLPatchKaderRowPayload, FLPatchSpielerPayload
+from app.api.spieler.admin_router import get_spieler_saison, patch_spieler_saison, reactivate_saison_spieler
+from app.api.spieler.schemas import FLPatchSpielerSaisonPayload, FLSaisonSpielerRow
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.crud import composite_version
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
@@ -29,6 +30,8 @@ INCOMING_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400003")
 # Any well-formed date: no rule judges a pupil's age (`docs/domain.md`'s what the model permits on purpose),
 # so a value chosen for how old it makes somebody would pin a refusal nothing runs.
 BIRTH_DATE = "2008-05-17"
+
+ROW_FIELDS = ("nummer", "position", "stufe", "rolle")
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -77,15 +80,50 @@ async def fill(database: AsyncDatabase, team_id: ObjectId, count: int, *, nomine
     )
 
 
-async def edit(database: AsyncDatabase, spieler_id: ObjectId, *, nummer: str | None = None, rolle: Any = None) -> Any:
-    return await patch_saison_spieler(
+async def save(
+    database: AsyncDatabase,
+    spieler_id: ObjectId,
+    *,
+    first_name: str = "Max",
+    birth_date: str = BIRTH_DATE,
+    version: int | None = None,
+    **row_fields: Any,
+) -> Any:
+    """The editor's one save on the version the documents stand at unless named, and the row's fields as stored unless named."""
+
+    person = await database.spieler.find_one({"_id": spieler_id})
+    row = await database.saison_spieler.find_one({"spieler_id": spieler_id, "saison_id": SAISON_ID})
+    return await patch_spieler_saison(
         spieler_id=spieler_id,
         saison_id=SAISON_ID,
-        saison_spieler_data=FLPatchKaderRowPayload(nummer=nummer, position=None, stufe=None, rolle=rolle),
+        spieler_data=FLPatchSpielerSaisonPayload(
+            first_name=first_name,
+            last_name="Mustermann",
+            birth_date=birth_date,
+            **{
+                "nummer": None,
+                "position": None,
+                "stufe": None,
+                "rolle": None,
+                **{key: value for key, value in (row or {}).items() if key in ROW_FIELDS},
+                **row_fields,
+            },
+            version=composite_version(person or {}, row or {}) if version is None else version,
+        ),
+        spieler_collection=database.spieler,
         saison_spieler_collection=database.saison_spieler,
         saisons_collection=database.saisons,
         db=database.client,
     )
+
+
+async def edit(database: AsyncDatabase, spieler_id: ObjectId, *, nummer: str | None = None, rolle: Any = None) -> FLSaisonSpielerRow:
+    """The save over a row whose person a case has not seeded, answering the row as stored."""
+
+    if await database.spieler.find_one({"_id": spieler_id}) is None:
+        await database.spieler.insert_one(spieler_document(spieler_id, "Max", "Mustermann", birth_date=BIRTH_DATE))
+    await save(database, spieler_id, nummer=nummer, rolle=rolle)
+    return FLSaisonSpielerRow.model_validate(await database.saison_spieler.find_one({"spieler_id": spieler_id, "saison_id": SAISON_ID}))
 
 
 async def revive(database: AsyncDatabase, spieler_id: ObjectId) -> Any:
@@ -113,18 +151,126 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
 
         async def body(database: AsyncDatabase) -> Any:
             await database.spieler.insert_one(person_row(spieler_number=92))
-            await patch_spieler(
-                spieler_id=spieler_id_for(92),
-                spieler_data=FLPatchSpielerPayload(first_name="Maximilian", last_name="Mustermann", birth_date=BIRTH_DATE),
-                spieler_collection=database.spieler,
-                db=database.client,
-            )
+            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(92), team_id=HOME_TEAM_OID))
+            await save(database, spieler_id_for(92), first_name="Maximilian")
             return await database.spieler.find_one({"_id": spieler_id_for(92)})
 
         stored = on_a_database(mongo_replica_set_url, body)
 
         assert stored["first_name"] == "Maximilian"
         assert stored["einwilligung"] == EINWILLIGUNG
+
+
+class TestTheOneSave:
+    """The person and their row, written together or not at all, on the one count the editor read."""
+
+    async def seated(self, database: AsyncDatabase) -> ObjectId:
+        spieler_id = spieler_id_for(90)
+        await database.spieler.insert_one(person_row(spieler_number=90))
+        await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id, team_id=HOME_TEAM_OID))
+        return spieler_id
+
+    def test_a_refused_row_part_saves_none_of_the_person(self, mongo_replica_set_url: str):
+        """Saved apart, the name would stand under an editor reading the save as failed."""
+
+        async def body(database: AsyncDatabase) -> tuple[Any, Any]:
+            spieler_id = await self.seated(database)
+            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
+
+            with pytest.raises(APIError) as excinfo:
+                await save(database, spieler_id, first_name="Maximilian", rolle="kapitaen")
+
+            return excinfo.value.error_code, await database.spieler.find_one({"_id": spieler_id})
+
+        code, person = on_a_database(mongo_replica_set_url, body)
+
+        assert code == Code.KADER_ROLLE_TAKEN
+        assert person["first_name"] == "Max"
+
+    @pytest.mark.parametrize("collection", ["spieler", "saison_spieler"])
+    def test_either_document_moved_since_the_read_refuses_the_save(self, mongo_replica_set_url: str, collection: str):
+        """Each one raised alone, so a count judging one of the two passes a save over the other's newer state."""
+
+        async def body(database: AsyncDatabase) -> tuple[Any, Any]:
+            spieler_id = await self.seated(database)
+            read = await get_spieler_saison(
+                spieler_id=spieler_id,
+                saison_id=SAISON_ID,
+                spieler_collection=database.spieler,
+                saison_spieler_collection=database.saison_spieler,
+                saison_teams_collection=database.saison_teams,
+                saisons_collection=database.saisons,
+            )
+            key = "_id" if collection == "spieler" else "spieler_id"
+            await database[collection].update_one({key: spieler_id}, {"$inc": {"version": 1}})
+
+            with pytest.raises(APIError) as excinfo:
+                await save(database, spieler_id, nummer="9", first_name="Maximilian", version=read.version)
+
+            return excinfo.value.error_code, await database.spieler.find_one({"_id": spieler_id})
+
+        code, person = on_a_database(mongo_replica_set_url, body)
+
+        assert code == Code.VERSION_STALE
+        assert person["first_name"] == "Max"
+
+    def test_the_answer_is_the_count_the_next_read_serves(self, mongo_replica_set_url: str):
+        """The editor sends it with its next save, so a count short of the stored one refuses that save as stale."""
+
+        async def body(database: AsyncDatabase) -> tuple[int, int]:
+            spieler_id = await self.seated(database)
+            answered = await save(database, spieler_id, first_name="Maximilian", nummer="9")
+            read = await get_spieler_saison(
+                spieler_id=spieler_id,
+                saison_id=SAISON_ID,
+                spieler_collection=database.spieler,
+                saison_spieler_collection=database.saison_spieler,
+                saison_teams_collection=database.saison_teams,
+                saisons_collection=database.saisons,
+            )
+            return answered.version, read.version
+
+        answered, served = on_a_database(mongo_replica_set_url, body)
+
+        assert answered == served
+
+    def test_a_part_left_as_stored_is_not_written(self, mongo_replica_set_url: str):
+        """Written anyway, every name's correction would log a squad edit nobody made."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            spieler_id = await self.seated(database)
+            before = await database.saison_spieler.find_one({"spieler_id": spieler_id})
+            await save(database, spieler_id, first_name="Maximilian")
+            after = await database.saison_spieler.find_one({"spieler_id": spieler_id})
+            return before, after
+
+        before, after = on_a_database(mongo_replica_set_url, body)
+
+        assert before.get("version") == after.get("version")
+
+    def test_a_stufe_the_season_does_not_offer_is_refused(self, mongo_replica_set_url: str):
+        """The box offers the season's levels, so only a season narrowed under the open page reaches this."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            spieler_id = await self.seated(database)
+            await database.saisons.update_one({"_id": SAISON_ID}, {"$set": {"rules.allowed_stufen": ["Q1"]}})
+
+            with pytest.raises(APIError) as excinfo:
+                await save(database, spieler_id, stufe="Q3")
+
+            return excinfo.value.error_code
+
+        assert on_a_database(mongo_replica_set_url, body) == Code.KADER_STUFE_NOT_ALLOWED
+
+    def test_a_person_with_no_row_of_the_season_is_not_found(self, mongo_replica_set_url: str):
+        """The page stands under a season, so its save reaches no person out of that squad."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database.spieler.insert_one(person_row(spieler_number=91))
+            await save(database, spieler_id_for(91))
+
+        with pytest.raises(DocumentNotFoundError):
+            on_a_database(mongo_replica_set_url, body)
 
 
 class TestThePersonsBirthdate:
@@ -135,12 +281,8 @@ class TestThePersonsBirthdate:
 
         async def body(database: AsyncDatabase) -> Any:
             await database.spieler.insert_one(person_row(spieler_number=93, birth_date=BIRTH_DATE))
-            await patch_spieler(
-                spieler_id=spieler_id_for(93),
-                spieler_data=FLPatchSpielerPayload(first_name="Maximilian", last_name="Mustermann", birth_date=BIRTH_DATE),
-                spieler_collection=database.spieler,
-                db=database.client,
-            )
+            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(93), team_id=HOME_TEAM_OID))
+            await save(database, spieler_id_for(93), first_name="Maximilian")
             return await database.spieler.find_one({"_id": spieler_id_for(93)})
 
         stored = on_a_database(mongo_replica_set_url, body)
@@ -242,7 +384,11 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == Code.KADER_ROLLE_TAKEN
+        refusal = on_a_database(mongo_replica_set_url, body)
+
+        assert refusal.error_code == Code.KADER_ROLLE_TAKEN
+        # Named, or the editor's phrase has no box to land on and falls to the shared failure line.
+        assert refusal.fields == (("rolle",),)
 
     def test_an_edit_taking_the_other_role_goes_through(self, mongo_replica_set_url: str):
         """The floor under the case above: the rule is per role, so a squad with a Kapitaen still has its Co-Kapitaen to give."""

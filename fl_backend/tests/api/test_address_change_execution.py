@@ -37,7 +37,6 @@ from app.api.invitations.services import compose_invitation
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
-from app.api.spieler.admin_router import get_spieler_saisons
 from app.api.teams.admin_router import get_team_saisons
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -1455,7 +1454,7 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
         ],
     )
     def test_each_read_serving_a_change_s_id_serves_the_tool_s_own_verdict(self, mongo_replica_set_url: str, reader: str, grant: bool):
-        """The pupils list, the referee editor, the contacts editor, the erasure's reveal and, for a grant, the approval row."""
+        """The referee editor, the contacts editor, the erasure's reveal and, for a grant, the approval row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if grant:
@@ -1467,7 +1466,6 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             except APIError as refused:
                 denied = {Code.OWN_ADDRESS: "own_address", Code.ADMIN_ADDRESS: "admin_address"}[refused.error_code]
 
-            pupils = await call(get_spieler_saisons, database, client, operator=reader)
             referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
             teams = await call(get_team_saisons, database, client, today=TODAY, operator=reader)
             [seats] = [
@@ -1475,9 +1473,6 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             ]
             reveal = await call(get_erasure_view, database, client, view_data=FLErasureAddressPayload(email=NEW_EMAIL), operator=reader)
             served = {
-                "pupils": [
-                    (player.address_change_id, player.address_change_viewable_denied) for player in pupils.spieler if player.id == SPIELER_OID
-                ],
                 "referee": (referee.address_change_id, referee.address_change_viewable_denied),
                 "seats": (seats.ansprechperson, seats.viewable_denied.model_dump()),
                 "reveal": [(row.address_change_id, row.viewable_denied) for row in reveal.address_change],
@@ -1492,7 +1487,6 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
 
         assert denied == {EMAIL: "own_address", ADMIN: "admin_address" if grant else None, OWNER: None}[reader]
         expected = {
-            "pupils": [(minted, denied)],
             "referee": (minted, denied),
             # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.
             "seats": (minted, {"trainer": None, "ansprechperson": denied, "stellvertretung": None}),

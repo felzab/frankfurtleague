@@ -80,7 +80,6 @@ from app.api.teams.services import (
     compose_kontakt_bestaetigung,
     compose_kontakte_herkunft,
     compose_seat_block,
-    composite_version,
     find_austritt_refusal,
     find_gruppe_move_refusal,
     find_kontakt_seat_barred_refusal,
@@ -90,7 +89,6 @@ from app.api.teams.services import (
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
-    find_stale_team_save_refusal,
     gruppe_offer,
     has_taken_place,
     kontakt_zeile_of,
@@ -112,6 +110,8 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     build_sort,
+    composite_version,
+    find_stale_save_refusal,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
@@ -536,7 +536,7 @@ async def get_team_saison_admin(
     memberships = FLTeamWithMemberships.model_validate(served[0]).memberships
 
     return FLTeamSaisonAdminResponse(
-        version=composite_version(team=team_raw, row=row_raw or {}),
+        version=composite_version(team_raw, row_raw or {}),
         team=FLTeamRecord.model_validate(team_raw),
         saison=FLTeamSaisonFacts(
             id=saison_id,
@@ -701,7 +701,7 @@ async def patch_team_saison(
         row_raw = await pull_one_from_db(
             collection=saison_teams_collection, db_filter=row_filter, projection=["gruppe", "trikot_farbe", VERSION_FIELD], session=session
         )
-        refuse(find_stale_team_save_refusal(version=team_data.version, team=team_raw, row=row_raw))
+        refuse(find_stale_save_refusal(team_raw, row_raw, version=team_data.version))
 
         # Anchored, so the status belongs to this write set: `activate_saison` writes this document, so a rollover landing
         # under the save conflicts and the retry reads `past`.
@@ -750,7 +750,7 @@ async def patch_team_saison(
             else await pull_one_from_db(collection=saison_teams_collection, db_filter=row_filter, projection=[VERSION_FIELD], session=session)
         )
 
-        return FLPatchTeamSaisonResponse(version=composite_version(team=stored_team, row=stored_row))
+        return FLPatchTeamSaisonResponse(version=composite_version(stored_team, stored_row))
 
     # One transaction, or a refusal of the row's part leaves the club's half saved under an editor reading it as failed.
     # `with_transaction` is safe to retry, every write deriving from the payload and an in-session read.

@@ -93,7 +93,7 @@ type Button = { placement: "button"; look: "primary" | "secondary" | "quiet"; le
  * A glyph alone, in the icon-only button's look: `label`, at most five words, is its name, which the kit's
  * tooltip shows above it.
  */
-type IconOnly = { placement: "icon"; icon: IconName; label: Copy; children?: never; fullPage?: never };
+type IconOnly = { placement: "icon"; icon: IconName; label: Copy; children?: never; fullPage?: never; prefetch?: never };
 
 /**
  * A row's link, its record's name stretched over the row it stands in, which `Table` and `LinkRows` write. Its
@@ -137,9 +137,14 @@ export function Link<T extends string>(
      * to the page it stands for: Next shows that page, not the pop-up, on a full page load.
      */
     fullPage?: boolean;
+    /**
+     * `false` for a link of a page of many, which prefetches nothing, in view or under the pointer, as Next's guide to
+     * prefetching says of a large list: with `optimisticRouting` off, each address in view costs a request of its own.
+     */
+    prefetch?: false;
   } & (({ placement: "text" | "standalone" | "detail" } & Worded) | Row | Footer | Button | IconOnly | Card),
 ) {
-  const { href, sponsored = false, fullPage = false } = props;
+  const { href, sponsored = false, fullPage = false, prefetch } = props;
   const elsewhere = ELSEWHERE.test(href);
   const rel = [sponsored ? "sponsored" : "", elsewhere ? "noopener noreferrer" : ""].filter((word) => word !== "").join(" ");
   const tab = { target: elsewhere ? "_blank" : undefined, rel: rel === "" ? undefined : rel };
@@ -172,5 +177,13 @@ export function Link<T extends string>(
       {props.children ?? (props.label === undefined ? null : textOf(props.label))}
     </>
   );
-  return fullPage ? <a {...anchor}>{words}</a> : <NextLink {...anchor}>{words}</NextLink>;
+  return fullPage ? (
+    <a {...anchor}>{words}</a>
+  ) : (
+    <NextLink
+      {...anchor}
+      prefetch={prefetch}>
+      {words}
+    </NextLink>
+  );
 }

@@ -1786,15 +1786,6 @@ export interface FLBewerbungListRow {
 }
 
 /**
- * A season that records no application window: its id, and `window` always null.
- */
-export interface FLBewerbungNoWindowResponse {
-  saison_id: string;
-  /** @nullable */
-  window: null;
-}
-
-/**
  * A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
@@ -1855,10 +1846,6 @@ export interface FLBewerbungSchulePayload {
   website_url: string | null;
 }
 
-export interface FLBewerbungSchulenResponse {
-  schulen: FLBewerbungSchuleOption[];
-}
-
 /**
  * One application as its review page shows it.
  */
@@ -1884,14 +1871,6 @@ export interface FLBewerbungSweepResponse {
   saison_id: string;
 }
 
-/**
- * Which kit colours one season has already assigned, naming no club.
- */
-export interface FLBewerbungTrikotFarbenResponse {
-  saison_id: string;
-  taken: FLTrikotFarbe[];
-}
-
 export interface FLBewerbungTrikotPayload {
   /** @maxLength 500 */
   existing_satz: string;
@@ -1905,19 +1884,6 @@ export interface FLBewerbungWindow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end: string;
   saison_id: string;
-}
-
-/**
- * One season's application window and whether that season has ended, and nothing else about it.
- */
-export interface FLBewerbungWindowResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  end: string;
-  running: boolean;
-  saison_ended: boolean;
-  saison_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  start: string;
 }
 
 /**
@@ -2252,19 +2218,6 @@ export const FLCardReason = {
   beleidigung: "beleidigung",
   notbremse: "notbremse",
 } as const;
-
-/**
- * One person's confirmation bookkeeping as an administrator reads it, and no token hash.
- *
- * The hash is a raw document key the confirmation query alone reads, so no read serves one.
- */
-export interface FLConfirmation {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
-  reminded_at: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  sent_at: string;
-}
 
 export type FLConfirmationState = (typeof FLConfirmationState)[keyof typeof FLConfirmationState];
 
@@ -3893,10 +3846,7 @@ export interface FLPatchGrantPayload {
 }
 
 /**
- * What an edit may change on a squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason: a seat holder's and the administrator's alike.
- *
- * No player moves between teams, so `extra="forbid"` refuses `team_id`; it is also what refuses
- * `is_nachnominiert`, which no edit sets or clears.
+ * A seat holder's edit of a squad row.
  */
 export interface FLPatchKaderRowPayload {
   nummer: string | null;
@@ -4133,12 +4083,11 @@ export interface FLPatchSpielDataResponse {
 }
 
 /**
- * Replaces the person's names WHOLESALE.
+ * The Spieler editor's one save: the person, and their squad row in the season the page stands under.
  *
- * The handler `$set`s this model's dump, so a field with a default would let a form that forgot it
- * write that default over a stored value.
+ * Replaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.
  */
-export interface FLPatchSpielerPayload {
+export interface FLPatchSpielerSaisonPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   birth_date: string;
   /**
@@ -4148,7 +4097,20 @@ export interface FLPatchSpielerPayload {
    */
   first_name: string;
   last_name: string | null;
-  version?: number | null;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  rolle: FLSpielerRolle | null;
+  stufe: FLSpielerStufe | null;
+  /** @minimum 0 */
+  version: number;
+}
+
+/**
+ * The count the editor's next save sends.
+ */
+export interface FLPatchSpielerSaisonResponse {
+  /** @minimum 0 */
+  version: number;
 }
 
 export interface FLPatchSpielortPayload {
@@ -4393,60 +4355,21 @@ export interface FLReferencesResponse {
 }
 
 /**
- * A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address.
+ * One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them.
  */
-export interface FLRegistrierungDecisionRow {
-  by: string | null;
-  by_barred: boolean;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  made_at: string;
-  reason: string | null;
-}
-
-/**
- * A pending registration's consent record, each choice and `date` optional here alone.
- *
- * A returning pupil's page asks no choice.
- */
-export interface FLRegistrierungEinwilligung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  confirmed_at: string;
-  date: string | null;
-  evidence: FLEinwilligungEvidenceSet;
-  media: boolean | null;
-  scope: FLEinwilligungScope | null;
-}
-
-/**
- * One pupil's registration for one team's season, as stored, its decision as served.
- *
- * Its pupil fills and withdraws `einwilligung` and fills `birth_date`; a decline writes `status` and `decision`.
- */
-export interface FLRegistrierung {
-  birth_date: string | null;
-  confirmation: FLConfirmation | null;
+export interface FLRegistrierungAdminRow {
   confirmed: boolean;
-  decision: FLRegistrierungDecisionRow | null;
-  einwilligung: FLRegistrierungEinwilligung | null;
-  /** @minLength 1 */
-  email: string;
   /** @minLength 1 */
   first_name: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  invitation_id: string;
   /** @minLength 1 */
   last_name: string;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  saison_id: string;
-  status: FLRegistrierungStatus;
-  stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   submitted_at: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
+  team_name: string | null;
 }
 
 /**
@@ -4560,11 +4483,10 @@ export interface FLRegistrierungSweepResponse {
 }
 
 /**
- * The pending rows, newest first, and whether that is the whole of them.
+ * One season's pending registrations, newest first.
  */
-export interface FLRegistrierungenListResponse {
-  complete: boolean;
-  registrierungen: FLRegistrierung[];
+export interface FLRegistrierungenAdminListResponse {
+  registrierungen: FLRegistrierungAdminRow[];
 }
 
 /**
@@ -5828,34 +5750,29 @@ export interface FLSpieleSpielplanAdminResponse {
 }
 
 /**
- * The same player echoed back to the admin who just wrote them, with their whole name.
+ * One squad row as the Spieler list shows it: the person's name and nothing else of them.
  */
-export interface FLSpielerAdminSingleResponse {
+export interface FLSpielerAdminRow {
   /** @minLength 1 */
   first_name: string;
-  last_name: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-  version: number;
-}
-
-/**
- * One squad row as seen from its player.
- *
- * Carries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,
- * where a team never leaves a season at all.
- */
-export interface FLSpielerMembership {
   inactive_since: string | null;
   is_nachnominiert: boolean;
+  last_name: string | null;
   nummer: string | null;
-  position: FLSpielerPosition | null;
-  rolle: FLSpielerRolle | null;
-  saison_id: string;
+  nummer_double: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieler_id: string;
   stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
-  version: number;
+  team_name: string | null;
+}
+
+/**
+ * One season's squad rows, every team's, live and ausgetragen alike, sorted by name.
+ */
+export interface FLSpielerAdminListResponse {
+  spieler: FLSpielerAdminRow[];
 }
 
 /**
@@ -5872,32 +5789,44 @@ export interface FLSpielerPublic {
 }
 
 /**
- * The person as stored, plus every squad row they hold.
- *
- * A DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one
- * season, so a player in two comes back as two indistinguishable rows.
+ * The squad row the editor stands on, with the name its club plays the season under.
  */
-export interface FLSpielerWithMemberships {
-  address_change_id: string | null;
-  address_change_viewable_denied: FLAddressChangeViewableDenied | null;
+export interface FLSpielerSaisonKader {
+  inactive_since: string | null;
+  is_nachnominiert: boolean;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  rolle: FLSpielerRolle | null;
+  stufe: FLSpielerStufe | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  team_name: string | null;
+}
+
+/**
+ * The person as the editor shows them: their own record, which outlives the season.
+ */
+export interface FLSpielerSaisonPerson {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   birth_date: string;
   einwilligung: FLEinwilligung;
   email: string;
   /** @minLength 1 */
   first_name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
   last_name: string | null;
-  memberships: FLSpielerMembership[];
-  version: number;
 }
 
 /**
- * Every player, each with their squad rows. Sorted by name.
+ * What the Spieler editor shows in one read: the person, their row of the season, and what its boxes may offer.
  */
-export interface FLSpielerSaisonsResponse {
-  spieler: FLSpielerWithMemberships[];
+export interface FLSpielerSaisonAdminResponse {
+  /** @minItems 1 */
+  allowed_stufen: FLSpielerStufe[];
+  kader: FLSpielerSaisonKader;
+  person: FLSpielerSaisonPerson;
+  taken_rollen: FLSpielerRolle[];
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -6646,19 +6575,6 @@ export type IdentitySweepErasureParams = {
   after?: string | null;
 };
 
-export type RegistrierungenGetRegistrierungenParams = {
-  saison_id?: string | null;
-  team_id?: string | null;
-  status?: FLRegistrierungStatus | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "submitted_at";
-  order?: FLSortOrder;
-};
-
 export type RegistrierungenGetOpenRegistrierungenParams = {
   /**
    * @minimum 1
@@ -6666,6 +6582,10 @@ export type RegistrierungenGetOpenRegistrierungenParams = {
    */
   limit?: number;
   order?: FLSortOrder;
+};
+
+export type RegistrierungenGetRegistrierungenAdminParams = {
+  saison_id: string;
 };
 
 export type SaisonsGetSaisonsAdminParams = {
@@ -6752,6 +6672,10 @@ export type SpielePatchSpielParams = {
    * Report what this payload would move and destroy, and write nothing
    */
   dry_run?: boolean;
+};
+
+export type SpielerGetSpielerAdminParams = {
+  saison_id: string;
 };
 
 export type SpielorteGetSpielorteParams = {

@@ -1,4 +1,3 @@
-import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -9,15 +8,14 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
-from app.api.spieler.admin_router import get_spieler_saisons, patch_spieler
+from app.api.spieler.admin_router import patch_spieler_saison
 from app.api.spieler.public_router import get_spieler_by_id
-from app.api.spieler.schemas import FLPatchSpielerPayload
+from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from tests import documents
-from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -28,8 +26,8 @@ DATABASE_NAME = worker_database("fl_spieler_sentinel_test")
 SAISON_ID = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f608310001")
 
-# Holding no squad row: the person every exclusion below must still serve, so a filter matching
-# nothing fails the controls rather than passing every case.
+# The person every exclusion below must still serve, so a filter matching nothing fails the controls
+# rather than passing every case.
 PERSON_OID = ObjectId("6890a1b2c3d4e5f608310002")
 
 # Seeded by the cases needing a row the `$in` below does not name.
@@ -78,10 +76,18 @@ async def press(database: AsyncDatabase, client: AsyncMongoClient, route: str, s
     if route == "read":
         return await get_spieler_by_id(spieler_id=spieler_id, spieler_collection=collection)
 
-    return await patch_spieler(
+    if spieler_id == PERSON_OID:
+        await database[Collection.SAISON_SPIELER].insert_one(documents.saison_spieler_document(spieler_id, SAISON_ID, TEAM_OID))
+
+    return await patch_spieler_saison(
         spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(first_name="Lysander", last_name="Quell", birth_date="2009-05-04"),
+        saison_id=SAISON_ID,
+        spieler_data=FLPatchSpielerSaisonPayload(
+            first_name="Lysander", last_name="Quell", birth_date="2009-05-04", nummer=None, position=None, stufe=None, rolle=None, version=0
+        ),
         spieler_collection=collection,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
         db=client,
     )
 
@@ -113,23 +119,6 @@ def test_every_route_by_id_still_reaches_a_person(mongo_replica_set_url: str, ro
         return await press(database, client, route, PERSON_OID)
 
     assert on_a_league(mongo_replica_set_url, body) is not None
-
-
-def test_the_memberships_read_never_serves_the_sentinel_and_a_person_holding_no_squad_row_is_still_served(mongo_replica_set_url: str):
-    """It keeps a person holding no squad row, which is exactly the shape the sentinel has."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        memberships = await get_spieler_saisons(
-            spieler_collection=database[Collection.SPIELER],
-            grants_collection=database[Collection.GRANTS],
-            grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
-            operator=ADMINISTRATORS[0],
-            auth_time=int(time.time()),
-        )
-
-        return [row.id for row in memberships.spieler]
-
-    assert on_a_league(mongo_replica_set_url, body) == [PERSON_OID]
 
 
 def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_a_person_s(mongo_replica_set_url: str):

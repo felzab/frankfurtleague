@@ -39,7 +39,6 @@ from app.api.teams.schemas import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import VERSION_FIELD
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
@@ -1439,25 +1438,6 @@ def gruppe_offer(*, rules: FLSaisonRules, gruppen: Iterable[str]) -> list[FLTeam
     offered = offered_gruppen(rules.number_of_gruppen)
 
     return [FLTeamGruppeOffer(gruppe=gruppe, full=occupied[gruppe] >= rules.teams_per_gruppe) for gruppe in offered]
-
-
-def composite_version(*, team: Mapping[str, Any], row: Mapping[str, Any]) -> int:
-    """The one count the team editor reads and saves on: the club's and its season row's added.
-
-    Each only ever rises, so their sum stands exactly where neither has moved, and a page holds one number for its one
-    save (`fl_frontend/src/kit/useEditor.ts :: EditorRecord`).
-    """
-
-    return int(team.get(VERSION_FIELD) or 0) + int(row.get(VERSION_FIELD) or 0)
-
-
-def find_stale_team_save_refusal(*, version: int, team: Mapping[str, Any], row: Mapping[str, Any]) -> WriteRefusal | None:
-    """`version_stale`: the club or its season row has moved since the editor read them."""
-
-    if composite_version(team=team, row=row) == version:
-        return None
-
-    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
 
 
 def teams_admin_rows(

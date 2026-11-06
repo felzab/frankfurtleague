@@ -1,46 +1,7 @@
-import {
-  spielerDeleteKaderRow,
-  spielerDeleteSaisonSpieler,
-  spielerPatchEinwilligung,
-  spielerPatchKaderRow,
-  spielerPatchSaisonSpieler,
-  spielerPatchSpieler,
-  spielerReactivateSaisonSpieler,
-} from "@/core/generated/client/sdk";
+import { spielerDeleteKaderRow, spielerPatchEinwilligung, spielerPatchKaderRow } from "@/core/generated/client/sdk";
 
-import type {
-  FLAccountEinwilligungPayload,
-  FLKaderRow,
-  FLSaisonSpielerResponse,
-  FLSpielerAdminSingleResponse,
-} from "@/core/generated/client/types";
-import type {
-  FLKaderZeileKeyPayload,
-  FLPatchKaderRowPayload,
-  FLPatchSaisonSpielerPayload,
-  FLPatchSpielerPayload,
-  FLSaisonSpielerKeyPayload,
-} from "./schemas";
-
-// The ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
-// body. No fan-out: squad lists read the name through a `$lookup`.
-export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
-  return spielerPatchSpieler(id, fields);
-}
-
-export async function patchSaisonSpieler({ spieler_id, saison_id, ...body }: FLPatchSaisonSpielerPayload): Promise<FLSaisonSpielerResponse> {
-  return spielerPatchSaisonSpieler(spieler_id, saison_id, body);
-}
-
-// Soft — the row stays as the record that this player wore this number in this squad.
-export async function deleteSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpielerKeyPayload): Promise<FLSaisonSpielerResponse> {
-  return spielerDeleteSaisonSpieler(spieler_id, saison_id);
-}
-
-// The one way back in for an administrator: the row keeps its number, position and stufe.
-export async function reactivateSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpielerKeyPayload): Promise<FLSaisonSpielerResponse> {
-  return spielerReactivateSaisonSpieler(spieler_id, saison_id);
-}
+import type { FLAccountEinwilligungPayload, FLKaderRow } from "@/core/generated/client/types";
+import type { FLKaderZeileKeyPayload, FLPatchKaderRowPayload } from "./schemas";
 
 // A seat holder's write rides the admin key under the person lane's actor, which the backend checks
 // the seat against: the club stays the stored row's, so the path's team is the address and no field.

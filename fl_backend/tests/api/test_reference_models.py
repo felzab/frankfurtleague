@@ -9,7 +9,7 @@ from app.api.saisons.schemas import FLPatchSaisonPayload
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload
 from app.api.spieler.schemas import (
     FLEinwilligung,
-    FLPatchSpielerPayload,
+    FLPatchSpielerSaisonPayload,
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerRecord,
@@ -75,10 +75,10 @@ class TestSpieler:
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):
         """No default and no null, so neither a form that forgot the field nor a cleared picker clears a stored date."""
 
-        names = {"first_name": "Max", "last_name": "Mustermann"}
+        names = {"first_name": "Max", "last_name": "Mustermann", "nummer": None, "position": None, "stufe": None, "rolle": None, "version": 0}
 
         with pytest.raises(ValidationError):
-            FLPatchSpielerPayload.model_validate(names if absent else {**names, "birth_date": None})
+            FLPatchSpielerSaisonPayload.model_validate(names if absent else {**names, "birth_date": None})
 
 
 class TestEinwilligung:
@@ -94,9 +94,9 @@ class TestEinwilligung:
         assert_rejects(FLEinwilligung, incomplete, field)
 
     def test_the_patch_payload_carries_no_consent_field(self):
-        """`patch_spieler` `$set`s this model's whole dump, so a field here would let a name correction rewrite what somebody agreed to."""
+        """`patch_spieler_saison` `$set`s this model's fields, so a field here would let a name correction rewrite what somebody agreed to."""
 
-        assert "einwilligung" not in FLPatchSpielerPayload.model_fields
+        assert "einwilligung" not in FLPatchSpielerSaisonPayload.model_fields
 
 
 class TestSaisonSpielerRow:
@@ -240,7 +240,16 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
     def cases(self, address, kontakt, saison, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
-        spieler = {"first_name": "Max", "last_name": "Mustermann", "birth_date": "2009-05-04"}
+        spieler = {
+            "first_name": "Max",
+            "last_name": "Mustermann",
+            "birth_date": "2009-05-04",
+            "nummer": None,
+            "position": None,
+            "stufe": None,
+            "rolle": None,
+            "version": 0,
+        }
         team_payload = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.
@@ -258,8 +267,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "spielort.address.strasse": (FLPostSpielortPayload, spielort, ("address", "strasse")),
             "spielort.name": (FLPostSpielortPayload, spielort, ("name",)),
             "schiedsrichter.name": (FLPostSchiedsrichterPayload, schiedsrichter, ("name",)),
-            "spieler_patch.last_name": (FLPatchSpielerPayload, spieler, ("last_name",)),
-            "spieler_patch.first_name": (FLPatchSpielerPayload, spieler, ("first_name",)),
+            "spieler_patch.last_name": (FLPatchSpielerSaisonPayload, spieler, ("last_name",)),
+            "spieler_patch.first_name": (FLPatchSpielerSaisonPayload, spieler, ("first_name",)),
             "team.full_name": (FLPostTeamPayload, team_payload, ("full_name",)),
             "team.name": (FLPostTeamPayload, team_payload, ("name",)),
             # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
