@@ -127,7 +127,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
 
 /**
  * The application's five boxes and the sentence above the send: the school, one per seat with the Trainer first, the
- * team (D653). A box posts under its dotted name, which `./application.ts :: applicationOf` reads. A colour a club of
+ * team. A box posts under its dotted name, which `./application.ts :: applicationOf` reads. A colour a club of
  * the season wears stands listed, muted and closed. A person holding two seats clears the higher floor, which the
  * Trainer's box says once the second seat is chosen.
  */
