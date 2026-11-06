@@ -44,9 +44,9 @@ export const reactivateTeam = action({
 });
 
 /**
- * Records how a club left the season, which is never lifted, from the danger box's dialog: the write closes what the
- * exit ends and owes each opponent and booked referee their mail, in one transaction. A day before the season's start
- * is refused on its box, though the dialog holds that floor itself.
+ * Records how a club left the season, which is never lifted, from the danger box's dialog: the write owes each opponent
+ * their mail in its own transaction, and the confirmation sweep then closes what the exit ends and tells a booked referee.
+ * A day before the season's start is refused on its box, though the dialog holds that floor itself.
  */
 export const recordAustritt = action({
   lane: "admin",

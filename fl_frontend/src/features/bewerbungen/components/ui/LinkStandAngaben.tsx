@@ -17,6 +17,7 @@ export function zeitpunktText(instant: string): string {
   return uhrzeit === null ? datum : `${datum} um ${uhrzeit} Uhr`;
 }
 
+// Redesign: goes with its last importer, `features/address-change/components/forms/AdresswechselWartet.tsx`.
 /**
  * One confirmation link's sent day, deadline and delivery, as every administrator editor showing a
  * link reads them out, so one state is one word on each.
