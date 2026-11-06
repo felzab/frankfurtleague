@@ -84,11 +84,25 @@ const endsOdd = (count: number): boolean => count > 1 && count % 2 === 1;
 export const SPIELORT_WORDS = "Sportanlage am Riederwald";
 
 /**
- * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
- * over a value's, two a row where `Facts` sets them so. `spielort` is the place of a pair holding a venue, whose value
- * wraps.
+ * A person's e-mail address while it is read, set unseen as a venue's name is: most addresses wrap in a phone's column
+ * and stand on one line in a wide one. Never shown.
  */
-export function FactsPlaceholder({ pairs, look = "boxed", spielort }: { pairs: number; look?: "boxed" | "free"; spielort?: number }) {
+export const EMAIL_WORDS = "vorname.nachname@example.com";
+
+/**
+ * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
+ * over a value's, two a row where `Facts` sets them so. `wraps` is the place of a pair whose value wraps in a narrow
+ * column, and words as long as such a value is, set unseen, so the value stands as many lines as it will at every width.
+ */
+export function FactsPlaceholder({
+  pairs,
+  look = "boxed",
+  wraps,
+}: {
+  pairs: number;
+  look?: "boxed" | "free";
+  wraps?: { pair: number; words: string };
+}) {
   const { list, row, term, detail } = facts({ look, oddCount: endsOdd(pairs) });
   return (
     <div className="@container grid w-full gap-2 text-sm">
@@ -101,10 +115,10 @@ export function FactsPlaceholder({ pairs, look = "boxed", spielort }: { pairs: n
               text={term()}
               width="w-1/4"
             />
-            {index === spielort ? (
+            {index === wraps?.pair ? (
               <PlaceholderSentence
                 text={detail()}
-                words={SPIELORT_WORDS}
+                words={wraps.words}
                 lines={2}
               />
             ) : (
