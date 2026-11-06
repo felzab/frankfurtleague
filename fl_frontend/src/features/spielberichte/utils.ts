@@ -1,4 +1,4 @@
-import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
+import { kaderName, NUMMER_NOT_ON_FILE, SPIELER_ANONYMOUS_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
@@ -7,9 +7,9 @@ import type { FieldErrors } from "@/shared/utils/validation";
 
 /** A pupil as a report's reader sees them: shirt number and name, and a pupil an erasure took as „anonym“. */
 export function spielerLabel(spieler: FLSpielberichtSpieler): string {
-  if (spieler.first_name === null) return SPIELER_ANONYM_LABEL;
+  if (spieler.first_name === null) return SPIELER_ANONYMOUS_LABEL;
 
-  return `${spieler.nummer ?? NUMMER_NICHT_HINTERLEGT} · ${kaderName({ first_name: spieler.first_name, last_name: spieler.last_name })}`;
+  return `${spieler.nummer ?? NUMMER_NOT_ON_FILE} · ${kaderName({ first_name: spieler.first_name, last_name: spieler.last_name })}`;
 }
 
 /** Why a fixture takes no report today, `null` where it takes one, as `bericht_not_played` and `bericht_cancelled` judge a write. */

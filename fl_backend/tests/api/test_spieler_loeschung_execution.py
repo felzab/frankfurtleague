@@ -221,7 +221,7 @@ def images_naming(images: list[dict[str, Any]], spieler_id: ObjectId) -> list[di
     return [image for image in images if spieler_id in (image.get("_id"), image.get("spieler_id"))]
 
 
-class TestARetiredPupilIsGeloeschtWhole:
+class TestARetiredPupilIsErasedWhole:
     """Through the endpoint: the person, their squad rows and their values in the log, or none of the three."""
 
     def test_every_squad_row_they_held_is_gone(self, mongo_replica_set_url: str):
@@ -331,7 +331,7 @@ class TestAPupilWhoNeverJoinedASquad:
         assert removed == 0
         assert [image for image in theirs if image.get("saison_id")], "an empty id list swept the other pupil's squad rows"
 
-    def test_their_own_record_is_geloescht_all_the_same(self, mongo_replica_set_url: str):
+    def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
         """Catches an erasure that only reaches a person who held a squad row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -427,7 +427,7 @@ class TestTheirReportEntriesNameTheSentinel:
         assert plan == "IXSCAN { bericht.scorers.spieler_id: 1 }, IXSCAN { bericht.cards.spieler_id: 1 }"
 
 
-class TestAHalfDoneLoeschungCommitsNothing:
+class TestAHalfDoneErasureCommitsNothing:
     """The failure mode.
 
     A person removed while the log still holds their values reports an erasure that did not happen.

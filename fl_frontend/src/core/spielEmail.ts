@@ -28,7 +28,7 @@ const FACT = COPY.spielplan.fact;
  * The one place this link is spelled. `token` is the name `nginx/shared/http.conf :: $credential_free_uri`
  * redacts, and the origin goes through `mailOrigin` here, so the link and the message's close stand on one host.
  */
-export function spielBestaetigungsLink(origin: string, token: string): string {
+export function spielConfirmationLink(origin: string, token: string): string {
   return `${mailOrigin(origin)}${ROUTES.spielbestaetigung.path()}?token=${encodeURIComponent(token)}`;
 }
 
@@ -82,7 +82,7 @@ const answerParagraph = (deadline: string): Paragraph => [
  * A club's request to confirm a fixture, the reminder of it, or the request about the slot a move went to, which is then
  * the one mail telling the club of the move: to one mailbox of one of its teams.
  */
-export function buildSpielAnfrageEmail(
+export function buildSpielRequestEmail(
   { kind, team, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
   { origin, token }: MailLink,
 ): Mail {
@@ -106,7 +106,7 @@ export function buildSpielAnfrageEmail(
     paragraphs: [lead],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [answerParagraph(deadline)],
-    button: { label: COPY.page.spielbestaetigung, href: spielBestaetigungsLink(origin, token) },
+    button: { label: COPY.page.spielbestaetigung, href: spielConfirmationLink(origin, token) },
   };
 }
 
@@ -158,7 +158,7 @@ function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, 
  * the slot it was asked about, and on a move the slot it went to where it holds one. No button and no name, nothing
  * being left to answer here and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
+export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
   const { recipient, appointment } = data;
 
   if (data.kind === "spiel_cancelled") {
@@ -186,7 +186,7 @@ export function buildSpielHinweisEmail(data: FLSpielMovedData | FLSpielNoticeDat
 }
 
 /** The word to a referee that their Einteilung is lifted, whoever took them off the fixture. */
-export function buildSpielEinteilungAufgehobenEmail({ appointment }: FLSpielEinteilungLiftedData, { origin }: MailOrigin): Mail {
+export function buildSpielEinteilungLiftedEmail({ appointment }: FLSpielEinteilungLiftedData, { origin }: MailOrigin): Mail {
   return unbookedEmail(appointment, origin);
 }
 
@@ -194,7 +194,7 @@ export function buildSpielEinteilungAufgehobenEmail({ appointment }: FLSpielEint
  * The word to a club that the league kept the date it declined and proposed another for: its answer said the league
  * decides, and nothing else tells it the league has.
  */
-export function buildSpielVorschlagVerworfenEmail({ appointment }: FLSpielVorschlagDiscardedData, { origin }: MailOrigin): Mail {
+export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorschlagDiscardedData, { origin }: MailOrigin): Mail {
   return noticeEmail(WORDS.keptSubject(dayOf(appointment.date)), origin, [
     around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
     WORDS.keptDiscarded,

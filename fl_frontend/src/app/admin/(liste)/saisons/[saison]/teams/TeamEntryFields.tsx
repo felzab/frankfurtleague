@@ -9,7 +9,7 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
+import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { schulformOptions } from "@/features/teams/options";
 
 import { NEW_CLUB } from "./newClub";
@@ -73,8 +73,8 @@ export function TeamEntryFields({
               width="C5"
               kind="text"
               isRequired={required.shorthand}
-              maxLength={KUERZEL_LAENGE}
-              minLength={KUERZEL_LAENGE}
+              maxLength={SHORTHAND_LENGTH}
+              minLength={SHORTHAND_LENGTH}
               description={COPY.team.shorthandDescription}
             />
           </FieldPair>

@@ -13,7 +13,7 @@ from typing import Any, Final, Literal, get_args
 from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, admin_tier_of, holds_an_owners_power
-from app.api.bewerbungen.services import build_eigene_bewerbung_filter
+from app.api.bewerbungen.services import build_own_bewerbung_filter
 from app.api.identity.schemas import FLAccountErasureView, FLErasureView, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
@@ -344,7 +344,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending application one of whose seats names the address; read for the sign-in alone, no panel standing on one."""
 
     return [
-        {"$match": build_eigene_bewerbung_filter(identifier)},
+        {"$match": build_own_bewerbung_filter(identifier)},
         {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")}},
     ]
 
@@ -663,7 +663,7 @@ def build_seat_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[s
 
 
 def build_bewerbung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    return [{"$match": build_eigene_bewerbung_filter(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
+    return [{"$match": build_own_bewerbung_filter(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
 
 
 def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:

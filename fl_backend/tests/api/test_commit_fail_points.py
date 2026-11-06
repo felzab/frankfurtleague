@@ -311,7 +311,7 @@ class TestAPersonsOwnPress:
     def test_a_press_whose_commit_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
-        withdrawn = {"scope": "intern", "media": False}
+        withdrawn = {"scope": "internal", "media": False}
 
         async def chosen(database: AsyncDatabase) -> dict[str, Any]:
             stored = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
@@ -343,7 +343,7 @@ class TestAPersonsOwnPress:
 
         async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            withdrawal = _withdrawal("konto_spieler", scope="intern", media=False)
+            withdrawal = _withdrawal("konto_spieler", scope="internal", media=False)
             with caplog.at_level(logging.INFO):
                 refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "evidence_state": stale}, headers=_person(PERSON))
                 refused_lines = len(journalled(caplog))
@@ -441,7 +441,7 @@ class TestASpielSaveRefusedAtItsCommit:
                         refusing,
                         spiel_saves.VIERTELFINALE,
                         spiel_data,
-                        uebernimmt_bericht=spiel_saves.SEEDED_VERSION,
+                        adopts_bericht=spiel_saves.SEEDED_VERSION,
                     )
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")

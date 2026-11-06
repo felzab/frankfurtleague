@@ -6,7 +6,8 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.admin_router import get_bewerbungen_admin
-from app.api.bewerbungen.services import mit_zustellung, zustand_of
+from app.api.bewerbungen.services import with_delivery, zustand_of
+from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
@@ -55,7 +56,7 @@ def bewerbung_document(
         else documents.new_schule_document(
             f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
         ),
-        trikot={"existing_satz": "16 rote Trikots", "wunschfarbe": "rot"},
+        trikot={"existing_set": "16 rote Trikots", "wunschfarbe": "rot"},
     )
 
 
@@ -172,7 +173,7 @@ class TestEachSeatServesWhereItStands:
             "confirmations": {"trainer": self.LIVE, "ansprechperson": self.LIVE, "stellvertretung": None, **confirmations},
         }
 
-        return mit_zustellung(row, {}, today="2026-04-10")["confirmations"]
+        return with_delivery(row, {}, today="2026-04-10")["confirmations"]
 
     def test_a_stamp_a_decline_and_a_running_link_each_read_as_their_link_does(self):
         served = self.read(stellvertretung={"deadline": "2026-04-20", "declined_at": "2026-04-05"})
@@ -187,3 +188,27 @@ class TestEachSeatServesWhereItStands:
 
     def test_an_erased_seat_serves_no_entry(self):
         assert self.read()["stellvertretung"] is None
+
+
+class TestEachSeatReadsItsLastMail:
+    """The join the reads serve `delivery` by: one person is sent one mail for two seats, read by the seat it mirrors."""
+
+    def test_a_trainer_who_is_another_seats_person_reads_that_seats_mail_and_an_emptied_seat_reads_none(self):
+        """Served wrong, the bounce chip goes, the administrator's one sign that nobody was reached."""
+
+        sent = FLOutboxStatus(state="sent", delivery=None)
+        abandoned = FLOutboxStatus(state="abandoned", delivery=None)
+        row = {
+            "_id": "bewerbung",
+            "kontakte": {"trainer_is_also": "ansprechperson"},
+            "confirmations": {
+                "trainer": {"sent_at": "2026-04-01"},
+                "ansprechperson": {"sent_at": "2026-04-01"},
+                "stellvertretung": None,
+            },
+        }
+
+        served = with_delivery(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): abandoned}, today="2026-03-01")
+
+        assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == sent
+        assert served["confirmations"]["stellvertretung"] is None

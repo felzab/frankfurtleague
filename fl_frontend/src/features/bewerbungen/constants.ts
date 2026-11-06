@@ -8,7 +8,7 @@ import type { KontaktRolle } from "@/features/teams/constants";
  * cannot import the generated module that holds the pattern, so `constants.test.ts` holds the two equal; a control's
  * `maxLength` and the check of a complete code read the length from here.
  */
-export const KUERZEL_LAENGE = 3;
+export const SHORTHAND_LENGTH = 3;
 
 /**
  * The span a contact person's birthdate has to fall in. The floor is checked against the bound
@@ -16,14 +16,14 @@ export const KUERZEL_LAENGE = 3;
  * fails the type check here; the ceiling, mirrored from the same file, refuses a mistyped century rather than a real
  * age, and no other date in an application gains a bound.
  */
-export const BEWERBUNG_MIN_ALTER = 16 satisfies FLBewerbungKontaktMinAgeYears;
-export const BEWERBUNG_MAX_ALTER = 120;
+export const BEWERBUNG_MIN_AGE = 16 satisfies FLBewerbungKontaktMinAgeYears;
+export const BEWERBUNG_MAX_AGE = 120;
 
 /**
  * Every seat a contact person holds on one row, as the one phrase the contact page, the account page and the mails
  * name them by (`fl_frontend/src/core/teamVocabulary.ts :: rollenText`); an emptied seat names nobody.
  */
-export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string =>
+export const rollenLongForm = (rollen: readonly (KontaktRolle | null)[]): string =>
   rollenText(rollen.filter((rolle): rolle is KontaktRolle => rolle !== null));
 
 /**
@@ -31,14 +31,14 @@ export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string
  * `fl_backend/app/shared/schemas/bounds.py :: SIGNATORY_MIN_AGE_YEARS` as the contact's floor is. Those two sign what
  * binds the school, which asks contractual capacity rather than the age a person consents for themselves at.
  */
-export const VERTRETUNG_MIN_ALTER = 18 satisfies FLSignatoryMinAgeYears;
+export const VERTRETUNG_MIN_AGE = 18 satisfies FLSignatoryMinAgeYears;
 
 /**
  * The deadline a confirmation link runs on, so the page states the day the sweep deletes on; checked against
  * `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so the backend moving it fails
  * the type check here.
  */
-export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLBewerbungConfirmationDeadlineDays;
+export const BEWERBUNG_CONFIRMATION_DEADLINE_DAYS = 14 satisfies FLBewerbungConfirmationDeadlineDays;
 
 /**
  * The raw token's ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound at the two

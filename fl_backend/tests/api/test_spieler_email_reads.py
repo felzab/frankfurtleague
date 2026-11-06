@@ -71,7 +71,7 @@ async def seed(database: AsyncDatabase) -> None:
             deadline="2026-04-06",
             confirmed={
                 "birth_date": "2009-05-04",
-                "scope": "intern",
+                "scope": "internal",
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": "2026-03-31",

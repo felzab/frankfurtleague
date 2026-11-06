@@ -113,10 +113,10 @@ async def pull_named(
 
     live = {row["spieler_id"] for side in SIDES for row in live_kader(context, side)} if kader_open else set()
     ausserhalb = set().union(*named_ids_of(bericht).values()) - live
-    zeilen = {row["spieler_id"]: row for row in context.kader if row["spieler_id"] in ausserhalb}
+    rows = {row["spieler_id"]: row for row in context.kader if row["spieler_id"] in ausserhalb}
     # A pupil of neither side's club, such as one of a club a knockout slot has since replaced: read off their record.
-    rest = ausserhalb - zeilen.keys()
-    personen = (
+    rest = ausserhalb - rows.keys()
+    people = (
         []
         if not rest
         else await pull_many_from_db(
@@ -124,10 +124,10 @@ async def pull_named(
         )
     )
 
-    benannt = {person["_id"]: person for person in personen}
+    benannt = {person["_id"]: person for person in people}
 
     return [
-        *(FLSpielberichtSpieler.model_validate(zeile) for zeile in zeilen.values()),
+        *(FLSpielberichtSpieler.model_validate(row) for row in rows.values()),
         *(
             FLSpielberichtSpieler(
                 spieler_id=spieler_id,

@@ -193,12 +193,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
     return (
       <div className="flex flex-col gap-0.5">
-        {datensatz.filterPaare.map(([feld, wert]) => (
+        {datensatz.filterPaare.map(([field, value]) => (
           <span
-            key={feld}
+            key={field}
             className="flex flex-row flex-wrap gap-x-1 font-mono fluid-xs break-all">
-            <span className="text-foreground-muted">{feld}</span>
-            <span className="text-foreground">{wert}</span>
+            <span className="text-foreground-muted">{field}</span>
+            <span className="text-foreground">{value}</span>
           </span>
         ))}
         {/* A readout rather than a sentence: "12 Datensätze" would have to agree with a count of one. */}

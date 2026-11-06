@@ -8,12 +8,12 @@ from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
-    ADDRESS_STADTTEIL_MAX_LENGTH,
+    ADDRESS_DISTRICT_MAX_LENGTH,
     BEWERBUNG_DECISION_REASON_MAX_LENGTH,
     BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_STUFENGROESSE_MAX,
-    BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
+    BEWERBUNG_TRIKOT_SET_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
@@ -58,7 +58,7 @@ type FLBewerbungStatus = Literal["submitted", "accepted", "declined"]
 FLBewerbungSeatState = Literal["valid", "confirmed", "declined", "expired"]
 
 
-class _FLBewerbungSitzStand(BaseReadModel):
+class _FLBewerbungSeatState(BaseReadModel):
     """One seat's confirmation bookkeeping, as the record and the read share it."""
 
     # The day the link was last mailed; a re-send moves it. Null on a seat the submission owed no mail, its mailbox holding
@@ -73,7 +73,7 @@ class _FLBewerbungSitzStand(BaseReadModel):
     declined_at: CustomOptionalDateString
 
 
-class FLBewerbungConfirmation(_FLBewerbungSitzStand):
+class FLBewerbungConfirmation(_FLBewerbungSeatState):
     """One seat's confirmation bookkeeping as the triage reads it, without its link's hashes."""
 
     # What became of the last mail owed this seat, as the read joins it from the Postausgang: no seat stores it, and null
@@ -111,7 +111,7 @@ class FLBewerbungSchule(BaseModel):
 class FLBewerbungTrikot(BaseModel):
     """What kit the school already owns, and the colour it would like; never copied onto the team."""
 
-    existing_satz: str
+    existing_set: str
     wunschfarbe: FLTrikotFarbe
 
 
@@ -123,7 +123,7 @@ class FLBewerbungKader(BaseModel):
     good_spieler: int
 
 
-class FLBewerbungEntscheidung(BaseModel):
+class FLBewerbungDecision(BaseModel):
     """Who decided this application, when, and on a decline why."""
 
     made_at: CustomDateString
@@ -133,7 +133,7 @@ class FLBewerbungEntscheidung(BaseModel):
     reason: str | None
 
 
-class FLBewerbungDecisionRow(FLBewerbungEntscheidung):
+class FLBewerbungDecisionRow(FLBewerbungDecision):
     """A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address."""
 
     # Null exactly where `by_barred` is set, as the grants list withholds its actors.
@@ -169,23 +169,23 @@ class FLBewerbung(BaseReadModel):
     confirmations: FLBewerbungConfirmations
 
 
-class FLBewerbungBestaetigungRecord(_FLBewerbungSitzStand):
+class FLBewerbungConfirmationRecord(_FLBewerbungSeatState):
     """One seat's bookkeeping as `bewerbungen` stores it: the hash of every link it was mailed, each live until a re-send."""
 
     token_hashes: list[str]
 
 
-class FLBewerbungBestaetigungenRecord(FLBewerbungConfirmations):
-    trainer: FLBewerbungBestaetigungRecord | None
-    ansprechperson: FLBewerbungBestaetigungRecord | None
-    stellvertretung: FLBewerbungBestaetigungRecord | None
+class FLBewerbungConfirmationsRecord(FLBewerbungConfirmations):
+    trainer: FLBewerbungConfirmationRecord | None
+    ansprechperson: FLBewerbungConfirmationRecord | None
+    stellvertretung: FLBewerbungConfirmationRecord | None
 
 
 class FLBewerbungRecord(FLBewerbung):
     """One application as `bewerbungen` stores it: its decision before any administrator is withheld, and what no read serves."""
 
-    decision: FLBewerbungEntscheidung | None
-    confirmations: FLBewerbungBestaetigungenRecord
+    decision: FLBewerbungDecision | None
+    confirmations: FLBewerbungConfirmationsRecord
     # The retention sweep's announcement, and the submission's replay key and digest.
     erasure_announced_at: str | None = None
     idempotency_key: str | None = None
@@ -332,7 +332,7 @@ def age_outside_the_bounds(*, birth_date: str, today: str, minimum_age: int) -> 
     age = whole_years_between(born=birth_date, today=today)
 
     # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
-    # hold (`app/api/bewerbungen/services.py :: mindestalter_for`).
+    # hold (`app/api/bewerbungen/services.py :: minimum_age_for`).
     return not minimum_age <= age <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 
 
@@ -365,11 +365,11 @@ class FLBewerbungKontaktePayload(BaseModel):
 
 
 class FLBewerbungAddressPayload(FLAddressPayload):
-    """The school's address, with the Stadtteil required."""
+    """The school's address, with the district required."""
 
     # The ceiling on what arrives, the floor after the strip, as `reason`'s.
-    stadtteil: Annotated[
-        str, StringConstraints(max_length=ADDRESS_STADTTEIL_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+    district: Annotated[
+        str, StringConstraints(max_length=ADDRESS_DISTRICT_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
     ]
 
 
@@ -422,7 +422,7 @@ class FLBewerbungTrikotPayload(FLBewerbungTrikot):
 
     # No floor: a school that owns no kit writes nothing here, so the empty string is the honest
     # answer. A ceiling all the same -- an anonymous caller writes it, and it is stored.
-    existing_satz: str = Field(max_length=BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)
+    existing_set: str = Field(max_length=BEWERBUNG_TRIKOT_SET_MAX_LENGTH)
 
 
 class FLBewerbungKaderPayload(FLBewerbungKader):
@@ -483,7 +483,7 @@ class FLPostBewerbungPayload(BaseModel):
     # sibling's omission is a 422.
 
     # `SINGLE_LINE_PATTERN` earns a second reason here:
-    # `fl_frontend/src/core/bewerbungEmail.ts :: wunschgegnerAbsatz` sets this inside a sentence, and a
+    # `fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungZusageEmail` sets this inside a sentence, and a
     # break there still opens a line in a line-oriented text body.
 
     # No floor, `parse_empty_string_to_none` leaving nothing between null and a real name:
@@ -542,7 +542,7 @@ class FLBewerbungFormResponse(BaseAPIResponse):
 
 # What a reopened link shows: where its seat stands, with `barred` ranking first.
 # `saison_past`, a season row's alone, takes a Widerspruch and no consent (`kontakt_saison_past`).
-FLBewerbungEinwilligungZustand = Literal[FLBewerbungSeatState, "saison_past", "barred"]
+FLBewerbungEinwilligungState = Literal[FLBewerbungSeatState, "saison_past", "barred"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
 # the person on. The page picks its wording by it.
@@ -556,7 +556,7 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     """What the page renders for one seat, and nothing of the person."""
 
     quelle: FLEinwilligungQuelle
-    state: FLBewerbungEinwilligungZustand
+    state: FLBewerbungEinwilligungState
     # A season row's state now, read as the mint reads it, so a closed row's page can name why it takes
     # no consent; null on an application's link, which no season or withdrawal closes.
     row: FLKontaktRow | None
@@ -599,7 +599,7 @@ class FLBewerbungEinwilligungGiven(BaseModel):
 
     @model_validator(mode="after")
     def _grants_name_the_current_wording(self) -> Self:
-        refuse_a_stale_grant(self.text_versions, {"scope": "kontaktdaten_whatsapp" if self.whatsapp else "kontaktdaten", "media": self.media})
+        refuse_a_stale_grant(self.text_versions, {"scope": "kontakt_data_whatsapp" if self.whatsapp else "kontakt_data", "media": self.media})
         return self
 
 

@@ -14,7 +14,7 @@ const person = (first_name: string, confirmed_at: string | null = null): FLKonta
   phone: "069 90009123",
   birth_date: null,
   einwilligung: {
-    scope: "kontaktdaten",
+    scope: "kontakt_data",
     date: "2026-10-01",
     confirmed_at,
     media: false,

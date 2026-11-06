@@ -23,7 +23,7 @@ from tests.worker import worker_database
 # Module level: the read opens a snapshot session against a real mongod.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_team_sitze_test")
+DATABASE_NAME = worker_database("fl_team_seats_test")
 WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
@@ -48,7 +48,7 @@ def _served() -> FastAPI:
     return create_app(WIRE_CONFIG)
 
 
-def sitze_read(url: str, *, identifier: str, team_id: ObjectId = TEAM_OID, saison_id: str = SAISON_ID) -> tuple[int, Any]:
+def seats_read(url: str, *, identifier: str, team_id: ObjectId = TEAM_OID, saison_id: str = SAISON_ID) -> tuple[int, Any]:
     async def _run() -> tuple[int, Any]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             await seed(database)
@@ -145,7 +145,7 @@ class TestTheSeatRead:
         ids=("another team's seat", "an unconfirmed seat", "the team's past season", "the same team in another season"),
     )
     def test_a_seat_granting_nothing_here_is_refused(self, mongo_replica_set_url: str, identifier: str, saison_id: str):
-        status, served = sitze_read(mongo_replica_set_url, identifier=identifier, saison_id=saison_id)
+        status, served = seats_read(mongo_replica_set_url, identifier=identifier, saison_id=saison_id)
 
         assert (status, served["error_code"]) == (403, "role_not_held")
 
@@ -155,7 +155,7 @@ class TestTheSeatRead:
         Seeded with every seat carrying all three, so the scan has something to find.
         """
 
-        status, served = sitze_read(mongo_replica_set_url, identifier=THEO)
+        status, served = seats_read(mongo_replica_set_url, identifier=THEO)
 
         # A refused read would pass the scan below with nothing scanned.
         assert (status, len(served["seats"])) == (200, 3)

@@ -243,8 +243,8 @@ export function SaisonEditor({
 
   const sections: [EditorSection, ...EditorSection[]] = [
     {
-      id: "zeitraum",
-      title: WORDS.zeitraum,
+      id: "period",
+      title: WORDS.period,
       ...(facts.takenPlace ? { note: WORDS.startFixed } : {}),
       fields: (
         <FieldRows>
@@ -506,8 +506,8 @@ export function SaisonEditor({
       ),
     },
     {
-      id: "ersatz",
-      title: WORDS.ersatz,
+      id: "replacement",
+      title: WORDS.replacement,
       ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <Replacement

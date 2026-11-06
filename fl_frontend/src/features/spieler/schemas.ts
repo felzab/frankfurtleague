@@ -27,7 +27,7 @@ const FLSpielerRolleSchema = z.enum(FLSpielerRolle, { error: "Bitte wähle eine 
 const SQUAD_NUMMER_REGEX = /^\d{1,4}$/;
 
 /** The three ids a squad row is addressed by on a seat holder's write, all of them in the PATH. */
-const kaderZeileKeyFields = {
+const kaderRowKeyFields = {
   team_id: CustomObjectIdStringSchema,
   saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
   spieler_id: CustomObjectIdStringSchema,
@@ -38,19 +38,19 @@ const kaderZeileKeyFields = {
  * Mirrors `FLPatchKaderRowPayload`, wholesale: an omitted field would erase a stored one. The club
  * and the Nachnominierung are the stored row's, and a seat holder's write names neither.
  */
-export const FLPatchKaderZeilePayloadSchema = z.object({
-  ...kaderZeileKeyFields,
+export const FLPatchKaderRowPayloadSchema = z.object({
+  ...kaderRowKeyFields,
   nummer: z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS }).nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   rolle: FLSpielerRolleSchema.nullable(),
 });
-export type FLPatchKaderRowPayload = z.infer<typeof FLPatchKaderZeilePayloadSchema>;
+export type FLPatchKaderRowPayload = z.infer<typeof FLPatchKaderRowPayloadSchema>;
 
 // Redesign: goes with its last importer.
 /** The austragen's whole argument: the row's three ids, every one in the path, and no request body. */
-export const FLKaderZeileKeyPayloadSchema = z.object(kaderZeileKeyFields);
-export type FLKaderZeileKeyPayload = z.infer<typeof FLKaderZeileKeyPayloadSchema>;
+export const FLKaderRowKeyPayloadSchema = z.object(kaderRowKeyFields);
+export type FLKaderRowKeyPayload = z.infer<typeof FLKaderRowKeyPayloadSchema>;
 
 // Redesign: goes with its last importer.
 /**
@@ -61,4 +61,4 @@ export const textVersionsSchema = <U extends string, M extends string>(labels: {
   z.object({ scope: z.literal(labels.scope, { error }), media: z.literal(labels.media, { error }) }, { error });
 
 /** A drifted link page's labels, which the link reopened repairs. */
-export const LINK_FASSUNG_FEHLT = "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut.";
+export const LINK_WORDING_MISSING = "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut.";

@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_schluessel_filter, compose_decline_update, compose_kontakte
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_decline_update, compose_kontakte
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -108,7 +108,7 @@ def payload(**overrides: Any) -> dict[str, Any]:
         "team_id": str(EXISTING_OID),
         "schule": None,
         "kontakte": {seat: dict(value) if isinstance(value, dict) else value for seat, value in KONTAKTE.items()},
-        "trikot": {"existing_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+        "trikot": {"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
         "kader": {"expected_size": 14, "good_spieler": 3},
         "stufengroesse": 90,
         **overrides,
@@ -239,7 +239,7 @@ class TestWhatASubmissionStores:
             # Born with the applicant's acknowledgement, naming the application as who seated the
             # person, and no evidence: no person has set a choice yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
-                "scope": "kontaktdaten",
+                "scope": "kontakt_data",
                 "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
@@ -254,7 +254,7 @@ class TestWhatASubmissionStores:
         answers = {
             "team_id": None,
             "schule": schule_block(),
-            "trikot": {"existing_satz": "12 blaue Trikots", "wunschfarbe": "blau"},
+            "trikot": {"existing_set": "12 blaue Trikots", "wunschfarbe": "blau"},
             "kader": {"expected_size": 17, "good_spieler": 5},
             "stufengroesse": 118,
             "wunschgegner": "Zorbanax-Gesamtschule",
@@ -275,7 +275,7 @@ class TestWhatASubmissionStores:
 async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """Every mail the Postausgang holds, by key, as owed: its recipient and its facts."""
 
-    rows = await database[Collection.OUTBOX].find({}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
+    rows = await database[Collection.OUTBOX].find({}, {"_id": 0, "key": 1, "to": 1, "data": 1}).to_list(length=None)
 
     return sorted(rows, key=lambda row: str(row["key"]))
 
@@ -298,11 +298,11 @@ class TestWhatTheCreateOwes:
         created_id, document, mails = on_a_league(mongo_replica_set_url, body)
 
         deadline = deadline_from_today()
-        stamm = f"{Collection.BEWERBUNGEN}/{created_id}"
+        stem = f"{Collection.BEWERBUNGEN}/{created_id}"
         assert mails == [
             {
-                "key": f"{stamm}/confirmation/stellvertretung",
-                "an": KONTAKTE["stellvertretung"]["email"],
+                "key": f"{stem}/confirmation/stellvertretung",
+                "to": KONTAKTE["stellvertretung"]["email"],
                 "data": {
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
@@ -312,8 +312,8 @@ class TestWhatTheCreateOwes:
                 },
             },
             {
-                "key": f"{stamm}/confirmation/trainer",
-                "an": KONTAKTE["trainer"]["email"],
+                "key": f"{stem}/confirmation/trainer",
+                "to": KONTAKTE["trainer"]["email"],
                 "data": {
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
@@ -323,8 +323,8 @@ class TestWhatTheCreateOwes:
                 },
             },
             {
-                "key": f"{stamm}/received",
-                "an": KONTAKTE["ansprechperson"]["email"],
+                "key": f"{stem}/received",
+                "to": KONTAKTE["ansprechperson"]["email"],
                 "data": {
                     "kind": "bewerbung_received",
                     "saison_id": SAISON_ID,
@@ -346,7 +346,7 @@ class TestWhatTheCreateOwes:
         async def body(database: AsyncDatabase) -> Any:
             response = await submit(database)
             mails = await drained(database, database.client)
-            views = {mail.an: await view(database, mail.token or "") for mail in mails}
+            views = {mail.to: await view(database, mail.token or "") for mail in mails}
             document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
             assert document is not None
@@ -356,10 +356,10 @@ class TestWhatTheCreateOwes:
 
         assert len({mail.token for mail in mails}) == 3
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
-            [mail] = [mail for mail in mails if mail.an == KONTAKTE[seat]["email"]]
+            [mail] = [mail for mail in mails if mail.to == KONTAKTE[seat]["email"]]
             assert mail.token is not None
             assert document["confirmations"][seat]["token_hashes"] == [hash_token(mail.token)]
-            assert (views[mail.an].state, views[mail.an].rolle) == ("valid", seat)
+            assert (views[mail.to].state, views[mail.to].rolle) == ("valid", seat)
 
     def test_each_seats_deadline_is_the_bound_counted_from_today(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -464,7 +464,7 @@ class TestTheSubmissionKey:
     @pytest.mark.parametrize(
         "emptying",
         [
-            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, announced=False), id="a Widerspruch"),
+            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, announced=False), id="an objection"),
             pytest.param(build_clearing_update(("stellvertretung",), confirmations=True), id="a contact erasure"),
         ],
     )
@@ -543,7 +543,7 @@ class TestTheSubmissionKey:
 
             return held.lookup_filters
 
-        assert on_a_league(mongo_replica_set_url, body) == [build_schluessel_filter(key=str(SCHLUESSEL))]
+        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(SCHLUESSEL))]
 
 
 def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
@@ -763,7 +763,7 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         "team_id": EXISTING_OID,
         "schule": None,
         "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
-        "trikot": {"existing_satz": "16 rote Trikots", "wunschfarbe": "rot"},
+        "trikot": {"existing_set": "16 rote Trikots", "wunschfarbe": "rot"},
         "kader": {"expected_size": 14, "good_spieler": 3},
         "stufengroesse": 96,
         "wunschgegner": None,
@@ -820,7 +820,7 @@ class TestAMailboxPastTheBound:
             mailed = {row["key"] for row in await owed(database)}
             press = await submit(database)
 
-            return [row["an"] for row in await owed(database) if row["key"] not in mailed], await sent_days(database, press)
+            return [row["to"] for row in await owed(database) if row["key"] not in mailed], await sent_days(database, press)
 
         addresses, days = on_a_league(mongo_replica_set_url, body)
 
@@ -846,7 +846,7 @@ class TestAMailboxPastTheBound:
                 kontakte=naming(trainer="victim+3@example.com", ansprechperson="victim+4@example.com", stellvertretung="victim+5@example.com"),
             )
 
-            return [row["an"] for row in await owed(database) if str(row["an"]).startswith("victim")], await sent_days(database, press)
+            return [row["to"] for row in await owed(database) if str(row["to"]).startswith("victim")], await sent_days(database, press)
 
         addresses, days = on_a_league(mongo_replica_set_url, body)
 
@@ -939,7 +939,7 @@ class TestABannedContactAddress:
             before = await database[Collection.BEWERBUNGEN].find_one({})
             second = await submit(database, key=SCHLUESSEL)
             after = await database[Collection.BEWERBUNGEN].find({}).to_list()
-            sent = [mail.an for mail in await drained(database, database.client)]
+            sent = [mail.to for mail in await drained(database, database.client)]
 
             return first.created_id, second.created_id, before, after, sent
 

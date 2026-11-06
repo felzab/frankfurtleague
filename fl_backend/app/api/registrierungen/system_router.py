@@ -217,7 +217,7 @@ async def sweep_registrierungen(
                 OwedMail(
                     # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
                     key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
-                    an=str(row["email"]),
+                    to=str(row["email"]),
                     data=FLRegistrierungLinkData(
                         kind="registrierung_reminder",
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
@@ -271,9 +271,9 @@ async def sweep_registrierungen(
     )
     failed = len(passed)
 
-    erinnert = 0
+    reminded_count = 0
     ohne_entscheidung, redacted_undecided = 0, 0
-    unbestaetigt, redacted_unconfirmed = 0, 0
+    unconfirmed, redacted_unconfirmed = 0, 0
     # The season's end takes every row the two clocks in the other arm read, so a link minted
     # for one of them would be a credential nobody can spend.
     if season_has_ended(saison_status=saison_status):
@@ -286,7 +286,7 @@ async def sweep_registrierungen(
         )
         failed += len(passed)
     else:
-        unbestaetigt, redacted_unconfirmed, passed = await drain(
+        unconfirmed, redacted_unconfirmed, passed = await drain(
             db=db,
             page_of=loeschen_the_unconfirmed,
             page=SWEEP_PAGE,
@@ -305,12 +305,12 @@ async def sweep_registrierungen(
             clock="reminder",
         )
         failed += len(passed)
-        erinnert = sum(reminded)
+        reminded_count = sum(reminded)
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,
-        reminded=erinnert,
-        erased_unconfirmed=unbestaetigt,
+        reminded=reminded_count,
+        erased_unconfirmed=unconfirmed,
         erased_without_decision=ohne_entscheidung,
         erased_declined=abgelehnte,
         redacted_action_log=redacted_undecided + redacted_unconfirmed + redacted_declined,

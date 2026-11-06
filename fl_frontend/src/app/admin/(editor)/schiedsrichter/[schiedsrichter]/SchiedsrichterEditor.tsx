@@ -95,7 +95,7 @@ export function SchiedsrichterEditor({
       title={title}
       chip={chip}
       editor={editor}
-      danger={{ title: COPY.admin.stilllegung, acts: [dangerAct] }}
+      danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
       sections={[
         {
           id: "schiedsrichter",
@@ -137,8 +137,8 @@ export function SchiedsrichterEditor({
           ),
         },
         {
-          id: "kontaktdaten",
-          title: WORDS.kontaktdaten,
+          id: "kontaktData",
+          title: WORDS.kontaktData,
           fields: (
             <>
               {address.kind === "fixed" ? (

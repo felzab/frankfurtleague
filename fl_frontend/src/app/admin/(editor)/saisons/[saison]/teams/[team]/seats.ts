@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { deliveryChip } from "@/features/bewerbungen/zustellLage";
+import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
 
 import type { Copy } from "@/core/copy";

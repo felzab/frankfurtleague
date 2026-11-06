@@ -3,21 +3,21 @@ import "server-only";
 import { requires } from "@/core/action";
 import {
   TeamsPatchTeamSaisonBody,
-  teamsPatchTeamSaisonBodyAddressHausnummerMax,
-  teamsPatchTeamSaisonBodyAddressPlzMax,
-  teamsPatchTeamSaisonBodyAddressStadtMax,
-  teamsPatchTeamSaisonBodyAddressStadtteilMax,
-  teamsPatchTeamSaisonBodyAddressStrasseMax,
+  teamsPatchTeamSaisonBodyAddressCityMax,
+  teamsPatchTeamSaisonBodyAddressDistrictMax,
+  teamsPatchTeamSaisonBodyAddressHouseNumberMax,
+  teamsPatchTeamSaisonBodyAddressPostcodeMax,
+  teamsPatchTeamSaisonBodyAddressStreetMax,
   teamsPatchTeamSaisonBodyDescriptionMax,
   teamsPatchTeamSaisonBodyFullNameMax,
   teamsPatchTeamSaisonBodyNameMax,
   teamsPatchTeamSaisonBodyWebsiteUrlOneMax,
   TeamsPostTeamEntryBody,
-  teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressPlzMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressStadtteilMax,
-  teamsPostTeamEntryBodyClubTwoTeamAddressStrasseMax,
+  teamsPostTeamEntryBodyClubTwoTeamAddressCityMax,
+  teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax,
+  teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax,
+  teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax,
+  teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax,
   teamsPostTeamEntryBodyClubTwoTeamFullNameMax,
   teamsPostTeamEntryBodyClubTwoTeamNameMax,
   teamsPostTeamEntryBodyClubTwoTeamWebsiteUrlOneMax,
@@ -49,11 +49,11 @@ const requiredOf = (shape: TeamShape): TeamRules["required"] => ({
 });
 
 const addressRequiredOf = ({ address: { shape } }: TeamShape): AddressRules["required"] => ({
-  strasse: requires(shape.strasse, ""),
-  hausnummer: requires(shape.hausnummer, ""),
-  plz: requires(shape.plz, ""),
-  stadtteil: requires(shape.stadtteil, ""),
-  stadt: requires(shape.stadt, ""),
+  street: requires(shape.street, ""),
+  house_number: requires(shape.house_number, ""),
+  postcode: requires(shape.postcode, ""),
+  district: requires(shape.district, ""),
+  city: requires(shape.city, ""),
 });
 
 const ENTERED = TeamsPostTeamEntryBody.shape.club.options[1].shape.team.shape;
@@ -70,12 +70,12 @@ export const TEAM_ENTRY_RULES: TeamRules = {
   address: {
     required: addressRequiredOf(ENTERED),
     maxLength: {
-      strasse: teamsPostTeamEntryBodyClubTwoTeamAddressStrasseMax,
-      hausnummer: teamsPostTeamEntryBodyClubTwoTeamAddressHausnummerMax,
-      stadtteil: teamsPostTeamEntryBodyClubTwoTeamAddressStadtteilMax,
-      stadt: teamsPostTeamEntryBodyClubTwoTeamAddressStadtMax,
+      street: teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax,
+      house_number: teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax,
+      district: teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax,
+      city: teamsPostTeamEntryBodyClubTwoTeamAddressCityMax,
     },
-    plzLength: teamsPostTeamEntryBodyClubTwoTeamAddressPlzMax,
+    postcodeLength: teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax,
   },
 };
 
@@ -91,12 +91,12 @@ export const TEAM_SAVE_RULES: TeamRules = {
   address: {
     required: addressRequiredOf(TeamsPatchTeamSaisonBody.shape),
     maxLength: {
-      strasse: teamsPatchTeamSaisonBodyAddressStrasseMax,
-      hausnummer: teamsPatchTeamSaisonBodyAddressHausnummerMax,
-      stadtteil: teamsPatchTeamSaisonBodyAddressStadtteilMax,
-      stadt: teamsPatchTeamSaisonBodyAddressStadtMax,
+      street: teamsPatchTeamSaisonBodyAddressStreetMax,
+      house_number: teamsPatchTeamSaisonBodyAddressHouseNumberMax,
+      district: teamsPatchTeamSaisonBodyAddressDistrictMax,
+      city: teamsPatchTeamSaisonBodyAddressCityMax,
     },
-    plzLength: teamsPatchTeamSaisonBodyAddressPlzMax,
+    postcodeLength: teamsPatchTeamSaisonBodyAddressPostcodeMax,
   },
 };
 

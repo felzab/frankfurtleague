@@ -46,9 +46,9 @@ const START_OHNE_ANTWORT =
   "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Steht dort keine Änderung, trage die neue Adresse erneut ein.";
 
 /** The one way an administrator starts a change: a recorded reason and a waiting time, the address on file unreachable. */
-type Weg = "unerreichbar";
+type Weg = "unreachable";
 
-const WEGE: readonly { id: Weg; label: string }[] = [{ id: "unerreichbar", label: "Die bisherige Adresse ist nicht mehr erreichbar" }];
+const WEGE: readonly { id: Weg; label: string }[] = [{ id: "unreachable", label: "Die bisherige Adresse ist nicht mehr erreichbar" }];
 
 /** Names the way chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const WEG_LABEL_ID = "adresswechsel-weg";
@@ -59,7 +59,7 @@ const WEG_LABEL_ID = "adresswechsel-weg";
  */
 export type AdresswechselEntwurf = { email: string; weg: Weg; grund: string };
 
-export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "unerreichbar", grund: "" };
+export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "unreachable", grund: "" };
 
 type Fehler = { email?: string; grund?: string };
 
@@ -105,7 +105,7 @@ export function AdresswechselBeantragen({
 }) {
   const router = useRouter();
   const stepUp = useStepUp();
-  const [fehler, setFehler] = useState<{ satz: Fehler; zu: AdresswechselEntwurf } | null>(null);
+  const [fehler, setFehler] = useState<{ sentence: Fehler; zu: AdresswechselEntwurf } | null>(null);
   const [sendet, setSendet] = useState(false);
   const feldRef = useRef<HTMLInputElement>(null);
 
@@ -117,17 +117,17 @@ export function AdresswechselBeantragen({
 
   const unveraendert = !istAndereAdresse(entwurf.email, adresse);
 
-  const markiere = (satz: Fehler) => {
-    setFehler({ satz, zu: entwurf });
+  const markiere = (sentence: Fehler) => {
+    setFehler({ sentence, zu: entwurf });
     feldRef.current?.focus();
   };
 
   const sende = async () => {
     // The pending button is not the whole guard: Enter in the field presses too.
     if (sendet || unveraendert) return;
-    const satz = fehlerIn(adresse, entwurf);
-    if (satz.email !== undefined || satz.grund !== undefined) {
-      markiere(satz);
+    const sentence = fehlerIn(adresse, entwurf);
+    if (sentence.email !== undefined || sentence.grund !== undefined) {
+      markiere(sentence);
       return;
     }
 
@@ -145,9 +145,9 @@ export function AdresswechselBeantragen({
 
     if (!res.success) {
       // A refusal of either value stands on its box, which is the way out; any other is the press's.
-      const feld = { email: res.fieldErrors?.email, grund: res.fieldErrors?.grund };
-      if ((feld.email !== undefined || feld.grund !== undefined) && res.outcome !== "unknown") {
-        markiere(feld);
+      const field = { email: res.fieldErrors?.email, grund: res.fieldErrors?.grund };
+      if ((field.email !== undefined || field.grund !== undefined) && res.outcome !== "unknown") {
+        markiere(field);
         return;
       }
       appToast.failure("Link nicht gesendet", res, LINK_UNKLAR);
@@ -161,8 +161,8 @@ export function AdresswechselBeantragen({
   };
 
   // A refusal is kept with the value it was about and retracted by a keystroke away from it.
-  const gezeigt = fehler !== null && fehler.zu.email === entwurf.email ? (fehler.satz.email ?? null) : null;
-  const grundGezeigt = fehler !== null && fehler.zu.grund === entwurf.grund ? (fehler.satz.grund ?? null) : null;
+  const gezeigt = fehler !== null && fehler.zu.email === entwurf.email ? (fehler.sentence.email ?? null) : null;
+  const grundGezeigt = fehler !== null && fehler.zu.grund === entwurf.grund ? (fehler.sentence.grund ?? null) : null;
   const setze = (teil: Partial<AdresswechselEntwurf>) => onEntwurfChange({ ...entwurf, ...teil });
 
   return (
@@ -211,7 +211,7 @@ export function AdresswechselBeantragen({
             selectedKeys={[entwurf.weg]}
             onSelectionChange={(keys: Set<Key>) => {
               const [picked] = [...keys].map(String);
-              if (picked === "unerreichbar") setze({ weg: picked });
+              if (picked === "unreachable") setze({ weg: picked });
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             {WEGE.map((option) => (
@@ -225,7 +225,7 @@ export function AdresswechselBeantragen({
           </ToggleButtonGroup>
         </div>
 
-        {entwurf.weg === "unerreichbar" && (
+        {entwurf.weg === "unreachable" && (
           <TextField
             name="grund"
             value={entwurf.grund}

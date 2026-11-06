@@ -9,7 +9,7 @@ import { Button } from "@heroui/react/button";
 
 import { ablehnenRegistrierungAction, aufnehmenRegistrierungAction } from "@/features/registrierungen/personActions";
 import { ANGABEN_WEICHEN_AB, dieselbePerson, NOCH_NICHT_BESTAETIGT } from "@/features/registrierungen/utils";
-import { kaderName, NUMMER_NICHT_HINTERLEGT } from "@/features/spieler/constants";
+import { kaderName, NUMMER_NOT_ON_FILE } from "@/features/spieler/constants";
 import {
   IDENTITY_HEAD_CLASSES,
   IDENTITY_LINE_CLASSES,
@@ -140,7 +140,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOpenR
             registrierung.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
           }`}>
           {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
-          {registrierung.nummer ?? <span className="sr-only">{NUMMER_NICHT_HINTERLEGT}</span>}
+          {registrierung.nummer ?? <span className="sr-only">{NUMMER_NOT_ON_FILE}</span>}
         </span>
         <div className={IDENTITY_STACK_CLASSES}>
           <div className={IDENTITY_HEAD_CLASSES}>

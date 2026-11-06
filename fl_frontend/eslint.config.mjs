@@ -325,7 +325,7 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["identity_sweep_erasure"],
-    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postLoeschungSweep"] },
+    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postErasureSweep"] },
     runners: ["src/features/saisons/sweep.ts"],
   },
   {

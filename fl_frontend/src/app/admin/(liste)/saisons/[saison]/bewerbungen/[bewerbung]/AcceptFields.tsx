@@ -4,7 +4,7 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
+import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { trikotOptions } from "@/features/teams/options";
 
@@ -55,8 +55,8 @@ export function AcceptFields({
       kind="text"
       isRequired={shorthand === null}
       isDisabled={shorthand !== null}
-      minLength={KUERZEL_LAENGE}
-      maxLength={KUERZEL_LAENGE}
+      minLength={SHORTHAND_LENGTH}
+      maxLength={SHORTHAND_LENGTH}
       description={shorthand === null ? COPY.team.shorthandDescription : COPY.team.shorthandFixed}
       defaultValue={shorthand ?? picked?.shorthand ?? ""}
     />

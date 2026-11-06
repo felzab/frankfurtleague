@@ -6,7 +6,7 @@ import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -19,19 +19,19 @@ import type { ReactNode, RefObject } from "react";
 
 // Redesign: this file goes with the old link pages in `features/address-change`, `features/registrierungen` and `features/spielbestaetigungen`.
 /** The heading of a page whose link could not be checked, on every page a token link opens. */
-export const LINK_UNLESBAR_TITEL = "Link nicht geprüft";
+export const LINK_UNREADABLE_TITLE = "Link nicht geprüft";
 
 /** The failure's title on every page a token link opens: „Änderung nicht gespeichert“ names a change nobody here made. */
-export const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
+export const ANSWER_NOT_SAVED = "Antwort nicht gespeichert";
 
 /** What a press that wrote nothing and named no reason tells its person, on every page a token link opens. */
-export const ANTWORT_NICHT_GESPEICHERT_SATZ = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
+export const ANSWER_NOT_SAVED_SENTENCE = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /** Shared by every page a token link opens, so none of them alone keeps its token in the address or drops the answer's focus. */
-export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
+export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElement | null>; answered: () => void } {
   // A count, never a flag: a page still offering a press once answered (the address link's decline after a lapsed
   // confirmation) unmounts that press too, and a flag already set would leave its focus on `<body>`.
-  const [antworten, setAntworten] = useState(0);
+  const [answers, setAnswers] = useState(0);
   const ergebnisRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -44,14 +44,14 @@ export function useLinkSeite(state: string): { ergebnisRef: RefObject<HTMLElemen
   // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
   // announced; the panel takes it, and `role="status"` reads it out.
   useEffect(() => {
-    if (antworten > 0) ergebnisRef.current?.focus();
-  }, [antworten]);
+    if (answers > 0) ergebnisRef.current?.focus();
+  }, [answers]);
 
-  return { ergebnisRef, beantwortet: () => setAntworten((bisher) => bisher + 1) };
+  return { ergebnisRef, answered: () => setAnswers((previous) => previous + 1) };
 }
 
 /** One section of a link page. */
-export function BestaetigungAbschnitt({ titel, children }: { titel: string; children: ReactNode }) {
+export function ConfirmationSection({ titel, children }: { titel: string; children: ReactNode }) {
   const panel = formPanel();
 
   return (
@@ -72,27 +72,27 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
  * (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Angabe`),
  * spelled once so the banner and the receipt cannot drift into two type scales.
  */
-const ANGABE_LABEL_CLASSES = "fluid-xxs font-bold text-foreground-muted";
-const ANGABE_WERT_CLASSES = "fluid-sm";
+const DETAIL_LABEL_CLASSES = "fluid-xxs font-bold text-foreground-muted";
+const DETAIL_VALUE_CLASSES = "fluid-sm";
 
-type Fakt = {
+type Fact = {
   label: string;
   value: string;
   /** The one value nothing bounds — a school's name — which takes the width the others leave. */
-  unbegrenzt?: boolean;
+  unbounded?: boolean;
 };
 
-const fakt = tv({
+const fact = tv({
   slots: {
     // `min-w-0` on every cell, or one long word would push the row past the panel's edge.
-    zelle: "flex min-w-0 flex-col gap-y-0.5",
-    value: ANGABE_WERT_CLASSES,
+    cell: "flex min-w-0 flex-col gap-y-0.5",
+    value: DETAIL_VALUE_CLASSES,
   },
   variants: {
-    unbegrenzt: {
+    unbounded: {
       // A line of its own on a phone; from `sm` it grows into the width the other facts leave.
-      true: { zelle: "basis-full sm:flex-1", value: NAME_WRAP_CLASSES },
-      false: { zelle: "flex-initial" },
+      true: { cell: "basis-full sm:flex-1", value: NAME_WRAP_CLASSES },
+      false: { cell: "flex-initial" },
     },
   },
 });
@@ -102,22 +102,22 @@ const fakt = tv({
  * (`fl_frontend/src/core/bewerbungEmail.ts :: renderFakten`). **Every value is read whole**: no
  * ellipsis, since a phone has no pointer to hover a `title` with.
  */
-export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
+export function FactsBanner({ rows }: { rows: readonly Fact[] }) {
   // The mail's 8px rather than a panel's arc, which the page's box count reads as `rounded-2xl`.
   // Wrapping below `sm` alone: from there every fact fits one row, and a stack would spend the first
   // screen on them.
   return (
     <dl className="flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
-      {zeilen.map(({ label, value, unbegrenzt = false }) => {
-        const { zelle, value: wertKlasse } = fakt({ unbegrenzt });
+      {rows.map(({ label, value, unbounded = false }) => {
+        const { cell, value: valueClass } = fact({ unbounded });
 
         return (
           <div
             key={label}
-            className={zelle()}>
-            <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
-            <dd className={wertKlasse()}>
-              <Wert>{value}</Wert>
+            className={cell()}>
+            <dt className={DETAIL_LABEL_CLASSES}>{label}</dt>
+            <dd className={valueClass()}>
+              <Value>{value}</Value>
             </dd>
           </div>
         );
@@ -130,7 +130,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
  * The media consent's row on every confirmation page's receipt, in the words each page asks it in, so the
  * three pages cannot read the one consent three ways.
  */
-export const medienZeile = (media: boolean): { label: string; value: string } => ({
+export const mediaRow = (media: boolean): { label: string; value: string } => ({
   label: "Fotos, Videos und Interviews",
   value: media ? "erlaubt" : "nicht erlaubt",
 });
@@ -139,16 +139,16 @@ export const medienZeile = (media: boolean): { label: string; value: string } =>
  * **Sized to its content and never to the width**: two cells spread across a panel put the second
  * alone at the far edge, which reads as a column that lost its table rather than as a pair.
  */
-export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: string; value: string }[] }) {
+export function SavedDetails({ rows }: { rows: readonly { label: string; value: string }[] }) {
   return (
     <dl className="flex flex-wrap gap-x-8 gap-y-3 text-left">
-      {zeilen.map(({ label, value }) => (
+      {rows.map(({ label, value }) => (
         <div
           key={label}
           className="flex flex-col gap-y-0.5">
-          <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
-          <dd className={ANGABE_WERT_CLASSES}>
-            <Wert>{value}</Wert>
+          <dt className={DETAIL_LABEL_CLASSES}>{label}</dt>
+          <dd className={DETAIL_VALUE_CLASSES}>
+            <Value>{value}</Value>
           </dd>
         </div>
       ))}
@@ -164,30 +164,30 @@ const ergebnisPanel = tv({
   base: "flex w-full flex-col items-center gap-y-4 rounded-2xl border p-6 text-center shadow-sm outline-none sm:p-8",
   variants: {
     tone: {
-      erfolg: "border-success/40 bg-success/10",
-      hinweis: "border-warning/40 bg-warning/10",
+      success: "border-success/40 bg-success/10",
+      notice: "border-warning/40 bg-warning/10",
     },
   },
 });
 
-const GLYPHE = { erfolg: CircleCheck, hinweis: TriangleExclamation } as const;
-const GLYPHE_FARBE_CLASSES = { erfolg: "size-10 text-success-strong", hinweis: "size-10 text-warning-strong" } as const;
+const GLYPH = { success: CircleCheck, notice: TriangleExclamation } as const;
+const GLYPH_COLOUR_CLASSES = { success: "size-10 text-success-strong", notice: "size-10 text-warning-strong" } as const;
 
 /**
  * Every state but the form is this panel: one box, one glyph, one tone, so a done thing and a dead
  * link are told apart by a grade a reader sees rather than by reading the paragraph.
  */
-export function BestaetigungErgebnis({
+export function ConfirmationResult({
   panelRef,
   tone,
   children,
 }: {
   /** Set where the panel replaced the form under the pressed button, so the caret has somewhere to land. */
   panelRef?: RefObject<HTMLElement | null>;
-  tone: "erfolg" | "hinweis";
+  tone: "success" | "notice";
   children: ReactNode;
 }) {
-  const Icon = GLYPHE[tone];
+  const Icon = GLYPH[tone];
 
   return (
     <section
@@ -197,7 +197,7 @@ export function BestaetigungErgebnis({
       className={ergebnisPanel({ tone })}>
       <Icon
         aria-hidden="true"
-        className={GLYPHE_FARBE_CLASSES[tone]}
+        className={GLYPH_COLOUR_CLASSES[tone]}
       />
       {children}
     </section>
@@ -209,14 +209,14 @@ export function BestaetigungErgebnis({
  * nothing else. A Widerspruch or any other request goes by mail to
  * the address it names.
  */
-export function AdresseGesperrt({ panelRef }: { panelRef: RefObject<HTMLElement | null> }) {
+export function AddressBarred({ panelRef }: { panelRef: RefObject<HTMLElement | null> }) {
   return (
     <section className={SEITE_CLASSES}>
-      <BestaetigungErgebnis
+      <ConfirmationResult
         panelRef={panelRef}
-        tone="hinweis">
-        <p className={ABSATZ_CLASSES}>{LINK_ADRESSE_GESPERRT}</p>
-      </BestaetigungErgebnis>
+        tone="notice">
+        <p className={PARAGRAPH_CLASSES}>{LINK_ADRESSE_GESPERRT}</p>
+      </ConfirmationResult>
     </section>
   );
 }
@@ -225,45 +225,45 @@ export function AdresseGesperrt({ panelRef }: { panelRef: RefObject<HTMLElement 
  * **The whole of what a page whose link could not be checked says**: that it does not know. Folded into
  * the dead-link panel, it would call a live link void on a day the backend was merely unreachable.
  */
-export function LinkUnlesbar({ panelRef }: { panelRef?: RefObject<HTMLElement | null> }) {
+export function LinkUnreadable({ panelRef }: { panelRef?: RefObject<HTMLElement | null> }) {
   return (
-    <BestaetigungErgebnis
+    <ConfirmationResult
       panelRef={panelRef}
-      tone="hinweis">
-      <p className={ABSATZ_CLASSES}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
-      <FrageStellen />
-    </BestaetigungErgebnis>
+      tone="notice">
+      <p className={PARAGRAPH_CLASSES}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+      <AskQuestion />
+    </ConfirmationResult>
   );
 }
 
 /** The action a result panel offers, in the width the panel gives it rather than the page's. */
-function Aktion({ children }: { children: ReactNode }) {
+function Action({ children }: { children: ReactNode }) {
   return <div className="flex w-full max-w-xs flex-col">{children}</div>;
 }
 
 /** The way back for a reader whose business here is done. */
-export function ZurLiga() {
+export function ToLiga() {
   return (
-    <Aktion>
+    <Action>
       <Link
         href="/"
         prefetch={false}
         className={ctaButton({ intent: "outline", hover: "css" })}>
         Zur Frankfurt League
       </Link>
-    </Aktion>
+    </Action>
   );
 }
 
 /** The way out for a reader a panel could not help: a mailbox, never a form they have no link for. */
-export function FrageStellen() {
+export function AskQuestion() {
   return (
-    <Aktion>
+    <Action>
       <a
         href={`mailto:${KONTAKT_EMAIL}`}
         className={ctaButton({ intent: "primary", hover: "css" })}>
         Frage stellen
       </a>
-    </Aktion>
+    </Action>
   );
 }

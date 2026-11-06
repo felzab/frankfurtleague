@@ -63,7 +63,7 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "_id": row["reference"]["id"],
-        **{address_path: row["an"] for address_path in link["addresses"]},
+        **{address_path: row["to"] for address_path in link["addresses"]},
         **{parent: {"$type": "object"} for parent in sorted(parents)},
     }
 
@@ -123,9 +123,9 @@ async def post_handout(
             return [], None, overdue.modified_count
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
-        judged = {str(row["an"]) for row in due if row["kind"] not in UNBARRED}
+        judged = {str(row["to"]) for row in due if row["kind"] not in UNBARRED}
         barred = await barred_addresses(ban_list, judged, session=session) if judged else set()
-        barred_ids = [row["_id"] for row in due if row["kind"] not in UNBARRED and row["an"] in barred]
+        barred_ids = [row["_id"] for row in due if row["kind"] not in UNBARRED and row["to"] in barred]
         dropped_ids: list[Any] = []
 
         tokens: dict[Any, str] = {}
@@ -177,7 +177,7 @@ async def post_handout(
             [
                 FLOutboxHandout(
                     id=row["_id"],
-                    an=row["an"],
+                    to=row["to"],
                     data=row["data"],
                     token=tokens.get(row["_id"]),
                     secret=row["secret"],
@@ -256,7 +256,7 @@ async def post_sign_in(
     or not.
     """
 
-    mail = OwedMail(key=f"{sign_in_data.data.kind}/{ObjectId()}", an=sign_in_data.an, data=sign_in_data.data)
+    mail = OwedMail(key=f"{sign_in_data.data.kind}/{ObjectId()}", to=sign_in_data.to, data=sign_in_data.data)
     await post_one_to_db(
         collection=outbox_collection,
         document=row_of(mail, now=now, secret=sign_in_data.secret, valid_until=sign_in_data.valid_until),

@@ -134,7 +134,7 @@ function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): Ma
     sentence: WORDS.text(
       WORDS.opening.seasonRow(team, view.saison_id, rollenOf(view)),
       WORDS.closedStored,
-      view.row === "ausgetreten" ? WORDS.teamDeparted(team) : SERVER_COPY.refusalLine.saison_past,
+      view.row === "exited" ? WORDS.teamDeparted(team) : SERVER_COPY.refusalLine.saison_past,
       WORDS.objectionEffect.seasonRow,
     ),
     more: WORDS.more,

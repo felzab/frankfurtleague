@@ -48,8 +48,8 @@ export function zieleOf(funktionen: readonly Role[]): FunktionZiel[] {
  * person area asks this, so a sign-in lands where `/area` would send it.
  */
 export function soleTeamOf(ziele: readonly FunktionZiel[]): string | null {
-  const [erstes, ...weitere] = ziele;
-  return erstes !== undefined && weitere.length === 0 && erstes.funktionen[0].kind === "kontakt" ? erstes.href : null;
+  const [first, ...rest] = ziele;
+  return first !== undefined && rest.length === 0 && first.funktionen[0].kind === "kontakt" ? first.href : null;
 }
 
 /** One address's two lines: what it is, and which of the person's Funktionen lead there. */

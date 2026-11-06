@@ -1,5 +1,5 @@
 import { isRecordMissing } from "@/core/errors";
-import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
+import { ADDRESS_CHANGE_ENTRY } from "@/features/admin/constants";
 import { NACH_ERNENNUNG_NEU_ANMELDEN } from "@/features/berechtigungen/constants";
 import { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } from "@/features/sperrliste/constants";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
@@ -185,11 +185,11 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
 function verwerfen(denied: FLAddressChangeViewableDenied | null): Omit<RefusalParts, "reason"> {
   switch (denied) {
     case null:
-      return { repair: { before: "Verwirf sie", after: "" }, where: ADRESSWECHSEL_EINTRAG.label };
+      return { repair: { before: "Verwirf sie", after: "" }, where: ADDRESS_CHANGE_ENTRY.label };
     case "admin_address":
       return {
         repair: { before: "Frag eine Inhaberin oder einen Inhaber der Verwaltung, sie", after: "zu verwerfen" },
-        where: ADRESSWECHSEL_EINTRAG.label,
+        where: ADDRESS_CHANGE_ENTRY.label,
       };
     // One's own change is refused its approval before the effect judges it, so this one is never reached by a press.
     case "own_address":

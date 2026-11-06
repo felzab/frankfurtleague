@@ -15,7 +15,7 @@ import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
-import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
 
 import { NO_SECOND_SEAT, SEATS } from "./application";
 
@@ -213,7 +213,7 @@ export function BewerbungFields({
           ) : (
             <SeatBoxes
               seat={seat}
-              floor={seat === "trainer" && trainerAlso === NO_SECOND_SEAT ? BEWERBUNG_MIN_ALTER : VERTRETUNG_MIN_ALTER}
+              floor={seat === "trainer" && trainerAlso === NO_SECOND_SEAT ? BEWERBUNG_MIN_AGE : VERTRETUNG_MIN_AGE}
               box={box}
               rules={rules}
             />
@@ -238,13 +238,13 @@ export function BewerbungFields({
 
       <Section title={COPY.shared.facts.team}>
         <TextField
-          {...box("trikot.existing_satz")}
-          label={team.trikotSatz}
-          description={bewerbung.trikotSatzDescription}
+          {...box("trikot.existing_set")}
+          label={team.trikotSet}
+          description={bewerbung.trikotSetDescription}
           width="W3"
           kind="text"
-          isRequired={required.trikotSatz}
-          maxLength={maxLength.trikotSatz}
+          isRequired={required.trikotSet}
+          maxLength={maxLength.trikotSet}
         />
         <Select
           label={team.wunschfarbe}

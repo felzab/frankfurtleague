@@ -132,7 +132,7 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
         },
       ]}
       danger={{
-        title: COPY.admin.stilllegung,
+        title: COPY.admin.retirement,
         acts: [
           {
             name: COPY.shared.withObject(COPY.admin.spielort.object, "retire"),

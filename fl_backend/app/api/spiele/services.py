@@ -1488,7 +1488,7 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLB
                     team_id=occupant.team_id,
                     team_name=occupant.name,
                     austritt_type=occupant.austritt.type,
-                    ausgeschieden_seit=effective,
+                    exited_since=effective,
                     spiel_date=spiel.date,
                 )
             )

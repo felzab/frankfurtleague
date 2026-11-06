@@ -9,7 +9,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { BestaetigungErgebnis } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { ConfirmationResult } from "@/features/bewerbungen/components/views/ConfirmationPanels";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { orderStufen } from "@/features/spieler/constants";
@@ -41,7 +41,7 @@ import type { FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { RegistrierungFormDraft } from "../../types";
 
-type RegistrierungAnswer = { success: true } | (PublicEnvelope & { success: false; zustand?: "invalid" });
+type RegistrierungAnswer = { success: true } | (PublicEnvelope & { success: false; state?: "invalid" });
 
 const NICHT_ABGESCHICKT = `Deine Registrierung wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
@@ -142,7 +142,7 @@ export function RegistrierungFormPanel({
           if (response.fieldErrors !== undefined || response.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
 
           // The invite died between the open and the press: the answer is the whole page, never a toast.
-          if (response.zustand !== undefined) {
+          if (response.state !== undefined) {
             onLinkTot();
             return;
           }
@@ -175,9 +175,9 @@ export function RegistrierungFormPanel({
 
   if (isEingereicht) {
     return (
-      <BestaetigungErgebnis
+      <ConfirmationResult
         panelRef={eingereichtRef}
-        tone="erfolg">
+        tone="success">
         <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Deine Registrierung ist eingegangen</h2>
         {/* The recovery path in the answer page's own words: no administrator may edit a stored
             address, so registering again is the only route back from a typo. */}
@@ -186,7 +186,7 @@ export function RegistrierungFormPanel({
           innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine Mail bekommen? Prüfe
           die Adresse und registriere Dich einfach erneut.
         </p>
-      </BestaetigungErgebnis>
+      </ConfirmationResult>
     );
   }
 

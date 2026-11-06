@@ -519,7 +519,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "_id": SENT_NOTICE_OID,
             "key": f"address_changes/{OWED_CARRY_OID}/effective",
             "kind": "address_change_effective",
-            "an": "vorher.zorbanax@example.org",
+            "to": "vorher.zorbanax@example.org",
             "secret": None,
             "reference": None,
             "link": None,
@@ -1373,7 +1373,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
             IDENTIFIER,
             confirmed={
                 "birth_date": BIRTH_DATE,
-                "scope": "intern",
+                "scope": "internal",
                 "media": False,
                 "text_versions": SPIELER_TEXT_VERSIONS,
                 "today": YESTERDAY,

@@ -1,7 +1,7 @@
 from typing import Any
 
 from app.api.invitations.services import (
-    bestaetigte_empfaenger,
+    confirmed_recipients,
     plan_invitation_dispatch,
 )
 from tests.documents import kontaktperson_document
@@ -36,18 +36,18 @@ class TestWhoALinkIsMailedTo:
             ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=None),
         )
 
-        assert [entry.email for entry in bestaetigte_empfaenger(kontakte=block)] == ["bramblewick@example.com"]
+        assert [entry.email for entry in confirmed_recipients(kontakte=block)] == ["bramblewick@example.com"]
 
     def test_one_person_holding_two_seats_is_one_message(self):
         block = kontakte(
             trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON),
             stellvertretung=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON),
         )
-        empfaenger = bestaetigte_empfaenger(kontakte=block)
+        recipient = confirmed_recipients(kontakte=block)
 
-        assert len(empfaenger) == 1
+        assert len(recipient) == 1
         # The FIRST seat in seat order, so the message addresses the person as the role they lead with.
-        assert empfaenger[0].rolle == "trainer"
+        assert recipient[0].rolle == "trainer"
 
     def test_an_unconfirmed_first_seat_leaves_the_next_one_addressed(self):
         """The seats are read in turn, so stopping at the Trainer would keep the link from a person who confirmed."""
@@ -57,7 +57,7 @@ class TestWhoALinkIsMailedTo:
             ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
         )
 
-        assert [(entry.rolle, entry.first_name, entry.email) for entry in bestaetigte_empfaenger(kontakte=block)] == [
+        assert [(entry.rolle, entry.first_name, entry.email) for entry in confirmed_recipients(kontakte=block)] == [
             ("ansprechperson", "Quillhilde", "quillhilde@example.com")
         ]
 
@@ -68,7 +68,7 @@ class TestWhoALinkIsMailedTo:
             stellvertretung=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
         )
 
-        assert [entry.email for entry in bestaetigte_empfaenger(kontakte=block)] == ["bramblewick@example.com", "quillhilde@example.com"]
+        assert [entry.email for entry in confirmed_recipients(kontakte=block)] == ["bramblewick@example.com", "quillhilde@example.com"]
 
 
 class TestATeamTheBanListKeepsTheLinkFrom:

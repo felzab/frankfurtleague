@@ -182,7 +182,7 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer_is_also: FLTrainerAlso | None
 
 
-class FLSaisonTeamBestaetigung(BaseModel):
+class FLSaisonTeamConfirmation(BaseModel):
     """One seat's confirmation link as the season row stores it -- and NO `token_hashes`, the raw document key the link's lookup alone reads."""
 
     sent_at: CustomDateString
@@ -193,15 +193,15 @@ class FLSaisonTeamBestaetigung(BaseModel):
     declined_at: CustomOptionalDateString
 
 
-class FLSaisonTeamBestaetigungen(BaseModel):
+class FLSaisonTeamConfirmations(BaseModel):
     """The three seats' links, outside `kontakte` and mirroring its slots; nullable per seat, as the slot beside each is."""
 
-    trainer: FLSaisonTeamBestaetigung | None
-    ansprechperson: FLSaisonTeamBestaetigung | None
-    stellvertretung: FLSaisonTeamBestaetigung | None
+    trainer: FLSaisonTeamConfirmation | None
+    ansprechperson: FLSaisonTeamConfirmation | None
+    stellvertretung: FLSaisonTeamConfirmation | None
 
 
-class FLSaisonTeamBestaetigungRecord(FLSaisonTeamBestaetigung):
+class FLSaisonTeamConfirmationRecord(FLSaisonTeamConfirmation):
     """One seat's link as the season row stores it, with the hash of the link the last hand-out of its mail minted.
 
     Empty from the write owing the mail until its hand-out, so the link the seat held before opens nothing from the write on.
@@ -210,10 +210,10 @@ class FLSaisonTeamBestaetigungRecord(FLSaisonTeamBestaetigung):
     token_hashes: list[str]
 
 
-class FLSaisonTeamBestaetigungenRecord(FLSaisonTeamBestaetigungen):
-    trainer: FLSaisonTeamBestaetigungRecord | None
-    ansprechperson: FLSaisonTeamBestaetigungRecord | None
-    stellvertretung: FLSaisonTeamBestaetigungRecord | None
+class FLSaisonTeamConfirmationsRecord(FLSaisonTeamConfirmations):
+    trainer: FLSaisonTeamConfirmationRecord | None
+    ansprechperson: FLSaisonTeamConfirmationRecord | None
+    stellvertretung: FLSaisonTeamConfirmationRecord | None
 
 
 class FLSaisonTeamRecord(Anchored):
@@ -226,14 +226,14 @@ class FLSaisonTeamRecord(Anchored):
     austritt: FLAustritt | None
     trikot_farbe: FLTrikotFarbe | None
     kontakte: FLSaisonTeamKontakte | None
-    confirmations: FLSaisonTeamBestaetigungenRecord | None = None
+    confirmations: FLSaisonTeamConfirmationsRecord | None = None
     name: str
     shorthand: str
     # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
 
-class FLSaisonTeamConfirmationView(FLSaisonTeamBestaetigung, BaseReadModel):
+class FLSaisonTeamConfirmationView(FLSaisonTeamConfirmation, BaseReadModel):
     """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
 
     # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
@@ -291,15 +291,15 @@ class _KontaktpersonWritablePayload(BaseModel):
 class FLTeamStatistik(BaseReadModel):
     # `default=` by keyword, never `Field(0, ge=0)`: a positional one leaves the field looking
     # required to Pyright while ruff and the tests stay silent.
-    count_gespielte_spiele: int = Field(default=0, ge=0)
+    count_played_spiele: int = Field(default=0, ge=0)
     siege: int = Field(default=0, ge=0)
     niederlagen: int = Field(default=0, ge=0)
     unentschieden: int = Field(default=0, ge=0)
-    tore_geschossen: int = Field(default=0, ge=0)
-    tore_kassiert: int = Field(default=0, ge=0)
+    tore_scored: int = Field(default=0, ge=0)
+    tore_conceded: int = Field(default=0, ge=0)
     punkte: int = Field(default=0, ge=0)
     # Beside the scoring, never inside it: a forfeit is in this figure and in
-    # `count_gespielte_spiele` both.
+    # `count_played_spiele` both.
     count_cancelled_spiele: int = Field(default=0, ge=0)
 
 
@@ -708,7 +708,7 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     rewritten_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
-    ausgetragene_kader_rows: int
+    retired_kader_rows: int
 
 
 class FLTeamSeat(BaseModel):

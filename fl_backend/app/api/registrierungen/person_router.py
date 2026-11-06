@@ -415,7 +415,7 @@ async def decline(
                     OwedMail(
                         # A decline is taken once: a pending row is what this transaction reads, and it leaves that state.
                         key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
-                        an=str(registrierung_raw["email"]),
+                        to=str(registrierung_raw["email"]),
                         data=FLRegistrierungAbsageData(
                             kind="registrierung_absage",
                             first_name=str(registrierung_raw["first_name"]),

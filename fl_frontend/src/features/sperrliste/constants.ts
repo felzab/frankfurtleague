@@ -1,4 +1,4 @@
-import { SPERRLISTE_EINTRAG } from "@/features/admin/constants";
+import { BAN_LIST_ENTRY } from "@/features/admin/constants";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 /**
@@ -122,7 +122,7 @@ const ADRESSE_AUF_DER_SPERRLISTE = "Diese E-Mail-Adresse steht auf der Sperrlist
 export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
   reason: ADRESSE_AUF_DER_SPERRLISTE,
   repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },
-  where: SPERRLISTE_EINTRAG.label,
+  where: BAN_LIST_ENTRY.label,
 });
 
 /**
@@ -132,5 +132,5 @@ export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
 export const SPERRLISTE_ADRESSE_GESPERRT_FELD = buildRefusal({
   reason: ADRESSE_AUF_DER_SPERRLISTE,
   repair: { before: "Hebe die Sperre", after: "auf" },
-  where: SPERRLISTE_EINTRAG.label,
+  where: BAN_LIST_ENTRY.label,
 });

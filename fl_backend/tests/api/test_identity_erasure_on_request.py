@@ -662,7 +662,7 @@ class TestAnotherAdministratorsAddress:
             notices = [
                 row["data"]
                 async for row in database[Collection.OUTBOX].find(
-                    {"key": {"$regex": f"^grant/{GRANT_ID_OF[ANOTHER_ADMINISTRATOR]}/"}, "an": OWNER}, sort=[("_id", 1)]
+                    {"key": {"$regex": f"^grant/{GRANT_ID_OF[ANOTHER_ADMINISTRATOR]}/"}, "to": OWNER}, sort=[("_id", 1)]
                 )
             ]
 

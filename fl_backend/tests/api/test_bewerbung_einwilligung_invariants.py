@@ -10,9 +10,9 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungGiven,
 )
 from app.api.bewerbungen.services import (
-    ausstehende_seats,
     compose_decline_update,
     paired_seat,
+    pending_seats,
 )
 from app.api.kontakte.services import build_clearing_update
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -41,7 +41,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
             assert update[f"confirmations.{seat}.declined_at"] == TODAY
 
     @pytest.mark.parametrize("slots", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
-    def test_an_loeschung_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
+    def test_an_erasure_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
         update = written(build_clearing_update(slots, confirmations=True))
 
         for slot in slots:
@@ -52,7 +52,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
 HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_ROLLEN}
-BESTAETIGUNGEN: Mapping[str, Any] = minted_confirmations(hashes=HASHES, today=TODAY)
+CONFIRMATIONS: Mapping[str, Any] = minted_confirmations(hashes=HASHES, today=TODAY)
 
 
 def kontakte(**overrides: Any) -> dict[str, Any]:
@@ -67,10 +67,10 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
 
 class TestTheSeatsStillOpen:
     def test_every_seat_is_open_at_submission(self):
-        assert ausstehende_seats(kontakte=kontakte()) == list(KONTAKT_ROLLEN)
+        assert pending_seats(kontakte=kontakte()) == list(KONTAKT_ROLLEN)
 
     def test_a_confirmed_seat_leaves_the_list_and_the_order_stands(self):
-        assert ausstehende_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", confirmed_at=TODAY))) == [
+        assert pending_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", confirmed_at=TODAY))) == [
             "trainer",
             "stellvertretung",
         ]
@@ -78,26 +78,26 @@ class TestTheSeatsStillOpen:
     def test_an_emptied_slot_still_counts(self):
         """A decline or an erasure leaves the application unable to complete, which is what this list tells the page."""
 
-        assert "trainer" in ausstehende_seats(kontakte=kontakte(trainer=None))
+        assert "trainer" in pending_seats(kontakte=kontakte(trainer=None))
 
 
 class TestThePairedSeat:
     """The double-seated Trainer: one click answers for the person, whichever of their two links they opened."""
 
     def test_no_pairing_where_the_form_named_none(self):
-        assert paired_seat(kontakte=kontakte(), confirmations=BESTAETIGUNGEN, seat="trainer") is None
+        assert paired_seat(kontakte=kontakte(), confirmations=CONFIRMATIONS, seat="trainer") is None
 
     @pytest.mark.parametrize("zugleich", ["ansprechperson", "stellvertretung"])
     def test_the_pairing_reads_in_both_directions(self, zugleich: str):
         block = kontakte(trainer_is_also=zugleich)
 
-        assert paired_seat(kontakte=block, confirmations=BESTAETIGUNGEN, seat="trainer") == zugleich
-        assert paired_seat(kontakte=block, confirmations=BESTAETIGUNGEN, seat=zugleich) == "trainer"
+        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="trainer") == zugleich
+        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat=zugleich) == "trainer"
 
     def test_the_third_seat_is_nobodys_pair(self):
         block = kontakte(trainer_is_also="ansprechperson")
 
-        assert paired_seat(kontakte=block, confirmations=BESTAETIGUNGEN, seat="stellvertretung") is None
+        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="stellvertretung") is None
 
 
 def answer(**overrides: Any) -> dict[str, Any]:

@@ -211,7 +211,7 @@ class TestTheReminderClock:
 
         assert document is not None
         mine = [row for row in owed if row["reference"]["id"] == REMIND_OID]
-        assert [(row["an"], row["data"]["team"], row["link"]["replaced"]) for row in mine] == [(f"{REMIND_OID}@example.com", TEAM_NAME, False)]
+        assert [(row["to"], row["data"]["team"], row["link"]["replaced"]) for row in mine] == [(f"{REMIND_OID}@example.com", TEAM_NAME, False)]
 
         bookkeeping = document["confirmation"]
         assert bookkeeping["token_hashes"] == [hash_token(f"first-{REMIND_OID}")]

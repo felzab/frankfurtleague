@@ -11,7 +11,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
-import { ereignisOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
+import { eventOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -90,7 +90,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const official = bericht?.scorers == null || bericht.cards === null ? null : { tore: bericht.scorers, cards: bericht.cards };
   return {
     title: { route: "spiel", team1: team1.name, team2: team2.name },
-    spiel: { head: headOf(spiel, page, standings), sonderereignis: ereignisOf(spiel) },
+    spiel: { head: headOf(spiel, page, standings), sonderereignis: eventOf(spiel) },
     groups: [
       { kind: "tiles", tiles: { layout: "five", items: tilesOf(spiel, page) } },
       {
@@ -204,7 +204,7 @@ const earlier = (one: string, other: string) => {
  */
 function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPublic[], cards: readonly FLSpielberichtCardPublic[]): Checkpoint[] {
   const words = SERVER_COPY.season.spiel;
-  const kuerzel = { team1: { record: spiel.team1?.shorthand ?? "" }, team2: { record: spiel.team2?.shorthand ?? "" } };
+  const shorthand = { team1: { record: spiel.team1?.shorthand ?? "" }, team2: { record: spiel.team2?.shorthand ?? "" } };
   const events = [
     ...tore.map((tor) => ({ kind: "tor" as const, minute: tor.minute, tor })),
     ...cards.map((card) => ({ kind: "card" as const, minute: card.minute, card })),
@@ -217,7 +217,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
         id: `k${String(index)}`,
         mark: { record: card.minute },
         title: words.event(words.card[card.colour], personOf(card.spieler)),
-        detail: kuerzel[card.side],
+        detail: shorthand[card.side],
       };
     }
     const { tor } = event;
@@ -226,7 +226,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
       id: `t${String(index)}`,
       mark: { record: tor.minute },
       title: words.event(tor.eigentor ? words.eigentor : words.tor, personOf(tor.spieler)),
-      detail: SERVER_COPY.season.labelled(kuerzel[tor.side], { record: formatErgebnis(score) }),
+      detail: SERVER_COPY.season.labelled(shorthand[tor.side], { record: formatErgebnis(score) }),
     };
   });
 }

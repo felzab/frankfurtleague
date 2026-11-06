@@ -46,10 +46,10 @@ export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielSide | nul
 
 /**
  * The person picker's description, its notes joined, empty while none applies: one description slot per field, so two
- * notes are one text. `geleert` marks an entry whose stored person played for a club that has left the fixture.
+ * notes are one text. `emptied` marks an entry whose stored person played for a club that has left the fixture.
  */
-export function personHinweis({ geleert, ohneKaderSatz }: { geleert: boolean; ohneKaderSatz: string | null }): string {
-  return [geleert ? "Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu." : null, ohneKaderSatz]
+export function personHinweis({ emptied, ohneKaderSatz }: { emptied: boolean; ohneKaderSatz: string | null }): string {
+  return [emptied ? "Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu." : null, ohneKaderSatz]
     .filter((sentence): sentence is string => sentence !== null)
     .join(" ");
 }

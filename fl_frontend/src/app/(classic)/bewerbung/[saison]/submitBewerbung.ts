@@ -13,7 +13,7 @@ import { SUBMITTED } from "./ends";
 
 const { exampleFirstName, exampleLastName } = COPY.shared.field;
 const { phoneExample } = COPY.admin.schiedsrichter;
-const { hausnummerExample, plzExample } = COPY.admin.spielort;
+const { houseNumberExample, postcodeExample } = COPY.admin.spielort;
 
 const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.extend({ [REPLAY_FIELD]: z.uuid() }));
 
@@ -59,8 +59,8 @@ export const submitBewerbung = action({
     "kontakte.stellvertretung.first_name": exampleFirstName,
     "kontakte.stellvertretung.last_name": exampleLastName,
     "kontakte.stellvertretung.phone": phoneExample,
-    "schule.address.plz": plzExample,
-    "schule.address.hausnummer": hausnummerExample,
+    "schule.address.postcode": postcodeExample,
+    "schule.address.house_number": houseNumberExample,
   },
   run: async ({ [REPLAY_FIELD]: key, ...application }) => {
     await bewerbungenPostBewerbung(application, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });

@@ -6,8 +6,8 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
-    compose_erneut_update,
     compose_kontakt_seat_update,
+    compose_resend_update,
     find_acceptance_code_refusal,
     find_new_club_refusal,
     find_seat_contact_refusal,
@@ -69,7 +69,7 @@ class TestWhatASeatWriteMoves:
         ]
 
     def re_sent(self, **confirmations: Any) -> Mapping[str, Any]:
-        return compose_erneut_update(seats=("trainer",), today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
+        return compose_resend_update(seats=("trainer",), today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
 
     def test_only_the_written_seat_restarts(self):
         written = self.written(trainer=self.SEAT, ansprechperson=self.SEAT, stellvertretung=self.SEAT)
@@ -82,7 +82,7 @@ class TestWhatASeatWriteMoves:
 
         assert self.written(trainer={**self.SEAT, "declined_at": "2026-03-20"})["erasure_announced_at"] is None
 
-    def test_a_widerspruch_on_another_seat_keeps_the_announcement(self):
+    def test_an_objection_on_another_seat_keeps_the_announcement(self):
         """That seat still takes the application on the day the notice named, and a second notice would announce one deletion twice."""
 
         assert "erasure_announced_at" not in self.written(trainer=self.SEAT, stellvertretung={**self.SEAT, "declined_at": "2026-03-20"})
@@ -99,6 +99,21 @@ class TestWhatASeatWriteMoves:
         """The earliest day is another seat's, so the deletion stands as the notice named it."""
 
         assert "erasure_announced_at" not in self.re_sent(trainer=self.SEAT, stellvertretung={**self.SEAT, "deadline": "2026-03-10"})
+
+    def test_a_confirmed_seats_old_deadline_counts_for_neither_day(self):
+        """Counted, the day reads moved and the stamp goes, so a person is told of one deletion twice."""
+
+        kontakte = {
+            "trainer": kontaktperson_document("Quillhilde", confirmed_at="2026-03-02"),
+            "ansprechperson": kontaktperson_document("Ansgar"),
+            "stellvertretung": kontaktperson_document("Stellan"),
+            "trainer_is_also": None,
+        }
+        confirmations = {"trainer": {**self.SEAT, "deadline": "2026-03-10"}, "ansprechperson": self.SEAT, "stellvertretung": self.SEAT}
+
+        update = compose_resend_update(seats=("ansprechperson",), today="2026-04-01", kontakte=kontakte, confirmations=confirmations)
+
+        assert "erasure_announced_at" not in update["$set"]
 
 
 class TestTheCodeAnAcceptanceTakes:

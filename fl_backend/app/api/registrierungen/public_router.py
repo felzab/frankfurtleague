@@ -7,7 +7,7 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_schluessel_filter, days_after, payload_fingerabdruck
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, payload_fingerprint
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -245,7 +245,7 @@ async def post_registrierung(
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
-    fingerabdruck = payload_fingerabdruck(registrierung_data)
+    fingerabdruck = payload_fingerprint(registrierung_data)
 
     # Hashed outside the transaction: it reads no document, and `with_transaction` may run its
     # callback again.
@@ -267,7 +267,7 @@ async def post_registrierung(
         stored = (
             None
             if schluessel is None
-            else await registrierungen_collection.find_one(build_schluessel_filter(key=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
+            else await registrierungen_collection.find_one(build_key_filter(key=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
         )
         if stored is not None:
             return _answer_as_the_first(stored=stored, fingerabdruck=fingerabdruck)
@@ -277,7 +277,7 @@ async def post_registrierung(
         aufgenommen = (
             None
             if schluessel is None
-            else await saison_spieler_collection.find_one(build_schluessel_filter(key=schluessel), ["idempotency_fingerprint"], session=session)
+            else await saison_spieler_collection.find_one(build_key_filter(key=schluessel), ["idempotency_fingerprint"], session=session)
         )
         if aufgenommen is not None:
             refuse(find_schon_aufgenommen_refusal(saved=aufgenommen.get("idempotency_fingerprint"), fingerabdruck=fingerabdruck))
@@ -363,7 +363,7 @@ async def post_registrierung(
             mails=[
                 OwedMail(
                     key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/confirmation",
-                    an=str(registrierung_data.email),
+                    to=str(registrierung_data.email),
                     data=FLRegistrierungLinkData(
                         kind="registrierung_confirmation",
                         # Off the invite the token opened, never the body: anyone holding the link could otherwise word the
@@ -409,7 +409,7 @@ async def get_confirmation_view(
     """What the confirmation page renders for the registration this token opens, and nothing of the pupil.
 
     A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
-    a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+    a link whose club has left the season reading expired, and `confirmation_spieler_returning` opens the returning
     pupil's page; only a token no registration holds is refused (`link_invalid`).
     """
 

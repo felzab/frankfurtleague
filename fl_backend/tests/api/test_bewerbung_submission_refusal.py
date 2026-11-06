@@ -68,7 +68,7 @@ def submission(**overrides: Any) -> dict[str, Any]:
         "team_id": str(PICKED_OID),
         "schule": None,
         "kontakte": kontakte(),
-        "trikot": {"existing_satz": "12 rote Trikots", "wunschfarbe": "blau"},
+        "trikot": {"existing_set": "12 rote Trikots", "wunschfarbe": "blau"},
         "kader": {"expected_size": 14, "good_spieler": 4},
         "stufengroesse": 90,
         **overrides,
@@ -255,7 +255,7 @@ class TestWhatTheServerComposes:
         """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"scope": "kontaktdaten"}))
+            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"scope": "kontakt_data"}))
 
 
 class TestWhatTheSubmissionPayloadRefuses:
@@ -333,17 +333,17 @@ class TestTheStrongPlayersFitInsideTheSquad:
     """
 
     @pytest.mark.parametrize(
-        ("size", "gute"),
+        ("size", "good"),
         [
             pytest.param(14, 15, id="one over the squad"),
             pytest.param(1, 2, id="one over the smallest squad"),
             pytest.param(14, BEWERBUNG_KADER_SIZE_MAX, id="inside its own ceiling and still past the squad"),
         ],
     )
-    def test_a_count_above_the_squad_is_refused(self, size: int, gute: int):
+    def test_a_count_above_the_squad_is_refused(self, size: int, good: int):
         """The third row matters: both fields clear their own bounds, so only the pair rule can refuse it."""
 
-        kader = {"expected_size": size, "good_spieler": gute}
+        kader = {"expected_size": size, "good_spieler": good}
 
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kader=kader))

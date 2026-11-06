@@ -57,13 +57,13 @@ const ZAEHLER: readonly (readonly [keyof Omit<FLAddressChangeAdminHoldings, "gra
 ];
 
 function bestandZeilen({ grant, ...count }: FLAddressChangeAdminHoldings): string[] {
-  const zeilen = ZAEHLER.filter(([feld]) => count[feld] > 0).map(([feld, eins, viele]) =>
-    count[feld] === 1 ? eins : `${String(count[feld])} ${viele}`,
+  const rows = ZAEHLER.filter(([field]) => count[field] > 0).map(([field, eins, viele]) =>
+    count[field] === 1 ? eins : `${String(count[field])} ${viele}`,
   );
   if (grant !== null) {
-    zeilen.push(grant === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung");
+    rows.push(grant === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung");
   }
-  return zeilen;
+  return rows;
 }
 
 /**
@@ -73,7 +73,7 @@ function bestandZeilen({ grant, ...count }: FLAddressChangeAdminHoldings): strin
 export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsichtGelesen | null }) {
   const [adresse, setAdresse] = useState(anfang?.status === "read" ? anfang.view.address : "");
   const [error, setError] = useState<string | null>(null);
-  const [read, setGelesen] = useState<Gelesen | null>(anfang);
+  const [read, setRead] = useState<Gelesen | null>(anfang);
   // Above every read, so a read answering after a write keeps the way and the reason the start box holds.
   const [entwurf, setEntwurf] = useState<AdresswechselEntwurf | null>(null);
   const [perDruck, setPerDruck] = useState(false);
@@ -84,7 +84,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
 
   const lies = async (schluessel: FLAddressChangeAdminViewPayload) => {
     const lesung = ++letzteLesung.current;
-    setGelesen({ status: "reading" });
+    setRead({ status: "reading" });
 
     // Settled, never awaited bare: a rejected action would leave the placeholder up for good.
     const [settled] = await Promise.allSettled([readAdresswechselAnsichtAction(schluessel)]);
@@ -94,12 +94,12 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
     if (res.success) {
       // The box shows the address the read was made for, so a change opened by its id names its address too.
       setAdresse(res.view.address);
-      setGelesen({ status: "read", view: res.view });
+      setRead({ status: "read", view: res.view });
       return;
     }
 
     const sentence = res.unplacedError ?? res.error;
-    setGelesen({
+    setRead({
       status: "refused",
       reason: isVerwaltungAnsichtRefusal(sentence) ? sentence : `Die Übersicht konnte nicht geladen werden. ${sentence}`,
     });
@@ -141,7 +141,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
               setError(null);
               // What was read speaks of the address the box held before.
               letzteLesung.current += 1;
-              setGelesen(null);
+              setRead(null);
               setEntwurf(null);
             }}
             onKeyDown={(event) => {
@@ -196,8 +196,8 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
               <p className={ZEILE_CLASSES}>Unter dieser Adresse steht nichts, dessen Adresse sich hier ändern lässt.</p>
             ) : (
               <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-1 pl-5`}>
-                {bestandZeilen(view.holdings).map((zeile) => (
-                  <li key={zeile}>{zeile}</li>
+                {bestandZeilen(view.holdings).map((row) => (
+                  <li key={row}>{row}</li>
                 ))}
               </ul>
             )}

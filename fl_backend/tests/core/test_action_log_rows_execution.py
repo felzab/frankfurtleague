@@ -25,13 +25,13 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607600001")
 
 SEEDED_NAME = "Lessing"
 RENAMED = "Lessing-Gymnasium"
-STADT = "Frankfurt am Main"
+CITY = "Frankfurt am Main"
 
 RECORDED_AT = "2026-03-15T18:00:00+00:00"
 
 
 def team_document() -> dict[str, Any]:
-    return documents.team_document(TEAM_OID, SEEDED_NAME, "LEX", full_name="Lessing-Gymnasium", address={**documents.ADDRESS, "stadt": STADT})
+    return documents.team_document(TEAM_OID, SEEDED_NAME, "LEX", full_name="Lessing-Gymnasium", address={**documents.ADDRESS, "city": CITY})
 
 
 def bulk_team_document(shorthand: str) -> dict[str, Any]:
@@ -70,7 +70,7 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
                 return_document=ReturnDocument.BEFORE,
             )
             # A dotted key, which is what every reference fan-out matches on and what the row then stores.
-            await patch_many_in_db(collection=teams, db_filter={"address.stadt": STADT}, update={"$set": {"description": "x"}}, session=session)
+            await patch_many_in_db(collection=teams, db_filter={"address.city": CITY}, update={"$set": {"description": "x"}}, session=session)
             # Ids left to the driver, and distinct shorthands so `uniq_shorthand` admits the pair.
             await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HEX", "CSX")], session=session)
             # The removals last, each taking one of the pair above: the writes before them still match
@@ -105,7 +105,7 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
     assert rows[0]["document_id"] == TEAM_OID
     # The image the write replaced, which is the whole of what a restore would replay.
     assert rows[1]["before"]["name"] == SEEDED_NAME
-    assert rows[2]["db_filter"] == {"address.stadt": STADT}
+    assert rows[2]["db_filter"] == {"address.city": CITY}
     assert rows[2]["modified_count"] == 1
     # The count and nothing else: the bulk create named no document and replaced none.
     assert rows[3]["modified_count"] == 2

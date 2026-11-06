@@ -92,7 +92,7 @@ async function TeamSaisonChip({ params }: { params: TeamParams }) {
   return (
     <SaisonChipSlot
       saisonId={saisonId}
-      isLaufend={seats.some((seat) => seat.saison_status === "active")}
+      isRunning={seats.some((seat) => seat.saison_status === "active")}
     />
   );
 }

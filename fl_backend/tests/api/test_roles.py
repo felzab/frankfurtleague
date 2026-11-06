@@ -66,8 +66,8 @@ GHOST = "geist@schule.de"
 PAST_AND_OPEN = "vergangen.und.offen@schule.de"
 ONLY_PAST_OPEN = "nur.vergangen.offen@schule.de"
 # Seated on a team that withdrew from the active season and is entered again for the future one.
-AUSGETRETEN = "ausgetreten.sitz@schule.de"
-AUSGETRETEN_OPEN = "ausgetreten.offen@schule.de"
+EXITED = "ausgetreten.sitz@schule.de"
+EXITED_OPEN = "ausgetreten.offen@schule.de"
 
 ANSPRECHPERSON = "post@strasse.de"
 
@@ -196,10 +196,10 @@ async def _seed(database: AsyncDatabase) -> None:
                 TEAM_E_OID,
                 ROW_NAME_E,
                 austritt=dict(AUSTRITT),
-                trainer=_seat(AUSGETRETEN),
-                ansprechperson=_seat(AUSGETRETEN_OPEN, confirmed_at=None),
+                trainer=_seat(EXITED),
+                ansprechperson=_seat(EXITED_OPEN, confirmed_at=None),
             ),
-            _junction(ROW_FUTURE_E_OID, FUTURE_SAISON, TEAM_E_OID, ROW_NAME_E, trainer=_seat(AUSGETRETEN)),
+            _junction(ROW_FUTURE_E_OID, FUTURE_SAISON, TEAM_E_OID, ROW_NAME_E, trainer=_seat(EXITED)),
         ]
     )
     await database[Collection.SPIELER].insert_one(_unconfirmed_spieler(SPIELER_UNCONFIRMED_OID, ONLY_OPEN))
@@ -351,7 +351,7 @@ class TestTheWithdrawalNarrowing:
     def test_a_seat_on_the_season_its_team_withdrew_from_grants_nothing_while_the_next_season_s_does(self, seeded_league: str):
         """Both seats confirmed, so the withdrawal alone parts them; the future row is the same team's, which a per-team test would drop too."""
 
-        assert seats(answered(seeded_league, AUSGETRETEN)) == [(FUTURE_SAISON, TEAM_E_OID, "trainer", ROW_NAME_E, "future")]
+        assert seats(answered(seeded_league, EXITED)) == [(FUTURE_SAISON, TEAM_E_OID, "trainer", ROW_NAME_E, "future")]
 
 
 @pytest.mark.db
