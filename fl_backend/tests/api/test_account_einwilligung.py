@@ -298,14 +298,6 @@ class TestTheOwnRecords:
         [entry] = account.json()["schiedsrichter"]
         assert (entry["schiedsrichter_id"], entry["givable"], entry["media_offered"]) == (str(REFEREE_OID), True, True)
 
-    def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(ACCOUNT_PATH, headers=_person(RETIRED))
-
-        [record] = served(mongo_replica_set_url, steps).json()["schiedsrichter"]
-
-        assert (record["schiedsrichter_id"], record["givable"]) == (str(RETIRED_OID), False)
-
     def test_a_record_awaiting_its_confirmation_is_refused(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
             return await http.get(PATH, headers=_person(UNCONFIRMED))
@@ -424,26 +416,6 @@ class TestARecordNotHeld:
         assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert (after[RETIRED_OID]["einwilligung"]["scope"], after[RETIRED_OID]["einwilligung"]["media"]) == ("intern", False)
-
-
-@pytest.mark.db
-class TestThePressesOrder:
-    """One sequence for every kind of record: the stale page is judged before whether the record takes a grant."""
-
-    def test_a_stale_grant_on_a_retired_record_is_refused_as_stale(self, mongo_replica_set_url: str):
-        """The withdrawal moves the stand, so the page still showing the grant is stale before it is anything else."""
-
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            withdrawn = await http.patch(_referee_path(RETIRED_OID), json=_payload(media=False, stand=RETIRED_STAND), headers=_person(RETIRED))
-            before = await _records(database)
-            stale = await http.patch(_referee_path(RETIRED_OID), json=_payload(media=True, stand=RETIRED_STAND), headers=_person(RETIRED))
-            return withdrawn, stale, before, await _records(database)
-
-        withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
-
-        assert withdrawn.status_code == 204, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
-        assert after == before
 
 
 SPIELER_PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"

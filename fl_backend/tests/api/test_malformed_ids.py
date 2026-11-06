@@ -21,10 +21,6 @@ HEX_ID = "6890a1b2c3d4e5f607182930"
 # characters rather than on its length.
 NON_HEX_ID = "z" * 24
 
-# Named rather than compared with `!=`: a control asserting only "not 404" passes on any failure,
-# the harness's own included.
-UNREACHED_DATABASE = Code.DATABASE_FAILED
-
 
 def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
     """The response, never the client: the driver binds a client to the loop it first ran on."""

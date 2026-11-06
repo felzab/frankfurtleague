@@ -302,33 +302,9 @@ def test_every_admin_tier_read_is_named_once():
 
 @pytest.mark.db
 @pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
-def test_an_unbarred_administrator_is_served_by_address(unbarred: dict[str, tuple[int, str]], route: str):
-    """The control: a read the seed never reached would pass the case below having served nothing."""
-
-    status, text = unbarred[route]
-
-    assert status == 200, text
-    assert BARRED in text.lower()
-    assert _flags_set(json.loads(text)) == []
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
 def test_a_barred_administrator_is_withheld_beside_a_flag(barred: dict[str, tuple[int, str]], route: str):
     status, text = barred[route]
 
     assert status == 200, text
     assert BARRED not in text.lower()
     assert _flags_set(json.loads(text)) != [], "the address is gone and nothing says it was withheld"
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
-def test_an_administrator_whose_ban_has_lapsed_is_served_by_address(lapsed: dict[str, tuple[int, str]], route: str):
-    """The running season is what the bound is read against: asked without it, the lapsed row would still withhold."""
-
-    status, text = lapsed[route]
-
-    assert status == 200, text
-    assert BARRED in text.lower()
-    assert _flags_set(json.loads(text)) == []

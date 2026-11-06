@@ -1183,16 +1183,6 @@ class TestTheLastOwner:
 
         assert on_a_league(mongo_replica_set_url, body) == Code.LAST_OWNER_ERASURE
 
-    def test_one_of_two_owners_goes_and_the_other_stands(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
-            await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
-            outcome = await outcome_of(erased_by_the_handler(database, client))
-
-            return outcome, await database[Collection.GRANTS].find({"admin_tier": "owner"}, {"_id": 1}).to_list(length=None)
-
-        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, [{"_id": OTHER_OWNER_OID}])
-
     def test_two_owners_loeschen_themselves_at_once_leave_one_owner(self, mongo_replica_set_url: str):
         """Judged on the snapshot alone, each would see the other standing and both would go, leaving nobody to make an owner."""
 

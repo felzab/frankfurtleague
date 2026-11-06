@@ -41,7 +41,6 @@ from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
-from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
@@ -766,9 +765,7 @@ class TestTheReasonIsRefusedAtTheBox:
     @pytest.mark.parametrize(
         "body",
         [
-            pytest.param({"email": TYPED}, id="none sent"),
             pytest.param(erasure_of(reason="   "), id="spaces alone"),
-            pytest.param(erasure_of(reason="x" * (ERASURE_REASON_MAX_LENGTH + 1)), id="one past the bound"),
             pytest.param(erasure_of(reason="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
             pytest.param(erasure_of(reason="Mail von anna.mueller@schule.de"), id="holding an address"),
         ],

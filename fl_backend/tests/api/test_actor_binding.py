@@ -63,10 +63,6 @@ ACTOR = "admin@example.com"
 # A route added to a case's own app, its handler reading what the binder bound.
 PUBLIC_PROBE = "/api/v0/public-probe"
 
-# Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
-# the harness's own included.
-UNREACHED_DATABASE = Code.NO_DATABASE_CLIENT
-
 
 def client() -> TestClient:
     """No lifespan, so nothing opens the database: a request clearing every session check fails on `no_database_client`, which is observable."""
