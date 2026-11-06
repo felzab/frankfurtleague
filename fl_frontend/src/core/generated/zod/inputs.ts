@@ -762,7 +762,7 @@ export const BewerbungenPatchEinwilligungBody = zod
   );
 
 /**
- * Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.
+ * Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
  *
  * The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
  * so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
