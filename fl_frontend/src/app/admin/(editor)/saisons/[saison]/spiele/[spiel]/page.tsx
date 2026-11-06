@@ -110,7 +110,10 @@ function BookingPlaceholder() {
       short="second"
       phone="stack">
       <FieldPlaceholder width="W3" />
-      <FieldPlaceholder width="C5" />
+      <FieldPlaceholder
+        width="C5"
+        figures
+      />
     </FieldPair>
   );
 }
@@ -128,7 +131,10 @@ export default function SpielEditorPage({ params }: Props) {
               short="both"
               phone="pair">
               <FieldPlaceholder width="C10" />
-              <FieldPlaceholder width="C5" />
+              <FieldPlaceholder
+                width="C5"
+                figures
+              />
             </FieldPair>,
             <BookingPlaceholder key="spielort" />,
             <BookingPlaceholder key="schiedsrichter" />,

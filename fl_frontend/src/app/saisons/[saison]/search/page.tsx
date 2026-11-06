@@ -108,6 +108,7 @@ export default function SpielSearchPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "saison", title: { route: "spielSearch" } }}
       filters={season.then(({ filters }) => filters)}
+      filterCount={3}
       list={{
         kind: "spiele",
         search: { label: COPY.page.spielSearch },

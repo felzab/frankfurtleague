@@ -54,12 +54,8 @@ import type {
   FLBewerbungFormResponse,
   FLBewerbungKontaktSeatPayload,
   FLBewerbungKontaktSeatResponse,
-  FLBewerbungNoWindowResponse,
-  FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungSweepResponse,
-  FLBewerbungTrikotFarbenResponse,
-  FLBewerbungWindowResponse,
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
   FLDeclineBewerbungResponse,
@@ -1015,24 +1011,6 @@ export const bewerbungenGetBewerbungenAdmin = async (
   });
 };
 
-export const getBewerbungenGetSchulenUrl = () => {
-  return `/api/v0/bewerbungen/schulen`;
-};
-
-/**
- * Every club still in the league, as `{id, name}` and nothing else, sorted by name.
- *
- * `FLBewerbungSchuleOption` decides the wire (`READ-BEWERBUNG-001`) and the projection below
- * decides what leaves the database. Both are pinned.
- * @summary The clubs a public application may name
- */
-export const bewerbungenGetSchulen = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungSchulenResponse> => {
-  return baseKeyTransport<FLBewerbungSchulenResponse>(getBewerbungenGetSchulenUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getBewerbungenGetSweepSaisonsUrl = () => {
   return `/api/v0/bewerbungen/sweep`;
 };
@@ -1066,49 +1044,6 @@ export const bewerbungenSweepSaison = async (
   return systemKeyTransport<FLBewerbungSweepResponse>(getBewerbungenSweepSaisonUrl(saisonId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getBewerbungenGetTrikotfarbenUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/trikotfarben/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Answer which kit colours this season has assigned, so the form can offer the rest.
- *
- * 404 unless that season takes applications today, which is the one state the form reads this in.
- * The SET alone, naming no club (`READ-BEWERBUNG-001`).
- * @summary The kit colours a Saison has already assigned
- */
-export const bewerbungenGetTrikotfarben = async (
-  saisonId: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungTrikotFarbenResponse> => {
-  return baseKeyTransport<FLBewerbungTrikotFarbenResponse>(getBewerbungenGetTrikotfarbenUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getBewerbungenGetWindowUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/window/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Return one season's application window, or that it records none; 404 only where no season carries the id.
- *
- * A CLOSED window is served rather than hidden: the page says the deadline has passed, which a
- * 404 could not tell from a mistyped id. A season with no window recorded is served for the same
- * reason, and its existence is the whole of what this tier learns about it.
- * @summary One Saison's application window
- */
-export const bewerbungenGetWindow = async (
-  saisonId: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungWindowResponse | FLBewerbungNoWindowResponse> => {
-  return baseKeyTransport<FLBewerbungWindowResponse | FLBewerbungNoWindowResponse>(getBewerbungenGetWindowUrl(saisonId), {
-    ...options,
-    method: "GET",
   });
 };
 

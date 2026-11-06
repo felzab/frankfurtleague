@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Mapping
 from typing import Any, cast, get_args
 
@@ -8,7 +7,6 @@ import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.bewerbungen.public_router import get_trikotfarben
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
     FLBewerbungKontaktePayload,
@@ -25,7 +23,6 @@ from app.api.bewerbungen.services import (
     confirmation_deadline_from,
 )
 from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_phone
-from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_STUFENGROESSE_MAX,
@@ -778,58 +775,8 @@ class _RecordingCursor:
         return self._documents
 
 
-class _DistinctCollection:
-    """A junction that answers `distinct` and remembers the field and the filter it was asked for.
-
-    It answers no `find` at all, so an endpoint reading documents here fails rather than passing on
-    a narrowing that never ran.
-    """
-
-    def __init__(self, values: list[Any]) -> None:
-        self._values = values
-        self.key: Any = "the read never ran"
-        self.db_filter: Any = "the read never ran"
-
-    async def distinct(self, key: str, filter: Any = None) -> list[Any]:
-        self.key = key
-        self.db_filter = filter
-
-        return list(self._values)
-
-
-class _WindowCollection:
-    """A seasons collection answering one season's `bewerbung` block and status, whatever id is asked for.
-
-    The colour read is gated on whether the season takes applications, so a junction fake alone
-    reaches nothing.
-    """
-
-    def __init__(self, bewerbung: Any, status: str) -> None:
-        self._bewerbung = bewerbung
-        self._status = status
-
-    async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> Any:
-        return {"_id": filter["_id"], "bewerbung": self._bewerbung, "status": self._status}
-
-
-# The day the window below is judged against, sitting inside its span.
-COLOUR_READ_TODAY = "2026-04-01"
-COLOUR_READ_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
-
-
-def _colours_for(junction: _DistinctCollection, *, bewerbung: Any, status: str = "future") -> Any:
-    """The colour read against two fakes, so every case below states only the window it varies."""
-
-    return get_trikotfarben(
-        saison_id="2026",
-        saisons_collection=cast(Any, _WindowCollection(bewerbung, status)),
-        saison_teams_collection=cast(Any, junction),
-        today=COLOUR_READ_TODAY,
-    )
-
-
 class TestTheColoursASeasonHasAlreadyAssigned:
-    """What the public form excludes from its Wunschfarbe picker, taken from the ASSIGNMENTS and never from another applicant's wish."""
+    """What the public form closes in its Wunschfarbe picker, taken from the ASSIGNMENTS and never from another applicant's wish."""
 
     def test_the_palette_orders_the_answer_rather_than_the_junction(self):
         """Sorted by the league's own vocabulary, so two identical seasons never answer in two orders."""
@@ -837,7 +784,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         assert assigned_trikot_farben(stored=["rot", "weiss", "blau"]) == ["weiss", "rot", "blau"]
 
     def test_a_row_with_no_colour_assigned_contributes_nothing(self):
-        """`trikot_farbe` is nullable and may be missing, so `distinct` yields a null and a missing key alike."""
+        """`trikot_farbe` is nullable and may be missing, so the read's group yields a null for a missing key too."""
 
         assert assigned_trikot_farben(stored=[None, "rot"]) == ["rot"]
 
@@ -855,51 +802,3 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         offered = list(get_args(FLTrikotFarbe.__value__))
 
         assert assigned_trikot_farben(stored=list(reversed(offered))) == offered
-
-    def test_the_read_asks_the_junction_for_one_field_of_one_season(self):
-        """`distinct`, so what leaves the database is the values -- no document carrying the club beside its colour."""
-
-        collection = _DistinctCollection(["rot", None])
-
-        response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
-
-        assert collection.key == "trikot_farbe"
-        assert collection.db_filter == {"saison_id": "2026"}
-        # Non-vacuous: the read really ran and really served the colour, so what is asserted above is
-        # what it asked for rather than a request nothing made.
-        assert response.taken == ["rot"]
-
-    def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self):
-        """The allow-list, asserted as an exact membership: a subset relation would survive a field added to it."""
-
-        collection = _DistinctCollection([])
-
-        response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
-
-        assert set(response.model_dump()) == {"saison_id", "taken"}
-
-    @pytest.mark.parametrize(
-        "bewerbung",
-        [
-            pytest.param(None, id="a season carrying no window"),
-            pytest.param({"open": True, "start": "2026-05-01", "end": "2026-06-30"}, id="a span not yet begun"),
-            pytest.param({"open": True, "start": "2026-01-01", "end": "2026-02-28"}, id="a span already over"),
-        ],
-    )
-    def test_a_season_not_taking_applications_never_reaches_the_junction(self, bewerbung: Any):
-        """Judged BEFORE the junction read, so a refused season leaves no query behind to have leaked anything."""
-
-        collection = _DistinctCollection(["rot"])
-
-        with pytest.raises(DocumentNotFoundError):
-            asyncio.run(_colours_for(collection, bewerbung=bewerbung))
-
-        assert collection.key == "the read never ran"
-
-    def test_a_season_that_has_ended_never_reaches_the_junction_while_its_window_still_runs(self):
-        collection = _DistinctCollection(["rot"])
-
-        with pytest.raises(DocumentNotFoundError):
-            asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW), status="past"))
-
-        assert collection.key == "the read never ran"

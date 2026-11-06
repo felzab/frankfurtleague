@@ -47,6 +47,6 @@ export async function pageMetadata(
  * identity. Next replaces the parent's whole `openGraph` once a page declares one, image included, so the image
  * the root layout set is carried over from `parent`.
  */
-export async function openGraphFor(parent: ResolvingMetadata, path: string): Promise<NonNullable<Metadata["openGraph"]>> {
+async function openGraphFor(parent: ResolvingMetadata, path: string): Promise<NonNullable<Metadata["openGraph"]>> {
   return { ...SITE_OPEN_GRAPH, url: path, images: (await parent).openGraph?.images };
 }

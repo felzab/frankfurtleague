@@ -165,7 +165,7 @@ export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: stri
  * (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx`) — one
  * formula for both tones, a second spelling being one nobody re-measures against the scheme.
  */
-export const ergebnisPanel = tv({
+const ergebnisPanel = tv({
   base: "flex w-full flex-col items-center gap-y-4 rounded-2xl border p-6 text-center shadow-sm outline-none sm:p-8",
   variants: {
     tone: {

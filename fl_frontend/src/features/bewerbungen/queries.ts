@@ -1,26 +1,12 @@
 import { cache } from "react";
 
 import { isRecordMissing } from "@/core/errors";
-import {
-  bewerbungenGetBewerbung,
-  bewerbungenGetBewerbungen,
-  bewerbungenGetSchulen,
-  bewerbungenGetTrikotfarben,
-  bewerbungenGetWindow,
-} from "@/core/generated/client/sdk";
-import { runWithIncomingTrace } from "@/core/traceScope";
+import { bewerbungenGetBewerbung, bewerbungenGetBewerbungen } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { bewerbungenQueueTerms } from "./facets";
 
-import type {
-  BewerbungenGetBewerbungenParams,
-  FLBewerbungenListResponse,
-  FLBewerbungSchulenResponse,
-  FLBewerbungSingleResponse,
-  FLBewerbungTrikotFarbenResponse,
-  FLBewerbungWindowResponse,
-} from "@/core/generated/client/types";
+import type { BewerbungenGetBewerbungenParams, FLBewerbungenListResponse, FLBewerbungSingleResponse } from "@/core/generated/client/types";
 
 /**
  * Every application, newest first, narrowable by season and by any number of statuses.
@@ -58,34 +44,3 @@ export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBew
     }),
   ),
 );
-
-/**
- * One season's window, `null` where that season records none — and `null` for the whole answer where
- * no season carries the id, which is the page's `notFound()`.
- */
-// `cache`, never `"use cache"`: the metadata and the body read this once between them, and a cache
-// would key on the season and go on serving `laeuft` after the window shut.
-export const getBewerbungWindow = cache(async (saisonId: string): Promise<{ window: FLBewerbungWindowResponse | null } | null> =>
-  runWithIncomingTrace(() =>
-    bewerbungenGetWindow(saisonId)
-      // The answer naming no window carries the one key a window has not got.
-      .then((response) => ("window" in response ? { window: null } : { window: response }))
-      .catch((error: unknown) => {
-        if (isRecordMissing(error)) return null;
-        throw error;
-      }),
-  ),
-);
-
-/** The clubs a school picks itself out of, name and id alone, in the order the picker offers them. */
-export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse> {
-  return runWithIncomingTrace(() => bewerbungenGetSchulen());
-}
-
-/**
- * Which colours one season has ASSIGNED — `saison_teams.trikot_farbe`, never a wish. Uncached: one is assigned between two page loads, and a cached
- * "still free" outlives that.
- */
-export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewerbungTrikotFarbenResponse> {
-  return runWithIncomingTrace(() => bewerbungenGetTrikotfarben(saisonId));
-}

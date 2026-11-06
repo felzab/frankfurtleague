@@ -56,6 +56,7 @@ export default function SpielortEditorPage({ params }: Props) {
             <FieldPlaceholder
               key="mietpreis"
               width="C5"
+              figures
             />,
           ],
           [
@@ -71,7 +72,10 @@ export default function SpielortEditorPage({ params }: Props) {
               key="stadt"
               short="first"
               phone="pair">
-              <FieldPlaceholder width="C5" />
+              <FieldPlaceholder
+                width="C5"
+                figures
+              />
               <FieldPlaceholder width="W3" />
             </FieldPair>,
           ],

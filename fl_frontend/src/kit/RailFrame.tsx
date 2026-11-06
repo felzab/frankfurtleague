@@ -253,8 +253,9 @@ export function RailPage({
   const { head, heading } = strip({ scope });
   return (
     <>
-      {/* Beside the page's fade, never in it: the fade writes a name of its own over the name of whatever stands at its
-          top, so the strip stands apart, one picture across a page's change and a wait's end (`tokens.css`). */}
+      {/* Beside the page's fade, never in it, as the bar under it is: the fade writes a name of its own over the name of
+          whatever stands at its top, so each stands apart, one picture across a page's change and a wait's end
+          (`tokens.css`). */}
       <header className={head()}>
         <RailToggle />
         {title === null ? (
@@ -292,8 +293,8 @@ export function RailPage({
         <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">
           <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
         </main>
-        {bar}
       </PageFade>
+      {bar}
     </>
   );
 }
