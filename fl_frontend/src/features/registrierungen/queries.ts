@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
 import { registrierungenGetOpenRegistrierungen, registrierungenGetRegistrierungenAdmin } from "@/core/generated/client/sdk";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { runAdminRead } from "@/shared/utils/adminRead";
@@ -25,12 +25,7 @@ export const getOffeneRegistrierungen = cache(
 
 /** One season's pending registrations for the Registrierungen list, every team's; `null` where no season holds the id. */
 export async function getRegistrierungenAdmin(saisonId: string): Promise<FLRegistrierungenAdminListResponse | null> {
-  return runAdminRead(() =>
-    registrierungenGetRegistrierungenAdmin({ saison_id: saisonId }).catch((error: unknown) => {
-      if (isRecordMissing(error)) return null;
-      throw error;
-    }),
-  );
+  return runAdminRead(() => orMissing(registrierungenGetRegistrierungenAdmin({ saison_id: saisonId })));
 }
 
 /**
