@@ -221,12 +221,10 @@ export function EntriesBoxes({
       title={entry.title}
       description={entry.description}
       act={{ run: saveOf(entry), carry: { holder }, button: { label: COPY.shared.verb.save }, saves: true }}>
-      {entry.facts.length > 0 && (
-        <Facts
-          look="free"
-          facts={entry.facts}
-        />
-      )}
+      <Facts
+        look="free"
+        facts={entry.facts}
+      />
       <ScopeChoice entry={entry} />
       <MediaChoice entry={entry} />
     </AccountBox>
