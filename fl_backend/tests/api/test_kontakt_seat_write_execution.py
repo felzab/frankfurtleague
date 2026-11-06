@@ -146,6 +146,7 @@ class TestTheSeatsStateDecidesTheWrite:
         assert (answer.email, answer.version) == ("lea@example.com", row["version"])
         seat = row["kontakte"]["trainer"]
         assert (seat["first_name"], seat["birth_date"]) == ("Lea", None)
+        assert (seat["einwilligung"]["scope"], seat["einwilligung"]["date"]) == ("kontaktdaten", TODAY)
         assert (seat["einwilligung"]["confirmed_at"], seat["einwilligung"]["entered_by"], seat["einwilligung"]["media"]) == (
             None,
             "liga",

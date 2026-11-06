@@ -1105,15 +1105,12 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
-def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
-    """Each seat's record and its birthdate, composed here rather than taken from the payload.
+def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
+    """Each seat's record and its birthdate, off the stored block.
 
-    A seat its person keeps keeps its record; any other is born under the payload's label granting
-    nothing.
+    A seat its person keeps keeps its record and its date. Any other keeps the record `compose_seat_block` bore it with,
+    so nothing of a person who left travels to the one seated.
     """
-
-    if kontakte is None:
-        return None
 
     stored_block = stored if isinstance(stored, Mapping) else {}
     composed = dict(kontakte)
@@ -1124,12 +1121,12 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
             continue
 
         stored_slot = stored_block.get(slot)
-        einwilligung = _confirmation_held_by(stored_slot, seat=seat)
-        if einwilligung is None:
-            # Born afresh: nothing of a person who left travels to the
-            # one seated, and nobody filling a seat for another person may give their media consent.
-            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "media": False, "entered_by": "liga"}
-        composed[slot] = {**seat, "birth_date": _birth_date_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
+        kept = _confirmation_held_by(stored_slot, seat=seat)
+        composed[slot] = {
+            **seat,
+            "birth_date": _birth_date_held_by(stored_slot, seat=seat),
+            "einwilligung": seat["einwilligung"] if kept is None else kept,
+        }
 
     return composed
 
@@ -1161,7 +1158,7 @@ def compose_seat_block(
 def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktRolle]) -> WriteRefusal | None:
     """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
 
-    `FLSaisonTeamKontaktePayload`'s rule over a block, asked of the seats this write leaves. The seats it writes are one
+    Asked of the seats this write leaves, on the sign-in fold and one spelling of a number. The seats it writes are one
     person, so they are never compared with each other.
     """
 
@@ -1236,15 +1233,14 @@ def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]
     return owed
 
 
-def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> Any:
-    """The whole link block a contacts save leaves; null with a cleared block.
+def compose_bestaetigungen_nach(
+    *, kontakte: Mapping[str, Any], stored_kontakte: Any, stored_bestaetigungen: Any, minted: Mapping[str, Any]
+) -> dict[str, Any]:
+    """The whole link block a seat write leaves.
 
     Whole rather than dotted: a `$set` into an absent or null block leaves it short of its keys, or is
     `PathNotViable`.
     """
-
-    if not isinstance(kontakte, Mapping):
-        return None
 
     stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
@@ -1256,10 +1252,9 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
             continue
 
         seat = kontakte.get(slot)
-        held = stored_slots.get(slot)
-        # A seat staying empty keeps a Widerspruch's record of itself; a seat the save empties, or hands
-        # to a person it mints nothing for, loses its link, so the person who left it holds nothing live.
-        keeps = held is None if not isinstance(seat, Mapping) else _seat_held_by(held, seat=seat) is not None
+        # A seat staying empty keeps a Widerspruch's record of itself; a seat handed to a person the write
+        # mints nothing for loses its link, so the person who left it holds nothing live.
+        keeps = not isinstance(seat, Mapping) or _seat_held_by(stored_slots.get(slot), seat=seat) is not None
         block[slot] = stored_links.get(slot) if keeps else None
 
     return block

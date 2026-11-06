@@ -9,15 +9,10 @@ from bson import ObjectId
 from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.bewerbungen.services import compose_einwilligung
 from app.api.identity.schemas import FLErasureResponse
-from app.api.teams.schemas import (
-    FLKontaktKenntnisnahmePayload,
-    FLKontaktpersonPayload,
-    FLSaisonTeamKontaktePayload,
-)
-from app.api.teams.services import (
-    compose_kontakte_herkunft,
-)
+from app.api.teams.schemas import FLKontaktSeatPayload
+from app.api.teams.services import compose_kontakte_herkunft
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -75,14 +70,14 @@ PHONE: dict[str, str] = {
 
 
 def person(first_name: str, *, email: str | None = None) -> dict[str, Any]:
-    """One person as the editor SENDS them: the consent names its scope and day, and no source, stamp or birthdate."""
+    """One person as `compose_seat_block` hands them on: what the editor sends, under the record the write bears."""
 
     return {
         "first_name": first_name,
         "last_name": "Musterfrau",
         "email": email or f"{first_name.lower()}@example.com",
         "phone": PHONE[first_name],
-        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
+        "einwilligung": compose_einwilligung(today=TODAY, entered_by="liga"),
     }
 
 
@@ -94,7 +89,7 @@ def stored_person(first_name: str, *, email: str | None = None, confirmed_at: st
     return kontaktperson_document(
         first_name,
         confirmed_at=confirmed_at,
-        einwilligung={"date": sent["einwilligung"]["date"]},
+        einwilligung={"date": "2026-03-01"},
         entered_by="liga",
         last_name=sent["last_name"],
         email=sent["email"],
@@ -104,12 +99,12 @@ def stored_person(first_name: str, *, email: str | None = None, confirmed_at: st
 
 
 def born(sent: dict[str, Any]) -> dict[str, Any]:
-    """The record the editor writes for a person it newly seats: theirs alone, naming the league as who seated them.
+    """The record a person newly seated holds: theirs alone, naming the league as who seated them.
 
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {**sent["einwilligung"], "confirmed_at": None, "media": False, "entered_by": "liga"}
+    return {"scope": "kontaktdaten", "date": TODAY, "confirmed_at": None, "media": False, "entered_by": "liga"}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -165,6 +160,9 @@ RESAVED_AS_RENDERED: dict[str, Any] = {
     "stellvertretung": person("Klara"),
     "trainer_is_also": None,
 }
+
+# What the seat write's payload takes of a person.
+SEAT_SENT = {field: value for field, value in person("Ida").items() if field != "einwilligung"}
 
 ERASED_SEAT = "ansprechperson"
 ERASED_EMAIL = str(RESAVED_AS_RENDERED[ERASED_SEAT]["email"])
@@ -246,27 +244,13 @@ async def junction_log(database: AsyncDatabase) -> list[dict[str, Any]]:
 
 @pytest.mark.db
 class TestTheBlockIsWritten:
-    def test_the_stored_block_is_the_one_sent_and_the_echo_is_the_stored_one(self, mongo_replica_set_url: str):
+    def test_the_stored_block_is_the_one_sent(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            response = await write_kontakte(database, NEW_KONTAKTE)
+            await write_kontakte(database, NEW_KONTAKTE)
 
-            return response, await row_now(database)
+            return await row_now(database)
 
-        response, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
-        assert response.kontakte is not None
-        # The record each seat was born with, `media` included: the echo is the row, its absent
-        # evidence read as none set.
-        assert response.kontakte.model_dump(mode="json") == {
-            seat: (
-                {**value, "einwilligung": {**value["einwilligung"], "evidence": {"scope": None, "media": None}}}
-                if isinstance(value, dict)
-                else value
-            )
-            for seat, value in as_stored(NEW_KONTAKTE).items()
-        }
-        assert (response.saison_id, response.team_id) == (SAISON_ID, TEAM_OID)
+        assert on_a_league(mongo_replica_set_url, body)["kontakte"] == as_stored(NEW_KONTAKTE)
 
 
 @pytest.mark.db
@@ -284,11 +268,11 @@ class TestTheProvenanceIsTheServers:
         edited["stellvertretung"] = person("Klara")
 
         async def body(database: AsyncDatabase) -> Any:
-            response = await write_kontakte(database, edited)
+            await write_kontakte(database, edited)
 
-            return response, await row_now(database)
+            return await row_now(database)
 
-        response, stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
+        stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
 
         trainer = stored["kontakte"]["trainer"]
         assert trainer["phone"] == OTHER_PHONE, "the edit itself did not land, so this case proves nothing"
@@ -296,8 +280,6 @@ class TestTheProvenanceIsTheServers:
         # The date goes the same way, and by the same route: the payload names none, so a save that
         # did not carry it over would leave a stamped seat with no birthdate at all.
         assert trainer["birth_date"] == BIRTH_DATE
-        assert response.kontakte is not None and response.kontakte.trainer is not None
-        assert response.kontakte.trainer.einwilligung.confirmed_at == CONFIRMED_ON
 
     def test_a_confirmed_seat_renamed_at_its_own_address_starts_unconfirmed(self, mongo_replica_set_url: str):
         """A role mailbox handed from one teacher to the next, which the address alone cannot tell from an edit.
@@ -316,16 +298,16 @@ class TestTheProvenanceIsTheServers:
         renamed = {**RESAVED_AS_RENDERED, "trainer": successor}
 
         async def body(database: AsyncDatabase) -> Any:
-            return await write_kontakte(database, renamed), await row_now(database)
+            await write_kontakte(database, renamed)
 
-        response, stored = on_a_league(mongo_replica_set_url, body, seeded=whatsapp)
+            return await row_now(database)
+
+        stored = on_a_league(mongo_replica_set_url, body, seeded=whatsapp)
 
         trainer = stored["kontakte"]["trainer"]
         assert (trainer["first_name"], trainer["last_name"]) == ("Bert", "Neu"), "the rename did not land, so this case proves nothing"
         assert trainer["einwilligung"] == born(successor)
         assert trainer["birth_date"] is None
-        assert response.kontakte is not None and response.kontakte.trainer is not None
-        assert response.kontakte.trainer.einwilligung.confirmed_at is None
 
     def test_a_confirmed_seat_handed_to_another_address_starts_unconfirmed(self, mongo_replica_set_url: str):
         """The confirmation is what one mailbox's owner clicked: a new address in the seat has clicked nothing."""
@@ -448,63 +430,18 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
 class TestWhatThePayloadRefuses:
     """The provenance and the birthdate are on no payload: a field the editor merely hid would still be a route an API caller has."""
 
-    @pytest.mark.parametrize(("field", "value"), [("entered_by", "bewerbung"), ("confirmed_at", CONFIRMED_ON)])
-    def test_a_consent_naming_its_source_or_its_stamp_is_refused(self, field: str, value: str):
+    @pytest.mark.parametrize(("field", "value"), [("birth_date", BIRTH_DATE), ("confirmed_at", CONFIRMED_ON), ("einwilligung", {})])
+    def test_a_seat_naming_what_only_its_person_gives_is_refused(self, field: str, value: Any):
+        """Through the seat write's own payload: refused rather than bounded, an age floor here would still let an administrator enter it."""
+
         with pytest.raises(ValidationError) as failure:
-            FLKontaktKenntnisnahmePayload.model_validate({**person("Ida")["einwilligung"], field: value})
+            FLKontaktSeatPayload.model_validate({**SEAT_SENT, "version": 0, field: value})
 
         assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", field)]
-
-    @pytest.mark.parametrize("value", [pytest.param(BIRTH_DATE, id="an adult's"), pytest.param("2015-01-01", id="a ten-year-old's")])
-    def test_a_seat_naming_a_birthdate_is_refused_whatever_the_date(self, value: str):
-        """Refused rather than bounded: an age floor here would still let an administrator enter a date the person alone may give."""
-
-        with pytest.raises(ValidationError) as failure:
-            FLKontaktpersonPayload.model_validate({**person("Ida"), "birth_date": value})
-
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "birth_date")]
-
-    def test_the_whole_block_is_refused_on_one_seats_source(self):
-        """Through the endpoint's own payload, so the refusal reaches the wire as a 422 rather than a stored claim."""
-
-        block = {**NEW_KONTAKTE, "trainer": stored_person("Lea", confirmed_at=CONFIRMED_ON)}
-
-        with pytest.raises(ValidationError) as failure:
-            FLSaisonTeamKontaktePayload.model_validate(block)
-
-        assert {entry["type"] for entry in failure.value.errors()} == {"extra_forbidden"}
-
-
-class TestTheTwoContactRules:
-    """The application's two rules on the season row too, an empty seat comparing with nothing.
-
-    One refusal per rule, which a rule moved down to the application's payload fails; the rules' own
-    table is `tests/api/test_bewerbung_submission_refusal.py :: TestTheThreeSeatsAreThreePeople`.
-    """
-
-    def block(self, **seats: Any) -> dict[str, Any]:
-        return {**RESAVED_AS_RENDERED, **seats}
-
-    def test_a_trainer_holding_a_seat_whose_block_differs_is_refused(self):
-        """Two records of one person the erasure cannot pair up, each mailed a link of its own."""
-
-        with pytest.raises(ValidationError) as failure:
-            FLSaisonTeamKontaktePayload.model_validate(self.block(trainer_is_also="ansprechperson"))
-
-        assert "the Trainer also holds" in str(failure.value)
-
-    def test_two_different_people_sharing_a_mailbox_on_the_sign_in_fold_are_refused(self):
-        with pytest.raises(ValidationError) as failure:
-            FLSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
-
-        assert [error["type"] for error in failure.value.errors()] == ["kontakt_email_twice"]
 
 
 class TestTheCompositionDecidesFromItsArguments:
     """The pure half, so every branch is pinned without a container."""
-
-    def test_a_cleared_block_stays_cleared(self):
-        assert compose_kontakte_herkunft(kontakte=None, stored=PARTLY_CONFIRMED) is None
 
     @pytest.mark.parametrize("stored", [pytest.param(None, id="a row with no block"), pytest.param({}, id="an empty block")])
     def test_a_row_holding_no_block_yields_every_seat_unconfirmed(self, stored: Any):
@@ -516,7 +453,6 @@ class TestTheCompositionDecidesFromItsArguments:
         recased = {**PARTLY_CONFIRMED, "trainer": person("Ida", email="IDA@Example.com")}
         composed = compose_kontakte_herkunft(kontakte=recased, stored=PARTLY_CONFIRMED)
 
-        assert composed is not None
         assert composed["trainer"]["einwilligung"]["confirmed_at"] == CONFIRMED_ON
         assert composed["trainer"]["birth_date"] == BIRTH_DATE
 
@@ -527,7 +463,6 @@ class TestTheDateRidesWithThePerson:
     def test_the_stored_date_is_carried_forward_for_the_same_person(self):
         composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
 
-        assert composed is not None
         # The floor under the claim below: a date standing beside a stamp would prove a confirmation
         # survived rather than the identity match that carries the date.
         assert composed["trainer"]["einwilligung"]["confirmed_at"] is None, "the seed is confirmed, so this case proves nothing"
@@ -537,7 +472,6 @@ class TestTheDateRidesWithThePerson:
         handed = {**RESAVED_AS_RENDERED, "trainer": person("Ida", email="another.ida@example.com")}
         composed = compose_kontakte_herkunft(kontakte=handed, stored=SEEDED_KONTAKTE)
 
-        assert composed is not None
         assert composed["trainer"]["birth_date"] is None
 
     @pytest.mark.parametrize(
@@ -554,7 +488,6 @@ class TestTheDateRidesWithThePerson:
         handed = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], **renamed}}
         composed = compose_kontakte_herkunft(kontakte=handed, stored=SEEDED_KONTAKTE)
 
-        assert composed is not None
         assert composed["trainer"]["birth_date"] is None
 
     @pytest.mark.parametrize(
@@ -574,7 +507,6 @@ class TestTheDateRidesWithThePerson:
         respelt = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], **sent}}
         composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
 
-        assert composed is not None
         assert composed["trainer"]["birth_date"] == BIRTH_DATE
 
     def test_a_sharp_s_surname_and_its_ss_spelling_are_two_people(self):
@@ -584,7 +516,6 @@ class TestTheDateRidesWithThePerson:
         respelt = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], "last_name": "Weiss"}}
         composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
 
-        assert composed is not None
         assert composed["trainer"]["birth_date"] is None
 
 

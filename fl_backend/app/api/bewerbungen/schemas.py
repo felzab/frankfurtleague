@@ -3,7 +3,7 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
+from app.api.teams.schemas import FLSaisonTeamKontakte, FLTrainerAlso, _KontaktpersonWritablePayload
 from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -345,12 +345,28 @@ class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):
     """One of the three people, as a member of the public submits them, without a birthdate."""
 
 
-class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
+class FLBewerbungKontaktePayload(BaseModel):
     """The three people an application is reached through, all three required."""
+
+    model_config = ConfigDict(extra="forbid")
 
     trainer: FLBewerbungKontaktpersonPayload
     ansprechperson: FLBewerbungKontaktpersonPayload
     stellvertretung: FLBewerbungKontaktpersonPayload
+    trainer_is_also: FLTrainerAlso | None
+
+    @model_validator(mode="after")
+    def the_trainer_equals_the_seat_they_also_hold(self) -> Self:
+        """Where one person holds two seats, the two blocks agree field for field.
+
+        A mismatch is a drifted client, and stored it leaves two records of one person, unpaired by the
+        erasure and mailed two links.
+        """
+
+        if self.trainer_is_also is not None and getattr(self, self.trainer_is_also) != self.trainer:
+            raise ValueError(f"the seat '{self.trainer_is_also}' the Trainer also holds carries other details than the Trainer's")
+
+        return self
 
 
 class FLBewerbungAddressPayload(FLAddressPayload):

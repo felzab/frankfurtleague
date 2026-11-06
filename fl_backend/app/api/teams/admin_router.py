@@ -230,14 +230,14 @@ async def _with_seat_states(
     return mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, denied=denied)
 
 
-# What a write of the contact block reads of the row: what it composes on, and what the mails it owes name.
+# What a write of a seat's person or link reads of the row: what it composes on, and what the mails it owes name.
 KONTAKT_WRITE_FIELDS = ["kontakte", "confirmations", "name", "austritt"]
 
 
 async def write_the_contact_block(
     *,
     stored: Mapping[str, Any],
-    proposed: Mapping[str, Any] | None,
+    proposed: Mapping[str, Any],
     expected_version: int,
     team_id: Any,
     saison_id: str,
@@ -256,7 +256,7 @@ async def write_the_contact_block(
     """Store a block over `stored`, read in this session, owing each person it newly seats their link; the row after it and each link owed.
 
     Each seat keeping its person keeps its record and its link. A seat newly filled or handed on is stored as the league's
-    entry, unconfirmed, and a seat emptied or handed on loses its links on the team's open match confirmations.
+    entry, unconfirmed, and a seat handed on loses its links on the team's open match confirmations.
     """
 
     kontakte = compose_kontakte_herkunft(kontakte=proposed, stored=stored.get("kontakte"))
@@ -280,7 +280,6 @@ async def write_the_contact_block(
     minted = {seat: entry for seats in owed for seat in seats}
     links: list[tuple[OwedMail, FLKontaktMint]] = []
     if owed:
-        assert kontakte is not None
         # Read only where a link is owed, and in session as the address is. Unanchored: a rollover
         # committing after this read leaves the mail asking the open row's answer, which the press then
         # refuses.
@@ -1105,7 +1104,7 @@ async def invite_kontakt(
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
-            projection=["kontakte", "confirmations", "name", "austritt"],
+            projection=KONTAKT_WRITE_FIELDS,
             session=session,
         )
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)

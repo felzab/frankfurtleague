@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any, cast, get_args
 
 import pytest
@@ -22,7 +21,7 @@ from app.api.bewerbungen.services import (
     compose_kontakte,
     confirmation_deadline_from,
 )
-from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_phone
+from app.api.teams.schemas import FLKontaktperson, normalise_phone
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_STUFENGROESSE_MAX,
@@ -131,10 +130,6 @@ def test_the_corpus_this_module_moves_one_field_of_is_valid():
 # A date no living contact person could carry: born after the bound's floor whatever `today` is.
 A_CHILDS_BIRTHDATE = "2018-01-01"
 
-# What the junction's own editor sends for one person's consent: the source and the stamp are on no
-# payload.
-JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"scope": "kontaktdaten", "date": TODAY}
-
 
 class TestNoBirthdateOnAnyPayload:
     """The date reaches the league from its own person at their confirmation, so no payload spells the key."""
@@ -155,23 +150,6 @@ class TestNoBirthdateOnAnyPayload:
             FLBewerbungKontaktpersonPayload.model_validate(person(birth_date=None))
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
-
-    def test_the_junction_payload_refuses_the_key_as_the_public_one_does(self):
-        """Refused rather than bounded: an age floor on this payload would still let an administrator name a date only its subject may give."""
-
-        junction_person = {**person(), "birth_date": A_CHILDS_BIRTHDATE, "einwilligung": dict(JUNCTION_EINWILLIGUNG)}
-
-        with pytest.raises(ValidationError) as failure:
-            FLKontaktpersonPayload.model_validate(junction_person)
-
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "birth_date")]
-
-    def test_the_junction_payload_takes_a_whole_person_without_one(self):
-        """The floor under the case above: required, every save composed before that seat's person answers would be refused."""
-
-        composed = FLKontaktpersonPayload.model_validate({**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)})
-
-        assert "birth_date" not in composed.model_dump(mode="json")
 
     def test_a_stored_contact_with_no_date_still_reads(self):
         """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""

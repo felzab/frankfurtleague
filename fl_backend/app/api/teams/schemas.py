@@ -1,6 +1,6 @@
 import re
 from collections.abc import Mapping
-from typing import Annotated, Final, Literal, Self, get_args
+from typing import Annotated, Final, Literal, get_args
 
 from pydantic import (
     AfterValidator,
@@ -11,14 +11,11 @@ from pydantic import (
     RootModel,
     StringConstraints,
     TypeAdapter,
-    model_validator,
 )
 
 from app.api.invitations.schemas import FLTeamLinkState
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
-from app.core.exceptions import rule_refusal
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     AUSTRITT_REASON_MAX_LENGTH,
@@ -48,7 +45,6 @@ from app.shared.schemas.einwilligung import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
-    KONTAKT_ROLLEN,
     FLAddressChangeViewableDenied,
     FLAustrittType,
     FLGruppenNames,
@@ -128,14 +124,7 @@ class FLAustrittPayload(FLAustritt):
     ]
 
 
-# Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
-# both on every write path, and a payload declaring either is a route to an answer nobody gave.
-class _KontaktKenntnisnahmeWritable(BaseModel):
-    scope: Literal["kontaktdaten"]
-    date: CustomDateString
-
-
-class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
+class FLKontaktKenntnisnahme(BaseReadModel):
     """How this person's record came to be held, and what they answered.
 
     Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
@@ -144,10 +133,10 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     """
 
     scope: FLKontaktKenntnisnahmeScope
+    date: CustomDateString
     # The day this person confirmed the seat themselves; null until they do.
     confirmed_at: CustomOptionalDateString
-    # The one consent on this record, to photographs, video and interviews, and on the READ model
-    # alone for `scope`'s reason.
+    # The one consent on this record, to photographs, video and interviews.
     media: bool
     # Written once, by the write that seats the person, and moved by nothing else: who seated them,
     # the applicant or the league.
@@ -280,16 +269,12 @@ class FLSaisonTeamAddressChange(BaseModel):
     viewable_denied: FLSaisonTeamAddressChangeDenied
 
 
+# Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
+# Pydantic cannot un-inherit a field: no payload takes a birthdate, the date being the person's own
+# to enter at their confirmation, and no payload takes a consent record, which the server composes.
 # The ceilings are here and not on the read models above for `FLAddressPayload`'s reason: refusing a
 # stored value on read answers 500 for a whole list over one row, and locks out the write that would
 # repair it.
-class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
-    model_config = ConfigDict(extra="forbid")
-
-
-# Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
-# Pydantic cannot un-inherit a field: no payload takes a birthdate, so none is here, and the two
-# below differ on the consent shape alone.
 class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -301,65 +286,6 @@ class _KontaktpersonWritablePayload(BaseModel):
     # Here rather than beside the format: the pattern caps the length inside itself, which makes it
     # a ceiling.
     phone: str = Field(pattern=PHONE_REGEX)
-
-
-class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
-    # No birthdate on this payload or the public one: the date is the person's own to enter at their
-    # confirmation.
-    einwilligung: FLKontaktKenntnisnahmePayload
-
-
-class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
-    """The write side of the three, with the empty slot an erasure leaves."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # Accepted empty so a row an erasure emptied stays editable; required, any later edit to that row
-    # would re-collect the person who asked to be forgotten.
-    trainer: FLKontaktpersonPayload | None
-    ansprechperson: FLKontaktpersonPayload | None
-    stellvertretung: FLKontaktpersonPayload | None
-
-    @model_validator(mode="after")
-    def the_trainer_equals_the_seat_they_also_hold(self) -> Self:
-        """Where one person holds two seats, the two blocks agree field for field.
-
-        A mismatch is a drifted client, and stored it leaves two records of one person, unpaired by the
-        erasure and mailed two links.
-        """
-
-        if self.trainer_is_also is None:
-            return self
-
-        seat = getattr(self, self.trainer_is_also)
-
-        # An empty side is a seat an erasure or a Widerspruch emptied, which names nobody to compare.
-        if seat is not None and self.trainer is not None and seat != self.trainer:
-            raise ValueError(f"the seat '{self.trainer_is_also}' the Trainer also holds carries other details than the Trainer's")
-
-        return self
-
-    @model_validator(mode="after")
-    def the_distinct_people_share_no_email_or_telephone(self) -> Self:
-        """Two DIFFERENT people may not be reachable at one address or one number.
-
-        The seat the Trainer also holds is left out of the comparison: it is the same person, and
-        the rule above has already held the two blocks equal.
-        """
-
-        seats = [seat for seat in KONTAKT_ROLLEN if seat != self.trainer_is_also]
-        people: list[_KontaktpersonWritablePayload] = [person for seat in seats if (person := getattr(self, seat)) is not None]
-
-        # On the sign-in fold: two seats one sign-in reaches are one identity.
-        emails = [sign_in_identifier(person.email) for person in people]
-        if len(set(emails)) != len(emails):
-            raise rule_refusal("kontakt_email_twice", "two contact persons share one email address")
-
-        phones = [normalise_phone(person.phone) for person in people]
-        if len(set(phones)) != len(phones):
-            raise rule_refusal("kontakt_phone_twice", "two contact persons share one telephone number")
-
-        return self
 
 
 class FLTeamStatistik(BaseReadModel):

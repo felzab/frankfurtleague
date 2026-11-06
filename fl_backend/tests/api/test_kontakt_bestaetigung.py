@@ -89,7 +89,6 @@ def person(first_name: str) -> dict[str, Any]:
         "last_name": "Musterfrau",
         "email": f"{first_name.lower()}@example.com",
         "phone": PHONE[first_name],
-        "einwilligung": {"scope": "kontaktdaten", "date": "2026-03-01"},
     }
 
 
@@ -101,7 +100,7 @@ def stored(first_name: str, *, confirmed_at: str | None = None) -> dict[str, Any
     return documents.kontaktperson_document(
         first_name,
         confirmed_at=confirmed_at,
-        einwilligung={"date": sent["einwilligung"]["date"]},
+        einwilligung={"date": "2026-03-01"},
         entered_by="liga",
         last_name=sent["last_name"],
         email=sent["email"],
@@ -444,18 +443,6 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         assert code == Code.LINK_INVALID
         assert view.rolle == "ansprechperson"
 
-    def test_a_seat_the_save_empties_loses_its_link(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            first = await save(database, THREE)
-            await save(database, {**THREE, "stellvertretung": None})
-
-            return await refused(read_view(database, first.confirmations[2].token)), await row_now(database)
-
-        code, row = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.LINK_INVALID
-        assert row["confirmations"]["stellvertretung"] is None
-
 
 class TestABarredAddressIsRefused:
     """A person the league may not mail would learn nothing of an entry, so no save seats one, as no reseat of an application does."""
@@ -494,12 +481,12 @@ class TestABarredAddressIsRefused:
             await save(database, THREE)
             await ban(database, client, "jonas@example.com")
 
-            return await save(database, {**THREE, "stellvertretung": None}), await row_now(database)
+            return await save(database, THREE), await row_now(database)
 
         response, row = on_a_league(mongo_replica_set_url, body)
 
         assert response.confirmations == []
-        assert (row["kontakte"]["ansprechperson"]["email"], row["kontakte"]["stellvertretung"]) == ("jonas@example.com", None)
+        assert row["kontakte"]["ansprechperson"]["email"] == "jonas@example.com"
 
     def test_a_resend_to_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -947,18 +934,6 @@ class TestARowsPeopleLeavingTakeTheirLinks:
 
         assert codes == [Code.LINK_INVALID] * 3
         assert (row["team_id"], row["confirmations"]) == (INCOMING_TEAM_OID, None)
-
-    def test_a_cleared_block_takes_every_link_with_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            response = await save(database, THREE)
-            await save(database, None)
-
-            return [await refused(read_view(database, mint.token)) for mint in response.confirmations], await row_now(database)
-
-        codes, row = on_a_league(mongo_replica_set_url, body)
-
-        assert codes == [Code.LINK_INVALID] * 3
-        assert row["confirmations"] is None
 
     def test_an_geloescht_person_s_link_opens_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
