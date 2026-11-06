@@ -1309,9 +1309,6 @@ CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
 STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
-REFUSED_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
-
-
 async def write_seat(
     database: AsyncDatabase,
     client: AsyncMongoClient,

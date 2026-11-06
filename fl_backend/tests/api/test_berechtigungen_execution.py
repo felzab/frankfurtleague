@@ -77,9 +77,6 @@ OWNER = "inhaberin@frankfurtleague.de"
 ANNA = "anna.admin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
 
-# Folded and equal to itself, and refused by the address rule: a row no request can match.
-DEAD_OWNER = "jürgen@frankfurtleague.de"
-
 # An address the league grants in the cases below, in a spelling the fold changes.
 NEU_TYPED = "Nora.Neu@Beispielschule.de"
 NEU = "nora.neu@beispielschule.de"

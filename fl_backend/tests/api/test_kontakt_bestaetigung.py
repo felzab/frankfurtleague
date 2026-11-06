@@ -1249,27 +1249,6 @@ class TestTheLinkLookupWalksAnIndex:
         assert all("IXSCAN" in plan and "COLLSCAN" not in plan for _, plan in plans), plans
 
 
-def angenommene_bewerbung(trainer: Mapping[str, Any]) -> dict[str, Any]:
-    """The accepted application this team entered the season through, its Trainer seat holding `trainer`."""
-
-    return documents.bewerbung_document(
-        ObjectId("6890a1b2c3d4e5f607a50031"),
-        SAISON_ID,
-        "accepted",
-        kontakte={
-            "trainer": dict(trainer),
-            "ansprechperson": documents.kontaktperson_document("Jonas"),
-            "stellvertretung": documents.kontaktperson_document("Klara"),
-            "trainer_is_also": None,
-        },
-        submitted_at="2026-03-01",
-        confirmation_deadline=DEADLINE,
-        team_id=TEAM_OID,
-        link_prefix="accepted",
-        sent_at=TODAY,
-    )
-
-
 ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607a50041")
 
 

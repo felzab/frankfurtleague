@@ -29,7 +29,6 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_team_saison_admin_test")
 
 SAISON_ID = "2026"
-LAST_SAISON_ID = "2025"
 TODAY = "2026-04-15"
 OPERATOR = str(grants_for_the_suite()[0]["address"])
 

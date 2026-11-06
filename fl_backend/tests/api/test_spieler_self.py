@@ -59,7 +59,6 @@ TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607840001")
 TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607840002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607840011")
 YOUNG_OID = ObjectId("6890a1b2c3d4e5f607840013")
-RETIRED_OID = ObjectId("6890a1b2c3d4e5f607840015")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607840019")
 
 # The name each season row was entered under, apart from the club's current one, so serving the

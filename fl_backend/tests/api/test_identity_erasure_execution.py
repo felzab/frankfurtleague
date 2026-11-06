@@ -135,7 +135,6 @@ THEIR_VALUES = (
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
 # Those the seed's own edits file into shared log images beside the person, which keep them past the erasure.
 BYSTANDERS_IN_THE_LOG = ("Quillhilde", "Bramblewick", "kraus.bernd@example.com")
-OTHER_PSEUDONYM = actor_pseudonym("wraxlington@example.com", key=CONFIG.sperrliste_key)
 
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
