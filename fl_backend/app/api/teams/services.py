@@ -1517,7 +1517,7 @@ def find_gruppe_move_refusal(*, spiele_drawn: int) -> WriteRefusal | None:
 
 
 def find_austritt_refusal(
-    *, proposed: Mapping[str, Any] | None, stored: Mapping[str, Any] | None, start_date: str, started: bool
+    *, proposed: Mapping[str, Any], stored: Mapping[str, Any] | None, start_date: str, started: bool
 ) -> WriteRefusal | None:
     """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
 
@@ -1529,7 +1529,7 @@ def find_austritt_refusal(
     exit may be recorded, on the exit record as a whole rather than its date: no date the exit could carry passes sooner.
     """
 
-    if proposed is None or started or proposed == stored:
+    if started or proposed == stored:
         return None
 
     return WriteRefusal(

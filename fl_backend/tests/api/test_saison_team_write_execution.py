@@ -12,6 +12,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document
+from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -127,8 +128,11 @@ async def call_put(database: AsyncDatabase, austritt: dict[str, Any], *, today: 
         austritt_data=FLAustrittPayload.model_validate(austritt),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        outbox_collection=database[Collection.OUTBOX],
         db=database.client,
         today=today,
+        germany_now=MAIL_NOW,
     )
 
 

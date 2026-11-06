@@ -45,6 +45,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses
 from app.api.sperrliste.services import withheld_actor
+from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import enter_a_club, found_a_club, pull_a_club_to_enter, refuse_a_gruppe_move, void_moved_seats, write_the_club
 from app.api.teams.schemas import (
@@ -737,15 +738,16 @@ async def patch_saison_team(
         # On the anchored season's stored start, so a start moved under this write conflicts and the retry judges the
         # exit against the date it left.
         austritt = saison_team_data.austritt
-        start_date = str(saison_raw["start_date"])
-        refuse(
-            find_austritt_refusal(
-                proposed=None if austritt is None else austritt.model_dump(mode="json"),
-                stored=existing_raw.get("austritt"),
-                start_date=start_date,
-                started=has_started(start_date=start_date, today=today),
+        if austritt is not None:
+            start_date = str(saison_raw["start_date"])
+            refuse(
+                find_austritt_refusal(
+                    proposed=austritt.model_dump(mode="json"),
+                    stored=existing_raw.get("austritt"),
+                    start_date=start_date,
+                    started=has_started(start_date=start_date, today=today),
+                )
             )
-        )
 
         # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone, so two
         # austritte contend only on the season's anchor above, which costs one retry.
@@ -898,8 +900,11 @@ async def put_austritt(
     austritt_data: Annotated[FLAustrittPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> None:
     """
     Record how a team left the season, or replace the record standing. An exit is never lifted: no write clears one.
@@ -937,6 +942,18 @@ async def put_austritt(
             expected_version=None,
             session=session,
             return_document=ReturnDocument.BEFORE,
+        )
+        await owe_the_austritt_notices_in_session(
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            outbox_collection=outbox_collection,
+            saison_id=saison_id,
+            team_id=team_id,
+            stored=stored.get("austritt"),
+            # The model, not the local `proposed`, which is its dump: the function takes `FLAustritt`.
+            proposed=austritt_data,
+            now=germany_now,
+            session=session,
         )
 
     # One transaction: what the exit owes commits with it or neither does.

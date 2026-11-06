@@ -9,7 +9,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.outbox.schemas import FLAustrittNoticeData
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
-from app.api.teams.schemas import FLAustritt
+from app.api.teams.admin_router import put_austritt
+from app.api.teams.schemas import FLAustritt, FLAustrittPayload
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from tests import documents
@@ -195,3 +196,26 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
         assert sorted(first) == addresses(OPPONENT)
         assert sorted(moved) == addresses(EARLIER_OPPONENT)
         assert resaved == {}
+
+    def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str):
+        """Nothing above reaches the route, so an exit recorded with its call gone would tell nobody, and nothing would say so."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put_austritt(
+                team_id=DEPARTED,
+                saison_id=SAISON_ID,
+                austritt_data=FLAustrittPayload.model_validate({"type": "rueckzug", "reason": "Schulwechsel", "date": EXIT_DAY}),
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                spiele_collection=database[Collection.SPIELE],
+                outbox_collection=database[Collection.OUTBOX],
+                db=client,
+                today=DAY_BEFORE,
+                germany_now=MAIL_NOW,
+            )
+
+            return await told(database, client)
+
+        notices = on_a_league(mongo_replica_set_url, body, spiele=[spiel(1, DEPARTED, OPPONENT, LATER)])
+
+        assert sorted(notices) == addresses(OPPONENT)
