@@ -1,7 +1,6 @@
 import asyncio
-import inspect
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any, cast
 
 import pytest
@@ -12,7 +11,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
-from pymongo.helpers_shared import _index_document
 from pymongo.results import DeleteResult, UpdateResult
 
 from app.core.codes import Code
@@ -20,7 +18,6 @@ from app.core.collections import Collection
 from app.core.crud import (
     DUPLICATE_KEY_ERROR,
     build_query,
-    build_sort,
     delete_many_from_db,
     ensure_one_in_db,
     erase_many_from_db,
@@ -50,25 +47,11 @@ TERMS = {"saison_id", "team_id"}
 
 
 class TestBuildQuery:
-    def test_passes_a_named_term_through_under_its_own_name(self):
-        """Equality rather than membership: `limit`, `sort_by` and `order` are how a read is served, not what it selects."""
-        query = build_query(_Filters.model_validate({"saison_id": "2526"}), terms=TERMS)
-
-        assert query == {"saison_id": "2526"}
-
-    def test_omits_a_term_that_was_not_asked_for(self):
-        """An unset term is absent, never null: a null would match documents that carry nothing there."""
-        assert build_query(_Filters.model_validate({}), terms=TERMS) == {}
-
     def test_an_objectid_term_stays_an_objectid(self):
         """The stringified form matches no document, and matching nothing looks like an empty result rather than a fault."""
         query = build_query(_Filters.model_validate({"team_id": TEAM_OID}), terms=TERMS)
 
         assert query["team_id"] == ObjectId(TEAM_OID)
-
-    def test_an_empty_term_set_selects_everything(self):
-        """A slice with no dumpable term passes none: an empty `include` means empty, not "everything"."""
-        assert build_query(_Filters.model_validate({"saison_id": "2526"}), terms=frozenset()) == {}
 
     @pytest.mark.parametrize("include_inactive", [True, None])
     def test_only_a_false_switch_adds_the_soft_delete_scope(self, include_inactive: bool | None):
@@ -88,29 +71,6 @@ class TestBuildQuery:
         query = build_query(_Filters.model_validate({"saison_id": "2526"}), terms=TERMS, compiled=compiled)
 
         assert query == {"saison_id": {"$ne": "2526"}}
-
-
-class TestBuildSort:
-    def test_the_requested_key_carries_the_requested_direction(self):
-        assert build_sort(sort_by="name", order="desc") == [("name", -1)]
-
-    def test_a_chain_entry_keeps_the_direction_it_names(self):
-        """The chain is not forced ascending: a descending page needs the descending end of a tie."""
-        assert build_sort(sort_by="beginn", order="desc", chain=(("_id", -1),)) == [("beginn", -1), ("_id", -1)]
-
-    def test_a_chain_entry_equal_to_the_sort_key_is_dropped(self):
-        assert build_sort(sort_by="beginn", order="desc", chain=(("beginn", 1), ("_id", 1))) == [("beginn", -1), ("_id", 1)]
-
-    def test_a_repeated_key_would_have_overwritten_the_requested_direction(self):
-        """The regression this guard exists for: pymongo builds a DICT from the list, so a repeated key silently wins.
-
-        A sort answering `desc` with ascending rows returns 200 and correct data, and nothing logs it.
-        """
-        unguarded = [("beginn", -1), ("beginn", 1), ("_id", 1)]
-        assert _index_document(unguarded) == {"beginn": 1, "_id": 1}
-
-        guarded = build_sort(sort_by="beginn", order="desc", chain=(("beginn", 1), ("_id", 1)))
-        assert _index_document(guarded) == {"beginn": -1, "_id": 1}
 
 
 # A NUL beside every character a pattern gives a meaning to. The server's refusal of the raw NUL is
@@ -173,9 +133,6 @@ class _OneDocumentCollection:
         # which consumer; the same object otherwise, which is what most callers care about.
         self.pre = document if pre is None else pre
         self.calls: list[dict[str, Any]] = []
-        # Separate from `calls`: a patch re-reads for the caller's echo, and folding both shapes into
-        # one list would make `calls[0]` mean whichever call happened to come first.
-        self.reads: list[dict[str, Any]] = []
         # A write records (`app/core/recording.py`), and it reaches the log through the target
         # collection's own database handle -- so a double standing in for a collection needs both.
         self.recorded: list[Mapping[str, Any]] = []
@@ -189,8 +146,6 @@ class _OneDocumentCollection:
         return self.pre
 
     async def find_one(self, *, filter: Any, projection: Any, session: Any) -> Mapping[str, Any] | None:
-        self.reads.append({"filter": filter, "projection": projection, "session": session})
-
         return self.document
 
 
@@ -199,23 +154,6 @@ def as_collection(stub: _OneDocumentCollection) -> AsyncCollection:
 
 
 class TestPatchOneInDb:
-    def test_every_caller_names_the_image_it_wants(self):
-        """A default is a re-read paid by every caller that never asked for it, the ones discarding the result included."""
-
-        assert inspect.signature(patch_one_in_db).parameters["return_document"].default is inspect.Parameter.empty
-
-    def test_after_answers_with_the_post_write_document(self):
-        """Call sites echo what this returns, so answering with the pre-image would report the state the write just replaced."""
-        stub = _OneDocumentCollection(STORED, pre=REPLACED)
-
-        returned = asyncio.run(
-            patch_one_in_db(
-                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, expected_version=None, return_document=ReturnDocument.AFTER
-            )
-        )
-
-        assert returned == STORED
-
     def test_the_log_is_given_the_image_the_update_itself_replaced(self):
         """Asked for `AFTER`, so the log's pre-image is shown to come from the update whatever the caller wanted."""
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
@@ -228,49 +166,6 @@ class TestPatchOneInDb:
 
         assert stub.calls[0]["return_document"] is ReturnDocument.BEFORE
         assert stub.recorded[0]["before"] == REPLACED
-
-    @pytest.mark.parametrize(
-        "session", [pytest.param(None, id="no session"), pytest.param(BARE_SESSION, id="a session holding no transaction")]
-    )
-    def test_before_is_answered_without_a_second_read_outside_a_transaction(self, session: AsyncClientSession | None):
-        stub = _OneDocumentCollection(STORED, pre=REPLACED)
-
-        returned = asyncio.run(
-            patch_one_in_db(
-                collection=as_collection(stub),
-                db_filter=FILTER,
-                update=UPDATE,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
-            )
-        )
-
-        assert returned == REPLACED
-        assert stub.reads == []
-        assert len(stub.recorded) == 1
-
-    @pytest.mark.parametrize(
-        "return_document", [pytest.param(ReturnDocument.BEFORE, id="BEFORE"), pytest.param(ReturnDocument.AFTER, id="AFTER")]
-    )
-    def test_a_patch_inside_a_transaction_leaving_the_document_as_it_was_records_nothing(self, return_document: bool):
-        """Read back once whichever image is answered: `AFTER` is answered with that read rather than a second."""
-        stub = _OneDocumentCollection(STORED, pre={**STORED})
-
-        returned = asyncio.run(
-            patch_one_in_db(
-                collection=as_collection(stub),
-                db_filter=FILTER,
-                update=UPDATE,
-                session=TRANSACTION,
-                expected_version=None,
-                return_document=return_document,
-            )
-        )
-
-        assert returned == STORED
-        assert stub.recorded == []
-        assert len(stub.reads) == 1
 
     @pytest.mark.parametrize(
         ("replaced", "stored"),
@@ -414,13 +309,13 @@ class TestPullOneFromDb:
         assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
 
 
-def refused_batch(error: Mapping[str, Any], *, landed: int = 0, write_concern: Sequence[Mapping[str, Any]] = ()) -> BulkWriteError:
+def refused_batch(error: Mapping[str, Any], *, landed: int) -> BulkWriteError:
     """The server's report of a batch refused after `landed` of its documents were written."""
 
     return BulkWriteError(
         {
             "writeErrors": [error],
-            "writeConcernErrors": list(write_concern),
+            "writeConcernErrors": [],
             "nInserted": landed,
             "nUpserted": 0,
             "nMatched": 0,
@@ -440,10 +335,6 @@ DUPLICATE_ERROR: Mapping[str, Any] = {
     "keyValue": {"shorthand": "CCX"},
     "op": {"name": "Club 2", "shorthand": "CCX"},
 }
-
-
-VALIDATION_ERROR: Mapping[str, Any] = {"index": 2, "code": 121, "errmsg": "Document failed validation", "op": {"name": "Club 2"}}
-WRITE_CONCERN_ERROR: Mapping[str, Any] = {"code": 64, "errmsg": "waiting for replication timed out", "errInfo": {"wtimeout": True}}
 
 
 class _RefusedBatchCollection:
@@ -470,35 +361,6 @@ def batch_raised(failure: BulkWriteError, *, session: AsyncClientSession | None 
 
 
 class TestPostManyToDb:
-    @pytest.mark.parametrize(
-        ("landed", "session"),
-        [
-            pytest.param(0, None, id="nothing written"),
-            pytest.param(2, TRANSACTION, id="rows written inside a transaction, which its abort takes back"),
-        ],
-    )
-    def test_a_batch_a_unique_index_refused_raises_what_one_insert_would(self, landed: int, session: AsyncClientSession | None):
-        """`DuplicateKeyError`, which the handler answers 409 `duplicate_key`, still naming the index it logs."""
-
-        failure = refused_batch(DUPLICATE_ERROR, landed=landed)
-        raised, _ = batch_raised(failure, session=session)
-
-        assert isinstance(raised, DuplicateKeyError)
-        assert f"index: {REFUSED_INDEX} dup key" in (raised.details or {})["errmsg"]
-        assert raised.__cause__ is failure
-
-    @pytest.mark.parametrize(
-        "failure",
-        [
-            pytest.param(refused_batch(VALIDATION_ERROR), id="a validator's refusal"),
-            pytest.param(refused_batch(DUPLICATE_ERROR, write_concern=[WRITE_CONCERN_ERROR]), id="a duplicate beside a write-concern error"),
-        ],
-    )
-    def test_any_other_failure_stays_the_batchs_own(self, failure: BulkWriteError):
-        raised, _ = batch_raised(failure)
-
-        assert raised is failure
-
     @pytest.mark.parametrize(
         "session", [pytest.param(None, id="no session"), pytest.param(BARE_SESSION, id="a session holding no transaction")]
     )

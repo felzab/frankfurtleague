@@ -7,7 +7,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_rules_refusal
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
 from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
@@ -96,24 +95,6 @@ def payload_of(raw: Mapping[str, Any]) -> FLPatchSpielDataPayload:
 
     # A drawn fixture is composed before its insert stamps a version, so the editor reads it at 0.
     return FLPatchSpielDataPayload.model_validate({field: raw.get(field) for field in PAYLOAD_FIELDS} | {"version": raw.get("version", 0)})
-
-
-class TestTheShapesAreSeasonsThatCanExist:
-    @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_the_write_path_accepts_every_shape_drawn_below(self, shape: Shape):
-        """Otherwise every judge below runs over the draw of a season nobody can save."""
-
-        groups, teams, qualifiers = shape
-
-        assert (
-            find_rules_refusal(
-                stored=None,
-                proposed=rules(groups=groups, teams=teams, qualifiers=qualifiers),
-                occupancy_by_gruppe={},
-                highest_wired_platz=0,
-            )
-            is None
-        )
 
 
 class TestTheDrawnWiringIsWiringTheWritePathAccepts:

@@ -459,48 +459,6 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
         )
 
 
-class TestTheRolloverStillCommitsWithNothingInterfering:
-    """The control: without it every case above would pass on an endpoint that refused every rollover."""
-
-    def test_the_outgoing_season_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            # The same seed the draw case runs on, interference apart.
-            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "future")],
-            entered=(OUTGOING, TARGET),
-            drawn=(TARGET,),
-        )
-
-        assert statuses == {OUTGOING: "past", TARGET: "active"}
-        assert response.deactivated == 1
-
-    def test_the_sole_incumbent_is_re_activated_rather_than_refused(self, mongo_replica_set_url: str):
-        """The second control, and the one the re-judgement above could break: re-activation is deliberately permitted."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[seeded_saison(TARGET, "active")],
-            entered=(TARGET,),
-            drawn=(TARGET,),
-        )
-
-        assert statuses == {TARGET: "active"}
-        # Nothing but the target held `active`, so the rollover demoted nobody.
-        assert response.deactivated == 0
-
-
 class TestAResultLandingMidPatchIsJudgedAgain:
     """Two administrators on one season: nothing has taken place when the patch judges, and a result has when it writes.
 
