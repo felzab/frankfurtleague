@@ -61,12 +61,10 @@ class TestWhatASeatWriteMoves:
 
     SEAT = {"token_hashes": [], "sent_at": "2026-03-01", "deadline": "2026-03-15", "reminded_at": None, "declined_at": None}
 
-    def written(self, **confirmations: Any) -> Mapping[str, Any]:
+    def written(self, *, seats: tuple[str, ...] = ("trainer",), **confirmations: Any) -> Mapping[str, Any]:
         person = {"first_name": "Berta", "last_name": "Beispiel", "email": "berta@example.de", "phone": "069 1234567"}
 
-        return compose_kontakt_seat_update(seats=("trainer",), person=person, today="2026-04-01", kontakte={}, confirmations=confirmations)[
-            "$set"
-        ]
+        return compose_kontakt_seat_update(seats=seats, person=person, today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
 
     def re_sent(self, **confirmations: Any) -> Mapping[str, Any]:
         return compose_resend_update(seats=("trainer",), today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
@@ -86,6 +84,14 @@ class TestWhatASeatWriteMoves:
         """That seat still takes the application on the day the notice named, and a second notice would announce one deletion twice."""
 
         assert "erasure_announced_at" not in self.written(trainer=self.SEAT, stellvertretung={**self.SEAT, "declined_at": "2026-03-20"})
+
+    @pytest.mark.parametrize("seats", [("ansprechperson",), ("trainer", "ansprechperson")], ids=["alone", "as the Trainer's mirror"])
+    def test_seating_an_ansprechperson_takes_the_announcement_back_though_the_day_stands(self, seats: tuple[str, ...]):
+        """The notice told the mailbox this write replaces, so the person seated hears of the deletion from the sweep or from nobody."""
+
+        confirmations = {"trainer": self.SEAT, "ansprechperson": self.SEAT, "stellvertretung": {**self.SEAT, "declined_at": "2026-03-20"}}
+
+        assert self.written(seats=seats, **confirmations)["erasure_announced_at"] is None
 
     def test_a_fresh_link_moving_the_day_the_notice_named_takes_the_announcement_back(self):
         """The notice named the earliest day, not always the declining seat's: the application now goes on a later one nobody was told."""

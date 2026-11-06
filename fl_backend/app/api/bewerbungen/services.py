@@ -1199,7 +1199,9 @@ def compose_kontakt_seat_update(
     # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced, on the day it named.
     stands = any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
     moved = _moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats, today=today)
-    announced = {} if stands and not moved else {"erasure_announced_at": None}
+    # The notice told the mailbox this write may replace, and a mistyped one told nobody: the person now seated is owed it.
+    told = "ansprechperson" not in seats
+    announced = {} if stands and not moved and told else {"erasure_announced_at": None}
     # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
     einwilligung = compose_einwilligung(today=today, entered_by="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
@@ -1342,7 +1344,8 @@ def _earliest_deadline(*, confirmations: Any, seats: Iterable[str]) -> str | Non
 def deletion_day(*, kontakte: Any, confirmations: Any) -> str | None:
     """The last day this application stands on: the earliest deadline among its outstanding seats, what a Widerspruch's notice names.
 
-    Every write moving it takes the notice's stamp back, so a stamp means the named day still holds.
+    Every write moving it takes the notice's stamp back, and so does one seating an Ansprechperson, so a stamp means the
+    named day still holds and the person in that seat was told it.
     """
 
     return _earliest_deadline(confirmations=confirmations, seats=pending_seats(kontakte=kontakte))
