@@ -76,8 +76,6 @@ export const HANDLUNGSBEDARF_EINTRAG = {
   label: "Handlungsbedarf",
   iconName: "ExclamationShape",
   hint: {
-    // No list of the categories: the page's own hint reads the active tab's
-    // `ACTION_REQUIRED_LABELS` entry, and a second telling here would go stale against it.
     lead: "Jedes Spiel der Saison, das eine Eingabe braucht, sortiert nach dem, was es aufhält.",
     note: "Ein abgebrochenes Spiel wartet weiter auf sein Ergebnis.",
   },
