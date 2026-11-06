@@ -145,8 +145,6 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
 STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
-# The season before the running one, so a ban naming it as its last has lapsed.
-LAPSED = f"{int(SAISON_ID) - 1}"
 
 
 def _seed(url: str, *, ban_until: str | None) -> None:
@@ -278,15 +276,6 @@ def barred(mongo_replica_set_url: str, unbarred: dict[str, tuple[int, str]]) -> 
     """Seeded after `unbarred` has read, since both write the one database."""
 
     _seed(mongo_replica_set_url, ban_until=STANDING)
-
-    yield _answers(mongo_replica_set_url)
-
-
-@pytest.fixture(scope="module")
-def lapsed(mongo_replica_set_url: str, barred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
-    """Seeded after `barred` has read, for the same reason."""
-
-    _seed(mongo_replica_set_url, ban_until=LAPSED)
 
     yield _answers(mongo_replica_set_url)
 

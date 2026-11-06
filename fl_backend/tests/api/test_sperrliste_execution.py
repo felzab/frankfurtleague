@@ -52,10 +52,6 @@ GRUND = "Falsches Geburtsdatum bei der Anmeldung"
 # bound does with it is `tests/api/test_sperrliste_lapse_execution.py`'s.
 ACTIVE_SAISON_ID = "2026"
 
-# What a ban entered under `ACTIVE_SAISON_ID` covers through: the record model requires the
-# field, so a row written straight to the collection needs one too.
-LAST_COVERED = "2031"
-
 SAISON_DOCUMENT: dict[str, Any] = saison_document(ACTIVE_SAISON_ID, "active", rules=rules_document(number_of_gruppen=2, allowed_stufen=["E1"]))
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

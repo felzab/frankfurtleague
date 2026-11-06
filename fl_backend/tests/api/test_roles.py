@@ -61,7 +61,6 @@ RETIREMENT_OPEN = "ruhestand.offen@schule.de"
 SCHIEDSRICHTER_WITHOUT_RECORD = "pfeife.ohne@schule.de"
 SCHIEDSRICHTER_NULL_RECORD = "pfeife.null@schule.de"
 GHOST = "geist@schule.de"
-NOBODY = "niemand.hierverzeichnet@example.com"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
 PAST_AND_OPEN = "vergangen.und.offen@schule.de"

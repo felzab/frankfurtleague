@@ -30,7 +30,6 @@ from app.core.transactions import (
 )
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
-from tests.worker import worker_database
 
 PAGE = 3
 
@@ -789,8 +788,3 @@ class TestTheRouteRunsInTheServersTask:
             return asyncio.current_task()
 
         assert ran_in == [asyncio.run(serve())]
-
-
-DATABASE_NAME = worker_database("fl_transactions_test")
-
-NO_SUCH_TRANSACTION = 251

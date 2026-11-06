@@ -16,14 +16,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_governing_saison_id
-from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_barred
 from app.api.sperrliste.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
-from tests.bans import ban_list, ban_through_the_route
+from tests.bans import ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -94,15 +93,6 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
             return await body(database, client)
 
     return on_the_seed_loop(_run())
-
-
-async def listed(database: AsyncDatabase) -> Any:
-    """The list read with its two dependencies: the season the ban list compares against, and the key."""
-
-    return await get_sperrliste(
-        ban_list_collection=database[Collection.BAN_LIST],
-        ban_list=ban_list(database),
-    )
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:

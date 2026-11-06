@@ -187,16 +187,6 @@ class TestPatchOneInDb:
         assert replaced == stored
         assert [row["before"] for row in stub.recorded] == [replaced]
 
-        # The filter travels with the exception, which is what lets the handler log what was looked for.
-
-
-class _Cursor:
-    def __init__(self, documents: list[Mapping[str, Any]]) -> None:
-        self.documents = documents
-
-    async def to_list(self, length: int | None) -> list[Mapping[str, Any]]:
-        return self.documents
-
 
 class _UpsertCollection(_OneDocumentCollection):
     """Answers an upsert as the driver does: `upserted_id` set where it inserted, `None` where a document matched."""
