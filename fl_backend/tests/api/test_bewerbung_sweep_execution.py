@@ -3,7 +3,7 @@ import functools
 import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import combinations
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -11,12 +11,14 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import resend_einwilligung
-from app.api.bewerbungen.public_router import get_einwilligung_view
+from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.api.bewerbungen.services import SWEEP_PAGE, compose_confirmation_update, confirmation_deadline_from
 from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
@@ -24,6 +26,8 @@ from app.api.bewerbungen.system_router import (
     get_sweep_saisons,
     sweep_saison,
 )
+from app.api.outbox.schemas import FLOutboxEventPayload
+from app.api.outbox.system_router import post_event
 from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
@@ -308,6 +312,23 @@ async def resend(database: AsyncDatabase, seat: str) -> Any:
     )
 
 
+async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, now: datetime) -> Any:
+    return await post_einwilligung(
+        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python({"token": token, "answer": "declined"}),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        action_log_collection=database[Collection.ACTION_LOG],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        outbox_collection=database[Collection.OUTBOX],
+        ban_list=ban_list(database),
+        db=client,
+        config=build_test_config(),
+        today=TODAY,
+        germany_now=now,
+    )
+
+
 def reminder_mail(to: str, rollen: list[str]) -> dict[str, Any]:
     """The reminder the corpus's application owes one person, as the Postausgang holds it."""
 
@@ -410,6 +431,7 @@ class TestTheReminderClock:
                 "sent_at": TODAY,
                 "deadline": confirmation_deadline_from(today=TODAY),
                 "reminded_at": None,
+                "chase_closed_at": None,
                 "declined_at": None,
             }
 
@@ -572,6 +594,85 @@ class TestAnApplicationWhoseNoticeCannotArrive:
             return await owed(database, "bewerbung_reminder")
 
         assert on_a_league(mongo_replica_set_url, body) == [reminder_mail("bramblewick@example.com", ["stellvertretung"])]
+
+
+class TestAClosedChase:
+    """A seat whose last mail did not arrive leaves the clock's read on its own stamp, and `reminded_at` keeps meaning a reminder was owed."""
+
+    def test_only_the_seat_no_mail_reaches_is_closed(self, mongo_replica_set_url: str):
+        """A row's other seat, reachable and re-sent, keeps its own reminder; the closed one, with no later mail, owes nothing on any pass."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_ansprechpersons_address(database, client, REMIND_OID)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": REMIND_OID},
+                {"$set": {"confirmations.stellvertretung.sent_at": YESTERDAY, "confirmations.stellvertretung.deadline": "2026-04-14"}},
+            )
+            await sweep(database, client, now=MAIL_NOW)
+            closed = await stored(database, REMIND_OID)
+            await sweep(database, client, today="2026-04-03", now=MAIL_NOW + timedelta(days=2))
+
+            return closed, await owed(database, "bewerbung_reminder")
+
+        closed, mails = on_a_league(mongo_replica_set_url, body)
+
+        assert closed is not None
+        assert closed["confirmations"]["ansprechperson"]["chase_closed_at"] == TODAY
+        assert closed["confirmations"]["ansprechperson"]["reminded_at"] is None
+        assert closed["confirmations"]["stellvertretung"]["chase_closed_at"] is None
+        assert [mail["to"] for mail in mails] == ["bramblewick@example.com"]
+
+    def test_a_mail_delivered_to_the_address_opens_it_and_the_next_pass_owes_the_reminder(self, mongo_replica_set_url: str):
+        """The Stellvertretung's Widerspruch tells the Ansprechperson, so a mail reaches the address the link's mail bounced from."""
+
+        declined_at = MAIL_NOW + timedelta(hours=1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_ansprechpersons_address(database, client, REMIND_OID)
+            await sweep(database, client, now=MAIL_NOW)
+            closed = await stored(database, REMIND_OID)
+            await database[Collection.OUTBOX].delete_many({"kind": "bewerbung_reminder"})
+            await decline(database, client, f"{REMIND_OID}-stellvertretung", now=declined_at)
+            await drained(database, client, now=declined_at)
+            notice = await database[Collection.OUTBOX].find_one({"kind": "bewerbung_objection"})
+            assert notice is not None
+            await post_event(
+                event_data=FLOutboxEventPayload(id=notice["_id"], state="delivered", reason=None, at=declined_at),
+                outbox_collection=database[Collection.OUTBOX],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                db_client=client,
+            )
+            opened = await stored(database, REMIND_OID)
+            await sweep(database, client, today="2026-04-02", now=MAIL_NOW + timedelta(days=1))
+
+            return closed, opened, await owed(database, "bewerbung_reminder")
+
+        closed, opened, mails = on_a_league(mongo_replica_set_url, body)
+
+        assert closed is not None
+        assert closed["confirmations"]["ansprechperson"]["chase_closed_at"] == TODAY
+        assert opened is not None
+        assert opened["confirmations"]["ansprechperson"]["chase_closed_at"] is None
+        assert [(mail["to"], mail["data"]["rollen"]) for mail in mails] == [("wraxlington@example.com", ["ansprechperson", "trainer"])]
+
+    def test_a_re_send_still_opens_it(self, mongo_replica_set_url: str):
+        """The re-send replaces the entry, its stamp with it, and the seats it left reach their mark on their own day."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_ansprechpersons_address(database, client, REMIND_OID)
+            await sweep(database, client, now=MAIL_NOW)
+            closed = await stored(database, REMIND_OID)
+            await resend(database, "trainer")
+            await drained(database, client)
+            await sweep(database, client, today="2026-04-04", now=MAIL_NOW + timedelta(days=3))
+
+            return closed, await owed(database, "bewerbung_reminder")
+
+        closed, mails = on_a_league(mongo_replica_set_url, body)
+
+        assert closed is not None
+        assert closed["confirmations"]["ansprechperson"]["chase_closed_at"] == TODAY
+        assert any(mail["key"].endswith("reminder/ansprechperson/2026-04-04") for mail in mails), mails
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
@@ -1419,11 +1520,11 @@ class TestEachCappedClockMakesProgressAcrossPasses:
             await mails_that_bounced(database, bewerbung_ids=bounced, seats=BOTH_MAILBOXES)
             first = await sweep(database, client, now=MAIL_NOW)
             second = await sweep(database, client, now=MAIL_NOW)
-            spent = await database[Collection.BEWERBUNGEN].count_documents(
-                {"_id": {"$in": bounced}, **{f"confirmations.{seat}.reminded_at": TODAY for seat in KONTAKT_ROLLEN}}
+            closed = await database[Collection.BEWERBUNGEN].count_documents(
+                {"_id": {"$in": bounced}, **{f"confirmations.{seat}.chase_closed_at": TODAY for seat in KONTAKT_ROLLEN}}
             )
 
-            return first.erased, first.reminded, second.reminded, await reminded(database), spent
+            return first.erased, first.reminded, second.reminded, await reminded(database), closed
 
         assert on_a_league(mongo_replica_set_url, body) == (1, 0, 1, {newer}, SWEEP_PAGE + 1)
 

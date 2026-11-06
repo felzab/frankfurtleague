@@ -17,6 +17,7 @@ from app.api.bewerbungen.services import (
     build_erinnerung_filter,
     build_lapsed_seats_filter,
     closed_chases,
+    compose_chase_update,
     compose_erinnerung_update,
     compose_lapsed_seats_update,
     decline_loeschung_is_due,
@@ -244,7 +245,7 @@ async def sweep_saison(
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
         """Stamp each seat due its one reminder and owe its person the mail, in one transaction. Read in-session, so a retry re-judges.
 
-        Answers the rows mailed. A seat no mail reaches is stamped outside the share, a page of them at a few commands.
+        Answers the rows mailed. A seat no mail reaches has its chase closed outside the share, a page of them at a few commands.
         """
 
         rows = await batch.saw(
@@ -320,7 +321,7 @@ async def sweep_saison(
                 await patch_many_in_db(
                     collection=bewerbungen_collection,
                     db_filter={"_id": {"$in": ids}},
-                    update=compose_erinnerung_update(seats=[seat], today=today),
+                    update=compose_chase_update(seats=[seat], closed_at=today),
                     session=session,
                 )
         # In the stamps' own transaction: a stamp never stands without its mail, nor a mail without its stamp.
