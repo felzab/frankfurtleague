@@ -413,6 +413,17 @@ class TestWhatAMintRefuses:
         assert code == Code.INVITATION_TEAM_NOT_ENTERED
         assert stored == 0
 
+    def test_a_row_whose_exit_stands_is_refused_as_a_stale_page(self, mongo_replica_set_url: str):
+        """The page locks the press once the exit stands, and the link would open nothing."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            with pytest.raises(APIError) as conflict:
+                await mint(database, WITHDRAWN)
+
+            return conflict.value.error_code, await live_count(database, WITHDRAWN)
+
+        assert on_a_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, 0)
+
     def test_a_season_that_has_ended_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as conflict:
@@ -510,6 +521,18 @@ class TestTheTeamsMailPress:
 
         assert named == owed == ["bramblewick@example.com", "quillhilde@example.com"]
         assert opens
+
+    def test_a_row_whose_exit_stands_owes_its_confirmed_seat_nothing(self, mongo_replica_set_url: str):
+        """A live link minted before the exit stands, and the stale page's press would mail it dead."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            live = await database[Collection.INVITATIONS].insert_one(invitation_row(WITHDRAWN))
+            with pytest.raises(APIError) as conflict:
+                await mail(database, WITHDRAWN, live.inserted_id)
+
+            return conflict.value.error_code, await owed_for(database, WITHDRAWN)
+
+        assert on_a_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, [])
 
     def test_an_invite_replaced_since_the_panel_read_it_is_a_404_owing_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
