@@ -12,6 +12,7 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_person,
     compose_person_update,
+    link_is_over,
     page_of,
     person_named,
 )
@@ -46,6 +47,16 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
         "confirmation": {**compose_bestaetigung(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
         **overrides,
     }
+
+
+class TestTheLinksLastDay:
+    @pytest.mark.parametrize(
+        ("deadline", "over"), [pytest.param(TODAY, False, id="the day the mail names"), pytest.param(YESTERDAY, True, id="the day after")]
+    )
+    def test_the_link_answers_through_the_day_the_mail_names(self, deadline: str, over: bool):
+        """A link dying at the midnight before that day locks a pupil out on the day they were told they had."""
+
+        assert link_is_over(confirmation={"deadline": deadline}, status="submitted", departed=False, today=TODAY) is over
 
 
 class TestWhichPageTheLinkOpens:

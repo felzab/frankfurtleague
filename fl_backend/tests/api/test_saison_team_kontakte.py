@@ -11,8 +11,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_einwilligung
 from app.api.identity.schemas import FLErasureResponse
+from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLKontaktSeatPayload
-from app.api.teams.services import compose_kontakte_herkunft
+from app.api.teams.services import compose_kontakte_herkunft, mit_linkstand
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -517,6 +518,62 @@ class TestTheDateRidesWithThePerson:
         composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
 
         assert composed["trainer"]["birth_date"] is None
+
+
+class TestWhatASeatsLinkReads:
+    """What the team editor's seat row draws as lapsed and as undelivered, judged as the press judges the link."""
+
+    ROW = ObjectId("6890a1b2c3d4e5f607240002")
+    TODAY = "2026-04-01"
+    PAST = "2026-03-31"
+    SENT = FLOutboxStatus(state="sent", delivery=None)
+    GIVEN_UP = FLOutboxStatus(state="abandoned", delivery=None)
+
+    def read(self, *, kontakte: dict[str, Any], confirmations: dict[str, Any], lagen: dict[tuple[Any, str | None], FLOutboxStatus]) -> Any:
+        team = {"memberships": [{"_id": self.ROW, "kontakte": {"trainer_is_also": None, **kontakte}, "confirmations": confirmations}]}
+
+        return mit_linkstand([team], today=self.TODAY, lagen=lagen)[0]["memberships"][0]["confirmations"]
+
+    def link(self, deadline: str) -> dict[str, Any]:
+        return {"token_hashes": [], "sent_at": "2026-03-18", "reminded_at": None, "declined_at": None, "deadline": deadline}
+
+    def test_a_link_lapses_past_its_day_and_only_while_unanswered(self):
+        """The deadline's own day still answers, and an answered seat has nothing left to collect."""
+
+        links = self.read(
+            kontakte={
+                "trainer": kontaktperson_document("Bramblewick"),
+                "ansprechperson": kontaktperson_document("Quillhilde"),
+                "stellvertretung": kontaktperson_document("Wraxlington", confirmed_at=self.PAST),
+            },
+            confirmations={"trainer": self.link(self.PAST), "ansprechperson": self.link(self.TODAY), "stellvertretung": self.link(self.PAST)},
+            lagen={},
+        )
+
+        assert {seat: link["expired"] for seat, link in links.items()} == {"trainer": True, "ansprechperson": False, "stellvertretung": False}
+
+    def test_each_seat_reads_the_mail_owed_about_it(self):
+        links = self.read(
+            kontakte={"trainer": kontaktperson_document("Bramblewick"), "ansprechperson": kontaktperson_document("Quillhilde")},
+            confirmations={"trainer": self.link(self.TODAY), "ansprechperson": self.link(self.TODAY)},
+            lagen={(self.ROW, "ansprechperson"): self.GIVEN_UP},
+        )
+
+        assert (links["trainer"]["delivery"], links["ansprechperson"]["delivery"]) == (None, self.GIVEN_UP)
+
+    def test_a_trainer_holding_another_seat_reads_that_seats_mail(self):
+        """One link answers both seats and its mail was owed about the mirrored one, so the Trainer's row reads a mail keyed elsewhere."""
+
+        person = kontaktperson_document("Bramblewick")
+        link = self.link(self.TODAY)
+
+        links = self.read(
+            kontakte={"trainer": person, "ansprechperson": person, "trainer_is_also": "ansprechperson"},
+            confirmations={"trainer": link, "ansprechperson": link},
+            lagen={(self.ROW, "ansprechperson"): self.SENT},
+        )
+
+        assert (links["trainer"]["delivery"], links["ansprechperson"]["delivery"]) == (self.SENT, self.SENT)
 
 
 @pytest.mark.db
