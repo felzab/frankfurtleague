@@ -70,15 +70,20 @@
    the muted grey. An entry of a list (`option`: a menu's entry, a select's option, a calendar's day) takes the one
    hover layer every control takes under the pointer (`tokens.css`'s `bg-layer`), over its chosen mark too, the
    green words or the calendar's inverted day, so a chosen entry under the pointer reads as its own mark one step
-   lit. It holds React Aria's focus past the pointer: the pointer leaving it, or a menu opened by the pointer
-   focusing its first entry, leaves the focus where it was. So an entry is lit while its focus is the pointer's,
-   under it or pressing it, or the keys', or while the submenu it opens stands, and never for a focus nobody is
-   pointing at, as a native menu's highlight leaves with the pointer. */
+   lit. An entry is lit under the pointer whatever holds the focus: React Aria moves the focus to the entry the
+   pointer enters only once it has stopped reading the keys, so right after the arrow keys the pointer's entry and
+   the focus's differ, and the keys' entry dims while the pointer's is lit, so one entry is lit. An entry holds the
+   focus past the pointer too: the pointer leaving it, or a menu opened by the pointer focusing its first entry, leaves
+   the focus where it was. So beyond the pointer's, an entry is lit while its focus is the keys', pressed or while the
+   submenu it opens stands, and never for a focus nobody is pointing at, as a native menu's highlight leaves with the
+   pointer. */
 [data-kit-focus="item"][data-focused] {
   background-color: var(--bg-muted);
 }
 
-[data-kit-focus="option"][data-focused]:is([data-hovered], [data-pressed], [data-focus-visible], [data-open]) {
+[data-kit-focus="option"]:is([data-hovered], [data-focused]:is([data-pressed], [data-open])),
+:is([role="menu"], [role="listbox"], [role="grid"]):not(:has([data-kit-focus="option"][data-hovered]))
+  [data-kit-focus="option"][data-focus-visible] {
   @apply bg-layer;
 }
 
