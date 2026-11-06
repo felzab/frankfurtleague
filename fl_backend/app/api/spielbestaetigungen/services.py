@@ -1017,6 +1017,9 @@ def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason, today: st
 
 REASONS_OWING_A_NOTICE: Final = frozenset({"ansetzung_changed", "schiedsrichter_switched", "cancelled"})
 
+# A referee alone: the exit's own write tells each opponent (`austritt_notices_of`), and the departed club owes itself nothing.
+REASONS_OWING_A_REFEREE: Final = frozenset({"austritt"})
+
 
 def _notice_to_come(*, row: Mapping[str, Any], reason: Any, spiel: Mapping[str, Any], today: str) -> bool:
     """Whether a notice is about a day still to come.
@@ -1037,11 +1040,9 @@ def notice_owed(*, row: Mapping[str, Any], reason: FLSpielbestaetigungClosedReas
     Only once its request was owed, and about a day to come.
     """
 
-    return (
-        row.get("asked_at") is not None
-        and reason in REASONS_OWING_A_NOTICE
-        and _notice_to_come(row=row, reason=reason, spiel=spiel, today=today)
-    )
+    owing = reason in REASONS_OWING_A_NOTICE or (reason in REASONS_OWING_A_REFEREE and row["party"]["kind"] == "schiedsrichter")
+
+    return row.get("asked_at") is not None and owing and _notice_to_come(row=row, reason=reason, spiel=spiel, today=today)
 
 
 def parties_told_of_the_change(
@@ -1106,7 +1107,7 @@ def notice_daten_of(*, reason: FLSpielbestaetigungClosedReason, party_kind: str,
     # A move's notice is `moved_notice_of`'s, which names the slot moved to as well.
     if reason == "cancelled":
         return FLSpielNoticeData(kind="spiel_cancelled", recipient=empfaenger, appointment=appointment)
-    if reason == "schiedsrichter_switched":
+    if reason == "schiedsrichter_switched" or (reason in REASONS_OWING_A_REFEREE and empfaenger == "schiedsrichter"):
         return FLSpielEinteilungLiftedData(kind="spiel_einteilung_lifted", appointment=appointment)
     if reason == "discarded":
         return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)

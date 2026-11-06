@@ -857,7 +857,9 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
         # Both clubs' rows and the referee's, the discard among them.
         assert (len(stored), {row["closed"]["reason"] for row in stored}) == (3, {reason})
         # The referee's notice among them: a club's ended discard is neither a move nor a referee change.
-        assert (answer.neue_ansetzungen, answer.schiedsrichter_neue_ansetzungen, answer.schiedsrichter_gewechselt) == ([], [], [])
+        assert (answer.neue_ansetzungen, answer.schiedsrichter_neue_ansetzungen) == ([], [])
+        # An exit lifts the booked referee's Einteilung, and owes neither club a thing here: the opponents heard at its write.
+        assert [notice.address for notice in answer.schiedsrichter_gewechselt] == ([REFEREE_EMAIL] if reason == "austritt" else [])
         told = {notice.spielbestaetigung_id for notice in [*answer.spiel_cancelled, *answer.schiedsrichter_spiel_cancelled]}
         # By row, the discarded club's named: the call-off's notices go to every party it closed a mailed row of.
         assert told == ({row["_id"] for row in stored} if reason == "cancelled" else set())
