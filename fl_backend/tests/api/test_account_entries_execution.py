@@ -158,11 +158,11 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
 
 
 def _registrierung(
-    oid: ObjectId, email: str, *, page: FLRegistrierungPage | None = "bestaetigung_spieler", first_name: str = "Wiltrudis"
+    oid: ObjectId, email: str, *, page: FLRegistrierungPage | None = "confirmation_spieler", first_name: str = "Wiltrudis"
 ) -> dict[str, Any]:
     """A registration as its composers leave it; `page` the confirmation page its pupil answered, `None` for none yet."""
 
-    chosen: dict[str, Any] = {"scope": "kader_oeffentlich", "media": True} if page == "bestaetigung_spieler" else {}
+    chosen: dict[str, Any] = {"scope": "kader_public", "media": True} if page == "confirmation_spieler" else {}
     confirmed = (
         None if page is None else registrierung_confirmed(birth_date="2008-05-09", today="2026-09-21", at="2026-09-21T08:00:00+00:00", **chosen)
     )
@@ -230,7 +230,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, page=None),
             declined,
             # A returning pupil's: no choice on it, their own record standing.
-            _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, page="bestaetigung_spieler_wiederkehrend"),
+            _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, page="confirmation_spieler_returning"),
             _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.de", first_name="Käthe"),
         ]
     )
@@ -291,7 +291,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "registrierung_id": str(REGISTRIERUNG_NEW),
         "team_name": "Schule3",
         "saison_id": ACTIVE,
-        "scope": "kader_oeffentlich",
+        "scope": "kader_public",
         "media": True,
         "first_name": "Wiltrudis",
         "last_name": "Ehrenpreis",

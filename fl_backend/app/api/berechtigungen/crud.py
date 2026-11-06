@@ -173,7 +173,7 @@ async def owe_in_session(
     now: datetime,
     session: AsyncClientSession,
     # A request's approvers, in place of every holder.
-    an: Sequence[str] | None = None,
+    to: Sequence[str] | None = None,
     # The request a decision settles its notice by.
     reference: FLOutboxReference | None = None,
 ) -> None:
@@ -187,7 +187,7 @@ async def owe_in_session(
     if not notices:
         return
     holders: set[str] = set()
-    if an is None:
+    if to is None:
         grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
         holders = {str(row["address"]) for row in grants}
 
@@ -200,11 +200,11 @@ async def owe_in_session(
                 # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
                 # a database edit's notice beside its own (`revoke_in_session`).
                 key=f"grant/{notice.grant_id}/{data.change}/{data.author}/{now.isoformat()}/{address}",
-                an=address,
+                to=address,
                 data=data,
                 reference=reference,
             )
-            for address in sorted(set(an) if an is not None else holders | named)
+            for address in sorted(set(to) if to is not None else holders | named)
         )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 

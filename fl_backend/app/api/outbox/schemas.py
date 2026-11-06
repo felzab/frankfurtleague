@@ -438,7 +438,7 @@ class FLOutboxLink(BaseModel):
     # being sent one link for both.
     paths: list[Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]] = Field(min_length=1)
     # The dotted paths holding the recipient's address on the record. The link is minted only while each still holds the
-    # row's `an`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
+    # row's `to`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
     # Empty where the record holds no address to judge: a team's registration link, which is the team's and no person's
     # credential, its recipients standing on another record.
     addresses: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]]
@@ -475,7 +475,7 @@ class FLOutboxRow(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     key: str
     kind: FLOutboxKind
-    an: str
+    to: str
     # Both removed by the row's final state, after which only its delivery is read.
     data: FLOutboxData | None = Field(default=None)
     # Ciphertext the backend cannot read, under the frontend's key.
@@ -504,7 +504,7 @@ class FLOutboxHandout(BaseModel):
     """One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret."""
 
     id: CustomObjectId
-    an: str
+    to: str
     data: FLOutboxData
     # The raw link token minted for this hand-out, whose hash alone the record keeps; null on a mail carrying no link.
     token: str | None
@@ -568,7 +568,7 @@ class FLOutboxSignInPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    an: CustomEmail
+    to: CustomEmail
     data: FLOutboxSignInData
     # Encrypted by the frontend before it leaves it, under a key the backend never holds: the code, or the deletion token.
     secret: Annotated[str, StringConstraints(min_length=1, max_length=4096)] | None

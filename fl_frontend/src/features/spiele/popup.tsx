@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getSpielPage } from "@/features/saisons/queries";
 
-import { ereignisOf, headOf, popupFactsOf, sidesOf } from "./blocks";
+import { eventOf, headOf, popupFactsOf, sidesOf } from "./blocks";
 
 import type { SpielPopupContent } from "@/kit/SpielHead";
 
@@ -33,6 +33,6 @@ export async function spielPopupOf(saison: string, spielId: string): Promise<Spi
     ),
     head: headOf(spiel, page, standings),
     facts: popupFactsOf(spiel),
-    sonderereignis: ereignisOf(spiel),
+    sonderereignis: eventOf(spiel),
   };
 }

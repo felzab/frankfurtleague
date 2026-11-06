@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.berechtigungen.antraege import compose_approval_request
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
 from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
@@ -74,7 +74,7 @@ CONFLICTING_SUPPORT_INDEX = "action_log_trace_id"
 # The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
 # also the shape of the mistake this index exists against.
 CONFLICTING_TTL_INDEX = "action_log_retention"
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
+ADDRESS = {"street": "Hanauer Landstraße", "house_number": "12a", "postcode": "60314", "district": "Ostend", "city": "Frankfurt am Main"}
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
@@ -210,7 +210,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "stellvertretung": kontaktperson("Bramblewick"),
                 "trainer_is_also": None,
             },
-            "trikot": {"existing_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+            "trikot": {"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
             "kader": {"expected_size": 14, "good_spieler": 3},
             "stufengroesse": 96,
             "wunschgegner": None,
@@ -603,7 +603,7 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
 
     async def body(database: AsyncDatabase) -> list[str]:
         await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64))
-        explained = await database[collection].find(build_schluessel_filter(key=IDEMPOTENCY_KEY)).explain()
+        explained = await database[collection].find(build_key_filter(key=IDEMPOTENCY_KEY)).explain()
 
         return winning_stages(explained)
 

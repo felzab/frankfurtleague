@@ -19,7 +19,7 @@ import { COPY } from "@/core/copy";
 import { dayOf, formatNumber } from "@/core/format";
 import { JOIN_SECTION, ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS } from "@/features/bewerbungen/constants";
 import { ORGANISERS, SPONSORS } from "@/features/meta/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -190,7 +190,7 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
         <Steps
           items={[
             words.join.apply,
-            { title: words.join.confirm.title, text: words.join.confirm.text(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE) },
+            { title: words.join.confirm.title, text: words.join.confirm.text(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS) },
             words.join.decision,
             words.join.register,
           ]}

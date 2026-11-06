@@ -6,11 +6,11 @@ import type { FLSpielort } from "@/core/generated/client/types";
  */
 export type SpielortValues = {
   name: string;
-  strasse: string;
-  hausnummer: string;
-  plz: string;
-  stadtteil: string;
-  stadt: string;
+  street: string;
+  house_number: string;
+  postcode: string;
+  district: string;
+  city: string;
   mietpreis: string;
 };
 
@@ -19,11 +19,11 @@ export function valuesOf(spielort: FLSpielort): SpielortValues {
   const { address } = spielort;
   return {
     name: spielort.name,
-    strasse: address.strasse,
-    hausnummer: address.hausnummer,
-    plz: address.plz,
-    stadtteil: address.stadtteil,
-    stadt: address.stadt,
+    street: address.street,
+    house_number: address.house_number,
+    postcode: address.postcode,
+    district: address.district,
+    city: address.city,
     mietpreis: String(spielort.default_mietpreis),
   };
 }

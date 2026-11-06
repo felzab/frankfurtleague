@@ -3,7 +3,7 @@ import "server-only";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong, formatList } from "./format";
-import { kontaktBestaetigungsLink } from "./kontaktLink";
+import { kontaktConfirmationLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 import { rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
@@ -108,7 +108,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: F
 }
 
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
-export function buildBewerbungBestaetigungEmail(
+export function buildBewerbungConfirmationEmail(
   { saison_id, schule, rollen, deadline }: FLBewerbungLinkData,
   { origin, token }: MailLink,
 ): Mail {
@@ -127,11 +127,11 @@ export function buildBewerbungBestaetigungEmail(
         { label: WORDS.registeredAs, value: rollenText(rollen) },
       ],
     },
-    button: { label: COPY.page.entryConfirmation, href: kontaktBestaetigungsLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
   };
 }
 
-export function buildBewerbungErinnerungEmail({ saison_id, schule, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
+export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -142,7 +142,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, deadline }: F
     paragraphs: [[WORDS.reminder.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
-    button: { label: COPY.page.entryConfirmation, href: kontaktBestaetigungsLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
   };
 }
 
@@ -151,7 +151,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, deadline }: F
  * says its reader typed it. `pending` names who else is to answer and the mail names no school, so a mistyped address
  * hands a stranger names with nothing to attach them to.
  */
-export function buildBewerbungEingangEmail(
+export function buildBewerbungReceivedEmail(
   { saison_id, rollen, pending, deadline }: FLBewerbungReceivedData,
   { origin, token }: MailLink,
 ): Mail {
@@ -174,7 +174,7 @@ export function buildBewerbungEingangEmail(
         { label: WORDS.received.pending, value: formatList(pending.map(personName)) },
       ],
     },
-    button: { label: COPY.page.entryConfirmation, href: kontaktBestaetigungsLink(site, token) },
+    button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
   };
 }
 
@@ -182,7 +182,7 @@ export function buildBewerbungEingangEmail(
  * What the Ansprechperson is told as the application goes: owed in the erasure's own write and worded in the present.
  * `pending` names the people it still held, the one thing a school needs before applying again.
  */
-export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending }: FLBewerbungErasureData, { origin }: MailOrigin): Mail {
+export function buildBewerbungErasureEmail({ saison_id, rollen, pending }: FLBewerbungErasureData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -207,7 +207,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending }: FLB
  * What the Ansprechperson is told when a person refuses their entry; `declined` was read before the decline emptied it.
  * No button: the next step is „Sitz bearbeiten“, the league's, and a reply reaches its mailbox.
  */
-export function buildBewerbungWiderspruchEmail(
+export function buildBewerbungObjectionEmail(
   { saison_id, rollen, declined, deadline }: FLBewerbungObjectionData,
   { origin }: MailOrigin,
 ): Mail {

@@ -5,7 +5,7 @@ import { endSessionsOfAddress } from "@/core/auth/accountSessions";
 import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
-import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
+import { ACTION_REQUIRED_ENTRY } from "@/features/admin/constants";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -45,7 +45,7 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: 
   // Conditional, as `spiele` counts the played fixtures moved onto the ghost too.
   const folge =
     spiele > 0
-      ? ` War diese Person für Spiele ohne Ergebnis eingeteilt, brauchen diese Spiele eine neue Einteilung. Du findest sie unter „${HANDLUNGSBEDARF_EINTRAG.label}“.`
+      ? ` War diese Person für Spiele ohne Ergebnis eingeteilt, brauchen diese Spiele eine neue Einteilung. Du findest sie unter „${ACTION_REQUIRED_ENTRY.label}“.`
       : "";
 
   if (konto === "nichtGeloescht") {

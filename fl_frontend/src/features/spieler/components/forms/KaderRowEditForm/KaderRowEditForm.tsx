@@ -4,9 +4,9 @@ import { useState, useTransition } from "react";
 
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
-import { kaderName, NUMMER_DOPPELT } from "@/features/spieler/constants";
-import { patchKaderZeileAction } from "@/features/spieler/personActions";
-import { FLPatchKaderZeilePayloadSchema } from "@/features/spieler/schemas";
+import { kaderName, NUMMER_DOUBLE } from "@/features/spieler/constants";
+import { patchKaderRowAction } from "@/features/spieler/personActions";
+import { FLPatchKaderRowPayloadSchema } from "@/features/spieler/schemas";
 import { nummerPayload } from "@/features/spieler/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -22,37 +22,37 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
-import { FormKaderZeileAustragenSection } from "./FormKaderZeileAustragenSection";
-import { FormKaderZeileSection } from "./FormKaderZeileSection";
-import { deriveKaderZeileDraftStatus } from "./kaderZeileDraftStatus";
+import { FormKaderRowRetireSection } from "./FormKaderRowRetireSection";
+import { FormKaderRowSection } from "./FormKaderRowSection";
+import { deriveKaderRowDraftStatus } from "./kaderRowDraftStatus";
 
 import type { FLKaderRow, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
-import type { FLKaderZeileDraftFields } from "./kaderZeileDraftStatus";
+import type { FLKaderRowDraftFields } from "./kaderRowDraftStatus";
 
 /**
  * A seat holder's editor over one live squad row. No undo is offered: the person lane has no replay
  * route, and the stored values stand on this page until the save.
  */
-export function KaderZeileEditForm({
+export function KaderRowEditForm({
   teamId,
   saisonId,
-  zeile,
-  erlaubteStufen,
+  row,
+  allowedStufen,
   heldRollen,
   kaderHref,
 }: {
   teamId: string;
   saisonId: string;
-  zeile: FLKaderRow;
+  row: FLKaderRow;
   /** The season's levels in the league's order, which is all the form offers beside the row's own. */
-  erlaubteStufen: readonly FLSpielerStufe[];
+  allowedStufen: readonly FLSpielerStufe[];
   /** Who else holds each role in this squad, read off the squad's other live rows. */
   heldRollen: Partial<Record<FLSpielerRolle, string>>;
   kaderHref: string;
 }) {
   const [isPending, startSaving] = useTransition();
 
-  const stored: FLKaderZeileDraftFields = { nummer: zeile.nummer ?? "", position: zeile.position, stufe: zeile.stufe, rolle: zeile.rolle };
+  const stored: FLKaderRowDraftFields = { nummer: row.nummer ?? "", position: row.position, stufe: row.stufe, rolle: row.rolle };
   const [nummer, setNummer] = useState(stored.nummer);
   const [position, setPosition] = useState<FLSpielerPosition | null>(stored.position);
   const [stufe, setStufe] = useState<FLSpielerStufe | null>(stored.stufe);
@@ -60,13 +60,13 @@ export function KaderZeileEditForm({
   const [hasSaved, setHasSaved] = useState(false);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
-    useDraftFieldErrors({ schemas: { kaderZeile: FLPatchKaderZeilePayloadSchema } });
+    useDraftFieldErrors({ schemas: { kaderRow: FLPatchKaderRowPayloadSchema } });
 
   // The three ids ride in the request's path, so no refusal can name one and no input renders one.
   const buildPayload = () => ({
     team_id: teamId,
     saison_id: saisonId,
-    spieler_id: zeile.spieler_id,
+    spieler_id: row.spieler_id,
     // Emptied means absent, the boundary where `""` becomes null.
     nummer: nummerPayload(nummer),
     position,
@@ -74,20 +74,20 @@ export function KaderZeileEditForm({
     rolle,
   });
 
-  const status = deriveKaderZeileDraftStatus({ stored, draft: { nummer, position, stufe, rolle }, fieldErrors });
+  const status = deriveKaderRowDraftStatus({ stored, draft: { nummer, position, stufe, rolle }, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the refreshed row arrives and the two agree.
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
-  useForgiveFixed({ kaderZeile: buildPayload() });
+  useForgiveFixed({ kaderRow: buildPayload() });
 
-  const validateFields = (paths: readonly string[]) => validatePaths("kaderZeile", buildPayload(), paths);
+  const validateFields = (paths: readonly string[]) => validatePaths("kaderRow", buildPayload(), paths);
 
   // The row's stored level stays on offer where the season was narrowed after it: the write takes it
   // back unchanged, and a picker without it would show the field empty.
-  const stufeOptions = stored.stufe === null || erlaubteStufen.includes(stored.stufe) ? erlaubteStufen : [...erlaubteStufen, stored.stufe];
+  const stufeOptions = stored.stufe === null || allowedStufen.includes(stored.stufe) ? allowedStufen : [...allowedStufen, stored.stufe];
 
   const resetDraftToStored = () => {
     setNummer(stored.nummer);
@@ -110,11 +110,11 @@ export function KaderZeileEditForm({
     startSaving(async () => {
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchKaderZeileAction(payload).catch(unansweredAction);
+      const res = await patchKaderRowAction(payload).catch(unansweredAction);
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
       startSaving(() => {
         if (!res.success) {
-          reportSubmitFailure(res, { kaderZeile: payload });
+          reportSubmitFailure(res, { kaderRow: payload });
           return;
         }
 
@@ -133,16 +133,16 @@ export function KaderZeileEditForm({
         <Form
           wiring={formWiring}
           className="flex min-h-0 w-full flex-1 flex-col"
-          onSubmit={() => guardSubmit({ kaderZeile: buildPayload() }, write)}>
+          onSubmit={() => guardSubmit({ kaderRow: buildPayload() }, write)}>
           <EditFormLayout
             header={{
-              title: kaderName(zeile),
+              title: kaderName(row),
               // A state outranks the number, which is a field of the form below: the clash is said nowhere else here.
-              chip: zeile.nummer_double ? (
-                <span className={labelBadge("warning")}>{NUMMER_DOPPELT}</span>
-              ) : zeile.nummer === null ? undefined : (
+              chip: row.nummer_double ? (
+                <span className={labelBadge("warning")}>{NUMMER_DOUBLE}</span>
+              ) : row.nummer === null ? undefined : (
                 <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-muted px-2 font-extrabold text-foreground shadow-sm">
-                  {zeile.nummer}
+                  {row.nummer}
                 </span>
               ),
             }}
@@ -155,7 +155,7 @@ export function KaderZeileEditForm({
                 nomen="Kadereintrag"
               />
             }>
-            <FormKaderZeileSection
+            <FormKaderRowSection
               nummer={nummer}
               onNummerChange={setNummer}
               position={position}
@@ -169,10 +169,10 @@ export function KaderZeileEditForm({
               onValidateFields={validateFields}
             />
 
-            <FormKaderZeileAustragenSection
+            <FormKaderRowRetireSection
               teamId={teamId}
               saisonId={saisonId}
-              spielerId={zeile.spieler_id}
+              spielerId={row.spieler_id}
               isDirty={isDirty}
             />
           </EditFormLayout>

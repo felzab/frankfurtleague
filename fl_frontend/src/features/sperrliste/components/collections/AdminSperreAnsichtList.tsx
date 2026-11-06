@@ -3,7 +3,7 @@
 import { ROUTES } from "@/core/routes";
 import { EINSEHBAR_VERWEHRT } from "@/features/address-change/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
-import { rollenLangform } from "@/features/bewerbungen/constants";
+import { rollenLongForm } from "@/features/bewerbungen/constants";
 import { SPERRE_ANSICHT_COPY, SPERRE_ANSICHT_VERWEISE, spieleNeuBesetzen } from "@/features/sperrliste/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { NewTabLink } from "@/shared/components/ui/NewTabLink";
@@ -46,14 +46,14 @@ const EINTRAEGE: Eintraege = {
       }
 
       return kader.map(({ saison_id, team_name, inactive_since }) => {
-        const zeile =
+        const row =
           team_name === null ? `${person}, im Kader der Saison ${saison_id}` : `${person}, im Kader von ${team_name}, Saison ${saison_id}`;
         const href = withSaisonId(`/area/admin/spieler/${spieler_id}`, saison_id);
 
         return inactive_since === null
-          ? { text: zeile, verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kader, href }] }
+          ? { text: row, verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kader, href }] }
           : {
-              text: `${zeile}, ausgetragen seit ${formatSpielDatum(inactive_since)}`,
+              text: `${row}, ausgetragen seit ${formatSpielDatum(inactive_since)}`,
               verweise: [{ label: SPERRE_ANSICHT_VERWEISE.eintrag, href }],
             };
       });
@@ -80,12 +80,12 @@ const EINTRAEGE: Eintraege = {
   // At the seat's own season: the contacts editor addresses the selected season's three seats alone.
   seats: (seats) =>
     seats.map(({ team_id, saison_id, team_name, rolle, first_name: vorname, last_name: nachname }) => ({
-      text: `${rollenLangform([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
+      text: `${rollenLongForm([rolle])} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
       verweise: [{ label: SPERRE_ANSICHT_VERWEISE.kontakte, href: withSaisonId(`/area/admin/kontakte/${team_id}`, saison_id) }],
     })),
   bewerbungen: (bewerbungen, saisonHref) =>
     bewerbungen.map(({ bewerbung_id, saison_id, rolle, first_name: vorname, last_name: nachname }) => ({
-      text: `${rollenLangform([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
+      text: `${rollenLongForm([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
       verweise: [{ label: SPERRE_ANSICHT_VERWEISE.bewerbung, href: saisonHref(`/area/admin/bewerbungen/${bewerbung_id}`) }],
     })),
   // The registrations list serves the pending ones alone, so a declined one is named with no link.

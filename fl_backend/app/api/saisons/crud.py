@@ -4,7 +4,7 @@ from typing import Any, NamedTuple
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, form_window_state, saison_nimmt_bewerbungen_an
+from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, form_window_state, saison_takes_bewerbungen
 from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
 from app.api.saisons.services import next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
@@ -97,7 +97,7 @@ async def pull_landing_windows(*, saisons_collection: AsyncCollection, today: st
 
     return LandingWindows(
         open=next(
-            (raw for raw in windowed if saison_nimmt_bewerbungen_an(saison_status=raw["status"], bewerbung=raw["bewerbung"], today=today)),
+            (raw for raw in windowed if saison_takes_bewerbungen(saison_status=raw["status"], bewerbung=raw["bewerbung"], today=today)),
             None,
         ),
         opens_on=min(

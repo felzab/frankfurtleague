@@ -142,8 +142,8 @@ class TestTheSeasonsWindowsAreRequiredWithNoDefault:
 # CHARACTERS and does not strip, so each needs `strip_whitespace` in front of its floor or spaces
 # alone pass as a value stored, served and rendered as empty.
 STRIPPED_WRITE_FIELDS = [
-    "spielort.address.stadt",
-    "spielort.address.strasse",
+    "spielort.address.city",
+    "spielort.address.street",
     "spielort.name",
     "schiedsrichter.name",
     "spieler_patch.last_name",
@@ -205,8 +205,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         austritt = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-01"}
 
         return {
-            "spielort.address.stadt": (FLPostSpielortPayload, spielort, ("address", "stadt")),
-            "spielort.address.strasse": (FLPostSpielortPayload, spielort, ("address", "strasse")),
+            "spielort.address.city": (FLPostSpielortPayload, spielort, ("address", "city")),
+            "spielort.address.street": (FLPostSpielortPayload, spielort, ("address", "street")),
             "spielort.name": (FLPostSpielortPayload, spielort, ("name",)),
             "schiedsrichter.name": (FLPostSchiedsrichterPayload, schiedsrichter, ("name",)),
             "spieler_patch.last_name": (FLPatchSpielerSaisonPayload, spieler, ("last_name",)),

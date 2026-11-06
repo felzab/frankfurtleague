@@ -63,7 +63,7 @@ function AnsichtBody({ read }: { read: Gelesen | null }) {
 export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [draft, setDraft] = useState<SperreEntwurf>(EMPTY_DRAFT);
-  const [read, setGelesen] = useState<Gelesen | null>(null);
+  const [read, setRead] = useState<Gelesen | null>(null);
   // Only the latest arming's read answers, and only while the address box is unedited since: Next sends one client's
   // actions one at a time, so an earlier arming's answer lands while the latest waits.
   const letzteLesung = useRef(0);
@@ -80,7 +80,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
 
   const lesen = async (gelesenFuer: SperreEntwurf) => {
     const lesung = ++letzteLesung.current;
-    setGelesen({ adresse: gelesenFuer.email, status: "reading" });
+    setRead({ adresse: gelesenFuer.email, status: "reading" });
 
     // Settled, never awaited bare: outside a transition a rejected action leaves the placeholder up and the press held.
     const [settled] = await Promise.allSettled([readSperreAnsichtAction({ email: gelesenFuer.email })]);
@@ -88,20 +88,20 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
     const res = settled.status === "rejected" ? unansweredRead() : settled.value;
 
     if (res.success) {
-      setGelesen({ adresse: gelesenFuer.email, status: "read", view: res.view });
+      setRead({ adresse: gelesenFuer.email, status: "read", view: res.view });
       return;
     }
 
     // A refusal of the address, a grant holder's and one barred already among them, lands on its box as the ban's would,
     // the arming undone so the next press reads the corrected address.
     if (res.fieldErrors?.email !== undefined) {
-      setGelesen(null);
+      setRead(null);
       confirm.cancel();
       reportSubmitFailure(res, { ban: gelesenFuer });
       return;
     }
 
-    setGelesen({ adresse: gelesenFuer.email, status: "refused", reason: sperreOhneUebersicht(res.unplacedError ?? res.error) });
+    setRead({ adresse: gelesenFuer.email, status: "refused", reason: sperreOhneUebersicht(res.unplacedError ?? res.error) });
   };
 
   const handlePress = () => {

@@ -4,7 +4,7 @@ import type { FLSeatEinwilligungPayload } from "@/core/generated/client/types";
 
 // A seat holder's own two choices, under the person lane's actor: the backend moves them on every seat
 // of theirs on that row and judges the seat itself, a past season's included for a withdrawal.
-export async function patchSitzEinwilligung(teamId: string, saisonId: string, payload: FLSeatEinwilligungPayload): Promise<void> {
+export async function patchSeatEinwilligung(teamId: string, saisonId: string, payload: FLSeatEinwilligungPayload): Promise<void> {
   return teamsPatchEinwilligung(teamId, saisonId, payload);
 }
 

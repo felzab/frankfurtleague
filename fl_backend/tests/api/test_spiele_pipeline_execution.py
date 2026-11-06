@@ -114,9 +114,9 @@ def a_row(spiel: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[st
 def discarded(spiel: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
     """A club's decline proposing another date, closed by the administrator's discard."""
 
-    abgelehnt = {**zugesagt(), "kind": "declined", "vorschlag": {"date": "2026-05-03", "time": "17:00:00"}, "reason": "Halle belegt"}
+    declined = {**zugesagt(), "kind": "declined", "vorschlag": {"date": "2026-05-03", "time": "17:00:00"}, "reason": "Halle belegt"}
 
-    return a_row(spiel, team_id, answer=abgelehnt, closed={"at": "2026-04-21", "reason": "discarded"})
+    return a_row(spiel, team_id, answer=declined, closed={"at": "2026-04-21", "reason": "discarded"})
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -471,9 +471,9 @@ class TestTheRefereesNameFollowsTheirConsent:
     def test_an_agreed_referee_publishing_internally_is_served_nameless_and_named_on_the_admin_tier(self, mongo_url: str):
         spiel = a_refereed_spiel()
         rows = [a_referee_row(spiel, answer=zugesagt())]
-        intern = {**published(), "scope": "intern"}
+        internal = {**published(), "scope": "internal"}
 
-        document = on_a_refereed_spiel(mongo_url, rows, joined, einwilligung=intern, spiel=spiel)
+        document = on_a_refereed_spiel(mongo_url, rows, joined, einwilligung=internal, spiel=spiel)
 
         served = FLSpielJoined.model_validate(document).schiedsrichter
         assert served is not None and (served.name, served.name_is_public) == (None, False)

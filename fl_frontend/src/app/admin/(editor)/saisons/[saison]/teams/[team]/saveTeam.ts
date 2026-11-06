@@ -29,11 +29,11 @@ const SaveTeam = z.object({
       schulform: blankIsNull(shape.schulform),
       website_url: blankIsNull(shape.website_url),
       description: shape.description,
-      strasse: address.strasse,
-      hausnummer: address.hausnummer,
-      plz: address.plz,
-      stadtteil: address.stadtteil,
-      stadt: address.stadt,
+      street: address.street,
+      house_number: address.house_number,
+      postcode: address.postcode,
+      district: address.district,
+      city: address.city,
       gruppe: blankIsNull(shape.gruppe),
       trikot_farbe: blankIsNull(shape.trikot_farbe),
     })
@@ -54,8 +54,8 @@ export const saveTeam = action({
   paths: { shorthand: "changes.shorthand", trikot_farbe: "changes.trikot_farbe" },
   examples: {
     "changes.shorthand": COPY.team.shorthandExample,
-    "changes.plz": COPY.admin.spielort.plzExample,
-    "changes.hausnummer": COPY.admin.spielort.hausnummerExample,
+    "changes.postcode": COPY.admin.spielort.postcodeExample,
+    "changes.house_number": COPY.admin.spielort.houseNumberExample,
   },
   run: async ({ id, saison_id, version, changes }): Promise<ActionAnswer<number>> => {
     const read = await getTeamSaisonAdmin(id, saison_id);
@@ -63,7 +63,10 @@ export const saveTeam = action({
 
     const { team, membership } = read;
     const { schulform, website_url, trikot_farbe, gruppe, ...text } = changes;
-    const { name, shorthand, full_name, description, strasse, hausnummer, plz, stadtteil, stadt } = { ...valuesOf(team, membership), ...text };
+    const { name, shorthand, full_name, description, street, house_number, postcode, district, city } = {
+      ...valuesOf(team, membership),
+      ...text,
+    };
     const written = await teamsPatchTeamSaison(id, saison_id, {
       name,
       shorthand,
@@ -71,7 +74,7 @@ export const saveTeam = action({
       description,
       schulform: schulform === undefined ? team.schulform : schulform,
       website_url: website_url === undefined ? team.website_url : website_url,
-      address: { strasse, hausnummer, plz, stadtteil, stadt },
+      address: { street, house_number, postcode, district, city },
       gruppe: gruppe ?? membership.gruppe,
       trikot_farbe: trikot_farbe === undefined ? membership.trikot_farbe : trikot_farbe,
       version,

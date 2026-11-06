@@ -93,7 +93,7 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                         {
                             "token": mail.token,
                             "birth_date": "1984-05-09",
-                            "scope": "kader_oeffentlich",
+                            "scope": "kader_public",
                             "media": True,
                             "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
                         }
@@ -212,5 +212,5 @@ class TestAnUnconfirmedReferee:
         saved, mail, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
 
         assert saved.confirmation is not None
-        assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
+        assert (mail.to, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(mail.token))]

@@ -63,12 +63,12 @@ def _record(scope: Any, confirmed_at: Any) -> dict[str, Any]:
 # whether `confirmed_at` is stamped -- each key's own absence among its states.
 NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
     EinwilligungCase("no record at all", None, False),
-    EinwilligungCase("public, confirmed", _record("kader_oeffentlich", CONFIRMED), True),
-    EinwilligungCase("public, unconfirmed", _record("kader_oeffentlich", None), False),
-    EinwilligungCase("public, no stamp key", _record("kader_oeffentlich", ABSENT), False),
-    EinwilligungCase("internal, confirmed", _record("intern", CONFIRMED), False),
-    EinwilligungCase("internal, unconfirmed", _record("intern", None), False),
-    EinwilligungCase("internal, no stamp key", _record("intern", ABSENT), False),
+    EinwilligungCase("public, confirmed", _record("kader_public", CONFIRMED), True),
+    EinwilligungCase("public, unconfirmed", _record("kader_public", None), False),
+    EinwilligungCase("public, no stamp key", _record("kader_public", ABSENT), False),
+    EinwilligungCase("internal, confirmed", _record("internal", CONFIRMED), False),
+    EinwilligungCase("internal, unconfirmed", _record("internal", None), False),
+    EinwilligungCase("internal, no stamp key", _record("internal", ABSENT), False),
     EinwilligungCase("an unknown scope, confirmed", _record(UNKNOWN_SCOPE, CONFIRMED), False),
     EinwilligungCase("an unknown scope, unconfirmed", _record(UNKNOWN_SCOPE, None), False),
     EinwilligungCase("an unknown scope, no stamp key", _record(UNKNOWN_SCOPE, ABSENT), False),

@@ -1,5 +1,5 @@
 import { KaderList } from "@/features/spieler/components/collections/KaderList";
-import { KADER_LEER } from "@/features/spieler/constants";
+import { KADER_EMPTY } from "@/features/spieler/constants";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import type { FLKaderRow } from "@/core/generated/client/types";
@@ -20,7 +20,7 @@ export function KaderView({
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
         {kader.length === 0 ? (
           <EmptyState
-            title={KADER_LEER}
+            title={KADER_EMPTY}
             hint="Wer sich über den Link Deines Teams registriert, kommt über die Registrierungen in den Kader."
             aktion={{ href: registrierungenHref, label: "Zu den Registrierungen" }}
           />

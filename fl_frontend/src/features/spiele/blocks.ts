@@ -110,12 +110,11 @@ export const whenOf = (spiel: Pick<FLSpielJoined, "date" | "time">): Copy => COP
  * The match editor's Vorschau: the match as it is stored, its pairing, when it is played and its result, else the
  * event that leaves it none, else that none is stored yet. A fact about the record, never its unsaved changes.
  */
-export function vorschauOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | "time" | "sonderereignis">): Copy {
+export function previewOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | "time" | "sonderereignis">): Copy {
   const { team1, team2 } = sidesOf(spiel);
   const tore = toreOf(spiel);
-  const result =
-    tore === null ? (ereignisOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
-  return COPY.admin.spiel.vorschau(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
+  const result = tore === null ? (eventOf(spiel)?.title ?? COPY.admin.spiel.noResult) : COPY.admin.spiel.score(tore, spiel.elfmeterschiessen);
+  return COPY.admin.spiel.preview(COPY.page.spiel(team1.name, team2.name), whenOf(spiel), result);
 }
 
 /**
@@ -228,7 +227,7 @@ function sonderereignisOf(sonderereignis: FLSonderereignis, spiel: Sides): Copy 
  * What befell the match, for the callout under its head: what happened, and under it what that means for the
  * result; `null` where the match is simply played. A no-show's consequence names the side that turned up.
  */
-export function ereignisOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ergebnis">): { title: Copy; text: Copy } | null {
+export function eventOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ergebnis">): { title: Copy; text: Copy } | null {
   const sonderereignis = spiel.sonderereignis;
   if (sonderereignis === null) return null;
   const title = sonderereignisOf(sonderereignis, spiel);

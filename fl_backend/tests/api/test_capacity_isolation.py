@@ -128,7 +128,7 @@ def bewerbung_document(index: int) -> dict[str, Any]:
         ),
         submitted_at="2026-02-01",
         team_id=oid(index),
-        trikot={"existing_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+        trikot={"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
     )
 
 
@@ -361,7 +361,7 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
             async def accept(saisons: Any) -> Any:
                 return await accept_bewerbung(
                     bewerbung_id=oid(5040),
-                    annahme_data=FLAcceptBewerbungPayload.model_validate(
+                    acceptance_data=FLAcceptBewerbungPayload.model_validate(
                         {"gruppe": "A", "trikot_farbe": "blau", "shorthand": None, "version": 0}
                     ),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],

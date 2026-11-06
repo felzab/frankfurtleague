@@ -53,8 +53,8 @@ export const CONSENT_WORDINGS = {
   "2026-11-name-kader-1": {
     question: "Was darf von deinem Namen auf der Website stehen?",
     options: {
-      kader_oeffentlich: "Vorname und Anfangsbuchstabe des Nachnamens",
-      intern: "Kein Name, nur Nummer und Position",
+      kader_public: "Vorname und Anfangsbuchstabe des Nachnamens",
+      internal: "Kein Name, nur Nummer und Position",
     },
     line: [
       "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de ändern. Mehr unter ",
@@ -65,8 +65,8 @@ export const CONSENT_WORDINGS = {
   "2026-11-name-spielplan-1": {
     question: "Was darf von deinem Namen im Spielplan stehen?",
     options: {
-      kader_oeffentlich: "Erster Teil des Namens und Anfangsbuchstabe des nächsten",
-      intern: "Kein Name",
+      kader_public: "Erster Teil des Namens und Anfangsbuchstabe des nächsten",
+      internal: "Kein Name",
     },
     line: [
       "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de ändern. Mehr unter ",

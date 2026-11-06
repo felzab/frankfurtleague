@@ -43,7 +43,7 @@ const BOXES: Readonly<Record<string, string>> = {
   ...seat("trainer", "Tina", "069 1000"),
   ...seat("ansprechperson", "Anna", "069 2000"),
   ...seat("stellvertretung", "Stefan", "069 3000"),
-  "trikot.existing_satz": "",
+  "trikot.existing_set": "",
   "trikot.wunschfarbe": "rot",
   "kader.expected_size": "16",
   "kader.good_spieler": "3",
@@ -55,11 +55,11 @@ const NEW_SCHOOL: Readonly<Record<string, string>> = {
   "schule.full_name": "Goethe-Gymnasium",
   "schule.schulform": "gymnasium_g9",
   "schule.website_url": "",
-  "schule.address.strasse": "Friedrich-Ebert-Anlage",
-  "schule.address.hausnummer": "22",
-  "schule.address.plz": "60325",
-  "schule.address.stadt": "Frankfurt am Main",
-  "schule.address.stadtteil": "Westend",
+  "schule.address.street": "Friedrich-Ebert-Anlage",
+  "schule.address.house_number": "22",
+  "schule.address.postcode": "60325",
+  "schule.address.city": "Frankfurt am Main",
+  "schule.address.district": "Westend",
 };
 
 const posted = (entries: Readonly<Record<string, string>>) => {

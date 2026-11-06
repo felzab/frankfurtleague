@@ -261,7 +261,7 @@ class TestADueChangeTakesEffect:
 
         assert answer.effective == 1
         # The lost-mailbox way greets nobody.
-        assert notices == [{"kind": "effective", "an": on_file(1), "first_name": None}]
+        assert notices == [{"kind": "effective", "to": on_file(1), "first_name": None}]
         assert addresses == [pending(1)]
 
     @pytest.mark.parametrize("barred", ["on_file", "pending"])
@@ -281,7 +281,7 @@ class TestADueChangeTakesEffect:
         answer, ended, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.discarded, answer.effective) == (1, 0)
-        assert notices == [{"kind": "discarded", "an": pending(1)}]
+        assert notices == [{"kind": "discarded", "to": pending(1)}]
         assert (ended["ended"]["kind"], ended["email"]) == ("discarded", None)
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
@@ -291,7 +291,7 @@ class TestADueChangeTakesEffect:
 
         answer, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.discarded, answer.effective, [notice["an"] for notice in notices]) == (1, 0, [pending(1)])
+        assert (answer.discarded, answer.effective, [notice["to"] for notice in notices]) == (1, 0, [pending(1)])
 
 
 class WrittenAfterTheRead:

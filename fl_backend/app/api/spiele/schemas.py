@@ -396,7 +396,7 @@ class FLBracketFaultOccupant(_BracketFault):
     # the untruth the neutral record exists to prevent.
     austritt_type: FLAustrittType
     # Both dates, so a reader sees the ordering that makes it a fault without opening a document.
-    ausgeschieden_seit: CustomDateString
+    exited_since: CustomDateString
     spiel_date: CustomOptionalDateString
 
 

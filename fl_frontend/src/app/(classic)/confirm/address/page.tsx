@@ -15,7 +15,7 @@ import { postAddressChangeView } from "@/features/address-change/mutations";
 import { mapAddressChangeViewRefusal } from "@/features/address-change/refusals";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { answerAddressChange, verwaltungswegBeantworten } from "./answers";
+import { answerAddressChange, answerByAdminRoute } from "./answers";
 import { doneOnEnd } from "./ends";
 
 import type { Copy } from "@/core/copy";
@@ -145,7 +145,7 @@ function oldView(read: ReturnType<typeof viewOf>, token: string): MailedState {
       <ClassicPage width="form">
         <AdresswechselLinkView
           start={startOf(read, token)}
-          beantworten={verwaltungswegBeantworten}
+          beantworten={answerByAdminRoute}
         />
       </ClassicPage>
     ),

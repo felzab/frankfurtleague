@@ -56,7 +56,7 @@ class TestTheClubList:
 
         rendered = answered(seeded_url, FORM).text
 
-        for withheld in (ADDRESS["strasse"], ADDRESS["plz"], website_host(CLUBS[0][0]), SCHULFORM, DESCRIPTION):
+        for withheld in (ADDRESS["street"], ADDRESS["postcode"], website_host(CLUBS[0][0]), SCHULFORM, DESCRIPTION):
             assert withheld not in rendered
 
     def test_a_retired_club_is_not_offered(self, seeded_url: str):

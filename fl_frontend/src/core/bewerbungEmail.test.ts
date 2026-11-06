@@ -2,7 +2,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import type { FLBewerbungLinkData, FLBewerbungZusageData } from "./generated/client/types";
 
-const { buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } = await import("./bewerbungEmail.ts");
+const { buildBewerbungConfirmationEmail, buildBewerbungZusageEmail } = await import("./bewerbungEmail.ts");
 const { renderMail } = await import("./emailShell.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
@@ -40,10 +40,10 @@ describe("the acceptance's kit colour", () => {
 describe("the confirmation link's mail", () => {
   /* A link built on the published origin sends a reader of the local stack into production. */
   it("builds the link on the origin it is handed, the token in it and nowhere else", () => {
-    const { html, text } = renderMail(buildBewerbungBestaetigungEmail(LINK, { origin: ORIGIN, token: "beispiel-eins" }));
+    const { html, text } = renderMail(buildBewerbungConfirmationEmail(LINK, { origin: ORIGIN, token: "example-one" }));
 
-    assert.ok(text.includes(`${ORIGIN}/confirm/kontakt?token=beispiel-eins`), "the link is built on another origin");
+    assert.ok(text.includes(`${ORIGIN}/confirm/kontakt?token=example-one`), "the link is built on another origin");
     // However often the shell prints the link, the token stands inside it each time and nowhere else.
-    expect(html.split("beispiel-eins").length, "the token stands somewhere besides its link").toBe(html.split("?token=beispiel-eins").length);
+    expect(html.split("example-one").length, "the token stands somewhere besides its link").toBe(html.split("?token=example-one").length);
   });
 });

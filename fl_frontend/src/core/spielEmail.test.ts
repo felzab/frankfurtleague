@@ -1,7 +1,7 @@
 import { assertRedactedAtTheEdge } from "@/test-support/edgeRedaction.ts";
 import { describe, expect, it } from "vitest";
 
-const { spielBestaetigungsLink } = await import("./spielEmail.ts");
+const { spielConfirmationLink } = await import("./spielEmail.ts");
 const { mailFor } = await import("./mailKinds.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
@@ -11,12 +11,12 @@ describe("the fixture confirmation's link", () => {
   /* The link stands on the serving origin as the close does, so a configured
      trailing slash or path reaches neither, and a value that is no URL composes no message at all. */
   it("stands on the origin `mailOrigin` makes of the configured value", () => {
-    expect(spielBestaetigungsLink(`${ORIGIN}/irgendwo/`, "t")).toBe(`${ORIGIN}/confirm/spiel?token=t`);
-    expect(() => spielBestaetigungsLink("/confirm", "t")).toThrow(/absolute origin/);
+    expect(spielConfirmationLink(`${ORIGIN}/irgendwo/`, "t")).toBe(`${ORIGIN}/confirm/spiel?token=t`);
+    expect(() => spielConfirmationLink("/confirm", "t")).toThrow(/absolute origin/);
   });
 
   it("names a parameter the edge's own redaction map replaces", () => {
-    assertRedactedAtTheEdge(spielBestaetigungsLink(ORIGIN, "beispiel-eins"));
+    assertRedactedAtTheEdge(spielConfirmationLink(ORIGIN, "example-one"));
   });
 
   /* The token exists only in the hand-out's answer, so a request rendered from its row's facts alone would ask a club to
@@ -30,9 +30,9 @@ describe("the fixture confirmation's link", () => {
       moved_from: null,
     } as const;
 
-    const mail = mailFor("spiel_request", data, { token: "beispiel-eins", secret: null, origin: ORIGIN });
+    const mail = mailFor("spiel_request", data, { token: "example-one", secret: null, origin: ORIGIN });
 
-    expect(mail?.button).toStrictEqual({ label: "Spieltermin bestätigen", href: spielBestaetigungsLink(ORIGIN, "beispiel-eins") });
+    expect(mail?.button).toStrictEqual({ label: "Spieltermin bestätigen", href: spielConfirmationLink(ORIGIN, "example-one") });
     expect(() => mailFor("spiel_request", data, { token: null, secret: null, origin: ORIGIN })).toThrow(/handed out without one/);
   });
 });

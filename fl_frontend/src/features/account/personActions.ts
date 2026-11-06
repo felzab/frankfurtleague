@@ -28,10 +28,10 @@ import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
-import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "@/features/kontakte/mutations";
+import { patchBewerbungEinwilligung, patchSeatEinwilligung } from "@/features/kontakte/mutations";
 import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutations";
-import { patchSchiedsrichterKontoEinwilligung } from "@/features/schiedsrichter/mutations";
-import { patchSpielerKontoEinwilligung } from "@/features/spieler/mutations";
+import { patchSchiedsrichterAccountEinwilligung } from "@/features/schiedsrichter/mutations";
+import { patchSpielerAccountEinwilligung } from "@/features/spieler/mutations";
 
 import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
 import { getErasureView } from "./queries";
@@ -174,7 +174,7 @@ export const saveSpielerConsent = action({
   claim: "account",
   name: "saveSpielerConsent",
   input: SpielerPatchEinwilligungBody.extend(PAGE_HOLDER),
-  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSpielerKontoEinwilligung(choices)),
+  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSpielerAccountEinwilligung(choices)),
 });
 
 /** A referee's own two choices on one of their rows, of which one address may hold several. */
@@ -184,7 +184,7 @@ export const saveSchiedsrichterConsent = action({
   name: "saveSchiedsrichterConsent",
   input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: ({ schiedsrichter_id, holder: _holder, ...choices }) =>
-    savedUnlessAgedOut(() => patchSchiedsrichterKontoEinwilligung(schiedsrichter_id, choices)),
+    savedUnlessAgedOut(() => patchSchiedsrichterAccountEinwilligung(schiedsrichter_id, choices)),
 });
 
 /** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
@@ -205,7 +205,7 @@ export const saveSeatConsent = action({
   claim: "account",
   name: "saveSeatConsent",
   input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSitzEinwilligung(team_id, saison_id, choices)),
+  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSeatEinwilligung(team_id, saison_id, choices)),
 });
 
 /** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */

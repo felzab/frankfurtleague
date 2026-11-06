@@ -3,7 +3,7 @@ import "server-only";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
-import { kontaktBestaetigungsLink } from "./kontaktLink";
+import { kontaktConfirmationLink } from "./kontaktLink";
 import { SERVER_COPY } from "./serverCopy";
 import { rollenText } from "./teamVocabulary";
 
@@ -21,13 +21,13 @@ const DEADLINE = SERVER_COPY.schiedsrichterConfirmation.deadline;
  * the link its hand-out minted: on an open row to answer by the seat's own day, on a closed row, whose link takes the
  * Widerspruch alone, why and what an objection does. `token` is a bearer credential and is never taken apart here.
  */
-export function buildKontaktBestaetigungEmail(
+export function buildKontaktConfirmationEmail(
   { rollen, schule, saison_id: saison, deadline, row }: FLKontaktLinkData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
   const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: rollenText(rollen) });
-  const href = kontaktBestaetigungsLink(site, token);
+  const href = kontaktConfirmationLink(site, token);
   const shell = { kind: "firstContact", subjectLine: SERVER_COPY.mail.kontakt.subject(schule), origin: site, firstName: "" } as const;
 
   if (row === "open") {
@@ -44,11 +44,7 @@ export function buildKontaktBestaetigungEmail(
   return {
     ...shell,
     paragraphs: [
-      [
-        opening,
-        row === "ausgetreten" ? PAGE.teamDeparted({ record: schule }) : SERVER_COPY.refusalLine.saison_past,
-        PAGE.objectionEffect.seasonRow,
-      ],
+      [opening, row === "exited" ? PAGE.teamDeparted({ record: schule }) : SERVER_COPY.refusalLine.saison_past, PAGE.objectionEffect.seasonRow],
     ],
     // Named for what the page offers: a closed row's page has nothing to confirm.
     button: { label: SERVER_COPY.mail.kontakt.toEntry, href },

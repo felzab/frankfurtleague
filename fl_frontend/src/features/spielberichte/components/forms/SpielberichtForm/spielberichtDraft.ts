@@ -117,7 +117,7 @@ export type Eroeffnung = {
   readonly saved: SpielberichtDraft;
   readonly entwurf: SpielberichtDraft;
   /** Per list, the keys of the entries whose person the draft took out, which the form marks until one is picked. */
-  readonly geleert: { readonly scorers: ReadonlySet<number>; readonly cards: ReadonlySet<number> };
+  readonly emptied: { readonly scorers: ReadonlySet<number>; readonly cards: ReadonlySet<number> };
 };
 
 /**
@@ -127,7 +127,7 @@ export type Eroeffnung = {
  */
 export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontext: SpielberichtKontext): Eroeffnung {
   const block = draftOf(stored);
-  if (kontext.seitenGeaendert.size === 0) return { saved: block, entwurf: block, geleert: { scorers: new Set(), cards: new Set() } };
+  if (kontext.seitenGeaendert.size === 0) return { saved: block, entwurf: block, emptied: { scorers: new Set(), cards: new Set() } };
 
   const stale = (side: FLSpielSide | null, spieler: string): boolean =>
     side !== null &&
@@ -135,7 +135,7 @@ export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontex
     spieler !== "" &&
     spieler !== UNBEKANNT &&
     !kontext.kader[side].some((option) => option.id === spieler);
-  const geleert = {
+  const emptied = {
     scorers: new Set(block.scorers.filter((entry) => stale(entry.side, entry.spieler)).map((entry) => entry.key)),
     cards: new Set(block.cards.filter((card) => stale(card.side, card.spieler)).map((card) => card.key)),
   };
@@ -144,10 +144,10 @@ export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontex
     saved: { ...block, fuerTeams: "bericht" },
     entwurf: {
       ...block,
-      scorers: block.scorers.map((entry) => (geleert.scorers.has(entry.key) ? { ...entry, spieler: "" } : entry)),
-      cards: block.cards.map((card) => (geleert.cards.has(card.key) ? { ...card, spieler: "" } : card)),
+      scorers: block.scorers.map((entry) => (emptied.scorers.has(entry.key) ? { ...entry, spieler: "" } : entry)),
+      cards: block.cards.map((card) => (emptied.cards.has(card.key) ? { ...card, spieler: "" } : card)),
     },
-    geleert,
+    emptied,
   };
 }
 

@@ -2094,7 +2094,7 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
  * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
- * a link whose club has left the season reading expired, and `bestaetigung_spieler_wiederkehrend` opens the returning
+ * a link whose club has left the season reading expired, and `confirmation_spieler_returning` opens the returning
  * pupil's page; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
@@ -2953,7 +2953,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  * else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
  * public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
  * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
- * `kader_oeffentlich` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
+ * `kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
  *
  * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
  * `evidence_state` other than the record's own, either choice having moved since the page was served
@@ -4121,7 +4121,7 @@ export const getSpielerDeleteKaderRowUrl = (teamId: string, saisonId: string, sp
  * Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
  * brings the row back. 404 where this team holds no live row for the player in this season,
  * another team's pupil and an ausgetragen row alike. Refused `role_not_held` without a seat.
- * @summary Take a Spieler out of the squad as its team's seat holder (austragen)
+ * @summary Take a Spieler out of the squad as its team's seat holder (retire)
  */
 export const spielerDeleteKaderRow = async (
   teamId: string,
@@ -4746,7 +4746,7 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
  * One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
  * differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
  * other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
- * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontaktdaten_whatsapp` or `media`
+ * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`
  * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
  * person confirmed a seat on, a past season's included.
  *

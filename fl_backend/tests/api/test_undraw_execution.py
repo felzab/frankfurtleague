@@ -69,7 +69,7 @@ WATERMARK_REQUIRED: dict[str, Any] = {"$jsonSchema": {"bsonType": "object", "req
 
 # The log row the watermark clear writes about itself, refused -- so what falls is the write AFTER
 # the `$unset` rather than the `$unset` itself. Attached once the draw has written its own.
-AKTIONEN_REFUSING_A_SAISON_ROW: dict[str, Any] = {"collection": {"$ne": str(Collection.SAISONS)}}
+ACTION_LOG_REFUSING_A_SAISON_ROW: dict[str, Any] = {"collection": {"$ne": str(Collection.SAISONS)}}
 
 
 def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spielplan: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -345,7 +345,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
             # AFTER the draw, which writes a `saisons` row of its own: attached earlier, the draw is
             # what would fall and there would be no Spielplan to undraw.
-            await database.command("collMod", str(Collection.ACTION_LOG), validator=AKTIONEN_REFUSING_A_SAISON_ROW, validationLevel="strict")
+            await database.command("collMod", str(Collection.ACTION_LOG), validator=ACTION_LOG_REFUSING_A_SAISON_ROW, validationLevel="strict")
 
             with pytest.raises(OperationFailure) as failure:
                 await call_undraw(database, client)

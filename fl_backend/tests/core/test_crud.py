@@ -62,7 +62,7 @@ class TestBuildQuery:
 
 
 # A NUL beside every character a pattern gives a meaning to. The server's refusal of the raw NUL is
-# pinned against a real mongod by `fl_backend/tests/api/test_kontakt_loeschung_execution.py`'s NUL case.
+# pinned against a real mongod by `fl_backend/tests/api/test_kontakt_erasure_execution.py`'s NUL case.
 LITERAL = "a\x00.*+?^$()[]{}|\\/ -#b"
 
 

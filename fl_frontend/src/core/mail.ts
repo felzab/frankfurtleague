@@ -295,7 +295,7 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
 
   try {
     const { id } = await deliver({
-      to: recipientOf(mail.an),
+      to: recipientOf(mail.to),
       ...renderMail(message),
       tags: { [OUTBOX_TAG]: mail.id },
       idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,

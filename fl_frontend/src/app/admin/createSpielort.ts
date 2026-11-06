@@ -13,11 +13,11 @@ const address = shape.address.shape;
 /** The create dialog's boxes, by the names they post under, each held to the create's own published rule. */
 const CreateSpielortForm = z.object({
   name: shape.name,
-  strasse: address.strasse,
-  hausnummer: address.hausnummer,
-  plz: address.plz,
-  stadtteil: address.stadtteil,
-  stadt: address.stadt,
+  street: address.street,
+  house_number: address.house_number,
+  postcode: address.postcode,
+  district: address.district,
+  city: address.city,
   mietpreis: numberBox(shape.default_mietpreis),
 });
 
@@ -33,8 +33,8 @@ export const createSpielort = action({
   ownWords: ["duplicate_key"],
   paths: { name: "name" },
   examples: {
-    plz: COPY.admin.spielort.plzExample,
-    hausnummer: COPY.admin.spielort.hausnummerExample,
+    postcode: COPY.admin.spielort.postcodeExample,
+    house_number: COPY.admin.spielort.houseNumberExample,
     mietpreis: COPY.admin.spielort.mietpreisExample,
   },
   run: async ({ mietpreis, name, ...address }) => {

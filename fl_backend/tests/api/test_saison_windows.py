@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from app.api.bewerbungen.services import saison_nimmt_bewerbungen_an
+from app.api.bewerbungen.services import saison_takes_bewerbungen
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.services import entry_is_a_nominee
 
@@ -22,7 +22,7 @@ class TestTheApplicationWindow:
     WINDOW: dict[str, Any] = {"open": True, "start": START, "end": END}
 
     def runs(self, *, bewerbung: Any = WINDOW, today: str = INSIDE, saison_status: str = "future") -> bool:
-        return saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today)
+        return saison_takes_bewerbungen(saison_status=saison_status, bewerbung=bewerbung, today=today)
 
     @pytest.mark.parametrize("today", ["2026-02-28", "2026-05-01"], ids=["the day before", "the day after"])
     def test_a_day_outside_the_span_takes_none(self, today: str):

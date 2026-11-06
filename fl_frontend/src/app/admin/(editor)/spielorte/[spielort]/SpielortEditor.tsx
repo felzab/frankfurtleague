@@ -74,7 +74,7 @@ export function SpielortEditor({
       title={title}
       chip={retired ? { tone: "neutral", label: COPY.shared.retired } : undefined}
       editor={editor}
-      danger={{ title: COPY.admin.stilllegung, acts: [danger] }}
+      danger={{ title: COPY.admin.retirement, acts: [danger] }}
       sections={[
         {
           id: "spielort",

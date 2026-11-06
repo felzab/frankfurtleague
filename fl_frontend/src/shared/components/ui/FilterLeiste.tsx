@@ -97,11 +97,11 @@ function pickedOptions<TItem>(facet: Facet<TItem>, picked: readonly string[]): F
  * one value alone learning nothing about what it filters, and every value where the badge stands in for some.
  */
 function pillName(facet: { label: string }, chosen: readonly FacetOption[]): string {
-  const [erste = "", ...weitere] = chosen.map((option) => option.label);
+  const [first = "", ...rest] = chosen.map((option) => option.label);
 
-  return weitere.length === 0
-    ? benannt(erste, `${facet.label} ändern`)
-    : benannt(`${erste} +${String(weitere.length)}`, `${facet.label} ändern (${[erste, ...weitere].join(", ")})`);
+  return rest.length === 0
+    ? benannt(first, `${facet.label} ändern`)
+    : benannt(`${first} +${String(rest.length)}`, `${facet.label} ändern (${[first, ...rest].join(", ")})`);
 }
 
 /** One filtered dimension: the label is the first picked value alone and the badge carries how many more. */

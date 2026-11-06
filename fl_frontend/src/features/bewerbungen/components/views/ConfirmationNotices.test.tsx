@@ -22,20 +22,20 @@ describe("the consent each page shows", () => {
       team: "SG Alpha",
       schule: "Alpha-Schule",
       saison_id: "2026",
-      page: "bestaetigung_spieler" as const,
+      page: "confirmation_spieler" as const,
       minimum_age: 16,
       media_minimum_age: 18,
     };
     render(
       underNext(
         h(SpielerBestaetigungView, {
-          start: { zustand: "valid", ansicht, token: "kein-echtes-token" },
-          wording: { page: "bestaetigung_spieler" },
+          start: { state: "valid", ansicht, token: "kein-echtes-token" },
+          wording: { page: "confirmation_spieler" },
         }),
       ),
     );
 
     expect(screen.getByText(SPIELER_WORDINGS.scope.question)).toBeTruthy();
-    expect(screen.getByText(SPIELER_WORDINGS.scope.options.intern)).toBeTruthy();
+    expect(screen.getByText(SPIELER_WORDINGS.scope.options.internal)).toBeTruthy();
   });
 });

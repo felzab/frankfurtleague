@@ -243,7 +243,7 @@ async def erasure_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 async def owed(database: AsyncDatabase, kind: str) -> list[Mapping[str, Any]]:
     """Every mail of one kind the Postausgang holds, by key: its key, its recipient and its facts."""
 
-    rows = await database[Collection.OUTBOX].find({"kind": kind}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
+    rows = await database[Collection.OUTBOX].find({"kind": kind}, {"_id": 0, "key": 1, "to": 1, "data": 1}).to_list(length=None)
 
     return sorted(rows, key=lambda row: str(row["key"]))
 
@@ -259,7 +259,7 @@ async def reminded(database: AsyncDatabase) -> set[Any]:
 async def refuse_the_ansprechpersons_address(database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> None:
     """The Ansprechperson's last mail, sent and refused by the provider: what the clocks read is what a drain and a real event leave."""
 
-    await a_mail_that_bounced(database, client, bewerbung_id=bewerbung_id, seat="ansprechperson", an="wraxlington@example.com")
+    await a_mail_that_bounced(database, client, bewerbung_id=bewerbung_id, seat="ansprechperson", to="wraxlington@example.com")
 
 
 CONFIRMED_BIRTH_DATE = "1994-07-19"
@@ -304,12 +304,12 @@ async def resend(database: AsyncDatabase, seat: str) -> Any:
     )
 
 
-def reminder_mail(an: str, rollen: list[str]) -> dict[str, Any]:
+def reminder_mail(to: str, rollen: list[str]) -> dict[str, Any]:
     """The reminder the corpus's application owes one person, as the Postausgang holds it."""
 
     return {
         "key": f"{Collection.BEWERBUNGEN}/{REMIND_OID}/reminder/{rollen[0]}/{TODAY}",
-        "an": an,
+        "to": to,
         "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "rollen": rollen, "deadline": "2026-04-12"},
     }
 
@@ -345,7 +345,7 @@ class TestTheReminderClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client, now=MAIL_NOW)
             mails = await drained(database, client)
-            [paired] = [mail for mail in mails if mail.data.kind == "bewerbung_reminder" and mail.an == "wraxlington@example.com"]
+            [paired] = [mail for mail in mails if mail.data.kind == "bewerbung_reminder" and mail.to == "wraxlington@example.com"]
             assert paired.token is not None
 
             return (
@@ -372,21 +372,21 @@ class TestTheReminderClock:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client, now=MAIL_NOW)
-            reminders = {mail.an: mail.token for mail in await drained(database, client)}
+            reminders = {mail.to: mail.token for mail in await drained(database, client)}
             await resend(database, "trainer")
             [fresh] = await drained(database, client)
             assert fresh.token is not None
 
             # The reminder's shared link and BOTH first links, one of which is the mirrored seat's own copy -- the one a
             # re-send writing a single entry leaves open.
-            tot = []
+            dead = []
             for gone in (reminders["wraxlington@example.com"] or "", f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
                 with pytest.raises(APIError) as conflict:
                     await view(database, gone)
-                tot.append(conflict.value.error_code)
+                dead.append(conflict.value.error_code)
 
             return (
-                tot,
+                dead,
                 (await view(database, fresh.token)).state,
                 # The Stellvertretung is nobody's pair, so its own reminder link is untouched.
                 (await view(database, reminders["bramblewick@example.com"] or "")).state,
@@ -394,10 +394,10 @@ class TestTheReminderClock:
                 await stored(database, REMIND_OID),
             )
 
-        tot, state, fremd_zustand, fresh_token, document = on_a_league(mongo_replica_set_url, body)
+        dead, state, foreign_state, fresh_token, document = on_a_league(mongo_replica_set_url, body)
 
-        assert tot == [Code.LINK_INVALID] * 3
-        assert (state, fremd_zustand) == ("valid", "valid")
+        assert dead == [Code.LINK_INVALID] * 3
+        assert (state, foreign_state) == ("valid", "valid")
         assert document is not None
         # One link answering both, each entry written back as the create writes it, and the reminder owed again.
         for rolle in ("trainer", "ansprechperson"):
@@ -417,9 +417,9 @@ class TestTheReminderClock:
 
             return second.reminded, first, await owed(database, "bewerbung_reminder")
 
-        erinnert, first, after = on_a_league(mongo_replica_set_url, body)
+        reminded, first, after = on_a_league(mongo_replica_set_url, body)
 
-        assert (erinnert, after) == (0, first)
+        assert (reminded, after) == (0, first)
 
     def test_no_raw_token_reaches_the_log_and_the_stamp_names_the_system(self, mongo_replica_set_url: str):
         """The stamping patch files the prior document -- hashes, never the raw tokens, which exist in the mails alone."""
@@ -444,7 +444,7 @@ class TestTheReminderClock:
 
 
 class TestTheFourteenDayClock:
-    def test_the_pass_loescht_the_candidate_and_owes_the_ansprechperson_the_notice_naming_who_never_answered(self, mongo_replica_set_url: str):
+    def test_the_pass_erases_the_candidate_and_owes_the_ansprechperson_the_notice_naming_who_never_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client, now=MAIL_NOW)
 
@@ -456,7 +456,7 @@ class TestTheFourteenDayClock:
         assert notices == [
             {
                 "key": f"{Collection.BEWERBUNGEN}/{DELETE_OID}/erasure",
-                "an": "wraxlington@example.com",
+                "to": "wraxlington@example.com",
                 "data": {
                     "kind": "bewerbung_erasure",
                     "saison_id": SAISON_ID,
@@ -472,7 +472,7 @@ class TestTheFourteenDayClock:
         # First names alone: nothing else of the people outlives the application in the notice.
         assert LAST_NAME not in str(notices)
 
-    def test_the_loeschung_takes_exactly_the_due_application_and_redacts_its_rows(self, mongo_replica_set_url: str):
+    def test_the_erasure_takes_exactly_the_due_application_and_redacts_its_rows(self, mongo_replica_set_url: str):
         """An application still inside its deadline, or another season's, stands."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -499,7 +499,7 @@ class TestTheFourteenDayClock:
         assert set(fourteen_day[0]["db_filter"]) == {"saison_id", "_id"}
         assert fourteen_day[0]["actor"]["kind"] == "system"
 
-    def test_a_widerspruchs_notice_stands_as_the_deletion_notice(self, mongo_replica_set_url: str):
+    def test_an_objections_notice_stands_as_the_deletion_notice(self, mongo_replica_set_url: str):
         """It named the deletion day, so the erasure owes no second notice."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -510,7 +510,7 @@ class TestTheFourteenDayClock:
 
         assert on_a_league(mongo_replica_set_url, body) == (1, [])
 
-    def test_an_emptied_ansprechperson_slot_is_geloescht_with_nobody_told(self, mongo_replica_set_url: str):
+    def test_an_emptied_ansprechperson_slot_is_erased_with_nobody_told(self, mongo_replica_set_url: str):
         """No mailbox is left to tell, which is not a refused address: the application cannot complete and goes."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -537,7 +537,7 @@ class TestAnApplicationWhoseNoticeCannotArrive:
         erased_count, document, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (erased_count, document) == (1, None)
-        assert [notice["an"] for notice in notices] == ["wraxlington@example.com"]
+        assert [notice["to"] for notice in notices] == ["wraxlington@example.com"]
 
     def test_a_seat_never_mailed_is_owed_neither_a_reminder_nor_the_notice(self, mongo_replica_set_url: str):
         """The two later mails past the bound: that mailbox has heard of nothing, and the day stands for the people who have."""
@@ -589,7 +589,7 @@ class TestABarredMailbox:
             )
             await sweep(database, client, now=MAIL_NOW)
 
-            return [mail.an for mail in await drained(database, client)]
+            return [mail.to for mail in await drained(database, client)]
 
         assert REFUSED_ADDRESS in on_a_league(mongo_replica_set_url, body)
 
@@ -598,7 +598,7 @@ class TestABarredMailbox:
             await database[Collection.BAN_LIST].insert_one(ban_document("bramblewick@example.com", until=STANDING))
             await sweep(database, client, now=MAIL_NOW)
 
-            reminders = [mail.an for mail in await drained(database, client) if mail.data.kind == "bewerbung_reminder"]
+            reminders = [mail.to for mail in await drained(database, client) if mail.data.kind == "bewerbung_reminder"]
 
             return reminders, await stored(database, REMIND_OID)
 
@@ -694,7 +694,7 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
 
 
 class TestTheOneMonthClock:
-    def test_a_declined_application_a_month_old_is_geloescht_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
+    def test_a_declined_application_a_month_old_is_erased_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
@@ -725,7 +725,7 @@ class TestTheOneMonthClock:
 class TestTheSeasonsOwnEndClock:
     """The bound on an application nobody decided, which the fourteen-day clock drops as soon as every seat confirms."""
 
-    def test_an_application_every_seat_confirmed_and_nobody_decided_is_geloescht_and_its_rows_redacted(self, mongo_replica_set_url: str):
+    def test_an_application_every_seat_confirmed_and_nobody_decided_is_erased_and_its_rows_redacted(self, mongo_replica_set_url: str):
         """Both submitted rows go, the confirmed one and the one past its deadline; a decided one is this clock's business at all."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -850,9 +850,9 @@ class TestTheSeasonAndOneClock:
                 await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
             )
 
-        geleert, row, log = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+        emptied, row, log = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert geleert == 1
+        assert emptied == 1
         assert row is not None and (row["kontakte"], row["confirmations"]) == (None, None)
         # The clearing's own image held the link, beside a person or not, and loses it with the block.
         assert "msg-1" not in str(log)
@@ -962,7 +962,7 @@ class ActivatedAfterTheClocksRead(InterleavedCollection):
 DRAIN_BOUND_S = 60.0
 
 
-class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
+class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
     @pytest.mark.parametrize(
         ("collection", "clocks_read", "expected"),
         [
@@ -1162,7 +1162,7 @@ class TestOneRowHoldsBackNoOther:
         assert (chased, answer.erased) == ({REMIND_OID}, 1)
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DECLINED_OID), "decline", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_refused_loeschung_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_erasure_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(
                 application(SECOND_OID, status="accepted", decision={"made_at": "2026-03-01", "by": "admin", "reason": None})
@@ -1201,7 +1201,7 @@ class TestOneRowHoldsBackNoOther:
             ("ERROR", Code.DATABASE_FAILED, "Season team", str(JUNCTION_OID), "contact block", f"{REFUSED_TRACE_ID}")
         ]
 
-    def test_a_refused_fourteen_day_loeschung(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_fourteen_day_erasure(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, confirmation_deadline=YESTERDAY))
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DELETE_OID)

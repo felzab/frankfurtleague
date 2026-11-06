@@ -78,12 +78,12 @@ KONTAKT_ROLLEN: Final[tuple[FLKontaktRolle, ...]] = get_args(FLKontaktRolle.__va
 
 # A season row as a link minted on it sees it: open, or closed by its season ending, which outranks its
 # team having left it.
-type FLKontaktRow = Literal["open", "saison_past", "ausgetreten"]
+type FLKontaktRow = Literal["open", "saison_past", "exited"]
 
 # Wider than the administrative payload's: the WhatsApp scope is the person's own, set on their
 # confirmation page and moved by their account page's seat PATCH; an administrator's payload offering it
 # would transcribe one.
-type FLKontaktKenntnisnahmeScope = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
+type FLKontaktKenntnisnahmeScope = Literal["kontakt_data", "kontakt_data_whatsapp"]
 
 # Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
 # the contacts editor). Not `admin_tier`, the access tier's word (`docs/glossary.md :: admin_tier`).
@@ -100,7 +100,7 @@ type FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 type FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
 # What a pupil or a referee agreed may be published about them.
-type FLEinwilligungScope = Literal["kader_oeffentlich", "intern"]
+type FLEinwilligungScope = Literal["kader_public", "internal"]
 
 # TWO members and not three: an admission deletes the row, its content having become the person and the
 # squad row, so a state naming an admitted registration would be one no document is ever read in.

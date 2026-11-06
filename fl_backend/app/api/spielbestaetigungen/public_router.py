@@ -5,7 +5,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
-from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
+from app.api.spielbestaetigungen.crud import VIEW_SPIEL_FIELDS, pull_ansetzung_state, pull_vorschlag_open, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerPayload,
     FLSpielbestaetigungAnswerResponse,
@@ -15,9 +15,7 @@ from app.api.spielbestaetigungen.schemas import (
 )
 from app.api.spielbestaetigungen.services import (
     LINK_FIELDS,
-    AnsetzungLage,
-    ansicht_ansetzung_of,
-    ansicht_snapshot_of,
+    AnsetzungState,
     build_answerable_filter,
     build_token_filter,
     clubs_without_a_season_row,
@@ -25,8 +23,8 @@ from app.api.spielbestaetigungen.services import (
     find_barred_link_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
+    find_vorschlag_past_refusal,
     find_vorschlag_unchanged_refusal,
-    find_vorschlag_vergangen_refusal,
     first_press_refusal,
     judged_as_a_proposal,
     proposal_payload,
@@ -34,6 +32,8 @@ from app.api.spielbestaetigungen.services import (
     seat_holding,
     side_of,
     stand_moved,
+    view_ansetzung_of,
+    view_snapshot_of,
     zustand_of,
 )
 from app.api.spiele.crud import pull_booked_slots, pull_booked_venue, pull_saison_membership, pull_spieltag_span
@@ -108,24 +108,24 @@ async def get_spielbestaetigung_view(
     refuse(find_unknown_link_refusal(seat=seat))
     assert row is not None and seat is not None
 
-    lage = await pull_ansetzung_lage(
+    ansetzung_state = await pull_ansetzung_state(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
         spielbestaetigung_raw=row,
-        spiel_projection=ANSICHT_SPIEL_FIELDS,
+        spiel_projection=VIEW_SPIEL_FIELDS,
         verein_projection=verein_fields(team_id=row["party"]["team_id"], seat=seat),
     )
     # The row read outside any transaction: an undraw or a replace committing since took the fixture and the row together.
-    refuse(find_unknown_link_refusal(seat=None if lage is None else seat))
-    assert lage is not None
-    address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
+    refuse(find_unknown_link_refusal(seat=None if ansetzung_state is None else seat))
+    assert ansetzung_state is not None
+    address = seat_address(ansetzung_state=ansetzung_state, spielbestaetigung_raw=row, seat=seat)
     barred = bool(await barred_addresses(ban_list, [] if address is None else [address]))
-    vorschlag_offen = await pull_vorschlag_offen(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
+    vorschlag_open = await pull_vorschlag_open(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
 
-    state = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, barred=barred, vorschlag_offen=vorschlag_offen)
+    state = zustand_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today, barred=barred, vorschlag_open=vorschlag_open)
     answer = row.get("answer")
 
-    if stand_moved(spielbestaetigung_raw=row, lage=lage):
+    if stand_moved(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state):
         venue = await pull_booked_venue(spielorte_collection, row["ansetzung"]["spielort_id"])
         spielort = (
             None
@@ -133,11 +133,11 @@ async def get_spielbestaetigung_view(
             else FLSpielortFieldPublic(spielort_id=row["ansetzung"]["spielort_id"], name=venue.name, maps_link=venue.maps_link)
         )
         vereinsnamen = await pull_team_names(
-            teams_collection=teams_collection, team_ids=clubs_without_a_season_row(spielbestaetigung_raw=row, lage=lage)
+            teams_collection=teams_collection, team_ids=clubs_without_a_season_row(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state)
         )
-        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=row, lage=lage, vereinsnamen=vereinsnamen, spielort=spielort)
+        ansetzung = view_snapshot_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, vereinsnamen=vereinsnamen, spielort=spielort)
     else:
-        ansetzung = ansicht_ansetzung_of(lage.spiel)
+        ansetzung = view_ansetzung_of(ansetzung_state.spiel)
 
     return FLSpielbestaetigungViewResponse(
         state=state,
@@ -145,7 +145,7 @@ async def get_spielbestaetigung_view(
         ansetzung=ansetzung,
         deadline=str(row["deadline"]),
         # Never the row's own proposal on `declined`: the page shows an answered link its answering role alone.
-        vorschlag=vorschlag_offen if state == "vorschlag" else None,
+        vorschlag=vorschlag_open if state == "vorschlag" else None,
         answered_by=answer["by"] if state in ("zugesagt", "declined") and answer is not None else None,
     )
 
@@ -202,7 +202,7 @@ async def post_spielbestaetigung(
         refuse(find_unknown_link_refusal(seat=seat))
         assert row is not None and seat is not None
 
-        lage = await pull_ansetzung_lage(
+        ansetzung_state = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
@@ -211,8 +211,8 @@ async def post_spielbestaetigung(
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
-        assert lage is not None
-        address = seat_address(lage=lage, spielbestaetigung_raw=row, seat=seat)
+        assert ansetzung_state is not None
+        address = seat_address(ansetzung_state=ansetzung_state, spielbestaetigung_raw=row, seat=seat)
         barred = await barred_addresses(
             ban_list, [] if address is None else [address], governing_saison_id=governing_saison_id, session=session
         )
@@ -220,15 +220,15 @@ async def post_spielbestaetigung(
         # given before it stands.
         refuse(find_barred_link_refusal(barred=bool(barred)))
 
-        async def judge(gegen: AnsetzungLage, reads: AsyncClientSession | None) -> None:
+        async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
             """Every other refusal, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
 
-            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=gegen, today=today))
+            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
 
             if vorschlag is not None:
-                refuse(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today))
+                refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
 
-                stored = FLSpiel.model_validate(gegen.spiel)
+                stored = FLSpiel.model_validate(current.spiel)
                 refuse(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
                 proposed = proposal_payload(stored, vorschlag)
 
@@ -250,7 +250,7 @@ async def post_spielbestaetigung(
                 )
                 refuse(judged_as_a_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
 
-        await judge(lage, session)
+        await judge(ansetzung_state, session)
 
         try:
             await patch_one_in_db(
@@ -274,7 +274,7 @@ async def post_spielbestaetigung(
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
         # landing under this transaction raises no conflict: all judged again outside it before answering.
-        current = await pull_ansetzung_lage(
+        current = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,

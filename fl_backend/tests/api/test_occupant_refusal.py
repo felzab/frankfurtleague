@@ -930,7 +930,7 @@ class TestTheDisqualifiedOccupantFault:
         assert len(faults) == 1
         assert faults[0].spiel_nr == 4
         assert faults[0].side == "team1"
-        assert faults[0].ausgeschieden_seit == "2026-03-15"
+        assert faults[0].exited_since == "2026-03-15"
         assert faults[0].spiel_date == "2026-04-01"
 
     def test_an_undated_spiel_is_reported(self):

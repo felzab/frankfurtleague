@@ -51,59 +51,59 @@ def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
 
 def test_the_default_scope_counts_only_the_gruppenphase(league: SeededLeague):
     """Helmholtz has played four matches and three of them are league matches."""
-    assert table(league)["Helmholtz"]["count_gespielte_spiele"] == 3
+    assert table(league)["Helmholtz"]["count_played_spiele"] == 3
 
 
-def test_the_gesamt_scope_adds_the_playoff_match(league: SeededLeague):
+def test_the_total_scope_adds_the_playoff_match(league: SeededLeague):
     """The divergence that keeps the default scope at `gruppenphase`."""
-    assert table(league, scope="total")["Helmholtz"]["count_gespielte_spiele"] == 4
+    assert table(league, scope="total")["Helmholtz"]["count_played_spiele"] == 4
 
 
 def test_the_playoff_win_moves_points_and_goals_too(league: SeededLeague):
     """A scope that counted the phase but dropped its goals would pass on the match count alone."""
     gruppenphase = table(league)["Helmholtz"]
-    gesamt = table(league, scope="total")["Helmholtz"]
+    total = table(league, scope="total")["Helmholtz"]
 
-    assert (gruppenphase["punkte"], gruppenphase["tore_geschossen"]) == (4, 5)
-    assert (gesamt["punkte"], gesamt["tore_geschossen"]) == (7, 10)
+    assert (gruppenphase["punkte"], gruppenphase["tore_scored"]) == (4, 5)
+    assert (total["punkte"], total["tore_scored"]) == (7, 10)
 
 
 def test_a_no_show_carrying_its_awarded_result_still_counts(league: SeededLeague):
     """Bock's only Gruppenphase win is a forfeit; a `sonderereignis` filter here would leave it on one match."""
     bock = table(league)["Bock"]
 
-    assert bock["count_gespielte_spiele"] == 2
+    assert bock["count_played_spiele"] == 2
     assert bock["siege"] == 1
 
 
 def test_a_match_without_an_ergebnis_does_not_count(league: SeededLeague):
     """Bock has a third Gruppenphase fixture that has not been played."""
-    assert table(league)["Bock"]["count_gespielte_spiele"] == 2
+    assert table(league)["Bock"]["count_played_spiele"] == 2
 
 
 def test_an_ergebnis_without_goal_counts_does_not_count(league: SeededLeague):
     """Without the goal-count filters this match groups as a 0:0 draw, giving Lessing a fourth match and Ohne its first."""
     figures = table(league)
 
-    assert figures["Lessing"]["count_gespielte_spiele"] == 3
-    assert figures["Ohne"]["count_gespielte_spiele"] == 0
+    assert figures["Lessing"]["count_played_spiele"] == 3
+    assert figures["Ohne"]["count_played_spiele"] == 0
 
 
 def test_a_match_from_another_season_does_not_count(league: SeededLeague):
     """Helmholtz won 7:0 in 2025, so a pipeline missing its `saison_id` filter shows 12 goals rather than 5."""
-    assert table(league)["Helmholtz"]["tore_geschossen"] == 5
+    assert table(league)["Helmholtz"]["tore_scored"] == 5
 
 
 def test_goals_are_oriented_towards_each_team(league: SeededLeague):
     """Both teams are embedded in one document, so reading the wrong side swaps scored and conceded — invisible in a match count."""
     figures = table(league)
 
-    assert (figures["Helmholtz"]["tore_geschossen"], figures["Helmholtz"]["tore_kassiert"]) == (5, 7)
-    assert (figures["Bock"]["tore_geschossen"], figures["Bock"]["tore_kassiert"]) == (2, 3)
+    assert (figures["Helmholtz"]["tore_scored"], figures["Helmholtz"]["tore_conceded"]) == (5, 7)
+    assert (figures["Bock"]["tore_scored"], figures["Bock"]["tore_conceded"]) == (2, 3)
 
 
 class TestACalledOffSpiel:
-    """The two counts are deliberately not a partition: a forfeit is in this figure and in `count_gespielte_spiele` both."""
+    """The two counts are deliberately not a partition: a forfeit is in this figure and in `count_played_spiele` both."""
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
         """The `$expr` reaches either side: Ohne holds slot two of Spiel 10 and slot one of Spiel 13, so a one-slot match leaves it on 1."""
@@ -114,17 +114,17 @@ class TestACalledOffSpiel:
 
     def test_an_abandoned_spiel_is_counted_as_played_and_not_as_cancelled(self, league: SeededLeague):
         """The distinction one flag could not draw: Spiel 14 was abandoned with a score, so it reaches one figure and not the other."""
-        komplett = table(league)["Komplett"]
+        complete = table(league)["Komplett"]
 
-        assert komplett["count_gespielte_spiele"] == 2
-        assert komplett["siege"] == 2
-        assert komplett["count_cancelled_spiele"] == 0
+        assert complete["count_played_spiele"] == 2
+        assert complete["siege"] == 2
+        assert complete["count_cancelled_spiele"] == 0
 
     def test_an_annulled_spiel_is_cancelled_and_never_a_match_played(self, league: SeededLeague):
         """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
         without = table(league)["Ohne"]
 
-        assert without["count_gespielte_spiele"] == 0
+        assert without["count_played_spiele"] == 0
         assert without["count_cancelled_spiele"] == 2
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
@@ -132,12 +132,12 @@ class TestACalledOffSpiel:
         helmholtz = table(league)["Helmholtz"]
 
         assert {field: helmholtz[field] for field in FLTeamStatistik.model_fields if field != "count_cancelled_spiele"} == {
-            "count_gespielte_spiele": 3,
+            "count_played_spiele": 3,
             "siege": 1,
             "unentschieden": 1,
             "niederlagen": 1,
-            "tore_geschossen": 5,
-            "tore_kassiert": 7,
+            "tore_scored": 5,
+            "tore_conceded": 7,
             "punkte": 4,
         }
 
@@ -145,7 +145,7 @@ class TestACalledOffSpiel:
         """Both figures together: a filter excluding the forfeit from this count leaves the match tally right."""
         bock = table(league)["Bock"]
 
-        assert bock["count_gespielte_spiele"] == 2
+        assert bock["count_played_spiele"] == 2
         assert bock["count_cancelled_spiele"] == 1
 
     def test_the_scope_narrows_it_like_every_figure_beside_it(self, league: SeededLeague):
@@ -161,7 +161,7 @@ class TestACalledOffSpiel:
 def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
     for name, figures in table(league, scope="total").items():
         total = figures["siege"] + figures["unentschieden"] + figures["niederlagen"]
-        assert total == figures["count_gespielte_spiele"], f"{name} does not add up"
+        assert total == figures["count_played_spiele"], f"{name} does not add up"
 
 
 def test_points_come_from_the_seasons_own_rules(league: SeededLeague):

@@ -40,7 +40,7 @@ FLSpielbestaetigungClosedReason = Literal[
 # What a reopened link shows; `barred` ranks first. `vorschlag`: the other
 # club's decline proposes another date; `cancelled`: the fixture was called off, whatever was answered;
 # `discarded`: the league discarded this decline's proposal.
-FLSpielbestaetigungZustand = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "cancelled", "barred"]
+FLSpielbestaetigungState = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "cancelled", "barred"]
 
 # A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
 # ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the
@@ -129,7 +129,7 @@ class FLSpielbestaetigungClosed(BaseModel):
     reason: FLSpielbestaetigungClosedReason
 
 
-class _FLSpielbestaetigungFelder(BaseModel):
+class _FLSpielbestaetigungFields(BaseModel):
     """Every field a confirmation row stores and an administrator reads alike: all but its seats."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -147,7 +147,7 @@ class _FLSpielbestaetigungFelder(BaseModel):
     closed: FLSpielbestaetigungClosed | None
 
 
-class FLSpielbestaetigung(_FLSpielbestaetigungFelder):
+class FLSpielbestaetigung(_FLSpielbestaetigungFields):
     """One party's confirmation of one Ansetzung, as an administrator reads it.
 
     The close reaches an answered row too, so an agreement a move overtook records why it stopped
@@ -158,7 +158,7 @@ class FLSpielbestaetigung(_FLSpielbestaetigungFelder):
     kontakte: FLSpielbestaetigungKontakte | None
 
 
-class FLSpielbestaetigungSitzRecord(BaseModel):
+class FLSpielbestaetigungSeatRecord(BaseModel):
     """One seat as `spielbestaetigungen` stores it: every link the seat was mailed, by its hash, and the address they went to."""
 
     token_hashes: list[str]
@@ -166,12 +166,12 @@ class FLSpielbestaetigungSitzRecord(BaseModel):
 
 
 class FLSpielbestaetigungKontakteRecord(BaseModel):
-    trainer: FLSpielbestaetigungSitzRecord | None
-    ansprechperson: FLSpielbestaetigungSitzRecord | None
-    stellvertretung: FLSpielbestaetigungSitzRecord | None
+    trainer: FLSpielbestaetigungSeatRecord | None
+    ansprechperson: FLSpielbestaetigungSeatRecord | None
+    stellvertretung: FLSpielbestaetigungSeatRecord | None
 
 
-class FLSpielbestaetigungRecord(_FLSpielbestaetigungFelder, Anchored):
+class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
     """One confirmation as `spielbestaetigungen` stores it, with the keys no read serves."""
 
     kontakte: FLSpielbestaetigungKontakteRecord | None
@@ -229,7 +229,7 @@ class FLSpielbestaetigungViewAnsetzung(BaseModel):
 class FLSpielbestaetigungViewResponse(BaseAPIResponse):
     """What one link's page renders, filled in every state; the frontend narrows a spent one to its `state`."""
 
-    state: FLSpielbestaetigungZustand
+    state: FLSpielbestaetigungState
     side: FLSpielSide
     ansetzung: FLSpielbestaetigungViewAnsetzung
     deadline: CustomDateString
@@ -302,7 +302,7 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
 # referee answers until the fixture's day, which the Einteilung states.
 
 # Never `barred`, the binder refusing a barred person first, nor `vorschlag`, a referee proposing no date.
-FLSpielbestaetigungSchiedsrichterZustand = Literal["valid", "zugesagt", "declined", "expired", "invalid", "cancelled"]
+FLSpielbestaetigungSchiedsrichterState = Literal["valid", "zugesagt", "declined", "expired", "invalid", "cancelled"]
 
 
 class FLSpielbestaetigungSelf(BaseModel):
@@ -313,7 +313,7 @@ class FLSpielbestaetigungSelf(BaseModel):
     # Which of the address's referee records the row names.
     schiedsrichter_id: CustomObjectId
     ansetzung: FLSpielbestaetigungViewAnsetzung
-    state: FLSpielbestaetigungSchiedsrichterZustand
+    state: FLSpielbestaetigungSchiedsrichterState
     # The referee's own decline reason, null on every other row.
     reason: CustomNonEmptyString | None
     # Whether the league recorded the answer for them, so the panel never shows it as their own; it names nobody.

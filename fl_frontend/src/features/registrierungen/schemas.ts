@@ -5,15 +5,15 @@ import z from "zod";
 // two numbers, and a second span here would refuse a day the endpoint takes.
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
-import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
+import { birthDateSpan } from "@/features/bewerbungen/utils";
 import {
-  FLPatchKaderZeilePayloadSchema,
+  FLPatchKaderRowPayloadSchema,
   FLSpielerPositionSchema,
   FLSpielerStufeSchema,
-  LINK_FASSUNG_FEHLT,
+  LINK_WORDING_MISSING,
   textVersionsSchema,
 } from "@/features/spieler/schemas";
-import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
+import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_TOO_LONG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -43,13 +43,13 @@ const registrierungToken = z
  */
 export const FLPostRegistrierungPayloadSchema = z.object({
   token: registrierungToken,
-  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
-  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  first_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_TOO_LONG }),
+  last_name: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_TOO_LONG }),
   email: KontaktEmailSchema,
   position: FLSpielerPositionSchema.nullable(),
   // The squad payload's own field, never a second regex: a pupil types the number an administrator
   // later edits, and two spellings are how one tier starts refusing what the other takes.
-  nummer: FLPatchKaderZeilePayloadSchema.shape.nummer,
+  nummer: FLPatchKaderRowPayloadSchema.shape.nummer,
   stufe: FLSpielerStufeSchema.nullable(),
 });
 
@@ -76,7 +76,7 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   media: z.boolean().nullable(),
   // The wordings this page rendered, never ones a later reader would be shown: the record has to
   // cite the words the confirming person read. Null on the returning pupil's page, as the choices are.
-  text_versions: textVersionsSchema(SPIELER_TEXT_VERSIONS, LINK_FASSUNG_FEHLT).nullable(),
+  text_versions: textVersionsSchema(SPIELER_TEXT_VERSIONS, LINK_WORDING_MISSING).nullable(),
 });
 
 /**
@@ -85,13 +85,13 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
  */
 export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungConfirmationViewResponsePage) {
   // The new pupil's three tightened past the payload's null: an unanswered scope is a field error before any press.
-  return seite === "bestaetigung_spieler"
+  return seite === "confirmation_spieler"
     ? FLRegistrierungBestaetigungPayloadSchema.extend({
         birth_date: CustomDateStringSchema.refine(
           (datum) => {
-            const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
+            const { earliest, latest } = birthDateSpan(getGermanTodayStr(), mindestalter);
 
-            return datum >= frueheste && datum <= spaeteste;
+            return datum >= earliest && datum <= latest;
           },
           { error: alterAusserhalb(mindestalter) },
         ),

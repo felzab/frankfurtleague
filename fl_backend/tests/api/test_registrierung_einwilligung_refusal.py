@@ -63,7 +63,7 @@ class TestWhichPageTheLinkOpens:
         "first_name": "Quillhilde",
         "last_name": "Brackenmoor",
         "birth_date": "2009-05-09",
-        "einwilligung": einwilligung(scope="intern", media=True),
+        "einwilligung": einwilligung(scope="internal", media=True),
     }
 
     @pytest.mark.parametrize(
@@ -134,7 +134,7 @@ class TestAPersonIsNeverWrittenNameless:
         "first_name": "Quillhilde",
         "last_name": "Brackenmoor",
         "birth_date": "2009-05-09",
-        "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, scope="intern"),
+        "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, scope="internal"),
     }
     # A registration carrying no choice, which renews nothing on the person's record.
     RETURNING = {
@@ -166,7 +166,7 @@ def answer(**overrides: Any) -> dict[str, Any]:
     return {
         "token": RAW,
         "birth_date": "2009-05-09",
-        "scope": "intern",
+        "scope": "internal",
         "media": False,
         "text_versions": dict(SPIELER_TEXT_VERSIONS),
         **overrides,

@@ -39,11 +39,11 @@ const FOLGE = {
 /** A request's approval, the second pair of eyes a grant or a promotion waits on, closed with the backend's reason where this reader may not give it. */
 export function AdminBerechtigungAntragGenehmigenPanel({
   antrag,
-  zeile,
+  row,
 }: {
   antrag: FLGrantApprovalRequestRow;
   /** What tells the row apart in the control's name: the address, or the request's moment where it is withheld. */
-  zeile: string;
+  row: string;
 }) {
   // The enrolment's window, as the action's: the prompt asks before a press the server would refuse.
   const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
@@ -81,7 +81,7 @@ export function AdminBerechtigungAntragGenehmigenPanel({
             confirm={twoPress}
             reason={genehmigenGrund(antrag)}
             resting={ANTRAG_GENEHMIGEN}
-            restingName={benannt(ANTRAG_GENEHMIGEN, zeile)}
+            restingName={benannt(ANTRAG_GENEHMIGEN, row)}
             armed="Ja, Antrag genehmigen"
             running="Genehmigt..."
             icon={

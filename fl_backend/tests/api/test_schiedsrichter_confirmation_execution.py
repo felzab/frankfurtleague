@@ -212,7 +212,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     body = {
         "token": token,
         "birth_date": AN_ADULTS_BIRTHDATE,
-        "scope": "kader_oeffentlich",
+        "scope": "kader_public",
         "media": True,
         "text_versions": dict(TEXT_VERSIONS),
         **overrides,
@@ -544,7 +544,7 @@ class TestTheConfirmation:
         # Each choice evidenced by the confirmation, its instant in UTC: `NOW` is half past noon in
         # Frankfurt's summer time.
         assert row[EINWILLIGUNG_FIELD] == {
-            "scope": "kader_oeffentlich",
+            "scope": "kader_public",
             "date": TODAY,
             "confirmed_at": TODAY,
             "media": True,
@@ -553,7 +553,7 @@ class TestTheConfirmation:
                 "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
             },
         }
-        assert (response.scope, response.media, response.confirmed_at) == ("kader_oeffentlich", True, TODAY)
+        assert (response.scope, response.media, response.confirmed_at) == ("kader_public", True, TODAY)
         assert ERASE_AT_FIELD not in row
 
     def test_a_second_press_is_refused(self, mongo_replica_set_url: str):
@@ -564,14 +564,14 @@ class TestTheConfirmation:
             await confirm(database, client, minted.token)
 
             with pytest.raises(APIError) as refused:
-                await confirm(database, client, minted.token, scope="intern")
+                await confirm(database, client, minted.token, scope="internal")
 
             return refused.value, await stored(database)
 
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.CONFIRMATION_EXISTS
-        assert row[EINWILLIGUNG_FIELD]["scope"] == "kader_oeffentlich"
+        assert row[EINWILLIGUNG_FIELD]["scope"] == "kader_public"
 
     def test_a_press_after_the_deadline_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """A lapsed link still answering takes a consent after the deadline the mail named, on an entry already due to go."""

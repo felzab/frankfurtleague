@@ -16,7 +16,7 @@ import { useEditor } from "@/kit/useEditor";
 import { COPY } from "@/core/copy";
 import { FLAustrittType } from "@/core/generated/client/types";
 import { KONTAKT_ROLLE_LONG_FORM } from "@/core/teamVocabulary";
-import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
+import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { schulformOptions } from "@/features/teams/options";
 
@@ -138,8 +138,8 @@ export function TeamEditor({
             width="C5"
             kind="text"
             isRequired={required.shorthand}
-            maxLength={KUERZEL_LAENGE}
-            minLength={KUERZEL_LAENGE}
+            maxLength={SHORTHAND_LENGTH}
+            minLength={SHORTHAND_LENGTH}
             value={draft.shorthand}
             onChange={(shorthand) => set("shorthand", shorthand)}
           />
@@ -281,8 +281,8 @@ export function TeamEditor({
             ),
           },
           {
-            id: "registrierungslink",
-            title: WORDS.registrierungslink,
+            id: "registrierungLink",
+            title: WORDS.registrierungLink,
             fields: isClosed ? (
               <Facts facts={row.invitation.facts} />
             ) : (
