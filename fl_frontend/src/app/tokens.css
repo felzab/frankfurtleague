@@ -12,17 +12,13 @@
     --bg: #eaeaea;
     /* The rail's fill, and a chosen box's lift: the card's, as in the dark theme. */
     --bg-surface: #ffffff;
-    /* One step off a card and off the page: the fill under the pointer on a card, and the small fills, a
-       skeleton's bars on the page among them. */
+    /* One step off a card and off the page: the fill under the pointer on a card, and the small fills. */
     --bg-muted: #d9d9d9;
     /* A card and a table, one step off the page; its head on the page's own grey; a dialog, menu, sheet,
        popover, tooltip or toast. Each a role of its own rather than a step of the scale above, so a theme can
        raise its cards without moving the rail, the fields or the overlays. */
     --bg-card: #ffffff;
     --bg-card-head: #eaeaea;
-    /* A folded card's head under the pointer, lifted toward the text as a chip's tint is, as far as the head's
-       muted count keeps 4.5:1 on it. */
-    --bg-card-head-hover: #c8c8c8;
     --bg-overlay: #ffffff;
     --fg: #0a0a0a;
     --fg-muted: #525252;
@@ -58,7 +54,6 @@
     --bg-muted: #262626;
     --bg-card: #121212;
     --bg-card-head: #262626;
-    --bg-card-head-hover: #383838;
     --bg-overlay: #121212;
     --fg: #ffffff;
     --fg-muted: #a3a3a3;
@@ -104,13 +99,12 @@
     --target-highlight: 2s;
   }
 
-  /* The fill a placeholder's bar takes while it waits (`kit/Skeleton.tsx`): a step off the ground it stands on. The
-     muted fill is that step on the page, a card and an overlay; on a card's head, which the dark theme fills with the
-     muted grey itself, the step would vanish, so a head redeclares it as the head's own step
-     (`cardStyles.ts :: headGround`), as the band redeclares `--focus-ring`. Resolved on the root, which carries
-     `data-theme`, so it follows the theme. */
+  /* The text colour of the ground a placeholder's bar stands on, which `skeleton-bar` takes 12 % of. A name of its own,
+     never `currentColor`: a bar holding unseen words has a transparent `color`, and a muted line's would fade with it.
+     The band redeclares it as it redeclares `--focus-ring`. Resolved on the root, which carries `data-theme`, so it
+     follows the theme. */
   :root {
-    --bg-hover: var(--bg-muted);
+    --bar-ink: var(--fg);
   }
 
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
@@ -186,17 +180,6 @@
   }
 }
 
-/* A skeleton's shimmer, a sweep across the box. Outside the gate above: it is a loading indicator, and a
-   loading indicator that stops under reduced motion reads as stuck. */
-@keyframes kit-shimmer {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
 /* A placeholder's arrival: it is drawn invisible and becomes visible once `--loading-delay` has passed.
    Outside the gate above, so under reduced motion it still appears, at once rather than fading. */
 @keyframes kit-appear {
@@ -205,24 +188,14 @@
   }
 }
 
-/* A placeholder's bar (`kit/Skeleton.tsx`): its base fill, one step off the ground it stands on (`--bg-hover`), so a bar
-   shows on the page, a card and a card's head alike, with a lighter band sweeping across it every two seconds, under
-   reduced motion too. One utility, so a page waiting in hundreds of bars carries one class for all of this rather than
-   its every class on each bar. Its first property sorts it ahead of the single-property utilities, so a bar's own size,
-   corners or fill, set beside it, win. */
+/* A placeholder's bar (`kit/Skeleton.tsx`): 12 % of its ground's text colour, the hover layer's figure, so a bar shows
+   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. Applied here
+   rather than set as a class, so it stands outside `globals.css`'s reduced-motion stop for `.animate-pulse`: a loading
+   indicator that stops reads as stuck. One utility, so a page waiting in hundreds of bars carries one class for all of
+   this rather than its every class on each bar. Its properties sort it ahead of the single-property utilities on the
+   same property, so a bar's own display, size or corners, set beside it, win. */
 @utility skeleton-bar {
-  @apply relative block shrink-0 overflow-hidden rounded-md bg-bg-hover;
-
-  &::after {
-    @apply absolute inset-0 animate-[kit-shimmer_2s_linear_infinite] bg-linear-to-r from-transparent via-[rgb(255_255_255/0.55)] to-transparent;
-    content: "";
-  }
-
-  @variant dark {
-    &::after {
-      @apply via-[rgb(255_255_255/0.09)];
-    }
-  }
+  @apply block shrink-0 animate-pulse overflow-hidden rounded-md bg-bar-ink/12;
 }
 
 /* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
@@ -272,8 +245,7 @@
   --color-bg-muted: var(--bg-muted);
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
-  --color-bg-card-head-hover: var(--bg-card-head-hover);
-  --color-bg-hover: var(--bg-hover);
+  --color-bar-ink: var(--bar-ink);
   --color-bg-overlay: var(--bg-overlay);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);

@@ -12,7 +12,7 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
-import { Segmented } from "./ChoiceButtons";
+import { Segmented, SegmentedPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
 import { Icon } from "./Icon";
@@ -204,6 +204,11 @@ export function ThemeChoice() {
       onChange={setTheme}
     />
   );
+}
+
+/** The theme's control while its box waits: one glyph's bar per theme. */
+export function ThemeChoicePlaceholder() {
+  return <SegmentedPlaceholder count={THEMES.length} />;
 }
 
 /**
@@ -727,11 +732,10 @@ export function BackControl({ href }: { href: Route }) {
 export function EditorBackPlaceholder() {
   return (
     <Placeholder layout={back({ class: "gap-1" })}>
-      <span className={placeholderBar("size-4.5", "band")} />
+      <span className={placeholderBar("size-4.5")} />
       <PlaceholderLine
         text="text-sm"
         words={COPY.shared.back}
-        ground="band"
       />
     </Placeholder>
   );

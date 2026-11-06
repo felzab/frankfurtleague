@@ -66,7 +66,6 @@ export function HeaderLinks({
                 <PlaceholderLine
                   text="text-sm"
                   words={SAISON_WORDS}
-                  ground="band"
                 />
               </Placeholder>
             }>

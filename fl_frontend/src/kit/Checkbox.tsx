@@ -8,8 +8,24 @@ import { MessageLine, RequiredMark } from "./FieldParts";
 import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
+import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 
 import type { Copy, Words } from "@/core/copy";
+
+/** A box while its record is read: the drawn box as a bar, and its label as lines, wrapping as the label will. */
+export function CheckboxPlaceholder({ label }: { label: string }) {
+  return (
+    <div className={toggleField()}>
+      <span className={toggleRow({ in: "field" })}>
+        <span className={placeholderBar(toggleBox({ shape: "square", class: "border-transparent" }))} />
+        <PlaceholderSentence
+          text=""
+          words={label}
+        />
+      </span>
+    </div>
+  );
+}
 
 /**
  * A saved yes or no, such as a consent or „Startelf“ in a line-up: the drawn box, its label to the

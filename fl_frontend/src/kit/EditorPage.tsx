@@ -7,7 +7,6 @@ import { Form } from "react-aria-components/Form";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
@@ -15,7 +14,7 @@ import { StatusLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
 import { lockedLine } from "./lockedLine";
 import { formColumn, RailPage } from "./RailFrame";
-import { Section } from "./Section";
+import { dangerRow, Section } from "./Section";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
@@ -71,7 +70,7 @@ function DangerRow({ act }: { act: DangerAct }) {
   const line: FormStatus = refusal === null ? lockedLine(locked ?? act.consequence) : { tone: "error", text: refusal };
   return (
     // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
-    <div className={`flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}`}>
+    <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
         <StatusLine

@@ -126,7 +126,7 @@ export function ClassicFrame({
     // (`ClassicPage`) and by the toasts.
     <div className="flex min-h-dvh flex-col">
       {/* A picture of its own in a page's cross-fade, so the page scrolled under it is not drawn over it (`tokens.css`). */}
-      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">
+      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
           <Brand ground="band" />
           <HeaderLinks

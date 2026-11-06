@@ -23,10 +23,11 @@ export function PageFade({ children }: { children: ReactNode }) {
 }
 
 /**
- * A template's one loading boundary where it stands inside the page, under the title: its fallback while the
- * content is read, the skeleton of the content's box where it draws one, fading out as the content fades in.
- * Never around a whole page, whose own fade would then stand directly inside this one: the server's streamed
- * reveal reads the innermost and would leave the swap without a fade.
+ * A template's loading boundary where it stands inside the page, under the title, or one of several where a page's
+ * static parts stand between what its read decides: its fallback while the content is read, the skeleton of the
+ * content's box where it draws one, fading out as the content fades in. Never around a whole page, whose own fade
+ * would then stand directly inside this one: the server's streamed reveal reads the innermost and would leave the
+ * swap without a fade.
  */
 export function PageWait({ fallback, children }: { fallback: ReactNode; children: ReactNode }) {
   return (
