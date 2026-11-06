@@ -3749,13 +3749,19 @@ export const TeamsPatchSaisonTeamParams = zod.object({
 export const teamsPatchSaisonTeamBodyAustrittOneDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const teamsPatchSaisonTeamBodyAustrittOneExitReasonMax = 500;
 
+export const teamsPatchSaisonTeamBodyAustrittOneExitReasonRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+
 export const TeamsPatchSaisonTeamBody = zod
   .object({
     austritt: zod.union([
       zod
         .object({
           date: zod.string().regex(teamsPatchSaisonTeamBodyAustrittOneDateRegExp),
-          exit_reason: zod.string().min(1).max(teamsPatchSaisonTeamBodyAustrittOneExitReasonMax),
+          exit_reason: zod
+            .string()
+            .min(1)
+            .max(teamsPatchSaisonTeamBodyAustrittOneExitReasonMax)
+            .regex(teamsPatchSaisonTeamBodyAustrittOneExitReasonRegExp),
           type: zod.enum(["disqualifikation", "rueckzug"]),
         })
         .describe(

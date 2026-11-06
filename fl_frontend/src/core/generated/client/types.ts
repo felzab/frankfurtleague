@@ -1187,6 +1187,7 @@ export interface FLAustrittPayload {
   /**
    * @minLength 1
    * @maxLength 500
+   * @pattern ^[^\x00\v\f\u0085\u2028\u2029]*$
    */
   exit_reason: string;
   type: FLAustrittType;

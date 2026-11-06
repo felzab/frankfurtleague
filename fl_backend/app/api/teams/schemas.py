@@ -33,6 +33,7 @@ from app.shared.schemas.bounds import (
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
+    PARAGRAPH_PATTERN,
     PHONE_REGEX,
     SINGLE_LINE_PATTERN,
     CustomDateString,
@@ -122,7 +123,10 @@ class FLAustrittPayload(FLAustritt):
     """
 
     exit_reason: Annotated[
-        str, StringConstraints(max_length=AUSTRITT_EXIT_REASON_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+        str,
+        StringConstraints(max_length=AUSTRITT_EXIT_REASON_MAX_LENGTH, pattern=PARAGRAPH_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
     ]
 
 
