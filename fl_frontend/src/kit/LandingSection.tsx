@@ -12,8 +12,7 @@ import type { ReactNode } from "react";
 
 const section = tv({
   slots: {
-    // A section a link reaches stops under the sticky band rather than behind it.
-    root: "grid min-w-0 scroll-mt-(--classic-header) gap-6",
+    root: "kit-section-target grid min-w-0 gap-6",
     head: "grid max-w-measure justify-items-start gap-2",
     // The eyebrow over a section's title, in the kit's small capitals.
     eyebrow: smallCaps(),

@@ -225,6 +225,13 @@
   }
 }
 
+/* A section of a classic page a link points to by its fragment: it stops under the sticky band rather than behind it. */
+@layer components {
+  .kit-section-target {
+    scroll-margin-top: var(--classic-header);
+  }
+}
+
 /* Registered so the two fade widths interpolate rather than jump. Zero where no scroll drives them: a
    row that fits, or a browser without scroll-driven animations, shows no fade. */
 @property --kit-fade-start {
