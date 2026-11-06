@@ -60,7 +60,7 @@ export default function TeamEditorPage({ params }: Props) {
       wait={{
         sections: [
           ["pair", "field", SELECT, "field", { titled: "W4" }],
-          ["pair", "field", "pair"],
+          ["pair", "pair", "field"],
           [SELECT, SELECT],
           [<SeatRowsPlaceholder key="seats" />],
           [

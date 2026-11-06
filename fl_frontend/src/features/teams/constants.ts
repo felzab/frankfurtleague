@@ -4,7 +4,7 @@ import { KONTAKT_ROLLE_LONG_FORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
 import type { Copy } from "@/core/copy";
-import type { FLAustrittType, FLKontaktKenntnisnahmeScope, FLSchulform, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLAustrittType, FLKontaktKenntnisnahmeScope, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 /** The closed set, in the order every picker offers it and a season's groups take their names. */
@@ -34,11 +34,6 @@ export function austrittChip(type: FLAustrittType): ChipProps {
   return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittZustand(type) };
 }
 
-// The club-field ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py` and shared with
-// the public application: both tiers refuse alike, so each number lives here once.
-export const TEAM_NAME_MAX_LENGTH = 60;
-export const TEAM_FULL_NAME_MAX_LENGTH = 120;
-export const TEAM_WEBSITE_URL_MAX_LENGTH = 300;
 // A person's name, or one part of one, at every field the backend types with
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName`.
 export const KONTAKT_NAME_MAX_LENGTH = 80;
@@ -54,7 +49,7 @@ type SchulformOption = {
  * The six school types, in the picker's order. The German is the school authority's own wording, so a
  * `G8` or a `G9` stays in the label rather than being spelled out.
  */
-export const SCHULFORM_OPTIONS: readonly SchulformOption[] = [
+const SCHULFORM_OPTIONS: readonly SchulformOption[] = [
   { value: "gymnasium_g8", label: "Gymnasium (G8)" },
   { value: "gymnasium_g9", label: "Gymnasium (G9)" },
   { value: "gesamtschule", label: "Gesamtschule" },
@@ -103,13 +98,6 @@ export function kontaktGeburtsdatumLeer(bestaetigtAm: string | null, ohneLabel =
   return ohneLabel ? nichtHinterlegt("Geburtsdatum") : NICHT_HINTERLEGT;
 }
 
-/**
- * The scheme every stored website URL carries, rendered as the field's uneditable prefix rather than
- * typed (`WebsiteUrlField`). So every box's `maxLength` is the payload ceiling minus this length: the
- * admin cannot spend on a prefix the form supplies.
- */
-export const WEBSITE_URL_SCHEME = "https://";
-
 /** What an administrator's readout labels a seat's contact scope with, and its two values keyed by the scope. */
 export const KONTAKT_WHATSAPP_FRAGE = "WhatsApp";
 export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeScope, string>> = {
@@ -133,27 +121,3 @@ export const KONTAKT_ROLLEN = [
 ] as const;
 
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
-
-type TrainerZugleichOption = {
-  /** A picker's key is a string; `null` is the answer „Eine eigene Person“ spells on the wire. */
-  readonly key: string;
-  readonly value: FLTrainerAlso | null;
-  readonly label: string;
-};
-
-/**
- * Which seat the Trainer IS, read after `TRAINER_ZUGLEICH_FRAGE`: that seat's details are what the
- * Trainer's boxes read.
- *
- * One closed set, never two ticks: a person cannot hold both of the other seats.
- */
-export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
-  { key: "ansprechperson", value: "ansprechperson", label: "Die Ansprechperson" },
-  { key: "stellvertretung", value: "stellvertretung", label: "Die Stellvertretung" },
-  // Last, because it is the one answer that leaves the Trainer's boxes below the picker to be typed
-  // into: a seat answer hides them on the public form and fills them read-only in the admin's editor.
-  { key: "niemand", value: null, label: "Eine andere Person" },
-];
-
-/** The question the three answer, spelled once so the picker and the draft rail cannot ask it differently. */
-export const TRAINER_ZUGLEICH_FRAGE = "Die Trainerin oder der Trainer ist";

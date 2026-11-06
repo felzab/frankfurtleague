@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 /** The one spelling of a link that opens a tab of its own: the opened page gets no handle on this one. */
-export const NEW_TAB_ATTRIBUTES = { target: "_blank", rel: "noopener noreferrer" } as const;
+const NEW_TAB_ATTRIBUTES = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 /** Said after the link's own words, so a screen reader learns the page stays where it is. */
 const IN_NEUEM_TAB = "(öffnet in einem neuen Tab)";

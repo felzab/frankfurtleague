@@ -67,7 +67,6 @@ export default function SpielortEditorPage({ params }: Props) {
               <FieldPlaceholder width="W3" />
               <FieldPlaceholder width="C5" />
             </FieldPair>,
-            "field",
             <FieldPair
               key="stadt"
               short="first"
@@ -78,6 +77,7 @@ export default function SpielortEditorPage({ params }: Props) {
               />
               <FieldPlaceholder width="W3" />
             </FieldPair>,
+            "field",
           ],
         ],
         danger: [COPY.shared.verb.retire],

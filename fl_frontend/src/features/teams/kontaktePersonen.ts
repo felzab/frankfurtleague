@@ -1,7 +1,5 @@
 import { asSignInIdentifier } from "@/core/emailAddress";
 
-import type z from "zod";
-
 // Imported by both `fl_frontend/src/features/bewerbungen/schemas.ts` and `./schemas.ts` and by neither
 // in turn: the first imports the second at module level, so a rule living in either is an import cycle
 // that throws whichever loads first.
@@ -49,83 +47,8 @@ function normalisiereTelefon(value: string): string {
  */
 const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
 
-/**
- * Two values are compared only where each one's own field accepts it. An empty or malformed box carries its own
- * refusal, and two empty telephone boxes fold to one number.
- */
-const feldNimmt = (feld: z.ZodType, wert: unknown): boolean => feld.safeParse(wert).success;
-
-// By value, because `einwilligung` is an object and two equal acknowledgements are two objects. One
-// level of nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison
-// is total.
-const gleicherWert = (a: unknown, b: unknown): boolean =>
-  typeof a === "object" && a !== null && typeof b === "object" && b !== null
-    ? JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
-    : a === b;
-
 type Person = { email: string; phone: string };
 type Sitz = "trainer" | "ansprechperson" | "stellvertretung";
-
-/**
- * The two rules every contact block written by anybody keeps, mirroring
- * `fl_backend/app/api/teams/schemas.py :: the_trainer_equals_the_seat_they_also_hold` and
- * `:: the_distinct_people_share_no_email_or_telephone`. An empty seat holds nobody to compare.
- */
-export function kontaktePersonenRegeln<P extends Person>({
-  email,
-  phone: telefon,
-  zugleich,
-}: {
-  email: z.ZodType;
-  phone: z.ZodType;
-  zugleich: z.ZodType<Exclude<Sitz, "trainer">>;
-}): (kontakte: Record<Sitz, P | null> & { trainer_is_also: unknown }, ctx: z.core.$RefinementCtx) => void {
-  return (kontakte, ctx) => {
-    for (const [erste, zweite] of KONTAKT_PAARE) {
-      // The declared pair IS one person and shares everything by construction. Every other pair is
-      // two people the league has to be able to tell apart when one of them stops answering.
-      if (zweite === "trainer" && erste === kontakte.trainer_is_also) continue;
-
-      const [eine, andere] = [kontakte[erste], kontakte[zweite]];
-      if (eine === null || andere === null) continue;
-
-      if (feldNimmt(email, eine.email) && feldNimmt(email, andere.email) && gleicheAdresse(eine.email, andere.email)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.",
-          path: [zweite, "email"],
-        });
-      }
-
-      if (feldNimmt(telefon, eine.phone) && feldNimmt(telefon, andere.phone) && gleicheNummer(eine.phone, andere.phone)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Diese Telefonnummer ist schon bei einer anderen Person eingetragen.",
-          path: [zweite, "phone"],
-        });
-      }
-    }
-
-    // Parsed rather than compared with `null`: this pass also runs beside a refused claim, which names no seat.
-    const gepaart = zugleich.safeParse(kontakte.trainer_is_also);
-    const trainer = kontakte.trainer;
-    const sitz = gepaart.success ? kontakte[gepaart.data] : null;
-
-    // The seat the Trainer also holds is filled FROM the Trainer, so a difference is a drifted client
-    // rather than something anybody can type — and a banner naming no field cannot explain it.
-    if (gepaart.success && trainer !== null && sitz !== null) {
-      for (const feld of Object.keys(trainer) as (keyof P)[]) {
-        if (!gleicherWert(sitz[feld], trainer[feld])) {
-          ctx.addIssue({
-            code: "custom",
-            message: "Diese Angabe muss mit der des Trainers übereinstimmen.",
-            path: [gepaart.data, String(feld)],
-          });
-        }
-      }
-    }
-  };
-}
 
 /**
  * The boxes, by the names they post under, holding an address or a number another person of the block holds: the rule

@@ -18,8 +18,8 @@ export type AddressRules = {
 
 /**
  * An address's lines, in a create dialog and an editor's box alike, on a venue and a club: the street and its number,
- * the district, and the postcode and its town, each pair one line of the address, sharing a row at every width, the
- * postcode before its town as a German address writes it. Each box posts under its own name; an editor's draft holds
+ * the postcode and its town, each pair one line of the address, sharing a row at every width, the postcode before its
+ * town as a German address writes it, and the district. Each box posts under its own name; an editor's draft holds
  * the values through `draft`, and without one a new address starts in the league's town.
  */
 export function AddressFields({
@@ -56,15 +56,6 @@ export function AddressFields({
           {...bound("hausnummer")}
         />
       </FieldPair>
-      <TextField
-        label={WORDS.stadtteil}
-        name="stadtteil"
-        width="W3"
-        kind="text"
-        isRequired={required.stadtteil}
-        maxLength={maxLength.stadtteil}
-        {...bound("stadtteil")}
-      />
       <FieldPair
         short="first"
         phone="pair">
@@ -88,6 +79,15 @@ export function AddressFields({
           {...(draft === undefined ? { defaultValue: WORDS.stadtDefault } : bound("stadt"))}
         />
       </FieldPair>
+      <TextField
+        label={WORDS.stadtteil}
+        name="stadtteil"
+        width="W3"
+        kind="text"
+        isRequired={required.stadtteil}
+        maxLength={maxLength.stadtteil}
+        {...bound("stadtteil")}
+      />
     </>
   );
 }

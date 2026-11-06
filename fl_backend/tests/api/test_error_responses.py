@@ -14,7 +14,6 @@ from httpx2 import Response
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, NetworkTimeout, PyMongoError
 
-from app.api.registrierungen.schemas import FLRegistrierungenFilterParams
 from app.core.codes import Code
 from app.core.exception_handlers import (
     db_exception_handler,
@@ -25,7 +24,7 @@ from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
 from app.core.routing import SAFE, SAFE_WHEN
 from app.main import create_app
-from app.shared.schemas.custom import PERSON_NAME_PATTERN
+from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomObjectId
 from tests.config import BASE_AUTH, build_test_config
 from tests.core.app_source import application
 
@@ -93,9 +92,15 @@ async def refuse_a_nested_field(payload: NestedPayload) -> dict[str, bool]:
 FILTERED_PATH = "/filtered"
 
 
+class FilteredQuery(BaseModel):
+    """A query naming an id, as a list route's filters declare one."""
+
+    team_id: CustomObjectId | None = None
+
+
 @VALIDATION_APP.get(FILTERED_PATH)
-async def read_the_query(filters: FLRegistrierungenFilterParams = Depends()) -> dict[str, str]:
-    """The pending list's query, declared as its route declares it, naming the type its `team_id` reached it as."""
+async def read_the_query(filters: FilteredQuery = Depends()) -> dict[str, str]:
+    """Names the type its `team_id` reached it as."""
 
     return {"team_id": type(filters.team_id).__name__}
 

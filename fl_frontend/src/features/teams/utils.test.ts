@@ -2,29 +2,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { FLTrikotFarbeSchema } from "./schemas.ts";
-import { offeredTrikotFarben, toWebsiteUrl } from "./utils.ts";
-
-describe("what a website box reports upward", () => {
-  /* The scheme lives in the input group's prefix, so what the box holds is the rest of the URL. */
-  it("puts the scheme back on whatever was typed", () => {
-    expect(toWebsiteUrl("www.beispielschule.de")).toBe("https://www.beispielschule.de");
-  });
-
-  /* A pasted full address must not come back doubled. */
-  it("de-duplicates a scheme that was pasted in with the address", () => {
-    expect(toWebsiteUrl("https://www.beispielschule.de")).toBe("https://www.beispielschule.de");
-    expect(toWebsiteUrl("HTTP://www.beispielschule.de")).toBe("https://www.beispielschule.de");
-  });
-
-  /* ONE spelling of "no website" is ever written, so no reader downstream tests for two. The
-     club payload refuses `""` outright (`schemas.test.ts`), so an empty box reported as one would
-     be refused rather than stored. */
-  it("reports no website as null, never as the empty string", () => {
-    expect(toWebsiteUrl("")).toBe(null);
-    expect(toWebsiteUrl("   ")).toBe(null);
-    expect(toWebsiteUrl("https://")).toBe(null);
-  });
-});
+import { offeredTrikotFarben } from "./utils.ts";
 
 describe("the kit palette", () => {
   /* The option's type refuses a colour the wire does not carry, never one the palette leaves out,

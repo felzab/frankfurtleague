@@ -1,4 +1,4 @@
-import { GRUPPEN_OPTIONS, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
+import { GRUPPEN_OPTIONS, TRIKOT_FARBE_OPTIONS } from "./constants";
 
 import type { FLSaisonRules, FLTeamMembership, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { TrikotFarbeOption } from "./constants";
@@ -22,18 +22,6 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaisonRules, members
     capacity: rules.teams_per_gruppe,
   }));
 };
-
-/**
- * What a website box reports upward: the whole URL, or `null` for a box nobody filled. **The one
- * place `""` becomes `null`** — the single spelling of absence the API publishes is kept by
- * coercing here, not by every reader testing for two.
- */
-export function toWebsiteUrl(typed: string): string | null {
-  // The scheme lives in the input group's prefix, so a pasted full URL is de-duplicated here.
-  const rest = typed.replace(/^https?:\/\//i, "").trim();
-
-  return rest === "" ? null : `${WEBSITE_URL_SCHEME}${rest}`;
-}
 
 /**
  * Which colours a picker offers once the season's ASSIGNED ones are left out. Its own function
