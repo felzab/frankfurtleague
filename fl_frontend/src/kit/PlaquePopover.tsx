@@ -52,7 +52,19 @@ function Entry({ href, icon, label }: { href: Route; icon: IconName; label: Copy
  * over, anchored under the plaque. The button is positioned above a row's stretched link, so a press on the plaque
  * opens the club's pop-up rather than the row's record.
  */
-export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText; name: Words; href: Route; line?: Copy }) {
+export function PlaquePopover({
+  plaque,
+  name,
+  href,
+  line,
+  muted,
+}: {
+  plaque: RecordText;
+  name: Words;
+  href: Route;
+  line?: Copy;
+  muted: boolean;
+}) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   return (
     <DialogTrigger
@@ -60,7 +72,7 @@ export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText
       onOpenChange={setOpen}>
       <AriaButton
         data-kit-focus="ring"
-        className={plaqueLook({ known: true, class: `relative z-10 cursor-pointer ${hoverLook({ host: "aria" })}` })}>
+        className={plaqueLook({ known: true, muted, class: `relative z-10 cursor-pointer ${hoverLook({ host: "aria" })}` })}>
         {plaque.record}
       </AriaButton>
       <Popover
