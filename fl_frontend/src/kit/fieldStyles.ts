@@ -351,18 +351,16 @@ export const menuPopover = tv({
 });
 
 /**
- * The pop-up a short text opens in, anchored to its control and dimming nothing: the help behind a section's ⓘ, a
- * locked act's reason and a club behind its plaque, on one surface. Help and a reason are a few sentences, set at the
- * help popover's 320 px so they wrap at one measure; a club's name and its link are a few words, so that pop-up is as
- * wide as they are, never narrower than 192 px. None is wider than the screen. All take the control edge, which
- * stands apart from the row or the box beneath it where the hairline is lost on it.
+ * The pop-up a short text opens in, anchored to its control and dimming nothing: the help behind a section's ⓘ and a
+ * locked act's reason, on one surface, a few sentences set at the help popover's 320 px so they wrap at one measure,
+ * never wider than the screen. Both take the control edge, which stands apart from the row or the box beneath it where
+ * the hairline is lost on it.
  */
 export const popoverSurface = tv({
   base: "max-w-panel rounded-lg border border-border-control bg-bg-overlay p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
   variants: {
     width: {
       help: "w-popover",
-      fit: "min-w-48",
     },
   },
 });

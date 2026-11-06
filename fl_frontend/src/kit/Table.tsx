@@ -6,7 +6,6 @@ import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
-import { PlaquePopover } from "./PlaquePopover";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
@@ -55,12 +54,6 @@ export type TableRow = {
   href?: Route;
   /** A club's plaque before its name. */
   plaque?: Plaque;
-  /**
-   * The club's own page: its plaque then opens the club's full name over `plaqueLine`, such as its group, and the
-   * ways to its page and its squad (`PlaquePopover`).
-   */
-  plaqueHref?: Route;
-  plaqueLine?: Copy;
   chip?: ChipProps;
   /** The row's values, by column key; a missing value leaves its cell empty. */
   cells: Readonly<Record<string, TableCell>>;
@@ -322,42 +315,11 @@ const nameWords = tv({
   },
 });
 
-/** A side's plaque: a button opening the club where the side names its page, else the plaque drawn. */
-function PlaqueOf({
-  plaque,
-  href,
-  name,
-  line,
-  muted,
-}: {
-  plaque: Plaque;
-  href: Route | undefined;
-  name: Words;
-  line: Copy | undefined;
-  muted: boolean;
-}) {
-  return "record" in plaque && href !== undefined ? (
-    <PlaquePopover
-      plaque={plaque}
-      name={name}
-      href={href}
-      muted={muted}
-      {...(line === undefined ? {} : { line })}
-    />
-  ) : (
-    <TeamPlaque
-      plaque={plaque}
-      muted={muted}
-    />
-  );
-}
-
 /**
  * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then the chip, which keeps
  * its size and its line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
- * the row's link, which may hold no button; the link's stretched box still covers a drawn plaque, so on a phone,
- * where the plaque alone is drawn, a press on it opens the row's record, which the link names by the club's full
- * name, and a plaque opening its club stands above that box.
+ * the row's link; the link's stretched box still covers it, so on a phone, where the plaque alone is drawn, a press on it
+ * opens the row's record, which the link names by the club's full name.
  */
 function NameCell({
   row,
@@ -382,11 +344,8 @@ function NameCell({
       className={s.name()}>
       <span className="flex min-w-0 items-center gap-2">
         {plaque !== undefined && (
-          <PlaqueOf
+          <TeamPlaque
             plaque={plaque}
-            href={row.plaqueHref}
-            name={row.name}
-            line={row.plaqueLine}
             muted={row.muted === true}
           />
         )}
