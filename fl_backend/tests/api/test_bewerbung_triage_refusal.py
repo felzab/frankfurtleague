@@ -8,8 +8,8 @@ from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
     compose_kontakt_seat_update,
     find_acceptance_code_refusal,
-    find_kontakt_email_refusal,
     find_new_club_refusal,
+    find_seat_contact_refusal,
 )
 from app.core.codes import Code
 from tests.documents import kontaktperson_document
@@ -117,7 +117,26 @@ class TestCorrectingOneContactAddress:
             "trainer_is_also": None,
         }
 
-        refusal = find_kontakt_email_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com")
+        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com", phone="069 7654321")
 
         # Naming the field, or the dialog has no box to say it on.
         assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, (("email",),))
+
+    def test_another_spelling_of_the_number_another_person_is_reached_at_is_refused(self):
+        """Stored, it reaches the season row at acceptance, where every later write on either person is refused `kontakt_phone_taken`."""
+
+        seats = {
+            "trainer": kontaktperson_document("Quillhilde", phone="069 1000"),
+            "ansprechperson": kontaktperson_document("Ansgar", phone="069 2000"),
+            "stellvertretung": kontaktperson_document("Stellan", phone="069 3000"),
+            "trainer_is_also": None,
+        }
+
+        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="+49 (0)69 3000")
+
+        assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, (("phone",),))
+
+    def test_the_seat_keeps_its_own_number(self):
+        seats = {"ansprechperson": kontaktperson_document("Ansgar", phone="069 2000"), "trainer": None, "stellvertretung": None}
+
+        assert find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="069 2000") is None

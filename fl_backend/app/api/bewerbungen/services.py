@@ -24,7 +24,7 @@ from app.api.outbox.schemas import (
 )
 from app.api.outbox.services import OwedMail
 from app.api.sperrliste.services import withheld_actor
-from app.api.teams.schemas import FLPostTeamPayload
+from app.api.teams.schemas import FLPostTeamPayload, normalise_phone
 from app.core.codes import Code
 from app.core.collections import Collection as Sammlung
 from app.core.crud import build_sort
@@ -977,27 +977,52 @@ def find_einwilligung_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     )
 
 
-def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: str) -> WriteRefusal | None:
-    """Why this address cannot be the seat's, or `None`.
+def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> WriteRefusal | None:
+    """Why this submission's block holds two people reachable alike, or `None`: every box repeating an earlier person's address or number.
 
-    The submission's own distinctness rule asked again -- two DIFFERENT people are not reachable at
-    one mailbox -- because a seat write is the one path that could put them there afterwards.
+    A body's fault, judged here rather than on the payload: a model's rule can name the block alone, and the form marks
+    the box. The seat the Trainer also holds is that person and is compared with nobody; the mark lands on the later
+    seat, the box the applicant reaches next and the one to change.
+    """
+
+    addresses: set[str] = set()
+    numbers: set[str] = set()
+    boxes: list[tuple[str, ...]] = []
+
+    for seat in KONTAKT_ROLLEN:
+        if seat == kontakte["trainer_is_also"]:
+            continue
+        # On the sign-in fold: two seats one sign-in reaches are one identity.
+        address, number = sign_in_identifier(kontakte[seat]["email"]), normalise_phone(kontakte[seat]["phone"])
+        boxes += [("kontakte", seat, field) for field, seen in (("email", address in addresses), ("phone", number in numbers)) if seen]
+        addresses.add(address)
+        numbers.add(number)
+
+    if boxes:
+        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_REPEATED, status=HTTPStatus.UNPROCESSABLE_CONTENT, fields=tuple(boxes))
+
+    return None
+
+
+def find_seat_contact_refusal(*, kontakte: Any, seats: Sequence[str], email: str, phone: str) -> WriteRefusal | None:
+    """Why this address or this number cannot be the seat's, or `None`.
+
+    `find_repeated_contact_refusal`'s rule asked again -- two DIFFERENT people are not reachable alike -- because a seat
+    write is the one path that could put them there afterwards.
     """
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     # The seats this write reaches are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
-    others = [slots.get(seat) for seat in KONTAKT_ROLLEN if seat not in seats]
-    # On the sign-in fold, as `FLBewerbungKontaktePayload` compares it: a third spelling of "one
-    # mailbox" here would refuse where the form accepted, or the reverse.
-    held = {sign_in_identifier(str(slot.get("email") or "")) for slot in others if isinstance(slot, Mapping)}
+    others = [slot for seat in KONTAKT_ROLLEN if seat not in seats and isinstance(slot := slots.get(seat), Mapping)]
 
-    if sign_in_identifier(email) in held:
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN,
-            status=HTTPStatus.CONFLICT,
-            fields=(("email",),),
-        )
+    # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
+    # form accepted, or the reverse.
+    if sign_in_identifier(email) in {sign_in_identifier(str(slot.get("email") or "")) for slot in others}:
+        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT, fields=(("email",),))
+
+    if normalise_phone(phone) in {normalise_phone(str(slot.get("phone") or "")) for slot in others}:
+        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("phone",),))
 
     return None
 

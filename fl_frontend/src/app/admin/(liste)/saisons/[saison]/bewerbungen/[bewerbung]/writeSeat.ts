@@ -16,7 +16,8 @@ const { shape } = BewerbungenPostKontaktSeatBody;
 /**
  * „Sitz bearbeiten“: writes the person into the seat on the version the page read, whatever its state but an erased one,
  * and owes them a fresh link with that seat's own 14 days, which the dialog says, naming the address the write stored.
- * An address another person of the application holds is refused on its box, one the ban list holds on the status line.
+ * An address or a number another person of the application holds is refused on its box, an address the ban list holds
+ * on the status line.
  */
 export const writeSeat = action({
   lane: "admin",
@@ -30,8 +31,8 @@ export const writeSeat = action({
     phone: shape.phone,
     version: numberBox(shape.version),
   }),
-  ownWords: ["bewerbung_kontakt_email_taken", "bewerbung_kontakt_barred", "email_not_accepted"],
-  paths: { email: "email" },
+  ownWords: ["bewerbung_kontakt_email_taken", "bewerbung_kontakt_phone_taken", "bewerbung_kontakt_barred", "email_not_accepted"],
+  paths: { email: "email", phone: "phone" },
   examples: { phone: COPY.admin.schiedsrichter.phoneExample },
   run: async ({ id, seat, ...person }) => {
     const { email } = await bewerbungenPostKontaktSeat(id, seat, person);

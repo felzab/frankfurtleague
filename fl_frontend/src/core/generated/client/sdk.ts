@@ -834,7 +834,8 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * (`bewerbung_key_differing`).
  *
  * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
- * already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season.
+ * already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number
+ * are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -1192,8 +1193,9 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
  *
  * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
  * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
- * address another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban
- * list holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
+ * address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
+ * `bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no
+ * seat is a 404.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeat = async (

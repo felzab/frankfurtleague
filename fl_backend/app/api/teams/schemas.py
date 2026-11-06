@@ -17,8 +17,6 @@ from pydantic import (
 from app.api.invitations.schemas import FLTeamLinkState
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
-from app.core.exceptions import rule_refusal
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     AUSTRITT_REASON_MAX_LENGTH,
@@ -48,7 +46,6 @@ from app.shared.schemas.einwilligung import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
-    KONTAKT_ROLLEN,
     FLAddressChangeViewableDenied,
     FLAustrittType,
     FLGruppenNames,
@@ -336,28 +333,6 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         # An empty side is a seat an erasure or a Widerspruch emptied, which names nobody to compare.
         if seat is not None and self.trainer is not None and seat != self.trainer:
             raise ValueError(f"the seat '{self.trainer_is_also}' the Trainer also holds carries other details than the Trainer's")
-
-        return self
-
-    @model_validator(mode="after")
-    def the_distinct_people_share_no_email_or_telephone(self) -> Self:
-        """Two DIFFERENT people may not be reachable at one address or one number.
-
-        The seat the Trainer also holds is left out of the comparison: it is the same person, and
-        the rule above has already held the two blocks equal.
-        """
-
-        seats = [seat for seat in KONTAKT_ROLLEN if seat != self.trainer_is_also]
-        people: list[_KontaktpersonWritablePayload] = [person for seat in seats if (person := getattr(self, seat)) is not None]
-
-        # On the sign-in fold: two seats one sign-in reaches are one identity.
-        emails = [sign_in_identifier(person.email) for person in people]
-        if len(set(emails)) != len(emails):
-            raise rule_refusal("kontakt_email_twice", "two contact persons share one email address")
-
-        phones = [normalise_phone(person.phone) for person in people]
-        if len(set(phones)) != len(phones):
-            raise rule_refusal("kontakt_phone_twice", "two contact persons share one telephone number")
 
         return self
 

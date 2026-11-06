@@ -779,15 +779,6 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.log_rows[0]["actor"] == {"kind": "public", "email": PUBLIC_ACTOR_EMAIL}
         assert forged_actor not in str(submitted.log_rows[0])
 
-    def test_a_body_breaking_a_shape_rule_is_refused_as_a_payload(self, mongo_replica_set_url: str):
-        """The distinctness rule is about the BODY, not a judgement against the database, so it reaches no refusal code."""
-
-        shared = dict(KONTAKTE["ansprechperson"], phone=KONTAKTE["trainer"]["phone"])
-        submitted = through_the_app(mongo_replica_set_url, payload(kontakte={**KONTAKTE, "ansprechperson": shared}))
-
-        assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
-        assert submitted.stored == 0
-
     @pytest.mark.parametrize(
         "key",
         [
@@ -802,6 +793,18 @@ class TestASubmissionMadeOverTheWire:
         submitted = through_the_app(mongo_replica_set_url, payload(), key=key)
 
         assert submitted.response.status_code == 422
+        assert submitted.stored == 0
+
+    def test_a_repeated_contact_is_a_422_naming_its_box_and_storing_nothing(self, mongo_replica_set_url: str):
+        """Named on the box the form marks, which the block's own validators cannot: the form holds no copy of the rule."""
+
+        repeating = {**KONTAKTE, "stellvertretung": {**KONTAKTE["stellvertretung"], "email": KONTAKTE["trainer"]["email"].upper()}}
+
+        submitted = through_the_app(mongo_replica_set_url, payload(kontakte=repeating))
+        answer = submitted.response.json()
+
+        assert (submitted.response.status_code, answer["error_code"]) == (422, Code.BEWERBUNG_KONTAKT_REPEATED)
+        assert [field["path"] for field in answer["fields"]] == [["kontakte", "stellvertretung", "email"]]
         assert submitted.stored == 0
 
     def test_a_refusal_is_a_409_carrying_its_code(self, mongo_replica_set_url: str):

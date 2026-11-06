@@ -48,6 +48,7 @@ from app.api.bewerbungen.services import (
     find_einwilligung_barred_refusal,
     find_expired_token_refusal,
     find_picked_club_refusal,
+    find_repeated_contact_refusal,
     find_saison_deadline_refusal,
     find_saison_vorbei_einwilligung_refusal,
     find_submission_subject_refusal,
@@ -233,8 +234,11 @@ async def post_bewerbung(
     (`bewerbung_key_differing`).
 
     An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press, and so is one
-    already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season.
+    already on `OPEN_APPLICATIONS_PER_ADDRESS` open applications of the season. Two people sharing an address or a number
+    are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being that one person.
     """
+
+    refuse(find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
 
     schluessel = str(idempotency_key)
     fingerabdruck = payload_fingerabdruck(bewerbung_data)

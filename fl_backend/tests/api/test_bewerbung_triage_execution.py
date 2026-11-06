@@ -112,17 +112,17 @@ RULES: Mapping[str, Any] = rules_document(number_of_gruppen=2, teams_per_gruppe=
 SEATED: Final = {"date": "2026-01-15"}
 
 
-def kontaktperson(first_name: str) -> dict[str, Any]:
+def kontaktperson(first_name: str, *, phone: str) -> dict[str, Any]:
     """One of the three people an application is filled in by, in the shape the junction stores them."""
 
-    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone=phone, birth_date="1980-05-04")
 
 
 # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
 KONTAKTE: Mapping[str, Any] = {
-    "trainer": kontaktperson("Wraxlington"),
-    "ansprechperson": kontaktperson("Quillhilde"),
-    "stellvertretung": kontaktperson("Bramblewick"),
+    "trainer": kontaktperson("Wraxlington", phone="+49 69 1111111"),
+    "ansprechperson": kontaktperson("Quillhilde", phone="+49 69 2222222"),
+    "stellvertretung": kontaktperson("Bramblewick", phone="+49 69 3333333"),
     # Null, never a seat name: the three slots hold three people, and the flag is a claim of its own.
     "trainer_is_also": None,
 }
@@ -587,7 +587,7 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
             KONTAKTE[slot]["first_name"],
             confirmed_at="2026-02-10" if stamped else None,
             einwilligung=SEATED,
-            phone="+49 69 1234567",
+            phone=KONTAKTE[slot]["phone"],
             birth_date="1980-05-04" if stamped else None,
         )
 
@@ -1489,19 +1489,27 @@ class TestCorrectingOneContactAddress:
         assert rows[-1]["operation"] == "patch_one"
         assert rows[-1]["before"]["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
 
-    def test_an_address_another_contact_person_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize(("field", "taken"), [("email", Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN), ("phone", Code.BEWERBUNG_KONTAKT_PHONE_TAKEN)])
+    def test_a_detail_another_contact_person_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, field: str, taken: Code):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+            kept = {key: before["kontakte"]["ansprechperson"][key] for key in RESEAT_PERSON}
 
             with pytest.raises(APIError) as conflict:
-                await correct(database, client, "ansprechperson", email=before["kontakte"]["stellvertretung"]["email"])
+                await write_seat(
+                    database,
+                    client,
+                    "ansprechperson",
+                    {**kept, field: before["kontakte"]["stellvertretung"][field]},
+                    bewerbung_id=CORRECTION_BEWERBUNG,
+                )
 
             return conflict.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert code == taken
         assert after == before
 
     def test_a_confirmed_seat_gives_way_and_asks_its_new_person_afresh(self, mongo_replica_set_url: str):

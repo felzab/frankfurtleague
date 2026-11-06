@@ -47,8 +47,8 @@ from app.api.bewerbungen.services import (
     find_already_answered_refusal,
     find_already_entered_refusal,
     find_kontakt_barred_refusal,
-    find_kontakt_email_refusal,
     find_new_club_refusal,
+    find_seat_contact_refusal,
     find_seat_write_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
@@ -689,8 +689,9 @@ async def post_kontakt_seat(
 
     Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
     a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
-    address another contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban
-    list holds (`bewerbung_kontakt_barred`). A path naming no seat is a 404.
+    address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
+    `bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no
+    seat is a 404.
     """
 
     # Outside the transaction, whose callback may run again, as the referee editor reads both
@@ -728,7 +729,7 @@ async def post_kontakt_seat(
 
         # Asked over the seats this write does NOT reach: a mirrored pair is one person, and comparing them against
         # each other would refuse every such write.
-        refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
+        refuse(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email, phone=sitz_data.phone))
         barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
         refuse(find_kontakt_barred_refusal(barred=barred))
 

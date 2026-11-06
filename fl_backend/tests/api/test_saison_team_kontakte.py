@@ -493,12 +493,6 @@ class TestTheTwoContactRules:
 
         assert "the Trainer also holds" in str(failure.value)
 
-    def test_two_different_people_sharing_a_mailbox_on_the_sign_in_fold_are_refused(self):
-        with pytest.raises(ValidationError) as failure:
-            FLSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
-
-        assert [error["type"] for error in failure.value.errors()] == ["kontakt_email_twice"]
-
 
 class TestTheCompositionDecidesFromItsArguments:
     """The pure half, so every branch is pinned without a container."""
