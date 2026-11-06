@@ -667,7 +667,7 @@ export const COPY = catalogue({
       },
       /** The facts an entry box shows of its record. */
       facts: { birthday: "Geburtsdatum", phone: "Telefon", school: "Schule", team: "Team" },
-      /** Under the media box of a person short of its floor, who may not give that choice yet. */
+      /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
       mediaFrom: (age: number) => `Erst ab ${formatNumber(age)} Jahren`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
@@ -1001,6 +1001,7 @@ export const COPY = catalogue({
 
     /** The Bewerbungen list, its two dialogs, the Sammel-Zusage and the review page. */
     bewerbung: {
+      search: "Bewerbungen suchen",
       /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
       received: "Eingegangen",
       /** A row's chip and the status filter's option, by where the application stands. */
@@ -1009,6 +1010,9 @@ export const COPY = catalogue({
       accepted: "Angenommen",
       /** Stands in the status chip's place on an undecided row: its `Dublette`. */
       teamDouble: "Team doppelt",
+      /** The origin filter, whose options are `newSchool` and `existingTeam`. */
+      origin: "Herkunft",
+      existingTeam: "Bestehendes Team",
       /** The acceptance's group over the open Kürzel box, and „Team eintragen“'s group and entry. */
       newSchool: "Neue Schule",
       /** A colour's description in the acceptance, by its `TRIKOT_FARBEN` name. */
@@ -1044,6 +1048,8 @@ export const COPY = catalogue({
       show: "Zeigen",
       showSeason: "Teams der Saison",
       showRetired: "Auch stillgelegte",
+      /** The state filter's option for a club playing on, beside each exit's `state`. */
+      active: "Aktiv",
       enterDescription: "Ein bekanntes Team oder eine neue Schule",
       /** The field group over the season's fields in „Team eintragen“. */
       inSaison: (saison: string) => `In der ${saisonName(saison)}`,
@@ -1085,9 +1091,10 @@ export const COPY = catalogue({
     /** The Spieler list and its editor. */
     spieler: {
       search: "Spieler suchen",
-      /** A row's chips. */
+      /** A row's chips, and with `inKader` the state filter's options. */
       nominee: "Nachnominiert",
       deregistered: "Ausgetragen",
+      inKader: "Im Kader",
       nummerDouble: "Nummer doppelt",
       /** The editor's boxes and fields. */
       person: "Person",
@@ -1112,6 +1119,11 @@ export const COPY = catalogue({
       /** The danger box's two consequences, under the act's name and in its question alike. */
       deregisterConsequence: "Die Person steht in dieser Saison nicht mehr im Kader.",
       reactivateConsequence: "Die Person steht wieder im Kader.",
+    },
+
+    /** The Registrierungen list. */
+    registrierung: {
+      search: "Registrierungen suchen",
     },
   },
 
