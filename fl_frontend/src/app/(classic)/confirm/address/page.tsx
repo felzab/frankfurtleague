@@ -30,7 +30,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 const WORDS = SERVER_COPY.addressChange;
 
-const INVALID: MailedState = { state: "ungueltig", next: TO_ACCOUNT };
+const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 
 type Props = PageProps<"/confirm/address">;
 
@@ -123,7 +123,7 @@ async function administratorsWay(read: FLAddressChangeViewResponse, token: strin
 
 function oldView(read: ReturnType<typeof viewOf>, token: string): MailedState {
   return {
-    state: "alt",
+    state: "legacy",
     view: (
       <ClassicPage width="form">
         <AdresswechselLinkView

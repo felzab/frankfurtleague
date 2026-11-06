@@ -50,8 +50,8 @@ export const TO_ACCOUNT = { label: COPY.shared.end.toAccount, href: ROUTES.accou
  *   done state, worded by the server);
  * - `alreadyDone`: the link opened again, its title saying what the person did and when, with the one place to
  *   change it where there is one, on the danger tint where what they did was to decline;
- * - `ungueltig`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
- * - `ende`: an end the page names itself before any answer, as a deletion link opened signed out.
+ * - `invalid`: an expired, mistyped or tampered link alike, with the one sensible way on and no resend;
+ * - `end`: an end the page names itself before any answer, as a deletion link opened signed out.
  */
 export type MailedState =
   | {
@@ -69,18 +69,18 @@ export type MailedState =
       children?: ReactNode;
     }
   | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
-  | { state: "ungueltig"; next: StatusCardProps["next"] }
-  | ({ state: "ende" } & EndState)
+  | { state: "invalid"; next: StatusCardProps["next"] }
+  | ({ state: "end" } & EndState)
   // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
-  | { state: "alt"; view: ReactNode };
+  | { state: "legacy"; view: ReactNode };
 
 /** The page once its link is read, in the boundary's place. */
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {
-    case "alt":
+    case "legacy":
       return props.view;
-    case "ungueltig":
+    case "invalid":
       return (
         <StatusPage
           frame="classic"
@@ -96,7 +96,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           next={props.next}
         />
       );
-    case "ende":
+    case "end":
       return (
         <StatusPage
           frame="classic"

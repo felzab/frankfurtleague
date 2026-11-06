@@ -45,14 +45,14 @@ export default function AccountErasurePage() {
 async function readState(): Promise<MailedState> {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
-  if (token === null || !(await erasureLinkStands(token))) return { state: "ungueltig", next: TO_ACCOUNT };
+  if (token === null || !(await erasureLinkStands(token))) return { state: "invalid", next: TO_ACCOUNT };
 
   // A signed-out browser signs in and returns to this page, whose cookie holds the token past the sign-in.
   const link = ROUTES.accountErasure.path();
   const subject = await getSubjectSession();
   if (subject === null) {
     return {
-      state: "ende",
+      state: "end",
       tone: "info",
       title: COPY.page.accountErasure,
       next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) as Route },

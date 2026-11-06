@@ -30,7 +30,7 @@ type Props = PageProps<"/confirm/schiedsrichter">;
 
 const WORDS = SERVER_COPY.schiedsrichterConfirmation;
 
-const INVALID: MailedState = { state: "ungueltig", next: TO_HOME };
+const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
 const { shape } = SchiedsrichterPostConfirmationBody;
 
