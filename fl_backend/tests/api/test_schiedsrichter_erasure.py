@@ -931,10 +931,7 @@ def test_a_refused_redaction_takes_the_repoint_back(mongo_replica_set_url: str):
 
 
 class TestTheRetirePressKeepsTheDayItFinds:
-    """Driven through the endpoint rather than over `first_stamped`, which the default tier already covers.
-
-    What needs a database is whether the retire path consults it at all.
-    """
+    """Driven through the endpoint, since what keeps the day is the write's own filter (`app/core/crud.py :: set_inactive_since`)."""
 
     @pytest.mark.db
     def test_a_press_after_an_earlier_retirement_leaves_that_day(self, mongo_replica_set_url: str):
