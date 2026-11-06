@@ -9,6 +9,7 @@ import { Popover } from "react-aria-components/Popover";
 import { COPY, textOf } from "@/core/copy";
 
 import { popoverSurface } from "./fieldStyles";
+import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { plaqueLook } from "./TeamPlaque";
@@ -19,10 +20,10 @@ import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { IconName } from "./Icon";
 
-// A menu's entry, as tall as every control under a mouse and under a finger, taking the one hover layer under the pointer.
+// A menu's entry, as tall as every control under a mouse and under a finger, taking the one hover layer.
 const entry = tv({
   extend: menuEntry,
-  base: "hover:bg-layer pointer-coarse:h-10 pointer-coarse:text-base",
+  base: `pointer-coarse:h-10 pointer-coarse:text-base ${hoverLook({ host: "link" })}`,
 });
 
 /** One way on from the club: its glyph, then its words. */
@@ -59,7 +60,7 @@ export function PlaquePopover({ plaque, name, href, line }: { plaque: RecordText
       onOpenChange={setOpen}>
       <AriaButton
         data-kit-focus="ring"
-        className={plaqueLook({ known: true, class: "relative z-10 cursor-pointer data-hovered:bg-layer data-pressed:bg-layer" })}>
+        className={plaqueLook({ known: true, class: `relative z-10 cursor-pointer ${hoverLook({ host: "aria" })}` })}>
         {plaque.record}
       </AriaButton>
       <Popover

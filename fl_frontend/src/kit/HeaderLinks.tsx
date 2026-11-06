@@ -8,6 +8,7 @@ import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy";
 
+import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf, FreshPerPage } from "./navPlace";
@@ -100,7 +101,7 @@ export function HeaderLinks({
               <AriaButton
                 aria-label={COPY.template.menu}
                 data-kit-focus="ring"
-                className="flex size-10 items-center justify-center rounded-lg text-on-brand data-hovered:bg-layer data-pressed:bg-layer">
+                className={`flex size-10 items-center justify-center rounded-lg text-on-brand ${hoverLook({ host: "aria" })}`}>
                 <Icon
                   glyph="menu"
                   size={18}

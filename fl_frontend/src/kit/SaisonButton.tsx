@@ -7,6 +7,7 @@ import { Button as AriaButton } from "react-aria-components/Button";
 import { COPY } from "@/core/copy";
 
 import { counterpart, useFrameSaison, useHoldsSaison } from "./FrameNav";
+import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
 import { useRailCollapsed } from "./RailState";
@@ -18,7 +19,7 @@ const trigger = tv({
   slots: {
     place: "",
     // Under the pointer and pressed, the one hover layer, on the rail and on the band alike.
-    root: "inline-flex items-center justify-between gap-2 rounded-lg border text-sm whitespace-nowrap data-hovered:bg-layer data-pressed:bg-layer",
+    root: `inline-flex items-center justify-between gap-2 rounded-lg border text-sm whitespace-nowrap ${hoverLook({ host: "aria" })}`,
     lines: "grid min-w-0 gap-1 text-start",
     name: "truncate",
     span: "font-numeric text-xs font-normal text-fg-muted",

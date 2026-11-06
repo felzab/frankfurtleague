@@ -1,3 +1,4 @@
+import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
 /**
@@ -8,12 +9,12 @@ import { tv } from "./tv";
 export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-card" });
 
 /**
- * A row or a link covering a box of the card's surface under the pointer: the one hover layer (`bg-layer`) over the
- * card, so a button standing in the row lays its own over it, a step of its own. A card's rows, a table's linked
- * rows, `LinkRows` and a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place)
+ * A row or a link covering a box of the card's surface, under the pointer and pressed: the one hover layer (`bg-layer`)
+ * over the card, so a button standing in the row lays its own over it, a step of its own. A card's rows, a table's
+ * linked rows, `LinkRows` and a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place)
  * read it.
  */
-export const cardHover = tv({ base: "hover:bg-layer" });
+export const cardHover = tv({ base: hoverLook({ host: "link" }) });
 
 /** A card's head as a ground, the one band a card, Konto's box foot and the match head stand on. */
 export const headGround = tv({ base: "bg-bg-card-head" });
@@ -91,7 +92,7 @@ export const card = tv({
     fold: {
       true: {
         root: "group/fold",
-        head: "w-full cursor-pointer border-b-0 text-left data-hovered:bg-layer data-pressed:bg-layer",
+        head: `w-full cursor-pointer border-b-0 text-left ${hoverLook({ host: "aria" })}`,
         title: "flex items-center gap-2",
         body: "border-t border-border",
         chevron: "flex shrink-0 text-fg-muted transition-transform duration-(--motion-state) group-data-expanded/fold:rotate-90",

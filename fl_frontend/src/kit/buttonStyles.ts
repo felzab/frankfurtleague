@@ -1,3 +1,4 @@
+import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
 /**
@@ -21,8 +22,7 @@ export const buttonLook = tv({
       // words unseen.
       placeholder: "skeleton-bar border-transparent px-3.5 text-transparent",
     },
-    // React Aria's button marks its own hover, which a touch never sets; a plain anchor takes the pointer's
-    // `:hover`, which Tailwind applies only where the device can hover.
+    // The control that marks the state, as `hoverLook` reads it.
     host: {
       aria: "",
       link: "",
@@ -36,15 +36,14 @@ export const buttonLook = tv({
   },
   // Under the pointer every look but the quiet one lays the one hover layer over its fill (`bg-layer`, 12 % of its own
   // words' colour), so the step shows on the page, a card, a card's head and an overlay alike, and over a row's own
-  // layer. A press takes the hover's look, so under a mouse the two are one state and a touch, which never hovers,
-  // still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
+  // layer.
   compoundVariants: [
-    { look: ["primary", "secondary", "danger", "icon"], host: "aria", locked: false, class: "data-hovered:bg-layer data-pressed:bg-layer" },
-    { look: ["primary", "secondary", "icon"], host: "link", class: "hover:bg-layer active:bg-layer" },
+    { look: ["primary", "secondary", "danger", "icon"], host: "aria", locked: false, class: hoverLook({ host: "aria" }) },
+    { look: ["primary", "secondary", "icon"], host: "link", class: hoverLook({ host: "link" }) },
     // A quiet act is a button, so it takes no underline, which marks a link alone, and its words alone answer: they
     // take their full colour, as a plain button and a text button do (Apple's HIG, Material).
-    { look: "quiet", host: "aria", locked: false, class: "data-hovered:text-fg data-pressed:text-fg" },
-    { look: "quiet", host: "link", class: "hover:text-fg active:text-fg" },
+    { look: "quiet", host: "aria", locked: false, class: hoverLook({ host: "aria", answer: "words" }) },
+    { look: "quiet", host: "link", class: hoverLook({ host: "link", answer: "words" }) },
   ],
   defaultVariants: { locked: false },
 });

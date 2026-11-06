@@ -212,7 +212,7 @@ export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" 
  * as the keys' focus does (`focus.css`), over the chosen day's inverted mark too.
  */
 export const calendarCell = tv({
-  base: "flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-outside-month:text-fg-muted data-pressed:bg-layer data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10",
+  base: `flex size-8 cursor-pointer items-center justify-center rounded-md font-numeric text-sm transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-10 ${hoverLook({ host: "aria" })}`,
 });
 
 /**
@@ -416,10 +416,8 @@ export const choiceButton = tv({
       // reaches over both, the frame's whole 32 or 40 px, so the raised segment keeps its look and the frame its
       // height beside the fields, by the touch rule at this file's head. The target is laid from the segment's own
       // inner edge: its 1-px edge, then the frame's inset and edge, 4 px up and down, its own edge at the sides.
-      segmented:
-        "relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-border-control data-selected:bg-bg-muted",
-      boxes:
-        "h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-hovered:bg-layer data-pressed:bg-layer data-selected:border-brand data-selected:bg-brand/12 pointer-coarse:h-10",
+      segmented: `relative h-full rounded-md border border-transparent before:absolute before:-inset-x-px before:-inset-y-1 data-selected:border-border-control data-selected:bg-bg-muted ${hoverLook({ host: "aria" })}`,
+      boxes: `h-8 min-w-16 rounded-lg border border-border-control bg-transparent px-3 data-selected:border-brand data-selected:bg-brand/12 pointer-coarse:h-10 ${hoverLook({ host: "aria" })}`,
     },
     // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
     content: {
@@ -429,7 +427,11 @@ export const choiceButton = tv({
   },
   compoundVariants: [
     { kind: "segmented", content: "words", class: "min-w-16 px-3" },
-    { kind: "segmented", content: "glyph", class: "w-8 text-fg-muted data-hovered:text-fg data-selected:text-fg pointer-coarse:w-10" },
+    {
+      kind: "segmented",
+      content: "glyph",
+      class: `w-8 text-fg-muted data-selected:text-fg pointer-coarse:w-10 ${hoverLook({ host: "aria", answer: "words" })}`,
+    },
   ],
   defaultVariants: { content: "words" },
 });
