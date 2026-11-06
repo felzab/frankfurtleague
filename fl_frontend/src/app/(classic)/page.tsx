@@ -33,6 +33,9 @@ import type { LandingSaison } from "./landing";
 
 const words = SERVER_COPY.landing;
 
+/** The form's page's words for a window that takes no application today, which the band says too. */
+const FORM_END = SERVER_COPY.bewerbung.end;
+
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.home, ROUTES.home.path(), { description: SERVER_COPY.description.home });
 }
@@ -94,9 +97,12 @@ async function heroOf(read: Promise<FLLandingResponse>): Promise<LandingContent>
   };
 }
 
-/** The band under the steps, with the application window's state: an upcoming one in the words of the form's page. */
+/**
+ * The band under the steps, with the application window's state, an upcoming or a closed one in the words of the form's
+ * page; it sends a school to next season only where no season not yet ended holds a window, so never during a pause.
+ */
 async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof Steps>["band"] {
-  const { bewerbung_window: window, bewerbung_opens_on: opensOn } = await read;
+  const { bewerbung_window: window, bewerbung_opens_on: opensOn, bewerbung_window_held: held } = await read;
   if (window !== null) {
     return {
       open: true,
@@ -104,7 +110,8 @@ async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof S
       act: { label: words.toBewerbung, href: ROUTES.bewerbung.path(window.saison_id) },
     };
   }
-  return { open: false, sentence: opensOn === null ? words.join.closed : SERVER_COPY.bewerbung.end.opensOn(dayOf(opensOn)), act: ABOUT };
+  if (opensOn !== null) return { open: false, sentence: FORM_END.opensOn(dayOf(opensOn)), act: ABOUT };
+  return { open: false, sentence: held ? FORM_END.closed : words.join.closed, act: ABOUT };
 }
 
 /** The league's figures, once a season is read by the public. */
@@ -195,7 +202,7 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
             words.join.register,
           ]}
           band={bandOf(read)}
-          closed={words.join.closed}
+          closed={FORM_END.closed}
         />
       </LandingSection>
       <LandingSection

@@ -6,8 +6,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 
 /**
  * A record a classic page's address names and the league does not hold, inside the frame
- * `fl_frontend/src/app/(classic)/layout.tsx` drew. Next inserts no boundary of its own for a first-level group beside
- * a root not-found page, so without this file the throw reaches the root's, above that layout, and the frame goes.
+ * `fl_frontend/src/app/(classic)/layout.tsx` drew. The root's not-found page stands above that layout and draws no
+ * frame, so the throw is answered here.
  */
 export default function ClassicNotFound() {
   return (

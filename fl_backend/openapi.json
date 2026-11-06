@@ -7802,6 +7802,10 @@
               }
             ]
           },
+          "bewerbung_window_held": {
+            "title": "Bewerbung Window Held",
+            "type": "boolean"
+          },
           "counts": {
             "$ref": "#/components/schemas/FLLandingCounts"
           },
@@ -7839,6 +7843,7 @@
           "saison",
           "bewerbung_window",
           "bewerbung_opens_on",
+          "bewerbung_window_held",
           "counts"
         ],
         "title": "FLLandingResponse",
@@ -24132,7 +24137,7 @@
     },
     "/api/v0/saisons/landing": {
       "get": {
-        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, the day the next one opens by\nthe judgement the form's page serves, and the league's figures over every season the public reads, counted on every\nread. The windows and the figures are read beside the season's two steps rather than after them, so they add no step\nto the read.",
+        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, the day the next one opens by\nthe judgement the form's page serves, whether a season not yet ended holds a window at all, and the league's figures\nover every season the public reads, counted on every read. The windows and the figures are read beside the season's\ntwo steps rather than after them, so they add no step to the read.",
         "operationId": "saisons_get_landing",
         "responses": {
           "200": {
@@ -31539,7 +31544,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
       "post": {
-        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's\nlive squad rows are retired, in ONE transaction: the schedule survives.",
+        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and\ntheir links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:\nthe schedule survives.",
         "operationId": "teams_replace_saison_team",
         "parameters": [
           {

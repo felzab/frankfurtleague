@@ -694,4 +694,7 @@ class FLLandingResponse(BaseAPIResponse):
     bewerbung_window: FLBewerbungWindow | None
     # The day the next window opens, by the judgement the form's page serves as `upcoming`.
     bewerbung_opens_on: CustomDateString | None
+    # Whether a season not yet ended holds a window in any state: the band tells a school to wait for next season only
+    # where none does, since the season `saison` names says nothing of the next one's paused window.
+    bewerbung_window_held: bool
     counts: FLLandingCounts

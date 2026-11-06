@@ -3907,8 +3907,9 @@ export const TeamsInviteKontaktParams = zod.object({
 /**
  * Hand this season's junction row, and every fixture on it, to another club.
  *
- * Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
- * live squad rows are retired, in ONE transaction: the schedule survives.
+ * Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
+ * their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
+ * the schedule survives.
  * @summary Replace a club in a season, keeping its schedule
  */
 export const teamsReplaceSaisonTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

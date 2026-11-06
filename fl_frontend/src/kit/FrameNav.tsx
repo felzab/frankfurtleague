@@ -135,7 +135,10 @@ export function counterpart({
   return segments.join("/") as Route;
 }
 
-/** The entries with their addresses, a season's page in the season the page works in; one with no address is left out. */
+/**
+ * The entries with their addresses, a season's page in the season the page works in; one with no address is left out.
+ * With no season at all a season's page leads to `withoutSaison`, an address that is not its own (`own`).
+ */
 function useEntries(groups: ReadonlyArray<RailGroup>) {
   const frame = useContext(SaisonContext);
   const saison = useFrameSaison();
@@ -148,7 +151,8 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
       heading: group.heading,
       entries: group.entries.flatMap((entry) => {
         const href = hrefOf(entry);
-        return href === undefined ? [] : [{ id: entry.id, label: entry.label, icon: entry.icon, href }];
+        const own = entry.saison === undefined || saison !== null;
+        return href === undefined ? [] : [{ id: entry.id, label: entry.label, icon: entry.icon, href, own }];
       }),
     }))
     .filter((group) => group.entries.length > 0);
@@ -257,13 +261,16 @@ function AccountMenu({
   );
 }
 
-function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
+/** The entry the address belongs to: only by an address of its own, since a page several entries lead to is the place of none of them. */
+function useCurrent<Entry extends { href: Route; own: boolean }>(entries: ReadonlyArray<Entry>) {
   const { saison } = useParams();
-  return placeOf(
+  const own = entries.filter((entry) => entry.own);
+  const href = placeOf(
     usePathname(),
     typeof saison === "string" ? saison : undefined,
-    entries.map((entry) => entry.href),
+    own.map((entry) => entry.href),
   );
+  return own.find((entry) => entry.href === href);
 }
 
 // The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), the link carrying
@@ -322,10 +329,10 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
                 label={entry.label}>
                 <NextLink
                   href={entry.href}
-                  aria-current={entry.href === current ? "page" : undefined}
-                  data-selected={entry.href === current || undefined}
+                  aria-current={entry === current ? "page" : undefined}
+                  data-selected={entry === current || undefined}
                   data-kit-focus="inset"
-                  className={railEntry({ current: entry.href === current })}>
+                  className={railEntry({ current: entry === current })}>
                   <span className={railGlyph()}>
                     <Icon
                       glyph={entry.icon}
@@ -528,9 +535,9 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
         <NextLink
           key={entry.id}
           href={entry.href}
-          aria-current={entry.href === current ? "page" : undefined}
+          aria-current={entry === current ? "page" : undefined}
           data-kit-focus="inset"
-          className={barPlace({ current: entry.href === current, host: "link" })}>
+          className={barPlace({ current: entry === current, host: "link" })}>
           <Icon
             glyph={entry.icon}
             size={18}
@@ -563,7 +570,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                     <NextLink
                       key={entry.id}
                       href={entry.href}
-                      aria-current={entry.href === current ? "page" : undefined}
+                      aria-current={entry === current ? "page" : undefined}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
                       <Icon
@@ -765,6 +772,6 @@ export function EditorBackPlaceholder() {
  */
 export function EditorBack() {
   const groups = useEntries(useContext(MenuContext)?.groups ?? []);
-  const href = useCurrent(groups.flatMap((group) => group.entries));
-  return href === null ? null : <BackControl href={href} />;
+  const current = useCurrent(groups.flatMap((group) => group.entries));
+  return current === undefined ? null : <BackControl href={current.href} />;
 }
