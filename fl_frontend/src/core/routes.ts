@@ -65,6 +65,7 @@ export const ADDRESS_WORDS = [
   "security",
   "settings",
   "signin",
+  "sitemap",
   "sponsors",
   // The one exception, two German words naming no league thing: the Impressum is a duty under German law, and
   // `/impressum` and `/datenschutz` are where a German visitor looks for it and for the privacy notice.
@@ -130,6 +131,8 @@ export const ROUTES = {
   sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsors, crawl: "index" },
   legalNotice: { path: () => "/impressum" as const, title: COPY.page.legalNotice, crawl: "index" },
   privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.privacyNotice, crawl: "index" },
+  /** The site's pages for a person; `/sitemap.xml` is the crawler's list (`fl_frontend/src/app/sitemap.ts`). */
+  sitemap: { path: () => "/sitemap" as const, title: COPY.page.sitemap, crawl: "index" },
   /**
    * A coming season's application form, which the landing and a mail lead to. Never in the sitemap, whose one
    * season is the season the site is on and not the one taking applications; the page names its own canonical
@@ -341,7 +344,8 @@ export const SAISON_PAGES = ["spielplan", "kORunde", "tabelle", "teams"] as cons
 
 /**
  * Each address naming no season, with the page of the season the site is on it leads to: the classic footer's „Saison“
- * group, which reads nothing, so it never waits and never goes stale.
+ * group, which reads nothing, so it never waits and never goes stale. `page` is also what the sitemap page lists of
+ * each season.
  */
 export const SAISONLESS_PAGES = [
   { route: "saisons", page: "spielplan" },

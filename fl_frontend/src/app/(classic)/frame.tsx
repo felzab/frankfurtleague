@@ -21,14 +21,15 @@ const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route })
   href: ROUTES[route].path(),
 }));
 
-/** The footer's „Liga“ group, and the way to applying, which the landing's section words for every state of the window. */
-const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
+/** The footer's „Liga“ group and the sitemap page's, with the way to applying, which the landing's section words for every state of the window. */
+export const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
   ...LIGA_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
   { label: COPY.template.bewerbung, href: `${ROUTES.home.path()}#${JOIN_SECTION}` },
   { label: COPY.template.account, href: ROUTES.signIn.path() },
 ];
 
-const LEGAL_LINKS: ReadonlyArray<HeaderLink> = LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() }));
+/** The legal pages, in the sitemap page's group and, with the sitemap page itself, in the footer's. */
+export const LEGAL_LINKS: ReadonlyArray<HeaderLink> = LEGAL_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() }));
 
 /**
  * The season the site is on, the header's first entry, read from the frame, the season pages' one source for it, on
@@ -54,7 +55,7 @@ export function Classic({ children }: { children: ReactNode }) {
       signIn={ROUTES.signIn.path()}
       saison={SAISON_LINKS}
       liga={LIGA_LINKS}
-      legal={LEGAL_LINKS}
+      legal={[...LEGAL_LINKS, { label: ROUTES.sitemap.title, href: ROUTES.sitemap.path() }]}
       social={{ instagram: INSTAGRAM_URL, threads: THREADS_URL }}
       sponsors={SPONSORS}>
       {children}

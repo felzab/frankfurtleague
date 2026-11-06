@@ -317,6 +317,7 @@ export const COPY = catalogue({
     sponsors: "Sponsoren",
     legalNotice: "Impressum",
     privacyNotice: PRIVACY_NOTICE,
+    sitemap: "Sitemap",
     accountSignIn: SIGN_IN,
     accountSecurity: "Sicherheit",
     accountAppearance: "Darstellung",

@@ -1,6 +1,8 @@
 import { Callout } from "./Callout";
 import { Link } from "./Link";
+import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { Table } from "./Table";
+import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -14,8 +16,17 @@ export type ProseBlock =
   | { kind: "heading"; text: Copy }
   | { kind: "paragraph"; text: ProseText }
   | { kind: "list"; items: ReadonlyArray<ProseText> }
+  | { kind: "links"; links: ReadonlyArray<{ href: Route; label: Copy }> }
   | { kind: "table"; table: TableProps }
   | { kind: "callout"; callout: CalloutProps };
+
+const prose = tv({
+  slots: {
+    root: "grid max-w-measure gap-3 text-base text-fg",
+    heading: "mt-3 text-base font-semibold first:mt-0",
+    links: "grid gap-1",
+  },
+});
 
 function Run({ text }: { text: ProseText }) {
   return text.map((part, index) =>
@@ -35,7 +46,7 @@ function Run({ text }: { text: ProseText }) {
 function Block({ block }: { block: ProseBlock }) {
   switch (block.kind) {
     case "heading":
-      return <h2 className="mt-3 text-base font-semibold first:mt-0">{block.text}</h2>;
+      return <h2 className={prose().heading()}>{block.text}</h2>;
     case "paragraph":
       return (
         <p>
@@ -52,6 +63,20 @@ function Block({ block }: { block: ProseBlock }) {
           ))}
         </ul>
       );
+    case "links":
+      return (
+        <ul className={prose().links()}>
+          {block.links.map((link) => (
+            <li key={link.href}>
+              <Link
+                href={link.href}
+                placement="standalone"
+                label={link.label}
+              />
+            </li>
+          ))}
+        </ul>
+      );
     case "table":
       return <Table {...block.table} />;
     case "callout":
@@ -61,11 +86,12 @@ function Block({ block }: { block: ProseBlock }) {
 
 /**
  * A legal or consent page's text under its title: sections under 16-px semibold headings, paragraphs and
- * bullet lists, the retention table as the kit's `Table` and the objection box as its `Callout`.
+ * bullet lists, the retention table as the kit's `Table` and the objection box as its `Callout`; a list of the
+ * site's pages as plain links.
  */
 export function Prose({ blocks }: { blocks: ReadonlyArray<ProseBlock> }) {
   return (
-    <div className="grid max-w-measure gap-3 text-base text-fg">
+    <div className={prose().root()}>
       {blocks.map((block, index) => (
         <Block
           key={index}
@@ -73,5 +99,27 @@ export function Prose({ blocks }: { blocks: ReadonlyArray<ProseBlock> }) {
         />
       ))}
     </div>
+  );
+}
+
+/** One heading's links while a read names the heading: its line and each link's, in the words they will stand in. */
+export function ProseLinksPlaceholder({ heading, links }: { heading: string; links: readonly Copy[] }) {
+  const slots = prose();
+  return (
+    <Placeholder layout={slots.root()}>
+      <PlaceholderLine
+        text={slots.heading()}
+        words={heading}
+      />
+      <div className={slots.links()}>
+        {links.map((link) => (
+          <PlaceholderLine
+            key={link}
+            text="text-base"
+            words={link}
+          />
+        ))}
+      </div>
+    </Placeholder>
   );
 }
