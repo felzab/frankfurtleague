@@ -1051,7 +1051,7 @@ def compose_kontakt_seat_update(*, seats: Sequence[str], person: Mapping[str, An
     return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"], **announced}}
 
 
-# --- The retention SWEEP. Six clocks, each a pure predicate over one document and `today`, so
+# --- The retention SWEEP. Seven clocks, each a pure predicate over one document and `today`, so
 # every boundary is pinned without a container. Dates, never instants: an instant would move the
 # boundary with the hour a pass happens to run.
 
@@ -1250,6 +1250,11 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     }
 
 
+# A seat past its own day with no stamp, as a query: the null term reaches a seat a Widerspruch emptied as well.
+def _lapsed_seat_term(*, seat: str, today: str) -> Mapping[str, Any]:
+    return {f"confirmations.{seat}.deadline": {"$lt": today}, f"kontakte.{seat}.einwilligung.confirmed_at": None}
+
+
 def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     """Every application the fourteen-day clock may take, as a query: a confirmed one would otherwise fill the page ahead of a due one.
 
@@ -1258,7 +1263,7 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     other seat's link running.
     """
 
-    passed = [{f"confirmations.{seat}.deadline": {"$lt": today}, f"kontakte.{seat}.einwilligung.confirmed_at": None} for seat in KONTAKT_ROLLEN]
+    passed = [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN]
     erased = [
         {
             f"confirmations.{seat}": None,
@@ -1268,6 +1273,48 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     ]
 
     return {"saison_id": saison_id, "status": "submitted", "$or": [*passed, *erased]}
+
+
+def lapsed_seats(*, kontakte: Any, confirmations: Any, today: str) -> list[FLKontaktRolle]:
+    """The seats of a season row whose link's day has passed with no confirmation, in declaration order.
+
+    STRICTLY past, as `saison_link_is_over` ends the link. A confirmed seat keeps its entry, an erased one holds no
+    deadline, and a seat a Widerspruch emptied still holds its link, which goes on the same day.
+    """
+
+    return [
+        seat
+        for seat in KONTAKT_ROLLEN
+        if saison_link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
+        and not _seat_is_confirmed(kontakte, seat)
+    ]
+
+
+def build_lapsed_seats_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
+    """Every season row of this season with a lapsed seat, as `lapsed_seats` judges it: an emptied seat leaves the read."""
+
+    return {"saison_id": saison_id, "$or": [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN]}
+
+
+def compose_lapsed_seats_update(*, kontakte: Any, seats: Sequence[str]) -> Mapping[str, Any]:
+    """Null each seat and its link, the block's other members standing.
+
+    The slots only where the block stands: a `$set` under a null is `PathNotViable`, and a row whose people an earlier
+    write cleared can still hold a link.
+    """
+
+    slots = {f"kontakte.{seat}": None for seat in seats} if isinstance(kontakte, Mapping) else {}
+
+    return {"$set": {**slots, **{f"confirmations.{seat}": None for seat in seats}}}
+
+
+def addresses_leaving(*, kontakte: Any, seats: Sequence[str]) -> set[str]:
+    """These seats' addresses no other seat of the row keeps, on the fold: a person staying in a seat they confirmed keeps their images."""
+
+    staying = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
+    kept = {sign_in_identifier(address) for address in seat_addresses(kontakte=kontakte, seats=staying)}
+
+    return {sign_in_identifier(address) for address in seat_addresses(kontakte=kontakte, seats=seats)} - kept
 
 
 def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:

@@ -11,13 +11,14 @@ from app.api.bewerbungen.services import (
     deletion_is_due,
     first_name_of,
     group_seats_by_mailbox,
+    lapsed_seats,
     one_month_after,
     reminder_seats,
     schule_name,
     seat_reminder_is_due,
     unerreichbare_seats,
 )
-from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
+from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, LAPSED_SEAT_ROWS_PER_PASS, REMINDERS_PER_PASS
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
@@ -308,6 +309,34 @@ class TestTheFourteenDayClock:
         )
 
 
+class TestALapsedSeasonRowSeat:
+    @pytest.mark.parametrize(
+        ("deadline", "lapsed"),
+        [
+            pytest.param(TOMORROW, False, id="the day before the deadline"),
+            pytest.param(TODAY, False, id="the deadline's own day, when the link still answers"),
+            pytest.param(YESTERDAY, True, id="the day after"),
+        ],
+    )
+    def test_each_boundary_falls_where_the_link_ends(self, deadline: str, lapsed: bool):
+        block = {**all_seats_until(TOMORROW), "trainer": {**confirmations()["trainer"], "deadline": deadline}}
+
+        assert lapsed_seats(kontakte=kontakte(), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
+
+    @pytest.mark.parametrize(
+        ("slot", "entry", "lapsed"),
+        [
+            pytest.param(kontaktperson_document("Trainer", confirmed_at=YESTERDAY), {"deadline": YESTERDAY}, False, id="confirmed"),
+            pytest.param(None, None, False, id="erased, so no deadline"),
+            pytest.param(None, {"deadline": YESTERDAY, "declined_at": YESTERDAY}, True, id="a Widerspruch's link on its day"),
+        ],
+    )
+    def test_only_a_seat_left_unconfirmed_lapses(self, slot: Any, entry: Any, lapsed: bool):
+        block = {**all_seats_until(TOMORROW), "trainer": entry}
+
+        assert lapsed_seats(kontakte=kontakte(trainer=slot), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
+
+
 class TestAnApplicationWhoseNoticeCannotArrive:
     """Held past the deadline instead of erased, so an administrator can correct the address.
 
@@ -380,12 +409,16 @@ ROUND_TRIPS_A_ROW = 3
 # The worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 SWEEP_OTHER_COMMANDS = 70
+SWEEP_LAPSED_OTHER_COMMANDS = 47
 
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
 
-    rows, per_command_s, round_trip_s = REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, 0.00138, 0.036
+    per_command_s, round_trip_s = 0.00138, 0.036
+    # A pass clears blocks or lapsed seats, never both, so each is judged beside the reminders on its own.
+    calls = [(BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS), (LAPSED_SEAT_ROWS_PER_PASS, SWEEP_LAPSED_OTHER_COMMANDS)]
 
-    assert (rows * ROUND_TRIPS_A_ROW + SWEEP_OTHER_COMMANDS) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S
+    for rows, others in calls:
+        assert ((REMINDERS_PER_PASS + rows) * ROUND_TRIPS_A_ROW + others) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S
