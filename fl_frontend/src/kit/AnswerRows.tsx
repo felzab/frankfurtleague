@@ -28,7 +28,7 @@ export type AnswerRow = {
 
 // The name's and the line's sizes are a `Card` row's, so a party reads alike on the Übersicht and here. The hairline
 // stands inside the box's padding, 12 px clear on each side, and the first and last rows take the padding as their own.
-const answerRows = tv({
+export const answerRows = tv({
   slots: {
     root: "grid w-full text-sm",
     row: `grid gap-1 py-3 first:pt-0 last:pb-0 ${stacked()}`,
@@ -40,9 +40,42 @@ const answerRows = tv({
 });
 
 /**
+ * A party's name on its line with its chips, here and on a seat's row (`SeatRows`): a name too long for the line is cut
+ * with „…“, so the chips keep their place beside it.
+ */
+export function PartyHead({
+  name,
+  plaque,
+  chips,
+  muted = false,
+}: {
+  name: Words;
+  plaque?: Plaque;
+  chips: ReadonlyArray<ChipProps>;
+  /** A place nobody holds: its name muted. */
+  muted?: boolean;
+}) {
+  const s = answerRows();
+  return (
+    <span className={s.head()}>
+      {plaque !== undefined && <TeamPlaque plaque={plaque} />}
+      <CutText
+        text={textOf(name)}
+        className={s.name({ class: muted ? "text-fg-muted" : undefined })}
+      />
+      {chips.map((chip) => (
+        <Chip
+          key={chip.label}
+          {...chip}
+        />
+      ))}
+    </span>
+  );
+}
+
+/**
  * The parties' answers about a record, read-only, inside a box's body: a row a party, its name with its chip, a muted
- * line under it, and its reason on a line of its own, wrapping as long as it runs. A name too long for its line is cut
- * with „…“, so the chip keeps its place beside it.
+ * line under it, and its reason on a line of its own, wrapping as long as it runs.
  */
 export function AnswerRows({ label, rows, empty }: { label: Copy; rows: ReadonlyArray<AnswerRow>; empty: EmptyStateProps }) {
   const s = answerRows();
@@ -55,14 +88,11 @@ export function AnswerRows({ label, rows, empty }: { label: Copy; rows: Readonly
         <li
           key={row.id}
           className={s.row()}>
-          <span className={s.head()}>
-            {row.plaque !== undefined && <TeamPlaque plaque={row.plaque} />}
-            <CutText
-              text={textOf(row.name)}
-              className={s.name()}
-            />
-            <Chip {...row.chip} />
-          </span>
+          <PartyHead
+            name={row.name}
+            {...(row.plaque === undefined ? {} : { plaque: row.plaque })}
+            chips={[row.chip]}
+          />
           <span className={s.line()}>{textOf(row.line)}</span>
           {row.reason !== undefined && <p className={s.reason()}>{textOf(row.reason)}</p>}
         </li>
