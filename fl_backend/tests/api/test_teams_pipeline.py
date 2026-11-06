@@ -162,12 +162,9 @@ class TestTheCancelledLookup:
         assert cancelled["$expr"] == counting["$expr"]
 
 
-class TestTheAustrittFilterIsTranslated:
-    """The junction stores no boolean, so a dumped `True` would match nothing — silently, as an empty group rather than an error."""
-
-    def test_an_omitted_filter_asks_nothing_about_leaving(self):
-        """A team that has left stays in the table, so the default read must not narrow on the field."""
-        assert junction_match(build()) == {"saison_id": "2026"}
+def test_a_team_that_has_left_stays_in_the_table():
+    """The join narrows on the season alone, so an Austritt takes no club out of its group."""
+    assert junction_match(build()) == {"saison_id": "2026"}
 
 
 def inner_projection(pipeline: Pipeline) -> Mapping[str, Any]:

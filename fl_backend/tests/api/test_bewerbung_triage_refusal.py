@@ -14,9 +14,6 @@ from app.api.bewerbungen.services import (
 from app.core.codes import Code
 from tests.documents import kontaktperson_document
 
-# Every one of these is stored happily and refused by `FLTeam`, which reads the clubs list. The
-# first is an XSS sink the moment React renders it into an href.
-
 
 class ZorbanaxBoom(RuntimeError):
     """Not a `ValidationError`, so it is not the school's fault and may not be answered as one."""

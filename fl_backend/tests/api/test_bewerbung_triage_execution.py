@@ -343,7 +343,7 @@ class TestAnAcceptanceEntersTheSchool:
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
     def test_the_three_people_reach_the_junction_row_as_they_confirmed(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/area/admin/kontakte` then reads."""
+        """They arrive WITH the season's row rather than being typed in after it, which is what the Teams editor then reads."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)
@@ -1044,12 +1044,12 @@ def without_the_id(document: Mapping[str, Any]) -> dict[str, Any]:
 
 @pytest.mark.db
 class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
-    """`POST /teams` and an acceptance are two ways to the same collection, so they store one document for one school."""
+    """The entry's `found_a_club` and an acceptance are two ways to the same collection, so they store one document for one school."""
 
     def test_the_created_club_holds_what_the_guard_parsed_rather_than_the_block_as_submitted(self, mongo_replica_set_url: str):
         """Store the COMPOSED block instead and this fails: its `website_url` keeps the tab and the carriage return.
 
-        Against what `POST /teams` itself stored for this school, so the claim rests on that path
+        Against what `found_a_club` itself stored for this school, so the claim rests on that path
         rather than on a copy of its expression.
         """
 
@@ -1063,7 +1063,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
 
             async with transaction_session(client) as session:
                 created_id = await session.with_transaction(found_it)
-            through_post_teams = await database[Collection.TEAMS].find_one({"_id": created_id})
+            through_the_entry = await database[Collection.TEAMS].find_one({"_id": created_id})
             # Taken back out before the acceptance runs: `uniq_shorthand` spans every club, so one
             # school cannot hold two of them at once.
             await database[Collection.TEAMS].delete_one({"_id": created_id})
@@ -1071,15 +1071,15 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
             await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(DIRTY_URL_BEWERBUNG, schule=schule))
             await accept(database, client, DIRTY_URL_BEWERBUNG, shorthand=DIRTY_URL_SHORTHAND)
 
-            return through_post_teams, await database[Collection.TEAMS].find_one({"shorthand": DIRTY_URL_SHORTHAND})
+            return through_the_entry, await database[Collection.TEAMS].find_one({"shorthand": DIRTY_URL_SHORTHAND})
 
-        through_post_teams, created = on_a_league(mongo_replica_set_url, body)
+        through_the_entry, created = on_a_league(mongo_replica_set_url, body)
 
-        assert through_post_teams is not None, "`POST /teams` stored nothing, so the comparison below stands on one document"
+        assert through_the_entry is not None, "`found_a_club` stored nothing, so the comparison below stands on one document"
         assert created is not None, "no club was created for a school that named none"
 
         # Every key either insert wrote, `inactive_since` included: both paths owe it.
-        assert without_the_id(created) == without_the_id(through_post_teams)
+        assert without_the_id(created) == without_the_id(through_the_entry)
         # The floor: two paths that both stored the block as submitted would compare equal above.
         assert created["website_url"] == "https://wirbelknoten.example.de/pfad"
 
