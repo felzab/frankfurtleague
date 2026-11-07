@@ -1,13 +1,8 @@
 import {
-  addressChangeDeleteAddressChange,
   addressChangeGetAddressChangeAddress,
-  addressChangeGetAddressChangeAdminView,
   addressChangeGetAddressChangeMoves,
   addressChangeGetAddressChangeView,
-  addressChangeInviteAddressChange,
-  addressChangePostAddressChangeAdmin,
   addressChangePostAddressChangeAnswer,
-  addressChangePostAddressChangeApproval,
   addressChangePostAddressChangeMovesDone,
   addressChangePostAddressChangeStop,
   addressChangeSweepAddressChange,
@@ -16,14 +11,8 @@ import {
 import type {
   FLAddressChangeAddressPayload,
   FLAddressChangeAddressResponse,
-  FLAddressChangeAdminMintResponse,
-  FLAddressChangeAdminPayload,
-  FLAddressChangeAdminViewPayload,
-  FLAddressChangeAdminViewResponse,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
-  FLAddressChangeApprovalResponse,
-  FLAddressChangeIdResponse,
   FLAddressChangeMovesDonePayload,
   FLAddressChangeMovesDoneResponse,
   FLAddressChangeMovesResponse,
@@ -32,7 +21,6 @@ import type {
   FLAddressChangeViewResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
-import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload, FLAdresswechselVerwerfenPayload } from "./schemas";
 
 /**
  * A POST that reads: the token is the credential, and a GET would put it in a query string the backend's route template
@@ -74,29 +62,4 @@ export async function postAdresswechselUmzuegeErledigt(payload: FLAddressChangeM
  */
 export async function postAdresswechselAdresse(payload: FLAddressChangeAddressPayload): Promise<FLAddressChangeAddressResponse> {
   return addressChangeGetAddressChangeAddress(payload);
-}
-
-/** A POST that reads, for the address it is handed: a GET would put a person's address in the URL every log line keeps. */
-export async function postAdresswechselVerwaltungAnsicht(payload: FLAddressChangeAdminViewPayload): Promise<FLAddressChangeAdminViewResponse> {
-  return addressChangeGetAddressChangeAdminView(payload);
-}
-
-/** Ends the change standing at the address, so a link minted before stops working at once; the address on file stays in force. */
-export async function beantrageAdresswechsel(payload: FLAddressChangeAdminPayload): Promise<FLAddressChangeAdminMintResponse> {
-  return addressChangePostAddressChangeAdmin(payload);
-}
-
-/** A fresh link to the new mailbox of the change the id names and no other, so the previous link stops working; the stop link stays. */
-export async function einladeAdresswechsel({ id }: FLAdresswechselEinladenPayload): Promise<FLAddressChangeAdminMintResponse> {
-  return addressChangeInviteAddressChange(id);
-}
-
-/** The change the id names, and refused where that one has ended: a stale page never discards its successor. */
-export async function verwirfAdresswechsel({ id }: FLAdresswechselVerwerfenPayload): Promise<FLAddressChangeIdResponse> {
-  return addressChangeDeleteAddressChange(id);
-}
-
-/** Another administrator's approval of a grant holder's change, which takes effect in this press where nothing else waits. */
-export async function genehmigeAdresswechsel({ id }: FLAdresswechselGenehmigungPayload): Promise<FLAddressChangeApprovalResponse> {
-  return addressChangePostAddressChangeApproval(id);
 }

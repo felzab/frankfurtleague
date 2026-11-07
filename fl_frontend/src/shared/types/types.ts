@@ -77,12 +77,6 @@ type ActionSuccess<TPayload extends object = object> = TPayload & {
 
 export type ActionResult<TPayload extends object = object> = ActionSuccess<TPayload> | ActionFailure;
 
-/**
- * The arm for a read or a dry run routed through `runAdminMutation`: its answer is data a caller
- * places itself, so requiring a success sentence here would compose German nothing renders.
- */
-export type QueryResult<TPayload extends object = object> = (TPayload & { success: true; message?: string }) | ActionFailure;
-
 type SubmittedEmail = {
   /** Safe to echo back: it is the user's own input rather than a lookup result, so it reveals no registration. */
   submittedEmail?: string;

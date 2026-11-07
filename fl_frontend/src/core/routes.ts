@@ -49,6 +49,7 @@ export const ADDRESS_WORDS = [
   "appearance",
   "area",
   "auth",
+  "ban-list",
   "bulk",
   "client-error",
   "confirm",
@@ -327,7 +328,7 @@ export const ROUTES = {
   },
   // Session 7: its page is built.
   adminBanList: {
-    path: () => "/admin/sperrliste" as const,
+    path: () => "/admin/ban-list" as const,
     title: COPY.page.adminBanList,
     crawl: "disallow",
   },
