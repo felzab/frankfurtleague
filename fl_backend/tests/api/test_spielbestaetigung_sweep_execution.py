@@ -1626,13 +1626,12 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
         assert (second.closed, second.schiedsrichter_switched) == (0, [])
 
 
-class ConfirmationsRunningARivalAtTheErasuresRead(InterleavedCollection):
-    """The confirmations a referee's erasure reads its rows off, a rival run once after that read and before its removal."""
+class ConfirmationsRunningARivalAheadOfTheErasuresRemoval(InterleavedCollection):
+    """The confirmations a referee's erasure removes by its filter, a rival run once inside its transaction, ahead of that removal."""
 
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
+    async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
         await self.run_the_rival()
-        return cursor
+        return await self._collection.delete_many(*args, **kwargs)
 
 
 class TestATakenOffRefereesErasureAndTheCloseCross:
@@ -1668,14 +1667,15 @@ class TestATakenOffRefereesErasureAndTheCloseCross:
             async def a_pass() -> None:
                 answers.append(await sweep(database, client))
 
-            interleaved = ConfirmationsRunningARivalAtTheErasuresRead(database[Collection.SPIELBESTAETIGUNGEN], a_pass)
+            interleaved = ConfirmationsRunningARivalAheadOfTheErasuresRemoval(database[Collection.SPIELBESTAETIGUNGEN], a_pass)
             await erased(database, client, REFEREE_EMAIL, germany_now=NOW, spielbestaetigungen_collection=interleaved)
 
             return interleaved, answers, await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
 
         interleaved, (answer,), stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        # Serially the erasure reads its rows once; the second read is its run again after the close's write.
+        # Serially the erasure removes its rows once; the second arrival is its run again, the removal having conflicted with
+        # the close's write on the row.
         interleaved.assert_landed_inside(serially=1)
         assert [notice.address for notice in answer.schiedsrichter_switched] == [REFEREE_EMAIL]
         assert stored == []

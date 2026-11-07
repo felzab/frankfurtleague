@@ -9,8 +9,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.address_change.crud import denied_addresses
-from app.api.address_change.services import build_addresses_filter
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import invitation_reference, owed_invitation_mails
@@ -96,10 +94,8 @@ from app.api.teams.services import (
     membership_row_ids,
     owed_kontakt_link,
     saison_blocking_retirement,
-    seated_identifiers,
     seats_one_link_answers,
     teams_admin_rows,
-    with_address_changes,
     with_link_state,
 )
 from app.core.collections import Collection
@@ -122,10 +118,8 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    GrantsCollection,
     InvitationsCollection,
     OutboxCollection,
     SaisonsCollection,
@@ -146,7 +140,6 @@ from app.core.security import (
     verify_access_admin,
 )
 from app.core.transactions import transaction_session
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
@@ -194,36 +187,14 @@ async def _rewrite_the_outgoing_clubs_sides(
 async def _with_seat_states(
     teams_raw: Sequence[Mapping[str, Any]],
     *,
-    address_changes_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     today: str,
-    operator: str,
 ) -> list[dict[str, Any]]:
-    """The memberships read with each seat's link state and live address change composed on."""
-
-    addresses = seated_identifiers(teams_raw)
-    live = (
-        {
-            row["address"]: row["_id"]
-            for row in await aggregate_many_from_db(
-                collection=address_changes_collection,
-                pipeline=[{"$match": build_addresses_filter(addresses)}, {"$project": {"address": 1}}],
-            )
-        }
-        if addresses
-        else {}
-    )
-    denied = await denied_addresses(
-        live,
-        actor=sign_in_identifier(operator),
-        grants_collection=grants_collection,
-        session=None,
-    )
+    """The memberships read with each seat's link state composed on."""
 
     states = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
 
-    return with_address_changes(with_link_state(teams_raw, today=today, states=states), live=live, denied=denied)
+    return with_link_state(teams_raw, today=today, states=states)
 
 
 # What a write of a seat's person or link reads of the row: what it composes on, and what the mails it owes name.
@@ -393,16 +364,13 @@ async def get_team_saison_admin(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     invitations_collection: InvitationsCollection,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
-    operator: str = Depends(get_actor_email),
 ) -> FLTeamSaisonAdminResponse:
     """
     Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
 
-    `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
+    `version` is what the one save sends. `membership` serves the row with its seats' links, null for
     a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
     `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
     `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
@@ -427,11 +395,8 @@ async def get_team_saison_admin(
     served, season_rows, held_saisons, spiele_drawn, live = await asyncio.gather(
         _with_seat_states(
             [{**team_raw, "memberships": [] if row_raw is None else [row_raw]}],
-            address_changes_collection=address_changes_collection,
-            grants_collection=grants_collection,
             outbox_collection=outbox_collection,
             today=today,
-            operator=operator,
         ),
         pull_whole_from_db(
             collection=saison_teams_collection,
@@ -578,7 +543,8 @@ async def delete_team(
         refuse(find_retire_refusal(str(row["status"]) for row in saison_rows))
 
         retired = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=today, session=session)
-        await record_act(collection=teams_collection, action="team.retired", record_id=team_id, label=str(retired["name"]), session=session)
+        if retired is not None:
+            await record_act(collection=teams_collection, action="team.retired", record_id=team_id, label=str(retired["name"]), session=session)
 
     # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
     # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
@@ -600,7 +566,10 @@ async def reactivate_team(
 
     async def bring_the_club_back(session: AsyncClientSession) -> None:
         revived = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None, session=session)
-        await record_act(collection=teams_collection, action="team.reactivated", record_id=team_id, label=str(revived["name"]), session=session)
+        if revived is not None:
+            await record_act(
+                collection=teams_collection, action="team.reactivated", record_id=team_id, label=str(revived["name"]), session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(bring_the_club_back)
@@ -1220,6 +1189,7 @@ async def delete_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
     invitations_collection: InvitationsCollection,
+    teams_collection: TeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationWriteResponse:
@@ -1241,8 +1211,10 @@ async def delete_invitation(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
+        # The club's own document: a season's junction row can be handed to another club, and the link stays revocable.
+        club = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["name"], session=session)
         await record_act(
-            collection=invitations_collection, action="team.invitation_withdrawn", record_id=team_id, label=saison_id, session=session
+            collection=invitations_collection, action="team.invitation_withdrawn", record_id=team_id, label=str(club["name"]), session=session
         )
 
         return before

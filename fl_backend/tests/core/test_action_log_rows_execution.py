@@ -1,4 +1,5 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -10,11 +11,16 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.action_log.admin_router import get_action_log
 from app.api.action_log.crud import reattribute_administrator_in_session
-from app.api.action_log.schemas import FLActionLogFilterParams, FLActionLogRecord
+from app.api.action_log.schemas import FLActionLogFilterPayload, FLActionLogRecord
+from app.api.schiedsrichter.admin_router import delete_schiedsrichter, reactivate_schiedsrichter
+from app.api.spieler.admin_router import delete_saison_spieler, reactivate_saison_spieler
+from app.api.spielorte.admin_router import delete_spielort, reactivate_spielort
+from app.api.teams.admin_router import delete_team, reactivate_team
 from app.core.collections import Collection
-from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, record_act
+from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, FLAction, actor_var, record_act
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import saison_document, saison_spieler_document, saison_team_document, schiedsrichter_document, team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -23,6 +29,12 @@ DATABASE_NAME = worker_database("fl_action_log_rows_test")
 
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607600001")
+SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607600002")
+SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607600003")
+SPIELER_OID = ObjectId("6890a1b2c3d4e5f607600004")
+
+SAISON_ID = "2026"
+TODAY = "2026-03-15"
 
 SEEDED_NAME = "Lessing"
 
@@ -147,7 +159,7 @@ def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_s
         cursor: str | None = None
         # Bounded, so a cursor that never ends fails here rather than running for ever.
         for _ in range(3):
-            page = await get_action_log(action_log_collection=log, filters=FLActionLogFilterParams.model_validate({"cursor": cursor}))
+            page = await get_action_log(action_log_collection=log, filters=FLActionLogFilterPayload.model_validate({"cursor": cursor}))
             pages.append([row.id for row in page.action_log])
             if page.cursor is None:
                 break
@@ -159,3 +171,145 @@ def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_s
 
     assert [len(page) for page in pages] == [ACTION_LOG_PAGE_SIZE, ACTION_LOG_PAGE_SIZE, 1]
     assert [row for page in pages for row in page] == newest_first
+
+
+Press = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[object]]
+
+
+@dataclass(frozen=True)
+class RetireAndRevive:
+    seeds: Mapping[Collection, list[dict[str, Any]]]
+    retire: Press
+    revive: Press
+    acts: tuple[FLAction, FLAction]
+
+
+async def _retire_team(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_team(
+        team_id=TEAM_OID,
+        teams_collection=database[Collection.TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _revive_team(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await reactivate_team(team_id=TEAM_OID, teams_collection=database[Collection.TEAMS], db=client)
+
+
+async def _retire_venue(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_spielort(
+        spielort_id=SPIELORT_OID,
+        spielorte_collection=database[Collection.SPIELORTE],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _revive_venue(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await reactivate_spielort(spielort_id=SPIELORT_OID, spielorte_collection=database[Collection.SPIELORTE], db=client)
+
+
+async def _retire_referee(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_schiedsrichter(
+        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _revive_referee(database: AsyncDatabase, client: AsyncMongoClient) -> object:
+    return await reactivate_schiedsrichter(
+        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        outbox_collection=database[Collection.OUTBOX],
+        db=client,
+        today=TODAY,
+        now=AT,
+    )
+
+
+async def _take_the_pupil_out(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_saison_spieler(
+        spieler_id=SPIELER_OID,
+        saison_id=SAISON_ID,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _bring_the_pupil_back(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await reactivate_saison_spieler(
+        spieler_id=SPIELER_OID,
+        saison_id=SAISON_ID,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        db=client,
+    )
+
+
+RETIRE_AND_REVIVE = {
+    "team": RetireAndRevive(
+        seeds={Collection.TEAMS: [team_document(TEAM_OID, SEEDED_NAME, "LES")]},
+        retire=_retire_team,
+        revive=_revive_team,
+        acts=("team.retired", "team.reactivated"),
+    ),
+    "spielort": RetireAndRevive(
+        seeds={Collection.SPIELORTE: [{"_id": SPIELORT_OID, "name": "Halle", "inactive_since": None}]},
+        retire=_retire_venue,
+        revive=_revive_venue,
+        acts=("spielort.retired", "spielort.reactivated"),
+    ),
+    "schiedsrichter": RetireAndRevive(
+        seeds={
+            Collection.SCHIEDSRICHTER: [
+                schiedsrichter_document(SCHIEDSRICHTER_OID, email=OTHER_ADDRESS, name=SEEDED_NAME, default_payment=0, einwilligung=None)
+            ]
+        },
+        retire=_retire_referee,
+        revive=_revive_referee,
+        acts=("schiedsrichter.retired", "schiedsrichter.reactivated"),
+    ),
+    "spieler": RetireAndRevive(
+        seeds={
+            Collection.SAISONS: [saison_document(SAISON_ID, "active")],
+            Collection.SAISON_TEAMS: [saison_team_document(SAISON_ID, TEAM_OID, SEEDED_NAME, "LES")],
+            Collection.SAISON_SPIELER: [saison_spieler_document(SPIELER_OID, SAISON_ID, TEAM_OID)],
+        },
+        retire=_take_the_pupil_out,
+        revive=_bring_the_pupil_back,
+        acts=("spieler.deregistered", "spieler.reactivated"),
+    ),
+}
+
+
+@pytest.mark.parametrize("kind", RETIRE_AND_REVIVE)
+def test_a_press_that_changes_nothing_writes_no_row(mongo_replica_set_url: str, kind: str):
+    """A second open tab's press would read as a later act that never happened: each route, as each decides whether to record."""
+
+    case = RETIRE_AND_REVIVE[kind]
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
+        for collection, documents in case.seeds.items():
+            await database[collection].insert_many(documents)
+
+        token = actor_var.set(ERASED_ADDRESS)
+        try:
+            await case.retire(database, client)
+            await case.retire(database, client)
+            await case.revive(database, client)
+            await case.revive(database, client)
+        finally:
+            actor_var.reset(token)
+
+        return [row["action"] async for row in database[Collection.ACTION_LOG].find().sort("_id")]
+
+    assert on_a_replica_set(mongo_replica_set_url, body) == list(case.acts)

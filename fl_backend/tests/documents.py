@@ -23,7 +23,7 @@ from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.spielbestaetigungen.services import compose_ansetzung
-from app.core.recording import log_stamp
+from app.core.clock import utc_stamp
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
@@ -57,9 +57,9 @@ SCHIEDSRICHTER_TEXT_VERSIONS: Final[TextVersions] = {
 
 
 def confirmed_instant(tag: str) -> str:
-    """The instant a seed's person confirmed on `tag`: noon in Germany, spelled as `log_stamp` spells evidence."""
+    """The instant a seed's person confirmed on `tag`: noon in Germany, spelled as `utc_stamp` spells evidence."""
 
-    return log_stamp(datetime.fromisoformat(f"{tag}T12:00:00").replace(tzinfo=_GERMANY))
+    return utc_stamp(datetime.fromisoformat(f"{tag}T12:00:00").replace(tzinfo=_GERMANY))
 
 
 # A pupil's record as their own confirmation wrote it and their admission carried it onto the person,

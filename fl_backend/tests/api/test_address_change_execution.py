@@ -30,8 +30,6 @@ from app.api.identity.schemas import FLErasurePayload
 from app.api.invitations.services import compose_invitation
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
-from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
-from app.api.teams.admin_router import get_team_saison_admin
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -1224,45 +1222,6 @@ class TestALapse:
             return swept.removed, await owed(database)
 
         assert on_a_person(mongo_replica_set_url, body) == (1, [])
-
-
-class TestEveryLinkSaysWhetherItOpens:
-    """An editor names a waiting change; one its reader may not read is a dead end, worded by why."""
-
-    @pytest.mark.parametrize(
-        ("reader", "grant"),
-        [
-            pytest.param(EMAIL, True, id="a grant holder's own change, read by them"),
-            pytest.param(ADMIN, True, id="a grant holder's change, read by an administrator"),
-            pytest.param(OWNER, True, id="a grant holder's change, read by an owner"),
-            pytest.param(ADMIN, False, id="a change holding no grant, read by an administrator"),
-        ],
-    )
-    def test_each_read_serving_a_change_s_id_serves_its_verdict(self, mongo_replica_set_url: str, reader: str, grant: bool):
-        """The referee editor and the contacts editor."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            if grant:
-                await granted(database)
-            minted = await start(database, client)
-            referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
-            team = await call(get_team_saison_admin, database, client, team_id=TEAM_OID, saison_id=SAISON_ID, today=TODAY, operator=reader)
-            seats = team.membership.address_change
-            served = {
-                "referee": (referee.address_change_id, referee.address_change_viewable_denied),
-                "seats": (seats.ansprechperson, seats.viewable_denied.model_dump()),
-            }
-            return minted.id, served
-
-        minted, served = on_a_person(mongo_replica_set_url, body)
-
-        denied = {EMAIL: "own_address", ADMIN: "admin_address" if grant else None, OWNER: None}[reader]
-        expected = {
-            "referee": (minted, denied),
-            # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.
-            "seats": (minted, {"trainer": None, "ansprechperson": denied, "stellvertretung": None}),
-        }
-        assert served == expected
 
 
 # Where a person moves on to after a first change.

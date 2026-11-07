@@ -1,6 +1,6 @@
 import secrets
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from bson import ObjectId
@@ -171,7 +171,7 @@ async def post_handout(
         await patch_many_in_db(
             collection=outbox_collection,
             db_filter={"_id": {"$in": [row["_id"] for row in handed]}},
-            update={"$set": {"lease": lease, "leased_until": now + LEASE_DURATION}, "$inc": {"attempts": 1}},
+            update={"$set": {"lease": lease, "leased_until": now.astimezone(UTC) + LEASE_DURATION}, "$inc": {"attempts": 1}},
             session=session,
         )
 

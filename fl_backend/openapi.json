@@ -1291,6 +1291,87 @@
         "title": "FLActionLogEntry",
         "type": "object"
       },
+      "FLActionLogFilterPayload": {
+        "additionalProperties": false,
+        "description": "What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.",
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
+          },
+          "from_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Day"
+          },
+          "q": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FLActionType"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "until_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until Day"
+          }
+        },
+        "title": "FLActionLogFilterPayload",
+        "type": "object"
+      },
       "FLActionLogListResponse": {
         "properties": {
           "action_log": {
@@ -1327,6 +1408,10 @@
         ],
         "title": "FLActionLogListResponse",
         "type": "object"
+      },
+      "FLActionLogPageSize": {
+        "const": 50,
+        "type": "integer"
       },
       "FLActionType": {
         "enum": [
@@ -2279,13 +2364,6 @@
         ],
         "title": "FLAddressChangeViewResponse",
         "type": "object"
-      },
-      "FLAddressChangeViewableDenied": {
-        "enum": [
-          "own_address",
-          "admin_address"
-        ],
-        "type": "string"
       },
       "FLAddressChangeWaitingPeriodDays": {
         "const": 7,
@@ -10560,99 +10638,6 @@
         ],
         "type": "string"
       },
-      "FLSaisonTeamAddressChange": {
-        "description": "The live change of each confirmed seat's address, which the address tool shows.\n\nNull where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.",
-        "properties": {
-          "ansprechperson": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ansprechperson"
-          },
-          "stellvertretung": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stellvertretung"
-          },
-          "trainer": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trainer"
-          },
-          "viewable_denied": {
-            "$ref": "#/components/schemas/FLSaisonTeamAddressChangeDenied"
-          }
-        },
-        "required": [
-          "trainer",
-          "ansprechperson",
-          "stellvertretung",
-          "viewable_denied"
-        ],
-        "title": "FLSaisonTeamAddressChange",
-        "type": "object"
-      },
-      "FLSaisonTeamAddressChangeDenied": {
-        "properties": {
-          "ansprechperson": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewableDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "stellvertretung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewableDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "trainer": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewableDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "trainer",
-          "ansprechperson",
-          "stellvertretung"
-        ],
-        "title": "FLSaisonTeamAddressChangeDenied",
-        "type": "object"
-      },
       "FLSaisonTeamConfirmationView": {
         "description": "One seat's link as the contacts editor reads it: the stored link and whether it has lapsed.",
         "properties": {
@@ -11441,28 +11426,6 @@
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
-          "address_change_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address Change Id"
-          },
-          "address_change_viewable_denied": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewableDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "confirmation_expired": {
             "title": "Confirmation Expired",
             "type": "boolean"
@@ -11484,8 +11447,6 @@
         "required": [
           "schiedsrichter",
           "confirmation_expired",
-          "address_change_id",
-          "address_change_viewable_denied",
           "delivery"
         ],
         "title": "FLSchiedsrichterSingleResponse",
@@ -16839,16 +16800,6 @@
       "FLTeamMembership": {
         "description": "One junction row as seen from its club: which season, which group, and the record if any.",
         "properties": {
-          "address_change": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonTeamAddressChange"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "austritt": {
             "anyOf": [
               {
@@ -16909,7 +16860,6 @@
           "trikot_farbe",
           "kontakte",
           "confirmations",
-          "address_change",
           "version"
         ],
         "title": "FLTeamMembership",
@@ -18110,115 +18060,20 @@
         ]
       }
     },
-    "/api/v0/action_log": {
-      "get": {
-        "description": "The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.\n\n`_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no\nindex is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.",
+    "/api/v0/action_log/view": {
+      "post": {
+        "description": "The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.\n\nA POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every\n`http.answered` line, where the log's scrubber reads no `%40`.\n\n`_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no\nindex is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.",
         "operationId": "action_log_get_action_log",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "cursor",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Cursor"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLActionLogFilterPayload"
+              }
             }
           },
-          {
-            "in": "query",
-            "name": "q",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 200,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
-            }
-          },
-          {
-            "in": "query",
-            "name": "by",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "By"
-            }
-          },
-          {
-            "in": "query",
-            "name": "type",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/FLActionType"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Type"
-            }
-          },
-          {
-            "in": "query",
-            "name": "from_day",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "From Day"
-            }
-          },
-          {
-            "in": "query",
-            "name": "until_day",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Until Day"
-            }
-          }
-        ],
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -18279,7 +18134,8 @@
         "summary": "List recorded acts",
         "tags": [
           "action_log"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change": {
@@ -24936,7 +24792,7 @@
         ]
       },
       "get": {
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a\nlapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,\nbeside why the tool refuses it this administrator, null where it opens it. `delivery` says what became of the last\nconfirmation mail the referee was owed, null where none was.",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a\nlapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee\nwas owed, null where none was.",
         "operationId": "schiedsrichter_get_schiedsrichter_by_id",
         "parameters": [
           {
@@ -29156,7 +29012,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.\n\n`version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for\na club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.\n`gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused\n`entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season\n`retire_blocked` refuses over, by each write's own judgement.\n`link` is the live registration link, the window's judgement of it, and why the season's press would pass the team\nover. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no\nseason holds that id.",
+        "description": "Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.\n\n`version` is what the one save sends. `membership` serves the row with its seats' links, null for\na club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.\n`gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused\n`entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season\n`retire_blocked` refuses over, by each write's own judgement.\n`link` is the live registration link, the window's judgement of it, and why the season's press would pass the team\nover. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no\nseason holds that id.",
         "operationId": "teams_get_team_saison_admin",
         "parameters": [
           {

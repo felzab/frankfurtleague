@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.recording import FLAction, FLActionType
-from app.shared.schemas.bounds import ACTION_LOG_SEARCH_MAX_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, FLUtcInstant
+from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH
+from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -22,8 +22,12 @@ class FLActionLogRecord(BaseModel):
     trace_id: str
 
 
-class FLActionLogFilterParams(BaseModel):
-    # The last row of the page before. A malformed one answers 422, as every query id does.
+class FLActionLogFilterPayload(BaseModel):
+    """What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The last row of the page before. A malformed one answers 422, as every payload's id does.
     cursor: CustomObjectId | None = None
     # A case-blind search over the team and the label: German action words are reached by `type`.
     q: str | None = Field(default=None, max_length=ACTION_LOG_SEARCH_MAX_LENGTH)
@@ -31,8 +35,8 @@ class FLActionLogFilterParams(BaseModel):
     # LIST, one key per value: a filter's one option may stand for several categories.
     type: list[FLActionType] | None = None
     # German days, both inclusive.
-    from_day: CustomDateString | None = None
-    until_day: CustomDateString | None = None
+    from_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)
+    until_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)
 
 
 class FLActionLogEntry(BaseModel):

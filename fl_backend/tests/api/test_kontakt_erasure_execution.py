@@ -102,7 +102,7 @@ SWAP_SAISON = "2627"
 # Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
-# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
+# Written out rather than computed from `utc_stamp`, which would agree with any conversion of `NOW`, including none.
 
 
 # Every seeded person, by surname: the address that identifies them, the number they hold now, and

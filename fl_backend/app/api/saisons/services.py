@@ -169,11 +169,6 @@ FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_point
 # `rules_spieltag_over_its_phase` reads the narrowing direction alone.
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
 
-# The one of the three a REDRAW moves. `spielplan_gruppen_off_rules` asks every offered group for exactly
-# `teams_per_gruppe`, so a redraw carrying either of the others is refused for the groups then off
-# their size; qualifiers touch no group's occupancy at all.
-REDRAWABLE_SHAPE_FIELD = "qualifiers_per_gruppe"
-
 
 def total_season_spiele(rules: FLSaisonRules) -> int:
     """Every match these rules imply, the bracket's rounds and its match for third place included.

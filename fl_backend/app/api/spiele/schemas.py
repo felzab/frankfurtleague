@@ -714,8 +714,6 @@ class FLSpielbestaetigungPartySchiedsrichter(BaseModel):
 
 FLSpielbestaetigungParty = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter, Field(discriminator="kind")]
 
-FLSpielbestaetigungPartyListAdapter: TypeAdapter[list[FLSpielbestaetigungParty]] = TypeAdapter(list[FLSpielbestaetigungParty])
-
 
 # A party an act mails, by the name the record holding it gives: a club's season row, a referee's own. Named where it is
 # read, so a page naming whom an act mails names a party no read of its own holds, a club swapped off the fixture or a

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 from typing import Any, get_args
 
-from app.api.action_log.schemas import FLActionLogFilterParams
+from app.api.action_log.schemas import FLActionLogFilterPayload
 from app.core import clock
 from app.core.crud import build_query, literal_pattern
 from app.core.recording import FLAction, FLActionType
@@ -20,7 +20,7 @@ def _german_midnight(day: date) -> datetime:
     return datetime.combine(day, time(), tzinfo=clock.GERMANY)
 
 
-def build_action_log_query(filters: FLActionLogFilterParams) -> dict[str, Any]:
+def build_action_log_query(filters: FLActionLogFilterPayload) -> dict[str, Any]:
     """The read's whole filter: `by` an equality, and each other term compiled, as none is stored as it is asked."""
 
     compiled: dict[str, Any] = {}
@@ -30,9 +30,9 @@ def build_action_log_query(filters: FLActionLogFilterParams) -> dict[str, Any]:
         compiled["action"] = {"$in": _actions_of(filters.type)}
     span: dict[str, datetime] = {}
     if filters.from_day is not None:
-        span["$gte"] = _german_midnight(date.fromisoformat(filters.from_day))
+        span["$gte"] = _german_midnight(filters.from_day)
     if filters.until_day is not None:
-        span["$lt"] = _german_midnight(date.fromisoformat(filters.until_day) + timedelta(days=1))
+        span["$lt"] = _german_midnight(filters.until_day + timedelta(days=1))
     if span:
         compiled["at"] = span
     # A blank search is none: an empty pattern would keep only the rows holding a team or a label.

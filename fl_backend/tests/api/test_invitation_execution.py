@@ -22,7 +22,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
+from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HeldCollection
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
@@ -121,6 +121,9 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active") -> Any:
                     registrierung=dict(REGISTRIERUNG),
                 )
             )
+            await database[Collection.TEAMS].insert_many(
+                [team_document(team_id, name, name[:3].upper()) for team_id, name in TEAM_NAMES.items()]
+            )
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(team_id) for team_id in TEAM_NAMES])
             await database[Collection.INVITATIONS].insert_one(invitation_row(ALREADY_MAILED, _id=SEEDED_INVITATION, sent_at="2026-03-15"))
             await a_sent_mail(database, SEEDED_INVITATION, "fendrick@example.com")
@@ -164,7 +167,12 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any =
 
 async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
     return await delete_invitation(
-        team_id=team_id, saison_id=SAISON_ID, invitations_collection=database[Collection.INVITATIONS], today=TODAY, db=database.client
+        team_id=team_id,
+        saison_id=SAISON_ID,
+        invitations_collection=database[Collection.INVITATIONS],
+        teams_collection=database[Collection.TEAMS],
+        today=TODAY,
+        db=database.client,
     )
 
 
@@ -179,11 +187,8 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         invitations_collection=database[Collection.INVITATIONS],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        grants_collection=database[Collection.GRANTS],
         outbox_collection=database[Collection.OUTBOX],
         today=TODAY,
-        operator=ADMIN,
     )
 
 
@@ -290,6 +295,17 @@ class TestWhatAMintStores:
 
         assert "team.invitation_created" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
         assert token not in recorded
+
+    def test_the_withdrawal_is_logged_under_the_club(self, mongo_replica_set_url: str):
+        """A row naming only a season says nothing of whose link went, and a search by the club misses it."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await mint(database, TWO_SEATS)
+            await revoke(database, TWO_SEATS)
+
+            return [row["label"] async for row in database[Collection.ACTION_LOG].find({"action": "team.invitation_withdrawn"})]
+
+        assert on_a_league(mongo_replica_set_url, body) == [TEAM_NAMES[TWO_SEATS]]
 
 
 class TestReissuingALink:

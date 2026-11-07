@@ -26,6 +26,7 @@ from app.api.schiedsrichter.services import (
     find_unknown_token_refusal,
     state_of,
 )
+from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
@@ -37,7 +38,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.journal import Journal
-from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
@@ -163,7 +163,7 @@ async def post_confirmation(
                 media=answer_data.media,
                 text_versions=by_choice(answer_data.text_versions),
                 today=today,
-                at=log_stamp(germany_now),
+                at=utc_stamp(germany_now),
             ),
             session=session,
             expected_version=None,
