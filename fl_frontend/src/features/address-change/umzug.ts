@@ -7,7 +7,7 @@ import { getAdresswechselUmzuege, postAdresswechselUmzuegeErledigt } from "./mut
 
 /**
  * Carries every sign-in account an effect still owes to its new address, a page at a time, and takes each off its
- * change. Behind a confirmation's or an approval's response, and in the hourly pass for an answer either lost. A
+ * change. Behind a confirmation's response, and in the hourly pass for an answer it lost. A
  * carry moves the account once, so a second run finds none to move; a failure rejects, the rest waiting for the
  * next run.
  */
